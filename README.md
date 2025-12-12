@@ -1,6 +1,6 @@
 #  Official MoleditPy Plugin Collection
 
-Repo: https://github.com/HiroYokoyama/moleditpy-plugins/
+Repo: [https://github.com/HiroYokoyama/moleditpy-plugins/](https://github.com/HiroYokoyama/moleditpy-plugins/)
 
 This directory contains the official plugins for **MoleditPy**. 
 
@@ -55,6 +55,7 @@ def run(main_window):
     else:
         QMessageBox.warning(main_window, PLUGIN_NAME, "No molecule.")
 ```
+
 
 
 
