@@ -480,6 +480,7 @@ def run(main_window):
                 
                 try:
                     rdDetermineBonds.DetermineConnectivity(mol, charge=current_charge)
+                    rdDetermineBonds.DetermineBondOrders(mol, charge=current_charge)
                     break # Success
                 except Exception as e:
                     # Show Dialog
