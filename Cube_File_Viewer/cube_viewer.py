@@ -4,7 +4,10 @@ import tempfile
 import numpy as np
 import pyvista as pv
 from PyQt6.QtWidgets import (QFileDialog, QDockWidget, QWidget, QVBoxLayout, 
-                             QSlider, QLabel, QHBoxLayout, QPushButton, QMessageBox, QDoubleSpinBox)
+                             QSlider, QLabel, QHBoxLayout, QPushButton, QMessageBox, 
+                             QDoubleSpinBox, QColorDialog, QInputDialog, QDialog, 
+                             QFormLayout, QDialogButtonBox, QSpinBox, QCheckBox)
+from PyQt6.QtGui import QColor
 from PyQt6.QtCore import Qt
 
 # RDKit imports for molecule construction
@@ -131,12 +134,17 @@ class CubeViewerWidget(QWidget):
         
         self.plotter = self.mw.plotter
         
+        # Initial Colors
+        self.color_p = "#0000FF" # Blue
+        self.color_n = "#FF0000" # Red
+
         self.init_ui()
         self.update_iso() 
 
     def init_ui(self):
         layout = QVBoxLayout()
         
+        # --- Isovalue Controls ---
         ctrl_layout = QHBoxLayout()
         ctrl_layout.addWidget(QLabel("Isovalue:"))
         
@@ -167,7 +175,41 @@ class CubeViewerWidget(QWidget):
 
         layout.addLayout(ctrl_layout)
         
-        # Opacity
+        # --- Color Controls ---
+        # Fixed size for color buttons to align them nicely
+        btn_size = (50, 24)
+        
+        # Positive
+        pos_color_layout = QHBoxLayout()
+        pos_color_layout.addWidget(QLabel("Pos Color:"))
+        self.btn_color_p = QPushButton()
+        self.btn_color_p.setFixedSize(*btn_size)
+        self.btn_color_p.setStyleSheet(f"background-color: {self.color_p}; border: 1px solid gray;")
+        self.btn_color_p.clicked.connect(self.choose_color_p)
+        pos_color_layout.addWidget(self.btn_color_p)
+        pos_color_layout.addStretch() # Align left
+        layout.addLayout(pos_color_layout)
+
+        # Negative
+        neg_color_layout = QHBoxLayout()
+        neg_color_layout.addWidget(QLabel("Neg Color:"))
+        self.btn_color_n = QPushButton()
+        self.btn_color_n.setFixedSize(*btn_size)
+        self.btn_color_n.setStyleSheet(f"background-color: {self.color_n}; border: 1px solid gray;")
+        self.btn_color_n.clicked.connect(self.choose_color_n)
+        neg_color_layout.addWidget(self.btn_color_n)
+        neg_color_layout.addStretch() # Align left
+        layout.addLayout(neg_color_layout)
+
+        # Complementary Checkbox (Next line)
+        comp_layout = QHBoxLayout()
+        self.check_comp_color = QCheckBox("Use complementary color for neg")
+        self.check_comp_color.toggled.connect(self.on_comp_color_toggled)
+        comp_layout.addWidget(self.check_comp_color)
+        comp_layout.addStretch()
+        layout.addLayout(comp_layout)
+
+        # --- Opacity Controls ---
         opacity_layout = QHBoxLayout()
         # Static label (no numeric value displayed)
         self.opacity_label = QLabel("Opacity:")
@@ -178,13 +220,13 @@ class CubeViewerWidget(QWidget):
         self.opacity_spin.setRange(0.0, 1.0)
         self.opacity_spin.setSingleStep(0.01)
         self.opacity_spin.setDecimals(2)
-        self.opacity_spin.setValue(0.5)
+        self.opacity_spin.setValue(0.4)
         self.opacity_spin.valueChanged.connect(self.on_opacity_spin_changed)
         opacity_layout.addWidget(self.opacity_spin)
 
         self.opacity_slider = QSlider(Qt.Orientation.Horizontal)
         self.opacity_slider.setRange(0, 100)
-        self.opacity_slider.setValue(50)
+        self.opacity_slider.setValue(40) # Match spinbox
         self.opacity_slider.valueChanged.connect(self.on_opacity_changed)
         opacity_layout.addWidget(self.opacity_slider)
         
@@ -196,6 +238,50 @@ class CubeViewerWidget(QWidget):
         
         layout.addStretch()
         self.setLayout(layout)
+
+    def on_comp_color_toggled(self, checked):
+        self.btn_color_n.setEnabled(not checked)
+        if checked:
+            self.update_complementary_color()
+
+    def update_complementary_color(self):
+        # Convert hex/name to QColor
+        col_p = QColor(self.color_p)
+        if not col_p.isValid():
+            return
+            
+        h = col_p.hue()
+        s = col_p.saturation()
+        v = col_p.value()
+        
+        # Complementary = hue + 180 degrees
+        if h != -1: # -1 means grayscale/achromatic
+             new_h = (h + 180) % 360
+        else:
+             new_h = h # Keep achromatic
+        
+        col_n = QColor.fromHsv(new_h, s, v)
+        self.color_n = col_n.name()
+        self.btn_color_n.setStyleSheet(f"background-color: {self.color_n}; border: 1px solid gray;")
+        self.update_iso()
+
+    def choose_color_p(self):
+        c = QColorDialog.getColor(initial=QColor(self.color_p), title="Select Positive Lobe Color")
+        if c.isValid():
+            self.color_p = c.name()
+            self.btn_color_p.setStyleSheet(f"background-color: {self.color_p}; border: 1px solid gray;")
+            
+            if self.check_comp_color.isChecked():
+                self.update_complementary_color()
+            else:
+                self.update_iso()
+
+    def choose_color_n(self):
+        c = QColorDialog.getColor(initial=QColor(self.color_n), title="Select Negative Lobe Color")
+        if c.isValid():
+            self.color_n = c.name()
+            self.btn_color_n.setStyleSheet(f"background-color: {self.color_n}; border: 1px solid gray;")
+            self.update_iso()
 
     def update_iso(self):
         val = self.spin.value()
@@ -210,21 +296,26 @@ class CubeViewerWidget(QWidget):
             # Additional safety cleanup by name
             self.plotter.remove_actor("cube_iso_p")
             self.plotter.remove_actor("cube_iso_n")
+            
+            # Using full grid
+            using_grid = self.grid
 
             # Positive lobe
-            iso_p = self.grid.contour(isosurfaces=[val])
+            iso_p = using_grid.contour(isosurfaces=[val])
             if iso_p.n_points > 0:
-                self.iso_actor_p = self.plotter.add_mesh(iso_p, color='blue', opacity=opacity, name="cube_iso_p", reset_camera=False)
+                self.iso_actor_p = self.plotter.add_mesh(iso_p, color=self.color_p, opacity=opacity, name="cube_iso_p", reset_camera=False)
                 
             # Negative lobe
-            iso_n = self.grid.contour(isosurfaces=[-val])
+            iso_n = using_grid.contour(isosurfaces=[-val])
             if iso_n.n_points > 0:
-                self.iso_actor_n = self.plotter.add_mesh(iso_n, color='red', opacity=opacity, name="cube_iso_n", reset_camera=False)
+                self.iso_actor_n = self.plotter.add_mesh(iso_n, color=self.color_n, opacity=opacity, name="cube_iso_n", reset_camera=False)
                 
             self.plotter.render()
             
         except Exception as e:
             print(f"Iso update error: {e}")
+            import traceback
+            traceback.print_exc()
 
     def on_opacity_changed(self, val):
         opacity = val / 100.0
@@ -267,6 +358,10 @@ class CubeViewerWidget(QWidget):
              self.mw.current_mol = None
              self.mw.current_file_path = None
              self.mw.plotter.render()
+             
+             # Restore UI state
+             if hasattr(self.mw, 'restore_ui_for_editing'):
+                 self.mw.restore_ui_for_editing()
         except: pass
         
         if self.dock:
@@ -275,6 +370,53 @@ class CubeViewerWidget(QWidget):
             self.dock = None
         
         self.deleteLater()
+
+class ChargeDialog(QDialog):
+    def __init__(self, parent=None, current_charge=0):
+        super().__init__(parent)
+        self.setWindowTitle("Bond Connectivity Error")
+        self.result_action = "cancel" # retry, skip, cancel
+        self.charge = current_charge
+        
+        self.init_ui()
+        
+    def init_ui(self):
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel("Could not determine connectivity with charge: " + str(self.charge)))
+        layout.addWidget(QLabel("Please specificy correct charge or skip chemistry check."))
+        
+        form = QFormLayout()
+        self.spin = QSpinBox()
+        self.spin.setRange(-20, 20)
+        self.spin.setValue(self.charge)
+        form.addRow("Charge:", self.spin)
+        layout.addLayout(form)
+        
+        btns = QHBoxLayout()
+        retry_btn = QPushButton("Retry")
+        retry_btn.clicked.connect(self.on_retry)
+        
+        skip_btn = QPushButton("Skip Chemistry")
+        skip_btn.clicked.connect(self.on_skip)
+        
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(self.reject)
+        
+        btns.addWidget(retry_btn)
+        btns.addWidget(skip_btn)
+        btns.addWidget(cancel_btn)
+        layout.addLayout(btns)
+        
+        self.setLayout(layout)
+        
+    def on_retry(self):
+        self.charge = self.spin.value()
+        self.result_action = "retry"
+        self.accept()
+        
+    def on_skip(self):
+        self.result_action = "skip"
+        self.accept()
 
 def run(main_window):
     if Chem is None:
@@ -330,12 +472,28 @@ def run(main_window):
         mol = Chem.MolFromXYZBlock(xyz_content)
         
         # Use rdDetermineBonds if available and no bonds found
-        if mol is not None:
-             if mol.GetNumBonds() == 0 and rdDetermineBonds is not None:
-                 try:
-                     rdDetermineBonds.DetermineConnectivity(mol)
-                 except Exception as e:
-                     print("DetermineConnectivity failed:", e)
+        current_charge = 0
+        if mol is not None and mol.GetNumBonds() == 0 and rdDetermineBonds is not None:
+            while True:
+                # Re-create fresh molecule for this attempt to avoid dirty state on retry
+                mol = Chem.MolFromXYZBlock(xyz_content)
+                
+                try:
+                    rdDetermineBonds.DetermineConnectivity(mol, charge=current_charge)
+                    break # Success
+                except Exception as e:
+                    # Show Dialog
+                    dlg = ChargeDialog(main_window, current_charge)
+                    if dlg.exec() == QDialog.DialogCode.Accepted:
+                        if dlg.result_action == "retry":
+                            current_charge = dlg.charge
+                            continue # Loop again with new charge
+                        elif dlg.result_action == "skip":
+                            # Ensure we have a clean unbonded mol
+                            mol = Chem.MolFromXYZBlock(xyz_content)
+                            break # Break loop, accept no bonds/bad connectivity
+                    else:
+                        return # User Cancelled plugin load
         
         if mol is None:
             # Fallback
