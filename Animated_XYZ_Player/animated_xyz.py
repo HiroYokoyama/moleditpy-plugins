@@ -364,6 +364,8 @@ class AnimatedXYZPlayer(QDialog):
             
     def closeEvent(self, event):
         self.timer.stop()
+
+        '''
         
         # Clear the main window view
         try:
@@ -389,10 +391,12 @@ class AnimatedXYZPlayer(QDialog):
              self.mw.draw_molecule_3d(None)
         except:
              pass
+
              
         # Remove reference from main window so next run starts fresh check
         if hasattr(self.mw, '_plugin_animated_xyz_player'):
             del self.mw._plugin_animated_xyz_player
+        '''
 
         super().closeEvent(event)
 
