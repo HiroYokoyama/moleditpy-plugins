@@ -4,7 +4,13 @@ This directory contains official sample plugins for **MoleditPy**, a molecular e
 
 ## Available Plugins
 
-### 1. MS Spectrum Simulation (`ms_spectrum.py`)
+### 1. Hello World (`hello.py`)
+A simple demonstration plugin.
+-   **Features**:
+    -   Shows a "Hello World" message box.
+    -   Prints molecule information to the console if a molecule is loaded.
+
+### 2. MS Spectrum Simulation (`ms_spectrum.py`)
 Simulates the Mass Spectrum for the currently loaded molecule using RDKit descriptors.
 -   **Features**:
     -   Displays Formula, Average Mass, and Exact Mass.
@@ -12,11 +18,7 @@ Simulates the Mass Spectrum for the currently loaded molecule using RDKit descri
     -   **Export to Image**: Save the spectrum plot as a PNG/JPG file.
 -   **Dependencies**: Requires `rdkit` installed in your Python environment.
 
-### 2. Hello World (`hello.py`)
-A simple demonstration plugin.
--   **Features**:
-    -   Shows a "Hello World" message box.
-    -   Prints molecule information to the console if a molecule is loaded.
+
 
 ## Installation
 
@@ -48,3 +50,4 @@ def run(main_window):
     else:
         QMessageBox.warning(main_window, PLUGIN_NAME, "No molecule.")
 ```
+
