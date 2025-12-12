@@ -29,8 +29,8 @@ To install a plugin:
 
 1.  Locate your MoleditPy plugins directory:
     -   **Windows**: `C:\Users\<YourUser>\.moleditpy\plugins`
-    -   **macOS/Linux**: `~/.moleditpy/plugins`
-    *(If the directory does not exist, create it manually or run MoleditPy once to generate it.)*
+    -   **macOS/Linux**: `~/.moleditpy/plugins`  
+    *(If the directory does not exist, create it manually or run "Open Plugin Directory" in MoleditPy application once to generate it.)*
 
 2.  Copy the desired `.py` file (e.g., `ms_spectrum.py`) from this repository into that `plugins` folder.
 
@@ -53,5 +53,6 @@ def run(main_window):
     else:
         QMessageBox.warning(main_window, PLUGIN_NAME, "No molecule.")
 ```
+
 
 
