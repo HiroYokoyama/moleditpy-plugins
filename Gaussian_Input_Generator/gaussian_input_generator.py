@@ -56,7 +56,7 @@ class GaussianSetupDialog(QDialog):
         job_layout = QFormLayout()
 
         # Route section
-        self.keywords_edit = QLineEdit("#P B3LYP/6-31G(d) Opt")
+        self.keywords_edit = QLineEdit("#P B3LYP/6-31G(d) Opt Freq")
         job_layout.addRow("Route Section (#):", self.keywords_edit)
 
         # Title
