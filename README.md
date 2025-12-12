@@ -1,4 +1,4 @@
-#  Official MoleditPy Plugin Collection
+#  MoleditPy Plugin Collection
 
 Repo: [https://github.com/HiroYokoyama/moleditpy-plugins/](https://github.com/HiroYokoyama/moleditpy-plugins/)
 
@@ -90,6 +90,7 @@ def run(main_window):
     else:
         QMessageBox.warning(main_window, PLUGIN_NAME, "No molecule.")
 ```
+
 
 
 
