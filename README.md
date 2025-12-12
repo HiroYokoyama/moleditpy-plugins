@@ -25,6 +25,41 @@ Simulates the Mass Spectrum for the currently loaded molecule using RDKit descri
 
 
 
+
+### 3. Gaussian Input Generator (`gaussian_input_generator.py`)
+A comprehensive tool to generate input files for Gaussian quantum chemistry calculations.
+-   **Features**:
+    -   Configuration of Link 0 commands (Memory, Processors, Checkpoint).
+    -   Customizable Route Section, Title, Charge, and Multiplicity.
+    -   Support for additional input sections (e.g., ModRedundant, Basis Sets).
+    -   Saves files with `.gjf` or `.com` extensions.
+
+### 4. ORCA Input Generator (`orca_input_generator.py`)
+Generates input files for the ORCA quantum chemistry package.
+-   **Features**:
+    -   Setup for Parallelization (`%pal`) and Memory per core (`%maxcore`).
+    -   Simple keyword input (starts with `!`).
+    -   Support for Advanced Blocks (e.g., `%scf`, `%basis`) before coordinates.
+    -   Saves as `.inp` files.
+
+### 5. Animated XYZ Player (`animated_xyz.py`)
+A player for viewing multi-frame XYZ files, such as molecular dynamics trajectories.
+-   **Features**:
+    -   Loads concatenated XYZ files.
+    -   Playback controls: Play/Pause, Next/Previous frame, and Slider navigation.
+    -   Adjustable playback speed (FPS).
+    -   Integrates with the main 3D viewer.
+
+### 6. Cube File Viewer (`cube_viewer.py`)
+Visualizes Gaussian Cube files (.cube) containing volumetric data (e.g., orbitals, densities).
+-   **Features**:
+    -   Renders Isosurfaces for positive and negative values.
+    -   Interactive controls for Isovalue, Color, and Opacity.
+    -   Option to use complementary colors for negative lobes.
+    -   Automatically generates molecular structure from the cube file headers.
+-   **Dependencies**: Requires `rdkit`, `pyvista`, and `numpy`.
+
+
 ## Installation
 
 To install a plugin:
