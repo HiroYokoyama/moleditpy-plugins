@@ -2,7 +2,7 @@
 
 Repo: https://github.com/HiroYokoyama/moleditpy-plugins/
 
-This directory contains the official sample plugins for **MoleditPy**. These examples are designed to demonstrate how to extend the application's functionality, interact with the API, and manipulate molecular data.
+This directory contains the official plugins for **MoleditPy**. These examples are designed to demonstrate how to extend the application's functionality, interact with the API, and manipulate molecular data.
 
 **Contribute Your Plugin**
 We believe in the power of community\! If you have created a useful plugin, we would love to include it as an official part of this collection. Please feel free to submit a Pull Request with your plugin to help us expand what MoleditPy can do.
@@ -55,6 +55,7 @@ def run(main_window):
     else:
         QMessageBox.warning(main_window, PLUGIN_NAME, "No molecule.")
 ```
+
 
 
 
