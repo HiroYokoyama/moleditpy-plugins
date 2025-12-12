@@ -492,6 +492,7 @@ def run(main_window):
                         elif dlg.result_action == "skip":
                             # Ensure we have a clean unbonded mol
                             mol = Chem.MolFromXYZBlock(xyz_content)
+                            rdDetermineBonds.DetermineConnectivity(mol, charge=0)
                             break # Break loop, accept no bonds/bad connectivity
                     else:
                         return # User Cancelled plugin load
