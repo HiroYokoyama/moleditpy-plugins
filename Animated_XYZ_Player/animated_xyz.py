@@ -29,9 +29,14 @@ class AnimatedXYZPlayer(QDialog):
         # Data
         self.frames = [] # List of list of (symbol, x, y, z)
         self.current_frame_idx = 0
+        self.target_frame_idx = 0
         self.base_mol = None # RDKit Mol with topology
         self.is_playing = False
         self.fps = 10
+        
+        # Update / Threading flags
+        self.is_updating_view = False
+        self.pending_update = False
 
         # UI Layout
         layout = QVBoxLayout(self)
@@ -88,14 +93,25 @@ class AnimatedXYZPlayer(QDialog):
         # Timer
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.on_timer)
+        
+        # Try to import existing molecule from main window
+        self.try_import_from_mainwindow()
 
-    def load_file(self):
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "Open Animated XYZ", "", "XYZ Files (*.xyz);;All Files (*)"
-        )
-        if not file_path:
-            return
+    def try_import_from_mainwindow(self):
+        """
+        Check if the main window has an opened molecule (especially XYZ) and use it.
+        Uses the file path from the main window and reloads it to ensure all frames are captured.
+        """
+        if hasattr(self.mw, 'current_file_path') and self.mw.current_file_path:
+            fp = self.mw.current_file_path
+            # Basic check if it's an XYZ file or similar that we can handle
+            if fp.lower().endswith('.xyz') or fp.lower().endswith('.extxyz'):
+                self.load_from_path(fp)
 
+    def load_from_path(self, file_path):
+        """
+        Loads the animated XYZ from the given file path.
+        """
         try:
             frames = self.parse_multi_frame_xyz(file_path)
             if not frames:
@@ -104,6 +120,7 @@ class AnimatedXYZPlayer(QDialog):
             
             self.frames = frames
             self.current_frame_idx = 0
+            self.target_frame_idx = 0
             self.lbl_file.setText(os.path.basename(file_path))
             self.slider.setRange(0, len(frames) - 1)
             self.slider.setValue(0)
@@ -118,6 +135,13 @@ class AnimatedXYZPlayer(QDialog):
 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load file:\n{e}")
+
+    def load_file(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Open Animated XYZ", "", "XYZ Files (*.xyz);;All Files (*)"
+        )
+        if file_path:
+            self.load_from_path(file_path)
 
     def parse_multi_frame_xyz(self, file_path):
         """
@@ -226,46 +250,89 @@ class AnimatedXYZPlayer(QDialog):
              self.mw.plotter.reset_camera()
 
     def update_view(self):
-        if not self.frames or self.base_mol is None:
-            return
-        
-        if self.current_frame_idx >= len(self.frames):
-            self.current_frame_idx = 0
-            
-        frame = self.frames[self.current_frame_idx]
-        
-        # Update conformer positions
-        # Assuming topology (atom count/order) hasn't changed
-        conf = self.base_mol.GetConformer()
-        coords = frame['coords']
-        
-        # Safety check for atom count mismatch
-        if len(coords) != self.base_mol.GetNumAtoms():
-            # If atom count changes, we might need to recreate the molecule
-            # For this simple plugin, we'll just ignore or warn
-            # print("Atom count mismatch in animation")
-            pass
-        else:
-             for idx, (x, y, z) in enumerate(coords):
-                conf.SetAtomPosition(idx, rdGeometry.Point3D(x, y, z))
-        
-        # Redraw
-        # This calls main_window.draw_molecule_3d which rebuilds the scene's actors
-        if hasattr(self.mw, 'draw_molecule_3d'):
-            self.mw.draw_molecule_3d(self.base_mol)
-            # Update frame comment/title if possible?
-            self.mw.statusBar().showMessage(f"Frame {self.current_frame_idx+1}/{len(self.frames)}: {frame['comment']}")
+        """
+        Legacy entry point, now forwards to schedule_update
+        """
+        self.schedule_update()
 
-    def update_status(self):
+    def schedule_update(self):
+        """
+        Schedules a view update.
+        Prevents recursion/stacking if draw_molecule_3d calls processEvents.
+        """
+        if self.is_updating_view:
+             self.pending_update = True
+             return
+        
+        # Start update process
+        self.is_updating_view = True
+        self.pending_update = False
+        self.do_effective_update()
+
+    def do_effective_update(self):
+        """
+        Performs the actual update and handles queued updates.
+        """
+        try:
+            while True:
+                # Update logic
+                if not self.frames or self.base_mol is None:
+                    break
+                
+                # Use target frame
+                self.current_frame_idx = self.target_frame_idx
+                
+                if self.current_frame_idx >= len(self.frames):
+                    self.current_frame_idx = 0
+                    
+                frame = self.frames[self.current_frame_idx]
+                
+                # Update conformer positions
+                # Assuming topology (atom count/order) hasn't changed
+                conf = self.base_mol.GetConformer()
+                coords = frame['coords']
+                
+                # Safety check for atom count mismatch
+                if len(coords) == self.base_mol.GetNumAtoms():
+                     for idx, (x, y, z) in enumerate(coords):
+                        conf.SetAtomPosition(idx, rdGeometry.Point3D(x, y, z))
+                
+                # Redraw
+                # This calls main_window.draw_molecule_3d which might call processEvents
+                if hasattr(self.mw, 'draw_molecule_3d'):
+                    self.mw.draw_molecule_3d(self.base_mol)
+                    # Update frame comment/title if possible
+                    if 'comment' in frame:
+                        self.mw.statusBar().showMessage(f"Frame {self.current_frame_idx+1}/{len(self.frames)}: {frame['comment']}")
+
+                # Update Status label (without feedback loop)
+                self.update_status_silent()
+
+                # Check if pending
+                if not self.pending_update:
+                    break
+                
+                # If pending is True, it means schedule_update was called AGAIN 
+                # (likely via processEvents inside draw_molecule_3d)
+                # so we loop again to draw the LATEST target_frame_idx.
+                self.pending_update = False
+                
+        finally:
+            self.is_updating_view = False
+
+    def update_status_silent(self):
         self.lbl_status.setText(f"Frame: {self.current_frame_idx + 1} / {len(self.frames)}")
         self.slider.blockSignals(True)
         self.slider.setValue(self.current_frame_idx)
         self.slider.blockSignals(False)
 
+    def update_status(self):
+        # Calls the silent one
+        self.update_status_silent()
+
     def on_slider_changed(self, value):
-        self.current_frame_idx = value
-        self.update_view()
-        self.update_status()
+        self.target_frame_idx = value
+        self.schedule_update()
 
     def toggle_play(self):
         self.is_playing = not self.is_playing
@@ -280,14 +347,12 @@ class AnimatedXYZPlayer(QDialog):
             self.mw.current_mol = self.base_mol
 
     def next_frame(self):
-        self.current_frame_idx = (self.current_frame_idx + 1) % len(self.frames)
-        self.update_view()
-        self.update_status()
+        self.target_frame_idx = (self.current_frame_idx + 1) % len(self.frames)
+        self.schedule_update()
 
     def prev_frame(self):
-        self.current_frame_idx = (self.current_frame_idx - 1) % len(self.frames)
-        self.update_view()
-        self.update_status()
+        self.target_frame_idx = (self.current_frame_idx - 1) % len(self.frames)
+        self.schedule_update()
 
     def on_timer(self):
         self.next_frame()
@@ -348,4 +413,3 @@ def run(main_window):
     player.show()
     player.raise_()
     player.activateWindow()
-
