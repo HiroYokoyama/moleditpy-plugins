@@ -276,6 +276,7 @@ def run(main_window):
 1.  **Dependencies**: MoleditPy uses `PyQt6` for UI, `rdkit` for chemistry, and `pyvista` for 3D rendering. You can import these directly in your plugins.
 2.  **Console Output**: Use `print()` for debugging. Output appears in the terminal where you launched MoleditPy.
 3.  **Error Handling**: Wrap your code in `try...except` blocks to prevent crashing the main application.
-4.  **Reloading**: Currently, you must restart MoleditPy to reload plugin code changes.
+4.  **Reloading**: You can reload plugin code by clicking "Reload Plugin" button in "Plugin" menu.
 
 Happy Coding!
+
