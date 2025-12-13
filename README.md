@@ -5,7 +5,8 @@ Repo: [https://github.com/HiroYokoyama/moleditpy-plugins/](https://github.com/Hi
 This directory contains the official plugins for **MoleditPy**. 
 
 **Contribute Your Plugin**
-We believe in the power of community\! If you have created a useful plugin, we would love to include it as an official part of this collection. Please feel free to submit a Pull Request with your plugin to help us expand what MoleditPy can do.
+We believe in the power of community\!  
+If you have created a useful plugin, we would love to include it as an official part of this collection. Please feel free to submit a Pull Request with your plugin to help us expand what MoleditPy can do.
 
 ## Available Plugins
 
@@ -89,7 +90,25 @@ def run(main_window):
         QMessageBox.information(main_window, PLUGIN_NAME, "Molecule loaded!")
     else:
         QMessageBox.warning(main_window, PLUGIN_NAME, "No molecule.")
+
+# Optional: Run automatically on startup/reload
+def autorun(main_window):
+    print(f"{PLUGIN_NAME} initialized locally.")
 ```
+
+### Advanced Features
+
+1.  **Subdirectories**: You can organize your plugins into subfolders within the `plugins` directory. MoleditPy will automatically create nested menus corresponding to the folder structure.
+2.  **Autorun**: Define a function named `autorun(main_window)` in your plugin. This function will be executed immediately when the plugin is loaded (on application startup or when "Reload Plugins" is clicked). This is useful for plugins that need to register their own menu items, toolbars, or event listeners without waiting for the user to click the plugin name in the menu.
+
+### Security Warning
+
+> [!WARNING]
+> **Plugins run arbitrary Python code with the same privileges as the MoleditPy application.**
+> 
+> *   Only install plugins from sources you trust.
+> *   Be especially cautious with plugins that use `autorun`, as they execute code immediately upon loading without specific user action.
+> *   Review the plugin code (`.py` file) if you are unsure about its functionality.
 
 
 
