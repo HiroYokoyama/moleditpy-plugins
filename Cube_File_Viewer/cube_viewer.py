@@ -547,15 +547,13 @@ def run(main_window):
         open_cube_viewer(main_window, fname)
 
 def autorun(main_window):
-    # 1. Monkey-patch Drop Handling
-    # Store original methods to allow chaining
-    if not hasattr(main_window, '_original_dragEnterEvent'):
-        main_window._original_dragEnterEvent = main_window.dragEnterEvent
-    if not hasattr(main_window, '_original_dropEvent'):
-        main_window._original_dropEvent = main_window.dropEvent
+    # --- 修正: 現在のメソッドをローカル変数としてキャプチャする ---
+    # こうすることで、他のプラグインが設定したラッパーも含めてチェーンできる
+    original_dragEnterEvent = main_window.dragEnterEvent
+    original_dropEvent = main_window.dropEvent
 
     def custom_dragEnterEvent(event):
-        # Check if dropped data contains a cube file
+        # Cubeファイルが含まれているかチェック
         if event.mimeData().hasUrls():
             for url in event.mimeData().urls():
                 if url.isLocalFile():
@@ -563,8 +561,9 @@ def autorun(main_window):
                     if file_path.lower().endswith(('.cube', '.cub')):
                         event.acceptProposedAction()
                         return
-        # Fallback to original
-        main_window._original_dragEnterEvent(event)
+        
+        # フォールバック: キャプチャしておいたメソッドを呼ぶ
+        original_dragEnterEvent(event)
 
     def custom_dropEvent(event):
         urls = event.mimeData().urls()
@@ -580,16 +579,12 @@ def autorun(main_window):
             open_cube_viewer(main_window, cube_file)
             event.acceptProposedAction()
         else:
-            main_window._original_dropEvent(event)
+            # フォールバック: キャプチャしておいたメソッドを呼ぶ
+            original_dropEvent(event)
 
-    # Apply patches
-    # Note: These are instance methods, so we assign a bound wrapper (or just the function which python binds?)
-    # Since custom_dragEnterEvent captures 'main_window' from closure, we don't need 'self' arg if we assign it as instance attribute?
-    # Actually, main_window.method = func assignment works but func receives 'self' if it's a function? No. 
-    # If assigned to instance, it's just a callable attribute. It won't get 'self' automatically passed unless it's a BoundMethod.
-    # But PyQt calls `obj.method(event)`. If `obj.method` is `custom_dragEnterEvent`, it calls `custom_dragEnterEvent(event)`.
-    # So we should define it to take (event) only.
-    import types
+    # 上書き適用
+    # インスタンスへの関数代入なので、self引数は自動付与されないため
+    # custom_dragEnterEvent(event) という定義で正しい
     main_window.dragEnterEvent = custom_dragEnterEvent
     main_window.dropEvent = custom_dropEvent
     
