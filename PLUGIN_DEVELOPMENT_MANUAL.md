@@ -14,13 +14,10 @@ Any `.py` file placed in this directory (or its subdirectories) is automatically
 
 A minimum viable plugin requires just a few lines of code.
 
-### Required Attributes
+### Attributes
 
 - **`PLUGIN_NAME`**: A string variable defining how your plugin appears in the menu.
 - **`run(main_window)`**: A function that gets called when the user clicks your plugin in the menu.
-
-### Optional Attributes
-
 - **`autorun(main_window)`**: A function called automatically when MoleditPy starts up. Useful for registering background listeners or adding persistent UI elements.
 
 ### Basic Template
@@ -276,7 +273,8 @@ def run(main_window):
 1.  **Dependencies**: MoleditPy uses `PyQt6` for UI, `rdkit` for chemistry, and `pyvista` for 3D rendering. You can import these directly in your plugins.
 2.  **Console Output**: Use `print()` for debugging. Output appears in the terminal where you launched MoleditPy.
 3.  **Error Handling**: Wrap your code in `try...except` blocks to prevent crashing the main application.
-4.  **Reloading**: You can reload plugin code by clicking "Reload Plugin" button in "Plugin" menu.
+4.  **Reloading**: You can reload plugin code by clicking `Reload Plugins` button in `Plugin` menu.
 
 Happy Coding!
+
 
