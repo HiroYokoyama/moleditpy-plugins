@@ -418,7 +418,8 @@ class ChargeDialog(QDialog):
         self.result_action = "skip"
         self.accept()
 
-def run(main_window):
+def open_cube_viewer(main_window, fname):
+    """Core logic to open cube viewer with a specific file."""
     if Chem is None:
         QMessageBox.critical(main_window, "Error", "RDKit is required for this plugin.")
         return
@@ -441,8 +442,7 @@ def run(main_window):
              pass
 
     try:
-        fname, _ = QFileDialog.getOpenFileName(main_window, "Open Gaussian Cube File", "", "Cube Files (*.cube *.cub);;All Files (*)")
-        if not fname:
+        if not fname: # Should not happen if called correctly
             return
 
         try:
@@ -536,3 +536,70 @@ def run(main_window):
         import traceback
         traceback.print_exc()
         print(f"Plugin Error: {e}")
+
+def run(main_window):
+    if Chem is None:
+        QMessageBox.critical(main_window, "Error", "RDKit is required for this plugin.")
+        return
+
+    fname, _ = QFileDialog.getOpenFileName(main_window, "Open Gaussian Cube File", "", "Cube Files (*.cube *.cub);;All Files (*)")
+    if fname:
+        open_cube_viewer(main_window, fname)
+
+def autorun(main_window):
+    # 1. Monkey-patch Drop Handling
+    # Store original methods to allow chaining
+    if not hasattr(main_window, '_original_dragEnterEvent'):
+        main_window._original_dragEnterEvent = main_window.dragEnterEvent
+    if not hasattr(main_window, '_original_dropEvent'):
+        main_window._original_dropEvent = main_window.dropEvent
+
+    def custom_dragEnterEvent(event):
+        # Check if dropped data contains a cube file
+        if event.mimeData().hasUrls():
+            for url in event.mimeData().urls():
+                if url.isLocalFile():
+                    file_path = url.toLocalFile()
+                    if file_path.lower().endswith(('.cube', '.cub')):
+                        event.acceptProposedAction()
+                        return
+        # Fallback to original
+        main_window._original_dragEnterEvent(event)
+
+    def custom_dropEvent(event):
+        urls = event.mimeData().urls()
+        cube_file = None
+        for url in urls:
+            if url.isLocalFile():
+                fpath = url.toLocalFile()
+                if fpath.lower().endswith(('.cube', '.cub')):
+                    cube_file = fpath
+                    break
+        
+        if cube_file:
+            open_cube_viewer(main_window, cube_file)
+            event.acceptProposedAction()
+        else:
+            main_window._original_dropEvent(event)
+
+    # Apply patches
+    # Note: These are instance methods, so we assign a bound wrapper (or just the function which python binds?)
+    # Since custom_dragEnterEvent captures 'main_window' from closure, we don't need 'self' arg if we assign it as instance attribute?
+    # Actually, main_window.method = func assignment works but func receives 'self' if it's a function? No. 
+    # If assigned to instance, it's just a callable attribute. It won't get 'self' automatically passed unless it's a BoundMethod.
+    # But PyQt calls `obj.method(event)`. If `obj.method` is `custom_dragEnterEvent`, it calls `custom_dragEnterEvent(event)`.
+    # So we should define it to take (event) only.
+    import types
+    main_window.dragEnterEvent = custom_dragEnterEvent
+    main_window.dropEvent = custom_dropEvent
+    
+    # 2. Check Command Line Arguments
+    import sys
+    # Simple check for CLI args
+    for arg in sys.argv[1:]:
+        if arg.lower().endswith(('.cube', '.cub')) and os.path.exists(arg):
+            # Use QTimer to delay slightly to ensure UI is ready
+            from PyQt6.QtCore import QTimer
+            QTimer.singleShot(100, lambda f=arg: open_cube_viewer(main_window, f))
+            break
+
