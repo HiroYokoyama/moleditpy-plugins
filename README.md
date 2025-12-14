@@ -73,7 +73,40 @@ Playback controls: Play/Pause, Next/Previous frame, and Slider navigation.
 -   **Dependencies**:
 Pillow
   (Pillow is required for GIF generation.)
-   
+
+### 8. PubChem Name Resolver (`pubchem_ressolver.py`)
+Resolves chemical names and identifiers to structures using the PubChem PUG REST API.
+- **Features**:
+    - **Search**: Query PubChem by Name or SMILES.
+    - **2D Loading**: Loads the resolved structure directly into the 2D editor.
+    - **SMILES Fetching**: robustly retrieves Isomeric and Canonical SMILES.
+    - **Table View**: Displays search results with Formula and Name.
+- **Dependencies**: `requests`, `rdkit`.
+
+### 9. Conformational Search (`conf_search.py`)
+Performs conformational sampling and energy minimization.
+- **Features**:
+    - **Generation**: Uses RDKit's ETKDGv3 algorithm to generate 3D conformers.
+    - **Optimization**: Optimizes geometries using **MMFF94** or **UFF** force fields.
+    - **Interactive Preview**: Click on the result table to view conformers in the 3D viewer.
+    - **Energy Ranking**: Sorts conformers by calculated energy (kcal/mol).
+- **Dependencies**: `rdkit`.
+
+### 10. Complex Molecule Untangler (`complex_molecule_untangler.py`)
+A Monte Carlo-based tool to resolve steric clashes in complex or roughly drawn molecules.
+- **Features**:
+    - **Untangling**: Randomly rotates acyclic single bonds to reduce internal energy.
+    - **Force Field Selection**: Supports **MMFF94** and **UFF** for energy evaluation.
+    - **Real-time Progress**: Visualizes the untangling process.
+- **Dependencies**: `rdkit`.
+
+### 11. All-Trans Optimizer (`all-trans_optimizer.py`)
+A geometric tool for straightening alkyl chains.
+- **Features**:
+    - **All-Trans**: Systematically sets dihedrals of acyclic carbon chains to 180 degrees.
+    - **Structure Cleanup**: Useful for standardizing long alkyl chains.
+- **Dependencies**: `rdkit`.
+
 ## Installation
 
 To install a plugin:
@@ -122,6 +155,7 @@ def autorun(main_window):
 > *   Only install plugins from sources you trust.
 > *   Be especially cautious with plugins that use `autorun`, as they execute code immediately upon loading without specific user action.
 > *   Review the plugin code (`.py` file) if you are unsure about its functionality.
+
 
 
 
