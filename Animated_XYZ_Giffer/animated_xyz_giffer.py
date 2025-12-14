@@ -53,11 +53,7 @@ class AnimatedXYZPlayer(QDialog):
         self.lbl_file = QLabel("No file loaded")
         file_layout.addWidget(self.btn_load)
         file_layout.addWidget(self.lbl_file)
-        
-        self.btn_save_gif = QPushButton("Save GIF")
-        self.btn_save_gif.clicked.connect(self.save_as_gif)
-        self.btn_save_gif.setEnabled(False)
-        file_layout.addWidget(self.btn_save_gif)
+        file_layout.addStretch()
         
         layout.addLayout(file_layout)
 
@@ -105,6 +101,17 @@ class AnimatedXYZPlayer(QDialog):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.on_timer)
         
+        # Bottom layout for actions
+        bottom_layout = QHBoxLayout()
+        bottom_layout.addStretch()
+        
+        self.btn_save_gif = QPushButton("Save GIF")
+        self.btn_save_gif.clicked.connect(self.save_as_gif)
+        self.btn_save_gif.setEnabled(False)
+        bottom_layout.addWidget(self.btn_save_gif)
+        
+        layout.addLayout(bottom_layout)
+
         # Try to import existing molecule from main window
         self.try_import_from_mainwindow()
 
@@ -394,10 +401,15 @@ class AnimatedXYZPlayer(QDialog):
         spin_fps.setValue(self.fps)
         
         chk_transparent = QCheckBox()
-        chk_transparent.setChecked(False)
+        chk_transparent.setChecked(True)
         
+
         form.addRow("FPS:", spin_fps)
         form.addRow("Transparent Background:", chk_transparent)
+
+        chk_loop = QCheckBox()
+        chk_loop.setChecked(True)
+        form.addRow("Loop Animation:", chk_loop)
         
         btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         btns.accepted.connect(dialog.accept)
@@ -411,6 +423,7 @@ class AnimatedXYZPlayer(QDialog):
 
         target_fps = spin_fps.value()
         use_transparent = chk_transparent.isChecked()
+        use_loop = chk_loop.isChecked()
 
         # File Dialog
         file_path, _ = QFileDialog.getSaveFileName(
@@ -481,15 +494,21 @@ class AnimatedXYZPlayer(QDialog):
                          gif_frames.append(img)
 
                 # Save
-                gif_frames[0].save(
-                    file_path,
-                    save_all=True,
-                    append_images=gif_frames[1:],
-                    duration=duration_ms,
-                    loop=0,
-                    disposal=2, # Restore to background color (2 is usually best for transparency support)
-                    transparency=255 if use_transparent else 0
-                )
+                save_params = {
+                    "save_all": True,
+                    "append_images": gif_frames[1:],
+                    "duration": duration_ms,
+                    "disposal": 2,
+                }
+                
+                if use_transparent:
+                    save_params["transparency"] = 255
+
+                if use_loop:
+                    # Pillow: 0 means infinite. If omitted, no Netscape loop block (plays once).
+                    save_params["loop"] = 0
+                
+                gif_frames[0].save(file_path, **save_params)
                 QMessageBox.information(self, "Success", f"Saved GIF to:\n{file_path}")
             else:
                 QMessageBox.warning(self, "Error", "Failed to capture frames.")
