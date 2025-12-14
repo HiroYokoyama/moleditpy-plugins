@@ -49,6 +49,10 @@ def run(main_window):
             elif hasattr(main_window, "gl_widget"):
                 getattr(main_window.gl_widget, "update", lambda: None)()
 
+            # Push undo state after modification
+            if hasattr(main_window, "push_undo_state"):
+                main_window.push_undo_state()
+
             QMessageBox.information(main_window, PLUGIN_NAME, f"Applied All-Trans to {count} torsions.")
         else:
             QMessageBox.information(main_window, PLUGIN_NAME, "No alkyl chains found.")

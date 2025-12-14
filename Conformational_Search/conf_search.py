@@ -74,6 +74,12 @@ class ConformerSearchDialog(QDialog):
         btn_layout.addWidget(self.btn_close)
         layout.addLayout(btn_layout)
 
+    def accept(self):
+        # Push undo state when closing the dialog (confirming the selection)
+        if hasattr(self.main_window, "push_undo_state"):
+            self.main_window.push_undo_state()
+        super().accept()
+
     def run_search(self):
         if not self.target_mol:
             return

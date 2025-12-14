@@ -243,6 +243,10 @@ class UntanglerDialog(QDialog):
                 self.main_window.update_view()
             elif hasattr(self.main_window, "gl_widget"):
                 getattr(self.main_window.gl_widget, "update", lambda: None)()
+            
+            # Push undo state using the newly applied molecule
+            if hasattr(self.main_window, "push_undo_state"):
+                self.main_window.push_undo_state()
                 
             QMessageBox.information(self, PLUGIN_NAME, f"Untangling Complete!\n{msg}")
         else:
