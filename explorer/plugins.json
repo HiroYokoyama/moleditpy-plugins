@@ -1,0 +1,164 @@
+[
+  {
+    "id": "all-trans_optimizer",
+    "name": "All-Trans Optimizer",
+    "version": "2025.12.14",
+    "author": "HiroYokoyama",
+    "description": "A geometric tool for straightening alkyl chains.",
+    "tags": [
+      "Optimization"
+    ],
+    "dependencies": [
+      "rdkit"
+    ],
+    "downloadUrl": "../All-Trans_Optimizer/all-trans_optimizer.py",
+    "lastUpdated": "2025-12-14"
+  },
+  {
+    "id": "animated_xyz_giffer",
+    "name": "Animated XYZ Giffer",
+    "version": "2025.12.14",
+    "author": "HiroYokoyama",
+    "description": "A player for viewing multi-frame XYZ files and recording GIF animations using PIL.",
+    "tags": [
+      "XYZ",
+      "Animation"
+    ],
+    "dependencies": [
+      "Pillow"
+    ],
+    "downloadUrl": "../Animated_XYZ_Giffer/animated_xyz_giffer.py",
+    "lastUpdated": "2025-12-14"
+  },
+  {
+    "id": "animated_xyz_player",
+    "name": "Animated XYZ Player",
+    "version": "2025.12.12",
+    "author": "HiroYokoyama",
+    "description": "A player for viewing multi-frame XYZ files, such as molecular dynamics trajectories.",
+    "tags": [
+      "XYZ",
+      "Animation"
+    ],
+    "dependencies": [],
+    "downloadUrl": "../Animated_XYZ_Player/animated_xyz.py",
+    "lastUpdated": "2025-12-12"
+  },
+  {
+    "id": "complex_molecule_untangler",
+    "name": "Complex Molecule Untangler",
+    "version": "2025.12.14",
+    "author": "HiroYokoyama",
+    "description": "A Monte Carlo-based tool to resolve steric clashes in complex or roughly drawn molecules.",
+    "tags": [
+      "Utility"
+    ],
+    "dependencies": [
+      "rdkit"
+    ],
+    "downloadUrl": "../Complex_Molecule_Untangler/complex_molecule_untangler.py",
+    "lastUpdated": "2025-12-14"
+  },
+  {
+    "id": "conformational_search",
+    "name": "Conformational Search",
+    "version": "2025.12.14",
+    "author": "HiroYokoyama",
+    "description": "Performs conformational sampling and energy minimization.",
+    "tags": [
+      "Utility"
+    ],
+    "dependencies": [
+      "rdkit"
+    ],
+    "downloadUrl": "../Conformational_Search/conf_search.py",
+    "lastUpdated": "2025-12-14"
+  },
+  {
+    "id": "cube_file_viewer",
+    "name": "Cube File Viewer",
+    "version": "2025.12.12",
+    "author": "HiroYokoyama",
+    "description": "Visualizes Gaussian Cube files (.cube) containing volumetric data (e.g., orbitals, densities).",
+    "tags": [
+      "Viewer"
+    ],
+    "dependencies": [
+      "rdkit",
+      "pyvista",
+      "numpy"
+    ],
+    "downloadUrl": "../Cube_File_Viewer/cube_viewer.py",
+    "lastUpdated": "2025-12-12"
+  },
+  {
+    "id": "gaussian_input_generator",
+    "name": "Gaussian Input Generator",
+    "version": "2025.12.12",
+    "author": "HiroYokoyama",
+    "description": "A comprehensive tool to generate input files for Gaussian quantum chemistry calculations.",
+    "tags": [
+      "Input Generator"
+    ],
+    "dependencies": [],
+    "downloadUrl": "../Gaussian_Input_Generator/gaussian_input_generator.py",
+    "lastUpdated": "2025-12-12"
+  },
+  {
+    "id": "hello_world",
+    "name": "Hello World",
+    "version": "2025.12.12",
+    "author": "HiroYokoyama",
+    "description": "A simple demonstration plugin.",
+    "tags": [
+      "Utility"
+    ],
+    "dependencies": [],
+    "downloadUrl": "../Hello_World/hello.py",
+    "lastUpdated": "2025-12-12"
+  },
+  {
+    "id": "ms_spectrum_simulation",
+    "name": "MS Spectrum Simulation",
+    "version": "2025.12.12",
+    "author": "HiroYokoyama",
+    "description": "Simulates the Mass Spectrum for the currently loaded molecule using RDKit descriptors.",
+    "tags": [
+      "Utility"
+    ],
+    "dependencies": [
+      "rdkit"
+    ],
+    "downloadUrl": "../MS_Spectrum_Simulation/ms_spectrum.py",
+    "lastUpdated": "2025-12-12"
+  },
+  {
+    "id": "orca_input_generator",
+    "name": "ORCA Input Generator",
+    "version": "2025.12.12",
+    "author": "HiroYokoyama",
+    "description": "Generates input files for the ORCA quantum chemistry package.",
+    "tags": [
+      "Input Generator"
+    ],
+    "dependencies": [],
+    "downloadUrl": "../ORCA_Input_Generator/orca_input_generator.py",
+    "lastUpdated": "2025-12-12"
+  },
+  {
+    "id": "pubchem_name_ressolver",
+    "name": "PubChem Name Resolver",
+    "version": "2025.12.14",
+    "author": "HiroYokoyama",
+    "description": "Resolves chemical names and identifiers to structures using the PubChem PUG REST API.",
+    "tags": [
+      "Utility"
+    ],
+    "dependencies": [
+      "requests",
+      "rdkit"
+    ],
+    "downloadUrl": "../PubChem_Name_Ressolver/pubchem_ressolver.py",
+    "lastUpdated": "2025-12-14"
+  }
+]

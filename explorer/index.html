@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoleditPy Plugin Explorer</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            /* Science Blue */
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-sub: #64748b;
+            --border-radius: 12px;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+        }
+
+        /* Header */
+        header {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            color: white;
+            padding: 3rem 1rem;
+            text-align: center;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+        }
+
+        header p {
+            opacity: 0.8;
+            margin-top: 0.5rem;
+        }
+
+        /* Controls */
+        .controls {
+            max-width: 800px;
+            margin: -30px auto 30px;
+            padding: 0 20px;
+            position: relative;
+        }
+
+        .search-box {
+            width: 100%;
+            padding: 16px 24px;
+            font-size: 1.1rem;
+            border: none;
+            border-radius: 50px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            outline: none;
+            transition: box-shadow 0.3s;
+        }
+
+        .search-box:focus {
+            box-shadow: 0 10px 30px rgba(37, 99, 235, 0.2);
+        }
+
+        /* Filter Tags */
+        .filter-container {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding: 0 20px;
+        }
+
+        .filter-btn {
+            background: none;
+            border: 1px solid #cbd5e1;
+            padding: 6px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            color: var(--text-sub);
+            margin: 4px;
+            transition: all 0.2s;
+        }
+
+        .filter-btn:hover,
+        .filter-btn.active {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        /* Grid */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px 60px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 24px;
+        }
+
+        /* Cards */
+        .plugin-card {
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            padding: 24px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #e2e8f0;
+        }
+
+        .plugin-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .plugin-version {
+            background-color: #eff6ff;
+            color: var(--primary-color);
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .plugin-title {
+            font-size: 1.25rem;
+            font-weight: bold;
+            margin: 0 0 8px 0;
+            color: var(--text-main);
+        }
+
+        .plugin-author {
+            font-size: 0.9rem;
+            color: var(--text-sub);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .plugin-desc {
+            color: var(--text-sub);
+            font-size: 0.95rem;
+            margin-bottom: 20px;
+            flex-grow: 1;
+        }
+
+        .tags {
+            margin-bottom: 20px;
+        }
+
+        .tag {
+            display: inline-block;
+            background: #f1f5f9;
+            color: #475569;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            margin-right: 4px;
+        }
+
+        /* Action Buttons */
+        .actions {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+            text-decoration: none;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #1d4ed8;
+        }
+
+        .btn-secondary {
+            background-color: #f1f5f9;
+            color: #334155;
+        }
+
+        .btn-secondary:hover {
+            background-color: #e2e8f0;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <h1>MoleditPy Plugins</h1>
+        <p>Extend your molecular editing experience</p>
+    </header>
+
+    <div class="controls">
+        <input type="text" id="searchInput" class="search-box"
+            placeholder="Search plugins (e.g., 'optimization', 'theme')...">
+    </div>
+
+    <div class="filter-container" id="filterContainer">
+        <button class="filter-btn active" data-filter="all">All</button>
+    </div>
+
+    <div class="container" id="pluginGrid">
+        <p style="text-align: center; width: 100%; color: #64748b;">Loading plugins...</p>
+    </div>
+
+    <script>
+        let allPlugins = [];
+
+        // 1. Fetch Data
+        async function loadPlugins() {
+            try {
+                const response = await fetch('plugins.json');
+                if (!response.ok) throw new Error('Failed to load plugin list');
+                allPlugins = await response.json();
+
+                generateFilterButtons();
+                renderPlugins(allPlugins);
+            } catch (error) {
+                document.getElementById('pluginGrid').innerHTML =
+                    `<p style="text-align:center; color:red;">Error loading plugins: ${error.message}</p>`;
+            }
+        }
+
+        // 2. Render Cards
+        function renderPlugins(plugins) {
+            const grid = document.getElementById('pluginGrid');
+            grid.innerHTML = '';
+
+            if (plugins.length === 0) {
+                grid.innerHTML = '<p style="text-align:center; width:100%;">No plugins found matching your search.</p>';
+                return;
+            }
+
+            plugins.forEach(plugin => {
+                const card = document.createElement('div');
+                card.className = 'plugin-card';
+
+                const tagsHtml = plugin.tags.map(tag => `<span class="tag">#${tag}</span>`).join('');
+
+                card.innerHTML = `
+                <div class="card-header">
+                    <span class="plugin-version">v${plugin.version}</span>
+                    <small style="color:#94a3b8;">${plugin.lastUpdated}</small>
+                </div>
+                <h3 class="plugin-title">${plugin.name}</h3>
+                <div class="plugin-author">👤 ${plugin.author}</div>
+                <p class="plugin-desc">${plugin.description}</p>
+                ${plugin.dependencies && plugin.dependencies.length > 0 ?
+                        `<div style="font-size:0.85rem; color:#64748b; margin-bottom:12px;">
+                        <strong>Dependencies:</strong> ${plugin.dependencies.join(', ')}
+                     </div>` : ''}
+                <div class="tags">${tagsHtml}</div>
+                <div class="actions">
+                    <a href="${plugin.downloadUrl}" class="btn btn-primary" download>⬇ Download</a>
+                    <button class="btn btn-secondary" onclick="copyUrl('${plugin.downloadUrl}')">🔗 Copy Link</button>
+                </div>
+            `;
+                grid.appendChild(card);
+            });
+        }
+
+        // 3. Search & Filter Logic
+        const searchInput = document.getElementById('searchInput');
+        const filterContainer = document.getElementById('filterContainer');
+        let currentTag = 'all';
+
+        searchInput.addEventListener('input', (e) => filterPlugins(e.target.value, currentTag));
+
+        function filterPlugins(keyword, tag) {
+            const lowerKeyword = keyword.toLowerCase();
+
+            const filtered = allPlugins.filter(plugin => {
+                const matchText = (plugin.name + plugin.description + plugin.tags.join(' ')).toLowerCase().includes(lowerKeyword);
+                const matchTag = tag === 'all' || plugin.tags.includes(tag);
+                return matchText && matchTag;
+            });
+
+            renderPlugins(filtered);
+        }
+
+        function generateFilterButtons() {
+            filterContainer.innerHTML = '';
+
+            // Add 'All' Button
+            const allBtn = document.createElement('button');
+            allBtn.className = 'filter-btn active';
+            allBtn.textContent = 'All';
+            allBtn.onclick = () => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                allBtn.classList.add('active');
+                currentTag = 'all';
+                filterPlugins(searchInput.value, currentTag);
+            };
+            filterContainer.appendChild(allBtn);
+
+            // Collect unique tags
+            const tags = new Set();
+            allPlugins.forEach(p => p.tags.forEach(t => tags.add(t)));
+
+            // Sort tags
+            const sortedTags = Array.from(tags).sort();
+
+            sortedTags.forEach(tag => {
+                const btn = document.createElement('button');
+                btn.className = 'filter-btn';
+                btn.textContent = tag;
+                btn.onclick = () => {
+                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentTag = tag;
+                    filterPlugins(searchInput.value, currentTag);
+                };
+                filterContainer.appendChild(btn);
+            });
+        }
+
+        // Utility: Copy URL
+        function copyUrl(url) {
+            navigator.clipboard.writeText(url).then(() => {
+                alert('URL copied to clipboard!');
+            });
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', loadPlugins);
+    </script>
+
+</body>
+
+</html>
