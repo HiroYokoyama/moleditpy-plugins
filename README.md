@@ -1,6 +1,8 @@
 #  MoleditPy Plugin Collection
 
 Repo: [https://github.com/HiroYokoyama/moleditpy-plugins/](https://github.com/HiroYokoyama/moleditpy-plugins/)
+Explorer: [https://hiroyokoyama.github.io/moleditpy-plugins/explorer/](https://hiroyokoyama.github.io/moleditpy-plugins/explorer/)
+
 
 This directory contains the official plugins for **MoleditPy**. 
 
@@ -155,6 +157,7 @@ def autorun(main_window):
 > *   Only install plugins from sources you trust.
 > *   Be especially cautious with plugins that use `autorun`, as they execute code immediately upon loading without specific user action.
 > *   Review the plugin code (`.py` file) if you are unsure about its functionality.
+
 
 
 
