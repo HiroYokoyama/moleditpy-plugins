@@ -58,14 +58,14 @@ class PythonConsoleDialog(QDialog):
         
         # Input Area with History
         self.input_line = HistoryLineEdit()
-        self.input_line.setPlaceholderText("Enter Python code... (e.g., 1 + 1, print('hello'))")
+        self.input_line.setPlaceholderText("Enter Python code...")
         self.input_line.setStyleSheet("background-color: #2d2d2d; color: #ffffff; border: 1px solid #3e3e3e;")
         self.input_line.setFont(QFont("Consolas", 10))
         self.input_line.returnPressed.connect(self.run_code)
         layout.addWidget(self.input_line)
         
         # Help Label
-        help_text = QLabel("Available vars: 'mw' (MainWindow), 'mol' (RDKit Mol), 'Chem' (rdkit.Chem)")
+        help_text = QLabel("Available vars: 'mw' (MainWindow), 'mol' (current_mol), 'Chem' (rdkit.Chem)")
         help_text.setStyleSheet("color: gray; font-size: 10px;")
         layout.addWidget(help_text)
 
@@ -86,15 +86,9 @@ class PythonConsoleDialog(QDialog):
 
     def _get_best_mol(self):
         """Helper to get the most relevant RDKit molecule object.
-        Prioritizes 3D structure (current_mol), falls back to 2D structure (data.to_rdkit_mol()).
         """
         mol = getattr(self.main_window, 'current_mol', None)
-        if mol is None and hasattr(self.main_window, 'data'):
-            try:
-                # Attempt to generate mol from 2D data on the fly
-                mol = self.main_window.data.to_rdkit_mol()
-            except Exception:
-                mol = None
+
         return mol
 
     def append_output(self, text, color=None):
