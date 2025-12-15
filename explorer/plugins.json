@@ -11,7 +11,7 @@
     "dependencies": [
       "rdkit"
     ],
-    "downloadUrl": "../All-Trans_Optimizer/all-trans_optimizer.py",
+    "downloadUrl": "../plugins/All-Trans_Optimizer/all-trans_optimizer.py",
     "lastUpdated": "2025-12-14"
   },
   {
@@ -21,13 +21,14 @@
     "author": "HiroYokoyama",
     "description": "A player for viewing multi-frame XYZ files and recording GIF animations using PIL.",
     "tags": [
+      "File",
       "XYZ",
       "Animation"
     ],
     "dependencies": [
       "Pillow"
     ],
-    "downloadUrl": "../Animated_XYZ_Giffer/animated_xyz_giffer.py",
+    "downloadUrl": "../plugins/Animated_XYZ_Giffer/animated_xyz_giffer.py",
     "lastUpdated": "2025-12-14"
   },
   {
@@ -37,11 +38,12 @@
     "author": "HiroYokoyama",
     "description": "A player for viewing multi-frame XYZ files, such as molecular dynamics trajectories.",
     "tags": [
+      "File",
       "XYZ",
       "Animation"
     ],
     "dependencies": [],
-    "downloadUrl": "../Animated_XYZ_Player/animated_xyz.py",
+    "downloadUrl": "../plugins/Animated_XYZ_Player/animated_xyz.py",
     "lastUpdated": "2025-12-12"
   },
   {
@@ -51,12 +53,12 @@
     "author": "HiroYokoyama",
     "description": "A Monte Carlo-based tool to resolve steric clashes in complex or roughly drawn molecules.",
     "tags": [
-      "Utility"
+      "Optimization"
     ],
     "dependencies": [
       "rdkit"
     ],
-    "downloadUrl": "../Complex_Molecule_Untangler/complex_molecule_untangler.py",
+    "downloadUrl": "../plugins/Complex_Molecule_Untangler/complex_molecule_untangler.py",
     "lastUpdated": "2025-12-14"
   },
   {
@@ -66,12 +68,12 @@
     "author": "HiroYokoyama",
     "description": "Performs conformational sampling and energy minimization.",
     "tags": [
-      "Utility"
+      "Optimization"
     ],
     "dependencies": [
       "rdkit"
     ],
-    "downloadUrl": "../Conformational_Search/conf_search.py",
+    "downloadUrl": "../plugins/Conformational_Search/conf_search.py",
     "lastUpdated": "2025-12-14"
   },
   {
@@ -81,14 +83,14 @@
     "author": "HiroYokoyama",
     "description": "Visualizes Gaussian Cube files (.cube) containing volumetric data (e.g., orbitals, densities).",
     "tags": [
-      "Viewer"
+      "File"
     ],
     "dependencies": [
       "rdkit",
       "pyvista",
       "numpy"
     ],
-    "downloadUrl": "../Cube_File_Viewer/cube_viewer.py",
+    "downloadUrl": "../plugins/Cube_File_Viewer/cube_viewer.py",
     "lastUpdated": "2025-12-12"
   },
   {
@@ -101,7 +103,7 @@
       "Input Generator"
     ],
     "dependencies": [],
-    "downloadUrl": "../Gaussian_Input_Generator/gaussian_input_generator.py",
+    "downloadUrl": "../plugins/Gaussian_Input_Generator/gaussian_input_generator.py",
     "lastUpdated": "2025-12-12"
   },
   {
@@ -111,10 +113,10 @@
     "author": "HiroYokoyama",
     "description": "A simple demonstration plugin.",
     "tags": [
-      "Utility"
+      "Sample"
     ],
     "dependencies": [],
-    "downloadUrl": "../Hello_World/hello.py",
+    "downloadUrl": "../plugins/Hello_World/hello.py",
     "lastUpdated": "2025-12-12"
   },
   {
@@ -124,12 +126,12 @@
     "author": "HiroYokoyama",
     "description": "Simulates the Mass Spectrum for the currently loaded molecule using RDKit descriptors.",
     "tags": [
-      "Utility"
+      "Analysis"
     ],
     "dependencies": [
       "rdkit"
     ],
-    "downloadUrl": "../MS_Spectrum_Simulation/ms_spectrum.py",
+    "downloadUrl": "../plugins/MS_Spectrum_Simulation/ms_spectrum.py",
     "lastUpdated": "2025-12-12"
   },
   {
@@ -142,7 +144,7 @@
       "Input Generator"
     ],
     "dependencies": [],
-    "downloadUrl": "../ORCA_Input_Generator/orca_input_generator.py",
+    "downloadUrl": "../plugins/ORCA_Input_Generator/orca_input_generator.py",
     "lastUpdated": "2025-12-12"
   },
   {
@@ -158,7 +160,7 @@
       "requests",
       "rdkit"
     ],
-    "downloadUrl": "../PubChem_Name_Ressolver/pubchem_ressolver.py",
+    "downloadUrl": "../plugins/PubChem_Name_Ressolver/pubchem_ressolver.py",
     "lastUpdated": "2025-12-14"
   }
 ]

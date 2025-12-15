@@ -1,0 +1,581 @@
+# -*- coding: utf-8 -*-
+"""
+Animated XYZ Player Plugin for MoleditPy
+
+Allows loading and playing multi-frame XYZ files (e.g., MD trajectories).
+"""
+
+import os
+import time
+from PyQt6.QtWidgets import (
+    QDialog, QVBoxLayout, QHBoxLayout, QPushButton,
+    QSlider, QLabel, QSpinBox, QFileDialog, QWidget,
+    QMessageBox, QDockWidget, QCheckBox, QFormLayout, QDialogButtonBox
+)
+try:
+    from PIL import Image
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
+from PyQt6.QtCore import Qt, QTimer, QSize
+from rdkit import Chem
+from rdkit.Chem import AllChem, rdGeometry
+
+PLUGIN_NAME = "Animated XYZ Giffer"
+
+class AnimatedXYZPlayer(QDialog):
+    def __init__(self, main_window):
+        super().__init__(main_window)
+        self.mw = main_window
+        self.setWindowTitle("Animated XYZ Player")
+        self.setWindowFlags(Qt.WindowType.Window) # Make it a separate window acting like a tool
+        self.resize(400, 150)
+
+        # Data
+        self.frames = [] # List of list of (symbol, x, y, z)
+        self.current_frame_idx = 0
+        self.target_frame_idx = 0
+        self.base_mol = None # RDKit Mol with topology
+        self.is_playing = False
+        self.fps = 10
+        
+        # Update / Threading flags
+        self.is_updating_view = False
+        self.pending_update = False
+
+        # UI Layout
+        layout = QVBoxLayout(self)
+
+        # File controls
+        file_layout = QHBoxLayout()
+        self.btn_load = QPushButton("Load XYZ")
+        self.btn_load.clicked.connect(self.load_file)
+        self.lbl_file = QLabel("No file loaded")
+        file_layout.addWidget(self.btn_load)
+        file_layout.addWidget(self.lbl_file)
+        file_layout.addStretch()
+        
+        layout.addLayout(file_layout)
+
+        # Status
+        self.lbl_status = QLabel("Frame: 0 / 0")
+        layout.addWidget(self.lbl_status)
+
+        # Slider
+        self.slider = QSlider(Qt.Orientation.Horizontal)
+        self.slider.setEnabled(False)
+        self.slider.valueChanged.connect(self.on_slider_changed)
+        layout.addWidget(self.slider)
+
+        # Playback controls
+        ctrl_layout = QHBoxLayout()
+        
+        self.btn_prev = QPushButton("<<")
+        self.btn_prev.clicked.connect(self.prev_frame)
+        self.btn_prev.setEnabled(False)
+        
+        self.btn_play = QPushButton("Play")
+        self.btn_play.clicked.connect(self.toggle_play)
+        self.btn_play.setEnabled(False)
+        
+        self.btn_next = QPushButton(">>")
+        self.btn_next.clicked.connect(self.next_frame)
+        self.btn_next.setEnabled(False)
+
+        ctrl_layout.addWidget(self.btn_prev)
+        ctrl_layout.addWidget(self.btn_play)
+        ctrl_layout.addWidget(self.btn_next)
+        layout.addLayout(ctrl_layout)
+
+        # FPS control
+        fps_layout = QHBoxLayout()
+        fps_layout.addWidget(QLabel("FPS:"))
+        self.spin_fps = QSpinBox()
+        self.spin_fps.setRange(1, 60)
+        self.spin_fps.setValue(self.fps)
+        self.spin_fps.valueChanged.connect(self.set_fps)
+        fps_layout.addWidget(self.spin_fps)
+        layout.addLayout(fps_layout)
+
+        # Timer
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.on_timer)
+        
+        # Bottom layout for actions
+        bottom_layout = QHBoxLayout()
+        bottom_layout.addStretch()
+        
+        self.btn_save_gif = QPushButton("Save GIF")
+        self.btn_save_gif.clicked.connect(self.save_as_gif)
+        self.btn_save_gif.setEnabled(False)
+        bottom_layout.addWidget(self.btn_save_gif)
+        
+        layout.addLayout(bottom_layout)
+
+        # Try to import existing molecule from main window
+        self.try_import_from_mainwindow()
+
+    def try_import_from_mainwindow(self):
+        """
+        Check if the main window has an opened molecule (especially XYZ) and use it.
+        Uses the file path from the main window and reloads it to ensure all frames are captured.
+        """
+        if hasattr(self.mw, 'current_file_path') and self.mw.current_file_path:
+            fp = self.mw.current_file_path
+            # Basic check if it's an XYZ file or similar that we can handle
+            if fp.lower().endswith('.xyz') or fp.lower().endswith('.extxyz'):
+                self.load_from_path(fp)
+
+    def load_from_path(self, file_path):
+        """
+        Loads the animated XYZ from the given file path.
+        """
+        try:
+            frames = self.parse_multi_frame_xyz(file_path)
+            if not frames:
+                QMessageBox.warning(self, "Error", "No valid frames found in XYZ file.")
+                return
+            
+            self.frames = frames
+            self.current_frame_idx = 0
+            self.target_frame_idx = 0
+            self.lbl_file.setText(os.path.basename(file_path))
+            self.slider.setRange(0, len(frames) - 1)
+            self.slider.setValue(0)
+            self.slider.setEnabled(True)
+            self.btn_prev.setEnabled(True)
+            self.btn_play.setEnabled(True)
+
+            self.btn_next.setEnabled(True)
+            self.btn_save_gif.setEnabled(HAS_PIL)
+            
+            self.create_base_molecule()
+            self.update_view()
+            self.update_status()
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to load file:\n{e}")
+
+    def load_file(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Open Animated XYZ", "", "XYZ Files (*.xyz);;All Files (*)"
+        )
+        if file_path:
+            self.load_from_path(file_path)
+
+    def parse_multi_frame_xyz(self, file_path):
+        """
+        Parses a concatenated XYZ file.
+        Returns a list of frames, where each frame is tuple of (atoms, coords).
+        Wait, we just need coordinates if topology is constant.
+        Let's store: [ {'symbols': [str], 'coords': [(x,y,z)]}, ... ]
+        """
+        frames = []
+        with open(file_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        
+        i = 0
+        n_lines = len(lines)
+        while i < n_lines:
+            line = lines[i].strip()
+            if not line:
+                i += 1
+                continue
+            
+            try:
+                num_atoms = int(line)
+            except ValueError:
+                # Might be a blank line or garbage
+                i += 1
+                continue
+            
+            # Start of a frame
+            # i = atom count
+            # i+1 = comment
+            # i+2 ... i+2+num_atoms = atoms
+            
+            if i + 2 + num_atoms > n_lines:
+                break # Incomplete frame
+            
+            comment = lines[i+1].strip()
+            frame_atoms = []
+            frame_coords = []
+            
+            start_data = i + 2
+            for j in range(num_atoms):
+                parts = lines[start_data + j].split()
+                if len(parts) >= 4:
+                    sym = parts[0]
+                    try:
+                        x = float(parts[1])
+                        y = float(parts[2])
+                        z = float(parts[3])
+                        frame_atoms.append(sym)
+                        frame_coords.append((x, y, z))
+                    except ValueError:
+                        pass
+            
+            frames.append({
+                'symbols': frame_atoms,
+                'coords': frame_coords,
+                'comment': comment
+            })
+            
+            i = start_data + num_atoms
+            
+        return frames
+
+    def create_base_molecule(self):
+        """
+        Creates the RDKit Mol object from the first frame and establishes topology.
+        """
+        if not self.frames:
+            return
+
+        frame0 = self.frames[0]
+        mol = Chem.RWMol()
+        
+        # Add atoms
+        for sym in frame0['symbols']:
+            # Handle unknown symbols or numbers
+            try:
+                atom = Chem.Atom(sym)
+            except:
+                atom = Chem.Atom('C') # Fallback
+            mol.AddAtom(atom)
+            
+        # Add conformer
+        conf = Chem.Conformer(mol.GetNumAtoms())
+        for idx, (x, y, z) in enumerate(frame0['coords']):
+            conf.SetAtomPosition(idx, rdGeometry.Point3D(x, y, z))
+        mol.AddConformer(conf)
+
+        # Estimate bonds (topology)
+        # We try to use the main window's helper function if available, 
+        # otherwise we manually do simple distance check or leave it unconnected
+        if hasattr(self.mw, 'estimate_bonds_from_distances'):
+            self.mw.estimate_bonds_from_distances(mol)
+        
+        self.base_mol = mol.GetMol()
+        
+        # Set as current mol in main window so it can be drawn
+        self.mw.current_mol = self.base_mol
+
+        # Ensure 3D capabilities are on
+        if hasattr(self.mw, '_enter_3d_viewer_ui_mode'):
+            self.mw._enter_3d_viewer_ui_mode()
+        
+        # Reset camera on first load
+        if hasattr(self.mw, 'plotter'):
+             self.mw.plotter.reset_camera()
+
+    def update_view(self):
+        """
+        Legacy entry point, now forwards to schedule_update
+        """
+        self.schedule_update()
+
+    def schedule_update(self):
+        """
+        Schedules a view update.
+        Prevents recursion/stacking if draw_molecule_3d calls processEvents.
+        """
+        if self.is_updating_view:
+             self.pending_update = True
+             return
+        
+        # Start update process
+        self.is_updating_view = True
+        self.pending_update = False
+        self.do_effective_update()
+
+    def do_effective_update(self):
+        """
+        Performs the actual update and handles queued updates.
+        """
+        try:
+            while True:
+                # Update logic
+                if not self.frames or self.base_mol is None:
+                    break
+                
+                # Use target frame
+                self.current_frame_idx = self.target_frame_idx
+                
+                if self.current_frame_idx >= len(self.frames):
+                    self.current_frame_idx = 0
+                    
+                frame = self.frames[self.current_frame_idx]
+                
+                # Update conformer positions
+                # Assuming topology (atom count/order) hasn't changed
+                conf = self.base_mol.GetConformer()
+                coords = frame['coords']
+                
+                # Safety check for atom count mismatch
+                if len(coords) == self.base_mol.GetNumAtoms():
+                     for idx, (x, y, z) in enumerate(coords):
+                        conf.SetAtomPosition(idx, rdGeometry.Point3D(x, y, z))
+                
+                # Redraw
+                # This calls main_window.draw_molecule_3d which might call processEvents
+                if hasattr(self.mw, 'draw_molecule_3d'):
+                    self.mw.draw_molecule_3d(self.base_mol)
+                    # Update frame comment/title if possible
+                    if 'comment' in frame:
+                        self.mw.statusBar().showMessage(f"Frame {self.current_frame_idx+1}/{len(self.frames)}: {frame['comment']}")
+
+                # Update Status label (without feedback loop)
+                self.update_status_silent()
+
+                # Check if pending
+                if not self.pending_update:
+                    break
+                
+                # If pending is True, it means schedule_update was called AGAIN 
+                # (likely via processEvents inside draw_molecule_3d)
+                # so we loop again to draw the LATEST target_frame_idx.
+                self.pending_update = False
+                
+        finally:
+            self.is_updating_view = False
+
+    def update_status_silent(self):
+        self.lbl_status.setText(f"Frame: {self.current_frame_idx + 1} / {len(self.frames)}")
+        self.slider.blockSignals(True)
+        self.slider.setValue(self.current_frame_idx)
+        self.slider.blockSignals(False)
+
+    def update_status(self):
+        # Calls the silent one
+        self.update_status_silent()
+
+    def on_slider_changed(self, value):
+        self.target_frame_idx = value
+        self.schedule_update()
+
+    def toggle_play(self):
+        self.is_playing = not self.is_playing
+        if self.is_playing:
+            self.btn_play.setText("Pause")
+            self.timer.start(int(1000 / self.fps))
+        else:
+            self.btn_play.setText("Play")
+            self.timer.stop()
+            # Ensure the main window knows this is the generic current molecule 
+            # so the user can use File->Save As... to export the current frame.
+            self.mw.current_mol = self.base_mol
+
+    def next_frame(self):
+        self.target_frame_idx = (self.current_frame_idx + 1) % len(self.frames)
+        self.schedule_update()
+
+    def prev_frame(self):
+        self.target_frame_idx = (self.current_frame_idx - 1) % len(self.frames)
+        self.schedule_update()
+
+    def on_timer(self):
+        self.next_frame()
+
+    def set_fps(self, value):
+        self.fps = value
+        if self.is_playing:
+            self.timer.start(int(1000 / self.fps))
+            
+    def save_as_gif(self):
+        if not self.frames:
+            return
+
+        # Pause if playing
+        was_playing = self.is_playing
+        if self.is_playing:
+            self.toggle_play()
+
+        # Dialog for settings
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Export GIF Settings")
+        form = QFormLayout(dialog)
+        
+        spin_fps = QSpinBox()
+        spin_fps.setRange(1, 60)
+        spin_fps.setValue(self.fps)
+        
+        chk_transparent = QCheckBox()
+        chk_transparent.setChecked(True)
+        
+
+        form.addRow("FPS:", spin_fps)
+        form.addRow("Transparent Background:", chk_transparent)
+
+        chk_loop = QCheckBox()
+        chk_loop.setChecked(True)
+        form.addRow("Loop Animation:", chk_loop)
+        
+        btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        btns.accepted.connect(dialog.accept)
+        btns.rejected.connect(dialog.reject)
+        form.addRow(btns)
+        
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            if was_playing:
+                self.toggle_play()
+            return
+
+        target_fps = spin_fps.value()
+        use_transparent = chk_transparent.isChecked()
+        use_loop = chk_loop.isChecked()
+
+        # File Dialog
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Save GIF", "", "GIF Files (*.gif)"
+        )
+        if not file_path:
+            if was_playing:
+                self.toggle_play()
+            return
+            
+        if not file_path.lower().endswith('.gif'):
+             file_path += '.gif'
+
+        # Progress Dialog? Or just blocking cursor
+        self.setCursor(Qt.CursorShape.WaitCursor)
+        
+        try:
+            original_frame_idx = self.current_frame_idx
+            images = []
+            
+            for i in range(len(self.frames)):
+                self.target_frame_idx = i
+                self.do_effective_update()
+                
+                # Force repaint of the main window view to ensure updated frame is rendered
+                # We need to access the plotter widget 
+                if hasattr(self.mw, 'plotter'):
+                     # This might update the view
+                     self.mw.plotter.update()
+                     
+                     # Check if we can get image
+                     # screenshot(transparent_background=..., return_img=True)
+                     img_array = self.mw.plotter.screenshot(transparent_background=use_transparent, return_img=True)
+                     
+                     if img_array is not None:
+                         img = Image.fromarray(img_array)
+                         images.append(img)
+            
+            # Save
+            if images:
+                # Prepare images for GIF
+                gif_frames = []
+                duration_ms = int(1000 / target_fps)
+                
+                for img in images:
+                    if use_transparent:
+                         # Advanced transparency handling for GIF
+                         # 1. Ensure RGBA
+                         img = img.convert("RGBA")
+                         
+                         # 2. Extract Alpha
+                         alpha = img.split()[3]
+                         
+                         # 3. Create a white background for quantization (optional, prevents halos)
+                         # or just convert RGB to P directly.
+                         # We'll stick to standard quantize.
+                         # map alpha to binary mask
+                         mask = Image.eval(alpha, lambda a: 255 if a <= 128 else 0)
+                         
+                         # 4. Quantize to 255 colors (leaving 1 for true transparency)
+                         img_p = img.convert("RGB").quantize(colors=255)
+                         
+                         # 5. Paste the transparent color index (255) into transparent regions
+                         img_p.paste(255, mask)
+                         
+                         gif_frames.append(img_p)
+                    else:
+                         gif_frames.append(img)
+
+                # Save
+                save_params = {
+                    "save_all": True,
+                    "append_images": gif_frames[1:],
+                    "duration": duration_ms,
+                    "disposal": 2,
+                }
+                
+                if use_transparent:
+                    save_params["transparency"] = 255
+
+                if use_loop:
+                    # Pillow: 0 means infinite. If omitted, no Netscape loop block (plays once).
+                    save_params["loop"] = 0
+                
+                gif_frames[0].save(file_path, **save_params)
+                QMessageBox.information(self, "Success", f"Saved GIF to:\n{file_path}")
+            else:
+                QMessageBox.warning(self, "Error", "Failed to capture frames.")
+                
+            # Restore
+            self.target_frame_idx = original_frame_idx
+            self.do_effective_update()
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to save GIF:\n{e}")
+        finally:
+             self.setCursor(Qt.CursorShape.ArrowCursor)
+             if was_playing:
+                 self.toggle_play()
+
+    def closeEvent(self, event):
+        self.timer.stop()
+
+        '''
+        
+        # Clear the main window view
+        try:
+            if hasattr(self.mw, 'plotter'):
+                self.mw.plotter.clear()
+        except:
+            pass
+
+        try:
+            self.mw.current_mol = None
+        except:
+            pass
+            
+        # Exit 3D mode and restore 2D editor UI
+        # We try calling it directly.
+        try:
+            self.mw.restore_ui_for_editing()
+        except Exception as e:
+            print(f"Error restoring UI: {e}")
+
+        # Force a re-render/clear of the generic 3D draw function
+        try:
+             self.mw.draw_molecule_3d(None)
+        except:
+             pass
+
+             
+        # Remove reference from main window so next run starts fresh check
+        if hasattr(self.mw, '_plugin_animated_xyz_player'):
+            del self.mw._plugin_animated_xyz_player
+        '''
+
+        super().closeEvent(event)
+
+def run(main_window):
+    # Always close/destroy old instance to reset variables and state
+    if hasattr(main_window, '_plugin_animated_xyz_player'):
+        try:
+            main_window._plugin_animated_xyz_player.close()
+        except:
+            pass
+        # Depending on if closeEvent did its job or not, strictly remove ref
+        if hasattr(main_window, '_plugin_animated_xyz_player'):
+             del main_window._plugin_animated_xyz_player
+
+    # Create fresh instance
+    player = AnimatedXYZPlayer(main_window)
+    main_window._plugin_animated_xyz_player = player
+    player.show()
+    player.raise_()
+    player.activateWindow()
