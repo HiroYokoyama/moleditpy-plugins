@@ -207,6 +207,26 @@
         .btn-secondary:hover {
             background-color: #e2e8f0;
         }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 2rem;
+            background-color: #f1f5f9;
+            color: var(--text-sub);
+            margin-top: 40px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        footer a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 
@@ -229,6 +249,11 @@
     <div class="container" id="pluginGrid">
         <p style="text-align: center; width: 100%; color: #64748b;">Loading plugins...</p>
     </div>
+
+    <footer>
+        <p>Main Repository: <a href="https://github.com/HiroYokoyama/moleditpy-plugins/"
+                target="_blank">https://github.com/HiroYokoyama/moleditpy-plugins/</a></p>
+    </footer>
 
     <script>
         let allPlugins = [];
@@ -343,8 +368,9 @@
 
         // Utility: Copy URL
         function copyUrl(url) {
-            navigator.clipboard.writeText(url).then(() => {
-                alert('URL copied to clipboard!');
+            const absoluteUrl = new URL(url, window.location.href).href;
+            navigator.clipboard.writeText(absoluteUrl).then(() => {
+                alert('Full URL copied to clipboard:\n' + absoluteUrl);
             });
         }
 
