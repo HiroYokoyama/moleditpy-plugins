@@ -163,4 +163,23 @@
     "downloadUrl": "../plugins/PubChem_Name_Ressolver/pubchem_ressolver.py",
     "lastUpdated": "2025-12-14"
   }
+  {
+    "id": "console",
+    "name": "Python Console",
+    "version": "2025.12.16",
+    "author": "HiroYokoyama",
+    "description": "An interactive Python interpreter embedded in the application. Allows runtime script execution with access to the MainWindow (mw) and current molecule (mol).",
+    "tags": [
+      "Utility",
+      "Development",
+      "Scripting"
+    ],
+    "dependencies": [
+      "rdkit",
+      "PyQt6"
+    ],
+    "downloadUrl": "../plugins/Python_Console/console.py",
+    "lastUpdated": "2025-12-16"
+  }
+
 ]
