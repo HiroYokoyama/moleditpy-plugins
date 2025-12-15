@@ -10,7 +10,7 @@ This directory contains the official plugins for **MoleditPy**.
 We believe in the power of community\!  
 If you have created a useful plugin, we would love to include it as an official part of this collection. Please feel free to submit a Pull Request with your plugin to help us expand what MoleditPy can do.
 
-## Available Plugins
+## Available Plugins (example)
 
 ### 1. Hello World (`hello.py`)
 A simple demonstration plugin.
@@ -25,9 +25,6 @@ Simulates the Mass Spectrum for the currently loaded molecule using RDKit descri
     -   Interactive histogram of isotopic distribution.
     -   **Export to Image**: Save the spectrum plot as a PNG/JPG file.
 -   **Dependencies**: Requires `rdkit` installed in your Python environment.
-
-
-
 
 ### 3. Gaussian Input Generator (`gaussian_input_generator.py`)
 A comprehensive tool to generate input files for Gaussian quantum chemistry calculations.
@@ -157,6 +154,7 @@ def autorun(main_window):
 > *   Only install plugins from sources you trust.
 > *   Be especially cautious with plugins that use `autorun`, as they execute code immediately upon loading without specific user action.
 > *   Review the plugin code (`.py` file) if you are unsure about its functionality.
+
 
 
 
