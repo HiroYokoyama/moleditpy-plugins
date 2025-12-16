@@ -1,15 +1,12 @@
 import numpy as np
 import pyvista as pv
+import json
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
                              QLabel, QColorDialog, QDockWidget, QMessageBox, 
-                             QLineEdit, QListWidget, QAbstractItemView, QGroupBox, QDialog)
+                             QLineEdit, QListWidget, QAbstractItemView, QGroupBox, QDialog, QFileDialog)
 from PyQt6.QtGui import QColor, QCloseEvent
 from PyQt6.QtCore import Qt
 import traceback
-
-
-import sys
-import os
 
 import sys
 import os
@@ -44,6 +41,13 @@ class AtomColorizerWindow(QDialog):
         
         # Initialize current_color as QColor object
         self.current_color = QColor(255, 0, 0) # Default red
+        
+        # Persistence State
+        self.persistent_colors = {} # dict: int(atom_idx) -> [r, g, b] (0-255)
+        
+        # Monkey-patch main_window.draw_molecule_3d
+        self.original_draw_molecule_3d = self.mw.draw_molecule_3d
+        self.mw.draw_molecule_3d = self._wrapped_draw_molecule_3d
         
         self.init_ui()
         
@@ -111,7 +115,23 @@ class AtomColorizerWindow(QDialog):
         reset_layout.addWidget(btn_reset)
         
         reset_group.setLayout(reset_layout)
+        reset_group.setLayout(reset_layout)
         layout.addWidget(reset_group)
+        
+        # Save/Load Group 
+        storage_group = QGroupBox("Save/Load")
+        storage_layout = QHBoxLayout()
+        
+        btn_save = QPushButton("Save Colors...")
+        btn_save.clicked.connect(self.save_colors)
+        storage_layout.addWidget(btn_save)
+        
+        btn_load = QPushButton("Load Colors...")
+        btn_load.clicked.connect(self.load_colors)
+        storage_layout.addWidget(btn_load)
+        
+        storage_group.setLayout(storage_layout)
+        layout.addWidget(storage_group)
         
         layout.addStretch()
         
@@ -249,6 +269,8 @@ class AtomColorizerWindow(QDialog):
             for idx in target_indices:
                 if 0 <= idx < len(colors):
                     colors[idx] = new_color_val
+                    # Persist color (save as list of int 0-255 for consistency and JSON serialization)
+                    self.persistent_colors[idx] = [r, g, b]
             
             # 2. Force update of the actor
             self._update_3d_actor()
@@ -257,6 +279,78 @@ class AtomColorizerWindow(QDialog):
             QMessageBox.critical(self, "Error", f"Failed to apply color: {e}")
             traceback.print_exc()
 
+    def _wrapped_draw_molecule_3d(self, mol):
+        """Wrapper for main_window.draw_molecule_3d to re-apply colors after redraw."""
+        # Call original method
+        if self.original_draw_molecule_3d:
+            self.original_draw_molecule_3d(mol)
+        
+        # Re-apply custom colors
+        self.reapply_colors()
+
+    def reapply_colors(self):
+        """Re-apply persisted colors to the current 3D actor."""
+        if not self.persistent_colors:
+            return
+            
+        if not hasattr(self.mw, 'glyph_source') or self.mw.glyph_source is None:
+            return
+            
+        try:
+            colors = self.mw.glyph_source.point_data['colors']
+            is_float = (colors.dtype.kind == 'f')
+            
+            for idx, rgb in self.persistent_colors.items():
+                if idx < 0: continue
+                # Check bounds essentially (though len(colors) check is better)
+                if idx >= len(colors):
+                    continue
+                
+                if is_float:
+                    colors[idx] = [c/255.0 for c in rgb]
+                else:
+                    colors[idx] = rgb
+            
+            # Use the internal update logic (re-glyphing might be needed if radii changed, 
+            # but usually just updating colors array and calling render is enough IF the scalars are linked.
+            # However, _update_3d_actor does full actor rebuild which is safer)
+            self._update_3d_actor()
+            
+        except Exception as e:
+            print(f"Error re-applying colors: {e}")
+
+    def save_colors(self):
+        filename, _ = QFileDialog.getSaveFileName(self, "Save Colors", "", "JSON Files (*.json)")
+        if filename:
+            try:
+                with open(filename, 'w') as f:
+                    json.dump(self.persistent_colors, f, indent=4)
+                QMessageBox.information(self, "Success", "Colors saved successfully.")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to save colors: {e}")
+
+    def load_colors(self):
+        filename, _ = QFileDialog.getOpenFileName(self, "Load Colors", "", "JSON Files (*.json)")
+        if filename:
+            try:
+                with open(filename, 'r') as f:
+                    data = json.load(f)
+                    
+                # Convert keys to int (JSON keys are strings)
+                self.persistent_colors = {int(k): v for k, v in data.items()}
+                
+                self.reapply_colors()
+                QMessageBox.information(self, "Success", "Colors loaded successfully.")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to load colors: {e}")
+
+    def closeEvent(self, event: QCloseEvent):
+        self.reset_colors()
+        # Restore original method
+        if hasattr(self, 'original_draw_molecule_3d') and self.original_draw_molecule_3d:
+            self.mw.draw_molecule_3d = self.original_draw_molecule_3d
+        super().closeEvent(event)
+
     def reset_colors(self):
         if not hasattr(self.mw, 'glyph_source') or self.mw.glyph_source is None:
             return
@@ -264,6 +358,7 @@ class AtomColorizerWindow(QDialog):
             return
 
         try:
+            self.persistent_colors.clear()
             colors = self.mw.glyph_source.point_data['colors']
             is_float = (colors.dtype.kind == 'f')
 
