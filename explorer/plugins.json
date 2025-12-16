@@ -1,6 +1,7 @@
 [
   {
     "id": "all-trans_optimizer",
+    "visible": true,
     "name": "All-Trans Optimizer",
     "version": "2025.12.14",
     "author": "HiroYokoyama",
@@ -16,6 +17,7 @@
   },
   {
     "id": "animated_xyz_giffer",
+    "visible": true,
     "name": "Animated XYZ Giffer",
     "version": "2025.12.14",
     "author": "HiroYokoyama",
@@ -32,6 +34,7 @@
   },
   {
     "id": "animated_xyz_player",
+    "visible": false,
     "name": "Animated XYZ Player",
     "version": "2025.12.12",
     "author": "HiroYokoyama",
@@ -46,6 +49,7 @@
   },
   {
     "id": "complex_molecule_untangler",
+    "visible": true,
     "name": "Complex Molecule Untangler",
     "version": "2025.12.14",
     "author": "HiroYokoyama",
@@ -61,6 +65,7 @@
   },
   {
     "id": "conformational_search",
+    "visible": true,
     "name": "Conformational Search",
     "version": "2025.12.14",
     "author": "HiroYokoyama",
@@ -76,6 +81,7 @@
   },
   {
     "id": "cube_file_viewer",
+    "visible": true,
     "name": "Cube File Viewer",
     "version": "2025.12.12",
     "author": "HiroYokoyama",
@@ -93,6 +99,7 @@
   },
   {
     "id": "gaussian_input_generator",
+    "visible": false,
     "name": "Gaussian Input Generator",
     "version": "2025.12.12",
     "author": "HiroYokoyama",
@@ -106,6 +113,7 @@
   },
   {
     "id": "hello_world",
+    "visible": true,
     "name": "Hello World",
     "version": "2025.12.12",
     "author": "HiroYokoyama",
@@ -119,6 +127,7 @@
   },
   {
     "id": "ms_spectrum_simulation",
+    "visible": true,
     "name": "MS Spectrum Simulation",
     "version": "2025.12.12",
     "author": "HiroYokoyama",
@@ -134,6 +143,7 @@
   },
   {
     "id": "orca_input_generator",
+    "visible": true,
     "name": "ORCA Input Generator",
     "version": "2025.12.12",
     "author": "HiroYokoyama",
@@ -147,6 +157,7 @@
   },
   {
     "id": "pubchem_name_ressolver",
+    "visible": true,
     "name": "PubChem Name Resolver",
     "version": "2025.12.14",
     "author": "HiroYokoyama",
@@ -163,6 +174,7 @@
   },
   {
     "id": "console",
+    "visible": true,
     "name": "Python Console",
     "version": "2025.12.16",
     "author": "HiroYokoyama",
@@ -181,6 +193,7 @@
   },
   {
     "id": "atom_colorizer",
+    "visible": true,
     "name": "Atom Colorizer",
     "version": "2025.12.16",
     "author": "HiroYokoyama",
@@ -199,6 +212,7 @@
   },
   {
     "id": "dark_mode_theme",
+    "visible": true,
     "name": "Dark Mode Theme",
     "version": "2025.12.16",
     "author": "HiroYokoyama",
@@ -215,6 +229,7 @@
   },
   {
     "id": "gaussian_input_generator_neo",
+    "visible": true,
     "name": "Gaussian Input Generator Neo",
     "version": "2025.12.16",
     "author": "HiroYokoyama",
