@@ -267,6 +267,9 @@
                 if (!response.ok) throw new Error('Failed to load plugin list');
                 allPlugins = await response.json();
 
+                // Filter out hidden plugins
+                allPlugins = allPlugins.filter(p => p.visible !== false);
+
                 // Sort alphabetically by name
                 allPlugins.sort((a, b) => a.name.localeCompare(b.name));
 
@@ -327,9 +330,6 @@
             const lowerKeyword = keyword.toLowerCase();
 
             const filtered = allPlugins.filter(plugin => {
-                // strict check for false, so undefined/null means visible
-                if (plugin.visible === false) return false;
-
                 const matchText = (plugin.name + plugin.description + plugin.tags.join(' ')).toLowerCase().includes(lowerKeyword);
                 const matchTag = tag === 'all' || plugin.tags.includes(tag);
                 return matchText && matchTag;
