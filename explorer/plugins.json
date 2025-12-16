@@ -180,7 +180,39 @@
     ],
     "downloadUrl": "../plugins/Python_Console/console.py",
     "lastUpdated": "2025-12-16"
+  },
+  {
+    "id": "atom_colorizer",
+    "name": "Atom Colorizer",
+    "version": "2025.12.16",
+    "author": "HiroYokoyama",
+    "description": "Select atoms in the 3D viewer and apply color.",
+    "tags": [
+      "Visualization",
+      "Utility"
+    ],
+    "dependencies": [
+      "numpy",
+      "pyvista",
+      "PyQt6"
+    ],
+    "downloadUrl": "../plugins/Atom_Colorizer/atom_colorizer.py",
+    "lastUpdated": "2025-12-16"
+  },
+  {
+    "id": "dark_mode_theme",
+    "name": "Dark Mode Theme",
+    "version": "2025.12.16",
+    "author": "HiroYokoyama",
+    "description": "A plugin that automatically applies a dark mode stylesheet to MoleditPy upon loading.",
+    "tags": [
+      "UI",
+      "Theme"
+    ],
+    "dependencies": [
+      "PyQt6"
+    ],
+    "downloadUrl": "../plugins/Dark_Mode_Theme/dark_mode_plugin.py",
+    "lastUpdated": "2025-12-16"
   }
-
 ]
-
