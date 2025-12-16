@@ -267,6 +267,9 @@
                 if (!response.ok) throw new Error('Failed to load plugin list');
                 allPlugins = await response.json();
 
+                // Sort alphabetically by name
+                allPlugins.sort((a, b) => a.name.localeCompare(b.name));
+
                 generateFilterButtons();
                 renderPlugins(allPlugins);
             } catch (error) {

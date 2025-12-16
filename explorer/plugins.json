@@ -214,5 +214,22 @@
     ],
     "downloadUrl": "../plugins/Dark_Mode_Theme/dark_mode_plugin.py",
     "lastUpdated": "2025-12-16"
+  },
+  {
+    "id": "gaussian_input_generator_neo",
+    "name": "Gaussian Input Generator Neo",
+    "version": "2025.12.16",
+    "author": "HiroYokoyama",
+    "description": "High-functionality setting dialog for Gaussian input creation. Supports Link 0, Route, Title, Charge/Mult, and appended data.",
+    "tags": [
+      "Input Generator",
+      "Analysis"
+    ],
+    "dependencies": [
+      "rdkit",
+      "PyQt6"
+    ],
+    "downloadUrl": "../plugins/Gaussian_Input_Generator_Neo/gaussian_input_generator_neo.py",
+    "lastUpdated": "2025-12-16"
   }
 ]
