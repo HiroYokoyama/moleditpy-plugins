@@ -22,7 +22,6 @@
     "description": "A player for viewing multi-frame XYZ files and recording GIF animations using PIL.",
     "tags": [
       "File",
-      "XYZ",
       "Animation"
     ],
     "dependencies": [
@@ -39,7 +38,6 @@
     "description": "A player for viewing multi-frame XYZ files, such as molecular dynamics trajectories.",
     "tags": [
       "File",
-      "XYZ",
       "Animation"
     ],
     "dependencies": [],
@@ -222,8 +220,7 @@
     "author": "HiroYokoyama",
     "description": "High-functionality setting dialog for Gaussian input creation. Supports Link 0, Route, Title, Charge/Mult, and appended data.",
     "tags": [
-      "Input Generator",
-      "Analysis"
+      "Input Generator"
     ],
     "dependencies": [
       "rdkit",
