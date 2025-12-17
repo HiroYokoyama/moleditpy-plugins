@@ -5,6 +5,7 @@
     "name": "All-Trans Optimizer",
     "version": "2025.12.14",
     "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A geometric tool for straightening alkyl chains.",
     "tags": [
       "Optimization"
@@ -21,6 +22,7 @@
     "name": "Animated XYZ Giffer",
     "version": "2025.12.14",
     "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A player for viewing multi-frame XYZ files and recording GIF animations using PIL.",
     "tags": [
       "File",
@@ -38,6 +40,7 @@
     "name": "Animated XYZ Player",
     "version": "2025.12.12",
     "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A player for viewing multi-frame XYZ files, such as molecular dynamics trajectories.",
     "tags": [
       "File",
@@ -53,6 +56,7 @@
     "name": "Complex Molecule Untangler",
     "version": "2025.12.14",
     "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A Monte Carlo-based tool to resolve steric clashes in complex or roughly drawn molecules.",
     "tags": [
       "Optimization"
@@ -69,6 +73,7 @@
     "name": "Conformational Search",
     "version": "2025.12.14",
     "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Performs conformational sampling and energy minimization.",
     "tags": [
       "Optimization"
@@ -85,6 +90,7 @@
     "name": "Cube File Viewer",
     "version": "2025.12.12",
     "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes Gaussian Cube files (.cube) containing volumetric data (e.g., orbitals, densities).",
     "tags": [
       "File"
@@ -103,6 +109,7 @@
     "name": "Gaussian Input Generator",
     "version": "2025.12.12",
     "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A comprehensive tool to generate input files for Gaussian quantum chemistry calculations.",
     "tags": [
       "Input Generator"
@@ -117,6 +124,7 @@
     "name": "Hello World",
     "version": "2025.12.12",
     "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A simple demonstration plugin.",
     "tags": [
       "Sample"
@@ -131,6 +139,7 @@
     "name": "MS Spectrum Simulation",
     "version": "2025.12.12",
     "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Simulates the Mass Spectrum for the currently loaded molecule using RDKit descriptors.",
     "tags": [
       "Analysis"
@@ -147,6 +156,7 @@
     "name": "ORCA Input Generator",
     "version": "2025.12.12",
     "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates input files for the ORCA quantum chemistry package.",
     "tags": [
       "Input Generator"
@@ -161,6 +171,7 @@
     "name": "PubChem Name Resolver",
     "version": "2025.12.14",
     "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Resolves chemical names and identifiers to structures using the PubChem PUG REST API.",
     "tags": [
       "Utility"
@@ -178,6 +189,7 @@
     "name": "Python Console",
     "version": "2025.12.16",
     "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
     "description": "An interactive Python interpreter embedded in the application. Allows runtime script execution with access to the MainWindow (mw) and current molecule (mol).",
     "tags": [
       "Utility",
@@ -195,8 +207,9 @@
     "id": "atom_colorizer",
     "visible": true,
     "name": "Atom Colorizer",
-    "version": "2025.12.16",
+    "version": "2025.12.17",
     "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Select atoms in the 3D viewer and apply color.",
     "tags": [
       "Visualization",
@@ -216,6 +229,7 @@
     "name": "Dark Mode Theme",
     "version": "2025.12.16",
     "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A plugin that automatically applies a dark mode stylesheet to MoleditPy upon loading.",
     "tags": [
       "UI",
@@ -233,6 +247,7 @@
     "name": "Gaussian Input Generator Neo",
     "version": "2025.12.16",
     "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
     "description": "High-functionality setting dialog for Gaussian input creation. Supports Link 0, Route, Title, Charge/Mult, and appended data.",
     "tags": [
       "Input Generator"
@@ -243,5 +258,24 @@
     ],
     "downloadUrl": "../plugins/Gaussian_Input_Generator_Neo/gaussian_input_generator_neo.py",
     "lastUpdated": "2025-12-16"
+  },
+  {
+    "id": "vdw_radii_overlay",
+    "visible": true,
+    "name": "VDW Radii Overlay",
+    "version": "2025.12.17",
+    "author": "HiroYokoyama",
+    "description": "Visualizes Van der Waals radii as a merged surface overlay using PyVista.",
+    "tags": [
+      "Visualization",
+      "3D"
+    ],
+    "dependencies": [
+      "pyvista",
+      "numpy",
+      "PyQt6"
+    ],
+    "downloadUrl": "../plugins/VDW_Radii_Overlay/vdw_radii_overlay.py",
+    "lastUpdated": "2025-12-17"
   }
 ]

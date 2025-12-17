@@ -150,6 +150,18 @@
             gap: 6px;
         }
 
+        .plugin-author a {
+            color: var(--text-sub);
+            text-decoration: none;
+            border-bottom: 1px dotted var(--text-sub);
+            transition: color 0.2s, border-color 0.2s;
+        }
+
+        .plugin-author a:hover {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+
         .plugin-desc {
             color: var(--text-sub);
             font-size: 0.95rem;
@@ -303,7 +315,9 @@
                     <small style="color:#94a3b8;">${plugin.lastUpdated}</small>
                 </div>
                 <h3 class="plugin-title">${plugin.name}</h3>
-                <div class="plugin-author">👤 ${plugin.author}</div>
+                <div class="plugin-author">
+                    👤 <a href="${plugin.authorUrl}" target="_blank">${plugin.author}</a>
+                </div>
                 <p class="plugin-desc">${plugin.description}</p>
                 ${plugin.dependencies && plugin.dependencies.length > 0 ?
                         `<div style="font-size:0.85rem; color:#64748b; margin-bottom:12px;">
@@ -312,7 +326,7 @@
                 <div class="tags">${tagsHtml}</div>
                 <div class="actions">
                     <a href="${plugin.downloadUrl}" class="btn btn-primary" download>⬇ Download</a>
-                    <button class="btn btn-secondary" onclick="copyUrl('${plugin.downloadUrl}')">🔗 Copy Link</button>
+                    <button class="btn btn-secondary" onclick="copyLink('${plugin.name.replace(/'/g, "\\'")}')">🔗 Copy Link</button>
                 </div>
             `;
                 grid.appendChild(card);
@@ -374,16 +388,30 @@
             });
         }
 
-        // Utility: Copy URL
-        function copyUrl(url) {
-            const absoluteUrl = new URL(url, window.location.href).href;
-            navigator.clipboard.writeText(absoluteUrl).then(() => {
-                alert('Full URL copied to clipboard:\n' + absoluteUrl);
+        // Utility: Copy Link with Params
+        function copyLink(pluginName) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('q', pluginName);
+            const linkToCopy = url.href;
+
+            navigator.clipboard.writeText(linkToCopy).then(() => {
+                // Silently copy to clipboard
+                console.log('Link copied:', linkToCopy);
             });
         }
 
         // Initialize
-        document.addEventListener('DOMContentLoaded', loadPlugins);
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadPlugins();
+
+            // Apply search param if present
+            const urlParams = new URLSearchParams(window.location.search);
+            const query = urlParams.get('q');
+            if (query) {
+                searchInput.value = query;
+                filterPlugins(query, 'all');
+            }
+        });
     </script>
 
 </body>
