@@ -152,7 +152,7 @@
   },
   {
     "id": "orca_input_generator",
-    "visible": true,
+    "visible": false,
     "name": "ORCA Input Generator",
     "version": "2025.12.12",
     "author": "HiroYokoyama",
@@ -298,5 +298,42 @@
     ],
     "downloadUrl": "../plugins/Mapped_Cube_Viewer/mapped_cube_viewer.py",
     "lastUpdated": "2025-12-17"
+  },
+  {
+    "id": "orca_input_generator_neo",
+    "visible": true,
+    "name": "ORCA Input Generator Neo",
+    "version": "2025.12.18",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "High-functionality setting dialog for ORCA input creation. Supports Link 0, Route, Block Builder, and Validations.",
+    "tags": [
+      "Input Generator"
+    ],
+    "dependencies": [
+      "rdkit",
+      "PyQt6"
+    ],
+    "downloadUrl": "../plugins/ORCA_Input_Generator_Neo/orca_input_generator_neo.py",
+    "lastUpdated": "2025-12-18"
+  },
+  {
+    "id": "orca_xyz2inp_gui",
+    "visible": true,
+    "name": "ORCA xyz2inp GUI",
+    "version": "2025.12.18",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "GUI for generating ORCA input files from XYZ data with templates.",
+    "tags": [
+      "Input Generator",
+      "File"
+    ],
+    "dependencies": [
+      "rdkit",
+      "PyQt6"
+    ],
+    "downloadUrl": "https://github.com/HiroYokoyama/orca_xyz2inp/tree/main/moleditpy_plugin",
+    "lastUpdated": "2025-12-18"
   }
 ]
