@@ -135,7 +135,7 @@
   },
   {
     "id": "ms_spectrum_simulation",
-    "visible": true,
+    "visible": false,
     "name": "MS Spectrum Simulation",
     "version": "2025.12.12",
     "author": "HiroYokoyama",
@@ -245,7 +245,7 @@
     "id": "gaussian_input_generator_neo",
     "visible": true,
     "name": "Gaussian Input Generator Neo",
-    "version": "2025.12.16",
+    "version": "2025.12.18",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "High-functionality setting dialog for Gaussian input creation. Supports Link 0, Route, Title, Charge/Mult, and appended data.",
@@ -257,7 +257,7 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Gaussian_Input_Generator_Neo/gaussian_input_generator_neo.py",
-    "lastUpdated": "2025-12-16"
+    "lastUpdated": "2025-12-18"
   },
   {
     "id": "vdw_radii_overlay",
@@ -334,6 +334,24 @@
       "PyQt6"
     ],
     "downloadUrl": "https://github.com/HiroYokoyama/orca_xyz2inp/tree/main/moleditpy_plugin",
+    "lastUpdated": "2025-12-18"
+  },
+  {
+    "id": "ms_spectrum_simulation_neo",
+    "visible": true,
+    "name": "MS Spectrum Simulation Neo",
+    "version": "2025.12.18",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Simulates the Mass Spectrum for the currently loaded molecule using RDKit descriptors. Includes Gaussian broadening and interactive zoom/pan.",
+    "tags": [
+      "Analysis"
+    ],
+    "dependencies": [
+      "rdkit",
+      "PyQt6"
+    ],
+    "downloadUrl": "../plugins/MS_Spectrum_Simulation_Neo/ms_spectrum_neo.py",
     "lastUpdated": "2025-12-18"
   }
 ]
