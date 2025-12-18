@@ -495,7 +495,7 @@ class MSSpectrumDialog(QDialog):
                     for m2, p2 in atom_iso_dist:
                         m = m1 + m2
                         p = p1 * p2
-                        m_bin = round(m, 4) 
+                        m_bin = round(m, 6)
                         new_peaks[m_bin] = new_peaks.get(m_bin, 0) + p
                 
                 sorted_p = sorted(new_peaks.items())
