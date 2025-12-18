@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (QMessageBox, QDialog, QVBoxLayout, QLabel,
                              QFormLayout, QGroupBox, QHBoxLayout, QComboBox, QTextEdit, 
                              QInputDialog, QTabWidget, QCheckBox, QRadioButton, QButtonGroup,
                              QWidget, QScrollArea)
-from PyQt6.QtGui import QPalette, QColor
+from PyQt6.QtGui import QPalette, QColor, QFont
 from PyQt6.QtCore import Qt
 from rdkit import Chem
 import json
@@ -98,7 +98,7 @@ class RouteBuilderDialog(QDialog):
         
         # Method Type
         self.method_type = QComboBox()
-        self.method_type.addItems(["DFT", "MP2", "Hartree-Fock", "Semi-Empirical", "Other"])
+        self.method_type.addItems(["DFT", "Double Hybrid", "MP2", "Hartree-Fock", "Semi-Empirical", "Other"])
         self.method_type.currentIndexChanged.connect(self.update_method_list)
         layout.addRow("Method Type:", self.method_type)
         
@@ -115,7 +115,7 @@ class RouteBuilderDialog(QDialog):
         basis_groups = [
             "6-31G(d)", "6-31+G(d,p)", "6-311G(d,p)", "6-311+G(d,p)", # Pople
             "cc-pVDZ", "cc-pVTZ", "aug-cc-pVDZ", "aug-cc-pVTZ", # Dunning
-            "def2SV(P)", "def2SVP", "def2TZVP", "def2QZVP", # Karlsruhe
+            "def2SVP", "def2TZVP", "def2QZVP", # Karlsruhe
             "LanL2DZ", "SDD", "Gen", "GenECP" # ECP/Gen
         ]
         self.basis_set.addItems(basis_groups)
@@ -130,8 +130,11 @@ class RouteBuilderDialog(QDialog):
         
         if mtype == "DFT":
             self.method_name.addItems([
-                "B3LYP", "WB97XD", "M062X", "PBE0", "CAM-B3LYP", "APFD", "B97D3", "TPSSTPSS"
+                "B3LYP", "WB97XD", "M062X", "PBE0", "CAM-B3LYP", "APFD", "B97D3", "TPSSTPSS",
+                "MN15", "MN15L", "BHandHLYP"
             ])
+        elif mtype == "Double Hybrid":
+            self.method_name.addItems(["B2PLYP"])
         elif mtype == "MP2":
             self.method_name.addItems(["MP2", "MP3", "MP4", "CCSD", "CCSD(T)"])
         elif mtype == "Hartree-Fock":
@@ -544,10 +547,19 @@ class GaussianSetupDialog(QDialog):
         main_layout.addWidget(tail_group)
 
         # --- Save Button ---
+        # --- Save/Preview Buttons ---
+        btn_box = QHBoxLayout()
+        
+        self.btn_preview = QPushButton("Preview Input")
+        self.btn_preview.clicked.connect(self.preview_file)
+        btn_box.addWidget(self.btn_preview)
+
         self.save_btn = QPushButton("Save Input File...")
         self.save_btn.clicked.connect(self.save_file)
         self.save_btn.setStyleSheet("font-weight: bold; padding: 5px;")
-        main_layout.addWidget(self.save_btn)
+        btn_box.addWidget(self.save_btn)
+        
+        main_layout.addLayout(btn_box)
 
         self.setLayout(main_layout)
 
@@ -573,8 +585,85 @@ class GaussianSetupDialog(QDialog):
             
         return "\n".join(lines)
 
+    def generate_input_content(self):
+        """Generates the full content of the input file as a string."""
+        lines = []
+        
+        # --- Link 0 Section ---
+        lines.append(f"%nprocshared={self.nproc_spin.value()}")
+        lines.append(f"%mem={self.mem_spin.value()}{self.mem_unit.currentText()}")
+        
+        chk_name = self.chk_edit.text().strip()
+        if chk_name and not chk_name.endswith(".chk"): chk_name += ".chk"
+        if chk_name: lines.append(f"%chk={chk_name}")
+
+        # --- Route Section ---
+        route_line = self.keywords_edit.text().strip()
+        if not route_line.startswith("#"):
+            route_line = "# " + route_line
+        lines.append(f"{route_line}")
+        lines.append("") # Blank line required
+        
+        # --- Title Section ---
+        title_line = self.title_edit.text().strip()
+        if not title_line:
+            title_line = "Gaussian Job"
+        lines.append(f"{title_line}")
+        lines.append("") # Blank line required
+        
+        # --- Charge & Multiplicity ---
+        lines.append(f"{self.charge_spin.value()} {self.mult_spin.value()}")
+        
+        # --- Molecule Specification ---
+        coords_block = self.get_coords_string()
+        if "Error" in coords_block:
+            return f"# Error generating coordinates: {coords_block}"
+        lines.append(coords_block)
+        lines.append("") # Must end coord block with newline
+        
+        # --- Additional Input (Tail) ---
+        tail_content = self.tail_edit.toPlainText()
+        if tail_content.strip():
+            # Ensure blank line before tail if needed (already added above)
+            # Actually, standard Gaussian input format:
+            # Route
+            # <blank>
+            # Title
+            # <blank>
+            # Charge Mult
+            # Coords
+            # <blank>
+            # Tail
+            # <blank>
+            lines.append(tail_content)
+            # Ensure tail ends with newline (managed by join)
+        
+        # Final blank line
+        lines.append("")
+        
+        return "\n".join(lines)
+
+    def preview_file(self):
+        content = self.generate_input_content()
+        
+        d = QDialog(self)
+        d.setWindowTitle("Preview Input - Gaussian Neo")
+        d.resize(600, 500)
+        l = QVBoxLayout()
+        t = QTextEdit()
+        t.setPlainText(content)
+        t.setReadOnly(True)
+        t.setFont(QFont("Courier New", 10))
+        l.addWidget(t)
+        
+        btn = QPushButton("Close")
+        btn.clicked.connect(d.accept)
+        l.addWidget(btn)
+        d.setLayout(l)
+        d.exec()
+
     def save_file(self):
-        # 座標データの取得
+        # 座標データの取得 (Check for error first)
         coords_block = self.get_coords_string()
         if "Error" in coords_block:
             QMessageBox.critical(self, "Error", coords_block)
@@ -591,52 +680,39 @@ class GaussianSetupDialog(QDialog):
                 filename_base = os.path.splitext(os.path.basename(file_path))[0]
                 chk_name = self.chk_edit.text().strip()
                 if not chk_name:
-                    chk_name = f"{filename_base}.chk"
-                # 拡張子がなければ付ける
-                if not chk_name.endswith(".chk"):
-                    chk_name += ".chk"
+                    # Set temporary chk name for generation, but we need to update the content?
+                    # The generate_input_content uses self.chk_edit.
+                    # If empty, it doesn't add %chk line (or we should add logic there).
+                    # Wait, old code logic: if empty, used filename_base.chk.
+                    # I should replicate that logic to be safe, or just auto-fill chk_edit on save?
+                    # Let's auto-fill the field if empty? Or just pass it.
+                    # To be consistent with preview, maybe we should update the UI field?
+                    # Or just construct content with the filename.
+                    pass
+                
+                # Special handling for %chk auto-generation if field is empty
+                # We want the content to have the chk name based on the file unless specified.
+                # Let's temporarily set the chk text if empty, then restore?
+                # Or pass an argument to generate_input_content.
+                # Simpler: just use generate_input_content as is.
+                # BUT, original code did: `if not chk_name: chk_name = f"{filename_base}.chk"`
+                # So if I use `generate_input_content`, I miss this feature if I don't handle it.
+                
+                # Let's modify generate_input_content to handle "auto" chk?
+                # No, let's just do it here properly.
+                
+                # Update CHK field if empty?
+                original_chk = self.chk_edit.text()
+                if not original_chk.strip():
+                     self.chk_edit.setText(f"{filename_base}.chk")
+                
+                content = self.generate_input_content()
+                
+                # Restore if we want? Maybe keep it.
+                # If we keep it, the user sees what was used. Good.
 
                 with open(file_path, 'w', encoding='utf-8') as f:
-                    # --- Link 0 Section ---
-                    f.write(f"%nprocshared={self.nproc_spin.value()}\n")
-                    f.write(f"%mem={self.mem_spin.value()}{self.mem_unit.currentText()}\n")
-                    f.write(f"%chk={chk_name}\n")
-                    
-                    # --- Route Section ---
-                    route_line = self.keywords_edit.text().strip()
-                    if not route_line.startswith("#"):
-                        route_line = "# " + route_line
-                    f.write(f"{route_line}\n")
-                    f.write("\n") # Blank line required
-                    
-                    # --- Title Section ---
-                    title_line = self.title_edit.text().strip()
-                    if not title_line:
-                        title_line = "Gaussian Job"
-                    f.write(f"{title_line}\n")
-                    f.write("\n") # Blank line required
-                    
-                    # --- Charge & Multiplicity ---
-                    f.write(f"{self.charge_spin.value()} {self.mult_spin.value()}\n")
-                    
-                    # --- Molecule Specification ---
-                    f.write(coords_block)
-                    f.write("\n") # Must end coord block with newline
-                    
-                    # --- Additional Input (Tail) ---
-                    # ModRedundant, Basis Set data, etc.
-                    tail_content = self.tail_edit.toPlainText()
-                    if tail_content.strip():
-                        # 前に空行が必要（座標ブロック終了のため）
-                        f.write("\n") 
-                        f.write(tail_content)
-                        # 末尾が改行で終わるように調整
-                        if not tail_content.endswith("\n"):
-                            f.write("\n")
-                    
-                    # --- Final Blank Line ---
-                    # Gaussian input files generally require empty lines at the end
-                    f.write("\n")
+                    f.write(content)
 
                 QMessageBox.information(self, "Success", f"File saved:\n{file_path}")
                 self.accept()
