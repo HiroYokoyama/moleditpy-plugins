@@ -333,7 +333,7 @@
       "rdkit",
       "PyQt6"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/orca_xyz2inp/tree/main/moleditpy_plugin",
+    "downloadUrl": "https://github.com/HiroYokoyama/orca_xyz2inp/blob/891f571185e8ce93e0dd8a6a1a9b0f93331a80b6/moleditpy_plugin/orca_xyz2inp_gui.py",
     "lastUpdated": "2025-12-18"
   },
   {
@@ -354,4 +354,5 @@
     "downloadUrl": "../plugins/MS_Spectrum_Simulation_Neo/ms_spectrum_neo.py",
     "lastUpdated": "2025-12-18"
   }
+
 ]
