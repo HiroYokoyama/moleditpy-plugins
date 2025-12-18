@@ -4,9 +4,10 @@ from PyQt6.QtWidgets import (QMessageBox, QDialog, QVBoxLayout, QLabel,
                              QLineEdit, QSpinBox, QPushButton, QFileDialog, 
                              QFormLayout, QGroupBox, QHBoxLayout, QComboBox, QTextEdit, 
                              QTabWidget, QCheckBox, QWidget, QScrollArea, QMenu)
-from PyQt6.QtGui import QPalette, QColor, QAction
+from PyQt6.QtGui import QPalette, QColor, QAction, QFont
 from PyQt6.QtCore import Qt
 from rdkit import Chem
+from rdkit.Chem import rdMolTransforms
 import json
 
 __version__="2025.12.18"
@@ -425,11 +426,12 @@ class OrcaSetupDialogNeo(QDialog):
     """
     ORCA Input Generator Neo
     """
-    def __init__(self, parent=None, mol=None):
+    def __init__(self, parent=None, mol=None, filename=None):
         super().__init__(parent)
         self.setWindowTitle(PLUGIN_NAME)
         self.resize(600, 700)
         self.mol = mol
+        self.filename = filename
         self.setup_ui()
         self.load_presets_from_file()
         self.calc_initial_charge_mult()
@@ -521,6 +523,18 @@ class OrcaSetupDialogNeo(QDialog):
         mol_group.setLayout(mol_layout)
         main_layout.addWidget(mol_group)
 
+        # --- 3b. Coordinate Format ---
+        coord_group = QGroupBox("Coordinate Format")
+        coord_layout = QHBoxLayout()
+        self.coord_format_combo = QComboBox()
+        self.coord_format_combo.addItems(["Cartesian (XYZ)", "Internal (Z-Matrix / * int)", "Internal (Z-Matrix / * gzmt)"])
+        self.coord_format_combo.setCurrentIndex(0)
+        self.coord_format_combo.setEnabled(True)
+        coord_layout.addWidget(QLabel("Format:"))
+        coord_layout.addWidget(self.coord_format_combo)
+        coord_group.setLayout(coord_layout)
+        main_layout.addWidget(coord_group)
+
         # --- 4. Advanced/Blocks ---
         adv_group = QGroupBox("Advanced Blocks (Pre/Post Coordinates)")
         adv_layout = QVBoxLayout()
@@ -541,7 +555,7 @@ class OrcaSetupDialogNeo(QDialog):
              "%cis ... end", 
              "%mrci ... end",
              "%casscf ... end",
-             "%rr ... end"
+             "%eprnmr ... end (Post)",
         ])
         blk_h_layout.addWidget(self.block_combo, 1)
         
@@ -551,18 +565,35 @@ class OrcaSetupDialogNeo(QDialog):
         
         adv_layout.addLayout(blk_h_layout)
         
+        # Tabs for Pre/Post
+        self.adv_tabs = QTabWidget()
+        
         self.adv_edit = QTextEdit()
-        self.adv_edit.setPlaceholderText("Example:\n%scf\n MaxIter 100\nend\n\n%output\n Print[P_Hirshfeld] 1\nend")
-        adv_layout.addWidget(self.adv_edit)
+        self.adv_edit.setPlaceholderText("Pre-Coordinate Blocks\nExample:\n%scf\n MaxIter 100\nend")
+        self.adv_tabs.addTab(self.adv_edit, "Pre-Coordinate")
+        
+        self.post_adv_edit = QTextEdit()
+        self.post_adv_edit.setPlaceholderText("Post-Coordinate Blocks")
+        self.adv_tabs.addTab(self.post_adv_edit, "Post-Coordinate")
+        
+        adv_layout.addWidget(self.adv_tabs)
 
         adv_group.setLayout(adv_layout)
         main_layout.addWidget(adv_group)
 
-        # --- Save Button ---
+        # --- Save/Preview Buttons ---
+        btn_box = QHBoxLayout()
+        
+        self.btn_preview = QPushButton("Preview Input")
+        self.btn_preview.clicked.connect(self.preview_file)
+        btn_box.addWidget(self.btn_preview)
+        
         self.save_btn = QPushButton("Save Input File...")
         self.save_btn.clicked.connect(self.save_file)
         self.save_btn.setStyleSheet("font-weight: bold; padding: 5px;")
-        main_layout.addWidget(self.save_btn)
+        btn_box.addWidget(self.save_btn)
+        
+        main_layout.addLayout(btn_box)
         
         self.setLayout(main_layout)
 
@@ -574,7 +605,7 @@ class OrcaSetupDialogNeo(QDialog):
         if "%scf" in txt:
              template = "%scf\n MaxIter 125\nend\n"
         elif "%output" in txt:
-             template = "%output\n Print[P_Hirshfeld] 1\nend\n"
+             template = "%output\n  PrintLevel     Normal\nend\n"
         elif "%geom" in txt:
              template = "%geom\n MaxIter 100\nend\n"
         elif "%elprop" in txt:
@@ -599,9 +630,15 @@ class OrcaSetupDialogNeo(QDialog):
              template = "%mrci\n NewBlocks 1 1\nend\n"
         elif "%casscf" in txt:
              template = "%casscf\n Nel 2\n Norb 2\n Mult 1\nend\n"
+        elif "%eprnmr" in txt:
+             template = "%eprnmr\n     nuclei = all h {shift, ssall}\nend\n"
+             # Switch to Post-Coordinate tab automatically
+             self.adv_tabs.setCurrentWidget(self.post_adv_edit)
         
-        cursor = self.adv_edit.textCursor()
-        cursor.insertText(template)
+        current_widget = self.adv_tabs.currentWidget()
+        if isinstance(current_widget, QTextEdit):
+            cursor = current_widget.textCursor()
+            cursor.insertText(template)
 
     def open_keyword_builder(self):
         dialog = OrcaKeywordBuilderDialog(self, self.keywords_edit.text())
@@ -621,44 +658,240 @@ class OrcaSetupDialogNeo(QDialog):
             return [f"# Error: {e}"]
         return lines
 
-    def save_file(self):
-        coord_lines = self.get_coords_lines()
-        if any("Error" in line for line in coord_lines):
-            QMessageBox.critical(self, "Error", "\n".join(coord_lines))
-            return
+    def _build_zmatrix_data(self):
+        """Helper to build Z-Matrix connectivity and values."""
+        if not self.mol: return None
+        try:
+            atoms = list(self.mol.GetAtoms())
+            conf = self.mol.GetConformer()
+            
+            def get_dist(i, j): return rdMolTransforms.GetBondLength(conf, i, j)
+            def get_angle(i, j, k): return rdMolTransforms.GetAngleDeg(conf, i, j, k)
+            def get_dihedral(i, j, k, l): return rdMolTransforms.GetDihedralDeg(conf, i, j, k, l)
+            
+            defined = []
+            z_data = [] # List of dicts for each atom
+            
+            for i, atom in enumerate(atoms):
+                symbol = atom.GetSymbol()
+                
+                # Atom 0
+                if i == 0:
+                    z_data.append({"symbol": symbol, "refs": []})
+                    defined.append(i)
+                    continue
+                
+                # Find neighbors in defined set
+                current_idx = atom.GetIdx()
+                neighbors = [n.GetIdx() for n in atom.GetNeighbors()]
+                candidates = [n for n in neighbors if n in defined]
+                if not candidates: candidates = defined[:] # Fallback
+                
+                refs = []
+                # Ref 1 (Distance)
+                if candidates: refs.append(candidates[-1])
+                else: refs.append(0)
+                
+                # Ref 2 (Angle)
+                candidates_2 = [x for x in defined if x != refs[0]]
+                if candidates_2: refs.append(candidates_2[-1])
+                
+                # Ref 3 (Dihedral)
+                candidates_3 = [x for x in defined if x not in refs]
+                if candidates_3: refs.append(candidates_3[-1])
+                
+                # Calculate Values
+                row = {"symbol": symbol, "refs": [], "values": []}
+                
+                if len(refs) >= 1:
+                    row["refs"].append(refs[0]) # 0-based index for calculation
+                    row["values"].append(get_dist(i, refs[0]))
+                
+                if len(refs) >= 2:
+                    row["refs"].append(refs[1])
+                    row["values"].append(get_angle(i, refs[0], refs[1]))
+                
+                if len(refs) >= 3:
+                    row["refs"].append(refs[2])
+                    row["values"].append(get_dihedral(i, refs[0], refs[1], refs[2]))
+                
+                z_data.append(row)
+                defined.append(i)
+                
+            return z_data
+        except Exception as e:
+            raise e
 
+    def get_zmatrix_standard_lines(self):
+        """
+        Generates * int style lines.
+        Format: Symbol Ref1 Ref2 Ref3 R Angle Dihed
+        Refs are 1-based integers. Missing refs/values are 0/0.0.
+        """
+        try:
+            data = self._build_zmatrix_data()
+            if not data: return []
+            
+            lines = []
+            for i, row in enumerate(data):
+                symbol = row["symbol"]
+                
+                # Prepare 3 refs (1-based) and 3 values
+                refs_out = [0, 0, 0]
+                vals_out = [0.0, 0.0, 0.0]
+                
+                current_refs = row["refs"]
+                current_vals = row.get("values", [])
+                
+                for k in range(min(3, len(current_refs))):
+                    refs_out[k] = current_refs[k] + 1 # Convert to 1-based
+                    vals_out[k] = current_vals[k]
+                    
+                line = f"  {symbol: <3} {refs_out[0]: >3} {refs_out[1]: >3} {refs_out[2]: >3} " \
+                       f"{vals_out[0]: >10.6f} {vals_out[1]: >10.6f} {vals_out[2]: >10.6f}"
+                lines.append(line)
+            return lines
+        except Exception as e:
+            return [f"# Error generating Standard Z-Matrix: {e}"]
+
+    def get_zmatrix_gzmt_lines(self):
+        """
+        Generates * gzmt style lines (Compact).
+        Format: Symbol Ref1 R Ref2 Angle Ref3 Dihed
+        Refs are 1-based.
+        """
+        try:
+            data = self._build_zmatrix_data()
+            if not data: return []
+            
+            lines = []
+            for i, row in enumerate(data):
+                symbol = row["symbol"]
+                line = f"  {symbol: <3}"
+                
+                current_refs = row["refs"]
+                current_vals = row.get("values", [])
+                
+                # Z-Matrix logic:
+                # Atom 1: Symbol
+                # Atom 2: Symbol Ref1 R
+                # Atom 3: Symbol Ref1 R Ref2 A
+                # Atom 4: Symbol Ref1 R Ref2 A Ref3 D
+                
+                if i == 0:
+                    pass
+                else:
+                    count = len(current_refs)
+                    if count >= 1:
+                        line += f"  {current_refs[0] + 1: >3} {current_vals[0]: .6f}"
+                    if count >= 2:
+                        line += f"  {current_refs[1] + 1: >3} {current_vals[1]: .6f}"
+                    if count >= 3:
+                        line += f"  {current_refs[2] + 1: >3} {current_vals[2]: .6f}"
+                
+                lines.append(line)
+            return lines
+        except Exception as e:
+            return [f"# Error generating GZMT Z-Matrix: {e}"]
+
+
+    def generate_input_content(self):
+        """Generates the full content of the input file as a string."""
+        content = []
+        
+        comment = self.comment_edit.text().strip()
+        if comment:
+                content.append(f"# {comment}")
+        
+        # Resources
+        nprocs = self.nproc_spin.value()
+        if nprocs > 1:
+            content.append(f"%pal nprocs {nprocs} end")
+        content.append(f"%maxcore {self.mem_spin.value()}\n")
+        
+        # Keywords
+        kw = self.keywords_edit.text().strip()
+        if not kw.startswith("!"): kw = "! " + kw
+        content.append(f"{kw}\n")
+        
+        # Advanced Blocks
+        adv = self.adv_edit.toPlainText().strip()
+        if adv:
+            content.append(f"{adv}\n")
+        
+        # Coordinates
+        is_cartesian = "Cartesian" in self.coord_format_combo.currentText()
+        coord_lines = self.get_coords_lines()
+        
+        if is_cartesian:
+            content.append(f"* xyz {self.charge_spin.value()} {self.mult_spin.value()}")
+            content.extend(coord_lines)
+            content.append("*")
+        else:
+            # Z-Matrix
+            is_gzmt = "gzmt" in self.coord_format_combo.currentText()
+            
+            if is_gzmt:
+                zmat_lines = self.get_zmatrix_gzmt_lines()
+                header = "* gzmt"
+            else:
+                zmat_lines = self.get_zmatrix_standard_lines()
+                header = "* int"
+                
+            if any("Error" in line for line in zmat_lines):
+                    content.append(f"# ERROR: Z-Matrix generation failed.")
+                    content.append(f"* xyz {self.charge_spin.value()} {self.mult_spin.value()}")
+                    content.extend(self.get_coords_lines())
+                    content.append("*")
+            else:
+                    content.append(f"{header} {self.charge_spin.value()} {self.mult_spin.value()}")
+                    content.extend(zmat_lines)
+                    content.append("*")
+                    
+        # Post-Coordinate Blocks
+        adv_post = self.post_adv_edit.toPlainText().strip()
+        if adv_post:
+            content.append(f"\n{adv_post}")
+            
+        return "\n".join(content)
+
+    def preview_file(self):
+        content = self.generate_input_content()
+        
+        d = QDialog(self)
+        d.setWindowTitle("Preview Input - ORCA Neo")
+        d.resize(600, 500)
+        l = QVBoxLayout()
+        t = QTextEdit()
+        t.setPlainText(content)
+        t.setReadOnly(True)
+        t.setFont(QFont("Courier New", 10))
+        l.addWidget(t)
+        
+        btn = QPushButton("Close")
+        btn.clicked.connect(d.accept)
+        l.addWidget(btn)
+        d.setLayout(l)
+        d.exec()
+
+    def save_file(self):
+        # Validation Check (e.g. Z-Matrix Error)
+        # We can re-check here or just trust generate_input_content
+        
+        default_name = ""
+        if self.filename:
+            base, _ = os.path.splitext(self.filename)
+            default_name = base + ".inp"
+        
         file_path, _ = QFileDialog.getSaveFileName(
-            self, "Save ORCA Input", "", "ORCA Input (*.inp);;All Files (*)"
+            self, "Save ORCA Input", default_name, "ORCA Input (*.inp);;All Files (*)"
         )
 
         if file_path:
             try:
+                content = self.generate_input_content()
                 with open(file_path, 'w', encoding='utf-8') as f:
-                    comment = self.comment_edit.text().strip()
-                    if comment:
-                         f.write(f"# {comment}\n")
-                    
-                    # Resources
-                    nprocs = self.nproc_spin.value()
-                    if nprocs > 1:
-                        f.write(f"%pal nprocs {nprocs} end\n")
-                    f.write(f"%maxcore {self.mem_spin.value()}\n\n")
-                    
-                    # Keywords
-                    kw = self.keywords_edit.text().strip()
-                    if not kw.startswith("!"): kw = "! " + kw
-                    f.write(f"{kw}\n\n")
-                    
-                    # Advanced Blocks
-                    adv = self.adv_edit.toPlainText().strip()
-                    if adv:
-                        f.write(f"{adv}\n\n")
-                    
-                    # Coordinates
-                    f.write(f"* xyz {self.charge_spin.value()} {self.mult_spin.value()}\n")
-                    for l in coord_lines:
-                        f.write(l + "\n")
-                    f.write("*\n")
+                    f.write(content)
 
                 QMessageBox.information(self, "Success", f"File saved:\n{file_path}")
                 self.accept()
@@ -678,7 +911,7 @@ class OrcaSetupDialogNeo(QDialog):
         if "Default" not in self.presets_data:
             self.presets_data["Default"] = {
                 "nproc": 4, "maxcore": 2000, 
-                "route": "! B3LYP def2-SVP Opt Freq", "adv": ""
+                "route": "! B3LYP def2-SVP Opt Freq", "adv": "", "adv_post": ""
             }
         
         self.update_preset_combo()
@@ -706,6 +939,7 @@ class OrcaSetupDialogNeo(QDialog):
         self.mem_spin.setValue(data.get("maxcore", 2000))
         self.keywords_edit.setText(data.get("route", "! B3LYP def2-SVP Opt Freq"))
         self.adv_edit.setPlainText(data.get("adv", ""))
+        self.post_adv_edit.setPlainText(data.get("adv_post", ""))
 
     def save_preset_dialog(self):
         name, ok = QInputDialog.getText(self, "Save Preset", "Preset Name:")
@@ -714,7 +948,8 @@ class OrcaSetupDialogNeo(QDialog):
                 "nproc": self.nproc_spin.value(),
                 "maxcore": self.mem_spin.value(),
                 "route": self.keywords_edit.text(),
-                "adv": self.adv_edit.toPlainText()
+                "adv": self.adv_edit.toPlainText(),
+                "adv_post": self.post_adv_edit.toPlainText()
             }
             self.save_presets_to_file()
             self.update_preset_combo()
@@ -784,5 +1019,7 @@ def run(main_window):
     if not mol:
         QMessageBox.warning(main_window, PLUGIN_NAME, "No molecule loaded.")
         return
-    dialog = OrcaSetupDialogNeo(parent=main_window, mol=mol)
+        
+    filename = getattr(main_window, 'current_file_path', None)
+    dialog = OrcaSetupDialogNeo(parent=main_window, mol=mol, filename=filename)
     dialog.exec()
