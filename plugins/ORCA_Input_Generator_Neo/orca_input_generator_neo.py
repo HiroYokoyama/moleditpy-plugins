@@ -145,8 +145,9 @@ class OrcaKeywordBuilderDialog(QDialog):
         if "GGA/Hybrid" in mtype:
              self.method_name.addItems([
                  "B3LYP", "PBE0", "PBE", "BP86", "BLYP", "PW91", 
-                 "TPSSh", "TPSS", "SCAN", "M06", "M06-2X", "M06-HF", "M06-L",
-                 "X3LYP", "O3LYP", "B3PW91", "BH&HLYP"
+                 "TPSSh", "TPSS", "SCAN", "r2SCAN-3c", "B97-3c", "PBEh-3c", # 3c系を追加
+                 "M06", "M06-2X", "M06-HF", "M06-L",
+                 "X3LYP", "O3LYP", "B3PW91", "BHandHLYP" # BH&HLYPをBHandHLYPに修正
              ])
         elif "Range-Separated" in mtype:
              self.method_name.addItems([
@@ -160,7 +161,7 @@ class OrcaKeywordBuilderDialog(QDialog):
              ])
         elif "Wavefunction (HF/MP2)" in mtype:
              self.method_name.addItems([
-                 "HF", "UHF", "ROHF", 
+                 "HF", "HF-3c", "UHF", "ROHF", # HF-3cを追加
                  "MP2", "RI-MP2", "SCS-MP2", "OO-RI-MP2"
              ])
         elif "Coupled Cluster" in mtype:
