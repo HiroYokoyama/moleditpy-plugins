@@ -205,11 +205,14 @@ def read_cube(filename):
     return build_grid_from_meta(meta)
 
 class CubeViewerWidget(QWidget):
-    def __init__(self, parent_window, dock_widget, grid):
+    def __init__(self, parent_window, dock_widget, grid, data_max=1.0):
         super().__init__(parent_window)
         self.mw = parent_window
         self.dock = dock_widget 
         self.grid = grid
+        # Ensure we have a reasonable positive max value
+        self.data_max = max(abs(float(data_max)), 1e-6)
+        
         self.iso_actor_p = None
         self.iso_actor_n = None
         
@@ -230,13 +233,24 @@ class CubeViewerWidget(QWidget):
         ctrl_layout.addWidget(QLabel("Isovalue:"))
         
         # Spinbox: Fixed max 1.0 as requested
-        self.max_val = 1.0
+        # Spinbox: Dynamic max based on data
+        # We allow going a bit higher than the max found in data, e.g. 1.2x, just in case
+        self.max_val = self.data_max * 1.2
         
         self.spin = QDoubleSpinBox()
         self.spin.setRange(0.0001, self.max_val) 
-        self.spin.setSingleStep(0.002)
-        self.spin.setDecimals(4)
-        self.spin.setValue(0.05)
+        self.spin.setSingleStep(0.01) # User requested 0.01 step
+        self.spin.setDecimals(5)
+        
+        # Default value strategy: 
+        # User requested hardcoded 0.05
+        default_val = 0.05
+        
+        # If default is outside the max range, adjust it
+        if default_val > self.max_val:
+            default_val = self.max_val * 0.1
+            
+        self.spin.setValue(default_val)
         
         self.spin.valueChanged.connect(self.on_spin_changed)
         ctrl_layout.addWidget(self.spin)
@@ -248,7 +262,7 @@ class CubeViewerWidget(QWidget):
         self.slider.setRange(0, self.slider_max_int)
         
         # Default 0.05
-        default_val = 0.05
+        # Default set from spinbox value
         self.slider.setValue(int((default_val / self.max_val) * self.slider_max_int))
         
         self.slider.valueChanged.connect(self.on_slider_changed)
@@ -606,7 +620,19 @@ def open_cube_viewer(main_window, fname):
         dock = QDockWidget("Cube Viewer", main_window)
         dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea)
         
-        viewer = CubeViewerWidget(main_window, dock, grid)
+        # Calculate max absolute value in data for dynamic scaling
+        try:
+            # Data is stored in grid.point_data["values"]
+            # "make sure that the data is only in the plot data"
+            flat_data = grid.point_data["values"]
+            if len(flat_data) > 0:
+                data_max = float(np.max(np.abs(flat_data)))
+            else:
+                data_max = 1.0
+        except:
+             data_max = 1.0
+
+        viewer = CubeViewerWidget(main_window, dock, grid, data_max=data_max)
         dock.setWidget(viewer)
         
         main_window.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
