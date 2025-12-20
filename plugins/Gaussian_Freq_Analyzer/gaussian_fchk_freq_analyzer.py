@@ -513,7 +513,8 @@ class GaussianFCHKFreqAnalyzer(QWidget):
 
     def on_freq_selected(self, current, previous):
         if self.is_playing:
-            self.stop_play() 
+            # Transition smoothly to new selected mode
+            pass
         else:
             self.update_vectors()
 

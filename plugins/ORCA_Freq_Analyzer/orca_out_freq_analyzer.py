@@ -587,8 +587,12 @@ class OrcaOutFreqAnalyzer(QWidget):
 
     def on_freq_selected(self, current, previous):
         if self.is_playing:
-            self.stop_play()
+            # Transition smoothly: Reset geometry base for next frame calculation? 
+            # animate_frame uses base coords + displacement, so it handles switch naturally.
+            # Just ensure vectors update if needed (animate_frame updates them too)
+            pass 
         else:
+            self.reset_geometry()
             self.update_vectors()
 
     def toggle_play(self):
