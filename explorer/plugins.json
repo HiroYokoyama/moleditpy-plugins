@@ -395,5 +395,21 @@
     ],
     "downloadUrl": "../plugins/ORCA_Freq_Analyzer/orca_out_freq_analyzer.py",
     "lastUpdated": "2025-12-20"
+  },
+  {
+    "id": "paste_xyz",
+    "visible": true,
+    "name": "Paste XYZ",
+    "version": "2025.12.20",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Analyzes vibrational frequencies from ORCA output files. View IR spectrum, animate normal modes, and export GIF animations.",
+    "tags": [
+      "File"
+    ],
+    "dependencies": [
+    ],
+    "downloadUrl": "../plugins/Paste_XYZ/paste_xyz.py",
+    "lastUpdated": "2025-12-20"
   }
 ]
