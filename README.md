@@ -58,12 +58,16 @@ A player for viewing multi-frame XYZ files and recording GIF animations using PI
 ### Gallery
 
 <p align="center">
-  <img src="img/gaussian-input.png" width="45%" alt="Gaussian Input Generator">
-  <img src="img/freq-analysis.png" width="45%" alt="Frequency Analyzer">
+  <img src="img/gaussian-input.png" width="100%" alt="Gaussian Input Generator">
 </p>
 <p align="center">
-  <img src="img/ms-spectrum.png" width="45%" alt="MS Spectrum Simulation">
-  <img src="img/cube-viewer.png" width="45%" alt="Cube File Viewer">
+  <img src="img/ms-spectrum.png" width="100%" alt="MS Spectrum Simulation">
+</p>
+<p align="center">
+  <img src="img/freq-analysis.png" width="100%" alt="Frequency Analyzer">
+</p>
+<p align="center">
+  <img src="img/cube-viewer.png" width="100%" alt="Cube File Viewer">
 </p>
 
 ## Installation
