@@ -588,9 +588,8 @@ class OrcaOutFreqAnalyzer(QWidget):
     def on_freq_selected(self, current, previous):
         if self.is_playing:
             self.stop_play()
-            self.toggle_play()
         else:
-            self.toggle_play()
+            self.update_vectors()
 
     def toggle_play(self):
         curr = self.list_freq.currentItem()
