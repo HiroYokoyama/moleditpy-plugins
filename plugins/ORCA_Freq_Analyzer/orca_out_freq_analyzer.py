@@ -338,7 +338,7 @@ class OrcaParser:
                     vec_formatted.append((raw_vec[k], raw_vec[k+1], raw_vec[k+2]))
                 
                 # Get intensity for this mode from intensity_map
-                intensity = intensity_map.get(mid, 0.0)
+                intensity = intensity_map.get(mid, None)
                     
                 self.final_modes.append({'freq': freq, 'intensity': intensity, 'vector': vec_formatted})
 
@@ -542,8 +542,8 @@ class OrcaOutFreqAnalyzer(QWidget):
                 item.setText(1, f"{freq:.2f}")
                 
                 # Get intensity from the mode dictionary
-                inten = mode.get('intensity', 0.0)
-                if inten > 0:
+                inten = mode.get('intensity')
+                if inten is not None:
                      item.setText(2, f"{inten:.2f}")
                 else:
                      item.setText(2, "-")
