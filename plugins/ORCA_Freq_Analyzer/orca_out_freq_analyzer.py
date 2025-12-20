@@ -817,7 +817,7 @@ class SpectrumDialog(QDialog):
         controls.addWidget(QLabel("Gaussian Broadening (FWHM, cm⁻¹):"))
         self.spin_fwhm = QSpinBox()
         self.spin_fwhm.setRange(1, 500)
-        self.spin_fwhm.setValue(80)
+        self.spin_fwhm.setValue(50)
         self.spin_fwhm.valueChanged.connect(self.on_fwhm_changed)
         controls.addWidget(self.spin_fwhm)
         
