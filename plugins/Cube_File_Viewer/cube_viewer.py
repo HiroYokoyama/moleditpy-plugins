@@ -22,15 +22,15 @@ except ImportError:
     Chem = None
     Geometry = None
     rdDetermineBonds = None
-
+    
+__version__="2025.12.20"
+__author__="HiroYokoyama"
 PLUGIN_NAME = "Cube File Viewer"
 
-def read_cube(filename):
+def parse_cube_data(filename):
     """
-    Parses a Gaussian Cube file.
-    Returns:
-        meta: dict with atoms and origin info
-        grid: pyvista.UniformGrid with data attached
+    Parses a Gaussian Cube file and returns raw data structures.
+    Adapted from test.py with robust header handling.
     """
     with open(filename, 'r') as f:
         lines = f.readlines()
@@ -38,78 +38,121 @@ def read_cube(filename):
     if len(lines) < 6:
         raise ValueError("File too short to be a Cube file.")
 
-    # Lines 1-2: Comments
-    # Line 3: Natoms, OriginX, OriginY, OriginZ
+    # --- Header Parsing ---
+    # Line 3: Natoms, Origin
     tokens = lines[2].split()
     n_atoms_raw = int(tokens[0])
-    n_atoms = abs(n_atoms_raw) 
-    origin = np.array([float(tokens[1]), float(tokens[2]), float(tokens[3])])
+    n_atoms = abs(n_atoms_raw)
+    origin_raw = np.array([float(tokens[1]), float(tokens[2]), float(tokens[3])])
 
-    # Lines 4-6: NX, X-vec; NY, Y-vec; NZ, Z-vec
-    tokens = lines[3].split()
-    nx = int(tokens[0])
-    x_vec = np.array([float(tokens[1]), float(tokens[2]), float(tokens[3])])
+    # Lines 4-6: NX, NY, NZ and vectors
+    def parse_vec(line):
+        t = line.split()
+        return int(t[0]), np.array([float(t[1]), float(t[2]), float(t[3])])
 
-    tokens = lines[4].split()
-    ny = int(tokens[0])
-    y_vec = np.array([float(tokens[1]), float(tokens[2]), float(tokens[3])])
-
-    tokens = lines[5].split()
-    nz = int(tokens[0])
-    z_vec = np.array([float(tokens[1]), float(tokens[2]), float(tokens[3])])
-
-    # Units logic
-    BOHR_TO_ANGSTROM = 0.529177210903
-    units_bohr = True
-    if nx < 0 or ny < 0 or nz < 0:
-        units_bohr = False
-        nx, ny, nz = abs(nx), abs(ny), abs(nz)
+    nx, x_vec_raw = parse_vec(lines[3])
+    ny, y_vec_raw = parse_vec(lines[4])
+    nz, z_vec_raw = parse_vec(lines[5])
     
-    if units_bohr:
+    # Auto-detect units based on sign of NX/NY/NZ (Gaussian standard)
+    is_angstrom_header = (nx < 0 or ny < 0 or nz < 0)
+    
+    nx, ny, nz = abs(nx), abs(ny), abs(nz)
+
+    # --- Atoms Parsing ---
+    atoms = []
+    current_line = 6
+    if n_atoms_raw < 0:
+        # Smart check: if next line does not look like an atom line, skip it.
+        try:
+            parts = lines[current_line].split()
+            if len(parts) != 5: 
+                 current_line += 1
+        except:
+             current_line += 1
+
+    for _ in range(n_atoms):
+        line = lines[current_line].split()
+        current_line += 1
+        atomic_num = int(line[0])
+        try:
+            x, y, z = float(line[2]), float(line[3]), float(line[4])
+        except:
+            x, y, z = 0.0, 0.0, 0.0
+        atoms.append((atomic_num, np.array([x, y, z])))
+
+    # --- Volumetric Data Parsing ---
+    # Read rest of file
+    full_str = " ".join(lines[current_line:])
+    try:
+        data_values = np.fromstring(full_str, sep=' ')
+    except:
+        data_values = np.array([])
+    
+    expected_size = nx * ny * nz
+    actual_size = len(data_values)
+    
+    # FIX: Trim from START if excess > 0 (The header values are at the start)
+    # This logic fixes the shift issue test.py had.
+    if actual_size > expected_size:
+        excess = actual_size - expected_size
+        data_values = data_values[excess:]
+    elif actual_size < expected_size:
+        pad = np.zeros(expected_size - actual_size)
+        data_values = np.concatenate((data_values, pad))
+    
+    return {
+        "atoms": atoms,
+        "origin": origin_raw,
+        "x_vec": x_vec_raw,
+        "y_vec": y_vec_raw,
+        "z_vec": z_vec_raw,
+        "dims": (nx, ny, nz),
+        "data_flat": data_values,
+        "is_angstrom_header": is_angstrom_header
+    }
+
+def build_grid_from_meta(meta):
+    """
+    Reconstructs the PyVista grid.
+    Correctly handles standard Cube (Z-fast) mapping.
+    """
+    nx, ny, nz = meta['dims']
+    origin = meta['origin'].copy()
+    x_vec = meta['x_vec'].copy()
+    y_vec = meta['y_vec'].copy()
+    z_vec = meta['z_vec'].copy()
+    atoms = []
+    
+    # Units Handling (replicated logic)
+    BOHR_TO_ANGSTROM = 0.529177210903
+    convert_to_ang = True
+    if meta['is_angstrom_header']:
+        convert_to_ang = False
+            
+    if convert_to_ang:
         origin *= BOHR_TO_ANGSTROM
         x_vec *= BOHR_TO_ANGSTROM
         y_vec *= BOHR_TO_ANGSTROM
         z_vec *= BOHR_TO_ANGSTROM
+        
+    for anum, pos in meta['atoms']:
+        p = pos.copy()
+        if convert_to_ang:
+            p *= BOHR_TO_ANGSTROM
+        atoms.append((anum, p))
 
-    # Parse Atoms
-    atoms = []
-    current_line = 6
-    for i in range(n_atoms):
-        line = lines[current_line].split()
-        current_line += 1
-        atomic_num = int(line[0])
-        x, y, z = float(line[2]), float(line[3]), float(line[4])
-        pos = np.array([x, y, z])
-        if units_bohr:
-             pos *= BOHR_TO_ANGSTROM
-        atoms.append((atomic_num, pos))
-
-    # Skip extra header line if n_atoms_raw was negative
-    if n_atoms_raw < 0:
-        current_line += 1
-
-    # Parse Volumetric Data
-    data_values = []
-    for line in lines[current_line:]:
-        data_values.extend([float(v) for v in line.split()])
-    
-    data_np = np.array(data_values)
-    
-    expected_size = nx * ny * nz
-    if len(data_np) > expected_size:
-        data_np = data_np[:expected_size]
-    elif len(data_np) < expected_size:
-        pass 
-    
-    vol_data = data_np.reshape((nx, ny, nz))
-    
-    # Create PyVista Grid
+    # Grid Points Generation (Matches test.py logic for F-order consistency)
     x_range = np.arange(nx)
     y_range = np.arange(ny)
     z_range = np.arange(nz)
     
     gx, gy, gz = np.meshgrid(x_range, y_range, z_range, indexing='ij')
-    gx_f, gy_f, gz_f = gx.flatten(), gy.flatten(), gz.flatten()
+    
+    # Flatten using Fortran order (X-fast) for VTK Structure
+    gx_f = gx.flatten(order='F')
+    gy_f = gy.flatten(order='F')
+    gz_f = gz.flatten(order='F')
     
     points = (origin + 
               np.outer(gx_f, x_vec) + 
@@ -119,9 +162,21 @@ def read_cube(filename):
     grid = pv.StructuredGrid()
     grid.points = points
     grid.dimensions = [nx, ny, nz]
-    grid.point_data["values"] = vol_data.flatten(order='C')
     
+    # Data Mapping
+    raw_data = meta['data_flat']
+    
+    # Standard Cube: Z-Fast (C-order reshape)
+    # Then flatten F-order to match the X-fast points we just generated
+    # This logic matches test.py's implementation which user preferred
+    vol_3d = raw_data.reshape((nx, ny, nz), order='C')
+    grid.point_data["values"] = vol_3d.flatten(order='F')
+        
     return {"atoms": atoms}, grid
+
+def read_cube(filename):
+    meta = parse_cube_data(filename)
+    return build_grid_from_meta(meta)
 
 class CubeViewerWidget(QWidget):
     def __init__(self, parent_window, dock_widget, grid):
