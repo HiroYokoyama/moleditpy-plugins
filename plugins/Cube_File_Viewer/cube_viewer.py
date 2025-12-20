@@ -82,6 +82,32 @@ def parse_cube_data(filename):
         atoms.append((atomic_num, np.array([x, y, z])))
 
     # --- Volumetric Data Parsing ---
+    
+    # Skip metadata lines (e.g. "1 150") before data starts
+    while current_line < len(lines):
+        line_content = lines[current_line].strip()
+        parts = line_content.split()
+        
+        # Skip empty lines
+        if not parts:
+            current_line += 1
+            continue
+            
+        # Skip short lines (metadata often has few columns, data usually has 6)
+        if len(parts) < 6:
+            current_line += 1
+            continue
+            
+        # Check if start is numeric
+        try:
+            float(parts[0])
+        except ValueError:
+            current_line += 1
+            continue
+            
+        # If we get here, it's likely data
+        break
+
     # Read rest of file
     full_str = " ".join(lines[current_line:])
     try:
