@@ -259,7 +259,7 @@ class FCHKParser:
 
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, 
                              QListWidget, QSlider, QCheckBox, QFileDialog, QMessageBox,
-                             QDockWidget, QWidget, QSplitter, QFormLayout, QDialogButtonBox, QSpinBox)
+                             QDockWidget, QWidget, QSplitter, QFormLayout, QDialogButtonBox, QSpinBox, QDoubleSpinBox)
 from PyQt6.QtGui import QImage, QPainter, QPen, QColor, QFont, QPaintEvent
 try:
     from PIL import Image
@@ -283,6 +283,7 @@ class GaussianFCHKFreqAnalyzer(QWidget):
         self.timer.timeout.connect(self.animate_frame)
         self.animation_step = 0
         self.is_playing = False
+        self.vector_actor = None
         
         self.init_ui()
         
@@ -321,6 +322,24 @@ class GaussianFCHKFreqAnalyzer(QWidget):
 
         # Animation Controls
         anim_layout = QVBoxLayout()
+        
+        # Vector Controls
+        vec_layout = QHBoxLayout()
+        self.chk_vectors = QCheckBox("Show Vectors")
+        self.chk_vectors.setChecked(False)
+        self.chk_vectors.stateChanged.connect(lambda state: self.update_vectors())
+        vec_layout.addWidget(self.chk_vectors)
+        
+        vec_layout.addWidget(QLabel("Scale:"))
+        self.spin_vec_scale = QDoubleSpinBox()
+        self.spin_vec_scale.setRange(0.1, 200.0)
+        self.spin_vec_scale.setSingleStep(1.0)
+        self.spin_vec_scale.setValue(2.0)
+        self.spin_vec_scale.valueChanged.connect(lambda val: self.update_vectors())
+        vec_layout.addWidget(self.spin_vec_scale)
+        vec_layout.addStretch()
+        
+        anim_layout.addLayout(vec_layout)
         
         # Amplitude
         amp_layout = QHBoxLayout()
@@ -382,6 +401,7 @@ class GaussianFCHKFreqAnalyzer(QWidget):
         def close_action():
             self.stop_play()
             self.reset_geometry()
+            self.remove_vectors()
             if self.dock:
                 self.dock.close()
             else:
@@ -539,6 +559,9 @@ class GaussianFCHKFreqAnalyzer(QWidget):
         for idx, (x, y, z) in enumerate(self.parser.coords):
             conf.SetAtomPosition(idx, Point3D(x, y, z))
         self.mw.draw_molecule_3d(self.base_mol)
+        
+        self.update_vectors()
+        
         if hasattr(self.mw, 'plotter'):
             self.mw.plotter.render()
 
@@ -565,6 +588,7 @@ class GaussianFCHKFreqAnalyzer(QWidget):
         
         self.apply_displacement(mode_vecs, factor)
         self.mw.draw_molecule_3d(self.base_mol)
+        self.update_vectors(mode_vecs=mode_vecs, scale_factor=factor)
         
     def apply_displacement(self, mode_vecs, factor):
         conf = self.base_mol.GetConformer()
@@ -576,6 +600,59 @@ class GaussianFCHKFreqAnalyzer(QWidget):
                 ny = by + dy * factor
                 nz = bz + dz * factor
                 conf.SetAtomPosition(idx, Point3D(nx, ny, nz))
+
+    def remove_vectors(self):
+        if self.vector_actor and hasattr(self.mw, 'plotter'):
+            try:
+                self.mw.plotter.remove_actor(self.vector_actor)
+            except: pass
+        self.vector_actor = None
+
+    def update_vectors(self, mode_vecs=None, scale_factor=0.0):
+        # Clean up existing vectors
+        self.remove_vectors()
+        
+        if not self.chk_vectors.isChecked():
+            return
+            
+        if not self.parser or not self.base_mol or not hasattr(self.mw, 'plotter'):
+            return
+
+        # Get current frequency
+        curr = self.list_freq.currentItem()
+        if not curr: return
+        row = self.list_freq.indexOfTopLevelItem(curr)
+        if row < 0 or row >= len(self.parser.vib_modes): return
+        
+        # Get vectors if not provided
+        if mode_vecs is None:
+            mode_vecs = self.parser.vib_modes[row]
+            
+        # Current coords from molecule conformer
+        conf = self.base_mol.GetConformer()
+        coords = []
+        vectors = []
+        
+        # Amplitude for vector length scaling
+        # Now decoupled from animation amplitude
+        vis_scale = self.spin_vec_scale.value()
+        
+        for idx in range(len(mode_vecs)):
+             pos = conf.GetAtomPosition(idx)
+             coords.append([pos.x, pos.y, pos.z])
+             
+             dx, dy, dz = mode_vecs[idx]
+             vectors.append([dx, dy, dz])
+             
+        if not coords: return
+        
+        coords = np.array(coords)
+        vectors = np.array(vectors)
+        
+        try:
+            self.vector_actor = self.mw.plotter.add_arrows(coords, vectors, mag=vis_scale, color='lightgreen', show_scalar_bar=False)
+        except Exception as e:
+            print(f"Error adding arrows: {e}")
 
     def save_as_gif(self):
         if not self.parser or not self.base_mol: return
@@ -648,10 +725,10 @@ class GaussianFCHKFreqAnalyzer(QWidget):
                 cycle_pos = i / 20.0
                 phase = cycle_pos * 2 * np.pi
                 scale = self.slider_amp.value() / 20.0
-                factor = np.sin(phase) * scale
-                
+                factor = np.sin(phase) * scale # Calculate factor here
                 self.apply_displacement(mode_vecs, factor)
                 self.mw.draw_molecule_3d(self.base_mol)
+                self.update_vectors(mode_vecs, factor)
                 self.mw.plotter.render()
                 
                 img_array = self.mw.plotter.screenshot(transparent_background=use_transparent, return_img=True)
@@ -704,6 +781,7 @@ class GaussianFCHKFreqAnalyzer(QWidget):
 
     def close_plugin(self):
         self.stop_play()
+        self.remove_vectors()
         self.animation_step = 0
     def show_spectrum(self):
         if not self.parser or not self.parser.frequencies:
