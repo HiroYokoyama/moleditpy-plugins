@@ -10,101 +10,61 @@ This directory contains the official plugins for **MoleditPy**.
 We believe in the power of community\!  
 If you have created a useful plugin, we would love to include it as an official part of this collection. Please feel free to submit a Pull Request with your plugin to help us expand what MoleditPy can do.
 
-## Available Plugins (example)
+## Featured Plugins
 
-### 1. Hello World (`hello.py`)
-A simple demonstration plugin.
--   **Features**:
-    -   Shows a "Hello World" message box.
-    -   Prints molecule information to the console if a molecule is loaded.
+### 1. Gaussian Input Generator Neo (`gaussian_input_generator_neo.py`)
+High-functionality setting dialog for Gaussian input creation.
+- **Features**: Supports Link 0, Route, Title, Charge/Mult, and appended data.
+- **Dependencies**: `rdkit`, `PyQt6`
 
-### 2. MS Spectrum Simulation (`ms_spectrum.py`)
+### 2. ORCA Input Generator Neo (`orca_input_generator_neo.py`)
+High-functionality setting dialog for ORCA input creation.
+- **Features**: Supports Link 0, Route, Block Builder, and Validations.
+- **Dependencies**: `rdkit`, `PyQt6`
+
+### 3. Gaussian Freq Analyzer (`gaussian_fchk_freq_analyzer.py`)
+Analyzes vibrational frequencies from Gaussian FCHK files.
+- **Features**: View IR spectrum, animate normal modes, and export GIF animations.
+- **Dependencies**: `rdkit`, `PyQt6`, `numpy`, `Pillow`
+
+### 4. ORCA Freq Analyzer (`orca_out_freq_analyzer.py`)
+Analyzes vibrational frequencies from ORCA output files.
+- **Features**: View IR spectrum, animate normal modes, and export GIF animations.
+- **Dependencies**: `rdkit`, `PyQt6`, `numpy`, `Pillow`
+
+### 5. MS Spectrum Simulation Neo (`ms_spectrum_neo.py`)
 Simulates the Mass Spectrum for the currently loaded molecule using RDKit descriptors.
--   **Features**:
-    -   Displays Formula, Average Mass, and Exact Mass.
-    -   Interactive histogram of isotopic distribution.
-    -   **Export to Image**: Save the spectrum plot as a PNG/JPG file.
--   **Dependencies**: Requires `rdkit` installed in your Python environment.
+- **Features**: Includes Gaussian broadening and interactive zoom/pan.
+- **Dependencies**: `rdkit`, `PyQt6`
 
-### 3. Gaussian Input Generator (`gaussian_input_generator.py`)
-A comprehensive tool to generate input files for Gaussian quantum chemistry calculations.
--   **Features**:
-    -   Configuration of Link 0 commands (Memory, Processors, Checkpoint).
-    -   Customizable Route Section, Title, Charge, and Multiplicity.
-    -   Support for additional input sections (e.g., ModRedundant, Basis Sets).
-    -   Saves files with `.gjf` or `.com` extensions.
+### 6. Mapped Cube Viewer (`mapped_cube_viewer.py`)
+Visualizes a property (e.g. ESP) mapped onto an isosurface (e.g. electron density) from two Cube files.
+- **Dependencies**: `numpy`, `pyvista`, `PyQt6`, `rdkit`
 
-### 4. ORCA Input Generator (`orca_input_generator.py`)
-Generates input files for the ORCA quantum chemistry package.
--   **Features**:
-    -   Setup for Parallelization (`%pal`) and Memory per core (`%maxcore`).
-    -   Simple keyword input (starts with `!`).
-    -   Support for Advanced Blocks (e.g., `%scf`, `%basis`) before coordinates.
-    -   Saves as `.inp` files.
-
-### 5. Animated XYZ Player (`animated_xyz.py`)
-A player for viewing multi-frame XYZ files, such as molecular dynamics trajectories.
--   **Features**:
-    -   Loads concatenated XYZ files.
-    -   Playback controls: Play/Pause, Next/Previous frame, and Slider navigation.
-    -   Adjustable playback speed (FPS).
-    -   Integrates with the main 3D viewer.
-
-### 6. Cube File Viewer (`cube_viewer.py`)
+### 7. Cube File Viewer (`cube_viewer.py`)
 Visualizes Gaussian Cube files (.cube) containing volumetric data (e.g., orbitals, densities).
--   **Features**:
-    -   Renders Isosurfaces for positive and negative values.
-    -   Interactive controls for Isovalue, Color, and Opacity.
-    -   Option to use complementary colors for negative lobes.
-    -   Automatically generates molecular structure from the cube file headers.
--   **Dependencies**: Requires `rdkit`, `pyvista`, and `numpy`.
-
-
-### 7. Animated XYZ Giffer (animated_xyz_giffer.py)
-A player for viewing multi-frame XYZ files and recording GIF animations using PIL.  
-
-- **Features:**
-  - Loads concatenated XYZ files.
-Playback controls: Play/Pause, Next/Previous frame, and Slider navigation.
-  - Adjustable playback speed (FPS).
-  - Exports playback as GIF animation.
-  - Integrates with the main 3D viewer.
--   **Dependencies**:
-Pillow
-  (Pillow is required for GIF generation.)
+- **Features**: Renders isosurfaces with interactive controls for isovalue and color.
+- **Dependencies**: `rdkit`, `pyvista`, `numpy`
 
 ### 8. PubChem Name Resolver (`pubchem_ressolver.py`)
 Resolves chemical names and identifiers to structures using the PubChem PUG REST API.
-- **Features**:
-    - **Search**: Query PubChem by Name or SMILES.
-    - **2D Loading**: Loads the resolved structure directly into the 2D editor.
-    - **SMILES Fetching**: robustly retrieves Isomeric and Canonical SMILES.
-    - **Table View**: Displays search results with Formula and Name.
-- **Dependencies**: `requests`, `rdkit`.
+- **Features**: Search by Name or SMILES, load directly into 2D editor.
+- **Dependencies**: `requests`, `rdkit`
 
-### 9. Conformational Search (`conf_search.py`)
-Performs conformational sampling and energy minimization.
-- **Features**:
-    - **Generation**: Uses RDKit's ETKDGv3 algorithm to generate 3D conformers.
-    - **Optimization**: Optimizes geometries using **MMFF94** or **UFF** force fields.
-    - **Interactive Preview**: Click on the result table to view conformers in the 3D viewer.
-    - **Energy Ranking**: Sorts conformers by calculated energy (kcal/mol).
-- **Dependencies**: `rdkit`.
+### 9. Animated XYZ Giffer (`animated_xyz_giffer.py`)
+A player for viewing multi-frame XYZ files and recording GIF animations using PIL.
+- **Dependencies**: `Pillow`
 
-### 10. Complex Molecule Untangler (`complex_molecule_untangler.py`)
-A Monte Carlo-based tool to resolve steric clashes in complex or roughly drawn molecules.
-- **Features**:
-    - **Untangling**: Randomly rotates acyclic single bonds to reduce internal energy.
-    - **Force Field Selection**: Supports **MMFF94** and **UFF** for energy evaluation.
-    - **Real-time Progress**: Visualizes the untangling process.
-- **Dependencies**: `rdkit`.
+### Gallery
 
-### 11. All-Trans Optimizer (`all-trans_optimizer.py`)
-A geometric tool for straightening alkyl chains.
-- **Features**:
-    - **All-Trans**: Systematically sets dihedrals of acyclic carbon chains to 180 degrees.
-    - **Structure Cleanup**: Useful for standardizing long alkyl chains.
-- **Dependencies**: `rdkit`.
+<p align="center">
+  <img src="img/gaussian-input.png" width="45%" alt="Gaussian Input Generator">
+  <img src="img/freq-analysis.png" width="45%" alt="Frequency Analyzer">
+</p>
+<p align="center">
+  <img src="img/ms-spectrum.png" width="45%" alt="MS Spectrum Simulation">
+  <img src="img/cube-viewer.png" width="45%" alt="Cube File Viewer">
+</p>
 
 ## Installation
 
