@@ -1,10 +1,9 @@
-
 import os
 import numpy as np
 import pyvista as pv
 from PyQt6.QtWidgets import (QFileDialog, QDockWidget, QWidget, QVBoxLayout, 
-                             QSlider, QLabel, QHBoxLayout, QPushButton, QMessageBox, QDoubleSpinBox, QProgressBar, QComboBox, QCheckBox)
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
+                             QSlider, QLabel, QHBoxLayout, QPushButton, QMessageBox, QDoubleSpinBox, QProgressBar, QComboBox, QCheckBox, QDialog, QLineEdit, QFormLayout, QDialogButtonBox)
+from PyQt6.QtCore import Qt
 
 # --- Dependency Management ---
 try:
@@ -27,174 +26,172 @@ except ImportError:
         except:
             pt = None
             
-__version__="2025.12.17"
+__version__="2025.12.21" # Fixed version
 __author__="HiroYokoyama"
 PLUGIN_NAME = "Mapped Cube Viewer"
 
-# --- Core Logic: Read Cube ---
-def read_cube(filename):
+# --- Core Logic: Robust Parser from cube_viewer.py ---
+
+def parse_cube_data(filename):
     """
-    Robust Cube file parser.
+    Robust Cube file parser copied from cube_viewer.py
     """
     with open(filename, 'r') as f:
         lines = f.readlines()
 
     if len(lines) < 6:
-        raise ValueError("File content too short.")
+        raise ValueError("File too short to be a Cube file.")
 
-    # Parse Header
-    # L3: N_atoms, Origin
-    try:
-        tokens = lines[2].split()
-        n_atoms_raw = int(tokens[0])
-        n_atoms = abs(n_atoms_raw)
-        origin = np.array([float(x) for x in tokens[1:4]])
-        
-        # L4: NX, Xvec
-        tokens = lines[3].split()
-        nx = int(tokens[0])
-        x_vec = np.array([float(x) for x in tokens[1:4]])
-        
-        # L5: NY, Yvec
-        tokens = lines[4].split()
-        ny = int(tokens[0])
-        y_vec = np.array([float(x) for x in tokens[1:4]])
-        
-        # L6: NZ, Zvec
-        tokens = lines[5].split()
-        nz = int(tokens[0])
-        z_vec = np.array([float(x) for x in tokens[1:4]])
-    except Exception as e:
-        raise ValueError(f"Header parsing failed: {e}")
+    # --- Header Parsing ---
+    tokens = lines[2].split()
+    n_atoms_raw = int(tokens[0])
+    n_atoms = abs(n_atoms_raw)
+    origin_raw = np.array([float(tokens[1]), float(tokens[2]), float(tokens[3])])
 
-    # Unit Conversion (Bohr to Angstrom)
-    # If N < 0, units are Bohr? Actually checking the sign of NX/NY/NZ is standard.
-    # Gaussian Cube spec: If N < 0, the input file is Angstrom? No.
-    # Standard: Distance units are Bohr.
-    # However, some sources say: If NX > 0, units are Bohr. If NX < 0, units are Angstrom.
-    # Let's check typical spec. 
-    # Usually Cube files are Bohr.
+    def parse_vec(line):
+        t = line.split()
+        return int(t[0]), np.array([float(t[1]), float(t[2]), float(t[3])])
+
+    nx, x_vec_raw = parse_vec(lines[3])
+    ny, y_vec_raw = parse_vec(lines[4])
+    nz, z_vec_raw = parse_vec(lines[5])
     
-    BOHR_TO_ANG = 0.529177
-    
-    # Check simple heuristic: if step size is very small (< 0.1), it might be Angstrom? 
-    # Or if Origin is large?
-    # Standard implementation assumes Bohr unless flagged.
-    # Let's assume Bohr for now, consistent with previous code.
-    
-    # Fix negative counts logic
-    if nx < 0: nx = abs(nx)
-    if ny < 0: ny = abs(ny)
-    if nz < 0: nz = abs(nz)
-    
-    # Scale spatial vectors
-    origin *= BOHR_TO_ANG
-    x_vec *= BOHR_TO_ANG
-    y_vec *= BOHR_TO_ANG
-    z_vec *= BOHR_TO_ANG
-    
-    # Parse Atoms
+    is_angstrom_header = (nx < 0 or ny < 0 or nz < 0)
+    nx, ny, nz = abs(nx), abs(ny), abs(nz)
+
+    # --- Atoms Parsing ---
     atoms = []
-    line_idx = 6
-    for _ in range(n_atoms):
-        tokens = lines[line_idx].split()
-        line_idx += 1
-        atomic_num = int(tokens[0])
-        # charge = float(tokens[1]) # Skip
-        pos = np.array([float(tokens[2]), float(tokens[3]), float(tokens[4])])
-        pos *= BOHR_TO_ANG
-        atoms.append((atomic_num, pos))
-        
-    # Skip extra orbital info if present (n_atoms_raw < 0)
+    current_line = 6
     if n_atoms_raw < 0:
-        tokens = lines[line_idx].split()
-        # Usually checking number of orbitals
         try:
-             n_mo = int(tokens[0])
-             # Skip lines = n_mo
-             line_idx += 1 # The line with n_mo
-             line_idx += n_mo # Skip header lines for MOs?
-             # Actually often it's just one line of indices?
-             # Let's just consume until we see data pattern?
-             # Safe fallback: look for line with many floats
-        except: 
-            pass
-        # Logic for "skip header" is tricky without robust parser.
-        # But commonly just +1 line.
-        # Let's look for the start of volumetric data.
-        
-    # Volumetric Data
-    # Flatten remaining lines
-    data = []
-    for l in lines[line_idx:]:
-        parts = l.split()
-        for p in parts:
-            try:
-                data.append(float(p))
-            except: pass
+            parts = lines[current_line].split()
+            if len(parts) != 5: 
+                 current_line += 1
+        except:
+             current_line += 1
+
+    for _ in range(n_atoms):
+        line = lines[current_line].split()
+        current_line += 1
+        atomic_num = int(line[0])
+        try:
+            x, y, z = float(line[2]), float(line[3]), float(line[4])
+        except:
+            x, y, z = 0.0, 0.0, 0.0
+        atoms.append((atomic_num, np.array([x, y, z])))
+
+    # --- Volumetric Data Parsing (Skip Metadata) ---
+    while current_line < len(lines):
+        line_content = lines[current_line].strip()
+        parts = line_content.split()
+        if not parts:
+            current_line += 1
+            continue
+        if len(parts) < 6: # Heuristic: Data lines usually have 6 cols
+            current_line += 1
+            continue
+        try:
+            float(parts[0])
+        except ValueError:
+            current_line += 1
+            continue
+        break
+
+    full_str = " ".join(lines[current_line:])
+    try:
+        data_values = np.fromstring(full_str, sep=' ')
+    except:
+        data_values = np.array([])
+    
+    expected_size = nx * ny * nz
+    actual_size = len(data_values)
+    
+    if actual_size > expected_size:
+        excess = actual_size - expected_size
+        data_values = data_values[excess:] # Trim from start if header noise included
+    elif actual_size < expected_size:
+        pad = np.zeros(expected_size - actual_size)
+        data_values = np.concatenate((data_values, pad))
+    
+    return {
+        "atoms": atoms,
+        "origin": origin_raw,
+        "x_vec": x_vec_raw,
+        "y_vec": y_vec_raw,
+        "z_vec": z_vec_raw,
+        "dims": (nx, ny, nz),
+        "data_flat": data_values,
+        "is_angstrom_header": is_angstrom_header
+    }
+
+def build_grid_from_meta(meta):
+    """
+    Reconstructs the PyVista grid.
+    Correctly handles standard Cube (Z-fast) mapping.
+    """
+    nx, ny, nz = meta['dims']
+    origin = meta['origin'].copy()
+    x_vec = meta['x_vec'].copy()
+    y_vec = meta['y_vec'].copy()
+    z_vec = meta['z_vec'].copy()
+    atoms = []
+    
+    BOHR_TO_ANGSTROM = 0.529177210903
+    convert_to_ang = True
+    if meta['is_angstrom_header']:
+        convert_to_ang = False
             
-    data_np = np.array(data)
-    expected = nx * ny * nz
-    
-    # If we parsed too few, that's bad. Too many? Truncate.
-    if len(data_np) < expected:
-        # Maybe we missed the header skipping or it was really short
-        # Try to recover: take last N values
-        pass 
-    if len(data_np) > expected:
-        data_np = data_np[:expected] # Truncate header noise if any
-
-    vol_data = data_np.reshape((nx, ny, nz)) # Cube is usually X outer, then Y, then Z inner?
-    # Actually Cube is: loops X, then Y, then Z.
-    # So flatten order is C-like?
-    # Z indices change fastest.
-    # vol_data[ix, iy, iz]
-    
-    # Create PyVista Grid
-    # Meshgrid
-    # Note: numpy meshgrid with indexing='ij' gives [nx, ny, nz]
-    
-    grid = pv.ImageData() 
-    # StructuredGrid is better for non-orthogonal, but ImageData is faster if orthogonal.
-    # Are Cube axes always orthogonal? usually YES. 
-    # But vectors are provided. If they have off-diagonal, we need StructuredGrid.
-    
-    is_orthogonal = True
-    # check orthogonality
-    if (x_vec[1]!=0 or x_vec[2]!=0 or 
-        y_vec[0]!=0 or y_vec[2]!=0 or 
-        z_vec[0]!=0 or z_vec[1]!=0):
-        is_orthogonal = False
-
-    if is_orthogonal:
-        grid = pv.ImageData()
-        grid.dimensions = (nx, ny, nz)
-        grid.origin = origin
-        # spacing requires scalar if orthogonal
-        grid.spacing = (x_vec[0], y_vec[1], z_vec[2])
-        grid.point_data["property_values"] = vol_data.flatten(order='F') # Z fastest
-    else:
-        # Structured Grid for rotated cubes
-        x_range = np.arange(nx)
-        y_range = np.arange(ny)
-        z_range = np.arange(nz)
-        gx, gy, gz = np.meshgrid(x_range, y_range, z_range, indexing='ij')
+    if convert_to_ang:
+        origin *= BOHR_TO_ANGSTROM
+        x_vec *= BOHR_TO_ANGSTROM
+        y_vec *= BOHR_TO_ANGSTROM
+        z_vec *= BOHR_TO_ANGSTROM
         
-        # Flatten for calculation
-        gx, gy, gz = gx.flatten(), gy.flatten(), gz.flatten()
-        points = (origin + 
-                  np.outer(gx, x_vec) + 
-                  np.outer(gy, y_vec) + 
-                  np.outer(gz, z_vec))
-        
-        grid = pv.StructuredGrid()
-        grid.dimensions = [nx, ny, nz]
-        grid.points = points
-        grid.point_data["property_values"] = vol_data.flatten(order='F')
+    for anum, pos in meta['atoms']:
+        p = pos.copy()
+        if convert_to_ang:
+            p *= BOHR_TO_ANGSTROM
+        atoms.append((anum, p))
 
+    # Grid Points Generation
+    x_range = np.arange(nx)
+    y_range = np.arange(ny)
+    z_range = np.arange(nz)
+    
+    gx, gy, gz = np.meshgrid(x_range, y_range, z_range, indexing='ij')
+    
+    # Flatten using Fortran order (X-fast) for VTK Structure
+    # !!! IMPORTANT FIX: Must match Flatten order of data !!!
+    gx_f = gx.flatten(order='F')
+    gy_f = gy.flatten(order='F')
+    gz_f = gz.flatten(order='F')
+    
+    points = (origin + 
+              np.outer(gx_f, x_vec) + 
+              np.outer(gy_f, y_vec) + 
+              np.outer(gz_f, z_vec))
+    
+    grid = pv.StructuredGrid()
+    grid.points = points
+    grid.dimensions = [nx, ny, nz]
+    
+    # Data Mapping
+    raw_data = meta['data_flat']
+    
+    # Standard Cube: Z-Fast (C-order reshape)
+    # Then flatten F-order to match the X-fast points we just generated
+    vol_3d = raw_data.reshape((nx, ny, nz), order='C')
+    
+    # Key name "property_values" for Mapped Viewer
+    grid.point_data["property_values"] = vol_3d.flatten(order='F')
+        
     return {"atoms": atoms}, grid
 
-from PyQt6.QtWidgets import (QDialog, QLineEdit, QFormLayout, QDialogButtonBox)
+def read_cube(filename):
+    meta = parse_cube_data(filename)
+    return build_grid_from_meta(meta)
+
+# --- Dialog & Widget (Identical Logic, just ensured imports) ---
 
 class MappedCubeSetupDialog(QDialog):
     def __init__(self, parent=None):
@@ -228,7 +225,6 @@ class MappedCubeSetupDialog(QDialog):
         
         layout.addLayout(form)
         
-        # Buttons
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
@@ -253,7 +249,6 @@ class MappedCubeSetupDialog(QDialog):
             return
         super().accept()
 
-# --- Dock Widget ---
 class MappedWidget(QWidget):
     def __init__(self, mw, dock, grid_surf, grid_prop):
         super().__init__()
@@ -267,7 +262,6 @@ class MappedWidget(QWidget):
         self.setLayout(self.layout)
         
         # Controls
-        # Isovalue
         self.layout.addWidget(QLabel("<b>Surface Isovalue:</b>"))
         self.iso_spin = QDoubleSpinBox()
         self.iso_spin.setRange(-1000, 1000)
@@ -276,7 +270,15 @@ class MappedWidget(QWidget):
         
         # Default ISO
         vals = self.grid_surf.point_data.get("property_values", np.array([0]))
-        default_iso = 0.00200 if vals.max() > 0.1 else vals.mean()
+        # Robust default calculation
+        if len(vals) > 0:
+            if vals.max() > 0.1:
+                default_iso = 0.00200
+            else:
+                default_iso = float(np.mean(vals))
+        else:
+            default_iso = 0.002
+            
         self.iso_spin.setValue(default_iso)
         self.iso_spin.setKeyboardTracking(False)
         self.iso_spin.valueChanged.connect(lambda: self.update_mesh(auto_fit=False))
@@ -285,7 +287,6 @@ class MappedWidget(QWidget):
         # Color Range
         self.layout.addWidget(QLabel("<b>Property Color Range:</b>"))
         
-        # Colormap Selector
         cbox = QHBoxLayout()
         cbox.addWidget(QLabel("Style:"))
         self.cmap_combo = QComboBox()
@@ -308,8 +309,11 @@ class MappedWidget(QWidget):
         rbox = QHBoxLayout()
         
         pvals = self.grid_prop.point_data.get("property_values", np.array([-0.1, 0.1]))
-        vmin, vmax = pvals.min(), pvals.max()
-        
+        if len(pvals) > 0:
+            vmin, vmax = pvals.min(), pvals.max()
+        else:
+            vmin, vmax = -0.1, 0.1
+            
         self.min_spin = QDoubleSpinBox()
         self.min_spin.setRange(-1e20, 1e20)
         self.min_spin.setDecimals(6)
@@ -361,13 +365,11 @@ class MappedWidget(QWidget):
         self.check_transparent.setChecked(True)
         self.layout.addWidget(self.check_transparent)
         
-        # Close
         self.layout.addStretch()
         btn = QPushButton("Close")
         btn.clicked.connect(self.close_plugin)
         self.layout.addWidget(btn)
         
-        # Initial Draw
         self.update_mesh(auto_fit=True)
 
     def export_view(self):
@@ -383,32 +385,25 @@ class MappedWidget(QWidget):
         f, _ = QFileDialog.getSaveFileName(self, "Save Color Bar", "mapped_colorbar.png", "PNG Image (*.png)")
         if f:
             try:
-                # Create off-screen plotter for just the bar
-                # Use a wide layout (Horizontal) - Even larger and wider
                 pl = pv.Plotter(off_screen=True, window_size=(2000, 400))
-                
-                # Checkbox sensitive background
                 if self.check_transparent.isChecked():
-                    pl.set_background(None) # Transparent
+                    pl.set_background(None)
                 else:
                     pl.set_background('white')
                 
-                # Dummy mesh to attach mapper
                 vmin = self.min_spin.value()
                 vmax = self.max_spin.value()
                 cmap = self.cmap_combo.currentText()
                 
-                # Box with scalars covering range
                 mesh = pv.Box()
                 mesh.point_data['scalars'] = np.linspace(vmin, vmax, mesh.n_points)
                 
-                # Add mesh with scalar bar args directly
                 pl.add_mesh(mesh, 
                             scalars='scalars', 
                             cmap=cmap, 
                             clim=[vmin, vmax],
-                            show_scalar_bar=True, # Show it via add_mesh
-                            opacity=0.0, # Invisible mesh
+                            show_scalar_bar=True,
+                            opacity=0.0,
                             scalar_bar_args={
                                 "title": "",
                                 "vertical": False,
@@ -416,16 +411,15 @@ class MappedWidget(QWidget):
                                 "italic": False,
                                 "bold": False,
                                 "title_font_size": 1,
-                                "label_font_size": 50, # Slightly reduced but still large
+                                "label_font_size": 50,
                                 "color": "black",
-                                "height": 0.4,      # THICK bar (Restored)
-                                "width": 0.8,       # 80% width
-                                "position_x": 0.1,  # Centered (10% margin)
+                                "height": 0.4,
+                                "width": 0.8,
+                                "position_x": 0.1,
                                 "position_y": 0.3
                             }
                 )
                 
-                # FIX ALIGNMENT & TICKS
                 if hasattr(pl, 'scalar_bar'):
                     try:
                         sb = pl.scalar_bar
@@ -445,16 +439,12 @@ class MappedWidget(QWidget):
             iso_val = self.iso_spin.value()
             opacity = self.opacity_spin.value()
             
-            # 1. Generate Surface
             iso = self.grid_surf.contour([iso_val], scalars="property_values")
             if iso.n_points == 0:
-                pass
                 return
             
-            # 2. Sample Property
             mapped = iso.sample(self.grid_prop)
             
-            # 3. Auto Fit
             clim = [self.min_spin.value(), self.max_spin.value()]
             if auto_fit:
                 mvals = mapped.point_data.get("property_values")
@@ -466,7 +456,6 @@ class MappedWidget(QWidget):
                     self.min_spin.blockSignals(True); self.min_spin.setValue(vmin); self.min_spin.blockSignals(False)
                     self.max_spin.blockSignals(True); self.max_spin.setValue(vmax); self.max_spin.blockSignals(False)
             
-            # 4. Render
             if self.actor:
                 self.mw.plotter.remove_actor(self.actor)
                 
@@ -480,8 +469,6 @@ class MappedWidget(QWidget):
                 name="mapped_mesh_dock",
                 scalar_bar_args={'title': ''}
             )
-            
-
             
             self.mw.plotter.render()
             
@@ -502,7 +489,6 @@ class MappedWidget(QWidget):
 
 # --- Entry Point ---
 def run(mw):
-    # 1. Setup Dialog
     dlg = MappedCubeSetupDialog(mw)
     if dlg.exec() != QDialog.DialogCode.Accepted:
         return
@@ -515,23 +501,21 @@ def run(mw):
     try:
         from PyQt6.QtWidgets import QApplication, QProgressDialog
         
-        # 2. Read Files
         progress = QProgressDialog("Reading Cube Files...", "Cancel", 0, 2, mw)
         progress.setWindowModality(Qt.WindowModality.WindowModal)
         progress.show()
         
-
+        # Using the robust read_cube logic
         meta1, grid_surf = read_cube(s_file)
         progress.setValue(1)
         QApplication.processEvents()
         
-
         meta2, grid_prop = read_cube(p_file)
         progress.setValue(2)
         QApplication.processEvents()
         progress.close()
         
-        # 3. Visualize Atoms
+        # Visualize Atoms
         atoms = meta1['atoms']
         if Chem:
             s = f"{len(atoms)}\n\n"
@@ -548,13 +532,10 @@ def run(mw):
             if hasattr(mw, 'draw_molecule_3d'):
                 mw.draw_molecule_3d(mol)
 
-        # 4. Enter 3D Mode (Hides other panels)
         if hasattr(mw, 'main_window_ui_manager'):
             try: mw.main_window_ui_manager._enter_3d_viewer_ui_mode()
             except: pass
 
-        # 5. Launch Dock
-        # Close old docks
         for d in mw.findChildren(QDockWidget):
             if d.windowTitle() == "Mapped Viewer":
                 d.close()
@@ -569,4 +550,3 @@ def run(mw):
         import traceback
         traceback.print_exc()
         QMessageBox.critical(mw, "Error", f"Failed:\n{e}")
-
