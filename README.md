@@ -58,10 +58,10 @@ A player for viewing multi-frame XYZ files and recording GIF animations using PI
 ### Gallery
 
 <p align="center">
-  <img src="img/gaussian-input.png" width="100%" alt="Gaussian Input Generator">
+  <img src="img/ms-spectrum.png" width="100%" alt="MS Spectrum Simulation">
 </p>
 <p align="center">
-  <img src="img/ms-spectrum.png" width="100%" alt="MS Spectrum Simulation">
+  <img src="img/gaussian-input.png" width="100%" alt="Gaussian Input Generator">
 </p>
 <p align="center">
   <img src="img/freq-analysis.png" width="100%" alt="Frequency Analyzer">
@@ -121,6 +121,7 @@ def autorun(main_window):
 > *   Only install plugins from sources you trust.
 > *   Be especially cautious with plugins that use `autorun`, as they execute code immediately upon loading without specific user action.
 > *   Review the plugin code (`.py` file) if you are unsure about its functionality.
+
 
 
 
