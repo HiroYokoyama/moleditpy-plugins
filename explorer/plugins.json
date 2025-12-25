@@ -6,7 +6,7 @@
     "version": "2025.12.14",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "A geometric tool for straightening alkyl chains.",
+    "description": "A geometric tool for straightening alkyl chains. **(Requires v2.2.0+)**",
     "tags": [
       "Optimization"
     ],
@@ -41,7 +41,7 @@
     "version": "2025.12.12",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "A player for viewing multi-frame XYZ files, such as molecular dynamics trajectories.",
+    "description": "A player for viewing multi-frame XYZ files, such as molecular dynamics trajectories. **(Requires v2.2.0+)**",
     "tags": [
       "File",
       "Animation"
@@ -57,7 +57,7 @@
     "version": "2025.12.14",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "A Monte Carlo-based tool to resolve steric clashes in complex or roughly drawn molecules.",
+    "description": "A Monte Carlo-based tool to resolve steric clashes in complex or roughly drawn molecules. **(Requires v2.2.0+)**",
     "tags": [
       "Optimization"
     ],
@@ -74,7 +74,7 @@
     "version": "2025.12.14",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "Performs conformational sampling and energy minimization.",
+    "description": "Performs conformational sampling and energy minimization. **(Requires v2.2.0+)**",
     "tags": [
       "Optimization"
     ],
@@ -91,7 +91,7 @@
     "version": "2025.12.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "Visualizes Gaussian Cube files (.cube) containing volumetric data (e.g., orbitals, densities).",
+    "description": "Visualizes Gaussian Cube files (.cube) containing volumetric data (e.g., orbitals, densities). **(Requires v2.2.0+)**",
     "tags": [
       "File"
     ],
@@ -110,7 +110,7 @@
     "version": "2025.12.12",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "A comprehensive tool to generate input files for Gaussian quantum chemistry calculations.",
+    "description": "A comprehensive tool to generate input files for Gaussian quantum chemistry calculations. **(Requires v2.2.0+)**",
     "tags": [
       "Input Generator"
     ],
@@ -140,7 +140,7 @@
     "version": "2025.12.12",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "Simulates the Mass Spectrum for the currently loaded molecule using RDKit descriptors.",
+    "description": "Simulates the Mass Spectrum for the currently loaded molecule using RDKit descriptors. **(Requires v2.2.0+)**",
     "tags": [
       "Analysis"
     ],
@@ -157,7 +157,7 @@
     "version": "2025.12.12",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "Generates input files for the ORCA quantum chemistry package.",
+    "description": "Generates input files for the ORCA quantum chemistry package. **(Requires v2.2.0+)**",
     "tags": [
       "Input Generator"
     ],
@@ -172,7 +172,7 @@
     "version": "2025.12.14",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "Resolves chemical names and identifiers to structures using the PubChem PUG REST API.",
+    "description": "Resolves chemical names and identifiers to structures using the PubChem PUG REST API. **(Requires v2.2.0+)**",
     "tags": [
       "Utility"
     ],
@@ -190,7 +190,7 @@
     "version": "2025.12.16",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "An interactive Python interpreter embedded in the application. Allows runtime script execution with access to the MainWindow (mw) and current molecule (mol).",
+    "description": "An interactive Python interpreter embedded in the application. Allows runtime script execution with access to the MainWindow (mw) and current molecule (mol). **(Requires v2.2.0+)**",
     "tags": [
       "Utility",
       "Development",
@@ -210,7 +210,7 @@
     "version": "2025.12.17",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "Select atoms in the 3D viewer and apply color.",
+    "description": "Select atoms in the 3D viewer and apply color. **(Requires v2.2.0+)**",
     "tags": [
       "Visualization",
       "Utility"
@@ -248,7 +248,7 @@
     "version": "2025.12.18",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "High-functionality setting dialog for Gaussian input creation. Supports Link 0, Route, Title, Charge/Mult, and appended data.",
+    "description": "High-functionality setting dialog for Gaussian input creation. Supports Link 0, Route, Title, Charge/Mult, and appended data. **(Requires v2.2.0+)**",
     "tags": [
       "Input Generator"
     ],
@@ -266,7 +266,7 @@
     "version": "2025.12.17",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "Visualizes Van der Waals radii as a merged surface overlay using PyVista.",
+    "description": "Visualizes Van der Waals radii as a merged surface overlay using PyVista. **(Requires v2.2.0+)**",
     "tags": [
       "Visualization"
     ],
@@ -282,7 +282,7 @@
     "id": "mapped_cube_viewer",
     "visible": true,
     "name": "Mapped Cube Viewer",
-    "version": "2025.12.21",
+    "version": "2025.12.17",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes a property (e.g. ESP) mapped onto an isosurface (e.g. electron density) from two Cube files.",
@@ -297,7 +297,7 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/Mapped_Cube_Viewer/mapped_cube_viewer.py",
-    "lastUpdated": "2025-12-21"
+    "lastUpdated": "2025-12-17"
   },
   {
     "id": "orca_input_generator_neo",
@@ -306,7 +306,7 @@
     "version": "2025.12.18",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "High-functionality setting dialog for ORCA input creation. Supports Link 0, Route, Block Builder, and Validations.",
+    "description": "High-functionality setting dialog for ORCA input creation. Supports Link 0, Route, Block Builder, and Validations. **(Requires v2.2.0+)**",
     "tags": [
       "Input Generator"
     ],
@@ -333,7 +333,7 @@
       "rdkit",
       "PyQt6"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/orca_xyz2inp/blob/891f571185e8ce93e0dd8a6a1a9b0f93331a80b6/moleditpy_plugin/orca_xyz2inp_gui.py",
+    "downloadUrl": "https://github.com/HiroYokoyama/orca_xyz2inp/blob/aa469e02e847c81b102bfdb20d240372ab1e4d52/moleditpy_plugin/orca_xyz2inp_gui.py",
     "lastUpdated": "2025-12-18"
   },
   {
@@ -343,7 +343,7 @@
     "version": "2025.12.18",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "Simulates the Mass Spectrum for the currently loaded molecule using RDKit descriptors. Includes Gaussian broadening and interactive zoom/pan.",
+    "description": "Simulates the Mass Spectrum for the currently loaded molecule using RDKit descriptors. Includes Gaussian broadening and interactive zoom/pan. **(Requires v2.2.0+)**",
     "tags": [
       "Analysis"
     ],
@@ -361,7 +361,7 @@
     "version": "2025.12.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "Analyzes vibrational frequencies from Gaussian FCHK files. View IR spectrum, animate normal modes, and export GIF animations.",
+    "description": "Analyzes vibrational frequencies from Gaussian FCHK files. View IR spectrum, animate normal modes, and export GIF animations. **(Requires v2.2.0+)**",
     "tags": [
       "Analysis",
       "File"
@@ -382,7 +382,7 @@
     "version": "2025.12.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "Analyzes vibrational frequencies from ORCA output files. View IR spectrum, animate normal modes, and export GIF animations.",
+    "description": "Analyzes vibrational frequencies from ORCA output files. View IR spectrum, animate normal modes, and export GIF animations. **(Requires v2.2.0+)**",
     "tags": [
       "Analysis",
       "File"
@@ -403,15 +403,12 @@
     "version": "2025.12.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "Paste the XYZ structure text to view it in 3D.",
+    "description": "Analyzes vibrational frequencies from ORCA output files. View IR spectrum, animate normal modes, and export GIF animations.",
     "tags": [
       "File"
     ],
-    "dependencies": [
-    ],
+    "dependencies": [],
     "downloadUrl": "../plugins/Paste_XYZ/paste_xyz.py",
     "lastUpdated": "2025-12-20"
   }
 ]
-
-
