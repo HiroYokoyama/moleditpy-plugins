@@ -10,7 +10,7 @@ from PyQt6.QtCore import Qt
 from rdkit import Chem
 import json
 
-__version__="2025.12.16"
+__version__="2025.12.25"
 __author__="HiroYokoyama"
 
 PLUGIN_NAME = "Gaussian Input Generator Neo"
@@ -927,4 +927,5 @@ def run(mw):
     dialog.exec()
 
 # initialize removed as it only registered the menu action
+
     
