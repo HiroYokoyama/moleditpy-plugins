@@ -11,7 +11,7 @@ try:
 except ImportError:
     Chem = None
 
-__version__="2025.12.18"
+__version__="2025.12.25"
 __author__="HiroYokoyama"
 
 PLUGIN_NAME = "MS Spectrum Simulation Neo"
@@ -907,14 +907,13 @@ class HistogramWidget(QWidget):
         painter.drawText(QRectF(-100, -100, 200, 20), Qt.AlignmentFlag.AlignCenter, "Relative Intensity (%)")
         painter.restore()
 
-def run(main_window):
-    if not main_window.current_mol:
-        QMessageBox.warning(main_window, "MS Plugin", "Please load a molecule first.")
-        return
-
+def run(mw):
     if Chem is None:
-        QMessageBox.critical(main_window, "MS Plugin", "RDKit is not available.")
+        QMessageBox.critical(mw, "MS Plugin", "RDKit is not available.")
         return
 
-    dialog = MSSpectrumDialog(main_window.current_mol, main_window)
+    # Allow launching without a molecule (start empty)
+    dialog = MSSpectrumDialog(mw.current_mol, mw)
     dialog.exec()
+
+# initialize removed as it only registered the analysis tool

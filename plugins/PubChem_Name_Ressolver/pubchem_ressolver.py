@@ -9,6 +9,8 @@ from PyQt6.QtCore import Qt, QPointF
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
+__version__="2025.12.25"
+__author__="HiroYokoyama"
 PLUGIN_NAME = "PubChem Name Resolver"
 
 class MoleculeResolverDialog(QDialog):
@@ -229,16 +231,14 @@ class MoleculeResolverDialog(QDialog):
              QMessageBox.critical(self, PLUGIN_NAME, f"Error: {error_msg}")
              self.lbl_info.setText("Load failed.")
 
-def run(main_window):
-    """
-    プラグインのエントリーポイント
-    """
-    # 既存のダイアログがあればアクティブにする
-    if hasattr(main_window, "_molecule_resolver_dialog") and main_window._molecule_resolver_dialog.isVisible():
-        main_window._molecule_resolver_dialog.raise_()
-        main_window._molecule_resolver_dialog.activateWindow()
+def run(mw):
+    if hasattr(mw, "_molecule_resolver_dialog") and mw._molecule_resolver_dialog.isVisible():
+        mw._molecule_resolver_dialog.raise_()
+        mw._molecule_resolver_dialog.activateWindow()
         return
 
-    dialog = MoleculeResolverDialog(main_window, parent=main_window)
-    main_window._molecule_resolver_dialog = dialog
+    dialog = MoleculeResolverDialog(mw, parent=mw)
+    mw._molecule_resolver_dialog = dialog
     dialog.show()
+
+# initialize removed as it only registered the menu action

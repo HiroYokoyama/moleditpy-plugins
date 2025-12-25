@@ -20,7 +20,7 @@ except ImportError:
     Chem = None
 
 PLUGIN_NAME = "ORCA Freq Analyzer"
-__version__="2025.12.20"
+__version__="2025.12.25"
 __author__="HiroYokoyama"
 
 class OrcaParser:
@@ -1180,115 +1180,47 @@ def is_valid_orca_file(filepath):
     except:
         return False
 
-def run(main_window):
+def run(mw):
     # Smart Open Logic
-    if hasattr(main_window, 'current_file_path') and main_window.current_file_path:
-        fpath = main_window.current_file_path.lower()
+    if hasattr(mw, 'current_file_path') and mw.current_file_path:
+        fpath = mw.current_file_path.lower()
         if fpath.endswith((".out", ".log")):
-             # Validate content before auto-loading
-             if is_valid_orca_file(main_window.current_file_path):
-                 load_from_file(main_window, main_window.current_file_path)
-                 return
-                 
-    fname, _ = QFileDialog.getOpenFileName(main_window, "Open ORCA Output", "", "ORCA Output (*.out *.log);;All Files (*)")
-    if not fname:
-        return
-        
-    load_from_file(main_window, fname)
+                if is_valid_orca_file(mw.current_file_path):
+                    load_from_file(mw, mw.current_file_path)
+                    return
+    
+    fname, _ = QFileDialog.getOpenFileName(mw, "Open ORCA Output", "", "ORCA Output (*.out *.log);;All Files (*)")
+    if not fname: return
+    
+    if is_valid_orca_file(fname):
+        load_from_file(mw, fname)
+    else:
+        QMessageBox.warning(mw, "Invalid File", "This does not appear to be a valid ORCA output file.")
 
-def autorun(main_window):
-    try:
-        # Check if already patched
-        if not hasattr(main_window, '_custom_drop_handlers'):
-            main_window._custom_drop_handlers = {}
-            
-            main_window._original_dragEnterEvent = main_window.dragEnterEvent
-            main_window._original_dropEvent = main_window.dropEvent
-            
-            
-            # --- Monkey patch for Command Line Argument Opening ---
-            if not hasattr(main_window, '_custom_loader_handlers'):
-                main_window._custom_loader_handlers = {}
-                main_window._original_load_command_line_file = main_window.load_command_line_file
+def initialize(context):
+    mw = context.get_main_window()
+    
+    def load_wrapper(fname):
+        # Validate ORCA file before loading
+        if is_valid_orca_file(fname):
+            load_from_file(mw, fname)
+        else:
+             print(f"Skipping invalid ORCA file: {fname}")
 
-                def dynamic_load_command_line_file(self, file_path):
-                    if not file_path: return
-                    
-                    lower_path = file_path.lower()
-                    handled = False
-                    
-                    # Check custom handlers (cli handlers)
-                    if hasattr(self, '_custom_loader_handlers'):
-                        for ext, handler in self._custom_loader_handlers.items():
-                            if lower_path.endswith(ext):
-                                try:
-                                    handler(self, file_path)
-                                    handled = True
-                                    break
-                                except Exception as e:
-                                    print(f"Error loading {file_path} via plugin: {e}")
-                    
-                    if not handled:
-                        # Fallback to original
-                        if hasattr(self, '_original_load_command_line_file'):
-                            self._original_load_command_line_file(file_path)
+    # 1. Register File Openers
+    # Note: .log can be generic, but our valid check helps
+    context.register_file_opener('.out', load_wrapper)
+    context.register_file_opener('.log', load_wrapper)
 
-                import types
-                main_window.load_command_line_file = types.MethodType(dynamic_load_command_line_file, main_window)
+    # 2. Register Drop Handler
+    def drop_handler(file_path):
+        fpath = file_path.lower()
+        if fpath.endswith(('.out', '.log')):
+            if is_valid_orca_file(file_path):
+                load_from_file(mw, file_path)
+                return True
+        return False
 
-            
-            
-            def dynamic_dragEnterEvent(self, event):
-                has_handler = False
-                if event.mimeData().hasUrls():
-                    for url in event.mimeData().urls():
-                        if url.isLocalFile():
-                            fpath = url.toLocalFile().lower()
-                            for ext in self._custom_drop_handlers:
-                                if fpath.endswith(ext):
-                                    has_handler = True
-                                    break
-                        if has_handler: break
-                
-                if has_handler:
-                    event.acceptProposedAction()
-                else:
-                    if hasattr(self, '_original_dragEnterEvent'):
-                        self._original_dragEnterEvent(event)
-            
-            def dynamic_dropEvent(self, event):
-                handled = False
-                if event.mimeData().hasUrls():
-                    for url in event.mimeData().urls():
-                        if url.isLocalFile():
-                            fpath = url.toLocalFile()
-                            lower_path = fpath.lower()
-                            for ext, handler in self._custom_drop_handlers.items():
-                                if lower_path.endswith(ext):
-                                    try:
-                                        handler(self, fpath)
-                                        handled = True
-                                        event.acceptProposedAction()
-                                    except Exception as e:
-                                        print(f"Error in drop handler for {ext}: {e}")
-                                    break
-                        if handled: break
-                
-                if not handled:
-                    if hasattr(self, '_original_dropEvent'):
-                        self._original_dropEvent(event)
-
-            import types
-            main_window.dragEnterEvent = types.MethodType(dynamic_dragEnterEvent, main_window)
-            main_window.dropEvent = types.MethodType(dynamic_dropEvent, main_window)
-            
-        main_window._custom_drop_handlers['.out'] = load_from_file
-        main_window._custom_drop_handlers['.log'] = load_from_file
-        # Register CLI handler too
-        if hasattr(main_window, '_custom_loader_handlers'):
-             main_window._custom_loader_handlers['.out'] = load_from_file
-             main_window._custom_loader_handlers['.log'] = load_from_file
-        
-    except Exception as e:
-        print(f"Failed to register ORCA DnD: {e}")
+    if hasattr(context, 'register_drop_handler'):
+        context.register_drop_handler(drop_handler, priority=10)
 

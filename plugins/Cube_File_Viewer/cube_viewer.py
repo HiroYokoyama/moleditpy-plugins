@@ -644,64 +644,46 @@ def open_cube_viewer(main_window, fname):
         traceback.print_exc()
         print(f"Plugin Error: {e}")
 
-def run(main_window):
+def run(mw):
     if Chem is None:
-        QMessageBox.critical(main_window, "Error", "RDKit is required for this plugin.")
+        QMessageBox.critical(mw, "Error", "RDKit is required for this plugin.")
         return
 
-    fname, _ = QFileDialog.getOpenFileName(main_window, "Open Gaussian Cube File", "", "Cube Files (*.cube *.cub);;All Files (*)")
+    fname, _ = QFileDialog.getOpenFileName(mw, "Open Gaussian Cube File", "", "Cube Files (*.cube *.cub);;All Files (*)")
     if fname:
-        open_cube_viewer(main_window, fname)
+        open_cube_viewer(mw, fname)
 
-def autorun(main_window):
-    # --- 修正: 現在のメソッドをローカル変数としてキャプチャする ---
-    # こうすることで、他のプラグインが設定したラッパーも含めてチェーンできる
-    original_dragEnterEvent = main_window.dragEnterEvent
-    original_dropEvent = main_window.dropEvent
+def initialize(context):
+    """
+    New Plugin System Entry Point
+    """
+    mw = context.get_main_window()
 
-    def custom_dragEnterEvent(event):
-        # Cubeファイルが含まれているかチェック
-        if event.mimeData().hasUrls():
-            for url in event.mimeData().urls():
-                if url.isLocalFile():
-                    file_path = url.toLocalFile()
-                    if file_path.lower().endswith(('.cube', '.cub')):
-                        event.acceptProposedAction()
-                        return
-        
-        # フォールバック: キャプチャしておいたメソッドを呼ぶ
-        original_dragEnterEvent(event)
+    def open_cube_wrapper(fname):
+        open_cube_viewer(mw, fname)
 
-    def custom_dropEvent(event):
-        urls = event.mimeData().urls()
-        cube_file = None
-        for url in urls:
-            if url.isLocalFile():
-                fpath = url.toLocalFile()
-                if fpath.lower().endswith(('.cube', '.cub')):
-                    cube_file = fpath
-                    break
-        
-        if cube_file:
-            open_cube_viewer(main_window, cube_file)
-            event.acceptProposedAction()
-        else:
-            # フォールバック: キャプチャしておいたメソッドを呼ぶ
-            original_dropEvent(event)
+    # 1. Register File Opener (Handle File > Import)
+    context.register_file_opener('.cube', open_cube_wrapper)
+    context.register_file_opener('.cub', open_cube_wrapper)
 
-    # 上書き適用
-    # インスタンスへの関数代入なので、self引数は自動付与されないため
-    # custom_dragEnterEvent(event) という定義で正しい
-    main_window.dragEnterEvent = custom_dragEnterEvent
-    main_window.dropEvent = custom_dropEvent
-    
-    # 2. Check Command Line Arguments
+    # 2. Register Drop Handler (for robustness)
+    # The system iterates drop handlers. Return True if we handled it.
+    def drop_handler(file_path):
+        if file_path.lower().endswith(('.cube', '.cub')):
+            open_cube_viewer(mw, file_path)
+            return True
+        return False
+
+    if hasattr(context, 'register_drop_handler'):
+        context.register_drop_handler(drop_handler, priority=10)
+
+    # 4. Command Line Args (Legacy support logic moved here)
     import sys
+    import os
+    from PyQt6.QtCore import QTimer
     # Simple check for CLI args
     for arg in sys.argv[1:]:
         if arg.lower().endswith(('.cube', '.cub')) and os.path.exists(arg):
-            # Use QTimer to delay slightly to ensure UI is ready
-            from PyQt6.QtCore import QTimer
-            QTimer.singleShot(100, lambda f=arg: open_cube_viewer(main_window, f))
+            QTimer.singleShot(100, lambda f=arg: open_cube_viewer(mw, f))
             break
 

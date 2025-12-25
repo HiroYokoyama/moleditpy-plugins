@@ -15,7 +15,7 @@ except ImportError:
     Chem = None
 
 PLUGIN_NAME = "Gaussian Freq Analyzer"
-__version__="2025.12.20"
+__version__="2025.12.25"
 __author__="HiroYokoyama"
 
 class FCHKParser:
@@ -1115,116 +1115,34 @@ def load_from_file(main_window, fname):
     if analyzer:
         analyzer.load_file(fname)
 
-def run(main_window):
+def run(mw):
     # Smart Open Logic
-    if hasattr(main_window, 'current_file_path') and main_window.current_file_path:
-        fpath = main_window.current_file_path.lower()
+    if hasattr(mw, 'current_file_path') and mw.current_file_path:
+        fpath = mw.current_file_path.lower()
         if fpath.endswith((".fchk", ".fck")):
-             load_from_file(main_window, main_window.current_file_path)
+             load_from_file(mw, mw.current_file_path)
              return
+    
+    fname, _ = QFileDialog.getOpenFileName(mw, "Open Gaussian FCHK", "", "Gaussian FCHK (*.fchk *.fck);;All Files (*)")
+    if fname:
+        load_from_file(mw, fname)
 
-    # Just show empty or open dialog?
-    # Logic: Open File Dialog first
-    fname, _ = QFileDialog.getOpenFileName(main_window, "Open Gaussian FCHK", "", "Gaussian FCHK (*.fchk *.fck);;All Files (*)")
-    if not fname:
-        return
-    load_from_file(main_window, fname)
+def initialize(context):
+    mw = context.get_main_window()
 
-def autorun(main_window):
-    try:
-        # Check if already patched
-        if not hasattr(main_window, '_custom_drop_handlers'):
-            main_window._custom_drop_handlers = {}
-            
-            main_window._original_dragEnterEvent = main_window.dragEnterEvent
-            main_window._original_dropEvent = main_window.dropEvent
-            
-            # --- Monkey patch for Command Line Argument Opening ---
-            if not hasattr(main_window, '_custom_loader_handlers'):
-                main_window._custom_loader_handlers = {}
-                main_window._original_load_command_line_file = main_window.load_command_line_file
+    def load_wrapper(fname):
+        load_from_file(mw, fname)
 
-                def dynamic_load_command_line_file(self, file_path):
-                    if not file_path: return
-                    
-                    lower_path = file_path.lower()
-                    handled = False
-                    
-                    # Check custom handlers (cli handlers)
-                    # Actually we can reuse drop handlers map if we want, but keeping separate is cleaner?
-                    # The plan said "register handler". 
-                    # Let's check _custom_loader_handlers. 
-                    # Wait, below I see usage of _custom_loader_handlers.
-                    if hasattr(self, '_custom_loader_handlers'):
-                        for ext, handler in self._custom_loader_handlers.items():
-                            if lower_path.endswith(ext):
-                                try:
-                                    handler(self, file_path)
-                                    handled = True
-                                    break
-                                except Exception as e:
-                                    print(f"Error loading {file_path} via plugin: {e}")
-                    
-                    if not handled:
-                        # Fallback to original
-                        if hasattr(self, '_original_load_command_line_file'):
-                            self._original_load_command_line_file(file_path)
+    # 1. Register File Openers
+    context.register_file_opener('.fchk', load_wrapper)
+    context.register_file_opener('.fck', load_wrapper)
 
-                import types
-                main_window.load_command_line_file = types.MethodType(dynamic_load_command_line_file, main_window)
-
-            
-            
-            def dynamic_dragEnterEvent(self, event):
-                has_handler = False
-                if event.mimeData().hasUrls():
-                    for url in event.mimeData().urls():
-                        if url.isLocalFile():
-                            fpath = url.toLocalFile().lower()
-                            for ext in self._custom_drop_handlers:
-                                if fpath.endswith(ext):
-                                    has_handler = True
-                                    break
-                        if has_handler: break
-                
-                if has_handler:
-                    event.acceptProposedAction()
-                else:
-                    if hasattr(self, '_original_dragEnterEvent'):
-                        self._original_dragEnterEvent(event)
-            
-            def dynamic_dropEvent(self, event):
-                handled = False
-                if event.mimeData().hasUrls():
-                    for url in event.mimeData().urls():
-                        if url.isLocalFile():
-                            fpath = url.toLocalFile()
-                            lower_path = fpath.lower()
-                            for ext, handler in self._custom_drop_handlers.items():
-                                if lower_path.endswith(ext):
-                                    try:
-                                        handler(self, fpath)
-                                        handled = True
-                                        event.acceptProposedAction()
-                                    except Exception as e:
-                                        print(f"Error in drop handler for {ext}: {e}")
-                                    break
-                        if handled: break
-                
-                if not handled:
-                    if hasattr(self, '_original_dropEvent'):
-                        self._original_dropEvent(event)
-
-            import types
-            main_window.dragEnterEvent = types.MethodType(dynamic_dragEnterEvent, main_window)
-            main_window.dropEvent = types.MethodType(dynamic_dropEvent, main_window)
-            
-        main_window._custom_drop_handlers['.fchk'] = load_from_file
-        main_window._custom_drop_handlers['.fck'] = load_from_file
-        # Register CLI handler too
-        if hasattr(main_window, '_custom_loader_handlers'):
-             main_window._custom_loader_handlers['.fchk'] = load_from_file
-             main_window._custom_loader_handlers['.fck'] = load_from_file
-        
-    except Exception as e:
-        print(f"Failed to register FCHK DnD: {e}")
+    # 2. Register Drop Handler
+    def drop_handler(file_path):
+        if file_path.lower().endswith(('.fchk', '.fck')):
+            load_from_file(mw, file_path)
+            return True
+        return False
+    
+    if hasattr(context, 'register_drop_handler'):
+        context.register_drop_handler(drop_handler, priority=10)

@@ -11,6 +11,9 @@ from rdkit import Chem
 from rdkit.Chem import AllChem, rdMolTransforms
 
 PLUGIN_NAME = "Complex Molecule Untangler"
+__version__="2025.12.25"
+__author__="HiroYokoyama"
+
 
 class UntangleWorker(QThread):
     """
@@ -252,12 +255,14 @@ class UntanglerDialog(QDialog):
         else:
             QMessageBox.warning(self, PLUGIN_NAME, f"Error: {msg}")
 
-def run(main_window):
-    if hasattr(main_window, "_untangler_dialog") and main_window._untangler_dialog.isVisible():
-        main_window._untangler_dialog.raise_()
-        main_window._untangler_dialog.activateWindow()
+def run(mw):
+    if hasattr(mw, "_untangler_dialog") and mw._untangler_dialog.isVisible():
+        mw._untangler_dialog.raise_()
+        mw._untangler_dialog.activateWindow()
         return
 
-    dialog = UntanglerDialog(main_window, parent=main_window)
-    main_window._untangler_dialog = dialog
+    dialog = UntanglerDialog(mw, parent=mw)
+    mw._untangler_dialog = dialog
     dialog.show()
+
+# initialize removed as it only registered the menu action

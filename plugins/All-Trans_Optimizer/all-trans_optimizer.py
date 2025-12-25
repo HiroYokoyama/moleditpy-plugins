@@ -2,24 +2,26 @@ from PyQt6.QtWidgets import QMessageBox
 from rdkit import Chem
 from rdkit.Chem import rdMolTransforms
 
+__version__="2025.12.25"
+__author__="HiroYokoyama"
 PLUGIN_NAME = "All-Trans Optimizer"
 
-def run(main_window):
+def run(mw):
     """
     現在の分子のアルキル鎖（非環状C-C結合）をAll-Trans配座に整形する
     """
-    # Access the current molecule via main_window.current_mol
-    mol = getattr(main_window, "current_mol", None)
+    # Access the current molecule via mw.current_mol
+    mol = getattr(mw, "current_mol", None)
 
     if not mol:
-        QMessageBox.warning(main_window, PLUGIN_NAME, "No molecule loaded.")
+        QMessageBox.warning(mw, PLUGIN_NAME, "No molecule loaded.")
         return
 
     try:
         # 3Dコンフォマーの取得 (存在しない場合は作成しない)
         if mol.GetNumConformers() == 0:
-             QMessageBox.warning(main_window, PLUGIN_NAME, "Molecule has no 3D coordinates.")
-             return
+                QMessageBox.warning(mw, PLUGIN_NAME, "Molecule has no 3D coordinates.")
+                return
         
         conf = mol.GetConformer()
 
@@ -42,20 +44,22 @@ def run(main_window):
                 count += 1
             
             # ビューの更新
-            if hasattr(main_window, "draw_molecule_3d"):
-                main_window.draw_molecule_3d(mol)
-            elif hasattr(main_window, "update_view"):
-                main_window.update_view()
-            elif hasattr(main_window, "gl_widget"):
-                getattr(main_window.gl_widget, "update", lambda: None)()
+            if hasattr(mw, "draw_molecule_3d"):
+                mw.draw_molecule_3d(mol)
+            elif hasattr(mw, "update_view"):
+                mw.update_view()
+            elif hasattr(mw, "gl_widget"):
+                getattr(mw.gl_widget, "update", lambda: None)()
 
             # Push undo state after modification
-            if hasattr(main_window, "push_undo_state"):
-                main_window.push_undo_state()
+            if hasattr(mw, "push_undo_state"):
+                mw.push_undo_state()
 
-            QMessageBox.information(main_window, PLUGIN_NAME, f"Applied All-Trans to {count} torsions.")
+            QMessageBox.information(mw, PLUGIN_NAME, f"Applied All-Trans to {count} torsions.")
         else:
-            QMessageBox.information(main_window, PLUGIN_NAME, "No alkyl chains found.")
+            QMessageBox.information(mw, PLUGIN_NAME, "No alkyl chains found.")
 
     except Exception as e:
-        QMessageBox.critical(main_window, PLUGIN_NAME, f"Error: {str(e)}")
+        QMessageBox.critical(mw, PLUGIN_NAME, f"Error: {str(e)}")
+
+# initialize removed as it only registered the menu action

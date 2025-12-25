@@ -1015,12 +1015,14 @@ class OrcaSetupDialogNeo(QDialog):
 
 from PyQt6.QtWidgets import QInputDialog 
 
-def run(main_window):
-    mol = getattr(main_window, 'current_mol', None)
+def run(mw):
+    mol = getattr(mw, 'current_mol', None)
     if not mol:
-        QMessageBox.warning(main_window, PLUGIN_NAME, "No molecule loaded.")
+        QMessageBox.warning(mw, PLUGIN_NAME, "No molecule loaded.")
         return
         
-    filename = getattr(main_window, 'current_file_path', None)
-    dialog = OrcaSetupDialogNeo(parent=main_window, mol=mol, filename=filename)
+    filename = getattr(mw, 'current_file_path', None)
+    dialog = OrcaSetupDialogNeo(parent=mw, mol=mol, filename=filename)
     dialog.exec()
+
+# initialize removed as it only registered the menu action

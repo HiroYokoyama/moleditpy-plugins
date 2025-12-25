@@ -14,7 +14,7 @@ except ImportError:
     Chem = None
 
 PLUGIN_NAME = "Paste XYZ"
-__version__="2025.12.20"
+__version__="2025.12.25"
 __author__="HiroYokoyama"
 
 class PasteXYZDialog(QDialog):
@@ -45,12 +45,12 @@ class PasteXYZDialog(QDialog):
     def get_data(self):
         return self.text_edit.toPlainText()
 
-def run(main_window):
+def run(mw):
     if Chem is None:
-        QMessageBox.critical(main_window, "Error", "RDKit is not available.")
+        QMessageBox.critical(mw, "Error", "RDKit is not available.")
         return
 
-    dialog = PasteXYZDialog(main_window)
+    dialog = PasteXYZDialog(mw)
     if dialog.exec() == QDialog.Accepted:
         xyz_text = dialog.get_data()
         if not xyz_text.strip():
@@ -72,11 +72,11 @@ def run(main_window):
                         symbol = parts[0]
                         # Verify symbol is likely an element (alpha)
                         if not symbol[0].isalpha():
-                             # Maybe it's 'Index Symbol X Y Z' or something else?
-                             # Strict requirement: "Header/Atom count ignored", assume Paste is pure or standard XYZ
-                             # If line starts with a number, it's likely count or index, SKIP.
-                             # Standard XYZ atom lines start with Symbol.
-                             continue
+                                # Maybe it's 'Index Symbol X Y Z' or something else?
+                                # Strict requirement: "Header/Atom count ignored", assume Paste is pure or standard XYZ
+                                # If line starts with a number, it's likely count or index, SKIP.
+                                # Standard XYZ atom lines start with Symbol.
+                                continue
                         
                         atoms_data.append((symbol, x, y, z))
                     except ValueError:
@@ -84,13 +84,14 @@ def run(main_window):
                         continue
 
             if not atoms_data:
-                QMessageBox.warning(main_window, "Paste XYZ", "No valid coordinate lines found.\nExpected format: Symbol X Y Z")
+                QMessageBox.warning(mw, "Paste XYZ", "No valid coordinate lines found.\nExpected format: Symbol X Y Z")
                 return
 
             # Clean workspace
-            main_window.clear_all()
-            if hasattr(main_window, 'plotter'):
-                main_window.plotter.clear()
+            if hasattr(mw, 'clear_all'):
+                mw.clear_all()
+            elif hasattr(mw, 'plotter'):
+                mw.plotter.clear()
             
             # Create RWMol and add atoms/conformers
             mol = Chem.RWMol()
@@ -109,7 +110,7 @@ def run(main_window):
             # Helper: prompt for charge
             def prompt_for_charge():
                 try:
-                    dialog = QDialog(main_window)
+                    dialog = QDialog(mw)
                     dialog.setWindowTitle("Import XYZ Charge")
                     layout = QVBoxLayout(dialog)
                     label = QLabel("Enter total molecular charge:")
@@ -153,7 +154,7 @@ def run(main_window):
                 except Exception:
                     # Fallback to simple input
                     try:
-                        charge_text, ok = QInputDialog.getText(main_window, "Import XYZ Charge", "Enter total molecular charge:", text="0")
+                        charge_text, ok = QInputDialog.getText(mw, "Import XYZ Charge", "Enter total molecular charge:", text="0")
                         if not ok: return None, False, False
                     except Exception:
                         return 0, True, False
@@ -195,20 +196,20 @@ def run(main_window):
                     
                     if not used_rd_determine:
                         # Fallback to distance based
-                        if hasattr(main_window, 'estimate_bonds_from_distances'):
-                             main_window.estimate_bonds_from_distances(mol_to_finalize)
+                        if hasattr(mw, 'estimate_bonds_from_distances'):
+                                mw.estimate_bonds_from_distances(mol_to_finalize)
 
                     try:
-                         candidate_mol = mol_to_finalize.GetMol()
+                            candidate_mol = mol_to_finalize.GetMol()
                     except Exception:
-                         candidate_mol = None
+                            candidate_mol = None
 
                     if candidate_mol is None:
-                         # Salvage
-                         try:
-                             candidate_mol = mol.GetMol()
-                         except Exception:
-                             candidate_mol = None
+                            # Salvage
+                            try:
+                                candidate_mol = mol.GetMol()
+                            except Exception:
+                                candidate_mol = None
                     
                     if candidate_mol is None:
                         raise ValueError("Failed to create valid molecule object")
@@ -217,11 +218,11 @@ def run(main_window):
                     try:
                         candidate_mol.SetIntProp("_xyz_charge", int(charge_val))
                     except Exception:
-                         pass
+                            pass
                     
                     # Apply chem check flags (if available in main_window)
-                    if hasattr(main_window, '_apply_chem_check_and_set_flags'):
-                        main_window._apply_chem_check_and_set_flags(candidate_mol, source_desc='PasteXYZ')
+                    if hasattr(mw, '_apply_chem_check_and_set_flags'):
+                        mw._apply_chem_check_and_set_flags(candidate_mol, source_desc='PasteXYZ')
 
                     return candidate_mol
 
@@ -229,22 +230,22 @@ def run(main_window):
             final_mol = None
             
             # Check settings if available (defaulting to safe behavior)
-            settings = getattr(main_window, 'settings', {})
+            settings = getattr(mw, 'settings', {})
             always_ask = bool(settings.get('always_ask_charge', False))
             skip_checks_global = bool(settings.get('skip_chemistry_checks', False))
 
             if skip_checks_global:
-                 # Skip path
-                 if hasattr(main_window, 'estimate_bonds_from_distances'):
-                      try: main_window.estimate_bonds_from_distances(mol)
-                      except: pass
-                 try:
-                     final_mol = mol.GetMol()
-                     final_mol.SetIntProp("_xyz_skip_checks", 1)
-                     # Disable optimization for this mol
-                     main_window.current_mol = final_mol
-                     main_window.is_xyz_derived = True
-                 except: pass
+                    # Skip path
+                    if hasattr(mw, 'estimate_bonds_from_distances'):
+                        try: mw.estimate_bonds_from_distances(mol)
+                        except: pass
+                    try:
+                        final_mol = mol.GetMol()
+                        final_mol.SetIntProp("_xyz_skip_checks", 1)
+                        # Disable optimization for this mol
+                        mw.current_mol = final_mol
+                        mw.is_xyz_derived = True
+                    except: pass
             else:
                 # Normal path
                 try:
@@ -258,8 +259,8 @@ def run(main_window):
                                 if not ok: return # User cancel
                                 if skip_flag:
                                     # User skipped
-                                    if hasattr(main_window, 'estimate_bonds_from_distances'):
-                                        try: main_window.estimate_bonds_from_distances(mol)
+                                    if hasattr(mw, 'estimate_bonds_from_distances'):
+                                        try: mw.estimate_bonds_from_distances(mol)
                                         except: pass
                                     try:
                                         final_mol = mol.GetMol()
@@ -271,7 +272,7 @@ def run(main_window):
                                     final_mol = _process_with_charge(charge_val)
                                     break
                                 except RuntimeError:
-                                    main_window.statusBar().showMessage("DetermineBonds failed for that charge...")
+                                    mw.statusBar().showMessage("DetermineBonds failed for that charge...")
                                     continue
                                 except Exception:
                                     # Other error, try salvage if skip checks allowed? No, here we just continue or break
@@ -282,8 +283,8 @@ def run(main_window):
                             charge_val, ok, skip_flag = prompt_for_charge()
                             if not ok: return
                             if skip_flag:
-                                if hasattr(main_window, 'estimate_bonds_from_distances'):
-                                    try: main_window.estimate_bonds_from_distances(mol)
+                                if hasattr(mw, 'estimate_bonds_from_distances'):
+                                    try: mw.estimate_bonds_from_distances(mol)
                                     except: pass
                                 try:
                                     final_mol = mol.GetMol()
@@ -294,18 +295,18 @@ def run(main_window):
                                 final_mol = _process_with_charge(charge_val)
                                 break
                             except RuntimeError:
-                                main_window.statusBar().showMessage("DetermineBonds failed...")
+                                mw.statusBar().showMessage("DetermineBonds failed...")
                                 continue
                             except Exception:
                                 continue
                 except Exception:
-                     # Any other unhandled fallback
-                     pass
+                        # Any other unhandled fallback
+                        pass
 
             # If failed to get final_mol, fallback to raw
             if final_mol is None:
-                if hasattr(main_window, 'estimate_bonds_from_distances'):
-                    try: main_window.estimate_bonds_from_distances(mol)
+                if hasattr(mw, 'estimate_bonds_from_distances'):
+                    try: mw.estimate_bonds_from_distances(mol)
                     except: pass
                 try: final_mol = mol.GetMol()
                 except: pass
@@ -313,23 +314,23 @@ def run(main_window):
             if final_mol:
                 # We need RWMol for editing
                 rw_mol = Chem.RWMol(final_mol)
-                main_window.current_mol = rw_mol
-                main_window.current_file_path = None
-                main_window.has_unsaved_changes = True
+                mw.current_mol = rw_mol
+                mw.current_file_path = None
+                mw.has_unsaved_changes = True
 
-                main_window.update_window_title()
-                main_window.reset_undo_stack()
-                main_window.draw_molecule_3d(rw_mol)
-                main_window.fit_to_view()
-                main_window.statusBar().showMessage(f"Loaded {len(atoms_data)} atoms from clipboard data.")
+                if hasattr(mw, 'update_window_title'): mw.update_window_title()
+                if hasattr(mw, 'reset_undo_stack'): mw.reset_undo_stack()
+                if hasattr(mw, 'draw_molecule_3d'): mw.draw_molecule_3d(rw_mol)
+                if hasattr(mw, 'fit_to_view'): mw.fit_to_view()
+                if hasattr(mw, 'statusBar'): mw.statusBar().showMessage(f"Loaded {len(atoms_data)} atoms from clipboard data.")
                 
                 # Enter 3D only mode as requested
-                if hasattr(main_window, '_enter_3d_viewer_ui_mode'):
+                if hasattr(mw, '_enter_3d_viewer_ui_mode'):
                     try:
-                        main_window._enter_3d_viewer_ui_mode()
+                        mw._enter_3d_viewer_ui_mode()
                     except Exception as e:
                         print(f"Could not switch to 3D mode: {e}")
 
         except Exception as e:
             traceback.print_exc()
-            QMessageBox.critical(main_window, "Error", f"Failed to parse or load data:\n{e}")
+            QMessageBox.critical(mw, "Error", f"Failed to parse or load data:\n{e}")

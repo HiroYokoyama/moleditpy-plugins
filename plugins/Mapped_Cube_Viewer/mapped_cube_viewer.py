@@ -26,7 +26,7 @@ except ImportError:
         except:
             pt = None
             
-__version__="2025.12.21" # Fixed version
+__version__="2025.12.25" # Fixed version
 __author__="HiroYokoyama"
 PLUGIN_NAME = "Mapped Cube Viewer"
 
@@ -524,8 +524,8 @@ def run(mw):
                 s += f"{sym} {p[0]} {p[1]} {p[2]}\n"
             mol = Chem.MolFromXYZBlock(s)
             try: 
-                 from rdkit.Chem import rdDetermineBonds
-                 rdDetermineBonds.DetermineConnectivity(mol)
+                    from rdkit.Chem import rdDetermineBonds
+                    rdDetermineBonds.DetermineConnectivity(mol)
             except: pass
             
             mw.current_mol = mol

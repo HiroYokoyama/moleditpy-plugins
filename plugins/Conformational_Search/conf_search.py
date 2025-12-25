@@ -9,6 +9,8 @@ from rdkit.Chem import AllChem
 import copy
 
 PLUGIN_NAME = "Conformational Search"
+__version__="2025.12.25"
+__author__="HiroYokoyama"
 
 class ConformerSearchDialog(QDialog):
     def __init__(self, main_window, parent=None):
@@ -202,22 +204,21 @@ class ConformerSearchDialog(QDialog):
             # GLWidgetのリフレッシュ
             getattr(self.main_window.gl_widget, "update", lambda: None)()
 
-def run(main_window):
-    """
-    プラグインのエントリーポイント
-    """
-    mol = getattr(main_window, "current_mol", None)
+def run(mw):
+    mol = getattr(mw, "current_mol", None)
     if not mol:
-        QMessageBox.warning(main_window, PLUGIN_NAME, "No molecule loaded.")
+        QMessageBox.warning(mw, PLUGIN_NAME, "No molecule loaded.")
         return
         
     # 既存のダイアログがあればアクティブにする
-    if hasattr(main_window, "_conformer_search_dialog") and main_window._conformer_search_dialog.isVisible():
-        main_window._conformer_search_dialog.raise_()
-        main_window._conformer_search_dialog.activateWindow()
+    if hasattr(mw, "_conformer_search_dialog") and mw._conformer_search_dialog.isVisible():
+        mw._conformer_search_dialog.raise_()
+        mw._conformer_search_dialog.activateWindow()
         return
 
-    dialog = ConformerSearchDialog(main_window, parent=main_window)
+    dialog = ConformerSearchDialog(mw, parent=mw)
     # 参照を保持してGCを防ぐ
-    main_window._conformer_search_dialog = dialog
+    mw._conformer_search_dialog = dialog
     dialog.show() # モーダルではなくModeless（非ブロック）で表示
+
+# initialize removed as it only registered the menu action

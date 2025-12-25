@@ -915,17 +915,16 @@ class GaussianSetupDialog(QDialog):
                 self.save_presets_to_file()
                 self.update_preset_combo()
 
-def run(main_window):
-    """
-    Entry point for the plugin.
-    """
-    mol = getattr(main_window, 'current_mol', None)
+def run(mw):
+    mol = getattr(mw, 'current_mol', None)
     
     if not mol or mol.GetNumAtoms() == 0:
-        QMessageBox.warning(main_window, PLUGIN_NAME, "No molecule loaded or molecule is empty.")
+        QMessageBox.warning(mw, PLUGIN_NAME, "No molecule loaded or molecule is empty.")
         return
 
-    dialog = GaussianSetupDialog(parent=main_window, mol=mol)
+    dialog = GaussianSetupDialog(parent=mw, mol=mol)
     dialog.load_presets_from_file() # Load presets after init
     dialog.exec()
+
+# initialize removed as it only registered the menu action
     

@@ -21,6 +21,8 @@ from PyQt6.QtCore import Qt, QTimer, QSize
 from rdkit import Chem
 from rdkit.Chem import AllChem, rdGeometry
 
+__version__="2025.12.25"
+__author__="HiroYokoyama"
 PLUGIN_NAME = "Animated XYZ Giffer"
 
 class AnimatedXYZPlayer(QDialog):
@@ -562,20 +564,20 @@ class AnimatedXYZPlayer(QDialog):
 
         super().closeEvent(event)
 
-def run(main_window):
+def run(mw):
     # Always close/destroy old instance to reset variables and state
-    if hasattr(main_window, '_plugin_animated_xyz_player'):
+    if hasattr(mw, '_plugin_animated_xyz_player'):
         try:
-            main_window._plugin_animated_xyz_player.close()
+            mw._plugin_animated_xyz_player.close()
         except:
             pass
         # Depending on if closeEvent did its job or not, strictly remove ref
-        if hasattr(main_window, '_plugin_animated_xyz_player'):
-             del main_window._plugin_animated_xyz_player
+        if hasattr(mw, '_plugin_animated_xyz_player'):
+                del mw._plugin_animated_xyz_player
 
     # Create fresh instance
-    player = AnimatedXYZPlayer(main_window)
-    main_window._plugin_animated_xyz_player = player
+    player = AnimatedXYZPlayer(mw)
+    mw._plugin_animated_xyz_player = player
     player.show()
     player.raise_()
     player.activateWindow()
