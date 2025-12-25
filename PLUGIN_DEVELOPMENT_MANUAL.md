@@ -36,75 +36,262 @@ def initialize(context):
 
 ## 3. The PluginContext API
 
-The `context` object (Type: `PluginContext`) passed to your `initialize` function provides the following methods:
+The `context` object (Type: `PluginContext`) passed to your `initialize` function provides the following methods for interacting with the application.
+
+### Quick Summary
+
+| Category | Method | Description |
+| :--- | :--- | :--- |
+| **UI** | `add_menu_action` | Add item to main menu. |
+| **UI** | `add_toolbar_action` | Add button to plugin toolbar. |
+| **UI** | `add_analysis_tool` | Add tool to Analysis menu. |
+| **UI** | `add_export_action` | Add option to Export menu. |
+| **Files** | `register_file_opener` | Handle specific file extensions. |
+| **Files** | `register_drop_handler` | Handle drag-and-drop files. |
+| **State** | `register_save_handler` | Save data to `.pmeprj`. |
+| **State** | `register_load_handler` | Load data from `.pmeprj`. |
+| **3D** | `register_optimization_method`| Add geometry optimization method. |
+| **3D** | `register_3d_style` | Add custom 3D visualization style. |
+| **Access** | `get_3d_controller` | Get helper for 3D manipulation. |
+| **Access** | `get_main_window` | Get raw MainWindow instance. |
 
 ### 3.1 UI & Menus
 
-| Method | Description |
-| :--- | :--- |
-| `add_menu_action(path, callback, text=None, icon=None, shortcut=None)` | Add an item to the main menu. `path` can be "MyPlugin/Action" or standard paths like "File/MyAction". |
-| `add_toolbar_action(callback, text, icon=None, tooltip=None)` | Add a button to the dedicated **Plugin Toolbar**. Buttons auto-hide if no plugins use them. |
-| `add_analysis_tool(label, callback)` | Add an entry to the top-level **Analysis** menu. |
-| `add_export_action(label, callback)` | Add an entry to the **Export** menu button (and File > Export). |
+#### `add_menu_action(path, callback, text=None, icon=None, shortcut=None)`
+Register a custom item in the main menu.
+
+- **path** (`str`): The full menu path. 
+    - Use `File/My Action` to add to existing menus.
+    - Use `MyPlugin/Action` to create a new top-level menu.
+- **callback** (`Callable`): Function to execute when the action is triggered.
+- **text** (`str`, optional): The label of the menu item. Defaults to the last part of `path`.
+- **icon** (`str`, optional): specialized icon name or path.
+- **shortcut** (`str`, optional): Keyboard shortcut (e.g., "Ctrl+Shift+X").
+
+**Example Usage:**
+```python
+context.add_menu_action("Edit/My Action", my_func, shortcut="Ctrl+M")
+```
+
+#### `add_toolbar_action(callback, text, icon=None, tooltip=None)`
+Add a button to the dedicated **Plugin Toolbar**. This toolbar is only visible if at least one plugin registers an action.
+
+- **callback** (`Callable`): Function to execute when clicked.
+- **text** (`str`): Label for the button.
+- **icon** (`str`, optional): Icon name or path.
+- **tooltip** (`str`, optional): Hover text.
+
+**Example Usage:**
+```python
+context.add_toolbar_action(my_func, "My Tool", icon="icon.png", tooltip="Run My Tool")
+```
+
+#### `add_analysis_tool(label, callback)`
+Register a tool in the top-level **Analysis** menu.
+
+- **label** (`str`): Text to display in the menu.
+- **callback** (`Callable`): Function to execute.
+
+**Example Usage:**
+```python
+context.add_analysis_tool("Calculate Mass", run_mass_calc)
+```
+
+#### `add_export_action(label, callback)`
+Register an action in the **Export** menu (accessed via File > Export or the status bar export button).
+
+- **label** (`str`): Text to display (e.g., "Export as MyFormat...").
+- **callback** (`Callable`): Function to execute.
+
+**Example Usage:**
+```python
+context.add_export_action("Export as JSON...", export_json_func)
+```
 
 ### 3.2 File Handling & Project State
 
-| Method | Description |
-| :--- | :--- |
-| `register_file_opener(extension, callback)` | Handle opening files with a specific extension (e.g., `.xyz`). |
-| `register_drop_handler(callback, priority=0)` | Handle files dropped onto the main window. `callback(path)` should return `True` if handled. |
-| `register_save_handler(callback)` | Register a function that returns a `dict` of data to be saved in the project file (`.pmeprj`). |
-| `register_load_handler(callback)` | Register a function to receive the saved `dict` when specific project data is loaded. |
+#### `register_file_opener(extension, callback)`
+Register a handler for opening a specific file type.
 
-### 3.3 Computation & 3D
+- **extension** (`str`): File extension (e.g., `.xyz`, `.cub`).
+- **callback** (`Callable[[str], None]`): Function that receives the absolute file path and handles loading.
 
-| Method | Description |
-| :--- | :--- |
-| `register_3d_style(style_name, callback)` | **New in v2.2** - Register a custom 3D visualization mode. Appears in the "3D Style" menu. |
-| `register_optimization_method(name, callback)` | Register a new method for the **Compute > Optimize Geometry** menu. |
-| `get_3d_controller()` | Returns a `Plugin3DController` instance for manipulating the 3D view. |
-| `get_main_window()` | Returns the raw `MainWindow` instance (Use with caution). |
-| `register_save_handler(callback)` | Register a function calculating data to save in `.pmeprj`. |
-| `register_load_handler(callback)` | Register a function to restore state from loaded `.pmeprj` data. |
-
-### 3.4 3D Controller API (`get_3d_controller()`)
-
-| Method | Description |
-| :--- | :--- |
-| `set_atom_color(atom_index, color_hex)` | Override the color of a specific atom (e.g., `"#FF0000"`). Set to `None` to reset. |
-| `set_bond_color(bond_index, color_hex)` | Override the color of a specific bond. Set to `None` to reset. |
-
-### 3.5 Custom 3D Style API (`register_3d_style`)
-
-Register a callback that fully handles drawing the molecule in the 3D view.
-
+**Example Usage:**
 ```python
-def draw_my_style(main_window, mol):
-    # Use mw.plotter (PyVista) to draw
-    main_window.plotter.add_mesh(...)
-
-def initialize(context):
-    context.register_3d_style("My Custom Style", draw_my_style)
+context.register_file_opener(".mysim", open_simulation_file)
 ```
 
-### 3.5 Power User Access (`get_main_window()`)
+#### `register_drop_handler(callback, priority=0)`
+Register a handler for files dropped onto the main window.
 
-While the `PluginContext` API covers common use cases, you are not limited by it.
+- **callback** (`Callable[[str], bool]`): Function that receives the dropped file path. Must return `True` if it handled the file, `False` otherwise.
+- **priority** (`int`): Handlers with higher priority are checked first.
 
-**You can change everything via `mw`**:
-Code obtained via simple `context.get_main_window()` has **unrestricted access** to the entire application instance (`MainWindow`).
-*   Modify any Qt widget directly.
-*   Monkey-patch internal methods.
-*   Access the full RDKit molecule or PyVista plotter.
+**Example Usage:**
+```python
+def handle_drop(path):
+    if path.endswith(".log"):
+        parse_log(path)
+        return True
+    return False
+context.register_drop_handler(handle_drop, priority=10)
+```
 
+#### `register_save_handler(callback)`
+Register a callback to save custom state into the application's project file (`.pmeprj`).
+
+- **callback** (`Callable[[], dict]`): Function that must return a dictionary of JSON-serializable data.
+
+**Example Usage:**
+```python
+context.register_save_handler(lambda: {"my_plugin_version": "1.0", "active": True})
+```
+
+#### `register_load_handler(callback)`
+Register a callback to restore custom state from the project file.
+
+- **callback** (`Callable[[dict], None]`): Function that receives the dictionary previously saved by your save handler.
+
+**Example Usage:**
+```python
+def restore_state(data):
+    if "my_plugin_version" in data:
+        print(f"Restored plugin state: {data['active']}")
+context.register_load_handler(restore_state)
+```
+
+### 3.3 Computation & 3D Visualization
+
+#### `register_optimization_method(method_name, callback)`
+Add a new method to the **Compute > Optimize Geometry** menu.
+
+- **method_name** (`str`): Name of the method (e.g., "My Forcefield").
+- **callback** (`Callable[[rdkit.Chem.Mol], bool]`): Function that receives the RDKit molecule object. It should modify the molecule's geometry in-place and return `True` on success.
+
+**Example Usage:**
+(See **Example 6** for a full implementation)
+```python
+context.register_optimization_method("My Opt", my_optimization_func)
+```
+
+#### `register_3d_style(style_name, callback)`
+Register a fully custom 3D visualization mode.
+
+- **style_name** (`str`): Unique name for the style.
+- **callback** (`Callable[[MainWindow, rdkit.Chem.Mol], None]`): Function responsible for the entire drawing process.
+
+**Example Usage:**
+```python
+def draw_red_spheres(mw, mol):
+    mw.plotter.add_mesh(pv.Sphere(radius=1.0), color='red')
+context.register_3d_style("Red Spheres", draw_red_spheres)
+```
+
+#### `get_3d_controller()`
+Returns a `Plugin3DController` instance for simplified manipulation of the 3D scene.
+
+**Example Usage:**
+```python
+ctrl = context.get_3d_controller()
+ctrl.set_atom_color(0, "#00FF00") # Set first atom to Green
+```
+
+#### `get_main_window()`
+Returns the raw `MainWindow` instance. This gives you unrestricted access to the application internals (PyQt widgets, RDKit mol, PyVista plotter, etc.).
+
+**Example Usage:**
 ```python
 mw = context.get_main_window()
-mw.setWindowTitle("My Custom Title") # Change the window title
-mw.menuBar().clear() # Remove all menus (if you really want to!)
+mw.statusBar().showMessage("Plugin accessed Main Window!")
+plotter = mw.plotter
+scene = mw.scene
 ```
 
+---
 
-## 4. Legacy Support (Pre-2.2)
+## 3b. Helper Classes
+
+### Plugin3DController
+
+Obtained via `context.get_3d_controller()`.
+
+#### `set_atom_color(atom_index, color_hex)`
+Override the color of a specific atom in the 3D view.
+
+- **atom_index** (`int`): The 0-based index of the atom.
+- **color_hex** (`str`): Hex color code (e.g., "#FF0000").
+
+#### `set_bond_color(bond_index, color_hex)`
+Override the color of a specific bond.
+
+- **bond_index** (`int`): The 0-based index of the bond.
+- **color_hex** (`str`): Hex color code.
+
+
+## 4. Advanced: MainWindow Internals
+
+The `context.get_main_window()` method returns the raw `MainWindow` instance (Type: `PyQt6.QtWidgets.QMainWindow`). This object holds the entire application state.
+
+### Key Attributes
+| Attribute | Type | Description |
+| :--- | :--- | :--- |
+| `mw.current_mol` | `rdkit.Chem.Mol` | The active molecule object. |
+| `mw.plotter` | `pyvista.Plotter` | The 3D view controller. Use to add meshes, actors, or change camera. |
+| `mw.scene` | `MoleculeScene` | The 2D editor scene (inherits `QGraphicsScene`). |
+| `mw.settings` | `dict` | Global application settings (e.g., colors, optimizer config). |
+| `mw.splitter` | `QSplitter` | The container dividing 2D (index 0) and 3D (index 1) views. |
+
+### Useful Internal Methods
+| Method | Description |
+| :--- | :--- |
+| `mw.push_undo_state()` | Snapshots the current molecule and adds it to the Undo stack. Call this **after** modifying `mw.current_mol`. |
+| `mw.draw_molecule_3d(mol)` | Renders the given molecule in the 3D window. |
+| `mw.set_mode(mode_str)` | Switches the 2D editor mode (e.g., `'select'`, `'atom_C'`, `'bond_1'`). |
+| `mw.statusBar().showMessage(msg)` | Displays text in the bottom status bar. |
+
+### Common Tasks
+| Task | Code Snippet |
+| :--- | :--- |
+| **Load MOL File** | `mw.load_mol_file("path/to/file.mol")` |
+| **Load XYZ (view only)** | `mw.load_xyz_for_3d_viewing("path/to/file.xyz")` |
+| **Clear 3D View** | `mw.plotter.clear()` |
+| **Update 3D Style** | `mw.main_window_view_3d.update_3d_style()` |
+| **Center Camera** | `mw.plotter.reset_camera()` |
+
+> [!TIP]
+> **Helper Access**: Many core functions are split into helper modules. You can often access their methods directly via `mw.main_window_helper_name.method()`, although direct calls are safer where `mw` exposes them (like `mw.load_mol_file`).
+
+---
+
+## 5. Debugging & Best Practices
+
+### Thread Safety Warning
+All plugin callbacks run in the **Main UI Thread**. 
+- **Fast operations** (< 100ms) are fine.
+- **Slow operations** (Heavy QM calculations, large loops) will **freeze the entire application**.
+- **Solution**: Use Python's `threading` module or `QThread` for heavy work.
+
+### Error Handling
+If your plugin callback raises an unhandled exception, it may crash the application or simply do nothing (silently fail), depending on where it hook is.
+**Recommendation**: Wrap your callback logic in a `try...except` block and use `QMessageBox` to show errors to the user.
+
+```python
+def my_callback():
+    try:
+        # Dangerous code
+        risky_operation()
+    except Exception as e:
+        from PyQt6.QtWidgets import QMessageBox
+        # Safe access to MW might fail if MW is not stored, so catch broadly
+        print(f"Plugin Error: {e}")
+```
+
+### Hot Reloading
+MoleditPy loads plugins at startup. To see changes in your code, you must currently **restart the application** or use the **"Reload Plugins"** feature if available (Settings dependent).
+
+---
+
+## 6. Legacy Support (Pre-2.2)
 
 Older plugins used a different structure which is still supported but less capable.
 
@@ -130,7 +317,7 @@ def autorun(main_window):
 
 ---
 
-## 5. Full Example
+## 7. Full Example
 
 ```python
 import os
@@ -162,7 +349,7 @@ def run(mw):
     QMessageBox.information(mw, "Manual Run", "You clicked me in the Plugins menu!")
 ```
 
-## 6. Cookbook / Examples
+## 8. Cookbook / Examples
 
 Here are common example references, updated for the modern API.
 Note: For advanced logic involving the 2D scene or 3D plotter, you will often use `context.get_main_window()` (`mw`) to access `mw.scene`, `mw.data`, or `mw.plotter`.
@@ -256,10 +443,26 @@ def load_simple(path, context):
     mw = context.get_main_window()
     print(f"Parsing {path}...")
     
-    # Example: Clear and add a dummy atom
-    mw.clear_all()
-    mw.data.add_atom("C", (0, 0))
-    mw.scene.reinitialize_items()
+    # 1. Parse your file -> create RDKit molecule
+    # (Here we create a dummy molecule for demonstration)
+    from rdkit import Chem
+    mol = Chem.MolFromSmiles("C1CCCCC1") # Cyclohexane
+
+    if mol:
+        # 2. Update the main window's current molecule
+        mw.current_mol = mol
+        
+        # 3. Commit this state to the Undo Stack mechanism
+        # (This ensures the user can Undo this import)
+        mw.push_undo_state()
+        
+        # 4. Update the 3D View
+        mw.draw_molecule_3d(mol)
+        mw.plotter.reset_camera()
+        
+        # 5. Optional: Update UI mode (if switching from 2D)
+        # mw._enter_3d_viewer_ui_mode()
+
 ```
 
 ### Example 5: Custom 3D Style (Native Registration)
@@ -281,3 +484,62 @@ def draw_custom_style(mw, mol):
 def initialize(context):
     context.register_3d_style("My Blue Sphere", draw_custom_style)
 ```
+
+### Example 6: Custom Optimization Method
+Register an optimization algorithm for the 3D structure. The callback receives the RDKit molecule object and must modify it **in-place**.
+
+> [!IMPORTANT]
+> The optimization callback runs in the **Main UI Thread**. Long-running calculations will freeze the application interface.
+> - For quick optimizations (e.g., standard RDKit force fields), this is acceptable.
+> - For complex/slow calculations, you should manage your own threading or use `QApplication.processEvents()` with caution.
+
+```python
+from rdkit import Chem
+from rdkit.Chem import AllChem
+
+PLUGIN_NAME = "Naive Optimization"
+
+def optimize_naive(mol):
+    """
+    Callback for 3D optimization.
+    
+    Args:
+        mol (rdkit.Chem.Mol): The molecule object to optimize.
+                              You must modify this object IN-PLACE.
+                              Ensure it has a conformer (mol.GetNumConformers() > 0).
+    
+    Returns:
+        bool: True if optimization succeeded, False otherwise.
+              Returning False will display a "Optimization method returned failure" message.
+    """
+    try:
+        # Check if molecule has atoms
+        if mol.GetNumAtoms() == 0:
+            return False
+            
+        print("Running Custom Optimization...")
+
+        # 1. Modify the molecule structure in-place
+        # Example: Simple UFF optimization using RDKit
+        # (maxIters=200 is small enough to run in the main thread without major freezing)
+        res = AllChem.UFFOptimizeMolecule(mol, maxIters=200)
+        
+        # 2. Return success status
+        # AllChem.UFFOptimizeMolecule returns 0 if converged, 1 if more iterations needed.
+        # Both can be considered "success" in that the coordinates were updated.
+        return True # Generally return True unless a critical error occurred
+
+    except Exception as e:
+        print(f"Optimization failed: {e}")
+        return False
+
+def initialize(context):
+    # Register the method. 
+    # It will appear in the Right-Click Context Menu of the "Optimize 3D" button
+    # in the right-hand panel.
+    # Note: Plugin methods cannot currently be set as the default global optimizer 
+    # in "Settings" > "3D Optimization Settings".
+    context.register_optimization_method("Naive UFF", optimize_naive)
+```
+
+
