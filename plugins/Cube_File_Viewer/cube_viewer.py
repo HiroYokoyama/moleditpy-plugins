@@ -23,7 +23,7 @@ except ImportError:
     Geometry = None
     rdDetermineBonds = None
     
-__version__="2025.12.20"
+__version__="2025.12.25"
 __author__="HiroYokoyama"
 PLUGIN_NAME = "Cube File Viewer"
 
@@ -685,6 +685,7 @@ def initialize(context):
 
     if hasattr(context, 'register_drop_handler'):
         context.register_drop_handler(drop_handler, priority=10)
+
 
 
 
