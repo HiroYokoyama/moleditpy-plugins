@@ -20,7 +20,7 @@
     "id": "animated_xyz_giffer",
     "visible": true,
     "name": "Animated XYZ Giffer",
-    "version": "2025.12.14",
+    "version": "2025.12.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A player for viewing multi-frame XYZ files and recording GIF animations using PIL.",
@@ -32,13 +32,13 @@
       "Pillow"
     ],
     "downloadUrl": "../plugins/Animated_XYZ_Giffer/animated_xyz_giffer.py",
-    "lastUpdated": "2025-12-14"
+    "lastUpdated": "2025-12-25"
   },
   {
     "id": "animated_xyz_player",
     "visible": false,
     "name": "Animated XYZ Player",
-    "version": "2025.12.25",
+    "version": "2025.12.15",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A player for viewing multi-frame XYZ files, such as molecular dynamics trajectories. **(Requires v2.2.0+)**",
@@ -48,7 +48,7 @@
     ],
     "dependencies": [],
     "downloadUrl": "../plugins/Animated_XYZ_Player/animated_xyz.py",
-    "lastUpdated": "2025-12-25"
+    "lastUpdated": "2025-12-15"
   },
   {
     "id": "complex_molecule_untangler",
@@ -88,7 +88,7 @@
     "id": "cube_file_viewer",
     "visible": true,
     "name": "Cube File Viewer",
-    "version": "2025.12.20",
+    "version": "2025.12.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes Gaussian Cube files (.cube) containing volumetric data (e.g., orbitals, densities). **(Requires v2.2.0+)**",
@@ -101,13 +101,13 @@
       "numpy"
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer/cube_viewer.py",
-    "lastUpdated": "2025-12-20"
+    "lastUpdated": "2025-12-25"
   },
   {
     "id": "gaussian_input_generator",
     "visible": false,
     "name": "Gaussian Input Generator",
-    "version": "2025.12.25",
+    "version": "2025.12.15",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A comprehensive tool to generate input files for Gaussian quantum chemistry calculations. **(Requires v2.2.0+)**",
@@ -116,7 +116,7 @@
     ],
     "dependencies": [],
     "downloadUrl": "../plugins/Gaussian_Input_Generator/gaussian_input_generator.py",
-    "lastUpdated": "2025-12-25"
+    "lastUpdated": "2025-12-15"
   },
   {
     "id": "hello_world",
@@ -154,7 +154,7 @@
     "id": "orca_input_generator",
     "visible": false,
     "name": "ORCA Input Generator",
-    "version": "2025.12.25",
+    "version": "2025.12.15",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates input files for the ORCA quantum chemistry package. **(Requires v2.2.0+)**",
@@ -163,7 +163,7 @@
     ],
     "dependencies": [],
     "downloadUrl": "../plugins/ORCA_Input_Generator/orca_input_generator.py",
-    "lastUpdated": "2025-12-25"
+    "lastUpdated": "2025-12-15"
   },
   {
     "id": "pubchem_name_ressolver",
@@ -245,7 +245,7 @@
     "id": "gaussian_input_generator_neo",
     "visible": true,
     "name": "Gaussian Input Generator Neo",
-    "version": "2025.12.18",
+    "version": "2025.12.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "High-functionality setting dialog for Gaussian input creation. Supports Link 0, Route, Title, Charge/Mult, and appended data. **(Requires v2.2.0+)**",
@@ -257,7 +257,7 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Gaussian_Input_Generator_Neo/gaussian_input_generator_neo.py",
-    "lastUpdated": "2025-12-18"
+    "lastUpdated": "2025-12-25"
   },
   {
     "id": "vdw_radii_overlay",
@@ -282,7 +282,7 @@
     "id": "mapped_cube_viewer",
     "visible": true,
     "name": "Mapped Cube Viewer",
-    "version": "2025.12.17",
+    "version": "2025.12.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes a property (e.g. ESP) mapped onto an isosurface (e.g. electron density) from two Cube files.",
@@ -297,16 +297,16 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/Mapped_Cube_Viewer/mapped_cube_viewer.py",
-    "lastUpdated": "2025-12-17"
+    "lastUpdated": "2025-12-25"
   },
   {
     "id": "orca_input_generator_neo",
     "visible": true,
     "name": "ORCA Input Generator Neo",
-    "version": "2025.12.18",
+    "version": "2025.12.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "High-functionality setting dialog for ORCA input creation. Supports Link 0, Route, Block Builder, and Validations. **(Requires v2.2.0+)**",
+    "description": "High-functionality setting dialog for ORCA input creation. Supports Route, Block Builder, and Validations. **(Requires v2.2.0+)**",
     "tags": [
       "Input Generator"
     ],
@@ -315,13 +315,13 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/ORCA_Input_Generator_Neo/orca_input_generator_neo.py",
-    "lastUpdated": "2025-12-18"
+    "lastUpdated": "2025-12-25"
   },
   {
     "id": "orca_xyz2inp_gui",
     "visible": true,
     "name": "ORCA xyz2inp GUI",
-    "version": "2025.12.18",
+    "version": "2025.12.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "GUI for generating ORCA input files from XYZ data with templates.",
@@ -333,8 +333,8 @@
       "rdkit",
       "PyQt6"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/orca_xyz2inp/blob/aa469e02e847c81b102bfdb20d240372ab1e4d52/moleditpy_plugin/orca_xyz2inp_gui.py",
-    "lastUpdated": "2025-12-18"
+    "downloadUrl": "https://raw.githubusercontent.com/HiroYokoyama/orca_xyz2inp/aa469e02e847c81b102bfdb20d240372ab1e4d52/moleditpy_plugin/orca_xyz2inp_gui.py",
+    "lastUpdated": "2025-12-25"
   },
   {
     "id": "ms_spectrum_simulation_neo",
@@ -400,7 +400,7 @@
     "id": "paste_xyz",
     "visible": true,
     "name": "Paste XYZ",
-    "version": "2025.12.20",
+    "version": "2025.12.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Analyzes vibrational frequencies from ORCA output files. View IR spectrum, animate normal modes, and export GIF animations.",
@@ -409,6 +409,24 @@
     ],
     "dependencies": [],
     "downloadUrl": "../plugins/Paste_XYZ/paste_xyz.py",
-    "lastUpdated": "2025-12-20"
+    "lastUpdated": "2025-12-25"
+  },
+  {
+    "id": "version_checker",
+    "visible": true,
+    "name": "Version Checker",
+    "version": "2025.12.26",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Checks installed plugins against the official repository for updates. **(Requires v2.2.0+)**",
+    "tags": [
+      "Utility",
+      "System"
+    ],
+    "dependencies": [
+      "PyQt6"
+    ],
+    "downloadUrl": "../plugins/Version_Checker/version_checker.py",
+    "lastUpdated": "2025-12-26"
   }
 ]
