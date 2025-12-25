@@ -1,280 +1,285 @@
 # MoleditPy Plugin Development Manual
 
-Welcome to the **MoleditPy Plugin Development Manual**! MoleditPy is designed to be extensible, allowing you to add new features, analysis tools, and custom visualizations with ease using Python.
+Welcome to the **MoleditPy Plugin Development Manual**! MoleditPy features a robust plugin system that allows you to extend the application with new tools, menus, visualizations, and file formats.
 
 ## 1. Introduction
 
-MoleditPy searches for plugins in your user directory:
+MoleditPy plugins are Python scripts (`.py`) placed in your user plugin directory:
 - **Windows**: `C:\Users\<YourName>\.moleditpy\plugins\`
 - **Linux/macOS**: `~/.moleditpy/plugins/`
 
-Any `.py` file placed in this directory (or its subdirectories) is automatically discovered when MoleditPy starts.
+The application automatically discovers and loads these plugins on startup.
 
 ## 2. Plugin Structure
 
-A minimum viable plugin requires just a few lines of code.
+A modern MoleditPy plugin consists of **Metadata** and an **Initialization Hook**.
 
-### Attributes
+### Metadata Variables
+Define these at the top level of your script:
+```python
+PLUGIN_NAME = "My Super Plugin"
+PLUGIN_VERSION = "1.0.0"
+PLUGIN_AUTHOR = "Jane Doe"
+PLUGIN_DESCRIPTION = "Adds super powers to MoleditPy."
+```
 
-- **`PLUGIN_NAME`**: A string variable defining how your plugin appears in the menu.
-- **`run(main_window)`**: A function that gets called when the user clicks your plugin in the menu.
-- **`autorun(main_window)`**: A function called automatically when MoleditPy starts up. Useful for registering background listeners or adding persistent UI elements.
-
-### Basic Template
+### The `initialize` Function
+This is the entry point. It receives a `context` object (of type `PluginContext`) that you use to register your extensions.
 
 ```python
-# my_first_plugin.py
-from PyQt6.QtWidgets import QMessageBox
+def initialize(context):
+    # Register your hooks here
+    context.add_menu_action("My Plugin/Action", my_callback)
+```
 
-PLUGIN_NAME = "My First Plugin"
+---
 
+## 3. The PluginContext API
+
+The `context` object (Type: `PluginContext`) passed to your `initialize` function provides the following methods:
+
+### 3.1 UI & Menus
+
+| Method | Description |
+| :--- | :--- |
+| `add_menu_action(path, callback, text=None, icon=None, shortcut=None)` | Add an item to the main menu. `path` can be "MyPlugin/Action" or standard paths like "File/MyAction". |
+| `add_toolbar_action(callback, text, icon=None, tooltip=None)` | Add a button to the dedicated **Plugin Toolbar**. Buttons auto-hide if no plugins use them. |
+| `add_analysis_tool(label, callback)` | Add an entry to the top-level **Analysis** menu. |
+| `add_export_action(label, callback)` | Add an entry to the **Export** menu button (and File > Export). |
+
+### 3.2 File Handling & Project State
+
+| Method | Description |
+| :--- | :--- |
+| `register_file_opener(extension, callback)` | Handle opening files with a specific extension (e.g., `.xyz`). |
+| `register_drop_handler(callback, priority=0)` | Handle files dropped onto the main window. `callback(path)` should return `True` if handled. |
+| `register_save_handler(callback)` | Register a function that returns a `dict` of data to be saved in the project file (`.pmeprj`). |
+| `register_load_handler(callback)` | Register a function to receive the saved `dict` when specific project data is loaded. |
+
+### 3.3 Computation & 3D
+
+| Method | Description |
+| :--- | :--- |
+| `register_3d_style(style_name, callback)` | **New in v2.2** - Register a custom 3D visualization mode. Appears in the "3D Style" menu. |
+| `register_3d_context_menu(label, callback)` | Add an action to the right-click context menu in the 3D view. |
+| `register_optimization_method(name, callback)` | Register a new method for the **Compute > Optimize Geometry** menu. |
+| `get_3d_controller()` | Returns a `Plugin3DController` instance for manipulating the 3D view. |
+| `get_main_window()` | Returns the raw `MainWindow` instance (Use with caution). |
+| `add_panel_button(text, callback, panel="right")` | Add a button to the bottom control panel ("left" or "right"). |
+| `register_save_handler(callback)` | Register a function calculating data to save in `.pmeprj`. |
+| `register_load_handler(callback)` | Register a function to restore state from loaded `.pmeprj` data. |
+
+### 3.4 3D Controller API (`get_3d_controller()`)
+
+| Method | Description |
+| :--- | :--- |
+| `set_atom_color(atom_index, color_hex)` | Override the color of a specific atom (e.g., `"#FF0000"`). Set to `None` to reset. |
+| `set_bond_color(bond_index, color_hex)` | Override the color of a specific bond. Set to `None` to reset. |
+
+### 3.5 Custom 3D Style API (`register_3d_style`)
+
+Register a callback that fully handles drawing the molecule in the 3D view.
+
+```python
+def draw_my_style(main_window, mol):
+    # Use mw.plotter (PyVista) to draw
+    main_window.plotter.add_mesh(...)
+
+def initialize(context):
+    context.register_3d_style("My Custom Style", draw_my_style)
+```
+
+### 3.5 Power User Access (`get_main_window()`)
+
+While the `PluginContext` API covers common use cases, you are not limited by it.
+
+**You can change everything via `mw`**:
+Code obtained via simple `context.get_main_window()` has **unrestricted access** to the entire application instance (`MainWindow`).
+*   Modify any Qt widget directly.
+*   Monkey-patch internal methods.
+*   Access the full RDKit molecule or PyVista plotter.
+
+```python
+mw = context.get_main_window()
+mw.setWindowTitle("My Custom Title") # Change the window title
+mw.menuBar().clear() # Remove all menus (if you really want to!)
+```
+
+
+## 4. Legacy Support (Pre-2.2)
+
+Older plugins used a different structure which is still supported but less capable.
+
+### The `run` Function
+If you define `run(main_window)`, your plugin will automatically appear in the "Plugins" menu. When clicked, `run` is executed with the raw `MainWindow` object.
+
+```python
+# Legacy Style
 def run(main_window):
-    QMessageBox.information(main_window, "Hello", "Hello from My First Plugin!")
+    mol = main_window.current_mol
+    # ... direct access to implementation details ...
+```
 
+### The `autorun` Function
+Legacy plugins often used `autorun(main_window)` to execute code immediately on startup. Use `initialize(context)` for this purpose in modern plugins.
+
+```python
 def autorun(main_window):
-    print("My First Plugin loaded!")
+    print("I run immediately!")
 ```
 
-## 3. API Reference
+**Note**: You can mix both! Define `initialize(context)` for startup hooks and `run(main_window)` to show a manual action in the main "Plugins" menu.
 
-When `run()` or `autorun()` is called, you receive the `main_window` instance. This object gives you full control over the application.
+---
 
-### Key `main_window` Attributes
-
-| Attribute | Type | Description |
-| :--- | :--- | :--- |
-| `main_window.current_mol` | `rdkit.Chem.Mol` | The currently loaded RDKit molecule object. Can be `None`. |
-| `main_window.data` | `MolecularData` | Wrapper for molecular data management. |
-| `main_window.plotter` | `pyvista.QtInteractor` | The 3D viewer widget (based on PyVista). Use this to add custom 3D actors. |
-| `main_window.view_2d` | `QGraphicsView` | The 2D editor view. |
-| `main_window.scene` | `MoleculeScene` | The 2D scene containing atom/bond items. |
-
-### Expanded Method Reference
-
-#### 1. Data Manipulation (`main_window.data`)
-Access via `main_window.data`.
-- **`add_atom(symbol, pos, charge=0, radical=0)`**: Adds an atom at the given 2D position `(x, y)`. Returns an internal ID.
-- **`add_bond(id1, id2, order=1, stereo=0)`**: Adds a bond between two atoms by ID.
-- **`remove_atom(atom_id)`**: Removes an atom and its connected bonds.
-- **`to_rdkit_mol()`**: Converts the current 2D sketch to an RDKit Mol object (2D coordinates).
-
-#### 2. 2D Scene Control (`main_window.scene`)
-Access via `main_window.scene`.
-- **`create_atom(symbol, pos)`**: UI-aware method to add an atom item to the scene.
-- **`create_bond(atom1_item, atom2_item, order)`**: UI-aware method to add a bond item.
-- **`delete_items(items_list)`**: Safely deletes a list of `AtomItem` or `BondItem` objects.
-- **`select_all()`**: Selects all items in the 2D scene.
-- **`clear_all()`**: Clears the entire scene.
-
-#### 3. 3D View Control
-Methods directly on `main_window` (delegated to `MainWindowView3d`):
-- **`draw_molecule_3d(mol)`**: Updates the 3D view with the provided RDKit molecule.
-- **`set_3d_style(style_name)`**: Changes 3D rendering style (`'ball_and_stick'`, `'cpk'`, `'wireframe'`, `'stick'`).
-- **`toggle_atom_info_display(mode)`**: Toggles labels on atoms (`'id'`, `'symbol'`, `'charge'`, etc.).
-- **`export_3d_png()`**: Opens a dialog to save the current 3D view as an image.
-
-#### 4. Computation & Optimization
-Methods delegated to `MainWindowCompute`:
-- **`trigger_conversion()`**: Converts 2D -> 3D.
-- **`optimize_3d_structure()`**: Optimizes the geometry using force fields.
-- **`set_optimization_method(method)`**: Sets the force field (`'MMFF_RDKIT'`, `'GAFF'`, etc.).
-- **`check_chemistry_problems_fallback()`**: Runs basic valence checks on the molecule.
-
-#### 5. Edit Actions
-Methods delegated to `MainWindowEditActions`:
-- **`copy_selection()`**: Copies selected 2D items to the system clipboard.
-- **`paste_from_clipboard()`**: Pastes 2D structure from the clipboard.
-- **`clean_up_2d_structure()`**: Auto-arranges the 2D layout.
-- **`add_hydrogen_atoms()`**: Adds explicit H atoms to the 2D drawing.
-- **`remove_hydrogen_atoms()`**: Removes explicit H atoms from the 2D drawing.
-
-#### 6. Dialogs & UI Helpers
-Methods delegated to `MainWindowDialogManager`:
-- **`show_about_dialog()`**: Shows the About dialog.
-- **`open_periodic_table_dialog()`**: Opens the periodic table chooser.
-- **`open_settings_dialog()`**: Opens the main settings window.
-- **`open_analysis_window()`**: Opens the analysis tools window.
-
-#### 7. Project I/O
-Methods delegated to `MainWindowProjectIo`:
-- **`save_project()`**: Trigger the standard "Save" flow.
-- **`save_as_json()`**: Return the full project state as a JSON-compatible dict.
-- **`load_json_data(data)`**: Restore project state from a dict.
-
-#### 8. App State & Undo
-Methods delegated to `MainWindowAppState`:
-- **`undo()`**: Perform undo.
-- **`redo()`**: Perform redo.
-- **`push_undo_state()`**: Manually push the current state to the undo stack (useful before making programmatic changes).
-
-#### 9. Helper Constants
-You can import useful constants from `modules.constants`.
-```python
-from modules.constants import CPK_COLORS, VDW_RADII, pt
-
-# CPK_COLORS: Dictionary of symbol -> QColor
-# VDW_RADII: Dictionary of symbol -> float (VDW radius)
-# pt: RDKit PeriodicTable instance
-```
-
-#### 10. Advanced 3D Interaction
-The `main_window.plotter` object is a `pyvistaqt.QtInteractor`. You can use standard PyVista methods to manipulate the scene.
-- **`plotter.add_mesh(mesh, ...)`**: Add PyVista meshes (PolyData, UnstructuredGrid).
-- **`plotter.add_actor(actor)`**: Add VTK actors directly.
-- **`plotter.camera`**: Access the camera object.
-- **`plotter.clear()`**: Clear the scene (be careful as this removes the molecule too!).
-
-#### 11. Available Libraries
-Your plugin runs in the same environment as MoleditPy. You can freely import:
-- **`rdkit`, `rdkit.Chem`**: Full RDKit functionality.
-- **`pyvista`**: For complex 3D geometry generation.
-- **`PyQt6`**: For creating custom UI elements (widgets, dialogs, menus).
-
-## 4. Examples
-
-### Example 1: Analyze Molecule
-
-This plugin calculates the molecular weight of the current molecule and shows it in a dialog.
+## 5. Full Example
 
 ```python
+import os
 from PyQt6.QtWidgets import QMessageBox
+
+PLUGIN_NAME = "Complete Example"
+PLUGIN_VERSION = "2.0"
+PLUGIN_AUTHOR = "MoleditPy Team"
+
+def initialize(context):
+    print("Initializing Example Plugin...")
+
+    # 1. Add a menu item
+    def show_info():
+        # You can access the main window via context if needed
+        mw = context.get_main_window()
+        QMessageBox.information(mw, "Info", "Plugin is active!")
+    
+    context.add_menu_action("Example Plugin/Show Info", show_info)
+
+    # 2. Add an analysis tool
+    context.add_analysis_tool("Count Atoms", lambda: print("Counting..."))
+
+    # 3. Handle a custom file type
+    context.register_file_opener(".ex", lambda path: print(f"Opening {path}"))
+
+# Optional: Add a 'Run' entry to the Plugins menu
+def run(mw):
+    QMessageBox.information(mw, "Manual Run", "You clicked me in the Plugins menu!")
+```
+
+## 6. Cookbook / Examples
+
+Here are common example references, updated for the modern API.
+Note: For advanced logic involving the 2D scene or 3D plotter, you will often use `context.get_main_window()` (`mw`) to access `mw.scene`, `mw.data`, or `mw.plotter`.
+
+### Example 1: Analysis Tool (Molecular Weight)
+Add a tool to the **Analysis** menu that calculates properties.
+
+```python
 from rdkit.Chem import Descriptors
+from PyQt6.QtWidgets import QMessageBox
 
 PLUGIN_NAME = "Calculate Stats"
 
-def run(main_window):
-    mol = main_window.current_mol
-    if not mol:
-        QMessageBox.warning(main_window, "Error", "No molecule loaded!")
-        return
+def initialize(context):
+    def run_calc():
+        # Access the main application to get the current molecule
+        mw = context.get_main_window()
+        mol = mw.current_mol
+        
+        if not mol:
+            QMessageBox.warning(mw, "Error", "No molecule loaded!")
+            return
 
-    mw = Descriptors.MolWt(mol)
-    num_atoms = mol.GetNumAtoms()
-    
-    QMessageBox.information(
-        main_window, 
-        "Molecule Stats", 
-        f"Molecular Weight: {mw:.2f} g/mol\nAtom Count: {num_atoms}"
-    )
+        weight = Descriptors.MolWt(mol)
+        num_atoms = mol.GetNumAtoms()
+        
+        QMessageBox.information(mw, "Stats", f"Molecular Weight: {weight:.2f}\nAtoms: {num_atoms}")
+
+    context.add_analysis_tool("Show Molecular Weight", run_calc)
 ```
 
-### Example 2: Custom 3D Object
-
-This plugin adds a transparent sphere to the 3D scene using PyVista.
+### Example 2: Custom 3D Visualization (Add Sphere)
+Use the `plotter` object (PyVista) to add custom 3D geometries.
 
 ```python
 import pyvista as pv
 
 PLUGIN_NAME = "Add 3D Sphere"
 
-def run(main_window):
-    plotter = main_window.plotter
+def initialize(context):
+    context.add_menu_action("Visuals/Add Sphere", lambda: add_sphere(context))
+
+def add_sphere(context):
+    mw = context.get_main_window()
+    plotter = mw.plotter
     
-    # Create a sphere
+    # Create and add a sphere
     sphere = pv.Sphere(radius=2.0)
-    
-    # Add it to the plotter
     plotter.add_mesh(sphere, color="red", opacity=0.3, name="custom_sphere")
-    
-    # Refresh view
     plotter.render()
 ```
 
-### Example 3: Adding a Custom Dock Panel
-
-This plugin adds a permanent side panel with a custom button.
+### Example 3: Custom Dock Panel
+Add a permanent side panel UI using standard Qt widgets.
 
 ```python
-from PyQt6.QtWidgets import QDockWidget, QPushButton, QVBoxLayout, QWidget, QLabel
+from PyQt6.QtWidgets import QDockWidget, QLabel, QVBoxLayout, QWidget, QPushButton
 from PyQt6.QtCore import Qt
 
-PLUGIN_NAME = "Custom Panel"
+PLUGIN_NAME = "My Panel"
 
-def autorun(main_window):
-    # check if already added to avoid duplicates on reload (if applicable)
-    if hasattr(main_window, 'my_custom_dock'):
-        return
-
-    dock = QDockWidget("My Tools", main_window)
-    main_window.my_custom_dock = dock # Keep reference
+def initialize(context):
+    mw = context.get_main_window()
     
+    # Prvenet duplicates on plugin reload
+    if hasattr(mw, 'my_custom_dock'): return
+
+    dock = QDockWidget("My Tools", mw)
     content = QWidget()
     layout = QVBoxLayout(content)
-    
-    lbl = QLabel("Custom Tool Panel")
-    btn = QPushButton("Click Me")
-    btn.clicked.connect(lambda: print("Button Clicked!"))
-    
-    layout.addWidget(lbl)
-    layout.addWidget(btn)
-    layout.addStretch()
-    
+    layout.addWidget(QLabel("Hello from Plugin!"))
+    layout.addWidget(QPushButton("Click Me"))
     dock.setWidget(content)
-    main_window.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
-
-def run(main_window):
-    # If users click the menu item, just show the dock if it was hidden
-    if hasattr(main_window, 'my_custom_dock'):
-        main_window.my_custom_dock.show()
+    
+    mw.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
+    
+    # Store reference so we don't recreate it
+    mw.my_custom_dock = dock
 ```
 
-### Example 4: Custom File Loader
-
-This example demonstrates how to parse a custom text format and build a molecule programmatically using `main_window.data`.
+### Example 4: Custom File Importer
+Register a handler for a custom file format (e.g. `.simple`).
 
 ```python
-# Format: "Symbol x y" per line
-# Example:
-# C 0.0 0.0
-# O 1.5 0.0
+PLUGIN_NAME = "Simple Importer"
 
-from PyQt6.QtWidgets import QFileDialog, QMessageBox
+def initialize(context):
+    context.register_file_opener(".simple", lambda path: load_simple(path, context))
 
-PLUGIN_NAME = "Import Simple XY"
-
-def run(main_window):
-    file_path, _ = QFileDialog.getOpenFileName(
-        main_window, "Open Simple XY", "", "Text Files (*.txt)"
-    )
+def load_simple(path, context):
+    mw = context.get_main_window()
+    print(f"Parsing {path}...")
     
-    if not file_path:
-        return
-
-    try:
-        # 1. Clear existing 2D scene
-        main_window.clear_all()
-        
-        # 2. Parse file and build data
-        with open(file_path, 'r') as f:
-            for line in f:
-                parts = line.strip().split()
-                if len(parts) >= 3:
-                    symbol = parts[0]
-                    x = float(parts[1]) * 50 # Scale up for pixels
-                    y = float(parts[2]) * 50
-                    
-                    # Add atom to data model
-                    main_window.data.add_atom(symbol, (x, y))
-
-        # 3. Refresh the 2D scene from data
-        main_window.scene.reinitialize_items()
-        
-        # 4. Push to undo stack
-        main_window.push_undo_state()
-        
-        main_window.statusBar().showMessage(f"Imported {file_path}")
-
-    except Exception as e:
-        QMessageBox.critical(main_window, "Import Error", str(e))
+    # Example: Clear and add a dummy atom
+    mw.clear_all()
+    mw.data.add_atom("C", (0, 0))
+    mw.scene.reinitialize_items()
 ```
 
-## 5. Development Tips
+### Example 5: Custom 3D Style (Native Registration)
+Register a new visualization mode that appears in the 3D Style menu.
 
-1.  **Dependencies**: MoleditPy uses `PyQt6` for UI, `rdkit` for chemistry, and `pyvista` for 3D rendering. You can import these directly in your plugins.
-2.  **Console Output**: Use `print()` for debugging. Output appears in the terminal where you launched MoleditPy.
-3.  **Error Handling**: Wrap your code in `try...except` blocks to prevent crashing the main application.
-4.  **Reloading**: You can reload plugin code by clicking `Reload Plugins` button in `Plugin` menu.
+```python
+import pyvista as pv
 
-Happy Coding!
+PLUGIN_NAME = "My Style Plugin"
 
+def draw_custom_style(mw, mol):
+    # 1. Base drawing (optional helper to draw standard atoms)
+    # mw.main_window_view_3d.draw_standard_3d_style(mol, style_override='ball_and_stick')
+    
+    # 2. Add custom visualization
+    mw.plotter.add_text("Custom Style Active", position='upper_left')
+    mw.plotter.add_mesh(pv.Sphere(radius=5), color='blue', opacity=0.2)
 
+def initialize(context):
+    context.register_3d_style("My Blue Sphere", draw_custom_style)
+```

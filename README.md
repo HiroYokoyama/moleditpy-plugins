@@ -10,6 +10,14 @@ This directory contains the official plugins for **MoleditPy**.
 We believe in the power of community\!  
 If you have created a useful plugin, we would love to include it as an official part of this collection. Please feel free to submit a Pull Request with your plugin to help us expand what MoleditPy can do.
 
+## New in v2.2: Plugin Manager
+
+Manage your extensions easily with the new **Plugin Manager**:
+- **Install/Uninstall**: Drag-and-drop `.py` files to install, or click "Remove" to uninstall.
+- **Explore**: View plugin details, authors, and versions.
+- **Online Library**: Direct link to the plugin explorer.
+- **Access**: Open via **Plugin > Plugin Manager...**
+
 ## Featured Plugins
 
 ### 1. Gaussian Input Generator Neo (`gaussian_input_generator_neo.py`)
@@ -88,39 +96,32 @@ To install a plugin:
 
 ## Development
 
-You can create your own plugins by writing a Python script with a `run(main_window)` function.
+MoleditPy features a robust plugin architecture allowing deep integration via the **PluginContext** API.
+
+### Quick Start
+
+Create a `.py` file with an `initialize(context)` function:
 
 ```python
-# example_plugin.py
-from PyQt6.QtWidgets import QMessageBox
+PLUGIN_NAME = "My New Plugin"
+PLUGIN_VERSION = "1.0"
+PLUGIN_AUTHOR = "Your Name"
 
-PLUGIN_NAME = "My Custom Plugin"
-
-def run(main_window):
-    # Access the current molecule via main_window.current_mol
-    if main_window.current_mol:
-        QMessageBox.information(main_window, PLUGIN_NAME, "Molecule loaded!")
-    else:
-        QMessageBox.warning(main_window, PLUGIN_NAME, "No molecule.")
-
-# Optional: Run automatically on startup/reload
-def autorun(main_window):
-    print(f"{PLUGIN_NAME} initialized locally.")
+def initialize(context):
+    # Register a menu action
+    context.add_menu_action("My Plugin/Say Hello", lambda: print("Hello!"))
 ```
 
-### Advanced Features
+### Capabilities
 
-1.  **Subdirectories**: You can organize your plugins into subfolders within the `plugins` directory. MoleditPy will automatically create nested menus corresponding to the folder structure.
-2.  **Autorun**: Define a function named `autorun(main_window)` in your plugin. This function will be executed immediately when the plugin is loaded (on application startup or when "Reload Plugins" is clicked). This is useful for plugins that need to register their own menu items, toolbars, or event listeners without waiting for the user to click the plugin name in the menu.
+The new API allows plugins to:
+*   Add **Menu** and **Toolbar** items.
+*   Register **Bond/Atom Color Overrides**.
+*   Handle **File Drops** and custom **File Imports**.
+*   Add custom **Export Options** and **Optimization Methods**.
+*   Integrate **Analysis Tools** and persist data in **Project Files**.
 
-### Security Warning
-
-> [!WARNING]
-> **Plugins run arbitrary Python code with the same privileges as the MoleditPy application.**
-> 
-> *   Only install plugins from sources you trust.
-> *   Be especially cautious with plugins that use `autorun`, as they execute code immediately upon loading without specific user action.
-> *   Review the plugin code (`.py` file) if you are unsure about its functionality.
+For full documentation and examples, please refer to the [PLUGIN_DEVELOPMENT_MANUAL.md](PLUGIN_DEVELOPMENT_MANUAL.md).
 
 
 
