@@ -10,7 +10,7 @@ from rdkit import Chem
 from rdkit.Chem import rdMolTransforms
 import json
 
-__version__="2025.12.18"
+__version__="2025.12.25"
 __author__="HiroYokoyama"
 PLUGIN_NAME = "ORCA Input Generator Neo"
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "orca_input_generator_neo.json")
@@ -1026,3 +1026,4 @@ def run(mw):
     dialog.exec()
 
 # initialize removed as it only registered the menu action
+
