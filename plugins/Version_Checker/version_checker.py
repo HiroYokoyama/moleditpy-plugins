@@ -28,6 +28,9 @@ PLUGIN_DESCRIPTION = "Checks installed plugins against the official repository f
 REMOTE_JSON_URL = "https://raw.githubusercontent.com/HiroYokoyama/moleditpy-plugins/refs/heads/main/explorer/plugins.json"
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "version_checker.json")
 
+# Global flag to ensure startup check runs only once per session
+_startup_check_performed = False
+
 def load_settings():
     if os.path.exists(SETTINGS_FILE):
         try:
@@ -35,7 +38,8 @@ def load_settings():
                 return json.load(f)
         except:
             pass
-    return {"check_at_startup": True}
+    # Default to empty so we can detect "first run" (missing config)
+    return {}
 
 def save_settings(settings):
     try:
@@ -49,15 +53,44 @@ def initialize(context):
     Called by PluginManager at startup.
     Checks for updates if enabled in settings.
     """
-    # Register menu action
+    global _startup_check_performed
+    if _startup_check_performed:
+        return
+    _startup_check_performed = True
+
     settings = load_settings()
-    if settings.get("check_at_startup", True):
-        mw = context.get_main_window()
-        if mw:
-            # Delay check to ensure main window is visible
-            from PyQt6.QtCore import QTimer
-            # Delay 2 seconds
-            QTimer.singleShot(2000, lambda: perform_startup_check(mw))
+    mw = context.get_main_window()
+    if not mw:
+        return
+
+    # Check if "check_at_startup" is explicitly configured
+    if "check_at_startup" not in settings:
+        # First Run: Ask the user ONCE
+        from PyQt6.QtCore import QTimer
+        QTimer.singleShot(2000, lambda: ask_user_permission(mw))
+    elif settings.get("check_at_startup"):
+        # Configured True: Run check
+        from PyQt6.QtCore import QTimer
+        QTimer.singleShot(2000, lambda: perform_startup_check(mw))
+
+def ask_user_permission(mw):
+    """Ask user if they want to enable automatic updates."""
+    reply = QMessageBox.question(
+        mw, "Version Checker",
+        "Do you want to enable automatic plugin update checks at startup?\n\n(You can change this later in the Version Checker)",
+        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        QMessageBox.StandardButton.No
+    )
+    
+    settings = load_settings()
+    if reply == QMessageBox.StandardButton.Yes:
+        settings["check_at_startup"] = True
+        save_settings(settings)
+        # Run the check now since they said yes
+        perform_startup_check(mw)
+    else:
+        settings["check_at_startup"] = False
+        save_settings(settings)
 
 def perform_startup_check(mw):
     try:
@@ -155,7 +188,7 @@ class VersionCheckerWindow(QDialog):
         
         # Settings Checkbox
         self.chk_startup = QCheckBox("Check for updates at startup")
-        self.chk_startup.setChecked(self.settings.get("check_at_startup", True))
+        self.chk_startup.setChecked(self.settings.get("check_at_startup", False))
         self.chk_startup.toggled.connect(self.save_settings_ui)
         layout.addWidget(self.chk_startup)
         
