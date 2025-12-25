@@ -61,11 +61,9 @@ The `context` object (Type: `PluginContext`) passed to your `initialize` functio
 | Method | Description |
 | :--- | :--- |
 | `register_3d_style(style_name, callback)` | **New in v2.2** - Register a custom 3D visualization mode. Appears in the "3D Style" menu. |
-| `register_3d_context_menu(label, callback)` | Add an action to the right-click context menu in the 3D view. |
 | `register_optimization_method(name, callback)` | Register a new method for the **Compute > Optimize Geometry** menu. |
 | `get_3d_controller()` | Returns a `Plugin3DController` instance for manipulating the 3D view. |
 | `get_main_window()` | Returns the raw `MainWindow` instance (Use with caution). |
-| `add_panel_button(text, callback, panel="right")` | Add a button to the bottom control panel ("left" or "right"). |
 | `register_save_handler(callback)` | Register a function calculating data to save in `.pmeprj`. |
 | `register_load_handler(callback)` | Register a function to restore state from loaded `.pmeprj` data. |
 
