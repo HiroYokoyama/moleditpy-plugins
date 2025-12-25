@@ -677,13 +677,5 @@ def initialize(context):
     if hasattr(context, 'register_drop_handler'):
         context.register_drop_handler(drop_handler, priority=10)
 
-    # 4. Command Line Args (Legacy support logic moved here)
-    import sys
-    import os
-    from PyQt6.QtCore import QTimer
-    # Simple check for CLI args
-    for arg in sys.argv[1:]:
-        if arg.lower().endswith(('.cube', '.cub')) and os.path.exists(arg):
-            QTimer.singleShot(100, lambda f=arg: open_cube_viewer(mw, f))
-            break
+
 
