@@ -3,7 +3,7 @@
     "id": "all-trans_optimizer",
     "visible": true,
     "name": "All-Trans Optimizer",
-    "version": "2025.12.14",
+    "version": "2025.12.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A geometric tool for straightening alkyl chains. **(Requires v2.2.0+)**",
@@ -14,7 +14,7 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/All-Trans_Optimizer/all-trans_optimizer.py",
-    "lastUpdated": "2025-12-14"
+    "lastUpdated": "2025-12-25"
   },
   {
     "id": "animated_xyz_giffer",
@@ -38,7 +38,7 @@
     "id": "animated_xyz_player",
     "visible": false,
     "name": "Animated XYZ Player",
-    "version": "2025.12.12",
+    "version": "2025.12.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A player for viewing multi-frame XYZ files, such as molecular dynamics trajectories. **(Requires v2.2.0+)**",
@@ -48,13 +48,13 @@
     ],
     "dependencies": [],
     "downloadUrl": "../plugins/Animated_XYZ_Player/animated_xyz.py",
-    "lastUpdated": "2025-12-12"
+    "lastUpdated": "2025-12-25"
   },
   {
     "id": "complex_molecule_untangler",
     "visible": true,
     "name": "Complex Molecule Untangler",
-    "version": "2025.12.14",
+    "version": "2025.12.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A Monte Carlo-based tool to resolve steric clashes in complex or roughly drawn molecules. **(Requires v2.2.0+)**",
@@ -65,13 +65,13 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/Complex_Molecule_Untangler/complex_molecule_untangler.py",
-    "lastUpdated": "2025-12-14"
+    "lastUpdated": "2025-12-25"
   },
   {
     "id": "conformational_search",
     "visible": true,
     "name": "Conformational Search",
-    "version": "2025.12.14",
+    "version": "2025.12.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Performs conformational sampling and energy minimization. **(Requires v2.2.0+)**",
@@ -82,7 +82,7 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/Conformational_Search/conf_search.py",
-    "lastUpdated": "2025-12-14"
+    "lastUpdated": "2025-12-25"
   },
   {
     "id": "cube_file_viewer",
@@ -107,7 +107,7 @@
     "id": "gaussian_input_generator",
     "visible": false,
     "name": "Gaussian Input Generator",
-    "version": "2025.12.12",
+    "version": "2025.12.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A comprehensive tool to generate input files for Gaussian quantum chemistry calculations. **(Requires v2.2.0+)**",
@@ -116,7 +116,7 @@
     ],
     "dependencies": [],
     "downloadUrl": "../plugins/Gaussian_Input_Generator/gaussian_input_generator.py",
-    "lastUpdated": "2025-12-12"
+    "lastUpdated": "2025-12-25"
   },
   {
     "id": "hello_world",
@@ -137,7 +137,7 @@
     "id": "ms_spectrum_simulation",
     "visible": false,
     "name": "MS Spectrum Simulation",
-    "version": "2025.12.12",
+    "version": "2025.12.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Simulates the Mass Spectrum for the currently loaded molecule using RDKit descriptors. **(Requires v2.2.0+)**",
@@ -148,13 +148,13 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/MS_Spectrum_Simulation/ms_spectrum.py",
-    "lastUpdated": "2025-12-12"
+    "lastUpdated": "2025-12-25"
   },
   {
     "id": "orca_input_generator",
     "visible": false,
     "name": "ORCA Input Generator",
-    "version": "2025.12.12",
+    "version": "2025.12.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates input files for the ORCA quantum chemistry package. **(Requires v2.2.0+)**",
@@ -163,13 +163,13 @@
     ],
     "dependencies": [],
     "downloadUrl": "../plugins/ORCA_Input_Generator/orca_input_generator.py",
-    "lastUpdated": "2025-12-12"
+    "lastUpdated": "2025-12-25"
   },
   {
     "id": "pubchem_name_ressolver",
     "visible": true,
     "name": "PubChem Name Resolver",
-    "version": "2025.12.14",
+    "version": "2025.12.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Resolves chemical names and identifiers to structures using the PubChem PUG REST API. **(Requires v2.2.0+)**",
@@ -181,13 +181,13 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/PubChem_Name_Ressolver/pubchem_ressolver.py",
-    "lastUpdated": "2025-12-14"
+    "lastUpdated": "2025-12-25"
   },
   {
     "id": "console",
     "visible": true,
     "name": "Python Console",
-    "version": "2025.12.16",
+    "version": "2025.12.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "An interactive Python interpreter embedded in the application. Allows runtime script execution with access to the MainWindow (mw) and current molecule (mol). **(Requires v2.2.0+)**",
@@ -201,13 +201,13 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Python_Console/console.py",
-    "lastUpdated": "2025-12-16"
+    "lastUpdated": "2025-12-25"
   },
   {
     "id": "atom_colorizer",
     "visible": true,
     "name": "Atom Colorizer",
-    "version": "2025.12.17",
+    "version": "2025.12.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Select atoms in the 3D viewer and apply color. **(Requires v2.2.0+)**",
@@ -221,7 +221,7 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Atom_Colorizer/atom_colorizer.py",
-    "lastUpdated": "2025-12-17"
+    "lastUpdated": "2025-12-25"
   },
   {
     "id": "dark_mode_theme",
@@ -263,7 +263,7 @@
     "id": "vdw_radii_overlay",
     "visible": true,
     "name": "VDW Radii Overlay",
-    "version": "2025.12.17",
+    "version": "2025.12.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes Van der Waals radii as a merged surface overlay using PyVista. **(Requires v2.2.0+)**",
@@ -276,7 +276,7 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/VDW_Radii_Overlay/vdw_radii_overlay.py",
-    "lastUpdated": "2025-12-17"
+    "lastUpdated": "2025-12-25"
   },
   {
     "id": "mapped_cube_viewer",
@@ -340,7 +340,7 @@
     "id": "ms_spectrum_simulation_neo",
     "visible": true,
     "name": "MS Spectrum Simulation Neo",
-    "version": "2025.12.18",
+    "version": "2025.12.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Simulates the Mass Spectrum for the currently loaded molecule using RDKit descriptors. Includes Gaussian broadening and interactive zoom/pan. **(Requires v2.2.0+)**",
@@ -352,13 +352,13 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/MS_Spectrum_Simulation_Neo/ms_spectrum_neo.py",
-    "lastUpdated": "2025-12-18"
+    "lastUpdated": "2025-12-25"
   },
   {
     "id": "gaussian_freq_analyzer",
     "visible": true,
     "name": "Gaussian Freq Analyzer",
-    "version": "2025.12.20",
+    "version": "2025.12.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Analyzes vibrational frequencies from Gaussian FCHK files. View IR spectrum, animate normal modes, and export GIF animations. **(Requires v2.2.0+)**",
@@ -373,13 +373,13 @@
       "Pillow"
     ],
     "downloadUrl": "../plugins/Gaussian_Freq_Analyzer/gaussian_fchk_freq_analyzer.py",
-    "lastUpdated": "2025-12-20"
+    "lastUpdated": "2025-12-25"
   },
   {
     "id": "orca_freq_analyzer",
     "visible": true,
     "name": "ORCA Freq Analyzer",
-    "version": "2025.12.20",
+    "version": "2025.12.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Analyzes vibrational frequencies from ORCA output files. View IR spectrum, animate normal modes, and export GIF animations. **(Requires v2.2.0+)**",
@@ -394,7 +394,7 @@
       "Pillow"
     ],
     "downloadUrl": "../plugins/ORCA_Freq_Analyzer/orca_out_freq_analyzer.py",
-    "lastUpdated": "2025-12-20"
+    "lastUpdated": "2025-12-25"
   },
   {
     "id": "paste_xyz",
