@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (QFileDialog, QDockWidget, QWidget, QVBoxLayout,
                              QDoubleSpinBox, QColorDialog, QInputDialog, QDialog, 
                              QFormLayout, QDialogButtonBox, QSpinBox, QCheckBox)
 from PyQt6.QtGui import QColor
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 
 # RDKit imports for molecule construction
 try:
@@ -223,7 +223,15 @@ class CubeViewerWidget(QWidget):
         self.color_n = "#FF0000" # Red
 
         self.init_ui()
-        self.update_iso() 
+        # DELAY INITIAL UPDATE: 
+        # When opening from command line, the window might not be fully ready.
+        # A small delay ensures the plotter is ready for actors.
+        QTimer.singleShot(100, self.initial_update)
+
+    def initial_update(self):
+        self.update_iso()
+        self.plotter.reset_camera()
+        self.plotter.render()
 
     def init_ui(self):
         layout = QVBoxLayout()
@@ -637,7 +645,8 @@ def open_cube_viewer(main_window, fname):
         
         main_window.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
         
-        main_window.plotter.reset_camera()
+        
+        # main_window.plotter.reset_camera() # Handled in initial_update of widget
 
     except Exception as e:
         import traceback
