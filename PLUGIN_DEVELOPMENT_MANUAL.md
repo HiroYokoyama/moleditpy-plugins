@@ -233,6 +233,7 @@ Override the color of a specific bond.
 The `context.get_main_window()` method returns the raw `MainWindow` instance (Type: `PyQt6.QtWidgets.QMainWindow`). This object holds the entire application state.
 
 ### Key Attributes
+
 | Attribute | Type | Description |
 | :--- | :--- | :--- |
 | `mw.current_mol` | `rdkit.Chem.Mol` | The active molecule object. |
@@ -242,6 +243,7 @@ The `context.get_main_window()` method returns the raw `MainWindow` instance (Ty
 | `mw.splitter` | `QSplitter` | The container dividing 2D (index 0) and 3D (index 1) views. |
 
 ### Useful Internal Methods
+
 | Method | Description |
 | :--- | :--- |
 | `mw.push_undo_state()` | Snapshots the current molecule and adds it to the Undo stack. Call this **after** modifying `mw.current_mol`. |
@@ -250,6 +252,7 @@ The `context.get_main_window()` method returns the raw `MainWindow` instance (Ty
 | `mw.statusBar().showMessage(msg)` | Displays text in the bottom status bar. |
 
 ### Common Tasks
+
 | Task | Code Snippet |
 | :--- | :--- |
 | **Load MOL File** | `mw.load_mol_file("path/to/file.mol")` |
@@ -541,5 +544,6 @@ def initialize(context):
     # in "Settings" > "3D Optimization Settings".
     context.register_optimization_method("Naive UFF", optimize_naive)
 ```
+
 
 
