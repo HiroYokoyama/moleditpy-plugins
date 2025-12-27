@@ -245,7 +245,7 @@
     "id": "gaussian_input_generator_neo",
     "visible": true,
     "name": "Gaussian Input Generator Neo",
-    "version": "2025.12.25",
+    "version": "2025.12.28",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "High-functionality setting dialog for Gaussian input creation. Supports Link 0, Route, Title, Charge/Mult, and appended data. **(Requires v2.2.0+)**",
@@ -257,7 +257,7 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Gaussian_Input_Generator_Neo/gaussian_input_generator_neo.py",
-    "lastUpdated": "2025-12-25"
+    "lastUpdated": "2025-12-28"
   },
   {
     "id": "vdw_radii_overlay",
@@ -303,7 +303,7 @@
     "id": "orca_input_generator_neo",
     "visible": true,
     "name": "ORCA Input Generator Neo",
-    "version": "2025.12.25",
+    "version": "2025.12.28",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "High-functionality setting dialog for ORCA input creation. Supports Route, Block Builder, and Validations. **(Requires v2.2.0+)**",
@@ -315,7 +315,7 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/ORCA_Input_Generator_Neo/orca_input_generator_neo.py",
-    "lastUpdated": "2025-12-25"
+    "lastUpdated": "2025-12-28"
   },
   {
     "id": "orca_xyz2inp_gui",
@@ -452,4 +452,5 @@
     "downloadUrl": "../plugins/Chat_with_Molecule/chat_with_molecule.py",
     "lastUpdated": "2025-12-27"
   }
+
 ]
