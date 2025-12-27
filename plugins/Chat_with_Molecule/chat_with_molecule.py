@@ -134,6 +134,9 @@ def append_log(sender, text):
     except Exception as e:
         print(f"Logging failed: {e}")
 
+# --- LaTeX Cache ---
+LATEX_CACHE = {}
+
 def latex_to_html(latex_str):
     """
     Render LaTeX string to base64 encoded PNG image using matplotlib.
@@ -141,6 +144,10 @@ def latex_to_html(latex_str):
     """
     if not HAS_MATPLOTLIB:
         return f"<i>{latex_str}</i>" # Fallback if no matplotlib
+
+    # Check Cache
+    if latex_str in LATEX_CACHE:
+        return LATEX_CACHE[latex_str]
 
     try:
         # Create a pure Figure (no global state)
@@ -176,7 +183,11 @@ def latex_to_html(latex_str):
         buf.seek(0)
         img_base64 = base64.b64encode(buf.read()).decode('utf-8')
         # Use simple vertical align and max-width to prevent overflow, but respect natural size (now smaller via DPI).
-        return f'<img src="data:image/png;base64,{img_base64}" style="vertical-align: middle; max-width: 100%;">'
+        html_tag = f'<img src="data:image/png;base64,{img_base64}" style="vertical-align: middle; max-width: 100%;">'
+        
+        # Cache Result
+        LATEX_CACHE[latex_str] = html_tag
+        return html_tag
         
     except Exception as e:
         print(f"LaTeX render error: {e}")
@@ -217,6 +228,7 @@ class InitWorker(QThread):
 class GenAIWorker(QThread):
     """Worker thread to handle API calls to avoid freezing UI"""
     response_received = pyqtSignal(object) # Changed to object to pass full response
+    chunk_received = pyqtSignal(str)       # Signal for streaming updates
     error_occurred = pyqtSignal(str)
 
     def __init__(self, chat_session, user_message):
@@ -226,7 +238,15 @@ class GenAIWorker(QThread):
 
     def run(self):
         try:
-            response = self.chat_session.send_message(self.user_message)
+            # Enable streaming
+            response = self.chat_session.send_message(self.user_message, stream=True)
+            
+            # Iterate through chunks
+            for chunk in response:
+                if hasattr(chunk, 'text') and chunk.text:
+                    self.chunk_received.emit(chunk.text)
+            
+            # Emit final complete response object for usage logging etc.
             self.response_received.emit(response)
         except Exception as e:
             self.error_occurred.emit(str(e))
@@ -246,7 +266,12 @@ class ChatMoleculeWindow(QDialog):
         self.last_error = None # Track previous error state
         self.pending_context_msg = None # Pending context update to send with next user message
         self.pending_info_text = None # Pending visual notification to show in chat on next send
+        self.pending_info_text = None # Pending visual notification to show in chat on next send
         self.first_check_done = False # Track if we've done the initial check
+
+        # Streaming State
+        self.stream_accumulated_text = ""
+        self.stream_start_pos = 0
 
         self.init_ui()
         
@@ -497,43 +522,26 @@ class ChatMoleculeWindow(QDialog):
         except Exception as e:
              QMessageBox.warning(self, "Error", f"Failed to list models:\n{e}")
 
-    def append_message(self, sender, text, color="black"):
-        self.chat_history_log.append({"sender": sender, "text": text})
-
-        # Auto-log to file
-        append_log(sender, text)
-
-        # --- LaTeX / Chemical Formula Formatting ---
-        # 1. Block Math: $$...$$
-        # We process this BEFORE markdown to avoid markdown messing up LaTeX syntax.
-        
+    def render_content(self, text):
+        """Helper to render text (Markdown + LaTeX + SMILES) to HTML"""
         processed_text = text
         
+        # --- LaTeX / Chemical Formula Formatting ---
         def replace_latex_block(match):
             return latex_to_html(match.group(1))
             
         def replace_latex_inline(match):
             return latex_to_html(match.group(1))
 
-        # Using regex to find $$...$$ (Block)
-        # We replace it with a unique placeholder or directly with the HTML
-        # If we do it directly, Markdown might ignore it if it's inside HTML tags.
-        # But standard markdown (Python lib) typically ignores content inside HTML block tags or handles them safely?
-        # Let's try direct replacement.
+        # 1. Block Math: $$...$$
         processed_text = re.sub(r'\$\$([^$]+)\$\$', replace_latex_block, processed_text)
         
         # 2. Inline Math: $...$
-        # Be careful not to match currency. Regex usually requires lookarounds or spacing checks,
-        # but for this context (scientific), $...$ is almost always math.
-        # We match $...$ but NOT $$...$$ (already handled).
         processed_text = re.sub(r'(?<!\$)\$([^$]+)\$(?!\$)', replace_latex_inline, processed_text)
 
-        # Render Markdown (now that LaTeX is turned into HTML images)
-        if HAS_MARKDOWN and sender in ["Gemini", "You", "System"]:
+        # 3. Markdown
+        if HAS_MARKDOWN:
             try:
-                # Enable useful extensions. 'tables' and 'fenced_code' are standard.
-                # We need to ensure we don't break the HTML images we just inserted.
-                # Python-Markdown usually preserves HTML if not in safe_mode.
                 processed_text = markdown.markdown(processed_text, extensions=['fenced_code', 'tables'])
             except Exception as e:
                 print(f"Markdown error: {e}")
@@ -541,17 +549,20 @@ class ChatMoleculeWindow(QDialog):
         else:
              processed_text = processed_text.replace(chr(10), '<br>')
 
-        # Enforce SMILES links manually if they didn't get parsed
-        # Pattern: [Label](smiles:Data) -> <a href="smiles:Data">Label</a>
-        # Note: Markdown might have already converted this to <a> tags if the scheme was recognized,
-        # but valid markdown links usually require http/https or known schemes.
-        # Python-Markdown might not support 'smiles:' scheme automatically.
-        
-        # Check if markdown already handled it?
-        # If not, we run our regex.
-        # Regex for markdown link: \[([^\]]+)\]\((smiles:[^\)]+)\)
+        # 4. SMILES Links
         pattern = r"\[([^\]]+)\]\((smiles:[^\)]+)\)"
         processed_text = re.sub(pattern, r'<a href="\2">\1</a>', processed_text)
+        
+        return processed_text
+
+    def append_message(self, sender, text, color="black"):
+        self.chat_history_log.append({"sender": sender, "text": text})
+
+        # Auto-log to file
+        append_log(sender, text)
+
+        # Render Content
+        processed_text = self.render_content(text)
 
         # CSS Styling for Markdown elements
         style = """
@@ -819,16 +830,81 @@ class ChatMoleculeWindow(QDialog):
 
         # Worker
         self.worker = GenAIWorker(self.chat_session, full_text_to_send)
-        self.worker.response_received.connect(self.on_response)
+        self.worker.chunk_received.connect(self.on_chunk_received)
+        self.worker.response_received.connect(self.on_final_response)
         self.worker.error_occurred.connect(self.on_error)
         self.worker.finished.connect(self.on_worker_finished)
+        
+        # Initialize Streaming UI
+        self.start_stream_message("Gemini")
+        
         self.worker.start()
         return None
 
-    def on_response(self, response):
-        text = response.text
-        self.append_message("Gemini", text, "black")
+    def start_stream_message(self, sender, color="black"):
+        """Prepare UI for streaming a new message"""
+        self.stream_accumulated_text = ""
+        
+        # Insert Header (Gemini:)
+        style = "<style>h1, h2, h3 { color: #2c3e50; } a { color: #3498db; text-decoration: none; font-weight: bold; }</style>"
+        html_header = f"{style}<b style='color:{color}'>{sender}:</b><br>"
+        
+        self.chat_display.moveCursor(QTextCursor.MoveOperation.End)
+        self.chat_display.insertHtml(html_header)
+        
+        # Store position where the content starts
+        # We add a temporary placeholder or just track the cursor?
+        # Tracking the cursor position (int) is safest.
+        self.stream_start_pos = self.chat_display.textCursor().position()
+        
+        # Add a newline for spacing after the message
+        self.chat_display.insertHtml("<br><br>")
+
+    def update_stream_message(self):
+        """Re-render the accumulated text and update the chat window in-place"""
+        processed_html = self.render_content(self.stream_accumulated_text)
+        
+        # Create a cursor to edit the document
+        cursor = self.chat_display.textCursor()
+        cursor.setPosition(self.stream_start_pos)
+        
+        # Select everything from start_pos to End-2 (skipping the <br><br> we added?)
+        # Actually, if we just overwrite from start_pos to the end minus the trailing breaks?
+        # It's easier to just keep the trailing breaks at the very end.
+        
+        # Let's try: Select from start_pos to the current end of the block/document?
+        # Since we are appending at the end, we can select to End.
+        # But we want to preserve the <br><br> if possible, or just re-add them.
+        # Let's just re-add them to be simple.
+        
+        cursor.movePosition(QTextCursor.MoveOperation.End, QTextCursor.MoveMode.KeepAnchor)
+        cursor.removeSelectedText()
+        
+        # Insert new content + Spacing
+        cursor.insertHtml(processed_html + "<br><br>")
+        
+        # Scroll to bottom
+        self.chat_display.moveCursor(QTextCursor.MoveOperation.End)
+
+    def on_chunk_received(self, text):
+        self.stream_accumulated_text += text
+        self.update_stream_message()
+
+    def on_final_response(self, response):
+        """Called when stream is fully complete"""
+        # Ensure final state matches accumulated text
+        # (Usually redundant but good for safety)
+        # self.update_stream_message() 
+        
+        # Log to history now that it's complete
+        self.chat_history_log.append({"sender": "Gemini", "text": self.stream_accumulated_text})
+        append_log("Gemini", self.stream_accumulated_text)
+        
         self.log_usage(response)
+
+    # Renamed from on_response to keep old method signature available if needed
+    def on_response(self, response):
+        pass # Deprecated in favor of streaming flow
 
     def on_initial_response(self, response):
         """Handle initial context response silently (log only)"""
