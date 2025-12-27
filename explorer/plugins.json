@@ -433,7 +433,7 @@
     "id": "chat_with_molecule",
     "visible": true,
     "name": "Chat with Molecule",
-    "version": "2025.12.26",
+    "version": "2025.12.27",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with Google Gemini about the current molecule. Automatically injects SMILES context.",
@@ -446,7 +446,8 @@
       "google-generativeai",
       "rdkit",
       "PyQt6",
-      "markdown"
+      "markdown",
+      "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule/chat_with_molecule.py",
     "lastUpdated": "2025-12-26"
