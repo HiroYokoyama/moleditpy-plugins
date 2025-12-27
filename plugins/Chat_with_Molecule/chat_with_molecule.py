@@ -9,6 +9,9 @@ Allows chatting with Google Gemini API about the currently loaded molecule.
 import sys
 import os
 import json
+import io
+import base64
+import re
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
     QTextEdit, QPushButton, QLineEdit, QMessageBox, 
@@ -22,12 +25,71 @@ try:
 except ImportError:
     Chem = None
 
+# --- Matplotlib for LaTeX Rendering ---
+try:
+    from matplotlib.figure import Figure
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    HAS_MATPLOTLIB = True
+except ImportError:
+    HAS_MATPLOTLIB = False
+
 # --- Metadata ---
 PLUGIN_NAME = "Chat with Molecule"
-PLUGIN_VERSION = "2025.12.26"
+PLUGIN_VERSION = "2025.12.27"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with Google Gemini about the current molecule. Automatically injects SMILES context."
 PLUGIN_ID = "chat_with_molecule"
+
+SYSTEM_PROMPT = """You are an expert computational and organic chemistry assistant embedded within the advanced molecular editor software "MoleditPy". 
+Your users are researchers, students, or chemistry enthusiasts. Adhere to the following guidelines:
+
+### 1. Protocol for Molecular Identification (CRITICAL)
+When provided with a SMILES string as `Context`, you MUST NOT rely on intuition. You must perform the following internal reasoning steps before generating a response:
+1.  **Stoichiometry Check**: Mentally count the atoms (e.g., Carbon count, Hydrogen count) to verify the molecular formula (e.g., C16H10 vs C24H12).
+2.  **Topology Analysis**: Analyze the number of rings and their fusion pattern.
+3.  **Identification**: Based on the above data, identify the molecule. If uncertain, state "It resembles [Molecule Name] but..."
+
+### 2. Response Style
+* **Tone**: Professional, intellectual, and helpful.
+* **Formatting**:
+    * Use **SIMPLE** LaTeX format for chemical formulas and math (e.g., $C_{16}H_{10}$).
+    * **Avoid** complex commands like `\\xrightarrow` or `\\stackrel` as the renderer is limited. Use `\\rightarrow` or `->` instead.
+    * **CRITICAL**: Always format ANY molecular structure you mention *in plain text* as a clickable link like this: `[Name](smiles:SMILES_STRING)`.
+    * **IMPORTANT**: Do **NOT** put SMILES strings inside LaTeX equations (e.g. inside `$...$`). Use chemical formulas (e.g. $C_6H_6$) or names instead.
+
+### 3. Constraints
+* Do not state uncertain information as absolute fact. Admit ambiguity if the SMILES is complex.
+* If the SMILES appears chemically invalid, politely inform the user.
+
+### 4. MoleditPy Software Context
+* **Role:** You are the integrated AI for **MoleditPy**.
+* **Native Features:** Suggest built-in tools for immediate modeling and export:
+    * **Modeling:** "3D Optimization (MMFF64/UFF: sufficient quality for viewing)," "Alignment to Axes," "Planarization," and "Constrained Optimization."
+    * **Export:** "STL/OBJ Export" (for 3D printing) and "Image Export."
+* **Plugin Ecosystem:** For advanced tasks, recommend installing specific extensions from the **[Plugin Explorer](https://hiroyokoyama.github.io/moleditpy-plugins/explorer/)**:
+    * **Calculation:** "Gaussian/ORCA Input Generator" (prepare DFT inputs).
+    * **Analysis:** "MS Spectrum Simulation" (mass spec) or "Gaussian/ORCA Freq Analyzer" (IR/vibrations).
+    * **Visualization:** "Cube File Viewer" (orbitals/densities) or "Mapped Cube Viewer" (ESP maps).
+    * **Utility:** "PubChem Name Resolver" (load by name) or "Animated XYZ Giffer."
+"""
+
+GENERATION_CONFIG = {
+    # 【最重要】創造性を極限まで下げる。
+    # 0.0〜0.1にすることで、モデルは確率が最も高い（論理的な）トークンのみを選びます。
+    "temperature": 0.1,
+    
+    # 確度の高い上位95%のトークン群から選択
+    "top_p": 0.95,
+    
+    # 選択候補を上位40個に絞る
+    "top_k": 40,
+    
+    # 回答の最大長（必要に応じて調整）
+    "max_output_tokens": 2048,
+    
+    # 応答を必ず「text/plain」で返させる（JSONモード等は不要）
+    "response_mime_type": "text/plain",
+}
 
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "chat_with_molecule.json")
 LOG_FILE = os.path.join(os.path.dirname(__file__), "chat_with_molecule_log.txt")
@@ -71,6 +133,71 @@ def append_log(sender, text):
             f.write(f"[{timestamp}] {sender}: {text}\n")
     except Exception as e:
         print(f"Logging failed: {e}")
+
+def latex_to_html(latex_str):
+    """
+    Render LaTeX string to base64 encoded PNG image using matplotlib.
+    Returns an HTML <img> tag.
+    """
+    if not HAS_MATPLOTLIB:
+        return f"<i>{latex_str}</i>" # Fallback if no matplotlib
+
+    try:
+        # Create a pure Figure (no global state)
+        # Scaled DPI down to 72 (approx 60% of 120) to reduce image size as requested.
+        fig = Figure(figsize=(4, 0.5), dpi=72)
+        canvas = FigureCanvasAgg(fig)
+        
+        # Ensure we don't double wrap
+        content = latex_str.strip()
+        
+        # --- Simple Fixes for Matplotlib Limitations ---
+        # Matplotlib's mathtext is not a full TeX engine. 
+        # We replace unsupported commands with simpler alternatives to prevent render failure.
+        content = content.replace(r'\xrightarrow', r'\rightarrow')
+        content = content.replace(r'\text', r'\mathrm') # \mathrm is safer than \text in some mpl versions
+        
+        # Remove \stackrel arguments roughly (not perfect, but better than crash)
+        # Replacing \stackrel{top}{base} with base^{top}
+        import re
+        content = re.sub(r'\\stackrel\{([^}]+)\}\{([^}]+)\}', r'\2^{\1}', content)
+        
+        if not content.startswith('$'):
+            content = f"${content}$"
+            
+        # Draw text centered
+        text = fig.text(0.5, 0.5, content, fontsize=14, ha='center', va='center')
+        
+        # Save to buffer
+        buf = io.BytesIO()
+        # bbox_inches='tight' is crucial to crop the image to the equation size
+        fig.savefig(buf, format='png', bbox_inches='tight', pad_inches=0.05, transparent=True)
+        
+        buf.seek(0)
+        img_base64 = base64.b64encode(buf.read()).decode('utf-8')
+        # Use simple vertical align and max-width to prevent overflow, but respect natural size (now smaller via DPI).
+        return f'<img src="data:image/png;base64,{img_base64}" style="vertical-align: middle; max-width: 100%;">'
+        
+    except Exception as e:
+        print(f"LaTeX render error: {e}")
+        return f"<code>{latex_str}</code>"
+
+class ChatBrowser(QTextBrowser):
+    """
+    Custom QTextBrowser that disables internal navigation to prevent 'No document for...' errors.
+    """
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        # CRITICAL: Disable internal navigation. 
+        # If openLinks is True (default), clicking a link calls setSource/setDocument,
+        # which clears the chat if it's a web URL or unknown scheme.
+        self.setOpenLinks(False) 
+        self.setOpenExternalLinks(False) # We handle everything in text_browser.anchorClicked
+        
+    def setSource(self, url):
+        # OVERRIDE: Do absolutely nothing. 
+        # Even with setOpenLinks(False), this acts as a failsafe.
+        pass
 
 class InitWorker(QThread):
     finished = pyqtSignal(list, str) # available_models, error_message
@@ -162,8 +289,6 @@ class ChatMoleculeWindow(QDialog):
                      self.pending_context_msg = (
                      f"System Update: The user has switched to a new molecule with SMILES: {current_smiles}. "
                      f"Please use this as the new context. "
-                     f"IMPORTANT: Always format any molecular structure you mention as a clickable link like this: "
-                     f"[Name](smiles:SMILES_STRING). "
                      f"Do not reply to this update; simply answer the user's message below."
                  )
                      
@@ -232,13 +357,12 @@ class ChatMoleculeWindow(QDialog):
         layout.addWidget(btn_export)
 
         # --- Warning Label ---
-        lbl_warning = QLabel("<b style='color: orange;'>⚠️ Do not include confidential information.</b>")
+        lbl_warning = QLabel("<b style='color: orange;'>⚠️ Do not include confidential information for free API.</b>")
         lbl_warning.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(lbl_warning)
 
         # --- Chat Display ---
-        self.chat_display = QTextBrowser() # Changed to QTextBrowser for link handling
-        self.chat_display.setOpenExternalLinks(False) # Handle links manually
+        self.chat_display = ChatBrowser(self) # Use custom subclass
         self.chat_display.anchorClicked.connect(self.handle_link)
         self.chat_display.setReadOnly(True)
         layout.addWidget(self.chat_display)
@@ -287,9 +411,12 @@ class ChatMoleculeWindow(QDialog):
     def handle_link(self, url):
         """Handle clickable links in chat window"""
         scheme = url.scheme()
+        
+        # Debugging: Print scheme and URL
+        # print(f"Link Clicked: {url.toString()}, Scheme: {scheme}")
+
         if scheme == "smiles":
             # Extract SMILES string
-            # Fix: schemeSpecificPart does not exist in PyQt6 QUrl. Use toString() parsing.
             full_url = url.toString()
             if full_url.startswith("smiles:"):
                 smiles = full_url[7:] # Remove 'smiles:'
@@ -307,8 +434,6 @@ class ChatMoleculeWindow(QDialog):
                     # self.append_message("System", "Molecule loaded successfully.", "green")
                     
                     # Force immediate context update
-                    # Set last_smiles to dummy to ensure check_molecule_change detects a 'change'
-                    # even if the user re-clicked the same molecule link.
                     self.last_smiles = "FORCE_UPDATE"
                     self.check_molecule_change()
                     
@@ -349,11 +474,6 @@ class ChatMoleculeWindow(QDialog):
             self.append_message("System", "Fetching available models...", "blue")
             models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
 
-            # Clean up names (remove 'models/' prefix for display if preferred,
-            # but usually the API expects 'models/foo' or just 'foo'. Let's keep distinct.)
-            # Actually GenAI python lib usually returns 'models/gemini-pro'.
-            # Users might prefer short names, but safety first: keep what API gives.
-
             if models:
                 self.combo_model.addItems(models)
                 self.append_message("System", f"Found {len(models)} models.", "green")
@@ -378,34 +498,68 @@ class ChatMoleculeWindow(QDialog):
         # Auto-log to file
         append_log(sender, text)
 
-        # Render Markdown if available and message is from model or user (likely contains structure)
-        formatted_text = text
-        if HAS_MARKDOWN and sender in ["Gemini", "You"]:
-            try:
-                # Enable useful extensions for code blocks and tables
-                formatted_text = markdown.markdown(text, extensions=['fenced_code', 'tables'])
-            except:
-                formatted_text = text.replace(chr(10), '<br>')
-        else:
-             formatted_text = text.replace(chr(10), '<br>')
+        # --- LaTeX / Chemical Formula Formatting ---
+        # 1. Block Math: $$...$$
+        # We process this BEFORE markdown to avoid markdown messing up LaTeX syntax.
+        
+        processed_text = text
+        
+        def replace_latex_block(match):
+            return latex_to_html(match.group(1))
+            
+        def replace_latex_inline(match):
+            return latex_to_html(match.group(1))
 
-        # Enforce SMILES links manually if they didn't get parsed or if markdown is missing
+        # Using regex to find $$...$$ (Block)
+        # We replace it with a unique placeholder or directly with the HTML
+        # If we do it directly, Markdown might ignore it if it's inside HTML tags.
+        # But standard markdown (Python lib) typically ignores content inside HTML block tags or handles them safely?
+        # Let's try direct replacement.
+        processed_text = re.sub(r'\$\$([^$]+)\$\$', replace_latex_block, processed_text)
+        
+        # 2. Inline Math: $...$
+        # Be careful not to match currency. Regex usually requires lookarounds or spacing checks,
+        # but for this context (scientific), $...$ is almost always math.
+        # We match $...$ but NOT $$...$$ (already handled).
+        processed_text = re.sub(r'(?<!\$)\$([^$]+)\$(?!\$)', replace_latex_inline, processed_text)
+
+        # Render Markdown (now that LaTeX is turned into HTML images)
+        if HAS_MARKDOWN and sender in ["Gemini", "You", "System"]:
+            try:
+                # Enable useful extensions. 'tables' and 'fenced_code' are standard.
+                # We need to ensure we don't break the HTML images we just inserted.
+                # Python-Markdown usually preserves HTML if not in safe_mode.
+                processed_text = markdown.markdown(processed_text, extensions=['fenced_code', 'tables'])
+            except Exception as e:
+                print(f"Markdown error: {e}")
+                processed_text = processed_text.replace(chr(10), '<br>')
+        else:
+             processed_text = processed_text.replace(chr(10), '<br>')
+
+        # Enforce SMILES links manually if they didn't get parsed
         # Pattern: [Label](smiles:Data) -> <a href="smiles:Data">Label</a>
-        import re
-        pattern = r"\[(.*?)\]\(smiles:(.*?)\)"
-        formatted_text = re.sub(pattern, r'<a href="smiles:\2">\1</a>', formatted_text)
+        # Note: Markdown might have already converted this to <a> tags if the scheme was recognized,
+        # but valid markdown links usually require http/https or known schemes.
+        # Python-Markdown might not support 'smiles:' scheme automatically.
+        
+        # Check if markdown already handled it?
+        # If not, we run our regex.
+        # Regex for markdown link: \[([^\]]+)\]\((smiles:[^\)]+)\)
+        pattern = r"\[([^\]]+)\]\((smiles:[^\)]+)\)"
+        processed_text = re.sub(pattern, r'<a href="\2">\1</a>', processed_text)
 
         # CSS Styling for Markdown elements
         style = """
         <style>
             code { background-color: #f0f0f0; padding: 2px; border-radius: 3px; font-family: monospace; }
             pre { background-color: #f0f0f0; padding: 10px; border-radius: 5px; border: 1px solid #ddd; }
+            span.formula { font-family: 'Times New Roman', serif; }
             h1, h2, h3 { color: #2c3e50; }
-            a { color: #3498db; text-decoration: none; }
+            a { color: #3498db; text-decoration: none; font-weight: bold; }
         </style>
         """
 
-        html = f"{style}<b style='color:{color}'>{sender}:</b><br>{formatted_text}<br><br>"
+        html = f"{style}<b style='color:{color}'>{sender}:</b><br>{processed_text}<br><br>"
         
         # Scroll Logic: Prevent System messages from scrolling user away
         v_bar = self.chat_display.verticalScrollBar()
@@ -526,7 +680,11 @@ class ChatMoleculeWindow(QDialog):
         append_log("INFO", f"Target Model: {target_model_name}")
         
         try:
-            model = genai.GenerativeModel(target_model_name)
+            model = genai.GenerativeModel(
+                target_model_name,
+                system_instruction=SYSTEM_PROMPT,
+                generation_config=GENERATION_CONFIG
+            )
             self.chat_session = model.start_chat(history=[])
         except Exception as e:
             self.append_message("System", f"Error starting chat: {e}", "red")
@@ -543,8 +701,6 @@ class ChatMoleculeWindow(QDialog):
             context_msg = (
                 f"I am currently looking at a molecule with this SMILES string: {smiles}. "
             f"Please use this as context for our conversation. "
-            f"IMPORTANT: Always format any molecular structure you mention as a clickable link like this: "
-            f"[Name](smiles:SMILES_STRING). This allows me to load it. "
             f"Please do not reply to this information."
         )
             self.pending_context_msg = context_msg # Store to send with first user message
@@ -558,8 +714,6 @@ class ChatMoleculeWindow(QDialog):
             # Even with no context, teach formatting
             context_msg = (
                 "No molecule is currently loaded. "
-                "IMPORTANT: Always format any molecular structure you mention as a clickable link like this: "
-                "[Name](smiles:SMILES_STRING)."
             )
             if error:
                  append_log("INFO", f"No molecule context found: {error}")
@@ -652,6 +806,9 @@ class ChatMoleculeWindow(QDialog):
         # Prepare message with pending context if any
         full_text_to_send = text
         if self.pending_context_msg:
+            # [CONTEXT INJECTION POINT]
+            # This is where the SMILES info and other system warnings are attached to the 
+            # user's message before being sent to Gemini.
             full_text_to_send = f"{self.pending_context_msg}\n\n{text}"
             self.pending_context_msg = None # Clear pending
 
@@ -662,8 +819,6 @@ class ChatMoleculeWindow(QDialog):
         self.worker.finished.connect(self.on_worker_finished)
         self.worker.start()
         return None
-
-
 
     def on_response(self, response):
         text = response.text
@@ -713,10 +868,14 @@ def run(main_window):
     # Let's recreate if valid instance doesn't exist or isn't visible?
     # Simply: If open, raise. If not, create new.
 
-    if main_window.chat_molecule_window_instance and main_window.chat_molecule_window_instance.isVisible():
-        main_window.chat_molecule_window_instance.raise_()
-        main_window.chat_molecule_window_instance.activateWindow()
-        return
+    if main_window.chat_molecule_window_instance:
+        try:
+            # Force close the old instance to ensure code updates (like ChatBrowser class) are applied.
+            # If we just raise it, it keeps using the old class definition from before the reload.
+            main_window.chat_molecule_window_instance.close()
+            main_window.chat_molecule_window_instance = None
+        except:
+            pass
 
     # Create new instance
     dialog = ChatMoleculeWindow(main_window)
