@@ -85,7 +85,7 @@ GENERATION_CONFIG = {
     "top_k": 40,
     
     # 回答の最大長（必要に応じて調整）
-    "max_output_tokens": 2048,
+    "max_output_tokens": 16384,
     
     # 応答を必ず「text/plain」で返させる（JSONモード等は不要）
     "response_mime_type": "text/plain",
@@ -357,7 +357,12 @@ class ChatMoleculeWindow(QDialog):
         layout.addWidget(btn_export)
 
         # --- Warning Label ---
-        lbl_warning = QLabel("<b style='color: orange;'>⚠️ Do not include confidential information for free API.</b>")
+        lbl_warning = QLabel(
+            "<div style='color: orange; text-align: center;'>"
+            "⚠️ Do not include confidential information.<br>"
+            "LLM can make mistakes. Please verify important information."
+            "</div>"
+        )
         lbl_warning.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(lbl_warning)
 
