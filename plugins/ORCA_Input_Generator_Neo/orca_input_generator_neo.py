@@ -10,7 +10,7 @@ from rdkit import Chem
 from rdkit.Chem import rdMolTransforms
 import json
 
-__version__="2025.12.25"
+__version__="2025.12.28"
 __author__="HiroYokoyama"
 PLUGIN_NAME = "ORCA Input Generator Neo"
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "orca_input_generator_neo.json")
@@ -1015,15 +1015,21 @@ class OrcaSetupDialogNeo(QDialog):
 
 from PyQt6.QtWidgets import QInputDialog 
 
-def run(mw):
-    mol = getattr(mw, 'current_mol', None)
+def run(main_window):
+    mol = getattr(main_window, 'current_mol', None)
     if not mol:
-        QMessageBox.warning(mw, PLUGIN_NAME, "No molecule loaded.")
+        QMessageBox.warning(main_window, PLUGIN_NAME, "No molecule loaded.")
         return
         
-    filename = getattr(mw, 'current_file_path', None)
-    dialog = OrcaSetupDialogNeo(parent=mw, mol=mol, filename=filename)
+    filename = getattr(main_window, 'current_file_path', None)
+    dialog = OrcaSetupDialogNeo(parent=main_window, mol=mol, filename=filename)
     dialog.exec()
 
-# initialize removed as it only registered the menu action
-
+def initialize(context):
+    """
+    Initialize the plugin and register export action.
+    """
+    def run_plugin():
+        run(context.get_main_window())
+        
+    context.add_export_action("ORCA Input (.inp)...", run_plugin)

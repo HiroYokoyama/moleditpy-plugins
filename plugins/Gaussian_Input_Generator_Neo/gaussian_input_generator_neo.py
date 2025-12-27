@@ -10,7 +10,7 @@ from PyQt6.QtCore import Qt
 from rdkit import Chem
 import json
 
-__version__="2025.12.25"
+__version__="2025.12.28"
 __author__="HiroYokoyama"
 
 PLUGIN_NAME = "Gaussian Input Generator Neo"
@@ -915,17 +915,26 @@ class GaussianSetupDialog(QDialog):
                 self.save_presets_to_file()
                 self.update_preset_combo()
 
-def run(mw):
-    mol = getattr(mw, 'current_mol', None)
+def run(main_window):
+    """
+    Entry point for the plugin.
+    """
+    mol = getattr(main_window, 'current_mol', None)
     
     if not mol or mol.GetNumAtoms() == 0:
-        QMessageBox.warning(mw, PLUGIN_NAME, "No molecule loaded or molecule is empty.")
+        QMessageBox.warning(main_window, PLUGIN_NAME, "No molecule loaded or molecule is empty.")
         return
 
-    dialog = GaussianSetupDialog(parent=mw, mol=mol)
+    dialog = GaussianSetupDialog(parent=main_window, mol=mol)
     dialog.load_presets_from_file() # Load presets after init
     dialog.exec()
 
-# initialize removed as it only registered the menu action
-
+def initialize(context):
+    """
+    Initialize the plugin and register export action.
+    """
+    def run_plugin():
+        run(context.get_main_window())
+        
+    context.add_export_action("Gaussian Input (.gjf/.com)...", run_plugin)
     
