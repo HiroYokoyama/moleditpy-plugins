@@ -431,7 +431,7 @@
   },
   {
     "id": "chat_with_molecule",
-    "visible": true,
+    "visible": false,
     "name": "Chat with Molecule",
     "version": "2025.12.27",
     "author": "HiroYokoyama",
@@ -451,6 +451,47 @@
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule/chat_with_molecule.py",
     "lastUpdated": "2025-12-27"
+  },
+  {
+    "id": "chat_with_molecule_neo",
+    "visible": true,
+    "name": "Chat with Molecule Neo",
+    "version": "2025.12.28",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Chat with Google Gemini about the current molecule. Automatically injects SMILES context. (Neo Version)",
+    "tags": [
+      "Analysis",
+      "AI",
+      "Chat"
+    ],
+    "dependencies": [
+      "google-generativeai",
+      "rdkit",
+      "PyQt6",
+      "markdown",
+      "matplotlib"
+    ],
+    "downloadUrl": "../plugins/Chat_with_Molecule_Neo/chat_with_molecule_neo.py",
+    "lastUpdated": "2025-12-28"
+  },
+  {
+    "id": "pubchem_structure_identifier",
+    "visible": true,
+    "name": "PubChem Structure Identifier",
+    "version": "2025.12.28",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Resolve chemical names and fetch molecular properties (Name, Formula, Weight) via PubChem.",
+    "tags": [
+      "Utility",
+      "Analysis"
+    ],
+    "dependencies": [
+      "rdkit",
+      "PyQt6"
+    ],
+    "downloadUrl": "../plugins/PubChem_Structure_Identifier/pubchem_structure_identifier.py",
+    "lastUpdated": "2025-12-28"
   }
-
 ]
