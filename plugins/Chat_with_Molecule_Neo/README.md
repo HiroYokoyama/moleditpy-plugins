@@ -55,8 +55,7 @@ This plugin requires Python 3.10+ and the following dependencies:
 pip install google-generativeai markdown matplotlib rdkit
 ```
 
-> [!NOTE]
-> `rdkit` is highly recommended for advanced molecular identification and SMARTS-based transformations.
+[**Download Plugin**](https://hiroyokoyama.github.io/moleditpy-plugins/explorer/?q=Chat+with+Molecule+Neo)
 
 ## Setup
 
@@ -119,3 +118,4 @@ The plugin deeply integrates with the **MoleditPy** core:
 
 **HiroYokoyama**
 Feel free to contribute or report issues via the [Plugin Explorer](https://hiroyokoyama.github.io/moleditpy-plugins/explorer/).
+
