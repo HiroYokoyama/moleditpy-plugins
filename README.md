@@ -63,7 +63,7 @@ Resolves chemical names and identifiers to structures using the PubChem PUG REST
 A player for viewing multi-frame XYZ files and recording GIF animations using PIL.
 - **Dependencies**: `Pillow`
 
-### 10. Chat with Molecule Neo (Gemini) (`chat_with_molecule_neo.py`)
+### 10. Chat with Molecule Neo (`chat_with_molecule_neo.py`)
 
 **The AI Copilot for MoleditPy (Powered by Google Gemini)**
 
@@ -134,6 +134,7 @@ The new API allows plugins to:
 *   Integrate **Analysis Tools** and persist data in **Project Files**.
 
 For full documentation and examples, please refer to the [PLUGIN_DEVELOPMENT_MANUAL.md](PLUGIN_DEVELOPMENT_MANUAL.md).
+
 
 
 
