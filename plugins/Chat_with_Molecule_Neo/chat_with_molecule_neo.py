@@ -268,9 +268,9 @@ You have access to specific tools to interact with the software. To use a tool, 
     *   **Crucial Warning**: Do **NOT** use `[cH]` (aromatic carbon with implicit H). It fails because `AddHs` makes hydrogens explicit, reducing implicit H count to 0.
     *   **Workaround**: Use `[c]` (matches aromatic carbon regardless of H) or `[#6]`.
     *   **Allowed**: `[c:1][H]` works because it matches the explicit H neighbor.
-    *   **Recommended**: `[c:1]>>[c:1][Cl]` (Simpler and more robust).
+    *   **Recommended**: `[c:1][H]>>[c:1][Cl]` (Explicitly target H for replacement).
     *   `atom_index`: **REQUIRED**. The Atom Index (Integer) from the SMILES context to apply the transformation to.
-    *   Example: `{"tool": "apply_transformation", "params": {"reaction_smarts": "[c:1]>>[c:1][Cl]", "atom_index": 1}}`
+    *   Example: `{"tool": "apply_transformation", "params": {"reaction_smarts": "[c:1][H]>>[c:1][Cl]", "atom_index": 1}}`
 
 2.  **`highlight_substructure`**: Visually highlight atoms matching a pattern or indices.
     *   `smarts`: (Optional) The SMARTS pattern to find and highlight.
@@ -347,7 +347,33 @@ You have access to specific tools to interact with the software. To use a tool, 
 {"tool": "convert_to_3d", "params": {}}
 ```
 
-### 3. Response Style
+### 3. CRITICAL: Reaction SMARTS & Transformation Strategy
+You must adhere to the following rules to prevent "Molecular Destruction" bugs:
+
+1.  **PRESERVE ATOM MAP NUMBERS**:
+    * You **MUST** include Atom Map Numbers (e.g., `[C:1]`) in your SMARTS for ALL atoms that persist from reactant to product.
+    * **Forbidden**: `[c][H]>>[c][Cl]` (No IDs -> RDKit assumes new atoms -> Old atoms are DELETED).
+    * **Required**: `[c:1][H]>>[c:1][Cl]` (IDs preserved -> Atoms are modified in-place).
+
+2.  **ANCHOR TO THE ROOT (NOT JUST THE SELECTION)**:
+    * When the user selects an atom to *replace* or *delete* (e.g., a terminal methyl group), do not solely focus on that selected atom as the anchor.
+    * **Think about the "Unchanging Root Atom"**: Identify the stable neighbor atom that will remain after the reaction. Use this root atom to anchor your SMARTS pattern.
+    * *Example*: Replacing a Methyl group (`[C:31]`) attached to a Ring Carbon (`[C:30]`) with Chlorine.
+        * *Risky*: Targeting only index 31.
+        * *Safe*: Anchor to the root `[C:30]`. Rule: `[C:30][C:31]>>[C:30][Cl]`.
+    * If you must delete an atom, ensure the SMARTS explicitly matches the context (neighbors) to avoid ambiguous matching.
+
+3.  **AVOID `[cH]`**:
+    * Never use `[cH]`. Use `[c]` or `[#6]` instead. `[cH]` fails if hydrogens are explicit.
+
+4.  **EXPLICIT HYDROGENS IN REPLACEMENTS**:
+    *   When performing a substitution (Replace), **DO NOT OMIT HYDROGENS**.
+    *   You must explicitly target the Hydrogen atom being replaced in the reactant.
+    *   **Bad**: `[C:1]>>[C:1][Cl]` (relying on implicit valence change is dangerous).
+    *   **Good**: `[C:1][H]>>[C:1][Cl]` (Explicity replacing [H] with [Cl] is safe).
+
+
+### 4. Response Style
 * **Tone**: Professional, intellectual, and helpful.
 * **Formatting**:
     * Use **SIMPLE** LaTeX format for chemical formulas and math (e.g., $C_{16}H_{10}$).
@@ -355,7 +381,7 @@ You have access to specific tools to interact with the software. To use a tool, 
     * **CRITICAL**: Always format ANY molecular structure you mention *in plain text* as a clickable link like this: `[Name](smiles:SMILES_STRING)`.
     * **IMPORTANT**: Do **NOT** put SMILES strings inside LaTeX equations.
 
-### 4. MoleditPy Software Context
+### 5. MoleditPy Software Context
 * **Role:** You are the integrated AI for **MoleditPy**.
 * **Native Features:** Suggest built-in tools for immediate modeling and export.
 * **Plugin Ecosystem:** Recommend extensions from the **[Plugin Exp lorer](https://hiroyokoyama.github.io/moleditpy-plugins/explorer/)**.
@@ -2034,22 +2060,31 @@ class ChatMoleculeWindow(QDialog):
                      # Find matches in Reactant (mol_with_h used for reaction)
                      # Reaction template is reactant 0
                      reactant_template = rxn.GetReactants()[0]
-                     matches = mol_with_h.GetSubstructMatches(reactant_template)
+                     matches = mol_with_h.GetSubstructMatches(reactant_template, uniquify=False)
                      
-                     # Iterate matches to find the one containing our target MapNum
-                     found_match = False
+                     # Iterate matches to find ALL matches containing our target MapNum
+                     candidate_indices = []
                      for i, match_indices in enumerate(matches):
                          # match_indices contains RDKit Atom Indices
                          for idx in match_indices:
                              atom = mol_with_h.GetAtomWithIdx(idx)
                              if atom.GetAtomMapNum() == target_mapnum:
-                                 selected_product_idx = i
-                                 found_match = True
+                                 # Found a match anchored to our atom.
+                                 # Calculate atom count of the resulting product to determine "preservation"
+                                 if i < len(products):
+                                     prod_mol = products[i][0]
+                                     atom_count = prod_mol.GetNumAtoms()
+                                     candidate_indices.append((i, atom_count))
                                  break
-                         if found_match: break
+                     
+                     if candidate_indices:
+                         # Sort candidates by Atom Count (Descending) -> Maximizes retention
+                         candidate_indices.sort(key=lambda x: x[1], reverse=True)
                          
-                     if found_match:
-                         self.append_message("System", f"Applied to selected atom match #{selected_product_idx}", "gray")
+                         best_idx, best_count = candidate_indices[0]
+                         selected_product_idx = best_idx
+                         
+                         self.append_message("System", f"Selected match #{best_idx} (Atoms: {best_count}) from {len(candidate_indices)} candidates.", "gray")
                      else:
                          self.append_message("System", "Warning: Selected atom not found in reaction matches. Applying to first match.", "orange")
                          
@@ -2061,6 +2096,40 @@ class ChatMoleculeWindow(QDialog):
                  new_mol = products[selected_product_idx][0]
              else:
                  new_mol = products[0][0]
+
+             # ============================================================
+             # 【Correction】 Post-Check: Verify Transformation Integrity
+             # Prevent corrupted IDs or massive atom loss.
+             # ============================================================
+
+             # Check 1: Massive Atom Loss (Structure collapsed?)
+             orig_count = mol.GetNumAtoms()
+             new_count = new_mol.GetNumAtoms()
+             if orig_count > 5 and new_count < orig_count * 0.7:
+                 # If >30% atoms lost, assume destruction
+                 error_msg = f"Safety Guard: Transformation caused massive atom loss ({orig_count} -> {new_count}). Aborted."
+                 self.append_message("System", error_msg, "red")
+                 return error_msg
+
+             # Check 2: Duplicate ID Check (Are there colliding IDs?)
+             seen_ids = set()
+             duplicates = []
+             for atom in new_mol.GetAtoms():
+                 mid = atom.GetAtomMapNum()
+                 if mid > 0:
+                     if mid in seen_ids:
+                         duplicates.append(str(mid))
+                     seen_ids.add(mid)
+             
+             if duplicates:
+                 # Check strictness: Abort if duplicates found
+                 error_msg = f"Safety Guard: Transformation created duplicate Atom IDs ({', '.join(duplicates[:3])}...). Aborted."
+                 self.append_message("System", error_msg, "red")
+                 return error_msg
+             
+             # ============================================================
+             # Post-Check Passed
+             # ============================================================
              
              # ROBUST FIX: Implicit Hydrogens & Valence
              try: new_mol.UpdatePropertyCache(strict=False)
