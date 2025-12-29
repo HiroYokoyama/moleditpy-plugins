@@ -58,50 +58,6 @@ class PubChemResolver:
     """Helper class for PubChem API interactions (Embedded)"""
     
     BASE_URL = "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
-
-    @staticmethod
-    def resolve_inchikey_to_name(inchikey):
-        """
-        Resolve an InChIKey to a chemical name (Title).
-        Returns: (name, error_message)
-        """
-        if not inchikey:
-            return None, "Empty InChIKey provided."
-
-        try:
-            url = f"{PubChemResolver.BASE_URL}/compound/inchikey/{inchikey}/description/JSON"
-            
-            with urllib.request.urlopen(url) as response:
-                if response.status != 200:
-                    return None, f"HTTP Error: {response.status}"
-                
-                data = json.loads(response.read().decode('utf-8'))
-                
-                # Parse JSON response
-                info_list = data.get("InformationList", {}).get("Information", [])
-                
-                # Prioritize entries with 'Title'
-                for info in info_list:
-                    title = info.get("Title")
-                    if title:
-                        return title, None
-                
-                return None, "No name found for this InChIKey."
-
-        except urllib.error.HTTPError as e:
-            if e.code == 404:
-                return None, "InChIKey not found in PubChem."
-            return None, f"HTTP Error: {e.code}"
-        except Exception as e:
-            return None, f"Network/Parsing Error: {str(e)}"
-
-    # [追加インポートが必要です] ファイルの先頭に追加してください
-import unicodedata 
-
-class PubChemResolver:
-    """Helper class for PubChem API interactions (Embedded)"""
-    
-    BASE_URL = "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
     # User-Agentを設定してAPIブロックを回避
     HEADERS = {'User-Agent': 'MoleditPy/2025.12.29 (Research Tool)'}
     TIMEOUT = 10  # 秒
@@ -247,8 +203,7 @@ You must perform the following internal reasoning steps before generating a resp
 3.  **Identification**: If a Name is provided in the context, use it as the primary identification but verify it against the SMILES.
 
 ### 2. Tool Use & Function Calling
-You have access to specific tools to interact with the software. To use a tool, you **MUST** output **exactly ONE** JSON block at the very END of your response.
-**Do NOT** output multiple separate JSON blocks. If you need multiple tools, use a JSON Array.
+You have access to specific tools to interact with the software. To use a tool, you must output your commands in JSON code blocks.
 
 **Format**:
 ```json
@@ -258,9 +213,18 @@ You have access to specific tools to interact with the software. To use a tool, 
 }
 ```
 
+**Multiple Operations**: You can propose multiple tool calls in a single response. You can use EITHER:
+1. A JSON array inside a single code block: `[{"tool": "...", ...}, {"tool": "...", ...}]`
+2. Multiple separate JSON code blocks (each block will be collected and executed in order):
+```json
+{"tool": "apply_transformation", "params": {...}}
+```
+[Any messages here]
+```json
+{"tool": "convert_to_3d", "params": {}}
+```
+
 **Best Practice**: For any operation that modifies or highlights specific atoms (e.g., `highlight_substructure`, `set_electronic_state`), **use `atom_index`** to specify targets precisely. This avoids SMARTS errors and ensures reliable targeting. 
-> [!WARNING]
-> Modifying the molecular structure (e.g., `apply_transformation` or `load_molecule`) may **change or reset atom indices**. When performing complex multi-step modifications, consider generating separate responses to ensure targeting stays accurate.
 
 **Available Tools**:
 1.  **`apply_transformation`**: Apply a chemical reaction to the current molecule.
@@ -270,7 +234,7 @@ You have access to specific tools to interact with the software. To use a tool, 
     *   **Allowed**: `[c:1][H]` works because it matches the explicit H neighbor.
     *   **Recommended**: `[c:1][H]>>[c:1][Cl]` (Explicitly target H for replacement).
     *   `atom_index`: **REQUIRED**. The Atom Index (Integer) from the SMILES context to apply the transformation to.
-    *   Example: `{"tool": "apply_transformation", "params": {"reaction_smarts": "[c:1][H]>>[c:1][Cl]", "atom_index": 1}}`
+    *   Example: `{"tool": "apply_transformation", "params": {"reaction_smarts": "[c:15][H]>>[c:15][Cl]", "atom_index": 15}}`
 
 2.  **`highlight_substructure`**: Visually highlight atoms matching a pattern or indices.
     *   `smarts`: (Optional) The SMARTS pattern to find and highlight.
@@ -292,15 +256,15 @@ You have access to specific tools to interact with the software. To use a tool, 
 
 4.  **`orca_input_generator`**: Create an ORCA calculation input file.
     *   `filename`: Suggested filename (e.g., "[molecule]-opt.inp").
-    *   `header`: The content to go BEFORE the coordinates. **MUST include** `%pal nprocs N end` for parallel execution and `%maxcore XXXX` for memory per core (in MB), followed by the simple input line (e.g., `! B3LYP...`). **Do NOT** include Title, Charge, or Multiplicity/Spin here.
+    *   `header`: The content to go BEFORE the coordinates. **MUST include** `%pal nprocs N end` for parallel execution and `%maxcore XXXX` for memory per core (in MB), followed by the simple input line (e.g., `! B3LYP...`). **Do NOT** include Charge, Multiplicity/Spin here.
     *   `footer`: The content to go AFTER the coordinates.
-    *   Example: `{"tool": "orca_input_generator", "params": {"filename": "opt.inp", "header": "%pal nprocs 4 end\n%maxcore 4000\n! B3LYP def2-SVP Opt"}}`
+    *   Example: `{"tool": "orca_input_generator", "params": {"filename": "benzene-opt.inp", "header": "%pal nprocs 8 end\n%maxcore 2000\n! B3LYP def2-SVP Opt Freq"}}`
 
 5.  **`gaussian_input_generator`**: Create a Gaussian calculation input file.
     *   `filename`: Suggested filename (e.g., "[molecule]-opt.gjf").
     *   `header`: The content to go BEFORE the coordinates. **MUST include** `%nprocshared=N` and `%mem=XGB` directives for parallel execution and memory allocation, followed by the route card (e.g., `#P B3LYP...`). **Do NOT** include Title, Charge, or Multiplicity here. The `%chk` file is auto-generated from the filename.
     *   `footer`: The content to go AFTER the coordinates.
-    *   Example: `{"tool": "gaussian_input_generator", "params": {"filename": "opt.gjf", "header": "%nprocshared=4\n%mem=4GB\n#P B3LYP/6-31G* Opt"}}`
+    *   Example: `{"tool": "gaussian_input_generator", "params": {"filename": "benzene-opt.gjf", "header": "%nprocshared=8\n%mem=16GB\n#P B3LYP/6-31G* Opt Freq"}}`
 
 6.  **`load_molecule`**: Load a new molecule from SMILES string (replaces current molecule).
     *   **IMPORTANT**: This tool requires an **exact SMILES string**. If the user asks to load a molecule by **name** (e.g., "Load Aspirin", "カフェインをロードして"), you **MUST** use `load_molecule_by_name` instead. Do NOT generate SMILES yourself - use the PubChem lookup.
@@ -319,7 +283,7 @@ You have access to specific tools to interact with the software. To use a tool, 
 
 9.  **`set_electronic_state`**: Set formal charge or multiplicity on a **single atom**.
     *   `atom_index`: **ABSOLUTELY REQUIRED**. The Atom Index (Integer) e.g. `5`. **WILL FAIL WITHOUT THIS.**
-    *   `charge`: Integer formal charge (e.g., 1 for +1, -1 for -1). **Do NOT use for charge 0** - that is the default.
+    *   `charge`: Integer formal charge (e.g., 1 for +1, -1 for -1).
     *   `multiplicity`: Integer multiplicity.
     *   **CRITICAL**: You MUST ALWAYS include `atom_index`. Without it, the tool does NOTHING.
     *   Example: `{"tool": "set_electronic_state", "params": {"atom_index": 1, "charge": 1}}` (Make Atom 1 +1)
@@ -336,16 +300,6 @@ You have access to specific tools to interact with the software. To use a tool, 
     *   **Use this tool whenever the user mentions a molecule by name** (e.g., "Load Aspirin", "Caffeine を表示", "アデノシンをロードして"). This queries PubChem for the correct structure.
     *   `name`: The common name or IUPAC name of the molecule (e.g., "Aspirin", "Caffeine", "Adenosine").
     *   Example: `{"tool": "load_molecule_by_name", "params": {"name": "Caffeine"}}`
-
-**Multiple Operations**: You can propose multiple tool calls in a single response. You can use EITHER:
-1. A JSON array inside a single code block: `[{"tool": "...", ...}, {"tool": "...", ...}]`
-2. Multiple separate JSON code blocks (each block will be collected and executed in order):
-```json
-{"tool": "apply_transformation", "params": {...}}
-```
-```json
-{"tool": "convert_to_3d", "params": {}}
-```
 
 ### 3. CRITICAL: Reaction SMARTS & Transformation Strategy
 You must adhere to the following rules to prevent "Molecular Destruction" bugs:
@@ -372,6 +326,14 @@ You must adhere to the following rules to prevent "Molecular Destruction" bugs:
     *   **Bad**: `[C:1]>>[C:1][Cl]` (relying on implicit valence change is dangerous).
     *   **Good**: `[C:1][H]>>[C:1][Cl]` (Explicity replacing [H] with [Cl] is safe).
 
+### 5. **GENERAL RULE: Heteroatom Substitution & Hydrogen Management**
+* **Scope**: This applies to ANY heteroatom substitution (O, N, S, P, etc.).
+* **Instruction**: When replacing a skeletal atom (e.g., C) with a Heteroatom, you MUST calculate the valence difference and explicitly remove the excess Hydrogens.
+* **Critical Validation**: Ensure your SMARTS explicitly consumes these disappearing Hydrogens.
+* **Failure Mode**: Simple symbol swapping (e.g., `[C:8]>>[O:8]`) preserves reactant Hydrogens. This causes "Valence Violations" (e.g., an Ether Oxygen with 2 bonds + 2 inherited Hydrogens → CRASH).
+* **Strategy (Anchoring)**: Although the user targets a specific atom (e.g., Atom 8), you MUST anchor the tool execution to a **stable neighbor** (e.g., Atom 7) to strictly define the chemical context.
+* **Ether Formation Example**: `{"tool": "apply_transformation", "params": {"reaction_smarts": "[C:7]-[C:8](-[H])(-[H])-[C:9]>>[C:7]-[O:8]-[C:9]", "atom_index": 7}}`
+(Scenario: The user selects **Atom 8** to become Oxygen. **Execution**: The `atom_index` is set to the neighbor (**7**) to anchor the reaction, while the SMARTS explicitly maps `[C:7]-[C:8](-[H])(-[H])-[C:9]>>[C:7]-[O:8]-[C:9]` to ensure **Atom 8** correctly transforms into Oxygen.)
 
 ### 4. Response Style
 * **Tone**: Professional, intellectual, and helpful.
@@ -594,9 +556,12 @@ class GenAIWorker(QThread):
 
 class ChatMoleculeWindow(QDialog):
     def __init__(self, main_window):
-        # Force parent=None to ensure it's a top-level window (avoids being hidden inside parent)
-        # We process 'main_window' manually.
-        super().__init__(None) 
+        # User Request: "On top of MoleditPy, but NOT other apps"
+        # Solution: Set parent to main_window (Owned windows stay on top of parent in Qt)
+        super().__init__(main_window) 
+        # Note: Previous "Force parent=None" was preventing this hierarchy. 
+        # If clipping occurs, we might need Qt.WindowType.Window
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.Dialog)
         try:
             # QMessageBox.information(None, "Debug", "Window Init Start")
             self.main_window = main_window
@@ -2062,10 +2027,35 @@ class ChatMoleculeWindow(QDialog):
                      reactant_template = rxn.GetReactants()[0]
                      matches = mol_with_h.GetSubstructMatches(reactant_template, uniquify=False)
                      
+                     
                      # Iterate matches to find ALL matches containing our target MapNum
+                     # [FIX] Strict Map Enforcement: Filter out matches that violate template map numbers
+                     # 1. Build Template Map Constraints
+                     template_constraints = {}
+                     for atom in reactant_template.GetAtoms():
+                         m = atom.GetAtomMapNum()
+                         if m > 0:
+                             template_constraints[atom.GetIdx()] = m
+                     
                      candidate_indices = []
                      for i, match_indices in enumerate(matches):
                          # match_indices contains RDKit Atom Indices
+                         
+                         # Check Template Map Constraints
+                         is_valid_map_match = True
+                         for tmpl_idx, mol_idx in enumerate(match_indices):
+                             if tmpl_idx in template_constraints:
+                                 required_map = template_constraints[tmpl_idx]
+                                 mol_atom = mol_with_h.GetAtomWithIdx(mol_idx)
+                                 actual_map = mol_atom.GetAtomMapNum()
+                                 if actual_map != required_map:
+                                     is_valid_map_match = False
+                                     break
+                         
+                         if not is_valid_map_match:
+                             continue # Skip this match
+                         
+                         
                          for idx in match_indices:
                              atom = mol_with_h.GetAtomWithIdx(idx)
                              if atom.GetAtomMapNum() == target_mapnum:
