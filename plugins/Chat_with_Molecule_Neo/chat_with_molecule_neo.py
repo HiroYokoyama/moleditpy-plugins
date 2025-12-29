@@ -232,9 +232,9 @@ Your users are researchers, students, or chemistry enthusiasts. Adhere to the fo
 
 ### 1. Protocol for Molecular Identification & Graph Consistency (CRITICAL)
 When provided with a SMILES string as `Context` (and optionally a Name), you MUST NOT rely on intuition.
-**Graph & Atom Mapping**: The SMILES provided will include **Atom Map Numbers** on HEAVY atoms (e.g., `[C:1]`, `[O:2]`). Hydrogens are implicit.
-*   These numbers correspond to the skeletal atoms in the graph.
-*   **Reaction SMARTS**: You can still target the implicit hydrogens attached to these mapped atoms.
+    *   **Graph & Atom Mapping**: The SMILES provided will include **Atom Indices** on HEAVY atoms (e.g., `[C:1]`, `[O:2]`). Hydrogens are implicit.
+    *   These numbers correspond to the skeletal atoms in the graph.
+    *   **Reaction SMARTS**: You can still target the implicit hydrogens attached to these mapped atoms.
     *   Example: To fluorinate `[C:1]`, you can write `[C:1][H]>>[C:1][F]`. 
     *   The execution engine will handle the explicit hydrogen math.
 
@@ -265,15 +265,17 @@ You have access to specific tools to interact with the software. To use a tool, 
 **Available Tools**:
 1.  **`apply_transformation`**: Apply a chemical reaction to the current molecule.
     *   `reaction_smarts`: The Reaction SMARTS string defining the transformation.
-    *   **Tip**: Do NOT specify hydrogen counts (e.g., `H2`, `H3`) in the PRODUCT side. Let RDKit calculate implicit Hs automatically.
-    *   **Carbon Matching**: Use `[#6]` to match ANY Carbon (aliphatic or aromatic). Pattern `C` (uppercase) ONLY matches aliphatic carbons, while `c` (lowercase) ONLY matches aromatic ones. Using `[#6]` is recommended for robust targeting.
-    *   `atom_index`: **REQUIRED**. The Atom Map Number (Integer) to apply the transformation to.
-    *   Example: `{"tool": "apply_transformation", "params": {"reaction_smarts": "[#6:1][H]>>[#6:1][Cl]", "atom_index": 1}}` (Chlorinate Carbon 1)
+    *   **Crucial Warning**: Do **NOT** use `[cH]` (aromatic carbon with implicit H). It fails because `AddHs` makes hydrogens explicit, reducing implicit H count to 0.
+    *   **Workaround**: Use `[c]` (matches aromatic carbon regardless of H) or `[#6]`.
+    *   **Allowed**: `[c:1][H]` works because it matches the explicit H neighbor.
+    *   **Recommended**: `[c:1]>>[c:1][Cl]` (Simpler and more robust).
+    *   `atom_index`: **REQUIRED**. The Atom Index (Integer) from the SMILES context to apply the transformation to.
+    *   Example: `{"tool": "apply_transformation", "params": {"reaction_smarts": "[c:1]>>[c:1][Cl]", "atom_index": 1}}`
 
 2.  **`highlight_substructure`**: Visually highlight atoms matching a pattern or indices.
     *   `smarts`: (Optional) The SMARTS pattern to find and highlight.
         *   **Tip**: Use `[#6]` to match ANY Carbon (aliphatic or aromatic). Pattern `C` ONLY matches aliphatic carbons.
-    *   `atom_indices`: **REQUIRED**. List of Atom Map Numbers (Integers) to highlight e.g. [1, 5].
+    *   `atom_indices`: **REQUIRED**. List of Atom Indices (Integers) to highlight e.g. [1, 5].
     *   Example: `{"tool": "highlight_substructure", "params": {"atom_indices": [1, 2]}}` (Highlight Specific Atoms)
 
 3.  **`calculate_descriptors`**: Calculate molecular properties.
@@ -316,7 +318,7 @@ You have access to specific tools to interact with the software. To use a tool, 
     *   Example: `{"tool": "clear_canvas", "params": {}}`
 
 9.  **`set_electronic_state`**: Set formal charge or multiplicity on a **single atom**.
-    *   `atom_index`: **ABSOLUTELY REQUIRED**. The Atom Map Number (Integer) e.g. `5`. **WILL FAIL WITHOUT THIS.**
+    *   `atom_index`: **ABSOLUTELY REQUIRED**. The Atom Index (Integer) e.g. `5`. **WILL FAIL WITHOUT THIS.**
     *   `charge`: Integer formal charge (e.g., 1 for +1, -1 for -1). **Do NOT use for charge 0** - that is the default.
     *   `multiplicity`: Integer multiplicity.
     *   **CRITICAL**: You MUST ALWAYS include `atom_index`. Without it, the tool does NOTHING.
