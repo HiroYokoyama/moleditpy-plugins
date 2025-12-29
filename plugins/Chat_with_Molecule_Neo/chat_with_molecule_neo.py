@@ -3,7 +3,7 @@
 
 """
 PLUGIN_NAME = "Chat with Molecule Neo"
-PLUGIN_VERSION = "2025.12.28"
+PLUGIN_VERSION = "2025.12.29"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with Google Gemini about the current molecule. Automatically injects SMILES context. (Neo Version)"
 PLUGIN_ID = "chat_with_molecule_neo"
@@ -92,7 +92,7 @@ class PubChemResolver:
 
 # --- Metadata ---
 PLUGIN_NAME = "Chat with Molecule Neo"
-PLUGIN_VERSION = "2025.12.28"
+PLUGIN_VERSION = "2025.12.29"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with Google Gemini about the current molecule. Automatically injects SMILES context. (Neo Version)"
 PLUGIN_ID = "chat_with_molecule_neo"
@@ -128,7 +128,7 @@ You have access to specific tools to interact with the software. To use a tool, 
 }
 ```
 
-**Best Practice**: For any operation that modifies or highlights specific atoms (e.g., `highlight_substructure`, `set_electronic_state`), **use `atom_indices`** to specify targets precisely. This avoids SMARTS errors and ensures reliable targeting. 
+**Best Practice**: For any operation that modifies or highlights specific atoms (e.g., `highlight_substructure`, `set_electronic_state`), **use `atom_index`** to specify targets precisely. This avoids SMARTS errors and ensures reliable targeting. 
 > [!WARNING]
 > Modifying the molecular structure (e.g., `apply_transformation` or `load_molecule`) may **change or reset atom indices**. When performing complex multi-step modifications, consider generating separate responses to ensure targeting stays accurate.
 
@@ -137,13 +137,14 @@ You have access to specific tools to interact with the software. To use a tool, 
     *   `reaction_smarts`: The Reaction SMARTS string defining the transformation.
     *   **Tip**: Do NOT specify hydrogen counts (e.g., `H2`, `H3`) in the PRODUCT side. Let RDKit calculate implicit Hs automatically.
     *   **Carbon Matching**: Use `[#6]` to match ANY Carbon (aliphatic or aromatic). Pattern `C` (uppercase) ONLY matches aliphatic carbons, while `c` (lowercase) ONLY matches aromatic ones. Using `[#6]` is recommended for robust targeting.
-    *   Example: `{"tool": "apply_transformation", "params": {"reaction_smarts": "[#6:1][H]>>[#6:1][Cl]"}}` (Chlorinate any carbon)
+    *   `atom_index`: **REQUIRED**. The Atom Map Number (Integer) to apply the transformation to.
+    *   Example: `{"tool": "apply_transformation", "params": {"reaction_smarts": "[#6:1][H]>>[#6:1][Cl]", "atom_index": 1}}` (Chlorinate Carbon 1)
 
 2.  **`highlight_substructure`**: Visually highlight atoms matching a pattern or indices.
     *   `smarts`: (Optional) The SMARTS pattern to find and highlight.
         *   **Tip**: Use `[#6]` to match ANY Carbon (aliphatic or aromatic). Pattern `C` ONLY matches aliphatic carbons.
-    *   `atom_indices`: (Optional) List of Atom Map Numbers (Integers) to highlight e.g. [1, 5]. **STRONGLY RECOMMENDED** to use this for precise targeting if User Selection is available.
-    *   Example: `{"tool": "highlight_substructure", "params": {"smarts": "[#8]"}}` (Highlight Hydroxyls/Ethers)
+    *   `atom_indices`: **REQUIRED**. List of Atom Map Numbers (Integers) to highlight e.g. [1, 5].
+    *   Example: `{"tool": "highlight_substructure", "params": {"atom_indices": [1, 2]}}` (Highlight Specific Atoms)
 
 3.  **`calculate_descriptors`**: Calculate molecular properties.
     *   `properties`: List of properties to calculate. Available options:
@@ -159,15 +160,15 @@ You have access to specific tools to interact with the software. To use a tool, 
 
 4.  **`orca_input_generator`**: Create an ORCA calculation input file.
     *   `filename`: Suggested filename (e.g., "[molecule]-opt.inp").
-    *   `header`: The content to go BEFORE the coordinates (e.g., `%maxcore... ! B3LYP...`). **Do NOT** include Title, Charge, or Multiplicity/Spin here.
+    *   `header`: The content to go BEFORE the coordinates. **MUST include** `%pal nprocs N end` for parallel execution and `%maxcore XXXX` for memory per core (in MB), followed by the simple input line (e.g., `! B3LYP...`). **Do NOT** include Title, Charge, or Multiplicity/Spin here.
     *   `footer`: The content to go AFTER the coordinates.
-    *   Example: `{"tool": "orca_input_generator", "params": {"filename": "opt.inp", "header": "! B3LYP def2-SVP Opt"}}`
+    *   Example: `{"tool": "orca_input_generator", "params": {"filename": "opt.inp", "header": "%pal nprocs 4 end\n%maxcore 4000\n! B3LYP def2-SVP Opt"}}`
 
 5.  **`gaussian_input_generator`**: Create a Gaussian calculation input file.
     *   `filename`: Suggested filename (e.g., "[molecule]-opt.gjf").
-    *   `header`: The content to go BEFORE the coordinates (e.g., `%nproc... #P B3LYP...`). **Do NOT** include Title, Charge, or Multiplicity here.
+    *   `header`: The content to go BEFORE the coordinates. **MUST include** `%nprocshared=N` and `%mem=XGB` directives for parallel execution and memory allocation, followed by the route card (e.g., `#P B3LYP...`). **Do NOT** include Title, Charge, or Multiplicity here. The `%chk` file is auto-generated from the filename.
     *   `footer`: The content to go AFTER the coordinates.
-    *   Example: `{"tool": "gaussian_input_generator", "params": {"filename": "opt.gjf", "header": "#P B3LYP/6-31G* Opt"}}`
+    *   Example: `{"tool": "gaussian_input_generator", "params": {"filename": "opt.gjf", "header": "%nprocshared=4\n%mem=4GB\n#P B3LYP/6-31G* Opt"}}`
 
 6.  **`load_molecule`**: Load a new molecule from SMILES string (replaces current molecule).
     *   `smiles`: The SMILES string of the molecule to load.
@@ -184,11 +185,11 @@ You have access to specific tools to interact with the software. To use a tool, 
     *   Example: `{"tool": "clear_canvas", "params": {}}`
 
 9.  **`set_electronic_state`**: Set formal charge or multiplicity on a **single atom**.
-    *   `atom_indices`: **ABSOLUTELY REQUIRED**. The Atom Map Number (Integer) e.g. `5`. **WILL FAIL WITHOUT THIS.**
+    *   `atom_index`: **ABSOLUTELY REQUIRED**. The Atom Map Number (Integer) e.g. `5`. **WILL FAIL WITHOUT THIS.**
     *   `charge`: Integer formal charge (e.g., 1 for +1, -1 for -1). **Do NOT use for charge 0** - that is the default.
     *   `multiplicity`: Integer multiplicity.
-    *   **CRITICAL**: You MUST ALWAYS include `atom_indices`. Without it, the tool does NOTHING.
-    *   Example: `{"tool": "set_electronic_state", "params": {"atom_indices": 1, "charge": 1}}` (Make Atom 1 +1)
+    *   **CRITICAL**: You MUST ALWAYS include `atom_index`. Without it, the tool does NOTHING.
+    *   Example: `{"tool": "set_electronic_state", "params": {"atom_index": 1, "charge": 1}}` (Make Atom 1 +1)
 
 10. **`save_file`**: Save text content to a file with any extension.
     *   `filename`: The filename (e.g., "script.py", "data.csv", "config.ini").
@@ -198,8 +199,15 @@ You have access to specific tools to interact with the software. To use a tool, 
         *   `[[atom_count]]`: Replaced with the total number of atoms.
     *   Example: `{"tool": "save_file", "params": {"filename": "mol.xyz", "content": "[[atom_count]]\nTitle\n[[atom]]"}}`
 
-**Multiple Operations**: You can propose multiple tool calls in a single response by using a JSON array **inside the single JSON block**. Operations will execute in order.
-Example: `[{"tool": "apply_transformation", "params": {...}}, {"tool": "convert_to_3d", "params": {}}]`
+**Multiple Operations**: You can propose multiple tool calls in a single response. You can use EITHER:
+1. A JSON array inside a single code block: `[{"tool": "...", ...}, {"tool": "...", ...}]`
+2. Multiple separate JSON code blocks (each block will be collected and executed in order):
+```json
+{"tool": "apply_transformation", "params": {...}}
+```
+```json
+{"tool": "convert_to_3d", "params": {}}
+```
 
 ### 3. Response Style
 * **Tone**: Professional, intellectual, and helpful.
@@ -225,6 +233,7 @@ GENERATION_CONFIG = {
 
 # DEMO MODE: Set to True to test UI without API connection
 DEMO_MODE = False
+
 # History Limit: 10 Turns = 20 Messages (User + AI)
 MAX_HISTORY = 20
 
@@ -526,7 +535,7 @@ class ChatMoleculeWindow(QDialog):
              # --- UI Label Update ---
              if current_smiles:
                  # Standard context label (only SMILES/Name to keep it clean)
-                 self.lbl_context.setText(f"Context: {self.get_molecule_name() or 'Unknown'} ({current_smiles[:20]}...)")
+                 self.lbl_context.setText(f"Context: {self.get_molecule_name(allow_fetch=False) or 'Unknown'} ({current_smiles[:20]}...)")
              else:
                  context_label_text = "Context: No valid molecule found."
                  if error:
@@ -1196,14 +1205,88 @@ class ChatMoleculeWindow(QDialog):
         # 1. Try reconstructing from 2D Data (Preserves internal IDs)
         try:
             if hasattr(self.main_window, 'data') and hasattr(self.main_window.data, 'to_rdkit_mol'):
+
                 if hasattr(self.main_window.data, 'atoms') and self.main_window.data.atoms:
-                    mol = self.main_window.data.to_rdkit_mol()
+                    # --- ROBUST RECONSTRUCTION START ---
+                    # Build RDKit mol manually to guarantee ID mapping matches UI perfectly
+                    try:
+                        rwvm = Chem.RWMol()
+                        id_map = {} # UI ID -> RDKit Idx
+                        
+                        # 1. Add Atoms strictly from data keys
+                        sorted_ids = sorted(self.main_window.data.atoms.keys())
+                        for aid in sorted_ids:
+                            atom_data = self.main_window.data.atoms[aid]
+                            symbol = atom_data.get('symbol', 'C')
+                            a = Chem.Atom(symbol)
+                            
+                            # Set Properties
+                            a.SetIntProp("_original_atom_id", aid)
+                            a.SetAtomMapNum(aid + 1) # KEY FIX: Set MapNum here directly!
+                            
+                            if 'charge' in atom_data: a.SetFormalCharge(atom_data['charge'])
+                            if 'explicit_valence' in atom_data: a.SetNumExplicitHs(atom_data['explicit_valence'])
+                                
+                            idx = rwvm.AddAtom(a)
+                            id_map[aid] = idx
+
+                        # 2. Add Bonds
+                        if hasattr(self.main_window.data, 'bonds') and self.main_window.data.bonds:
+                            sorted_bids = sorted(self.main_window.data.bonds.keys(), key=str)
+                            for bid in sorted_bids:
+                                bond_data = self.main_window.data.bonds[bid]
+                                
+                                # PRIORITIZE bond_data values (Source->Target) to preserve direction for stereo
+                                id1 = bond_data.get('atom1')
+                                id2 = bond_data.get('atom2')
+                                
+                                # Fallback to key if data is missing (legacy compat)
+                                if id1 is None or id2 is None:
+                                     if isinstance(bid, tuple) and len(bid) == 2:
+                                         id1, id2 = bid
+
+                                if id1 in id_map and id2 in id_map:
+                                    bond_data = self.main_window.data.bonds[bid]
+                                    order = bond_data.get('order', 1)
+                                    stereo_val = bond_data.get('stereo', 0)
+                                    
+                                    # Translate order int to RDKit BondType
+                                    btype = Chem.BondType.SINGLE
+                                    if order == 2: btype = Chem.BondType.DOUBLE
+                                    elif order == 3: btype = Chem.BondType.TRIPLE
+                                    
+                                    bond_idx = rwvm.AddBond(id_map[id1], id_map[id2], btype)
+                                    
+                                    # Set Stereo for Single Bonds (Wedge/Dash)
+                                    if order == 1 and stereo_val > 0:
+                                        # Assuming mw.data.bonds uses 1=Wedge, 2=Dash (matches scene.create_bond stereo param)
+                                        # However, RDKit requires the bond to be set on the specific bond object
+                                        # We need to retrieve the bond we just added.
+                                        new_bond = rwvm.GetBondWithIdx(bond_idx - 1)
+                                        if stereo_val == 1:
+                                            new_bond.SetBondDir(Chem.BondDir.BEGINWEDGE)
+                                        elif stereo_val == 2:
+                                            new_bond.SetBondDir(Chem.BondDir.BEGINDASH)
+                        
+                        mol = rwvm.GetMol()
+                        # Sanitize but keep our MapNums
+                        pass # Don't rely on external to_rdkit_mol
+                        
+                    except Exception as e:
+                        print(f"Local Mol Build Failed: {e}")
+                        # Fallback to existing method if local build fails
+                        mol = self.main_window.data.to_rdkit_mol()
+                    
                     if mol:
-                        # Map internal IDs to MapNums
+                        # Map internal IDs to MapNums if not already set (fallback)
                         for atom in mol.GetAtoms():
-                            if atom.HasProp("_original_atom_id"):
-                                aid = atom.GetIntProp("_original_atom_id")
-                                atom.SetAtomMapNum(aid + 1) # Use 1-based for MapNum
+                             if atom.GetAtomMapNum() == 0:
+                                 if atom.HasProp("_original_atom_id"):
+                                     aid = atom.GetIntProp("_original_atom_id")
+                                     atom.SetAtomMapNum(aid + 1)
+                                 else:
+                                     atom.SetAtomMapNum(atom.GetIdx() + 1)
+                    # --- ROBUST RECONSTRUCTION END ---
         except Exception:
             mol = None
     
@@ -1221,13 +1304,16 @@ class ChatMoleculeWindow(QDialog):
              return None, "No valid molecule found."
             
         try:
+            # Assign Stereochemistry from Bond Directions (Critical for @/@@ in SMILES)
+            Chem.AssignStereochemistry(mol, force=True, cleanIt=True)
+
             # Remove hydrogens for Gemini prompt, but preserve MapNums on heavy atoms
             mol_clean = Chem.RemoveHs(mol)
             
             # Ensure every heavy atom has a MapNum
-            for atom in mol_clean.GetAtoms():
-                if atom.GetAtomMapNum() == 0:
-                    atom.SetAtomMapNum(atom.GetIdx() + 1)
+            # for atom in mol_clean.GetAtoms():
+            #     if atom.GetAtomMapNum() == 0:
+            #         atom.SetAtomMapNum(atom.GetIdx() + 1)
                     
             return Chem.MolToSmiles(mol_clean), None
         except Exception as e:
@@ -1282,10 +1368,20 @@ class ChatMoleculeWindow(QDialog):
             mol_center_y = sum(p.y for p in positions) / len(positions) if positions else 0.0
 
             rdkit_idx_to_my_id = {}
+        
+            # Determine strict ID mapping if Map Numbers are present
+            map_num_to_rd_idx = {}
+            for i in range(mol.GetNumAtoms()):
+                 atom = mol.GetAtomWithIdx(i)
+                 m = atom.GetAtomMapNum()
+                 if m > 0: map_num_to_rd_idx[m] = i
+
+            # Create Atoms
             for i in range(mol.GetNumAtoms()):
                 atom = mol.GetAtomWithIdx(i)
                 pos = conf.GetAtomPosition(i)
                 charge = atom.GetFormalCharge()
+                map_num = atom.GetAtomMapNum()
                 
                 relative_x = pos.x - mol_center_x
                 relative_y = pos.y - mol_center_y
@@ -1295,7 +1391,32 @@ class ChatMoleculeWindow(QDialog):
                 
                 # Access mw.scene directly
                 atom_id = mw.scene.create_atom(atom.GetSymbol(), QPointF(scene_x, scene_y), charge=charge)
+                
+                # --- STRICT ID REMAPPING (FIX) ---
+                # Ensure ID = MapNum - 1 if MapNum exists
+                if map_num > 0:
+                    target_id = map_num - 1
+                    if atom_id != target_id:
+                        if target_id not in mw.data.atoms:
+                            # Remap
+                            try:
+                                adata = mw.data.atoms.pop(atom_id)
+                                mw.data.atoms[target_id] = adata
+                                atom_id = target_id
+                                # Update item internal ID if accessible (optional/risky if private)
+                                if 'item' in adata and hasattr(adata['item'], 'atom_id'):
+                                    adata['item'].atom_id = target_id
+                            except Exception as e:
+                                print(f"ID Remap Failed: {e}")
+                        else:
+                            print(f"ID Collision: {target_id} already exists. Keeping {atom_id}")
+                
                 rdkit_idx_to_my_id[i] = atom_id
+                
+                # Update next_atom_id to avoid future collisions
+                if hasattr(mw.data, 'next_atom_id'):
+                     if atom_id >= mw.data.next_atom_id:
+                          mw.data.next_atom_id = atom_id + 1
 
             for bond in mol.GetBonds():
                 b_idx, e_idx = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
@@ -1389,7 +1510,11 @@ class ChatMoleculeWindow(QDialog):
         
         # Update UI if this is still the current molecule
         if self.last_inchikey == inchikey:
-            self.lbl_context.setText(f"Context: {name} (Updated)")
+            # Get current SMILES for label
+            current_smiles = self.last_smiles or ""
+            smiles_preview = f"({current_smiles[:20]}...)" if current_smiles else ""
+            display_name = name if name else "Unknown"
+            self.lbl_context.setText(f"Context: {display_name} {smiles_preview}")
             
             # Since check_molecule_change might have finished with "None/Unknown",
             # we should update the valid pending context message if it hasn't been sent yet.
@@ -1566,6 +1691,7 @@ class ChatMoleculeWindow(QDialog):
         self.tool_confirm_frame.setVisible(False)
         self.txt_input.setEnabled(True)  # Unfreeze input
         self.btn_send.setEnabled(True)   # Re-enable send button
+        self.txt_input.setFocus()  # Return focus to input (avoid API key selection)
         payload = self.pending_tool_payload
         self.pending_tool_payload = None
         
@@ -1714,61 +1840,135 @@ class ChatMoleculeWindow(QDialog):
                  self.append_message("System", "Error: Could not parse current molecule.", "red")
                  return
              
+             # --- [FIX 1] Track Max Map ID ---
+             max_map_num = 0
+             for atom in mol.GetAtoms():
+                 m = atom.GetAtomMapNum()
+                 if m > max_map_num:
+                     max_map_num = m
+
              # Reaction Logic
-             rxn = AllChem.ReactionFromSmarts(reaction_smarts)
+             try:
+                rxn = AllChem.ReactionFromSmarts(reaction_smarts)
+             except Exception as e:
+                 self.append_message("System", f"Invalid SMARTS: {e}", "red")
+                 return
              
-             # User Request: "omitted hydrogens should be shown before H replacement"
-             # If the user wants to substitute H (e.g. H->F), RDKit reactions on implicit Hs usually fail 
-             # or don't work as expected unless mapped carefully.
-             # It is safer to make Hs explicit before running the reaction.
+
+
+             # Explicit Hydrogens handling
              mol_with_h = Chem.AddHs(mol)
+             
+             # DEBUG: Check if AddHs preserves maps
+             # maps_h = [a.GetAtomMapNum() for a in mol_with_h.GetAtoms()]
+             # print(f"DEBUG: MapNums after AddHs: {maps_h}")
              
              # Run reaction
              products = rxn.RunReactants((mol_with_h,))
              
              if not products:
-                  # Retry without explicit Hs just in case the SMARTS was designed for implicit
-                  # But usually SMARTS with [H] require explicit Hs.
+                  # Retry without explicit Hs
                   self.append_message("System", "Reaction produced no products with explicit Hs. Checking implicit...", "orange")
                   products = rxn.RunReactants((mol,))
                   if not products:
                       self.append_message("System", "Reaction produced no products. Check compatibility.", "orange")
                       return
              
-             # Take first product
-             new_mol = products[0][0]
+             
+             # --- FILTER PRODUCTS BY ATOM INDEX ---
+             target_index = params.get("atom_index")
+             # Fallback for old param
+             if target_index is None and params.get("atom_indices"):
+                  val = params.get("atom_indices")
+                  if isinstance(val, list) and len(val) > 0: target_index = val[0]
+
+             selected_product_idx = 0
+             
+             if target_index is not None:
+                 try:
+                     # Convert MapNums (string/int) -> Int
+                     target_mapnum = int(target_index)
+                     
+                     # Find matches in Reactant (mol_with_h used for reaction)
+                     # Reaction template is reactant 0
+                     reactant_template = rxn.GetReactants()[0]
+                     matches = mol_with_h.GetSubstructMatches(reactant_template)
+                     
+                     # Iterate matches to find the one containing our target MapNum
+                     found_match = False
+                     for i, match_indices in enumerate(matches):
+                         # match_indices contains RDKit Atom Indices
+                         for idx in match_indices:
+                             atom = mol_with_h.GetAtomWithIdx(idx)
+                             if atom.GetAtomMapNum() == target_mapnum:
+                                 selected_product_idx = i
+                                 found_match = True
+                                 break
+                         if found_match: break
+                         
+                     if found_match:
+                         self.append_message("System", f"Applied to selected atom match #{selected_product_idx}", "gray")
+                     else:
+                         self.append_message("System", "Warning: Selected atom not found in reaction matches. Applying to first match.", "orange")
+                         
+                 except Exception as e:
+                     print(f"Index filtering failed: {e}")
+
+             # Take selected product
+             if selected_product_idx < len(products):
+                 new_mol = products[selected_product_idx][0]
+             else:
+                 new_mol = products[0][0]
              
              # ROBUST FIX: Implicit Hydrogens & Valence
-             # 1. Update Property Cache
              try: new_mol.UpdatePropertyCache(strict=False)
              except: pass
              
-             # 2. Sanitize to fix valence
+             # Sanitize
              try: Chem.SanitizeMol(new_mol)
              except: pass
              
-             # 3. Explicitly Remove hydrogens (often spectators in reaction)
-             # This forces RDKit to recalculate implicit H count based on new connectivity
+             # Remove hydrogens
              try: new_mol = Chem.RemoveHs(new_mol, implicitOnly=False, updateExplicitCount=True, sanitize=True)
              except: pass
-             
-             # 4. SMILES Round-Trip (The Nuclear Option)
-             # This guarantees a clean graph with correct valences
+
+             # --- [FIX 2] Assign new IDs to new atoms (MapNum=0) ---
+             # Essential for update_structure_diff_based to create bonds
+             for atom in new_mol.GetAtoms():
+                 if atom.GetAtomMapNum() == 0:
+                     max_map_num += 1
+                     atom.SetAtomMapNum(max_map_num)
+
+             # Enforce Stereo assignment on product before SMILES generation
+             try: Chem.AssignStereochemistry(new_mol, force=True, cleanIt=True)
+             except: pass
+
+             # 4. SMILES Round-Trip
              temp_smiles = Chem.MolToSmiles(new_mol)
              clean_mol = Chem.MolFromSmiles(temp_smiles)
              
              if not clean_mol:
-                 # Fallback if round-trip fails (unlikely)
                  clean_mol = new_mol
              
              # 5. Optimize 2D Coordinates (Fresh Layout)
-             AllChem.Compute2DCoords(clean_mol)
+             # UX IMPROVEMENT: Try to match original coordinates to prevent jumping
+             try:
+                 ref_mol = Chem.MolFromSmiles(current_smiles)
+                 if ref_mol:
+                     AllChem.Compute2DCoords(ref_mol) # Ensure ref has coords
+                     # Matches topology to ref
+                     AllChem.GenerateDepictionMatching2DStructure(clean_mol, ref_mol)
+                 else:
+                     raise Exception("Ref mol failed")
+             except:
+                 # Fallback if matching fails (e.g. significant structural change)
+                 AllChem.Compute2DCoords(clean_mol)
              
              # Load back
              final_smiles = Chem.MolToSmiles(clean_mol)
              
-             # Use local undo-safe loader
-             self.load_smiles_undo_safe(final_smiles)
+             # Use local differential updater for smoother UX
+             self.update_structure_diff_based(final_smiles)
              
              # User Request: "Optimize 2D" after conversion
              if hasattr(self.main_window, 'clean_up_2d_structure'):
@@ -1779,6 +1979,7 @@ class ChatMoleculeWindow(QDialog):
         except Exception as e:
             self.append_message("System", f"Transformation Failed: {e}\n(Tip: The SMARTS pattern might be invalid. Ask Gemini for a more precise one.)", "red")
             return str(e)
+
 
     def execute_highlight_substructure(self, params):
         """Highlight atoms matching SMARTS or explicit indices"""
@@ -1801,10 +2002,21 @@ class ChatMoleculeWindow(QDialog):
 
             # A) Explicit Indices provided (Map Numbers)
             if atom_indices_param:
-                 # Map explicit IDs/MapNums to RDKit internal indices
-                 needed_maps = [int(x) for x in atom_indices_param]
+                 # Handle single int or list
+                 if isinstance(atom_indices_param, int):
+                     needed_maps = [atom_indices_param]
+                 else:
+                     needed_maps = [int(x) for x in atom_indices_param]
+                 
                  for atom in mol.GetAtoms():
                      if atom.GetAtomMapNum() in needed_maps:
+                         atom_indices_set.add(atom.GetIdx())
+            
+            # Fallback: Check if atom_index was passed (legacy/hallucination compat)
+            elif params.get("atom_index") is not None:
+                  needed_map = int(params.get("atom_index"))
+                  for atom in mol.GetAtoms():
+                     if atom.GetAtomMapNum() == needed_map:
                          atom_indices_set.add(atom.GetIdx())
 
             # B) SMARTS provided
@@ -1889,15 +2101,17 @@ class ChatMoleculeWindow(QDialog):
             # Target Selection from SMARTS or User Selection or Indices
             target_indices = set()
             
-            # A) Explicit Indices provided (Map Numbers)
-            if atom_indices_param:
-                 # Handle single int or list
-                 if isinstance(atom_indices_param, int):
-                     needed_maps = [atom_indices_param]
-                 else:
-                     needed_maps = [int(x) for x in atom_indices_param]
+            # A) Explicit Index provided (Map Number)
+            atom_index_param = params.get("atom_index")
+            # Fallback
+            if atom_index_param is None and params.get("atom_indices"):
+                 val = params.get("atom_indices")
+                 if isinstance(val, list) and len(val) > 0: atom_index_param = val[0]
+
+            if atom_index_param is not None:
+                 needed_map = int(atom_index_param)
                  for atom in mol.GetAtoms():
-                     if atom.GetAtomMapNum() in needed_maps:
+                     if atom.GetAtomMapNum() == needed_map:
                          target_indices.add(atom.GetIdx())
 
             # B) SMARTS provided
@@ -1916,7 +2130,7 @@ class ChatMoleculeWindow(QDialog):
                  for aid, adata in self.main_window.data.atoms.items():
                       item = adata.get('item')
                       if item and item.isSelected():
-                          selected_map_nums.append(aid + 1) # MapNum is ID + 1
+                          selected_map_nums.append(aid) # MapNum is ID + 1
                  
                  if selected_map_nums:
                       for atom in mol.GetAtoms():
@@ -2255,7 +2469,10 @@ class ChatMoleculeWindow(QDialog):
             num_radicals = Descriptors.NumRadicalElectrons(mol)
             mult = num_radicals + 1
 
-            content = header + "\n"
+            # Auto-generate %chk line from filename
+            chk_basename = os.path.splitext(os.path.basename(filename))[0]
+            content = f"%chk={chk_basename}.chk\n"
+            content += header + "\n"
             # Gaussian expects Title section + Empty line
             if not content.endswith("\n\n"): 
                 if content.endswith("\n"): content += "\n"
@@ -2315,6 +2532,17 @@ class ChatMoleculeWindow(QDialog):
         
         return self._save_input_file(filename, content, filter_str)
 
+
+    def get_selected_atom_indices(self):
+        """Get list of selected atom IDs (as strings) matching SMILES MapNums."""
+        indices = []
+        if hasattr(self.main_window, 'data') and hasattr(self.main_window.data, 'atoms'):
+             for aid, adata in self.main_window.data.atoms.items():
+                 item = adata.get('item')
+                 if item and item.isSelected():
+                     # Match the new MapNum logic: MapNum = ID + 1
+                     indices.append(str(aid + 1))
+        return indices
 
     def _build_context_msg(self, smiles, name, lazy=False):
         """Construct the context message string."""
@@ -2411,6 +2639,9 @@ class ChatMoleculeWindow(QDialog):
                          if not hasattr(self, '_name_cache'): self._name_cache = {}
                          self._name_cache[self.last_inchikey] = name_res
                          mol_name = name_res
+                         # Update context label immediately
+                         smiles_preview = f"({current_smiles[:20]}...)" if current_smiles else ""
+                         self.lbl_context.setText(f"Context: {mol_name} {smiles_preview}")
                  except:
                      pass
              
@@ -2437,6 +2668,36 @@ class ChatMoleculeWindow(QDialog):
 
         # LOGGING: Log the full prompt including injected context
         append_log("PROMPT_FULL", full_text_to_send)
+
+        # SHORTCUT: "br" triggers bromination demo sequence for SELECTED atoms
+        if DEMO_MODE and text.lower().startswith("br"):
+             # Get selected atom IDs (strings)
+             selected_ids = self.get_selected_atom_indices()
+             
+             tools_json_list = []
+             if selected_ids:
+                 self.append_message("System", f"Bromination Shortcut: Applying to selected atoms {', '.join(selected_ids)}", "green")
+                 for aid in selected_ids:
+                     # aid is already 1-based MapNum (string)
+                     tools_json_list.append(
+                         f'  {{"tool": "apply_transformation", "params": {{"reaction_smarts": "[#6:{aid}][H]>>[#6:{aid}][Br]", "atom_index": {aid}}}}}'
+                         #f'  {{"tool": "apply_transformation", "params": {{"reaction_smarts": "[c:{aid}][H]>>[c:{aid}][Br]", "atom_index": {aid}}}}}'
+                     )
+                 json_body = "[\n" + ",\n".join(tools_json_list) + "\n]"
+             else:
+                 # No selection - abort
+                 self.append_message("System", "Bromination Shortcut: No atoms selected. Please select atoms to brominate.", "orange")
+                 return
+
+             response_text = (
+                 "Applying Bromination Demo Sequence...\n"
+                 "```json\n"
+                 f"{json_body}\n"
+                 "```"
+             )
+             QTimer.singleShot(500, lambda: self.on_chunk_received(response_text))
+             QTimer.singleShot(600, lambda: self.on_final_response(None))
+             return
 
         # DEMO MODE CHECK
         if DEMO_MODE:
@@ -2470,7 +2731,7 @@ class ChatMoleculeWindow(QDialog):
                  response_text = (
                     "Now let's set a formal charge on the chlorinated carbon (atom 1)!\n"
                     "```json\n"
-                    '{"tool": "set_electronic_state", "params": {"atom_indices": 1, "charge": 1}}\n'
+                    '{"tool": "set_electronic_state", "params": {"atom_index": 1, "charge": 1}}\n'
                     "```"
                  )
                  self.demo_step += 1
@@ -2722,28 +2983,34 @@ class ChatMoleculeWindow(QDialog):
         self.log_usage(response)
         
         # --- Check for Tool Calls ---
-        # Look for JSON block at the end (supports single object or array)
+        # Look for ALL JSON blocks (supports multiple separate JSON objects)
         text = self.stream_accumulated_text
-        json_match = re.search(r'```json\s*([\[{].*?[\]}])\s*```', text, re.DOTALL)
+        json_matches = re.findall(r'```json\s*([\[{].*?[\]}])\s*```', text, re.DOTALL)
         
         tool_proposed = False
-        if json_match:
-            try:
-                json_str = json_match.group(1)
-                payload = json.loads(json_str)
-                
-                # Support both single tool and multiple tools (array)
-                if isinstance(payload, list):
-                    # Multiple operations: propose all at once, preserve order
-                    self.propose_tool_action({"tools": payload})
-                    tool_proposed = True
-                elif "tool" in payload and "params" in payload:
-                    # Single operation
-                    self.propose_tool_action(payload)
-                    tool_proposed = True
+        if json_matches:
+            all_tools = []
+            for json_str in json_matches:
+                try:
+                    payload = json.loads(json_str)
                     
-            except json.JSONDecodeError:
-                print("Failed to parse Tool JSON")
+                    # Collect all tools from all JSON blocks
+                    if isinstance(payload, list):
+                        # Array of tools
+                        all_tools.extend(payload)
+                    elif "tool" in payload and "params" in payload:
+                        # Single tool
+                        all_tools.append(payload)
+                except json.JSONDecodeError:
+                    print(f"Failed to parse Tool JSON: {json_str[:50]}...")
+            
+            # Propose all collected tools at once
+            if all_tools:
+                if len(all_tools) == 1:
+                    self.propose_tool_action(all_tools[0])
+                else:
+                    self.propose_tool_action({"tools": all_tools})
+                tool_proposed = True
 
         # Re-enable UI only if no tool was proposed (tool prompt freezes input)
         if not tool_proposed:
@@ -2804,6 +3071,276 @@ class ChatMoleculeWindow(QDialog):
              append_log("Error", f"Failed to prune history: {e}")
 
 
+
+
+    def update_structure_diff_based(self, smiles_string):
+        """
+        SMILESの内容に基づいて、現在のシーン上の原子を「更新」する。
+        全消去せず、IDが一致するものは座標と属性を変更する。
+        """
+        mw = self.main_window
+        try:
+            cleaned_smiles = smiles_string.strip()
+            mol = Chem.MolFromSmiles(cleaned_smiles)
+            if not mol: return
+
+            # --- [IMPORTANT] Kekulize ---
+            # Explicitly clear aromatic flags to ensure aromatic bonds (1.5) become localized double bonds (2.0)
+            # This prevents them from being cast to single bonds (1.0) during int conversion for visualization.
+            try:
+                Chem.Kekulize(mol, clearAromaticFlags=True)
+            except Exception as e:
+                print(f"Kekulize Warning: {e}")
+
+            # 1. 座標生成 (2D)
+            AllChem.Compute2DCoords(mol)
+            conf = mol.GetConformer()
+
+            # --- 座標合わせ (Alignment) ---
+            # RDKitの座標系を、現在のキャンバスの座標系に合わせるためのオフセットを計算
+            
+            # A. 現在のキャンバス上の選択原子（または全原子）の重心を計算
+            current_points = []
+            if mw.data.atoms:
+                for ad in mw.data.atoms.values():
+                    if ad.get('item'):
+                        current_points.append(ad['item'].scenePos())
+            
+            if current_points:
+                avg_x = sum(p.x() for p in current_points) / len(current_points)
+                avg_y = sum(p.y() for p in current_points) / len(current_points)
+                target_center = QPointF(avg_x, avg_y)
+            else:
+                # 原子がない場合はビューの中心
+                if hasattr(mw, 'view_2d') and mw.view_2d:
+                     target_center = mw.view_2d.mapToScene(mw.view_2d.viewport().rect().center())
+                else:
+                     target_center = QPointF(0, 0)
+
+            # --- PATCH: Ensure next_atom_id exists ---
+            # Fix for AttributeError: 'MolecularData' object has no attribute 'next_atom_id'
+            if not hasattr(mw.data, 'next_atom_id'):
+                if mw.data.atoms:
+                    # simplistic max+1 (safe for unique ID generation)
+                    mw.data.next_atom_id = max(mw.data.atoms.keys()) + 1
+                else:
+                    mw.data.next_atom_id = 0
+
+            # B. RDKit側の重心を計算
+            rd_positions = [conf.GetAtomPosition(i) for i in range(mol.GetNumAtoms())]
+            if rd_positions:
+                rd_avg_x = sum(p.x for p in rd_positions) / len(rd_positions)
+                rd_avg_y = sum(p.y for p in rd_positions) / len(rd_positions)
+            else:
+                rd_avg_x, rd_avg_y = 0.0, 0.0
+
+            SCALE = 50.0  # RDKit -> Sceneのスケール係数
+
+            # --- Undo State Push ---
+            mw.push_undo_state()
+
+            # --- 2. 原子の更新 / 新規作成 ---
+            
+            # 今回のSMILESに含まれる MapNum (ID+1) を記録
+            processed_ids = set()
+            
+            # MapNumの最大値を追跡（新規追加用）
+
+
+            for i in range(mol.GetNumAtoms()):
+                atom = mol.GetAtomWithIdx(i)
+                pos = conf.GetAtomPosition(i)
+                
+                # 座標変換: (RDKit座標 - RDKit重心) * スケール + キャンバス重心
+                scene_x = ((pos.x - rd_avg_x) * SCALE) + target_center.x()
+                scene_y = (-(pos.y - rd_avg_y) * SCALE) + target_center.y() # Y軸反転
+                
+                map_num = atom.GetAtomMapNum()
+                
+                target_id = -1
+                
+                # A) 既存IDの更新 (MapNumがある場合)
+                if map_num > 0:
+                    target_id = map_num - 1 # MapNum is 1-based, internal ID is 0-based
+                    processed_ids.add(target_id)
+                    
+                    if target_id in mw.data.atoms:
+                        # === UPDATE (既存原子の変更) ===
+                        atom_data = mw.data.atoms[target_id]
+                        item = atom_data.get('item')
+                        
+                        # 属性更新
+                        atom_data['symbol'] = atom.GetSymbol()
+                        atom_data['charge'] = atom.GetFormalCharge()
+                        # 必要なら他の属性も...
+                        
+                        # アイテムの再描画・移動
+                        if item:
+                            # 座標移動
+                            item.setPos(scene_x, scene_y)
+                            # シンボル更新
+                            if hasattr(item, 'set_symbol'): 
+                                item.set_symbol(atom.GetSymbol())
+                            item.update()
+                    else:
+                        # ID指定があるが、キャンバスにそのIDがない -> 新規作成（ID指定）
+                        actual_id = mw.scene.create_atom(atom.GetSymbol(), QPointF(scene_x, scene_y), charge=atom.GetFormalCharge())
+                        
+                        # --- STRICT ID REMAPPING (FIX) ---
+                        if target_id >= 0 and actual_id != target_id:
+                             if target_id not in mw.data.atoms:
+                                  try:
+                                       adata = mw.data.atoms.pop(actual_id)
+                                       mw.data.atoms[target_id] = adata
+                                       # Remap internal item ID if possible
+                                       if 'item' in adata and hasattr(adata['item'], 'atom_id'):
+                                           adata['item'].atom_id = target_id
+                                       # print(f"Remapped New Atom {actual_id} -> {target_id}")
+                                  except:
+                                       pass
+                             else:
+                                  # Should not happen (checked in else block above)
+                                  pass
+                        
+                        # Update next_atom_id
+                        if hasattr(mw.data, 'next_atom_id'):
+                            current_max = max(mw.data.atoms.keys()) if mw.data.atoms else 0
+                            mw.data.next_atom_id = current_max + 1
+                
+                else:
+                    # B) 新規原子 (MapNumなし、または新しい原子)
+                    mw.scene.create_atom(atom.GetSymbol(), QPointF(scene_x, scene_y), charge=atom.GetFormalCharge())
+                    # 新規IDは自動採番
+
+            # --- 3. 削除 (SMILESに含まれなかった原子を消す) ---
+            # 「反応で消えた原子」を処理
+            existing_ids = list(mw.data.atoms.keys())
+            for aid in existing_ids:
+                # 今回の更新対象（processed_ids）に含まれず、
+                if aid not in processed_ids:
+                    # 削除処理
+                    if aid in mw.data.atoms:
+                        item = mw.data.atoms[aid].get('item')
+                        if item:
+                            mw.scene.delete_items([item])
+
+            # --- 4. 結合の再構築 (Differential Update) ---
+            # UX IMPROVEMENT: Preserve selection by updating in-place instead of recreate
+            
+            existing_bond_keys = set(mw.data.bonds.keys())
+            current_step_bond_keys = set()
+            
+            for bond in mol.GetBonds():
+                b_idx = bond.GetBeginAtomIdx()
+                e_idx = bond.GetEndAtomIdx()
+                
+                # RDKit Index -> MapNum -> Internal ID
+                a1_map = mol.GetAtomWithIdx(b_idx).GetAtomMapNum()
+                a2_map = mol.GetAtomWithIdx(e_idx).GetAtomMapNum()
+                
+                if a1_map > 0 and a2_map > 0:
+                    id1 = a1_map - 1
+                    id2 = a2_map - 1
+                    
+                    if id1 in mw.data.atoms and id2 in mw.data.atoms:
+                        # Bond Key Normalization (Smaller ID first) - Assuming Main Window uses this?
+                        # Actually main_window_edit_actions usually uses whatever order came in?
+                        # Let's check how create_bond stores it. 
+                        # Usually it stores as (id1, id2). But checking keys:
+                        # We must match the key format. If undirected, check both?
+                        # For robustness, we check both directions or assume canonical.
+                        # Let's check if (id1, id2) OR (id2, id1) is in bonds.
+                        
+                        found_key = None
+                        if (id1, id2) in mw.data.bonds: found_key = (id1, id2)
+                        elif (id2, id1) in mw.data.bonds: found_key = (id2, id1)
+                        
+                        # Target Key for CREATE (Canonical logic preferred?)
+                        # For consistency let's use what create_bond returns.
+                        # We'll just define target_key = (id1, id2) for creating if missing.
+                        
+                        order = int(bond.GetBondTypeAsDouble())
+                        
+                        # Stereo Logic
+                        b_dir = bond.GetBondDir()
+                        stereo = 0
+                        if b_dir == Chem.BondDir.BEGINWEDGE: stereo = 1
+                        elif b_dir == Chem.BondDir.BEGINDASH: stereo = 2
+                        
+                        # Double Bond Stereo
+                        if order == 2:
+                             if bond.GetStereo() == Chem.BondStereo.STEREOZ: stereo = 3
+                             elif bond.GetStereo() == Chem.BondStereo.STEREOE: stereo = 4
+
+                        if found_key:
+                            # === UPDATE ===
+                            current_step_bond_keys.add(found_key)
+                            b_data = mw.data.bonds[found_key]
+                            
+                            # Only update if changed (Minimize drawing)
+                            if b_data.get('order') != order or b_data.get('stereo', 0) != stereo:
+                                b_data['order'] = order
+                                b_data['stereo'] = stereo
+                                # Force redraw
+                                item = b_data.get('item')
+                                if item:
+                                     # Assuming create_bond updates if called again? 
+                                     # Or strictly manually update?
+                                     # Safer to delete/recreate ONLY this modified bond if item API is unknown
+                                     # But user wants preservation.
+                                     # Let's use create_bond to overwrite properties (if supported)
+                                     # or manual item update. Assuming update_bond_visuals exists?
+                                     # If simple, create_bond usually handles "update" if data references match?
+                                     # No, create_bond makes NEW item usually.
+                                     
+                                     # Update item properties manually
+                                     item1 = mw.data.atoms[id1]['item']
+                                     item2 = mw.data.atoms[id2]['item']
+                                     # Re-call create_bond helps?
+                                     # If we want to strictly preserve selection, we should check setBondOrder on item.
+                                     if hasattr(item, 'set_order'): item.set_order(order)
+                                     if hasattr(item, 'set_stereo'): item.set_stereo(stereo)
+                                     item.update()
+
+                        else:
+                            # === CREATE ===
+                            item1 = mw.data.atoms[id1]['item']
+                            item2 = mw.data.atoms[id2]['item']
+                            # Note: create_bond returns key usually?
+                            new_key = mw.scene.create_bond(item1, item2, bond_order=order, bond_stereo=stereo)
+                            if new_key:
+                                 # Depending on implementation, new_key is key or None?
+                                 # We just assume it updated mw.data.bonds internally.
+                                 # We need to find what key was added.
+                                 if (id1, id2) in mw.data.bonds: current_step_bond_keys.add((id1, id2))
+                                 elif (id2, id1) in mw.data.bonds: current_step_bond_keys.add((id2, id1))
+            
+            # Ensure next_atom_id is correct after all additions/remappings
+            if mw.data.atoms:
+                 mw.data.next_atom_id = max(mw.data.atoms.keys()) + 1
+
+            # === DELETE (Bonds not present in new) ===
+            for b_key in existing_bond_keys:
+                if b_key not in current_step_bond_keys:
+                    if b_key in mw.data.bonds:
+                        item = mw.data.bonds[b_key].get('item')
+                        if item:
+                            mw.scene.delete_items([item])
+
+            # --- Finalize ---
+            mw.has_unsaved_changes = True
+            if hasattr(mw, 'update_realtime_info'):
+                mw.update_realtime_info()
+            mw.update_undo_redo_actions()
+            
+            mw.scene.update()
+
+            self.append_message("System", "Structure updated in-place.", "green")
+
+        except Exception as e:
+            self.append_message("System", f"Update Error: {e}", "red")
+            import traceback
+            traceback.print_exc()
 
 def run(main_window):
     """
