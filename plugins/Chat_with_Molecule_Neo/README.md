@@ -22,7 +22,7 @@ An advanced AI-powered assistant for **MoleditPy** that enables intelligent, con
 
 ## AI Tool Suite
 
-The AI assistant has direct access to the MoleditPy engine through a suite of 10 specialized tools:
+The AI assistant has direct access to the MoleditPy engine through a suite of 11 specialized tools:
 
 | Tool | Capability |
 | :--- | :--- |
@@ -31,6 +31,7 @@ The AI assistant has direct access to the MoleditPy engine through a suite of 10
 | **ORCA Input Generator** | Create production-ready **ORCA** (`.inp`) input files with coordinates and headers. |
 | **Gaussian Input Generator** | Create production-ready **Gaussian** (`.gjf`) input files with coordinates and headers. |
 | **Load Molecule** | Directly load any molecular structure into the editor using a SMILES string. |
+| **Load Molecule by Name** | Search PubChem by name (e.g., "Aspirin", "Caffeine") and load the structure automatically. |
 | **Highlight Substructure** | Visually identify functional groups or specific atom indices in the 3D viewport. |
 | **Set Electronic State** | Precisely adjust formal charges and multiplicities for specific atoms. |
 | **Convert to 3D** | Trigger MMFF94/UFF force-field optimizations and 3D visualization. |
@@ -55,7 +56,8 @@ This plugin requires Python 3.10+ and the following dependencies:
 pip install google-generativeai markdown matplotlib rdkit
 ```
 
-[**Download Plugin**](https://hiroyokoyama.github.io/moleditpy-plugins/explorer/?q=Chat+with+Molecule+Neo)
+> [!NOTE]
+> `rdkit` is highly recommended for advanced molecular identification and SMARTS-based transformations.
 
 ## Setup
 
@@ -82,6 +84,10 @@ pip install google-generativeai markdown matplotlib rdkit
 ### 3. Property Analysis
 > **User**: "Calculate the Lipinski's Rule of Five parameters for this molecule."
 > **AI**: *Invokes the descriptor calculator and provides a detailed summary.*
+
+### 4. Load by Name (PubChem Search)
+> **User**: "Load Caffeine" or "アスピリンをロードして"
+> **AI**: *Searches PubChem, retrieves the SMILES, and loads the structure into the editor.*
 
 ---
 
@@ -118,4 +124,3 @@ The plugin deeply integrates with the **MoleditPy** core:
 
 **HiroYokoyama**
 Feel free to contribute or report issues via the [Plugin Explorer](https://hiroyokoyama.github.io/moleditpy-plugins/explorer/).
-

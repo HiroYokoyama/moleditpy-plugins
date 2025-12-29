@@ -18,7 +18,12 @@ import base64
 import re
 import urllib.request
 import urllib.parse
+import time
+import urllib.error
+import unicodedata
+
 # Matplotlib for LaTeX rendering (OO interface to avoid thread issues)
+
 try:
     import matplotlib
     matplotlib.use('Agg') # Non-interactive backend
@@ -89,6 +94,131 @@ class PubChemResolver:
             return None, f"HTTP Error: {e.code}"
         except Exception as e:
             return None, f"Network/Parsing Error: {str(e)}"
+
+    # [追加インポートが必要です] ファイルの先頭に追加してください
+import unicodedata 
+
+class PubChemResolver:
+    """Helper class for PubChem API interactions (Embedded)"""
+    
+    BASE_URL = "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
+    # User-Agentを設定してAPIブロックを回避
+    HEADERS = {'User-Agent': 'MoleditPy/2025.12.29 (Research Tool)'}
+    TIMEOUT = 10  # 秒
+
+    @staticmethod
+    def _make_request(url):
+        """Helper to create a request with headers"""
+        req = urllib.request.Request(url, headers=PubChemResolver.HEADERS)
+        return urllib.request.urlopen(req, timeout=PubChemResolver.TIMEOUT)
+
+    @staticmethod
+    def resolve_inchikey_to_name(inchikey):
+        """
+        Resolve an InChIKey to a chemical name (Title).
+        Returns: (name, error_message)
+        """
+        if not inchikey:
+            return None, "Empty InChIKey provided."
+
+        try:
+            url = f"{PubChemResolver.BASE_URL}/compound/inchikey/{inchikey}/description/JSON"
+            
+            with PubChemResolver._make_request(url) as response:
+                if response.status != 200:
+                    return None, f"HTTP Error: {response.status}"
+                
+                data = json.loads(response.read().decode('utf-8'))
+                
+                # Parse JSON response
+                info_list = data.get("InformationList", {}).get("Information", [])
+                
+                # Prioritize entries with 'Title'
+                for info in info_list:
+                    title = info.get("Title")
+                    if title:
+                        return title, None
+                
+                return None, "No name found for this InChIKey."
+
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                return None, "InChIKey not found in PubChem."
+            return None, f"HTTP Error: {e.code}"
+        except Exception as e:
+            return None, f"Network/Parsing Error: {str(e)}"
+
+
+    @staticmethod
+    def resolve_name_to_smiles(name):
+        """
+        指定された化合物名からPubChemを検索し、SMILES文字列を返す（1ステップ検索版）。
+        """
+        if not name:
+            return None, "Empty name provided."
+
+        # 正規化とURLエンコード
+        clean_name = unicodedata.normalize('NFKC', name).strip()
+        encoded_name = urllib.parse.quote(clean_name)
+
+        # ---------------------------------------------------------
+        # 名前から直接SMILESプロパティを取得するURL
+        # ---------------------------------------------------------
+        # 構造: /compound/name/{name}/property/SMILES/JSON
+        url = f"{PubChemResolver.BASE_URL}/compound/name/{encoded_name}/property/SMILES/JSON"
+
+        try:
+            # 連続アクセス対策（必要に応じて調整）
+            time.sleep(0.3)
+
+            with PubChemResolver._make_request(url) as response:
+                # -----------------------------------------------------
+                # Case 1: 成功 (HTTP 200)
+                # -----------------------------------------------------
+                if response.status == 200:
+                    raw_json = response.read().decode('utf-8')
+                    data = json.loads(raw_json)
+
+                    # APIが混雑中で "Waiting" が返るケースのハンドリング
+                    if "Waiting" in data:
+                        return None, "PubChem API is busy. Please try again."
+
+                    # プロパティリストの取得
+                    props = data.get("PropertyTable", {}).get("Properties", [])
+                    
+                    if props:
+                        # ログにあった通り、キーは単純な "SMILES" になっている
+                        compound_data = props[0]
+                        if "SMILES" in compound_data:
+                            # 成功
+                            return compound_data["SMILES"], None
+                        elif "CanonicalSMILES" in compound_data:
+                             # 念のためCanonicalもチェック
+                            return compound_data["CanonicalSMILES"], None
+                        elif "IsomericSMILES" in compound_data:
+                            return compound_data["IsomericSMILES"], None
+                        else:
+                            # データはあるがSMILESキーがない
+                            return None, f"SMILES data missing in response for '{clean_name}'"
+                    else:
+                        return None, f"No properties returned for '{clean_name}'"
+
+                # -----------------------------------------------------
+                # Case 2: 見つからない (HTTP 404)
+                # -----------------------------------------------------
+                elif response.status == 404:
+                    return None, f"Molecule '{clean_name}' not found."
+                
+                # その他のステータス
+                else:
+                    return None, f"API Error: Status {response.status}"
+
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                return None, f"Molecule '{clean_name}' not found (404)."
+            return None, f"HTTP Error: {e.code} {e.reason}"
+        except Exception as e:
+            return None, f"Lookup Error: {str(e)}"
 
 # --- Metadata ---
 PLUGIN_NAME = "Chat with Molecule Neo"
@@ -171,6 +301,7 @@ You have access to specific tools to interact with the software. To use a tool, 
     *   Example: `{"tool": "gaussian_input_generator", "params": {"filename": "opt.gjf", "header": "%nprocshared=4\n%mem=4GB\n#P B3LYP/6-31G* Opt"}}`
 
 6.  **`load_molecule`**: Load a new molecule from SMILES string (replaces current molecule).
+    *   **IMPORTANT**: This tool requires an **exact SMILES string**. If the user asks to load a molecule by **name** (e.g., "Load Aspirin", "カフェインをロードして"), you **MUST** use `load_molecule_by_name` instead. Do NOT generate SMILES yourself - use the PubChem lookup.
     *   `smiles`: The SMILES string of the molecule to load.
     *   `name`: Optional human-readable name for the molecule.
     *   Example: `{"tool": "load_molecule", "params": {"smiles": "c1ccccc1", "name": "Benzene"}}`
@@ -198,6 +329,11 @@ You have access to specific tools to interact with the software. To use a tool, 
         *   `[[atom]]`: Replaced with "ElementSymbol X Y Z" lines (e.g., "C 0.0 0.0 0.0").
         *   `[[atom_count]]`: Replaced with the total number of atoms.
     *   Example: `{"tool": "save_file", "params": {"filename": "mol.xyz", "content": "[[atom_count]]\nTitle\n[[atom]]"}}`
+
+11. **`load_molecule_by_name`**: **(PREFERRED)** Search PubChem for a molecule by name and load it.
+    *   **Use this tool whenever the user mentions a molecule by name** (e.g., "Load Aspirin", "Caffeine を表示", "アデノシンをロードして"). This queries PubChem for the correct structure.
+    *   `name`: The common name or IUPAC name of the molecule (e.g., "Aspirin", "Caffeine", "Adenosine").
+    *   Example: `{"tool": "load_molecule_by_name", "params": {"name": "Caffeine"}}`
 
 **Multiple Operations**: You can propose multiple tool calls in a single response. You can use EITHER:
 1. A JSON array inside a single code block: `[{"tool": "...", ...}, {"tool": "...", ...}]`
@@ -1602,6 +1738,8 @@ class ChatMoleculeWindow(QDialog):
                 desc += f" (Save File: {params.get('filename')})"
             elif tool_name == "load_molecule":
                 desc += f" (Name: {params.get('name', params.get('smiles', ''))})"
+            elif tool_name == "load_molecule_by_name":
+                desc += f" (Search & Load: {params.get('name', 'Unknown')})"
             elif tool_name == "set_electronic_state":
                 desc += f" (Charge: {params.get('charge', '-')}, Mult: {params.get('multiplicity', '-')})"
             elif tool_name == "convert_to_3d":
@@ -1753,6 +1891,8 @@ class ChatMoleculeWindow(QDialog):
             return self.execute_save_file(params)
         elif tool_name == "load_molecule":
             return self.execute_load_molecule(params)
+        elif tool_name == "load_molecule_by_name":
+            return self.execute_load_molecule_by_name(params)
         elif tool_name == "convert_to_3d":
             return self.execute_convert_to_3d(params)
         elif tool_name == "set_electronic_state":
@@ -2287,6 +2427,43 @@ class ChatMoleculeWindow(QDialog):
             self.append_message("System", f"Load Error: {e}\n(Tip: The SMILES string might be invalid. Ask Gemini for a more precise one.)", "red")
             return str(e)
 
+    def execute_load_molecule_by_name(self, params):
+        """Search PubChem by name and load the molecule"""
+        try:
+            name = params.get("name")
+            if not name:
+                self.append_message("System", "Error: No name provided for search.", "red")
+                return "No name provided"
+
+            self.append_message("System", f"Searching PubChem for '{name}'...", "blue")
+            QApplication.processEvents()  # UI更新
+
+            # PubChem検索を実行
+            smiles, error = PubChemResolver.resolve_name_to_smiles(name)
+
+            if error:
+                self.append_message("System", f"Search Failed: {error}", "red")
+                return error
+            
+            if not smiles:
+                self.append_message("System", "No SMILES returned from PubChem.", "red")
+                return "No SMILES found"
+
+            self.append_message("System", f"Found: {smiles}", "gray")
+
+            # 既存の安全なローダーを再利用して読み込み
+            self.load_smiles_undo_safe(smiles)
+            
+            # 2D構造の整形
+            if hasattr(self.main_window, 'clean_up_2d_structure'):
+                self.main_window.clean_up_2d_structure()
+
+            self.append_message("System", f"Loaded '{name}' successfully.", "green")
+
+        except Exception as e:
+            self.append_message("System", f"Load by Name Error: {e}", "red")
+            return str(e)
+
     def execute_convert_to_3d(self, params):
         """Trigger 3D conversion and visualization"""
         try:
@@ -2698,6 +2875,29 @@ class ChatMoleculeWindow(QDialog):
              QTimer.singleShot(500, lambda: self.on_chunk_received(response_text))
              QTimer.singleShot(600, lambda: self.on_final_response(None))
              return
+
+        # SHORTCUT: "load" triggers bromination demo sequence for SELECTED atoms
+        if DEMO_MODE and text.lower().startswith("load"):
+            # Get selected atom IDs (strings)
+            selected_ids = self.get_selected_atom_indices()
+             
+            tools_json_list = []
+            self.append_message("System", f"p-Xylene Shortcut: Loading p-xylene to 2D editor", "green")
+            # aid is already 1-based MapNum (string)
+            tools_json_list.append(
+                f'  {{"tool": "load_molecule_by_name", "params": {{"name": "p-xylene"}}}}'
+            )
+            json_body = "[\n" + ",\n".join(tools_json_list) + "\n]"
+
+            response_text = (
+                "Loading p-xylene molecule...\n"
+                "```json\n"
+                f"{json_body}\n"
+                "```"
+            )
+            QTimer.singleShot(500, lambda: self.on_chunk_received(response_text))
+            QTimer.singleShot(600, lambda: self.on_final_response(None))
+            return
 
         # DEMO MODE CHECK
         if DEMO_MODE:
