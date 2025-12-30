@@ -66,7 +66,7 @@ pip install google-generativeai markdown matplotlib rdkit
     *   Open MoleditPy.
     *   Navigate to **Plugins > Chat with Molecule Neo**.
     *   Paste your key into the **API Key** field.
-    *   Select your preferred model (e.g., `gemini-1.5-pro` or `gemini-1.5-flash`).
+    *   Select your preferred model (e.g., `gemini-pro-latest` or `gemini-flash-latest`).
     *   Click **Save & Reload**.
 
 ---
@@ -124,3 +124,4 @@ The plugin deeply integrates with the **MoleditPy** core:
 
 **HiroYokoyama**
 Feel free to contribute or report issues via the [Plugin Explorer](https://hiroyokoyama.github.io/moleditpy-plugins/explorer/).
+
