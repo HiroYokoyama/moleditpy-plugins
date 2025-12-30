@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-PLUGIN_NAME = "Chat with Molecule Neo"
+PLUGIN_NAME = "Chat with Molecule Neo (Gemini)"
 PLUGIN_VERSION = "2025.12.30"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with Google Gemini about the current molecule. Automatically injects SMILES context. (Neo Version)"
@@ -177,7 +177,7 @@ class PubChemResolver:
             return None, f"Lookup Error: {str(e)}"
 
 # --- Metadata ---
-PLUGIN_NAME = "Chat with Molecule Neo"
+PLUGIN_NAME = "Chat with Molecule Neo (Gemini)"
 PLUGIN_VERSION = "2025.12.30"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with Google Gemini about the current molecule. Automatically injects SMILES context. (Neo Version)"
