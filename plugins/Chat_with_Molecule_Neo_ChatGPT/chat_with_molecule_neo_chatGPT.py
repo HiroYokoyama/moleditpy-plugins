@@ -543,6 +543,11 @@ class OpenAIWorker(QThread):
         self.client = client
         self.history = history
         self.model_name = model_name
+        self._is_interrupted = False
+
+    def stop(self):
+        """Signal the worker to stop"""
+        self._is_interrupted = True
 
     def run(self):
         try:
@@ -558,15 +563,20 @@ class OpenAIWorker(QThread):
             
             # Iterate through chunks
             for chunk in stream:
+                if self._is_interrupted:
+                    break
+                    
                 if chunk.choices[0].delta.content:
                     content = chunk.choices[0].delta.content
                     full_response += content
                     self.chunk_received.emit(content)
             
-            # Emit final complete response
-            self.response_received.emit(full_response)
+            # Emit final complete response (only if not interrupted, or partial if needed)
+            if not self._is_interrupted:
+                self.response_received.emit(full_response)
         except Exception as e:
-            self.error_occurred.emit(str(e))
+            if not self._is_interrupted:
+                self.error_occurred.emit(str(e))
 
 class ChatMoleculeWindow(QDialog):
     def __init__(self, main_window):
@@ -822,6 +832,25 @@ class ChatMoleculeWindow(QDialog):
         font.setPointSize(12)
         self.chat_display.setFont(font)
         layout.addWidget(self.chat_display)
+
+        # --- Thinking / Loading Indicator (New) ---
+        self.status_container = QFrame()
+        status_layout = QHBoxLayout(self.status_container)
+        status_layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.loading_bar = QProgressBar()
+        self.loading_bar.setRange(0, 0) # Indeterminate (Busy)
+        self.loading_bar.setFixedHeight(15)
+        self.loading_bar.setVisible(False)
+        
+        self.lbl_thinking = QLabel("Thinking...")
+        self.lbl_thinking.setStyleSheet("color: gray; font-style: italic;")
+        self.lbl_thinking.setVisible(False)
+        
+        status_layout.addWidget(self.loading_bar, 1) # Stretch
+        status_layout.addWidget(self.lbl_thinking)
+        
+        layout.addWidget(self.status_container)
 
         # --- Context Status ---
         self.lbl_context = QLabel("Context: No molecule loaded.")
@@ -2839,14 +2868,40 @@ class ChatMoleculeWindow(QDialog):
             f"Please do not reply to this information."
         )
 
-
+    def stop_generation(self):
+        """Stop the current generation immediately"""
+        if self.worker and self.worker.isRunning():
+            self.append_message("System", "Stopping generation...", "orange")
+            
+            # Disconnect signals to prevent zombie updates
+            try: self.worker.chunk_received.disconnect()
+            except: pass
+            try: self.worker.response_received.disconnect()
+            except: pass
+            try: self.worker.finished.disconnect()
+            except: pass
+            try: self.worker.error_occurred.disconnect()
+            except: pass
+            
+            # Signal worker to stop
+            self.worker.stop()
+            self.worker = None # Clear ref
+        
+        # Reset UI immediately
+        self.btn_send.setText("Send")
+        self.btn_send.setStyleSheet("") # Default
+        self.txt_input.setEnabled(True)
+        self.loading_bar.setVisible(False)
+        self.lbl_thinking.setVisible(False)
+        self.btn_send.clicked.disconnect()
+        self.btn_send.clicked.connect(self.send_message)
+        self.txt_input.setFocus()
 
     def send_message(self):
-        # Force a check of the molecule state right before sending
-        # This catches cases where the user loads a molecule and immediately clicks Send
-        # before the auto-poll timer triggers.
-        self.check_molecule_change()
-
+        """Handle user input and send to API"""
+        if self.btn_send.text() == "Stop":
+            self.stop_generation()
+            return
 
         text = self.txt_input.toPlainText().strip()
         if not text:
@@ -2855,6 +2910,23 @@ class ChatMoleculeWindow(QDialog):
         if not self.client:
             # If session not ready, try init or just warn
             self.append_message("System", "Chat session not initialized. Please wait...", "orange")
+            return
+            
+        # Demo Mode Logic
+        if DEMO_MODE:
+            if text == "stop-demo": # Test stop button appearance
+                 self.btn_send.setText("Stop")
+                 self.loading_bar.setVisible(True)
+                 self.lbl_thinking.setVisible(True)
+                 return
+                 
+            self.append_message("You", text, "blue")
+            self.txt_input.clear()
+            self.loading_bar.setVisible(True) # Show thinking
+            self.lbl_thinking.setVisible(True)
+            
+            # Simulate delay
+            QTimer.singleShot(1500, lambda: self.on_final_response("Demo Response: This is a test."))
             return
 
         # Show pending info message if any (Context updated, etc.)
@@ -2866,7 +2938,18 @@ class ChatMoleculeWindow(QDialog):
         self.append_message("You", text, "blue")
         self.txt_input.clear()
         self.txt_input.setEnabled(False)
-        self.btn_send.setEnabled(False)
+        
+        # Change Send button to Stop
+        self.btn_send.setText("Stop")
+        self.btn_send.setStyleSheet(f"background-color: {BTN_COLOR_REJECT}")
+        self.loading_bar.setVisible(True)
+        self.lbl_thinking.setVisible(True)
+        
+        # Disconnect old send, connect stop
+        try: self.btn_send.clicked.disconnect() 
+        except: pass
+        self.btn_send.clicked.connect(self.stop_generation)
+
         self.chat_display.setFocus() # Keep focus away from input while sending
 
         # Prepare message with pending context if any
@@ -3224,6 +3307,8 @@ class ChatMoleculeWindow(QDialog):
         self.chat_display.moveCursor(QTextCursor.MoveOperation.End)
 
     def on_chunk_received(self, text):
+        if not self.stream_accumulated_text:
+             self.start_stream_message("ChatGPT", "black")
         self.stream_accumulated_text += text
         self.update_stream_message()
 
@@ -3236,6 +3321,14 @@ class ChatMoleculeWindow(QDialog):
         
         # Re-enable UI
         self.txt_input.setEnabled(True)
+        self.loading_bar.setVisible(False)
+        self.lbl_thinking.setVisible(False)
+        
+        # Reset Send/Stop button
+        self.btn_send.setText("Send")
+        self.btn_send.setStyleSheet("") # Default
+        self.btn_send.clicked.disconnect()
+        self.btn_send.clicked.connect(self.send_message)
         self.btn_send.setEnabled(True)
         self.txt_input.setFocus()
         
@@ -3253,6 +3346,17 @@ class ChatMoleculeWindow(QDialog):
         # Ensure final state matches accumulated text
         # (Usually redundant but good for safety)
         # self.update_stream_message() 
+        
+        # Reset UI
+        self.loading_bar.setVisible(False)
+        self.lbl_thinking.setVisible(False)
+        
+        self.btn_send.setText("Send")
+        self.btn_send.setStyleSheet("")
+        self.btn_send.clicked.disconnect()
+        self.btn_send.clicked.connect(self.send_message)
+        self.txt_input.setEnabled(True)
+        # self.btn_send.setEnabled(True) # Already enabled by reset? No, need to re-enable input first.
         
         # Log to history now that it's complete
         self.chat_history_log.append({"sender": "ChatGPT", "text": self.stream_accumulated_text})
