@@ -4,6 +4,8 @@
 **Author:** HiroYokoyama
 **Download:** [Get Plugin](https://hiroyokoyama.github.io/moleditpy-plugins/explorer/?q=Chat+with+Molecule+Neo+%28Local%29)
 
+ ![](img/1.png)
+
 ## Overview
 **Chat with Molecule Neo (Local)** is a plugin for **MoleditPy** that enables an integrated AI chat experience using local Large Language Models (LLMs) via an OpenAI-compatible API (like **Ollama**). 
 
@@ -22,6 +24,11 @@ It allows you to chat with an AI about the molecule currently open in the editor
   - `PyQt6`
   - `openai`
   - `matplotlib`
+
+Install the required Python package:
+```bash
+pip install openai matplotlib
+```
 
 ## Setup Guide: Using with Ollama
 
