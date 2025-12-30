@@ -798,17 +798,32 @@ class ChatMoleculeWindow(QDialog):
         btn_fetch_models.clicked.connect(self.fetch_models)
         model_layout.addWidget(btn_fetch_models)
         
-        btn_save = QPushButton("Save & Reload")
-        btn_save.clicked.connect(self.save_settings)
-        model_layout.addWidget(btn_save)
+        # Removed btn_save from here to move it below
+        # btn_save = QPushButton("Save & Reload")
+        # btn_save.clicked.connect(self.save_settings)
+        # model_layout.addWidget(btn_save)
 
         settings_layout.addLayout(model_layout)
         
-        # Enable PubChem Option
+        # Enable PubChem Option & Save Button Row
+        pubchem_layout = QHBoxLayout()
+        
         self.chk_enable_pubchem = QCheckBox("Enable PubChem InChIKey resolve")
         self.chk_enable_pubchem.setChecked(not self.settings.get("disable_pubchem", True))
         #self.chk_enable_pubchem.stateChanged.connect(self.update_warning_label)
-        settings_layout.addWidget(self.chk_enable_pubchem)
+        pubchem_layout.addWidget(self.chk_enable_pubchem)
+        
+        # Spacer to separate checkbox and button? Or just keep them next to each other.
+        # pubchem_layout.addStretch() 
+        
+        # Spacer to separate checkbox and button? Or just keep them next to each other.
+        # pubchem_layout.addStretch() 
+        
+        self.btn_save = QPushButton("Save & Reload")
+        self.btn_save.clicked.connect(self.save_settings)
+        pubchem_layout.addWidget(self.btn_save)
+        
+        settings_layout.addLayout(pubchem_layout)
 
         layout.addWidget(settings_frame)
         
@@ -895,6 +910,17 @@ class ChatMoleculeWindow(QDialog):
 
         layout.addLayout(input_layout)
 
+
+
+        # Connect signals for settings changes
+        self.txt_api_base.textChanged.connect(self.check_settings_changed)
+        self.txt_api_key.textChanged.connect(self.check_settings_changed)
+        self.combo_model.currentTextChanged.connect(self.check_settings_changed)
+        self.chk_enable_pubchem.stateChanged.connect(self.check_settings_changed)
+
+        # Initial check to disable button
+        self.check_settings_changed()
+
         # Handle Enter to send
         self.txt_input.installEventFilter(self)
 
@@ -917,6 +943,42 @@ class ChatMoleculeWindow(QDialog):
 
 
 
+        return super().eventFilter(obj, event)
+
+    def check_settings_changed(self):
+        """Enable Save button only if settings differ from saved values"""
+        current_api_base = self.txt_api_base.text().strip()
+        saved_api_base = self.settings.get("api_base", "")
+
+        current_api_key = self.txt_api_key.text().strip()
+        saved_api_key = self.settings.get("api_key", "")
+
+        current_model = self.combo_model.currentText().strip()
+        saved_model = self.settings.get("model", "local-model") # default fallback match init
+
+        # Checkbox: Checked means NOT disabled. Saved: disable_pubchem=True/False
+        # If checked (True) -> disable_pubchem should be False.
+        # Comparison: 
+        current_disable_pubchem = not self.chk_enable_pubchem.isChecked()
+        saved_disable_pubchem = self.settings.get("disable_pubchem", True)
+
+        has_changes = (
+            current_api_base != saved_api_base or
+            current_api_key != saved_api_key or
+            current_model != saved_model or
+            current_disable_pubchem != saved_disable_pubchem
+        )
+
+        self.btn_save.setEnabled(has_changes)
+        if has_changes:
+             self.btn_save.setText("Save & Reload *")
+             # User Request: Blue if enabled
+             self.btn_save.setStyleSheet("background-color: #0d6efd; color: white; font-weight: bold;")
+        else:
+             self.btn_save.setText("Save & Reload")
+             self.btn_save.setStyleSheet("") # Revert to default (native disabled look)
+
+
     def _get_privacy_details(self):
         """Helper: Get privacy text and color based on current settings"""
         url = self.txt_api_base.text().lower().strip()
@@ -927,7 +989,9 @@ class ChatMoleculeWindow(QDialog):
         # 2. Local Network (Private IP ranges or .local domain)
         is_local_net = ".local" in url or "192.168." in url or "10." in url or "172." in url
         
-        disable_pubchem = not self.chk_enable_pubchem.isChecked()
+        # OLD: disable_pubchem = not self.chk_enable_pubchem.isChecked()
+        # NEW: Check SAVED settings, not current checkbox state
+        disable_pubchem = self.settings.get("disable_pubchem", False)
         
         notice_color = "gray"
         privacy_text = ""
@@ -1061,6 +1125,9 @@ class ChatMoleculeWindow(QDialog):
         
         # Non-blocking notification
         self.append_message("System", f"Settings saved and session re-initialized.<br><span style='color:gray; font-size:0.9em;'>({privacy_text})</span>", "green")
+        
+        # Update button state (Should be disabled now)
+        self.check_settings_changed()
 
 
 
