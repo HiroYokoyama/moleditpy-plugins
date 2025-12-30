@@ -515,7 +515,29 @@
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_ChatGPT/chat_with_molecule_neo_chatGPT.py",
     "lastUpdated": "2025-12-30"
+  },
+  {
+    "id": "chat_with_molecule_neo_local",
+    "visible": true,
+    "name": "Chat with Molecule Neo (Local)",
+    "version": "2025.12.30",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Chat with local LLM about the current molecule. Automatically injects SMILES context. (Neo Version)",
+    "tags": [
+      "AI",
+      "Chat"
+    ],
+    "dependencies": [
+      "openai",
+      "rdkit",
+      "PyQt6",
+      "markdown",
+      "matplotlib"
+    ],
+    "downloadUrl": "../plugins/Chat_with_Molecule_Neo_Local/chat_with_molecule_neo_local.py",
+    "lastUpdated": "2025-12-30"
   }
-
 ]
+
 
