@@ -455,7 +455,7 @@
   {
     "id": "chat_with_molecule_neo",
     "visible": true,
-    "name": "Chat with Molecule Neo",
+    "name": "Chat with Molecule Neo (Gemini)",
     "version": "2025.12.30",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
@@ -539,6 +539,7 @@
     "lastUpdated": "2025-12-30"
   }
 ]
+
 
 
 
