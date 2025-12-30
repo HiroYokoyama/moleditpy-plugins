@@ -2,6 +2,7 @@
 
 **Version:** 2025.12.30  
 **Author:** HiroYokoyama
+**Download:** [Get Plugin](https://hiroyokoyama.github.io/moleditpy-plugins/explorer/?q=Chat+with+Molecule+Neo+%28Local%29)
 
 ## Overview
 **Chat with Molecule Neo (Local)** is a plugin for **MoleditPy** that enables an integrated AI chat experience using local Large Language Models (LLMs) via an OpenAI-compatible API (like **Ollama**). 
