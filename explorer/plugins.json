@@ -493,6 +493,29 @@
     ],
     "downloadUrl": "../plugins/PubChem_Structure_Identifier/pubchem_structure_identifier.py",
     "lastUpdated": "2025-12-28"
+  },
+  {
+    "id": "chat_with_molecule_neo_chatgpt",
+    "visible": true,
+    "name": "Chat with Molecule Neo (ChatGPT)",
+    "version": "2025.12.30",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Chat with OpenAI ChatGPT about the current molecule. Automatically injects SMILES context. (Neo Version)",
+    "tags": [
+      "AI",
+      "Chat"
+    ],
+    "dependencies": [
+      "openai",
+      "rdkit",
+      "PyQt6",
+      "markdown",
+      "matplotlib"
+    ],
+    "downloadUrl": "../plugins/Chat_with_Molecule_Neo_ChatGPT/chat_with_molecule_neo_chatGPT.py",
+    "lastUpdated": "2025-12-30"
   }
 
 ]
+
