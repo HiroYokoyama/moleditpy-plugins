@@ -1,6 +1,5 @@
 # Chat with Molecule Neo (Local)
 
-**Version:** 2025.12.30  
 **Author:** HiroYokoyama
 **Download:** [Get Plugin](https://hiroyokoyama.github.io/moleditpy-plugins/explorer/?q=Chat+with+Molecule+Neo+%28Local%29)
 
@@ -59,9 +58,10 @@ ollama serve
    - **Enable PubChem InChIKey resolve**: Check this box if you want to enable automatic name resolution via PubChem (requires internet).
 3. Click **Fetch model**.
 4. Select your model (e.g., `llama3`) from the dropdown list.
-5. Click **Initialize Session**.
+5. Click **Save & Reload**.
 
 ## Troubleshooting
 
 - **"Connection Refused"**: Make sure Ollama is running (`ollama serve`).
 - **"Model not found"**: Run `ollama list` in your terminal to see available models and ensure you have pulled the one you are trying to use.
+
