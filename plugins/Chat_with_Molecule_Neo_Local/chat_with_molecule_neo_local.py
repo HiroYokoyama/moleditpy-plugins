@@ -822,8 +822,8 @@ class ChatMoleculeWindow(QDialog):
         self.lbl_warning.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.lbl_warning)
         
-        # Connect dynamic update
-        self.txt_api_base.textChanged.connect(self.update_warning_label)
+        #Connect dynamic update
+        #self.txt_api_base.textChanged.connect(self.update_warning_label)
         self.update_warning_label() # Initial call
 
         # --- Chat Display ---
@@ -1522,7 +1522,7 @@ class ChatMoleculeWindow(QDialog):
             # Assign Stereochemistry from Bond Directions (Critical for @/@@ in SMILES)
             Chem.AssignStereochemistry(mol, force=True, cleanIt=True)
 
-            # Remove hydrogens for ChatGPT prompt, but preserve MapNums on heavy atoms
+            # Remove hydrogens for AI prompt, but preserve MapNums on heavy atoms
             mol_clean = Chem.RemoveHs(mol)
             
             # Ensure every heavy atom has a MapNum
@@ -1830,7 +1830,7 @@ class ChatMoleculeWindow(QDialog):
             elif tool_name == "clear_canvas":
                 desc += " (Clear all)"
             
-        self.lbl_tool_info.setText(f"ChatGPT suggests: {desc}")
+        self.lbl_tool_info.setText(f"{self.combo_model.currentText()} suggests: {desc}")
         self.lbl_tool_info.setTextFormat(Qt.TextFormat.RichText)
         
         # Show Step button only if multiple tools are queued
@@ -1884,7 +1884,7 @@ class ChatMoleculeWindow(QDialog):
             self.last_tool_error = error
             self.tool_state = "RETRY"
             self.lbl_tool_info.setText(f"Tool '{tool_name}' failed during step: {error}")
-            self.btn_tool_accept.setText("Retry Step (Ask ChatGPT)")
+            self.btn_tool_accept.setText(f"Retry Step (Ask {self.combo_model.currentText()})")
             self.btn_tool_reject.setText("Stop Chain")
             self.btn_tool_step.setVisible(False) 
             self.btn_tool_accept.setStyleSheet("background-color: #ffcc00;") # Orange
@@ -1951,7 +1951,7 @@ class ChatMoleculeWindow(QDialog):
             self.tool_state = "RETRY"
             
             self.lbl_tool_info.setText(f"Tool '{failed_tool}' failed: {error}")
-            self.btn_tool_accept.setText(" Retry (Ask ChatGPT) ")
+            self.btn_tool_accept.setText(f" Retry (Ask {self.combo_model.currentText()}) ")
             self.btn_tool_reject.setText(" Ignore ")
             self.btn_tool_step.setVisible(False) # Hide Step button on error
             self.btn_tool_accept.setStyleSheet("background-color: #ffcc00;") # Orange
@@ -2021,7 +2021,7 @@ class ChatMoleculeWindow(QDialog):
             self.reject_tool_action()
 
     def retry_tool_action(self):
-        """Ask ChatGPT to retry based on last error"""
+        """Ask AI to retry based on last error"""
         self.tool_confirm_frame.setVisible(False)
         self.tool_state = "CONFIRM"
         
@@ -2268,7 +2268,7 @@ class ChatMoleculeWindow(QDialog):
              self.append_message("System", f"Transformation Applied.\nRule: `{reaction_smarts}`", "green")
                  
         except Exception as e:
-            self.append_message("System", f"Transformation Failed: {e}\n(Tip: The SMARTS pattern might be invalid. Ask ChatGPT for a more precise one.)", "red")
+            self.append_message("System", f"Transformation Failed: {e}\n(Tip: The SMARTS pattern might be invalid. Ask {self.combo_model.currentText()} for a more precise one.)", "red")
             return str(e)
 
 
@@ -2548,7 +2548,7 @@ class ChatMoleculeWindow(QDialog):
              msg_box.exec()
              
         except Exception as e:
-             self.append_message("System", f"Calculation Error: {e}\n(Tip: Ask ChatGPT to ensure the molecule is valid.)", "red")
+             self.append_message("System", f"Calculation Error: {e}\n(Tip: Ask {self.combo_model.currentText()} to ensure the molecule is valid.)", "red")
              return str(e)
 
     def execute_load_molecule(self, params):
@@ -2575,7 +2575,7 @@ class ChatMoleculeWindow(QDialog):
                 self.append_message("System", f"Molecule loaded from SMILES: {smiles}", "green")
             
         except Exception as e:
-            self.append_message("System", f"Load Error: {e}\n(Tip: The SMILES string might be invalid. Ask ChatGPT for a more precise one.)", "red")
+            self.append_message("System", f"Load Error: {e}\n(Tip: The SMILES string might be invalid. Ask {self.combo_model.currentText()} for a more precise one.)", "red")
             return str(e)
 
     def execute_load_molecule_by_name(self, params):
@@ -2627,7 +2627,7 @@ class ChatMoleculeWindow(QDialog):
             self.append_message("System", "3D structure displayed in viewer.", "green")
             
         except Exception as e:
-            self.append_message("System", f"3D Conversion Error: {e}\n(Tip: Ask ChatGPT to try again.)", "red")
+            self.append_message("System", f"3D Conversion Error: {e}\n(Tip: Ask {self.combo_model.currentText()} to try again.)", "red")
             return str(e)
 
     def execute_clear_canvas(self, params):
@@ -2687,7 +2687,7 @@ class ChatMoleculeWindow(QDialog):
             self.append_message("System", "Canvas cleared.", "green")
             
         except Exception as e:
-            self.append_message("System", f"Clear Error: {e}\n(Tip: Ask ChatGPT to try again.)", "red")
+            self.append_message("System", f"Clear Error: {e}\n(Tip: Ask {self.combo_model.currentText()} to try again.)", "red")
             return str(e)
 
     def _get_molecule_for_export(self):
@@ -2992,7 +2992,7 @@ class ChatMoleculeWindow(QDialog):
              self.pending_context_msg = None # Clear pending
 
         # Initialize Streaming UI
-        self.start_stream_message("ChatGPT")
+        self.start_stream_message(self.combo_model.currentText())
 
         # LOGGING: Log the full prompt including injected context
         append_log("PROMPT_FULL", full_text_to_send)
@@ -3259,7 +3259,7 @@ class ChatMoleculeWindow(QDialog):
         """Prepare UI for streaming a new message"""
         self.stream_accumulated_text = ""
         
-        # Insert Header (ChatGPT:)
+        # Insert Header (Model Name:)
         style = "<style>h1, h2, h3 { color: #2c3e50; } a { color: #3498db; text-decoration: none; font-weight: bold; }</style>"
         html_header = f"{style}<b style='color:{color}'>{sender}:</b><br>"
         
@@ -3306,7 +3306,7 @@ class ChatMoleculeWindow(QDialog):
 
     def on_error(self, error_msg):
         """Handle worker errors"""
-        self.append_message("System", f"ChatGPT Error: {error_msg}", "red")
+        self.append_message("System", f"{self.combo_model.currentText()} Error: {error_msg}", "red")
         
         # Log error
         append_log("Error", error_msg)
@@ -3332,8 +3332,8 @@ class ChatMoleculeWindow(QDialog):
         # self.update_stream_message() 
         
         # Log to history now that it's complete
-        self.chat_history_log.append({"sender": "ChatGPT", "text": self.stream_accumulated_text})
-        append_log("ChatGPT", self.stream_accumulated_text)
+        self.chat_history_log.append({"sender": self.combo_model.currentText(), "text": self.stream_accumulated_text})
+        append_log(self.combo_model.currentText(), self.stream_accumulated_text)
 
         # Append to context history
         self.chat_history_state.append({"role": "assistant", "content": self.stream_accumulated_text})
@@ -3383,7 +3383,7 @@ class ChatMoleculeWindow(QDialog):
     def on_initial_response(self, response):
         """Handle initial context response silently (log only)"""
         text = response.text
-        append_log("ChatGPT (Hidden Init)", text)
+        append_log(f"{self.combo_model.currentText()} (Hidden Init)", text)
         self.log_usage(response)
         # We don't show the initial "Okay I understand" message to the user
         self.append_message("System", "Session initialized. Ready to chat.", "green")
