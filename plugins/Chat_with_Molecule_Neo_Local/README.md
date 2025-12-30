@@ -23,10 +23,11 @@ It allows you to chat with an AI about the molecule currently open in the editor
   - `PyQt6`
   - `openai`
   - `matplotlib`
+  - `markdown`
 
 Install the required Python package:
 ```bash
-pip install openai matplotlib
+pip install openai matplotlib markdown
 ```
 
 ## Setup Guide: Using with Ollama
@@ -64,4 +65,5 @@ ollama serve
 
 - **"Connection Refused"**: Make sure Ollama is running (`ollama serve`).
 - **"Model not found"**: Run `ollama list` in your terminal to see available models and ensure you have pulled the one you are trying to use.
+
 
