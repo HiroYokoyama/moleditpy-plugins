@@ -810,7 +810,7 @@ class ChatMoleculeWindow(QDialog):
         self.combo_model.setCurrentText(default_model)
         model_layout.addWidget(self.combo_model, 1)
 
-        btn_fetch_models = QPushButton("Fetch Models")
+        btn_fetch_models = QPushButton("Fetch model")
         btn_fetch_models.clicked.connect(self.fetch_models)
         model_layout.addWidget(btn_fetch_models)
         
