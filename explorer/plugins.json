@@ -403,7 +403,7 @@
     "version": "2025.12.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "Analyzes vibrational frequencies from ORCA output files. View IR spectrum, animate normal modes, and export GIF animations.",
+    "description": "Paste XYZ to view in 3D.",
     "tags": [
       "File"
     ],
@@ -577,4 +577,5 @@
   }
 
 ]
+
 
