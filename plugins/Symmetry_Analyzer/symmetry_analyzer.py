@@ -98,6 +98,10 @@ class SymmetryAnalysisPlugin(QWidget):
                 background-color: #87CEFA;
                 color: black;
             }
+            QListWidget::item {
+                padding: 1px;
+                margin: 0px;
+            }
         """)
         
         self.init_ui()
@@ -145,41 +149,44 @@ class SymmetryAnalysisPlugin(QWidget):
         splitter = QSplitter(Qt.Orientation.Vertical)
         
         # A. Likely Groups List
-        groups_container = QWidget()
-        groups_layout = QVBoxLayout(groups_container)
-        groups_layout.setContentsMargins(0, 0, 0, 0)
-        groups_layout.addWidget(QLabel("1. Likely Point Groups (Select one):"))
+        groups_box = QGroupBox("1. Likely Point Groups (Select one)")
+        groups_layout = QVBoxLayout()
         
         self.groups_list = QListWidget()
         self.groups_list.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
-        self.groups_list.itemClicked.connect(self.on_group_selected)
+        self.groups_list.itemSelectionChanged.connect(self.on_group_selected)
         groups_layout.addWidget(self.groups_list)
-        splitter.addWidget(groups_container)
+        groups_box.setLayout(groups_layout)
+        splitter.addWidget(groups_box)
 
         # B. Operations List
-        ops_container = QWidget()
-        ops_layout = QVBoxLayout(ops_container)
-        ops_layout.setContentsMargins(0, 0, 0, 0)
-        ops_layout.addWidget(QLabel("2. Symmetry Operations:"))
+        ops_box = QGroupBox("2. Symmetry Operations")
+        ops_layout = QVBoxLayout()
+        
+        # Selected Group Display
+        self.selected_group_label = QLabel("Symmetry Group: -")
+        self.selected_group_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.selected_group_label.setStyleSheet("QLabel { font-size: 12pt; color: #2c3e50; margin: 2px; }")
+        ops_layout.addWidget(self.selected_group_label)
         
         self.ops_list = QListWidget()
         self.ops_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection) # 複数選択可(Ctrl/Shift)
         self.ops_list.setAlternatingRowColors(True)
         self.ops_list.itemSelectionChanged.connect(self.on_op_selection_changed)
         ops_layout.addWidget(self.ops_list)
-        splitter.addWidget(ops_container)
+        ops_box.setLayout(ops_layout)
+        splitter.addWidget(ops_box)
         
         # C. Matrix Details
-        details_container = QWidget()
-        details_layout = QVBoxLayout(details_container)
-        details_layout.setContentsMargins(0, 0, 0, 0)
-        details_layout.addWidget(QLabel("3. Operation Details:"))
+        details_box = QGroupBox("3. Operation Details")
+        details_layout = QVBoxLayout()
         
         self.op_details = QTextEdit()
         self.op_details.setReadOnly(True)
         self.op_details.setPlaceholderText("Select an operation above to view matrix details.")
         details_layout.addWidget(self.op_details)
-        splitter.addWidget(details_container)
+        details_box.setLayout(details_layout)
+        splitter.addWidget(details_box)
 
         # Set initial sizes for splitter (optional)
         splitter.setSizes([150, 200, 150])
@@ -225,6 +232,7 @@ class SymmetryAnalysisPlugin(QWidget):
 
         self.groups_list.clear()
         self.ops_list.clear()
+        self.selected_group_label.setText("Symmetry Group: -") # Reset to placeholder
         self.op_details.clear()
         self.sym_btn.setEnabled(False)
         self.group_data = {}
@@ -263,6 +271,10 @@ class SymmetryAnalysisPlugin(QWidget):
             # リスト表示： "Td (Tol: 0.10 - 2.00)" のようにシンプルに
             item_text = f"{sym}  (Tol: {min_t:.2f} - {max_t:.2f} Å)"
             self.groups_list.addItem(item_text)
+
+        # 1つ目をデフォルトで選択 (Auto-select first item)
+        if self.groups_list.count() > 0:
+            self.groups_list.setCurrentRow(0)
             
         QMessageBox.information(self, "Done", 
             f"Found {len(self.group_data)} potential point groups.\n"
@@ -308,11 +320,24 @@ class SymmetryAnalysisPlugin(QWidget):
 
         return (4, -order)
 
-    def on_group_selected(self, item):
+    def on_group_selected(self):
         """グループが選択されたら、そのオペレーションを表示"""
+        item = self.groups_list.currentItem()
+        if not item:
+            return
+            
         text = item.text()
         # "Td  (Range...)" から "Td" を取り出す
         sym = text.split()[0]
+        
+        # Display nicely formatted symbol
+        s = self._format_symmetry_symbol(sym)
+        if s.startswith("<html>"):
+             # Keep HTML structure valid
+             inner = s.replace("<html>", "").replace("</html>", "")
+             self.selected_group_label.setText(f"<html>Symmetry Group: {inner}</html>")
+        else:
+             self.selected_group_label.setText(f"Symmetry Group: {s}")
         
         if sym in self.group_data:
             self.analyzer = self.group_data[sym]['analyzer']
@@ -324,6 +349,27 @@ class SymmetryAnalysisPlugin(QWidget):
             self.update_ops_list()
             self.sym_btn.setEnabled(True)
             self.op_details.clear()
+            
+    def _format_symmetry_symbol(self, sym):
+        """SchoenfliesシンボルをHTML形式に整形 (イタリック体 + 下付き文字)"""
+        import re
+        # C2v -> C, 2v
+        # D3h -> D, 3h
+        # Td  -> T, d
+        # C*v -> C, *v -> C, ∞v
+        
+        match = re.match(r"^([A-Z]+)(.*)$", sym)
+        if match:
+            main = match.group(1)
+            sub = match.group(2)
+            
+            # 無限の処理
+            sub = sub.replace('*', '∞') 
+            
+            # 視認性を高めるためのフォント調整等はスタイルシートで行っていますが、
+            # ここでは構造的なマークアップを提供します。
+            return f"<html><i>{main}</i><sub>{sub}</sub></html>"
+        return sym
             
     def update_ops_list(self):
         """リストウィジェットの更新"""
@@ -534,7 +580,7 @@ class SymmetryAnalysisPlugin(QWidget):
 
 
     def symmetrize_structure(self):
-        """構造の対照化 (Symmetrization) - 修正版"""
+        """構造の対照化 (Symmetrization) - 一対一対応保証版"""
         if self.analyzer is None:
             return
 
@@ -542,75 +588,85 @@ class SymmetryAnalysisPlugin(QWidget):
         if mol_pmg is None:
             return
             
-        # 1. 重心補正: 計算を安定させるため、一時的に重心を原点に置く
+        # 1. 重心補正
         original_coords = mol_pmg.cart_coords
         center_of_mass = np.mean(original_coords, axis=0)
         centered_coords = original_coords - center_of_mass
         
-        species = mol_pmg.species # 元素情報の取得
+        species = mol_pmg.species
         ops = self.analyzer.get_symmetry_operations()
         
         if not ops:
             return
 
+        # 割り当て問題（Kuhn-Munkres法）を解くためのライブラリを試行
+        try:
+            from scipy.optimize import linear_sum_assignment
+            HAS_SCIPY = True
+        except ImportError:
+            HAS_SCIPY = False
+
         new_coords = np.zeros_like(centered_coords)
         n_ops = len(ops)
         n_atoms = len(centered_coords)
-        
-        # マッピングエラー検知用フラグ
         mapping_error = False
 
-        for i in range(n_atoms):
-            target_sum = np.zeros(3)
-            current_pos = centered_coords[i]
-            current_specie = species[i] # 現在の原子種
+        for op in ops:
+            # 対称操作を適用した全座標を一度に計算
+            rotated_coords = np.array([op.operate(p) for p in centered_coords])
             
-            for op in ops:
-                # A. 原子iを操作opで移動
-                rotated_pos = op.operate(current_pos)
+            # 各原子 i (操作後) と 各原子 j (元) の距離行列を作成
+            # ただし、元素種が異なる組み合わせには大きなペナルティ（無限大）を与える
+            cost_matrix = np.zeros((n_atoms, n_atoms))
+            for i in range(n_atoms):
+                diff = centered_coords - rotated_coords[i]
+                dists = np.linalg.norm(diff, axis=1)
                 
-                # B. 対応する原子jを探す (距離 + 元素種チェック)
-                dists = np.linalg.norm(centered_coords - rotated_pos, axis=1)
-                
-                # 距離順にソートしたインデックスを取得
-                sorted_indices = np.argsort(dists)
-                
-                found_match = False
-                for j in sorted_indices:
-                    # 閾値チェック (あまりに遠い場合は構造が壊れているか、対称性が誤判定)
-                    if dists[j] > 1.5: # 1.5Å以上離れているならマッピング失敗とみなす
-                        break
-                        
-                    # 【重要】元素種が一致するかチェック
-                    if species[j] == current_specie:
-                        # マッチした原子jの座標を逆操作で戻して加算
-                        # (jがiの対称位置にあるなら、jを逆回転させればiの位置になるはず)
-                        target_sum += op.inverse.operate(centered_coords[j])
-                        found_match = True
-                        break
-                
-                if not found_match:
-                    mapping_error = True
-                    print(f"Warning: No valid mapping found for atom {i} ({current_specie}) under operation.")
-                    # フォールバック: そのままの座標を使う（崩壊を防ぐ）
-                    target_sum += current_pos
+                # 同一元素種でない場合は距離を無限大にする
+                mask = [s != species[i] for s in species]
+                dists[mask] = 1e9 
+                cost_matrix[i] = dists
 
-            new_coords[i] = target_sum / n_ops
+            # 一対一の最適マッピングを計算
+            if HAS_SCIPY:
+                # scipyがある場合はハンガリアン法で最適化
+                row_ind, col_ind = linear_sum_assignment(cost_matrix)
+            else:
+                # scipyがない場合のフォールバック: 簡易的な最近接（重複排除付き）
+                row_ind = np.arange(n_atoms)
+                col_ind = np.full(n_atoms, -1, dtype=int)
+                used_j = set()
+                for i in range(n_atoms):
+                    sorted_j = np.argsort(cost_matrix[i])
+                    for j in sorted_j:
+                        if j not in used_j and cost_matrix[i, j] < 1.5:
+                            col_ind[i] = j
+                            used_j.add(j)
+                            break
+                    if col_ind[i] == -1: # マッピング失敗
+                        col_ind[i] = i # フォールバック
+                        mapping_error = True
+
+            # マッピング結果に基づき、逆操作で戻して加算
+            for i, j in zip(row_ind, col_ind):
+                if cost_matrix[i, j] > 1.5: mapping_error = True
+                new_coords[i] += op.inverse.operate(centered_coords[j])
+
+        # 全操作で平均化
+        new_coords /= n_ops
         
         if mapping_error:
             QMessageBox.warning(self, "Warning", 
                 "Some atoms could not be mapped cleanly.\n"
                 "The structure might be too distorted for this point group.")
 
-        # 2. 座標を元の重心位置に戻す
+        # 2. 座標を元の重心位置に戻して反映
         final_coords = new_coords + center_of_mass
-        
-        # RDKit側に反映
         self.update_rdkit_coords(final_coords)
         
         QMessageBox.information(self, "Symmetrized", 
             f"Structure symmetrized to {self.analyzer.sch_symbol}.\n"
-            f"(Averaged over {len(ops)} operations)")
+            f"(Averaged over {len(ops)} operations with 1-to-1 mapping)")
 
     def update_rdkit_coords(self, new_coords):
         """計算された座標をRDKitオブジェクトに戻し、ビューを更新"""
@@ -654,6 +710,7 @@ class SymmetryAnalysisPlugin(QWidget):
         # 2. UIと内部データのリセット
         self.groups_list.clear()
         self.ops_list.clear()
+        self.selected_group_label.clear()
         self.op_details.clear()
         self.sym_btn.setEnabled(False)
         self.group_data = {}
