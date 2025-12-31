@@ -269,36 +269,44 @@ class SymmetryAnalysisPlugin(QWidget):
             "Sorted by strictness (smaller tolerance first).")
 
     def _get_op_sort_key(self, op):
-        """対称操作のソートキーを生成 (クラスごとにグループ化)"""
+        """
+        対称操作のソート順を決定するキーを生成
+        順序: Identity -> Rotation(Cn) -> Reflection(sigma) -> Inversion(i) -> Improper(Sn)
+        """
         m = op.rotation_matrix
         det = np.linalg.det(m)
         trace = np.trace(m)
-        
-        # Priority:
-        # 1. Identity (0)
-        # 2. Proper Rotation (1, order)
-        # 3. Reflection (2)
-        # 4. Inversion (3)
-        # 5. Improper (4)
+        tol = 1e-2
 
-        if np.allclose(m, np.eye(3)):
+        # 1. Identity (Priority: 0)
+        if np.allclose(m, np.eye(3), atol=tol):
             return (0, 0)
+
+        # 2. Proper Rotation (Priority: 1)
+        if np.isclose(det, 1.0, atol=tol):
+            val = np.clip((trace - 1) / 2.0, -1.0, 1.0)
+            angle = np.degrees(np.arccos(val))
+            order = round(360.0 / angle) if angle > 1.0 else 1
+            return (1, -order)
+
+        # 3. Reflection (Priority: 2)
+        if np.isclose(trace, 1.0, atol=tol):
+            return (2, 0)
+
+        # 4. Inversion (Priority: 3)
+        if np.isclose(trace, -3.0, atol=tol):
+            return (3, 0)
             
-        if np.allclose(m, -np.eye(3)):
+        # 5. Improper Rotation (Priority: 4)
+        val = np.clip((trace + 1) / 2.0, -1.0, 1.0)
+        angle = np.degrees(np.arccos(val))
+        order = round(360.0 / angle) if angle > 1.0 else 1
+        
+        # S2 (Inversion) check for safety -> Priority 3
+        if order == 2:
             return (3, 0)
 
-        is_proper = np.isclose(det, 1.0)
-        if is_proper:
-             val = (trace - 1) / 2.0
-             val = np.clip(val, -1.0, 1.0)
-             angle = np.degrees(np.arccos(val))
-             if angle < 1.0: order = 1
-             else: order = int(round(360.0 / angle))
-             return (1, order)
-        else:
-            if np.isclose(trace, 1.0):
-                return (2, 0) # Reflection
-            return (4, 0) # Improper
+        return (4, -order)
 
     def on_group_selected(self, item):
         """グループが選択されたら、そのオペレーションを表示"""
@@ -327,35 +335,65 @@ class SymmetryAnalysisPlugin(QWidget):
             self.ops_list.addItem(label)
 
     def _get_op_label(self, op, i):
-        """回転行列から操作へのラベルを生成"""
+        """
+        回転行列から操作へのラベルを生成 (Unicode表記)
+        順序やロジックはソートキーと整合させています。
+        Order: Identity -> Rotation -> Reflection -> Inversion -> Improper
+        """
         m = op.rotation_matrix
         det = np.linalg.det(m)
         trace = np.trace(m)
+        tol = 1e-2
         
-        if np.allclose(m, np.eye(3)):
-            return f"#{i+1}: Identity (E)"
+        # Helper for subscripts (下付き文字生成)
+        def to_sub(n):
+            return str(n).translate(str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉"))
+
+        # 1. Identity (恒等操作)
+        if np.allclose(m, np.eye(3), atol=tol):
+            return f"#{i+1}: E (Identity)"
             
-        if np.allclose(m, -np.eye(3)):
-            return f"#{i+1}: Inversion (i)"
-            
-        if np.isclose(det, 1.0):
-            # Proper rotation
+        # 2. Proper Rotation (回転操作)
+        # Det = +1
+        if np.isclose(det, 1.0, atol=tol):
             val = (trace - 1) / 2.0
             val = np.clip(val, -1.0, 1.0)
             angle = np.degrees(np.arccos(val))
-            if angle > 1.0:
-                order = round(360.0 / angle)
-                return f"#{i+1}: Rotation (C{order})"
-            else:
-                 return f"#{i+1}: Rotation (Unknown)"
-        else:
-            # Improper rotation / Reflection
-            # Reflection (sigma) usually has trace 1
-            if np.isclose(trace, 1.0):
-                return f"#{i+1}: Reflection (sigma)"
             
-            # Improper axis Sn
-            return f"#{i+1}: Improper Rotation (Sn)"
+            # 角度がほとんど0ならIdentity
+            if angle < 1.0: 
+                return f"#{i+1}: E (Identity)"
+            
+            order = round(360.0 / angle)
+            return f"#{i+1}: C{to_sub(order)} (Rotation)"
+            
+        else:
+            # Improper Operations (回映・鏡映・反転) 
+            # Det = -1
+            
+            # 3. Reflection (鏡映: Trace = 1)
+            if np.isclose(trace, 1.0, atol=tol):
+                return f"#{i+1}: σ (Reflection)"
+
+            # 4. Inversion (反転: Trace = -3)
+            if np.isclose(trace, -3.0, atol=tol):
+                return f"#{i+1}: i (Inversion)"
+            
+            # 5. Improper Rotation (回映)
+            val = (trace + 1) / 2.0
+            val = np.clip(val, -1.0, 1.0)
+            angle = np.degrees(np.arccos(val))
+            
+            if angle < 1.0:
+                return f"#{i+1}: σ (Reflection)"
+
+            order = round(360.0 / angle)
+            
+            # S2 は Inversion と等価
+            if order == 2:
+                 return f"#{i+1}: i (Inversion)"
+                 
+            return f"#{i+1}: S{to_sub(order)} (Improper Rotation)"
 
     def on_op_selection_changed(self):
         """操作の選択状態が変わったときの処理 (複数選択対応)"""
@@ -457,8 +495,8 @@ class SymmetryAnalysisPlugin(QWidget):
             return
 
         # 2. Inversion
-        if np.allclose(m, -np.eye(3)):
-            r = 0.25 # Fixed size (User request: half of 0.5)
+        if np.isclose(trace, -3.0, atol=1e-2): 
+            r = 0.25 
             sphere = pv.Sphere(radius=r, center=com)
             actor = plotter.add_mesh(sphere, color="orange", opacity=0.8, name="sym_inversion")
             self.vis_actors.append(actor)
@@ -496,7 +534,7 @@ class SymmetryAnalysisPlugin(QWidget):
 
 
     def symmetrize_structure(self):
-        """構造の対照化 (Symmetrization)"""
+        """構造の対照化 (Symmetrization) - 修正版"""
         if self.analyzer is None:
             return
 
@@ -504,42 +542,71 @@ class SymmetryAnalysisPlugin(QWidget):
         if mol_pmg is None:
             return
             
-        coords = mol_pmg.cart_coords
+        # 1. 重心補正: 計算を安定させるため、一時的に重心を原点に置く
+        original_coords = mol_pmg.cart_coords
+        center_of_mass = np.mean(original_coords, axis=0)
+        centered_coords = original_coords - center_of_mass
+        
+        species = mol_pmg.species # 元素情報の取得
         ops = self.analyzer.get_symmetry_operations()
         
         if not ops:
             return
 
-        # 射影演算子法 (Permutation対応版)
-        # 単純に op.operate(coords) を平均すると、原子が移動している場合(置換)
-        # 全ての原子が重心に集まってしまう(Collapse)ため、
-        # 「どの原子がどこに移ったか」を追跡して平均をとる必要がある。
-        
-        new_coords = np.zeros_like(coords)
+        new_coords = np.zeros_like(centered_coords)
         n_ops = len(ops)
-        n_atoms = len(coords)
+        n_atoms = len(centered_coords)
         
+        # マッピングエラー検知用フラグ
+        mapping_error = False
+
         for i in range(n_atoms):
             target_sum = np.zeros(3)
-            current_pos = coords[i]
+            current_pos = centered_coords[i]
+            current_specie = species[i] # 現在の原子種
             
             for op in ops:
-                # 1. 原子iを操作opで移動させた位置を計算
+                # A. 原子iを操作opで移動
                 rotated_pos = op.operate(current_pos)
                 
-                # 2. その位置に最も近い原子jを探す (Mapping/Permutation)
-                #    歪があるため完全には一致しないが、最も近いものが対応する原子
-                dists = np.linalg.norm(coords - rotated_pos, axis=1)
-                j = np.argmin(dists)
+                # B. 対応する原子jを探す (距離 + 元素種チェック)
+                dists = np.linalg.norm(centered_coords - rotated_pos, axis=1)
                 
-                # 3. 対応する原子jの位置を、操作opの逆で引き戻した位置を加算
-                #    「もし原子jが原子iの対称移動先なら、逆操作で戻せばiの理想位置になるはず」
-                target_sum += op.inverse.operate(coords[j])
+                # 距離順にソートしたインデックスを取得
+                sorted_indices = np.argsort(dists)
                 
+                found_match = False
+                for j in sorted_indices:
+                    # 閾値チェック (あまりに遠い場合は構造が壊れているか、対称性が誤判定)
+                    if dists[j] > 1.5: # 1.5Å以上離れているならマッピング失敗とみなす
+                        break
+                        
+                    # 【重要】元素種が一致するかチェック
+                    if species[j] == current_specie:
+                        # マッチした原子jの座標を逆操作で戻して加算
+                        # (jがiの対称位置にあるなら、jを逆回転させればiの位置になるはず)
+                        target_sum += op.inverse.operate(centered_coords[j])
+                        found_match = True
+                        break
+                
+                if not found_match:
+                    mapping_error = True
+                    print(f"Warning: No valid mapping found for atom {i} ({current_specie}) under operation.")
+                    # フォールバック: そのままの座標を使う（崩壊を防ぐ）
+                    target_sum += current_pos
+
             new_coords[i] = target_sum / n_ops
         
+        if mapping_error:
+            QMessageBox.warning(self, "Warning", 
+                "Some atoms could not be mapped cleanly.\n"
+                "The structure might be too distorted for this point group.")
+
+        # 2. 座標を元の重心位置に戻す
+        final_coords = new_coords + center_of_mass
+        
         # RDKit側に反映
-        self.update_rdkit_coords(new_coords)
+        self.update_rdkit_coords(final_coords)
         
         QMessageBox.information(self, "Symmetrized", 
             f"Structure symmetrized to {self.analyzer.sch_symbol}.\n"
