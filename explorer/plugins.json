@@ -438,7 +438,6 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with Google Gemini about the current molecule. Automatically injects SMILES context.",
     "tags": [
-      "Analysis",
       "AI",
       "Chat"
     ],
@@ -461,7 +460,6 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with Google Gemini about the current molecule. Automatically injects SMILES context. (Neo Version)",
     "tags": [
-      "Analysis",
       "AI",
       "Chat"
     ],
@@ -484,8 +482,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Resolve chemical names and fetch molecular properties (Name, Formula, Weight) via PubChem.",
     "tags": [
-      "Utility",
-      "Analysis"
+      "Utility"
     ],
     "dependencies": [
       "rdkit",
@@ -537,9 +534,45 @@
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_Local/chat_with_molecule_neo_local.py",
     "lastUpdated": "2025-12-30"
+  },
+  {
+    "id": "symmetry_analyzer",
+    "visible": true,
+    "name": "Symmetry Analyzer",
+    "version": "2025.12.31",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Analyzes molecular symmetry (point group) and symmetrizes structures.",
+    "tags": [
+      "Analysis",
+      "Symmetry"
+    ],
+    "dependencies": [
+      "rdkit",
+      "PyQt6",
+      "pymatgen"
+    ],
+    "downloadUrl": "../plugins/Symmetry_Analyzer/symmetry_analyzer.py",
+    "lastUpdated": "2025-12-31"
+  },
+  {
+    "id": "vector_viewer",
+    "visible": true,
+    "name": "Vector Viewer",
+    "version": "2025.12.31",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Visualizes vectors and exports PNGs.",
+    "tags": [
+      "Visualization",
+      "Utility"
+    ],
+    "dependencies": [
+      "numpy",
+      "PyQt6",
+      "pyvista"
+    ],
+    "downloadUrl": "../plugins/Vector_Viewer/vector_viewer.py",
+    "lastUpdated": "2025-12-31"
   }
 ]
-
-
-
-
