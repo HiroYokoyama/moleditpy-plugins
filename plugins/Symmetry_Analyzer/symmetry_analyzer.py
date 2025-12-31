@@ -32,14 +32,16 @@ class SymmetryAnalysisWorker(QThread):
     """Background worker for symmetry analysis to prevent UI freezing"""
     finished = pyqtSignal(dict, bool) # processed_data, found_any
     
-    def __init__(self, mol_pmg, max_tol):
+    def __init__(self, mol_pmg, min_tol, max_tol):
         super().__init__()
         self.mol_pmg = mol_pmg
+        self.min_tol = min_tol
         self.max_tol = max_tol
         
     def run(self):
-        import numpy as np
-        tolerances = np.arange(0.1, self.max_tol + 0.05, 0.05)
+        # Scan from min_tol to max_tol
+        # Note: np.arange excludes the stop value, so we add a small buffer (0.05) if we want to include max_tol
+        tolerances = np.arange(self.min_tol, self.max_tol + 0.001, 0.05)
         
         group_data = {}
         found_any = False
@@ -121,9 +123,10 @@ class SymmetryAnalysisPlugin(QWidget):
         # Max Tolerance Input
         tol_label = QLabel("Max Tol (Å):")
         self.max_tol_spin = QDoubleSpinBox()
-        self.max_tol_spin.setRange(0.1, 10.0)
-        self.max_tol_spin.setSingleStep(0.1)
-        self.max_tol_spin.setValue(1.5) # Default
+        self.max_tol_spin.setRange(0.05, 10.0)
+        self.max_tol_spin.setSingleStep(0.05)
+        self.max_tol_spin.setDecimals(2)
+        self.max_tol_spin.setValue(1.0) # Default
         
         settings_layout.addWidget(tol_label, 0, 0)
         settings_layout.addWidget(self.max_tol_spin, 0, 1)
@@ -241,10 +244,11 @@ class SymmetryAnalysisPlugin(QWidget):
         self.calc_btn.setEnabled(False)
         self.calc_btn.setText("Scanning...")
         
+        min_tol = 0.0
         max_tol = self.max_tol_spin.value()
         
         # Start Worker Thread
-        self.worker = SymmetryAnalysisWorker(mol_pmg, max_tol)
+        self.worker = SymmetryAnalysisWorker(mol_pmg, min_tol, max_tol)
         self.worker.finished.connect(self.on_analysis_finished)
         self.worker.start()
 
@@ -276,9 +280,9 @@ class SymmetryAnalysisPlugin(QWidget):
         if self.groups_list.count() > 0:
             self.groups_list.setCurrentRow(0)
             
-        QMessageBox.information(self, "Done", 
-            f"Found {len(self.group_data)} potential point groups.\n"
-            "Sorted by strictness (smaller tolerance first).")
+        #QMessageBox.information(self, "Done", 
+        #    f"Found {len(self.group_data)} potential point groups.\n"
+        #    "Sorted by strictness (smaller tolerance first).")
 
     def _get_op_sort_key(self, op):
         """
@@ -580,31 +584,26 @@ class SymmetryAnalysisPlugin(QWidget):
 
 
     def symmetrize_structure(self):
-        """構造の対照化 (Symmetrization) - 一対一対応保証版"""
-        if self.analyzer is None:
-            return
-
+        if self.analyzer is None: return
         mol_pmg = self.get_pymatgen_molecule()
-        if mol_pmg is None:
-            return
+        if mol_pmg is None: return
             
-        # 1. 重心補正
         original_coords = mol_pmg.cart_coords
         center_of_mass = np.mean(original_coords, axis=0)
         centered_coords = original_coords - center_of_mass
         
         species = mol_pmg.species
         ops = self.analyzer.get_symmetry_operations()
-        
-        if not ops:
-            return
+        if not ops: return
 
-        # 割り当て問題（Kuhn-Munkres法）を解くためのライブラリを試行
         try:
             from scipy.optimize import linear_sum_assignment
             HAS_SCIPY = True
         except ImportError:
             HAS_SCIPY = False
+
+        if not HAS_SCIPY:
+            print("Install 'scipy' for better symmetrization results.")
 
         new_coords = np.zeros_like(centered_coords)
         n_ops = len(ops)
@@ -612,61 +611,66 @@ class SymmetryAnalysisPlugin(QWidget):
         mapping_error = False
 
         for op in ops:
-            # 対称操作を適用した全座標を一度に計算
+            # rotated_coords[j] は 「原子 j を操作 R で動かした先の座標」
             rotated_coords = np.array([op.operate(p) for p in centered_coords])
             
-            # 各原子 i (操作後) と 各原子 j (元) の距離行列を作成
-            # ただし、元素種が異なる組み合わせには大きなペナルティ（無限大）を与える
+            # --- コスト行列計算 (変更なし) ---
             cost_matrix = np.zeros((n_atoms, n_atoms))
-            for i in range(n_atoms):
-                diff = centered_coords - rotated_coords[i]
-                dists = np.linalg.norm(diff, axis=1)
-                
-                # 同一元素種でない場合は距離を無限大にする
-                mask = [s != species[i] for s in species]
-                dists[mask] = 1e9 
-                cost_matrix[i] = dists
+            # Broadcasting: (N, 1, 3) - (1, N, 3) -> (N, N, 3) -> norm -> (N, N)
+            # 行 i (ターゲット位置) と 列 j (回転後の候補) の距離
+            diff = centered_coords[:, np.newaxis, :] - rotated_coords[np.newaxis, :, :]
+            dist_mat = np.linalg.norm(diff, axis=2)
+            
+            # 元素種チェック
+            sp_array = np.array([s.symbol for s in species])
+            species_mask = sp_array[:, np.newaxis] != sp_array[np.newaxis, :]
+            cost_matrix = dist_mat
+            cost_matrix[species_mask] = 1e9 
 
-            # 一対一の最適マッピングを計算
+            # --- マッピング (変更なし) ---
             if HAS_SCIPY:
-                # scipyがある場合はハンガリアン法で最適化
                 row_ind, col_ind = linear_sum_assignment(cost_matrix)
             else:
-                # scipyがない場合のフォールバック: 簡易的な最近接（重複排除付き）
+                # Greedy Fallback
                 row_ind = np.arange(n_atoms)
                 col_ind = np.full(n_atoms, -1, dtype=int)
                 used_j = set()
                 for i in range(n_atoms):
                     sorted_j = np.argsort(cost_matrix[i])
                     for j in sorted_j:
-                        if j not in used_j and cost_matrix[i, j] < 1.5:
+                        if j not in used_j and cost_matrix[i, j] < 1.0: 
                             col_ind[i] = j
                             used_j.add(j)
                             break
-                    if col_ind[i] == -1: # マッピング失敗
-                        col_ind[i] = i # フォールバック
+                    if col_ind[i] == -1:
                         mapping_error = True
+                        col_ind[i] = i 
 
-            # マッピング結果に基づき、逆操作で戻して加算
+            # --- 座標加算 (【修正箇所】) ---
             for i, j in zip(row_ind, col_ind):
                 if cost_matrix[i, j] > 1.5: mapping_error = True
-                new_coords[i] += op.inverse.operate(centered_coords[j])
+                
+                # BUG FIX:
+                # atom i (original frame) is mapped to atom j (rotated frame).
+                # Meaning: rotated_coords[j] is the position that corresponds to atom i.
+                # We want to average these positions.
+                # OLD (Incorrect): new_coords[i] += op.inverse.operate(centered_coords[j])
+                # NEW (Correct):
+                new_coords[i] += rotated_coords[j]
 
-        # 全操作で平均化
         new_coords /= n_ops
         
         if mapping_error:
             QMessageBox.warning(self, "Warning", 
                 "Some atoms could not be mapped cleanly.\n"
-                "The structure might be too distorted for this point group.")
+                "The structure might be too distorted, or 'scipy' is missing.")
 
-        # 2. 座標を元の重心位置に戻して反映
         final_coords = new_coords + center_of_mass
         self.update_rdkit_coords(final_coords)
         
         QMessageBox.information(self, "Symmetrized", 
             f"Structure symmetrized to {self.analyzer.sch_symbol}.\n"
-            f"(Averaged over {len(ops)} operations with 1-to-1 mapping)")
+            f"(Averaged over {len(ops)} operations)")
 
     def update_rdkit_coords(self, new_coords):
         """計算された座標をRDKitオブジェクトに戻し、ビューを更新"""
@@ -699,6 +703,12 @@ class SymmetryAnalysisPlugin(QWidget):
 
     def closeEvent(self, event):
         """ウィンドウが閉じられるときの処理 (クリーンアップ)"""
+        if self.worker and self.worker.isRunning():
+            self.worker.quit()
+            self.worker.wait(1000) # 1秒待機
+            if self.worker.isRunning():
+                self.worker.terminate() # 強制終了
+                
         # 1. 3D可視化の消去
         if hasattr(self.interface, 'plotter') and hasattr(self, 'vis_actors'):
             plotter = self.interface.plotter
@@ -718,6 +728,16 @@ class SymmetryAnalysisPlugin(QWidget):
         self.analyzer = None
         
         super().closeEvent(event)
+
+def initialize(context):
+    """
+    Initialize the plugin.
+    """
+    def show_window():
+        interface = context.get_main_window()
+        run(interface)
+
+    context.add_menu_action("3D Edit/Symmetrize...", show_window)
 
 def run(interface):
     """
