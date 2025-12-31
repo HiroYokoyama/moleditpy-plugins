@@ -710,7 +710,7 @@ class SymmetryAnalysisPlugin(QWidget):
         # 2. UIと内部データのリセット
         self.groups_list.clear()
         self.ops_list.clear()
-        self.selected_group_label.clear()
+        self.selected_group_label.setText("Symmetry Group: -")
         self.op_details.clear()
         self.sym_btn.setEnabled(False)
         self.group_data = {}
