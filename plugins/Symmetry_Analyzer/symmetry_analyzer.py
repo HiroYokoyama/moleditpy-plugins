@@ -276,9 +276,14 @@ class SymmetryAnalysisPlugin(QWidget):
             item_text = f"{sym}  (Tol: {min_t:.2f} - {max_t:.2f} Å)"
             self.groups_list.addItem(item_text)
 
-        # 1つ目をデフォルトで選択 (Auto-select first item)
+        # 1つ目をデフォルトで選択 (Auto-select first item) but prioritize non-C1
         if self.groups_list.count() > 0:
-            self.groups_list.setCurrentRow(0)
+            target_row = 0
+            for i, sym in enumerate(sorted_keys):
+                if sym != "C1":
+                    target_row = i
+                    break
+            self.groups_list.setCurrentRow(target_row)
             
         #QMessageBox.information(self, "Done", 
         #    f"Found {len(self.group_data)} potential point groups.\n"
