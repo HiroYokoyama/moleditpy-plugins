@@ -167,7 +167,7 @@ class SymmetryAnalysisPlugin(QWidget):
         ops_layout = QVBoxLayout()
         
         # Selected Group Display
-        self.selected_group_label = QLabel("Symmetry Group: -")
+        self.selected_group_label = QLabel("Point Group: -")
         self.selected_group_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.selected_group_label.setStyleSheet("QLabel { font-size: 12pt; color: #2c3e50; margin: 2px; }")
         ops_layout.addWidget(self.selected_group_label)
@@ -235,7 +235,7 @@ class SymmetryAnalysisPlugin(QWidget):
 
         self.groups_list.clear()
         self.ops_list.clear()
-        self.selected_group_label.setText("Symmetry Group: -") # Reset to placeholder
+        self.selected_group_label.setText("Point Group: -") # Reset to placeholder
         self.op_details.clear()
         self.sym_btn.setEnabled(False)
         self.group_data = {}
@@ -344,9 +344,9 @@ class SymmetryAnalysisPlugin(QWidget):
         if s.startswith("<html>"):
              # Keep HTML structure valid
              inner = s.replace("<html>", "").replace("</html>", "")
-             self.selected_group_label.setText(f"<html>Symmetry Group: {inner}</html>")
+             self.selected_group_label.setText(f"<html>Point Group: {inner}</html>")
         else:
-             self.selected_group_label.setText(f"Symmetry Group: {s}")
+             self.selected_group_label.setText(f"Point Group: {s}")
         
         if sym in self.group_data:
             self.analyzer = self.group_data[sym]['analyzer']
@@ -725,7 +725,7 @@ class SymmetryAnalysisPlugin(QWidget):
         # 2. UIと内部データのリセット
         self.groups_list.clear()
         self.ops_list.clear()
-        self.selected_group_label.setText("Symmetry Group: -")
+        self.selected_group_label.setText("Point Group: -")
         self.op_details.clear()
         self.sym_btn.setEnabled(False)
         self.group_data = {}
