@@ -10,14 +10,6 @@ This directory contains the official plugins for **MoleditPy**.
 We believe in the power of community\!  
 If you have created a useful plugin, we would love to include it as an official part of this collection. Please feel free to submit a Pull Request with your plugin to help us expand what MoleditPy can do.
 
-## New in v2.2: Plugin Manager
-
-Manage your extensions easily with the new **Plugin Manager**:
-- **Install/Uninstall**: Drag-and-drop `.py` files to install, or click "Remove" to uninstall.
-- **Explore**: View plugin details, authors, and versions.
-- **Online Library**: Direct link to the plugin explorer.
-- **Access**: Open via **Plugin > Plugin Manager...**
-
 ## Featured Plugins
 
 ### 1. Gaussian Input Generator Neo (`gaussian_input_generator_neo.py`)
@@ -59,9 +51,9 @@ Resolves chemical names and identifiers to structures using the PubChem PUG REST
 - **Features**: Search by Name or SMILES, load directly into 2D editor.
 - **Dependencies**: `requests`, `rdkit`
 
-### 9. Animated XYZ Giffer (`animated_xyz_giffer.py`)
-A player for viewing multi-frame XYZ files and recording GIF animations using PIL.
-- **Dependencies**: `Pillow`
+### 9. Symmetry Analyzer (`symmetry_analyzer.py`)
+Visualizes and corrects molecular geometry to perfectly match its ideal symmetry group.
+- **Dependencies**: `pymatgen`
 
 ### 10. Chat with Molecule Neo (`chat_with_molecule_neo.py`)
 
@@ -134,6 +126,7 @@ The new API allows plugins to:
 *   Integrate **Analysis Tools** and persist data in **Project Files**.
 
 For full documentation and examples, please refer to the [PLUGIN_DEVELOPMENT_MANUAL.md](PLUGIN_DEVELOPMENT_MANUAL.md).
+
 
 
 
