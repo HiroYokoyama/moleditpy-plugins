@@ -71,7 +71,7 @@
     "id": "conformational_search",
     "visible": true,
     "name": "Conformational Search",
-    "version": "2025.12.25",
+    "version": "2026.01.02",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Performs conformational sampling and energy minimization. **(Requires v2.2.0+)**",
@@ -334,6 +334,7 @@
       "PyQt6"
     ],
     "downloadUrl": "https://raw.githubusercontent.com/HiroYokoyama/orca_xyz2inp/aa469e02e847c81b102bfdb20d240372ab1e4d52/moleditpy_plugin/orca_xyz2inp_gui.py",
+    "projectUrl": "https://github.com/HiroYokoyama/orca_xyz2inp",
     "lastUpdated": "2025-12-25"
   },
   {
@@ -575,7 +576,4 @@
     "downloadUrl": "../plugins/Vector_Viewer/vector_viewer.py",
     "lastUpdated": "2025-12-31"
   }
-
 ]
-
-

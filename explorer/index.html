@@ -17,6 +17,10 @@
             --border-radius: 12px;
         }
 
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--bg-color);
@@ -184,6 +188,35 @@
             margin-right: 4px;
         }
 
+        .new-badge {
+            background-color: #ef4444;
+            color: white;
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+            vertical-align: middle;
+            font-weight: bold;
+        }
+
+        .controls-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 800px;
+            margin: 0 auto 10px;
+            padding: 0 20px;
+        }
+
+        .sort-select {
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            background-color: white;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+
         /* Action Buttons */
         .actions {
             display: grid;
@@ -240,6 +273,38 @@
         footer a:hover {
             text-decoration: underline;
         }
+
+        /* GitHub Link */
+        .github-link {
+            position: absolute;
+            top: 24px;
+            right: 24px;
+            color: var(--text-sub);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            background-color: #f1f5f9;
+            padding: 4px 12px;
+            border-radius: 20px;
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border: 1px solid transparent;
+        }
+
+        .github-link:hover {
+            color: var(--primary-color);
+            background-color: #e0f2fe;
+            border-color: var(--primary-color);
+        }
+
+        .github-link svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+        }
     </style>
     <style>
         /* Mobile Responsiveness */
@@ -283,6 +348,11 @@
                 padding: 16px;
             }
 
+            .github-link {
+                top: 16px;
+                right: 16px;
+            }
+
             .actions {
                 grid-template-columns: 1fr;
                 /* Stack buttons */
@@ -302,6 +372,14 @@
     <div class="controls">
         <input type="text" id="searchInput" class="search-box"
             placeholder="Search plugins (e.g., 'optimization', 'theme')...">
+    </div>
+
+    <div class="controls-header">
+        <span style="font-weight:bold; color:var(--text-sub);">Search & Filter</span>
+        <select id="sortSelect" class="sort-select">
+            <option value="name">Name (A-Z)</option>
+            <option value="newest">Newest First</option>
+        </select>
     </div>
 
     <div class="filter-container" id="filterContainer">
@@ -332,8 +410,8 @@
                 // Filter out hidden plugins
                 allPlugins = allPlugins.filter(p => p.visible !== false);
 
-                // Sort alphabetically by name
-                allPlugins.sort((a, b) => a.name.localeCompare(b.name));
+                // Sort alphabetically by name (Default)
+                sortPlugins('name');
 
                 generateFilterButtons();
                 renderPlugins(allPlugins);
@@ -356,17 +434,38 @@
             plugins.forEach(plugin => {
                 const card = document.createElement('div');
                 card.className = 'plugin-card';
+                // Ensure relative positioning for absolute child
+                card.style.position = 'relative';
 
                 const tagsHtml = plugin.tags.map(tag => `<span class="tag">#${tag}</span>`).join('');
 
+                // Badge Logic (14 days)
+                const isNew = checkIsNew(plugin.lastUpdated);
+                const badgeHtml = isNew ? `<span class="new-badge">NEW</span>` : '';
+
+                // GitHub Link HTML
+                const githubHtml = plugin.projectUrl ? `
+                    <a href="${plugin.projectUrl}" target="_blank" class="github-link" title="View on GitHub">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                        </svg>
+                        <span>GitHub</span>
+                    </a>
+                ` : '';
+
                 card.innerHTML = `
+                ${githubHtml}
                 <div class="card-header">
-                    <span class="plugin-version">v${plugin.version}</span>
-                    <small style="color:#94a3b8;">${plugin.lastUpdated}</small>
+                    <div>
+                        <span class="plugin-version">v${plugin.version}</span>
+                        ${badgeHtml}
+                    </div>
                 </div>
-                <h3 class="plugin-title">${plugin.name}</h3>
+                <h3 class="plugin-title" style="padding-right: 30px;">${plugin.name}</h3>
                 <div class="plugin-author">
-                    👤 <a href="${plugin.authorUrl}" target="_blank">${plugin.author}</a>
+                    <span>👤 <a href="${plugin.authorUrl}" target="_blank">${plugin.author}</a></span>
+                    <span style="margin: 0 6px; color: #cbd5e1;">|</span>
+                    <span style="color:#94a3b8; font-size: 0.85em;">Updated: ${plugin.lastUpdated}</span>
                 </div>
                 <p class="plugin-desc">${plugin.description}</p>
                 ${plugin.dependencies && plugin.dependencies.length > 0 ?
@@ -386,9 +485,14 @@
         // 3. Search & Filter Logic
         const searchInput = document.getElementById('searchInput');
         const filterContainer = document.getElementById('filterContainer');
+        const sortSelect = document.getElementById('sortSelect');
         let currentTag = 'all';
 
         searchInput.addEventListener('input', (e) => filterPlugins(e.target.value, currentTag));
+        sortSelect.addEventListener('change', (e) => {
+            sortPlugins(e.target.value);
+            filterPlugins(searchInput.value, currentTag);
+        });
 
         function filterPlugins(keyword, tag) {
             const lowerKeyword = keyword.toLowerCase();
@@ -463,6 +567,24 @@
             });
         }
 
+        // Utility: Check if New (within 14 days)
+        function checkIsNew(dateString) {
+            const date = new Date(dateString);
+            const now = new Date(); // Use current client time
+            const diffTime = Math.abs(now - date);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return diffDays <= 14;
+        }
+
+        // Utility: Sort
+        function sortPlugins(criteria) {
+            if (criteria === 'name') {
+                allPlugins.sort((a, b) => a.name.localeCompare(b.name));
+            } else if (criteria === 'newest') {
+                allPlugins.sort((a, b) => new Date(b.lastUpdated) - new Date(a.lastUpdated));
+            }
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', async () => {
             await loadPlugins();
@@ -481,5 +603,3 @@
 
 
 </html>
-
-
