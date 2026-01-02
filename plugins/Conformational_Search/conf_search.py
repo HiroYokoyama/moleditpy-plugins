@@ -9,7 +9,7 @@ from rdkit.Chem import AllChem
 import copy
 
 PLUGIN_NAME = "Conformational Search"
-__version__="2025.12.25"
+__version__="2026.01.02"
 __author__="HiroYokoyama"
 
 class ConformerSearchDialog(QDialog):
@@ -61,7 +61,8 @@ class ConformerSearchDialog(QDialog):
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        self.table.itemClicked.connect(self.preview_conformer)
+        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.table.currentItemChanged.connect(self.preview_conformer)
         layout.addWidget(self.table)
 
         # ボタンエリア
@@ -177,12 +178,12 @@ class ConformerSearchDialog(QDialog):
             # 隠しデータとしてConformer IDを持たせる
             self.table.item(row_idx, 0).setData(Qt.ItemDataRole.UserRole, cid)
 
-    def preview_conformer(self, item):
+    def preview_conformer(self, current, previous):
         """リスト選択時にメインウィンドウの表示を更新"""
-        if not self.temp_mol or not self.target_mol:
+        if not self.temp_mol or not self.target_mol or not current:
             return
         
-        row = item.row()
+        row = current.row()
         # Rankカラム(0)にCIDを埋め込んでいるので取得
         cid = self.table.item(row, 0).data(Qt.ItemDataRole.UserRole)
         
