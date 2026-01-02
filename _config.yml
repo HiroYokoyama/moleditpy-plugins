@@ -1,0 +1,6 @@
+title: MoleditPy Plugins
+remote_theme: jekyll/minima@8d0aa75
+defaults:
+  - scope:
+      path: ""
+      type: "pages"
