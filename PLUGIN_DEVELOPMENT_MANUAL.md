@@ -52,8 +52,10 @@ The `context` object (Type: `PluginContext`) passed to your `initialize` functio
 | **State** | `register_load_handler` | Load data from `.pmeprj`. |
 | **3D** | `register_optimization_method`| Add geometry optimization method. |
 | **3D** | `register_3d_style` | Add custom 3D visualization style. |
+| **Access** | `current_molecule` | Get/Set the active RDKit molecule. |
 | **Access** | `get_3d_controller` | Get helper for 3D manipulation. |
 | **Access** | `get_main_window` | Get raw MainWindow instance. |
+
 
 ### 3.1 UI & Menus
 
@@ -69,7 +71,12 @@ Register a custom item in the main menu.
 - **shortcut** (`str`, optional): Keyboard shortcut (e.g., "Ctrl+Shift+X").
 
 **Example Usage:**
-```python
+context.add_menu_action("Edit/My Action", my_func, shortcut="Ctrl+M")
+```
+
+> [!NOTE]
+> **Automatic Separators**: If you add an action to an existing menu (like "Edit"), MoleditPy will automatically insert a separator before your action if the preceding item is a native menu item (not added by another plugin).
+python
 context.add_menu_action("Edit/My Action", my_func, shortcut="Ctrl+M")
 ```
 
@@ -204,8 +211,29 @@ Returns the raw `MainWindow` instance. This gives you unrestricted access to the
 mw = context.get_main_window()
 mw.statusBar().showMessage("Plugin accessed Main Window!")
 plotter = mw.plotter
+mw.statusBar().showMessage("Plugin accessed Main Window!")
+plotter = mw.plotter
 scene = mw.scene
 ```
+
+#### `current_molecule`
+Property to get or set the active RDKit molecule (`mw.current_mol`).
+
+- **Get**: Returns the current `rdkit.Chem.Mol` object (or `None`).
+- **Set**: Updates the main window's molecule and triggers a 3D redraw.
+
+**Example Usage:**
+```python
+# Get
+mol = context.current_molecule
+if mol:
+    print(mol.GetNumAtoms())
+
+# Set
+from rdkit import Chem
+context.current_molecule = Chem.MolFromSmiles("C")
+```
+
 
 ---
 
@@ -453,14 +481,18 @@ def load_simple(path, context):
 
     if mol:
         # 2. Update the main window's current molecule
-        mw.current_mol = mol
+        # You can use the convenience property:
+        context.current_molecule = mol
         
         # 3. Commit this state to the Undo Stack mechanism
         # (This ensures the user can Undo this import)
+        # Note: 'context.current_molecule =' triggers a redraw but does not 
+        # auto-push to Undo stack, so we still access mw for that.
         mw.push_undo_state()
         
-        # 4. Update the 3D View
-        mw.draw_molecule_3d(mol)
+        # 4. Update the 3D View (handled by setter, but camera reset is manual)
+        mw.plotter.reset_camera()
+
         mw.plotter.reset_camera()
         
         # 5. Optional: Update UI mode (if switching from 2D)
