@@ -264,10 +264,18 @@
             border-top: 1px solid #e2e8f0;
         }
 
+        footer p {
+            margin: 10px 0;
+            overflow-wrap: break-word;
+            /* Ensure content wraps */
+        }
+
         footer a {
             color: var(--primary-color);
             text-decoration: none;
             font-weight: 500;
+            word-break: break-all;
+            /* Force break for long URLs */
         }
 
         footer a:hover {
@@ -391,9 +399,9 @@
     </div>
 
     <footer>
-        <p>Plugin Main Repository: <a href="https://github.com/HiroYokoyama/moleditpy-plugins/"
+        <p>Plugin Main Repository: <br> <a href="https://github.com/HiroYokoyama/moleditpy-plugins/"
                 target="_blank">https://github.com/HiroYokoyama/moleditpy-plugins/</a></p>
-        <p>MoleditPy Application: <a href="https://hiroyokoyama.github.io/python_molecular_editor/"
+        <p>MoleditPy Application: <br> <a href="https://hiroyokoyama.github.io/python_molecular_editor/"
                 target="_blank">https://hiroyokoyama.github.io/python_molecular_editor/</a></p>
     </footer>
 
