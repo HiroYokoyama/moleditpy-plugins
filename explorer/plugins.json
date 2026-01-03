@@ -413,6 +413,24 @@
     "lastUpdated": "2025-12-25"
   },
   {
+    "id": "version_checker",
+    "visible": false,
+    "name": "Version Checker",
+    "version": "2025.12.26",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Checks installed plugins against the official repository for updates.",
+    "tags": [
+      "Utility",
+      "System"
+    ],
+    "dependencies": [
+      "PyQt6"
+    ],
+    "downloadUrl": "../plugins/Version_Checker/version_checker.py",
+    "lastUpdated": "2025-12-26"
+  },
+  {
     "id": "plugin_installer",
     "visible": true,
     "name": "Plugin Installer",
