@@ -245,7 +245,7 @@
     "id": "gaussian_input_generator_neo",
     "visible": true,
     "name": "Gaussian Input Generator Neo",
-    "version": "2026.01.03",
+    "version": "2026.01.04",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "High-functionality setting dialog for Gaussian input creation. Supports Link 0, Route, Title, Charge/Mult, and appended data.",
@@ -257,7 +257,7 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Gaussian_Input_Generator_Neo/gaussian_input_generator_neo.py",
-    "lastUpdated": "2026-01-03"
+    "lastUpdated": "2026-01-04"
   },
   {
     "id": "vdw_radii_overlay",
@@ -303,7 +303,7 @@
     "id": "orca_input_generator_neo",
     "visible": true,
     "name": "ORCA Input Generator Neo",
-    "version": "2026.01.03",
+    "version": "2026.01.04",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "High-functionality setting dialog for ORCA input creation. Supports Route, Block Builder, and Validations.",
@@ -315,7 +315,7 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Orca_Input_Generator_Neo/orca_input_generator_neo.py",
-    "lastUpdated": "2026-01-03"
+    "lastUpdated": "2026-01-04"
   },
   {
     "id": "orca_xyz2inp_gui",
@@ -413,13 +413,13 @@
     "lastUpdated": "2025-12-25"
   },
   {
-    "id": "version_checker",
+    "id": "plugin_installer",
     "visible": true,
-    "name": "Version Checker",
-    "version": "2025.12.26",
+    "name": "Plugin Installer",
+    "version": "2026.01.04",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "Checks installed plugins against the official repository for updates.",
+    "description": "Checks for updates, installs new plugins, and allows manual reinstallation.",
     "tags": [
       "Utility",
       "System"
@@ -427,8 +427,8 @@
     "dependencies": [
       "PyQt6"
     ],
-    "downloadUrl": "../plugins/Version_Checker/version_checker.py",
-    "lastUpdated": "2025-12-26"
+    "downloadUrl": "../plugins/Plugin_Installer/plugin_installer.py",
+    "lastUpdated": "2026-01-04"
   },
   {
     "id": "chat_with_molecule",
