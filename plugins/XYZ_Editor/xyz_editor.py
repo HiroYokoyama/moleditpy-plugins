@@ -1,4 +1,5 @@
 import sys
+import numpy as np
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, 
     QPushButton, QHBoxLayout, QMessageBox, QHeaderView
@@ -86,6 +87,10 @@ class XYZEditorWindow(QWidget):
         self.copy_btn = QPushButton("Copy to Clipboard")
         self.copy_btn.clicked.connect(self.copy_to_clipboard)
         edit_layout.addWidget(self.copy_btn)
+
+        self.unselect_btn = QPushButton("Unselect")
+        self.unselect_btn.clicked.connect(self.unselect_all)
+        edit_layout.addWidget(self.unselect_btn)
         
         layout.addLayout(edit_layout)
 
@@ -109,8 +114,11 @@ class XYZEditorWindow(QWidget):
             
             if mol.GetNumAtoms() > 0:
                 conf = mol.GetConformer()
-                pos = conf.GetAtomPosition(0) # distinct check
-                sig.append(f"{pos.x:.4f},{pos.y:.4f},{pos.z:.4f}")
+                # Use a robust signature: hash of all coordinates (rounded to 4 decimals)
+                # to detect any change in any atom without cancellation issues.
+                pos_array = conf.GetPositions()
+                coord_hash = hash(np.round(pos_array, 4).tobytes())
+                sig.append(coord_hash)
             
             return tuple(sig)
         except:
@@ -166,7 +174,7 @@ class XYZEditorWindow(QWidget):
         self.table.insertRow(row)
 
         # Index (Read-only for existing, Placeholder for new)
-        idx_str = str(idx + 1) if idx is not None else "+"
+        idx_str = str(idx) if idx is not None else "+"
         item_idx = QTableWidgetItem(idx_str)
         item_idx.setFlags(item_idx.flags() & ~Qt.ItemFlag.ItemIsEditable)
         self.table.setItem(row, 0, item_idx)
@@ -188,6 +196,9 @@ class XYZEditorWindow(QWidget):
         rows = sorted(set(index.row() for index in self.table.selectedIndexes()), reverse=True)
         for row in rows:
             self.table.removeRow(row)
+
+    def unselect_all(self):
+        self.table.clearSelection()
 
     def copy_to_clipboard(self):
         lines = []
@@ -325,7 +336,7 @@ class XYZEditorWindow(QWidget):
                 # Track Index Mapping
                 idx_text = self.table.item(row, 0).text()
                 if idx_text != "+":
-                    old_idx = int(idx_text) - 1
+                    old_idx = int(idx_text)
                     old_to_new_map[old_idx] = new_idx
 
             # Now create conformer with correct size
