@@ -4,16 +4,16 @@ from PyQt6.QtWidgets import (QMessageBox, QDialog, QVBoxLayout, QLabel,
                              QLineEdit, QSpinBox, QPushButton, QFileDialog, 
                              QFormLayout, QGroupBox, QHBoxLayout, QComboBox, QTextEdit, 
                              QInputDialog, QTabWidget, QCheckBox, QRadioButton, QButtonGroup,
-                             QWidget, QScrollArea)
+                             QWidget, QScrollArea, QSizePolicy)
 from PyQt6.QtGui import QPalette, QColor, QFont
 from PyQt6.QtCore import Qt
 from rdkit import Chem
 import json
 
-__version__="2025.12.28"
-__author__="HiroYokoyama"
-
 PLUGIN_NAME = "Gaussian Input Generator Neo"
+PLUGIN_VERSION = "2026.1.3"
+PLUGIN_AUTHOR = "HiroYokoyama"
+PLUGIN_DESCRIPTION = "Advanced Gaussian Input Generator with Preview and Presets"
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "gaussian_input_generator_neo.json")
 
 class RouteBuilderDialog(QDialog):
@@ -263,6 +263,11 @@ class RouteBuilderDialog(QDialog):
         td_layout.addWidget(self.td_nstates)
         td_group.setLayout(td_layout)
         layout.addRow(td_group)
+        
+        # WFN Output
+        self.wfn_chk = QCheckBox("Output Wavefunction File (.wfn)")
+        layout.addRow("WFN Output:", self.wfn_chk)
+        self.wfn_chk.toggled.connect(self.update_preview)
 
         self.tab_props.setLayout(layout)
 
@@ -274,7 +279,7 @@ class RouteBuilderDialog(QDialog):
             self.freq_raman, self.freq_anharm,
             self.solv_model, self.solvent, self.dispersion,
             self.pop_analysis, self.density_chk, self.symmetry_combo, self.grid_combo,
-            self.td_chk, self.td_nstates
+            self.td_chk, self.td_nstates, self.wfn_chk
         ]
         for w in widgets:
             if isinstance(w, QComboBox):
@@ -317,11 +322,7 @@ class RouteBuilderDialog(QDialog):
         if self.opt_maxcycles.isChecked(): opt_opts.append("MaxCycles=100")
         
         # If Opt is in route and we have options, combine them
-        # Note: In Gaussian, it's usually Opt=(Tight, CalcFC)
-        # But if we just appended "Opt", we need to replace it or append.
-        # Simplified approach: If Opt is present, modify the Opt string.
         if "Opt" in route_parts and opt_opts:
-             # Find index of "Opt"
              idx = route_parts.index("Opt")
              route_parts[idx] = f"Opt=({', '.join(opt_opts)})"
         
@@ -367,20 +368,23 @@ class RouteBuilderDialog(QDialog):
         if self.td_chk.isChecked():
             route_parts.append(f"TD=(NStates={self.td_nstates.value()})")
             
+        # WFN
+        if self.wfn_chk.isChecked():
+            route_parts.append("Output=WFN")
+            
         self.preview_str = " ".join(route_parts)
         self.preview_label.setText(self.preview_str)
 
     def get_route(self):
         return self.preview_str
+    
+    def is_wfn_enabled(self):
+        # Helper for main dialog to know if we need to append filename
+        return self.wfn_chk.isChecked()
 
     def parse_route(self, route):
         # Very basic parsing to try and populate fields from an existing string
         # This is hard to do perfectly, so we might just best-effort match.
-        # For now, we will leave everything as default if loading, 
-        # or maybe we can try to at least Find B3LYP or Opt.
-        # Since this is "Advanced", users might type weird things.
-        # Let's just try to match Method/Basis/Job.
-        
         route = route.upper()
         
         # Check Job Type
@@ -418,6 +422,10 @@ class RouteBuilderDialog(QDialog):
             if "SMD" in route: self.solv_model.setCurrentText("SMD")
             elif "CPCM" in route: self.solv_model.setCurrentText("CPCM")
             else: self.solv_model.setCurrentText("PCM")
+            
+        # WFN
+        if "OUTPUT=WFN" in route or "OUTPUT=WFX" in route:
+            self.wfn_chk.setChecked(True)
 
 class GaussianSetupDialog(QDialog):
     """
@@ -427,8 +435,11 @@ class GaussianSetupDialog(QDialog):
     def __init__(self, parent=None, mol=None):
         super().__init__(parent)
         self.setWindowTitle("Gaussian Input Setup")
-        self.resize(500, 600) # 少し大きめに設定
+        self.resize(600, 700)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowMinMaxButtonsHint)
+        self.setSizeGripEnabled(True)
         self.mol = mol
+        self.force_wfn_line = False # Track if WFN line is needed
         self.setup_ui()
 
     def setup_ui(self):
@@ -463,8 +474,10 @@ class GaussianSetupDialog(QDialog):
         self.mem_spin = QSpinBox()
         self.mem_spin.setRange(1, 999999)
         self.mem_spin.setValue(4) # Default
+        self.mem_spin.valueChanged.connect(self.update_preview)
         self.mem_unit = QComboBox()
         self.mem_unit.addItems(["GB", "MB", "MW"])
+        self.mem_unit.currentIndexChanged.connect(self.update_preview)
         mem_layout.addWidget(self.mem_spin)
         mem_layout.addWidget(self.mem_unit)
         link0_layout.addRow("Memory (%mem):", mem_layout)
@@ -473,11 +486,13 @@ class GaussianSetupDialog(QDialog):
         self.nproc_spin = QSpinBox()
         self.nproc_spin.setRange(1, 128)
         self.nproc_spin.setValue(4) # Default
+        self.nproc_spin.valueChanged.connect(self.update_preview)
         link0_layout.addRow("Processors (%nprocshared):", self.nproc_spin)
         
         # Checkpoint (Optional override)
         self.chk_edit = QLineEdit()
         self.chk_edit.setPlaceholderText("Auto-generated from filename if empty")
+        self.chk_edit.textChanged.connect(self.update_preview)
         link0_layout.addRow("Checkpoint (%chk):", self.chk_edit)
 
         link0_group.setLayout(link0_layout)
@@ -488,9 +503,9 @@ class GaussianSetupDialog(QDialog):
         job_layout = QFormLayout()
 
         # Route section
-        # Route section
         route_layout = QHBoxLayout()
         self.keywords_edit = QLineEdit("#P B3LYP/6-31G(d) Opt Freq")
+        self.keywords_edit.textChanged.connect(self.update_preview)
         self.btn_route_builder = QPushButton("Route Builder...")
         self.btn_route_builder.clicked.connect(self.open_route_builder)
         route_layout.addWidget(self.keywords_edit)
@@ -499,6 +514,7 @@ class GaussianSetupDialog(QDialog):
 
         # Title
         self.title_edit = QLineEdit("Generated by MoleditPy Plugin")
+        self.title_edit.textChanged.connect(self.update_preview)
         job_layout.addRow("Title:", self.title_edit)
 
         job_group.setLayout(job_layout)
@@ -540,20 +556,35 @@ class GaussianSetupDialog(QDialog):
         tail_layout.addWidget(help_label)
 
         self.tail_edit = QTextEdit()
+        self.tail_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.tail_edit.setFixedHeight(100)
         self.tail_edit.setPlaceholderText("Example:\nD 1 2 3 4 S 10 10.0\n\nOr basis set data for Gen/GenECP...")
+        self.tail_edit.textChanged.connect(self.update_preview)
         tail_layout.addWidget(self.tail_edit)
 
         tail_group.setLayout(tail_layout)
         main_layout.addWidget(tail_group)
 
-        # --- Save Button ---
+        # --- Preview ---
+        preview_group = QGroupBox("Preview")
+        preview_layout = QVBoxLayout()
+        self.preview_text = QTextEdit()
+        self.preview_text.setReadOnly(False) # Editable
+        self.preview_text.setFont(QFont("Courier New", 10))
+        self.preview_text.setMinimumHeight(200) # Adjusted height
+        self.preview_text.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        preview_layout.addWidget(self.preview_text, 1)
+        
+        btn_refresh = QPushButton("Reset/Refresh Preview")
+        btn_refresh.clicked.connect(self.update_preview)
+        preview_layout.addWidget(btn_refresh)
+        
+        preview_group.setLayout(preview_layout)
+        main_layout.addWidget(preview_group, 1)
+
         # --- Save/Preview Buttons ---
         btn_box = QHBoxLayout()
         
-        self.btn_preview = QPushButton("Preview Input")
-        self.btn_preview.clicked.connect(self.preview_file)
-        btn_box.addWidget(self.btn_preview)
-
         self.save_btn = QPushButton("Save Input File...")
         self.save_btn.clicked.connect(self.save_file)
         self.save_btn.setStyleSheet("font-weight: bold; padding: 5px;")
@@ -562,6 +593,9 @@ class GaussianSetupDialog(QDialog):
         main_layout.addLayout(btn_box)
 
         self.setLayout(main_layout)
+        
+        # Initial preview
+        self.update_preview()
 
     def get_coords_string(self):
         """
@@ -585,7 +619,7 @@ class GaussianSetupDialog(QDialog):
             
         return "\n".join(lines)
 
-    def generate_input_content(self):
+    def generate_input_content(self, filename_hint="gaussian_job"):
         """Generates the full content of the input file as a string."""
         lines = []
         
@@ -594,6 +628,10 @@ class GaussianSetupDialog(QDialog):
         lines.append(f"%mem={self.mem_spin.value()}{self.mem_unit.currentText()}")
         
         chk_name = self.chk_edit.text().strip()
+        if not chk_name:
+             # Use hint if empty
+             chk_name = f"{filename_hint}.chk"
+             
         if chk_name and not chk_name.endswith(".chk"): chk_name += ".chk"
         if chk_name: lines.append(f"%chk={chk_name}")
 
@@ -625,97 +663,74 @@ class GaussianSetupDialog(QDialog):
         tail_content = self.tail_edit.toPlainText()
         if tail_content.strip():
             # Ensure blank line before tail if needed (already added above)
-            # Actually, standard Gaussian input format:
-            # Route
-            # <blank>
-            # Title
-            # <blank>
-            # Charge Mult
-            # Coords
-            # <blank>
-            # Tail
-            # <blank>
             lines.append(tail_content)
             # Ensure tail ends with newline (managed by join)
         
-        # Final blank line
-        lines.append("")
+        # WFN Output Line ?
+        # If output=wfn is in route, we need a filename line at the end
+        if "OUTPUT=WFN" in route_line.upper() or "OUTPUT=WFX" in route_line.upper():
+            # Check if tail already has it? Difficult.
+            # Assuming we append it if not present manually? 
+            # Or just append the filename.
+            # A bit tricky if user manually added it.
+            # But let's assume if the flag is set via RouteBuilder, we append.
+            # Use filename_hint.wfn
+            
+            # Check if last line looks like a wfn definition?
+            # Safe bet: just append the filename
+            wfn_file = f"{filename_hint}.wfn"
+            lines.append(wfn_file)
+            lines.append("")
+        
+        # Final blank line if not already
+        if lines[-1] != "": lines.append("")
         
         return "\n".join(lines)
 
+    def update_preview(self):
+        # We don't know filename yet, use placeholder
+        self.preview_text.setText(self.generate_input_content(filename_hint="[filename]"))
+
     def preview_file(self):
-        content = self.generate_input_content()
-        
-        d = QDialog(self)
-        d.setWindowTitle("Preview Input - Gaussian Neo")
-        d.resize(600, 500)
-        l = QVBoxLayout()
-        t = QTextEdit()
-        t.setPlainText(content)
-        t.setReadOnly(True)
-        t.setFont(QFont("Courier New", 10))
-        l.addWidget(t)
-        
-        btn = QPushButton("Close")
-        btn.clicked.connect(d.accept)
-        l.addWidget(btn)
-        d.setLayout(l)
-        d.exec()
+        # Legacy stub or redirect
+        self.update_preview()
 
     def save_file(self):
-        # 座標データの取得 (Check for error first)
-        coords_block = self.get_coords_string()
-        if "Error" in coords_block:
-            QMessageBox.critical(self, "Error", coords_block)
-            return
-
         # ファイル保存ダイアログ
+        default_name = "gaussian_job.gjf"
         file_path, _ = QFileDialog.getSaveFileName(
-            self, "Save Gaussian Input", "", "Gaussian Input (*.gjf *.com );;All Files (*)"
+            self, "Save Gaussian Input", default_name, "Gaussian Input (*.gjf *.com );;All Files (*)"
         )
 
         if file_path:
             try:
-                # ファイル名に基づいてchk名を決定（ユーザー入力がない場合）
+                # ファイル名に基づいてchk名を決定
                 filename_base = os.path.splitext(os.path.basename(file_path))[0]
-                chk_name = self.chk_edit.text().strip()
-                if not chk_name:
-                    # Set temporary chk name for generation, but we need to update the content?
-                    # The generate_input_content uses self.chk_edit.
-                    # If empty, it doesn't add %chk line (or we should add logic there).
-                    # Wait, old code logic: if empty, used filename_base.chk.
-                    # I should replicate that logic to be safe, or just auto-fill chk_edit on save?
-                    # Let's auto-fill the field if empty? Or just pass it.
-                    # To be consistent with preview, maybe we should update the UI field?
-                    # Or just construct content with the filename.
-                    pass
                 
-                # Special handling for %chk auto-generation if field is empty
-                # We want the content to have the chk name based on the file unless specified.
-                # Let's temporarily set the chk text if empty, then restore?
-                # Or pass an argument to generate_input_content.
-                # Simpler: just use generate_input_content as is.
-                # BUT, original code did: `if not chk_name: chk_name = f"{filename_base}.chk"`
-                # So if I use `generate_input_content`, I miss this feature if I don't handle it.
+                # Check for %chk in content
+                content = self.preview_text.toPlainText()
                 
-                # Let's modify generate_input_content to handle "auto" chk?
-                # No, let's just do it here properly.
+                # Smart update of %chk
+                import re
+                chk_line = f"%chk={filename_base}.chk"
                 
-                # Update CHK field if empty?
-                original_chk = self.chk_edit.text()
-                if not original_chk.strip():
-                     self.chk_edit.setText(f"{filename_base}.chk")
-                
-                content = self.generate_input_content()
-                
-                # Restore if we want? Maybe keep it.
-                # If we keep it, the user sees what was used. Good.
+                # Update CHK
+                if re.search(r"^%chk=.*$", content, re.MULTILINE):
+                     content = re.sub(r"^%chk=.*$", chk_line, content, flags=re.MULTILINE)
+                else:
+                     # Insert at top (after other link0 if possible, or just top)
+                     content = f"{chk_line}\n{content}"
+                     
+                # Smart update of WFN filename?
+                # If content ends with "job.wfn", replace it with "filename.wfn"?
+                if "job.wfn" in content:
+                    content = content.replace("job.wfn", f"{filename_base}.wfn")
 
                 with open(file_path, 'w', encoding='utf-8') as f:
                     f.write(content)
 
                 QMessageBox.information(self, "Success", f"File saved:\n{file_path}")
-                self.accept()
+                # Do not close dialog automatically
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to save file:\n{str(e)}")
 
@@ -724,6 +739,12 @@ class GaussianSetupDialog(QDialog):
         dialog = RouteBuilderDialog(self, self.keywords_edit.text())
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self.keywords_edit.setText(dialog.get_route())
+            # Check if WFN was enabled in builder
+            if dialog.is_wfn_enabled():
+                self.force_wfn_line = True
+            else:
+                self.force_wfn_line = False
+            self.update_preview()
 
     def calc_initial_charge_mult(self):
         """
@@ -800,6 +821,8 @@ class GaussianSetupDialog(QDialog):
                 self.charge_spin.setPalette(p)
                 self.mult_spin.setPalette(p)
             
+            self.update_preview()
+            
         except Exception as e:
             print(f"Validation error: {e}")
 
@@ -858,6 +881,7 @@ class GaussianSetupDialog(QDialog):
         self.keywords_edit.setText(data.get("route", ""))
         # DO NOT set Title, Charge, Mult (Molecule specific)
         self.tail_edit.setPlainText(data.get("tail", ""))
+        self.update_preview()
 
     def get_current_ui_settings(self):
         """Return a dict of current UI settings."""
@@ -915,26 +939,16 @@ class GaussianSetupDialog(QDialog):
                 self.save_presets_to_file()
                 self.update_preset_combo()
 
-def run(main_window):
-    """
-    Entry point for the plugin.
-    """
-    mol = getattr(main_window, 'current_mol', None)
+def run(mw):
+    mol = getattr(mw, 'current_mol', None)
     
     if not mol or mol.GetNumAtoms() == 0:
-        QMessageBox.warning(main_window, PLUGIN_NAME, "No molecule loaded or molecule is empty.")
+        QMessageBox.warning(mw, PLUGIN_NAME, "No molecule loaded or molecule is empty.")
         return
 
-    dialog = GaussianSetupDialog(parent=main_window, mol=mol)
+    dialog = GaussianSetupDialog(parent=mw, mol=mol)
     dialog.load_presets_from_file() # Load presets after init
     dialog.exec()
 
-def initialize(context):
-    """
-    Initialize the plugin and register export action.
-    """
-    def run_plugin():
-        run(context.get_main_window())
-        
-    context.add_export_action("Gaussian Input (.gjf/.com)...", run_plugin)
+# initialize removed as it only registered the menu action
     
