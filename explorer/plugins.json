@@ -685,5 +685,24 @@
     ],
     "downloadUrl": "../plugins/NWChem_Input_Generator/nwchem_input_generator.py",
     "lastUpdated": "2026-01-03"
+  },
+  {
+    "id": "xyz_editor",
+    "visible": true,
+    "name": "XYZ Editor",
+    "version": "2026.01.04",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "A table-based editor for atom coordinates and symbols, supporting ghost atoms.",
+    "tags": [
+      "Editor",
+      "Utility"
+    ],
+    "dependencies": [
+      "rdkit",
+      "PyQt6"
+    ],
+    "downloadUrl": "../plugins/XYZ_Editor/xyz_editor.py",
+    "lastUpdated": "2026-01-04"
   }
 ]
