@@ -245,7 +245,7 @@
     "id": "gaussian_input_generator_neo",
     "visible": true,
     "name": "Gaussian Input Generator Neo",
-    "version": "2025.12.28",
+    "version": "2026.01.03",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "High-functionality setting dialog for Gaussian input creation. Supports Link 0, Route, Title, Charge/Mult, and appended data. **(Requires v2.2.0+)**",
@@ -257,7 +257,7 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Gaussian_Input_Generator_Neo/gaussian_input_generator_neo.py",
-    "lastUpdated": "2025-12-28"
+    "lastUpdated": "2026-01-03"
   },
   {
     "id": "vdw_radii_overlay",
@@ -303,7 +303,7 @@
     "id": "orca_input_generator_neo",
     "visible": true,
     "name": "ORCA Input Generator Neo",
-    "version": "2025.12.28",
+    "version": "2026.01.03",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "High-functionality setting dialog for ORCA input creation. Supports Route, Block Builder, and Validations. **(Requires v2.2.0+)**",
@@ -314,8 +314,8 @@
       "rdkit",
       "PyQt6"
     ],
-    "downloadUrl": "../plugins/ORCA_Input_Generator_Neo/orca_input_generator_neo.py",
-    "lastUpdated": "2025-12-28"
+    "downloadUrl": "../plugins/Orca_Input_Generator_Neo/orca_input_generator_neo.py",
+    "lastUpdated": "2026-01-03"
   },
   {
     "id": "orca_xyz2inp_gui",
@@ -575,5 +575,96 @@
     ],
     "downloadUrl": "../plugins/Vector_Viewer/vector_viewer.py",
     "lastUpdated": "2025-12-31"
+  },
+  {
+    "id": "mopac_input_generator",
+    "visible": true,
+    "name": "MOPAC Input Generator",
+    "version": "2026.01.03",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Generates input files for MOPAC semi-empirical quantum chemistry calculations.",
+    "tags": [
+      "Input Generator"
+    ],
+    "dependencies": [
+      "rdkit",
+      "PyQt6"
+    ],
+    "downloadUrl": "../plugins/Mopac_Input_Generator/mopac_input_generator.py",
+    "lastUpdated": "2026-01-03"
+  },
+  {
+    "id": "gamess_input_generator",
+    "visible": true,
+    "name": "GAMESS Input Generator",
+    "version": "2026.01.03",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Generates input files for GAMESS (US) quantum chemistry calculations.",
+    "tags": [
+      "Input Generator"
+    ],
+    "dependencies": [
+      "rdkit",
+      "PyQt6"
+    ],
+    "downloadUrl": "../plugins/Gamess_Input_Generator/gamess_input_generator.py",
+    "lastUpdated": "2026-01-03"
+  },
+  {
+    "id": "pyscf_input_generator",
+    "visible": true,
+    "name": "PySCF Input Generator",
+    "version": "2026.01.03",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Generates Python scripts for PySCF quantum chemistry calculations.",
+    "tags": [
+      "Input Generator",
+      "Scripting"
+    ],
+    "dependencies": [
+      "rdkit",
+      "PyQt6"
+    ],
+    "downloadUrl": "../plugins/PySCF_Input_Generator/pyscf_input_generator.py",
+    "lastUpdated": "2026-01-03"
+  },
+  {
+    "id": "psi4_input_generator",
+    "visible": true,
+    "name": "Psi4 Input Generator",
+    "version": "2026.01.03",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Generates input files for Psi4 quantum chemistry calculations.",
+    "tags": [
+      "Input Generator"
+    ],
+    "dependencies": [
+      "rdkit",
+      "PyQt6"
+    ],
+    "downloadUrl": "../plugins/Psi4_Input_Generator/psi4_input_generator.py",
+    "lastUpdated": "2026-01-03"
+  },
+  {
+    "id": "nwchem_input_generator",
+    "visible": true,
+    "name": "NWChem Input Generator",
+    "version": "2026.01.03",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Generates input files for NWChem quantum chemistry calculations.",
+    "tags": [
+      "Input Generator"
+    ],
+    "dependencies": [
+      "rdkit",
+      "PyQt6"
+    ],
+    "downloadUrl": "../plugins/NWChem_Input_Generator/nwchem_input_generator.py",
+    "lastUpdated": "2026-01-03"
   }
 ]
