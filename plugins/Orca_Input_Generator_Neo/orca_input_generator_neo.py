@@ -399,7 +399,7 @@ class OrcaKeywordBuilderDialog(QDialog):
                     route_parts.append("SMD")
                 elif "IEFPCM" == solv:
                     route_parts.append(f"CPCM({solvent})") 
-
+        
         # Dispersion
         disp = self.dispersion.currentText()
         if disp != "None":
@@ -436,7 +436,9 @@ class OrcaSetupDialogNeo(QDialog):
         self.setSizeGripEnabled(True)
         self.mol = mol
         self.filename = filename
+        self.ui_ready = False
         self.setup_ui()
+        self.ui_ready = True
         self.load_presets_from_file()
         self.calc_initial_charge_mult()
 
@@ -580,7 +582,7 @@ class OrcaSetupDialogNeo(QDialog):
         self.adv_tabs.setFixedHeight(150)
         
         self.adv_edit = QTextEdit()
-        self.adv_edit.setPlaceholderText("Pre-Coordinate Blocks\nExample:\n%scf\n MaxIter 100\nend")
+        self.adv_edit.setPlaceholderText("Pre-Coordinate Blocks\\nExample:\\n%scf\\n MaxIter 100\\nend")
         self.adv_edit.textChanged.connect(self.update_preview)
         self.adv_tabs.addTab(self.adv_edit, "Pre-Coordinate")
         
@@ -614,6 +616,8 @@ class OrcaSetupDialogNeo(QDialog):
         # --- Save/Preview Buttons ---
         btn_box = QHBoxLayout()
         
+        # self.btn_preview removed as per user request (redundant with Refresh)
+        
         self.save_btn = QPushButton("Save Input File...")
         self.save_btn.clicked.connect(self.save_file)
         self.save_btn.setStyleSheet("font-weight: bold; padding: 5px;")
@@ -627,6 +631,8 @@ class OrcaSetupDialogNeo(QDialog):
         self.update_preview()
         
     def update_preview(self):
+        if not getattr(self, 'ui_ready', False):
+            return
         self.preview_text.setText(self.generate_input_content())
 
     def preview_file(self):
@@ -644,8 +650,8 @@ class OrcaSetupDialogNeo(QDialog):
              lines = self.get_zmatrix_standard_lines()
 
         if any("Error" in l for l in lines):
-            err = "\n".join(l for l in lines if "Error" in l)
-            QMessageBox.critical(self, "Error", f"Coordinate Generation Failed:\n{err}")
+            err = "\\n".join(l for l in lines if "Error" in l)
+            QMessageBox.critical(self, "Error", f"Coordinate Generation Failed:\\n{err}")
             return
 
         # 2. ファイル保存ダイアログ
@@ -666,6 +672,7 @@ class OrcaSetupDialogNeo(QDialog):
                 with open(file_path, 'w', encoding='utf-8') as f:
                     f.write(content)
 
+                QMessageBox.information(self, "Success", f"File saved:\\n{file_path}")
                 QMessageBox.information(self, "Success", f"File saved:\n{file_path}")
                 # Do not close automatically
                 # self.accept()
@@ -882,17 +889,17 @@ class OrcaSetupDialogNeo(QDialog):
         nprocs = self.nproc_spin.value()
         if nprocs > 1:
             content.append(f"%pal nprocs {nprocs} end")
-        content.append(f"%maxcore {self.mem_spin.value()}\n")
+        content.append(f"%maxcore {self.mem_spin.value()}")
         
         # Keywords
         kw = self.keywords_edit.text().strip()
         if not kw.startswith("!"): kw = "! " + kw
-        content.append(f"{kw}\n")
+        content.append(f"{kw}")
         
         # Advanced Blocks
         adv = self.adv_edit.toPlainText().strip()
         if adv:
-            content.append(f"{adv}\n")
+            content.append(f"{adv}")
         
         # Coordinates
         is_cartesian = "Cartesian" in self.coord_format_combo.currentText()
@@ -926,7 +933,7 @@ class OrcaSetupDialogNeo(QDialog):
         # Post-Coordinate Blocks
         adv_post = self.post_adv_edit.toPlainText().strip()
         if adv_post:
-            content.append(f"\n{adv_post}")
+            content.append(f"{adv_post}")
             
         return "\n".join(content)
 
@@ -1051,8 +1058,6 @@ class OrcaSetupDialogNeo(QDialog):
             
         except: pass
 
-from PyQt6.QtWidgets import QInputDialog 
-
 def run(mw):
     mol = getattr(mw, 'current_mol', None)
     if not mol:
@@ -1063,4 +1068,8 @@ def run(mw):
     dialog = OrcaSetupDialogNeo(parent=mw, mol=mol, filename=filename)
     dialog.exec()
 
-# initialize removed as it only registered the menu action
+def initialize(context):
+    def show_dialog():
+        mw = context.get_main_window()
+        run(mw)
+    context.add_export_action("ORCA Input...", show_dialog)
