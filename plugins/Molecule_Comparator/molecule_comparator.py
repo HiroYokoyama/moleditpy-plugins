@@ -140,8 +140,11 @@ class MoleculeComparator(QWidget):
         self.btn_copy_results.clicked.connect(self.copy_results_to_clipboard)
         self.btn_save_results = QPushButton("Save Results...")
         self.btn_save_results.clicked.connect(self.save_results_to_file)
+        self.btn_export_png = QPushButton("Export as PNG...")
+        self.btn_export_png.clicked.connect(self.export_as_png)
         result_btn_layout.addWidget(self.btn_copy_results)
         result_btn_layout.addWidget(self.btn_save_results)
+        result_btn_layout.addWidget(self.btn_export_png)
         result_btn_layout.addStretch()
         layout.addLayout(result_btn_layout)
 
@@ -592,6 +595,58 @@ class MoleculeComparator(QWidget):
             QMessageBox.information(self.mw, "Saved", f"Results saved to:\n{file_path}")
         except Exception as e:
             QMessageBox.critical(self.mw, "Error", f"Failed to save file:\n{str(e)}")
+
+    def export_as_png(self):
+        """Export the current 3D visualization as a PNG image."""
+        if not self.molecules:
+            QMessageBox.warning(self.mw, "No Data", "No molecules to export.")
+            return
+        
+        # Create custom dialog for export options
+        from PyQt6.QtWidgets import QDialog, QVBoxLayout, QCheckBox, QDialogButtonBox
+        
+        dialog = QDialog(self.mw)
+        dialog.setWindowTitle("Export Settings")
+        layout = QVBoxLayout(dialog)
+        
+        # Transparent background option
+        check_transparent = QCheckBox("Transparent Background")
+        check_transparent.setChecked(True)  # Default to transparent
+        layout.addWidget(check_transparent)
+        
+        # Dialog buttons
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        
+        # Show dialog
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        
+        transparent = check_transparent.isChecked()
+        
+        # Open file dialog with default filename
+        file_path, _ = QFileDialog.getSaveFileName(
+            self.mw, "Export as PNG", "molecule_comparison.png", 
+            "PNG Files (*.png);;All Files (*)"
+        )
+        
+        if not file_path:
+            return
+        
+        # Ensure .png extension
+        if not file_path.lower().endswith('.png'):
+            file_path += '.png'
+        
+        try:
+            # Save screenshot using PyVista
+            self.mw.plotter.screenshot(file_path, transparent_background=transparent)
+            
+            # Show confirmation
+            QMessageBox.information(self.mw, "Exported", f"Image saved to:\n{file_path}")
+        except Exception as e:
+            QMessageBox.critical(self.mw, "Error", f"Failed to export image:\n{str(e)}")
 
     def update_visualization(self):
         # Combine all molecules
