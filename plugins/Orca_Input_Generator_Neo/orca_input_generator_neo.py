@@ -11,7 +11,7 @@ from rdkit.Chem import rdMolTransforms
 import json
 
 PLUGIN_NAME = "ORCA Input Generator Neo"
-PLUGIN_VERSION = "2026.1.3"
+PLUGIN_VERSION = "2026.01.04"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Advanced ORCA Input Generator with Preview and Presets"
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "orca_input_generator_neo.json")
