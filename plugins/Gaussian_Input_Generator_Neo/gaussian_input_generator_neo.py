@@ -440,7 +440,9 @@ class GaussianSetupDialog(QDialog):
         self.setSizeGripEnabled(True)
         self.mol = mol
         self.force_wfn_line = False # Track if WFN line is needed
+        self.ui_ready = False # [FIXED]
         self.setup_ui()
+        self.load_presets_from_file()
 
     def setup_ui(self):
         main_layout = QVBoxLayout()
@@ -595,6 +597,7 @@ class GaussianSetupDialog(QDialog):
         self.setLayout(main_layout)
         
         # Initial preview
+        self.ui_ready = True # [FIXED]
         self.update_preview()
 
     def get_coords_string(self):
@@ -669,15 +672,6 @@ class GaussianSetupDialog(QDialog):
         # WFN Output Line ?
         # If output=wfn is in route, we need a filename line at the end
         if "OUTPUT=WFN" in route_line.upper() or "OUTPUT=WFX" in route_line.upper():
-            # Check if tail already has it? Difficult.
-            # Assuming we append it if not present manually? 
-            # Or just append the filename.
-            # A bit tricky if user manually added it.
-            # But let's assume if the flag is set via RouteBuilder, we append.
-            # Use filename_hint.wfn
-            
-            # Check if last line looks like a wfn definition?
-            # Safe bet: just append the filename
             wfn_file = f"{filename_hint}.wfn"
             lines.append(wfn_file)
             lines.append("")
@@ -688,6 +682,8 @@ class GaussianSetupDialog(QDialog):
         return "\n".join(lines)
 
     def update_preview(self):
+        if not getattr(self, 'ui_ready', False): # [FIXED]
+            return 
         # We don't know filename yet, use placeholder
         self.preview_text.setText(self.generate_input_content(filename_hint="[filename]"))
 
@@ -947,8 +943,10 @@ def run(mw):
         return
 
     dialog = GaussianSetupDialog(parent=mw, mol=mol)
-    dialog.load_presets_from_file() # Load presets after init
     dialog.exec()
 
-# initialize removed as it only registered the menu action
-    
+def initialize(context):
+    def show_dialog():
+        mw = context.get_main_window()
+        run(mw)
+    context.add_export_action("Gaussian Input...", show_dialog)
