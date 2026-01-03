@@ -358,24 +358,11 @@ class PluginInstallerWindow(QDialog):
                 status = "Not Installed"
                 can_download = True
                 # Determine target file for new download
-                if remote_info and 'downloadUrl' in remote_info:
                     d_url = remote_info['downloadUrl']
-                    # Try to preserve meaningful directory structure
-                    # Expected format in JSON: "../plugins/PluginName/script.py"
-                    # We want to map this to: .../plugins/plugin/PluginName/script.py
-                    
+                    # Download to plugin root directory (flatten structure)
                     filename = os.path.basename(d_url)
                     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                    
-                    # Heuristic: Check if url contains "plugins/" and use everything after it
-                    parts = d_url.split('/plugins/')
-                    if len(parts) > 1:
-                        # logical_path e.g. "PluginName/script.py"
-                        logical_path = parts[-1]
-                        target_file = os.path.join(base_dir, logical_path)
-                    else:
-                        # Fallback to simple filename
-                        target_file = os.path.join(base_dir, filename)
+                    target_file = os.path.join(base_dir, filename)
 
             if silent and not (is_installed and can_update and status == "Update Available"):
                 # If silent check, mostly we care about notifying updates.
