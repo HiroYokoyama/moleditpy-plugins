@@ -358,6 +358,7 @@ class PluginInstallerWindow(QDialog):
                 status = "Not Installed"
                 can_download = True
                 # Determine target file for new download
+                if remote_info and 'downloadUrl' in remote_info:
                     d_url = remote_info['downloadUrl']
                     # Download to plugin root directory (flatten structure)
                     filename = os.path.basename(d_url)
