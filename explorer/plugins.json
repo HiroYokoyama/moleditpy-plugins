@@ -650,6 +650,25 @@
     "lastUpdated": "2026-01-03"
   },
   {
+    "id": "molecule_comparator",
+    "visible": true,
+    "name": "Molecule Comparator",
+    "version": "2026.01.03",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Compare multiple molecules in 3D, calculate RMSD, and align them.",
+    "tags": [
+      "Analysis",
+      "Visualization"
+    ],
+    "dependencies": [
+      "rdkit",
+      "PyQt6"
+    ],
+    "downloadUrl": "../plugins/Molecule_Comparator/molecule_comparator.py",
+    "lastUpdated": "2026-01-03"
+  },
+  {
     "id": "nwchem_input_generator",
     "visible": true,
     "name": "NWChem Input Generator",
