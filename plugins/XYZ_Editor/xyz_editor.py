@@ -9,7 +9,7 @@ from rdkit.Geometry import Point3D
 import pyvista as pv
 
 PLUGIN_NAME = "XYZ Editor"
-PLUGIN_VERSION = "2026.01.03"
+PLUGIN_VERSION = "2026.01.04"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "A table-based editor for atom coordinates and symbols, supporting ghost atoms."
 
@@ -317,7 +317,7 @@ class XYZEditorWindow(QWidget):
                     atom.SetProp("custom_symbol", symbol) # Store true label for export/editor
                     # Set dummyLabel to something safe for 3D viewer (avoid "Bq" -> crash)
                     # We use "*" which has AtomicNum 0, avoiding the "Element not found" crash.
-                    atom.SetProp("dummyLabel", "*")
+                    #atom.SetProp("dummyLabel", "*")
 
                 new_idx = new_rw_mol.AddAtom(atom)
                 atom_coords.append(Point3D(x, y, z))
