@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, 
     QPushButton, QHBoxLayout, QMessageBox, QHeaderView
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 from rdkit import Chem
 from rdkit.Geometry import Point3D
 import pyvista as pv
@@ -22,7 +22,13 @@ class XYZEditorWindow(QWidget):
         self.setWindowTitle("XYZ Editor")
         self.resize(600, 400)
         self.init_ui()
+        self.last_seen_signature = None
         self.load_molecule()
+        
+        # Auto-update mechanism
+        self.update_timer = QTimer(self)
+        self.update_timer.timeout.connect(self.check_molecule_update)
+        self.update_timer.start(500) # Check every 500ms
 
         # Connect to selection changes in the main window if possible
         # For now, we'll just handle our own selection
@@ -90,11 +96,43 @@ class XYZEditorWindow(QWidget):
             self.mw.plotter.render()
         super().closeEvent(event)
 
+    def get_mol_signature(self, mol):
+        if not mol:
+            return None
+        try:
+            # Create a lightweight signature to detect changes
+            # 1. Object Identity (primary check for new files)
+            # 2. Number of Atoms/Bonds (check for structure changes)
+            # 3. First atom position (check for movement/conformer updates)
+            
+            sig = [id(mol), mol.GetNumAtoms(), mol.GetNumBonds()]
+            
+            if mol.GetNumAtoms() > 0:
+                conf = mol.GetConformer()
+                pos = conf.GetAtomPosition(0) # distinct check
+                sig.append(f"{pos.x:.4f},{pos.y:.4f},{pos.z:.4f}")
+            
+            return tuple(sig)
+        except:
+            return None
+
+    def check_molecule_update(self):
+        try:
+            current_mol = self.mw.current_mol
+            current_sig = self.get_mol_signature(current_mol)
+            
+            if current_sig != self.last_seen_signature:
+                self.load_molecule()
+        except Exception:
+            pass
+            
     def load_molecule(self):
         self.table.blockSignals(True)
         self.table.setRowCount(0)
 
         mol = self.mw.current_mol
+        self.last_seen_signature = self.get_mol_signature(mol)
+        
         if not mol:
             self.table.blockSignals(False)
             return
@@ -190,11 +228,11 @@ class XYZEditorWindow(QWidget):
                 # Determine radius based on element
                 try:
                     atomic_num = pt.GetAtomicNumber(symbol.capitalize())
-                    # Scaling factor 1.1 as requested (Highlight Halo)
-                    radius = pt.GetRvdw(atomic_num) * 1.1
+                    # Scaling factor 1.2 * 0.3 as requested (Highlight Halo)
+                    radius = pt.GetRvdw(atomic_num) * 1.2 * 0.3
                 except RuntimeError:
                     # Ghost/Unknown -> Default size
-                    radius = 1.5
+                    radius = 1.5 * 0.3
                 
                 radii.append(radius)
 
@@ -299,7 +337,14 @@ class XYZEditorWindow(QWidget):
             
             # Commit changes
             self.mw.push_undo_state()
-            self.context.current_molecule = new_rw_mol 
+            # Update properties and ring info to avoid RDKit errors
+            try:
+                Chem.SanitizeMol(new_rw_mol)
+            except:
+                new_rw_mol.UpdatePropertyCache(strict=False)
+                Chem.GetSSSR(new_rw_mol)
+            self.context.current_molecule = new_rw_mol.GetMol() 
+            self.last_seen_signature = self.get_mol_signature(self.context.current_molecule)
             
             # Refresh visualization
             self.mw.plotter.reset_camera() 
@@ -330,124 +375,34 @@ def initialize(context):
 
     # Persistence Handling
     def save_plugin_state():
-        # Save full XYZ data to ensure restoration even if main app fails
-        # for invalid/ghost atoms.
+        # Only save name mapping (custom labels)
         mol = mw.current_mol
         if not mol:
             return {}
             
-        atoms_data = []
-        conf = mol.GetConformer()
+        custom_labels = {}
         for atom in mol.GetAtoms():
-            idx = atom.GetIdx()
-            pos = conf.GetAtomPosition(idx)
-            # Get correct symbol (custom or standard)
             if atom.HasProp("dummyLabel"):
-                symbol = atom.GetProp("dummyLabel")
-            else:
-                symbol = atom.GetSymbol()
-                
-            atoms_data.append({
-                "s": symbol,
-                "x": pos.x,
-                "y": pos.y,
-                "z": pos.z
-            })
+                custom_labels[atom.GetIdx()] = atom.GetProp("dummyLabel")
             
-        bonds_data = []
-        for bond in mol.GetBonds():
-            bonds_data.append({
-                "b": bond.GetBeginAtomIdx(),
-                "e": bond.GetEndAtomIdx(),
-                "t": str(bond.GetBondType()) # Save as string e.g. "SINGLE"
-            })
-            
-        return {"xyz_data": atoms_data, "bonds_data": bonds_data}
+        return {"custom_labels": custom_labels}
 
     def load_plugin_state(data):
-        # Restore custom labels
-        # Also reconstruct molecule if it is missing (None) which can happen
-        # if the main loader failed on ghost atoms.
-        
-        atoms_data = data.get("xyz_data")
-        if not atoms_data:
-            # Legacy try
-            atoms_data = data.get("xyz_backup")
-        
-        if not atoms_data:
+        # Restore custom labels (name mapping)
+        custom_labels = data.get("custom_labels")
+        if not custom_labels:
             return
 
         mol = mw.current_mol
-        
-        # If molecule is missing OR we just want to ensure our data is correct:
-        # User requested "save all data ... since the molecule become none".
-        # So we prioritize restoration if None.
-        
-        if mol is None:
-            # Reconstruct from backup
-            try:
-                new_mol = Chem.RWMol()
-                pt = Chem.GetPeriodicTable()
-                atom_coords = []
-                
-                for atom_data in atoms_data:
-                    symbol = atom_data["s"]
-                    x = atom_data["x"]
-                    y = atom_data["y"]
-                    z = atom_data["z"]
-                    
-                    try:
-                        atomic_num = pt.GetAtomicNumber(symbol.capitalize())
-                        atom = Chem.Atom(atomic_num)
-                    except RuntimeError:
-                        atom = Chem.Atom(0)
-                        atom.SetProp("dummyLabel", symbol)
-                    
-                    new_mol.AddAtom(atom)
-                    atom_coords.append(Point3D(x, y, z))
-                
-                # Create and populate conformer
-                conf = Chem.Conformer(new_mol.GetNumAtoms())
-                for idx, pt in enumerate(atom_coords):
-                    conf.SetAtomPosition(idx, pt)
-                
-                new_mol.AddConformer(conf)
-                
-                # Restore Bonds
-                bonds_data = data.get("bonds_data")
-                if not bonds_data:
-                    bonds_data = data.get("bonds_backup", [])
-                    
-                for b_data in bonds_data:
-                    try:
-                        b = b_data["b"]
-                        e = b_data["e"]
-                        t_str = b_data["t"]
-                        # Convert string back to BondType
-                        if hasattr(Chem.BondType, t_str):
-                            b_type = getattr(Chem.BondType, t_str)
-                            new_mol.AddBond(b, e, b_type)
-                        else:
-                            new_mol.AddBond(b, e, Chem.BondType.SINGLE) # Fallback
-                    except Exception:
-                        pass
-
-                # Update context
-                context.current_molecule = new_mol
-                
-            except Exception as e:
-                print(f"XYZ Editor: Failed to restore backup: {e}")
-        
-        else:
-            # If molecule Exists, we might still want to restore custom labels
-            # assuming indices match (standard load behavior)
-            for i, atom in enumerate(mol.GetAtoms()):
-                if i < len(atoms_data):
-                    saved_s = atoms_data[i]["s"]
-                    try:
-                        Chem.GetPeriodicTable().GetAtomicNumber(saved_s.capitalize())
-                    except RuntimeError:
-                        atom.SetProp("dummyLabel", saved_s)
+        if mol:
+            for idx_str, label in custom_labels.items():
+                try:
+                    idx = int(idx_str)
+                    if idx < mol.GetNumAtoms():
+                        atom = mol.GetAtomWithIdx(idx)
+                        atom.SetProp("dummyLabel", label)
+                except:
+                    pass
 
         # If the editor is open, refresh it
         if hasattr(mw, 'xyz_editor_window') and mw.xyz_editor_window and mw.xyz_editor_window.isVisible():
