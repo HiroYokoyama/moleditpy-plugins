@@ -6,7 +6,7 @@
     "version": "2025.12.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "A geometric tool for straightening alkyl chains. **(Requires v2.2.0+)**",
+    "description": "A geometric tool for straightening alkyl chains.",
     "tags": [
       "Optimization"
     ],
@@ -41,7 +41,7 @@
     "version": "2025.12.15",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "A player for viewing multi-frame XYZ files, such as molecular dynamics trajectories. **(Requires v2.2.0+)**",
+    "description": "A player for viewing multi-frame XYZ files, such as molecular dynamics trajectories.",
     "tags": [
       "File",
       "Animation"
@@ -57,7 +57,7 @@
     "version": "2025.12.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "A Monte Carlo-based tool to resolve steric clashes in complex or roughly drawn molecules. **(Requires v2.2.0+)**",
+    "description": "A Monte Carlo-based tool to resolve steric clashes in complex or roughly drawn molecules.",
     "tags": [
       "Optimization"
     ],
@@ -74,7 +74,7 @@
     "version": "2026.01.02",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "Performs conformational sampling and energy minimization. **(Requires v2.2.0+)**",
+    "description": "Performs conformational sampling and energy minimization.",
     "tags": [
       "Optimization"
     ],
@@ -91,7 +91,7 @@
     "version": "2025.12.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "Visualizes Gaussian Cube files (.cube) containing volumetric data (e.g., orbitals, densities). **(Requires v2.2.0+)**",
+    "description": "Visualizes Gaussian Cube files (.cube) containing volumetric data (e.g., orbitals, densities).",
     "tags": [
       "File"
     ],
@@ -110,7 +110,7 @@
     "version": "2025.12.15",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "A comprehensive tool to generate input files for Gaussian quantum chemistry calculations. **(Requires v2.2.0+)**",
+    "description": "A comprehensive tool to generate input files for Gaussian quantum chemistry calculations.",
     "tags": [
       "Input Generator"
     ],
@@ -140,7 +140,7 @@
     "version": "2025.12.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "Simulates the Mass Spectrum for the currently loaded molecule using RDKit descriptors. **(Requires v2.2.0+)**",
+    "description": "Simulates the Mass Spectrum for the currently loaded molecule using RDKit descriptors.",
     "tags": [
       "Analysis"
     ],
@@ -157,7 +157,7 @@
     "version": "2025.12.15",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "Generates input files for the ORCA quantum chemistry package. **(Requires v2.2.0+)**",
+    "description": "Generates input files for the ORCA quantum chemistry package.",
     "tags": [
       "Input Generator"
     ],
@@ -172,7 +172,7 @@
     "version": "2025.12.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "Resolves chemical names and identifiers to structures using the PubChem PUG REST API. **(Requires v2.2.0+)**",
+    "description": "Resolves chemical names and identifiers to structures using the PubChem PUG REST API.",
     "tags": [
       "Utility"
     ],
@@ -190,7 +190,7 @@
     "version": "2025.12.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "An interactive Python interpreter embedded in the application. Allows runtime script execution with access to the MainWindow (mw) and current molecule (mol). **(Requires v2.2.0+)**",
+    "description": "An interactive Python interpreter embedded in the application. Allows runtime script execution with access to the MainWindow (mw) and current molecule (mol).",
     "tags": [
       "Utility",
       "Development",
@@ -210,7 +210,7 @@
     "version": "2025.12.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "Select atoms in the 3D viewer and apply color. **(Requires v2.2.0+)**",
+    "description": "Select atoms in the 3D viewer and apply color.",
     "tags": [
       "Visualization",
       "Utility"
@@ -248,7 +248,7 @@
     "version": "2026.01.03",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "High-functionality setting dialog for Gaussian input creation. Supports Link 0, Route, Title, Charge/Mult, and appended data. **(Requires v2.2.0+)**",
+    "description": "High-functionality setting dialog for Gaussian input creation. Supports Link 0, Route, Title, Charge/Mult, and appended data.",
     "tags": [
       "Input Generator"
     ],
@@ -266,7 +266,7 @@
     "version": "2025.12.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "Visualizes Van der Waals radii as a merged surface overlay using PyVista. **(Requires v2.2.0+)**",
+    "description": "Visualizes Van der Waals radii as a merged surface overlay using PyVista.",
     "tags": [
       "Visualization"
     ],
@@ -306,7 +306,7 @@
     "version": "2026.01.03",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "High-functionality setting dialog for ORCA input creation. Supports Route, Block Builder, and Validations. **(Requires v2.2.0+)**",
+    "description": "High-functionality setting dialog for ORCA input creation. Supports Route, Block Builder, and Validations.",
     "tags": [
       "Input Generator"
     ],
@@ -344,7 +344,7 @@
     "version": "2025.12.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "Simulates the Mass Spectrum for the currently loaded molecule using RDKit descriptors. Includes Gaussian broadening and interactive zoom/pan. **(Requires v2.2.0+)**",
+    "description": "Simulates the Mass Spectrum for the currently loaded molecule using RDKit descriptors. Includes Gaussian broadening and interactive zoom/pan.",
     "tags": [
       "Analysis"
     ],
@@ -362,7 +362,7 @@
     "version": "2025.12.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "Analyzes vibrational frequencies from Gaussian FCHK files. View IR spectrum, animate normal modes, and export GIF animations. **(Requires v2.2.0+)**",
+    "description": "Analyzes vibrational frequencies from Gaussian FCHK files. View IR spectrum, animate normal modes, and export GIF animations.",
     "tags": [
       "Analysis",
       "File"
@@ -383,7 +383,7 @@
     "version": "2025.12.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "Analyzes vibrational frequencies from ORCA output files. View IR spectrum, animate normal modes, and export GIF animations. **(Requires v2.2.0+)**",
+    "description": "Analyzes vibrational frequencies from ORCA output files. View IR spectrum, animate normal modes, and export GIF animations.",
     "tags": [
       "Analysis",
       "File"
@@ -419,7 +419,7 @@
     "version": "2025.12.26",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "Checks installed plugins against the official repository for updates. **(Requires v2.2.0+)**",
+    "description": "Checks installed plugins against the official repository for updates.",
     "tags": [
       "Utility",
       "System"
@@ -693,7 +693,7 @@
     "version": "2026.01.04",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "A table-based editor for atom coordinates and symbols, supporting ghost atoms.",
+    "description": "A table-based editor for atom coordinates and symbols, supporting ghost atoms, adding and deleting atoms.",
     "tags": [
       "Editor",
       "Utility"
