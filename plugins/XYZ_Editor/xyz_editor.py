@@ -145,9 +145,15 @@ class XYZEditorWindow(QWidget):
             # Atomic Symbol handling
             symbol = atom.GetSymbol()
             if atom.GetAtomicNum() == 0:
-                # Check for custom label property first
-                if atom.HasProp("dummyLabel"):
-                    symbol = atom.GetProp("dummyLabel")
+                # Check for custom label property first (our new standard)
+                if atom.HasProp("custom_symbol"):
+                    symbol = atom.GetProp("custom_symbol")
+                # Fallback to dummyLabel if custom_symbol missing (legacy/other plugins)
+                elif atom.HasProp("dummyLabel"):
+                    val = atom.GetProp("dummyLabel")
+                    # If it's the safe proxy "X", ignore it? No, might be legacy "X".
+                    # We trust it if custom_symbol is not set.
+                    symbol = val
                 elif symbol == '*': 
                     symbol = 'X' 
 
@@ -308,7 +314,10 @@ class XYZEditorWindow(QWidget):
                 except RuntimeError:
                     # Unknown symbol -> Treat as Ghost/Dummy Atom
                     atom = Chem.Atom(0)
-                    atom.SetProp("dummyLabel", symbol) # Store the custom label (e.g. "Bq")
+                    atom.SetProp("custom_symbol", symbol) # Store true label for export/editor
+                    # Set dummyLabel to something safe for 3D viewer (avoid "Bq" -> crash)
+                    # We use "*" which has AtomicNum 0, avoiding the "Element not found" crash.
+                    atom.SetProp("dummyLabel", "*")
 
                 new_idx = new_rw_mol.AddAtom(atom)
                 atom_coords.append(Point3D(x, y, z))
@@ -382,7 +391,12 @@ def initialize(context):
             
         custom_labels = {}
         for atom in mol.GetAtoms():
-            if atom.HasProp("dummyLabel"):
+            if atom.HasProp("custom_symbol"):
+                custom_labels[atom.GetIdx()] = atom.GetProp("custom_symbol")
+            elif atom.HasProp("dummyLabel"):
+                # If only dummyLabel exists (legacy), save it.
+                # But check if it's our safe proxy "X" which we might not want as the "name"?
+                # Actually, if custom_symbol is missing, dummyLabel IS the name.
                 custom_labels[atom.GetIdx()] = atom.GetProp("dummyLabel")
             
         return {"custom_labels": custom_labels}
@@ -400,7 +414,9 @@ def initialize(context):
                     idx = int(idx_str)
                     if idx < mol.GetNumAtoms():
                         atom = mol.GetAtomWithIdx(idx)
-                        atom.SetProp("dummyLabel", label)
+                        atom.SetProp("custom_symbol", label)
+                        # Also set safe proxy for 3D viewer
+                        atom.SetProp("dummyLabel", "*")
                 except:
                     pass
 
