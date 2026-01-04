@@ -32,6 +32,37 @@ def initialize(context):
     context.add_menu_action("My Plugin/Action", my_callback)
 ```
 
+## 2.1 Folder Plugins (Packages)
+
+For larger plugins, you can organize your code into a folder (a Python package) instead of a single `.py` file.
+
+**Structure:**
+```text
+plugins/
+  └── MyComplexPlugin/      <-- Folder Name
+       ├── __init__.py      <-- Entry point & Metadata (REQUIRED)
+       ├── utils.py         <-- Other modules
+       └── assets/          <-- Images, data files
+            └── icon.png
+```
+
+**Requirements:**
+1.  **`__init__.py` is mandatory**: The folder MUST contain an `__init__.py` file to be recognized as a single plugin.
+2.  **Metadata & Entry Point**: Place your `PLUGIN_NAME`, `PLUGIN_VERSION`, and the `initialize(context)` function inside `__init__.py`.
+3.  **Relative Imports**: You can import other modules in your folder using standard relative imports (e.g., `from .utils import my_helper`).
+
+**Example `__init__.py`:**
+```python
+# __init__.py
+from .utils import helper_function
+
+PLUGIN_NAME = "My Complex Plugin"
+PLUGIN_VERSION = "1.0"
+
+def initialize(context):
+    helper_function(context)
+```
+
 ---
 
 ## 3. The PluginContext API
