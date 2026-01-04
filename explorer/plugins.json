@@ -736,7 +736,7 @@
       "Folder"
     ],
     "dependencies": [],
-    "downloadUrl": "Hello_World_Folder_Plugin/HelloWorldFolderPlugin.zip",
+    "downloadUrl": "../plugins/Hello_World_Folder_Plugin/HelloWorldFolderPlugin.zip",
     "lastUpdated": "2026-01-04"
   }
 ]
