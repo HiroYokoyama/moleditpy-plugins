@@ -94,9 +94,11 @@ To install a plugin:
     -   **macOS/Linux**: `~/.moleditpy/plugins`  
     *(If the directory does not exist, create it manually or run "Open Plugin Directory" in MoleditPy application once to generate it.)*
 
-2.  Copy the desired `.py` file (e.g., `ms_spectrum.py`) from this repository into that `plugins` folder.
+2.  **Copy the plugin files**:
+    *   **Single File Plugin**: Copy the `.py` file (e.g., `ms_spectrum.py`) into the `plugins` folder.
+    *   **Folder Plugin**: Copy the entire plugin folder (containing `__init__.py`) into the `plugins` folder.
 
-3.  Restart MoleditPy. The new plugin will appear in the "Plugins" menu.
+3.  Restart MoleditPy or use **"Reload Plugins"** feature. The new plugin will be automatically loaded.
 
 ## Development
 
@@ -116,6 +118,9 @@ def initialize(context):
     context.add_menu_action("My Plugin/Say Hello", lambda: print("Hello!"))
 ```
 
+### Folder Plugins
+For complex plugins, you can create a folder containing an `__init__.py` file instead of a single script. MoleditPy treats the folder as a single plugin package.
+
 ### Capabilities
 
 The new API allows plugins to:
@@ -126,21 +131,6 @@ The new API allows plugins to:
 *   Integrate **Analysis Tools** and persist data in **Project Files**.
 
 For full documentation and examples, please refer to the [PLUGIN_DEVELOPMENT_MANUAL.md](PLUGIN_DEVELOPMENT_MANUAL.md).
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
