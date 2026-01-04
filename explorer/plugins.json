@@ -725,9 +725,9 @@
   },
   {
     "id": "hello_world_folder",
-    "visible": true,
+    "visible": false,
     "name": "Hello World Folder Plugin",
-    "version": "2026.01.04",
+    "version": "2026.01.05",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A simple hello world plugin distributed as a zip.",
@@ -737,6 +737,6 @@
     ],
     "dependencies": [],
     "downloadUrl": "../plugins/Hello_World_Folder_Plugin/HelloWorldFolderPlugin.zip",
-    "lastUpdated": "2026-01-04"
+    "lastUpdated": "2026-01-05"
   }
 ]
