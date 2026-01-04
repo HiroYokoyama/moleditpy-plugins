@@ -19,9 +19,12 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QDesktopServices, QColor, QIcon
 
+import shutil
+import tempfile
+
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.01.04"
+PLUGIN_VERSION = "2026.01.05"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Checks for updates, installs new plugins, and allows manual reinstallation."
 
@@ -404,6 +407,7 @@ class PluginInstallerWindow(QDialog):
             else:
                 self.table.setItem(row, 4, QTableWidgetItem(""))
 
+
     def on_update_clicked(self):
         btn = self.sender()
         if not btn: return
@@ -412,13 +416,14 @@ class PluginInstallerWindow(QDialog):
         download_url = btn.property("download_url")
         target_file = btn.property("target_file")
         
-        if not download_url or not target_file:
-            QMessageBox.warning(self, "Error", "Cannot update: Missing URL or file path.")
+        if not download_url:
+            QMessageBox.warning(self, "Error", "Cannot update: Missing download URL.")
             return
 
         # Confirm
-        ret = QMessageBox.question(self, "Update Plugin", 
-                                   f"Update '{plugin_name}'?\nThis will overwrite the local file.",
+        action_verb = "Update" if target_file else "Install"
+        ret = QMessageBox.question(self, f"{action_verb} Plugin", 
+                                   f"{action_verb} '{plugin_name}'?\nThis will download and install the plugin.",
                                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if ret != QMessageBox.StandardButton.Yes:
             return
@@ -428,32 +433,72 @@ class PluginInstallerWindow(QDialog):
         if not download_url.startswith("http"):
             # Construct absolute URL relative to plugins.json location
             base_url = REMOTE_JSON_URL.rsplit('/', 1)[0]
-            # Handle ../ parent traversal if needed, but urllib.parse.urljoin is best
             from urllib.parse import urljoin
             final_url = urljoin(base_url + "/", download_url)
 
         print(f"Downloading update from: {final_url}")
         
-        # Download and Overwrite
+        # Download to Temp File
         try:
-            # Ensure target directory exists
-            target_dir = os.path.dirname(target_file)
-            if not os.path.exists(target_dir):
-                os.makedirs(target_dir, exist_ok=True)
+            # Determine extension
+            ext = ".py"
+            if final_url.lower().endswith('.zip'):
+                ext = ".zip"
+            elif final_url.lower().endswith('.py'):
+                ext = ".py"
+            
+            with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
+                temp_path = tmp.name
                 
-            with urllib.request.urlopen(final_url, timeout=10) as response:
+            with urllib.request.urlopen(final_url, timeout=15) as response:
                 if response.status == 200:
                     content = response.read()
-                    with open(target_file, 'wb') as f:
+                    with open(temp_path, 'wb') as f:
                         f.write(content)
                     
-                    QMessageBox.information(self, "Success", f"Updated '{plugin_name}'.\nReloading plugins...")
-                    
-                    # Reload plugins
-                    self.main_window.plugin_manager.discover_plugins(self.main_window)
-                    # Refresh our list
-                    self.check_updates()
-                    
+                    # Install using Manager
+                    try:
+                        self.main_window.plugin_manager.install_plugin(temp_path)
+                        
+                        # Post-Install Cleanup (Transitions)
+                        if target_file and os.path.exists(target_file):
+                            new_is_zip = ext == ".zip"
+                            old_is_py = target_file.lower().endswith(".py")
+                            old_is_init = os.path.basename(target_file) == "__init__.py"
+                            
+                            # Case 1: Transition from Single File (.py) to Package (.zip)
+                            # We want to remove the old .py file so it doesn't conflict with the new folder
+                            if new_is_zip and old_is_py and not old_is_init:
+                                try:
+                                    os.remove(target_file)
+                                    print(f"Removed legacy plugin file: {target_file}")
+                                except Exception as e:
+                                    print(f"Failed to remove legacy file: {e}")
+                                    
+                            # Case 2: Transition from Package (Folder) to Single File (.py)
+                            # We want to remove the old folder
+                            elif not new_is_zip and old_is_init:
+                                try:
+                                    parent_dir = os.path.dirname(target_file)
+                                    shutil.rmtree(parent_dir)
+                                    print(f"Removed legacy plugin package: {parent_dir}")
+                                except Exception as e:
+                                    print(f"Failed to remove legacy package: {e}")
+                                    
+                        QMessageBox.information(self, "Success", f"Successfully installed/updated '{plugin_name}'.\nReloading plugins...")
+                        
+                        # Reload plugins
+                        self.main_window.plugin_manager.discover_plugins(self.main_window)
+                        # Refresh our list
+                        self.check_updates()
+                        
+                    except Exception as e:
+                        QMessageBox.warning(self, "Installation Error", f"Failed to install plugin:\n{e}")
+                    finally:
+                        # Clean up temp file
+                        if os.path.exists(temp_path):
+                            os.remove(temp_path)
+
                 else:
                     QMessageBox.warning(self, "Error", f"Download failed with status: {response.status}")
         except Exception as e:
