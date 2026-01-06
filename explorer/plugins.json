@@ -434,7 +434,7 @@
     "id": "plugin_installer",
     "visible": true,
     "name": "Plugin Installer",
-    "version": "2026.01.05",
+    "version": "2026.01.06",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Checks for updates, installs new plugins, and allows manual reinstallation.",
@@ -446,7 +446,7 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Plugin_Installer/plugin_installer.py",
-    "lastUpdated": "2026-01-05"
+    "lastUpdated": "2026-01-06"
   },
   {
     "id": "chat_with_molecule",
@@ -739,4 +739,5 @@
     "downloadUrl": "../plugins/Hello_World_Folder_Plugin/HelloWorldFolderPlugin.zip",
     "lastUpdated": "2026-01-05"
   }
+
 ]
