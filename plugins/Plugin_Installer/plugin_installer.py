@@ -24,7 +24,7 @@ import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.01.05"
+PLUGIN_VERSION = "2026.01.06"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Checks for updates, installs new plugins, and allows manual reinstallation."
 
@@ -440,66 +440,114 @@ class PluginInstallerWindow(QDialog):
         
         # Download to Temp File
         try:
-            # Determine extension
-            ext = ".py"
-            if final_url.lower().endswith('.zip'):
-                ext = ".zip"
-            elif final_url.lower().endswith('.py'):
-                ext = ".py"
+            # Create a temporary directory to hold the download with its original name
+            temp_dir = tempfile.mkdtemp()
             
-            with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
-                temp_path = tmp.name
+            try:
+                # 1. Determine filename
+                filename = None
                 
-            with urllib.request.urlopen(final_url, timeout=15) as response:
-                if response.status == 200:
-                    content = response.read()
-                    with open(temp_path, 'wb') as f:
-                        f.write(content)
-                    
-                    # Install using Manager
-                    try:
-                        self.main_window.plugin_manager.install_plugin(temp_path)
+                # If we are updating an existing single-file plugin, FORCE the usage of the existing filename
+                # so that install_plugin overwrites it exactly.
+                if target_file and os.path.exists(target_file):
+                    file_name_existing = os.path.basename(target_file)
+                    # Check if it's a standard .py script (not a package __init__.py)
+                    if file_name_existing != "__init__.py" and file_name_existing.endswith(".py"):
+                        # If the update is also a .py file
+                        if not final_url.lower().endswith(".zip"):
+                            filename = file_name_existing
+                
+                # If valid filename not set by existing target, derive from URL
+                if not filename:
+                    path = urllib.parse.urlparse(final_url).path
+                    filename = os.path.basename(path)
+                
+                if not filename:
+                    # Fallback
+                    if final_url.lower().endswith('.zip'):
+                        filename = "plugin_update.zip"
+                    else:
+                        filename = "plugin_update.py"
+                
+                # Full path for the downloaded file
+                download_path = os.path.join(temp_dir, filename)
+                
+                # Download
+                with urllib.request.urlopen(final_url, timeout=15) as response:
+                    if response.status == 200:
+                        content = response.read()
+                        with open(download_path, 'wb') as f:
+                            f.write(content)
                         
-                        # Post-Install Cleanup (Transitions)
-                        if target_file and os.path.exists(target_file):
-                            new_is_zip = ext == ".zip"
-                            old_is_py = target_file.lower().endswith(".py")
-                            old_is_init = os.path.basename(target_file) == "__init__.py"
+                        # Install / Update Logic
+                        try:
+                            # Strict Update Mode:
+                            # If we are updating an existing .py file (and the update is .py),
+                            # we manually overwrite the TARGET file to preserve its location (e.g. inside a subfolder).
+                            # We avoid using plugin_manager.install_plugin() here because it might force-install to the root plugins dir.
+                            did_manual_overwrite = False
                             
-                            # Case 1: Transition from Single File (.py) to Package (.zip)
-                            # We want to remove the old .py file so it doesn't conflict with the new folder
-                            if new_is_zip and old_is_py and not old_is_init:
-                                try:
-                                    os.remove(target_file)
-                                    print(f"Removed legacy plugin file: {target_file}")
-                                except Exception as e:
-                                    print(f"Failed to remove legacy file: {e}")
+                            if target_file and os.path.exists(target_file):
+                                file_name_existing = os.path.basename(target_file)
+                                # Check: Existing is .py (not __init__), Update is .py
+                                if (file_name_existing != "__init__.py" and 
+                                    file_name_existing.endswith(".py") and 
+                                    not final_url.lower().endswith(".zip")):
                                     
-                            # Case 2: Transition from Package (Folder) to Single File (.py)
-                            # We want to remove the old folder
-                            elif not new_is_zip and old_is_init:
-                                try:
-                                    parent_dir = os.path.dirname(target_file)
-                                    shutil.rmtree(parent_dir)
-                                    print(f"Removed legacy plugin package: {parent_dir}")
-                                except Exception as e:
-                                    print(f"Failed to remove legacy package: {e}")
+                                    try:
+                                        print(f"Overwriting existing plugin file: {target_file}")
+                                        shutil.copy2(download_path, target_file)
+                                        did_manual_overwrite = True
+                                    except Exception as e:
+                                        print(f"Manual overwrite failed: {e}. Falling back to manager.")
+                            
+                            if did_manual_overwrite:
+                                # If we manually overwrote, we just need to refresh
+                                QMessageBox.information(self, "Success", f"Successfully updated '{plugin_name}'.\nReloading plugins...")
+                            else:
+                                # Standard Install (New, ZIP, or Transition)
+                                self.main_window.plugin_manager.install_plugin(download_path)
+                                
+                                # Post-Install Cleanup (Transitions)
+                                if target_file and os.path.exists(target_file):
+                                    _, new_ext = os.path.splitext(filename)
+                                    new_is_zip = new_ext.lower() == ".zip"
+                                    old_is_py = target_file.lower().endswith(".py")
+                                    old_is_init = os.path.basename(target_file) == "__init__.py"
                                     
-                        QMessageBox.information(self, "Success", f"Successfully installed/updated '{plugin_name}'.\nReloading plugins...")
-                        
-                        # Reload plugins
-                        self.main_window.plugin_manager.discover_plugins(self.main_window)
-                        # Refresh our list
-                        self.check_updates()
-                        
-                    except Exception as e:
-                        QMessageBox.warning(self, "Installation Error", f"Failed to install plugin:\n{e}")
-                    finally:
-                        # Clean up temp file
-                        if os.path.exists(temp_path):
-                            os.remove(temp_path)
+                                    # Case 1: Transition from Single File (.py) to Package (.zip)
+                                    if new_is_zip and old_is_py and not old_is_init:
+                                        try:
+                                            os.remove(target_file)
+                                        except: pass
+                                            
+                                    # Case 2: Transition from Package (Folder) to Single File (.py)
+                                    elif not new_is_zip and old_is_init:
+                                        try:
+                                            extracted_py = os.path.join(os.path.dirname(os.path.dirname(target_file)), filename)
+                                            # If install_plugin extracted a single file, it's likely at root/plugins/filename
+                                            # We need to be careful not to delete if things are messy, but standard logic applies:
+                                            parent_dir = os.path.dirname(target_file)
+                                            shutil.rmtree(parent_dir)
+                                        except: pass
+                                        
+                                QMessageBox.information(self, "Success", f"Successfully installed/updated '{plugin_name}'.\nReloading plugins...")
+                            
+                            # Reload plugins
+                            self.main_window.plugin_manager.discover_plugins(self.main_window)
+                            # Refresh our list
+                            self.check_updates()
+                            
+                        except Exception as e:
+                            QMessageBox.warning(self, "Installation Error", f"Failed to install plugin:\n{e}")
 
-                else:
-                    QMessageBox.warning(self, "Error", f"Download failed with status: {response.status}")
+                    else:
+                        QMessageBox.warning(self, "Error", f"Download failed with status: {response.status}")
+            
+            finally:
+                # Clean up temp directory
+                if os.path.exists(temp_dir):
+                    shutil.rmtree(temp_dir)
+                    
         except Exception as e:
              QMessageBox.warning(self, "Update Error", f"Failed to update plugin:\n{e}")
