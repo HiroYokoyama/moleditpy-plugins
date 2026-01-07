@@ -20,8 +20,11 @@ class MSSpectrumDialog(QDialog):
     def __init__(self, mol, parent=None):
         super().__init__(parent)
         self.setWindowTitle("MS Spectrum Simulation Neo")
-        self.resize(500, 550) 
+        self.resize(500, 700) 
         self.mol = mol
+        
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.check_update)
         
         # Clean white look
         self.setStyleSheet("""
@@ -79,12 +82,25 @@ class MSSpectrumDialog(QDialog):
         # 4. Sync
         self.sync_check = QCheckBox("Sync with Main Window (0.5s)")
         self.sync_check.stateChanged.connect(self.toggle_sync)
+        self.sync_check.setChecked(True)
         settings_layout.addRow("Sync:", self.sync_check)
 
         layout.addWidget(settings_group)
 
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.check_update)
+        # --- Info Labels ---
+        info_group = QGroupBox("Mass Information")
+        info_layout = QVBoxLayout(info_group)
+        self.lbl_mw = QLabel("Neutral Avg Mass: -")
+        self.lbl_em = QLabel("Neutral Exact Mass: -")
+        self.lbl_ion = QLabel("Monoisotopic m/z: -")
+        info_layout.addWidget(self.lbl_mw)
+        info_layout.addWidget(self.lbl_em)
+        info_layout.addWidget(self.lbl_ion)
+        layout.addWidget(info_group)
+
+        # --- Spectrum Display Group ---
+        spectrum_group = QGroupBox("Spectrum Display")
+        spectrum_layout = QVBoxLayout(spectrum_group)
 
         # Gaussian Options
         self.gauss_check = QCheckBox("Gaussian Broadening")
@@ -105,17 +121,7 @@ class MSSpectrumDialog(QDialog):
         gauss_layout.addWidget(QLabel("Width:"))
         gauss_layout.addWidget(self.width_spin)
         gauss_layout.addStretch()
-        layout.addLayout(gauss_layout)
-        
-        # --- Info Labels ---
-        info_layout = QHBoxLayout()
-        self.lbl_mw = QLabel("Neutral Avg Mass: -")
-        self.lbl_em = QLabel("Neutral Exact Mass: -")
-        self.lbl_ion = QLabel("Monoisotopic m/z: -")
-        info_layout.addWidget(self.lbl_mw)
-        info_layout.addWidget(self.lbl_em)
-        info_layout.addWidget(self.lbl_ion)
-        layout.addLayout(info_layout)
+        spectrum_layout.addLayout(gauss_layout)
         
         # --- Plot ---
         plot_container = QWidget()
@@ -125,7 +131,9 @@ class MSSpectrumDialog(QDialog):
         
         self.plot_widget = HistogramWidget([]) # Init empty
         plot_layout.addWidget(self.plot_widget)
-        layout.addWidget(plot_container, 1)
+        spectrum_layout.addWidget(plot_container, 1)
+        
+        layout.addWidget(spectrum_group, 1)
 
         # Export Button
         btn_layout = QHBoxLayout()
@@ -141,8 +149,8 @@ class MSSpectrumDialog(QDialog):
         layout.addLayout(btn_layout)
 
         # Signals
-        # Signals
         self.formula_input.textChanged.connect(lambda: self.recalc_peaks(reset=True))
+        self.formula_input.textEdited.connect(lambda: self.sync_check.setChecked(False))
         self.adduct_combo.currentIndexChanged.connect(lambda: self.recalc_peaks(reset=True))
         self.charge_spin.valueChanged.connect(lambda: self.recalc_peaks(reset=True))
         
