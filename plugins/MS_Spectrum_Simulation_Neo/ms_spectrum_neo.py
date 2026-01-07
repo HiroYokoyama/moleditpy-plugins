@@ -3,7 +3,7 @@ import sys
 import math
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QWidget, QMessageBox, QPushButton, QFileDialog, QCheckBox, QDoubleSpinBox
 from PyQt6.QtGui import QPainter, QPen, QBrush, QColor, QFont, QPalette, QLinearGradient, QGradient
-from PyQt6.QtCore import Qt, QRectF, QPointF
+from PyQt6.QtCore import Qt, QRectF, QPointF, QTimer
 
 try:
     from rdkit import Chem
@@ -11,7 +11,7 @@ try:
 except ImportError:
     Chem = None
 
-__version__="2025.12.25"
+__version__="2026.01.07"
 __author__="HiroYokoyama"
 
 PLUGIN_NAME = "MS Spectrum Simulation Neo"
@@ -75,8 +75,16 @@ class MSSpectrumDialog(QDialog):
         self.adduct_combo = QComboBox()
         self.update_adduct_options() # Populate initial
         settings_layout.addRow("Adduct:", self.adduct_combo)
+        
+        # 4. Sync
+        self.sync_check = QCheckBox("Sync with Main Window (0.5s)")
+        self.sync_check.stateChanged.connect(self.toggle_sync)
+        settings_layout.addRow("Sync:", self.sync_check)
 
         layout.addWidget(settings_group)
+
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.check_update)
 
         # Gaussian Options
         self.gauss_check = QCheckBox("Gaussian Broadening")
@@ -144,6 +152,28 @@ class MSSpectrumDialog(QDialog):
         
         # Initial Calc
         self.recalc_peaks(reset=True)
+
+    def toggle_sync(self, state):
+        if state == 2: # Checked
+            self.timer.start(500)
+            self.check_update()
+        else:
+            self.timer.stop()
+
+    def check_update(self):
+        parent = self.parent()
+        if not parent or not hasattr(parent, 'current_mol') or not parent.current_mol:
+            return
+
+        try:
+            # Generate formula from current main window molecule
+            current_formula = Chem.rdMolDescriptors.CalcMolFormula(parent.current_mol)
+            
+            # If different from text box, update
+            if self.formula_input.text() != current_formula:
+                 self.formula_input.setText(current_formula)
+        except:
+            pass
 
     def export_image(self):
         filename, _ = QFileDialog.getSaveFileName(self, "Save Spectrum Image", "spectrum.png", "Images (*.png *.jpg)")
@@ -912,8 +942,24 @@ def run(mw):
         QMessageBox.critical(mw, "MS Plugin", "RDKit is not available.")
         return
 
+    # Singleton / Modeless check
+    if hasattr(mw, '_ms_spectrum_dialog') and mw._ms_spectrum_dialog is not None:
+        try:
+            mw._ms_spectrum_dialog.show()
+            mw._ms_spectrum_dialog.raise_()
+            mw._ms_spectrum_dialog.activateWindow()
+            return
+        except RuntimeError:
+            # Wrapped C/C++ object has been deleted
+            mw._ms_spectrum_dialog = None
+
     # Allow launching without a molecule (start empty)
     dialog = MSSpectrumDialog(mw.current_mol, mw)
-    dialog.exec()
+    mw._ms_spectrum_dialog = dialog # Keep reference
+    dialog.show()
+
+def initialize(context):
+    context.add_analysis_tool("MS Spectrum", lambda: run(context.get_main_window()))
+
 
 # initialize removed as it only registered the analysis tool
