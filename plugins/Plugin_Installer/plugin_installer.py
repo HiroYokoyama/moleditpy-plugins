@@ -285,67 +285,6 @@ class PluginInstallerWindow(QDialog):
         except ImportError:
             # Fallback for Linux/other environments: Try adding main script dir to sys.path
             try:
-                sys.path.append(os.path.dirname(os.path.abspath(sys.argv[0])))
-                from moleditpy.modules.constants import VERSION as APP_VERSION
-            except ImportError:
-                APP_VERSION = "Unknown"
-
-        # Check PyPI for latest version
-        self.latest_app_version = "Checking..."
-        
-        info_layout = QHBoxLayout()
-        
-        self.lbl_current_version = QLabel(f"<b>MoleditPy Version:</b> {APP_VERSION}")
-        self.lbl_current_version.setStyleSheet("font-size: 14px;")
-        info_layout.addWidget(self.lbl_current_version)
-        
-        info_layout.addSpacing(20)
-        
-        self.lbl_latest_version = QLabel(f"<b>Latest (PyPI):</b> {self.latest_app_version}")
-        self.lbl_latest_version.setStyleSheet("font-size: 14px; color: gray;")
-        info_layout.addWidget(self.lbl_latest_version)
-        
-        # Upgrade Button (Hidden by default)
-    def copy_upgrade_command(self):
-        package_name = "moleditpy"
-        try:
-            # Attempt to find the distribution name (PyPI package name) 
-            # that provides the 'moleditpy' module.
-            # 'packages_distributions' is new in Python 3.10
-            try:
-                from importlib.metadata import packages_distributions
-                dists = packages_distributions()
-                if "moleditpy" in dists:
-                    # returns a list of dist names, pick the first one
-                    package_name = dists["moleditpy"][0]
-            except ImportError:
-                # Fallback for Python < 3.10
-                import importlib.metadata
-                for dist in importlib.metadata.distributions():
-                    try:
-                        toplevels = (dist.read_text('top_level.txt') or '').split()
-                        if "moleditpy" in toplevels:
-                            package_name = dist.metadata['Name']
-                            break
-                    except Exception:
-                        pass
-        except Exception as e:
-            print(f"Error detecting package name: {e}")
-
-        cmd = f"pip install --upgrade {package_name}"
-        QApplication.clipboard().setText(cmd)
-        QMessageBox.information(self, "Upgrade Command", 
-                                f"Command copied to clipboard:\n\n{cmd}\n\nPlease close MoleditPy and run this command in your terminal.")
-
-    def init_ui(self):
-        layout = QVBoxLayout(self)
-
-        # Header Info
-        try:
-            from moleditpy.modules.constants import VERSION as APP_VERSION
-        except ImportError:
-            # Fallback for Linux/other environments: Try adding main script dir to sys.path
-            try:
                 import sys
                 import os
                 sys.path.append(os.path.dirname(os.path.abspath(sys.argv[0])))
@@ -695,6 +634,38 @@ class PluginInstallerWindow(QDialog):
         # Reload plugins on close
         self.main_window.plugin_manager.discover_plugins(self.main_window)
         self.accept()
+
+    def copy_upgrade_command(self):
+        package_name = "moleditpy"
+        try:
+            # Attempt to find the distribution name (PyPI package name) 
+            # that provides the 'moleditpy' module.
+            # 'packages_distributions' is new in Python 3.10
+            try:
+                from importlib.metadata import packages_distributions
+                dists = packages_distributions()
+                if "moleditpy" in dists:
+                    # returns a list of dist names, pick the first one
+                    package_name = dists["moleditpy"][0]
+            except ImportError:
+                # Fallback for Python < 3.10
+                import importlib.metadata
+                for dist in importlib.metadata.distributions():
+                    try:
+                        toplevels = (dist.read_text('top_level.txt') or '').split()
+                        if "moleditpy" in toplevels:
+                            package_name = dist.metadata['Name']
+                            break
+                    except Exception:
+                        pass
+        except Exception as e:
+            print(f"Error detecting package name: {e}")
+
+        cmd = f"pip install --upgrade {package_name}"
+        QApplication.clipboard().setText(cmd)
+        QMessageBox.information(self, "Upgrade Command", 
+                                f"Command copied to clipboard:\n\n{cmd}\n\nPlease close MoleditPy and run this command in your terminal.")
+
 
     def on_update_clicked(self):
         btn = self.sender()
