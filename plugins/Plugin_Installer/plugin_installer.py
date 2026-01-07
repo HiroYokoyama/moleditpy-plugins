@@ -24,7 +24,7 @@ import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.01.06"
+PLUGIN_VERSION = "2026.01.07"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Checks for updates, installs new plugins, and allows manual reinstallation."
 
@@ -126,6 +126,138 @@ def run(main_window):
     dialog = PluginInstallerWindow(main_window)
     dialog.exec()
 
+class PluginDetailsDialog(QDialog):
+    def __init__(self, parent, name, author, version, description, dependencies, local_info, target_file):
+        super().__init__(parent)
+        self.setWindowTitle(f"{name} - Details")
+        self.resize(400, 350)
+        self.parent_installer = parent # Reference to PluginInstallerWindow
+        self.plugin_name = name
+        self.target_file = target_file
+        
+        layout = QVBoxLayout(self)
+        
+        # Details
+        lbl_name = QLabel(f"<h2>{name}</h2>")
+        lbl_author = QLabel(f"<b>Author:</b> {author}")
+        lbl_ver = QLabel(f"<b>Version:</b> {version}")
+        
+        lbl_desc = QLabel(f"<b>Description:</b><br>{description}")
+        lbl_desc.setWordWrap(True)
+        
+        layout.addWidget(lbl_name)
+        layout.addWidget(lbl_author)
+        layout.addWidget(lbl_ver)
+        layout.addSpacing(10)
+        layout.addWidget(lbl_desc)
+        
+        if dependencies:
+            layout.addSpacing(10)
+            lbl_dep_header = QLabel("<b>Dependencies:</b>")
+            layout.addWidget(lbl_dep_header)
+            
+            import importlib.metadata
+            
+            installed_deps = []
+            missing_deps = []
+            
+            for dep in dependencies:
+                try:
+                    importlib.metadata.distribution(dep)
+                    installed_deps.append(dep)
+                except:
+                    missing_deps.append(dep)
+            
+            # Construct display text
+            dep_text_parts = []
+            if installed_deps:
+                text = ", ".join(installed_deps)
+                dep_text_parts.append(f"<span style='color:green'>{text} (Installed)</span>")
+            
+            if missing_deps:
+                text = ", ".join(missing_deps)
+                dep_text_parts.append(f"<span style='color:red'>{text} (Missing)</span>")
+            
+            full_text = "<br>".join(dep_text_parts)
+            lbl_deps = QLabel(full_text)
+            lbl_deps.setWordWrap(True)
+            layout.addWidget(lbl_deps)
+
+            # Single Install Button for ALL missing
+            if missing_deps:
+                self.missing_deps = missing_deps # Store for button
+                btn_install_all = QPushButton(f"Copy install command ({len(missing_deps)})")
+                btn_install_all.setStyleSheet("color: blue;")
+                btn_install_all.clicked.connect(self.copy_install_all_command)
+                layout.addWidget(btn_install_all)
+
+        layout.addStretch()
+        
+        # Buttons
+        btn_layout = QHBoxLayout()
+        
+        # Delete Button (Only if installed)
+        if local_info:
+            btn_delete = QPushButton("Delete Plugin")
+            btn_delete.setStyleSheet("color: red;")
+            btn_delete.clicked.connect(self.on_delete)
+            btn_layout.addWidget(btn_delete)
+            
+        btn_layout.addStretch()
+        
+        btn_close = QPushButton("Close")
+        btn_close.clicked.connect(self.accept)
+        btn_close.setDefault(True)
+        btn_close.setFocus()
+        btn_layout.addWidget(btn_close)
+        
+        layout.addLayout(btn_layout)
+
+    def copy_install_all_command(self):
+        if not hasattr(self, 'missing_deps') or not self.missing_deps:
+            return
+            
+        deps_str = " ".join(self.missing_deps)
+        cmd = f"pip install {deps_str}"
+        QApplication.clipboard().setText(cmd)
+        QMessageBox.information(self, "Install Command", 
+                                f"Command copied to clipboard:\n\n{cmd}\n\nPlease close MoleditPy and run this terminal command.")
+
+    def on_delete(self):
+        # We can reuse the logic in the parent window, but we need to trigger it carefully
+        # Or we can just Implement simple delete here using parent's method logic
+        
+        # Confirmation
+        ret = QMessageBox.question(self, "Delete Plugin", 
+                                   f"Are you sure you want to delete '{self.plugin_name}'?\nThis cannot be undone.",
+                                   QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if ret != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            # Determine what to delete
+            if self.target_file and os.path.exists(self.target_file):
+                if os.path.basename(self.target_file) == "__init__.py":
+                    dir_to_delete = os.path.dirname(self.target_file)
+                    shutil.rmtree(dir_to_delete)
+                else:
+                    os.remove(self.target_file)
+            else:
+                 QMessageBox.warning(self, "Error", "Plugin file not found.")
+                 return
+
+            QMessageBox.information(self, "Success", f"Deleted '{self.plugin_name}'.")
+            
+            # Close details dialog
+            self.accept()
+            
+            # Refresh parent table
+            self.parent_installer.main_window.plugin_manager.discover_plugins(self.parent_installer.main_window)
+            self.parent_installer.check_updates()
+            
+        except Exception as e:
+             QMessageBox.warning(self, "Delete Error", f"Failed to delete plugin:\n{e}")
+
 class PluginInstallerWindow(QDialog):
     def __init__(self, main_window, auto_check=False):
         super().__init__(main_window)
@@ -151,7 +283,12 @@ class PluginInstallerWindow(QDialog):
         try:
             from moleditpy.modules.constants import VERSION as APP_VERSION
         except ImportError:
-            APP_VERSION = "Unknown"
+            # Fallback for Linux/other environments: Try adding main script dir to sys.path
+            try:
+                sys.path.append(os.path.dirname(os.path.abspath(sys.argv[0])))
+                from moleditpy.modules.constants import VERSION as APP_VERSION
+            except ImportError:
+                APP_VERSION = "Unknown"
 
         # Check PyPI for latest version
         self.latest_app_version = "Checking..."
@@ -168,6 +305,76 @@ class PluginInstallerWindow(QDialog):
         self.lbl_latest_version.setStyleSheet("font-size: 14px; color: gray;")
         info_layout.addWidget(self.lbl_latest_version)
         
+        # Upgrade Button (Hidden by default)
+    def copy_upgrade_command(self):
+        package_name = "moleditpy"
+        try:
+            # Attempt to find the distribution name (PyPI package name) 
+            # that provides the 'moleditpy' module.
+            # 'packages_distributions' is new in Python 3.10
+            try:
+                from importlib.metadata import packages_distributions
+                dists = packages_distributions()
+                if "moleditpy" in dists:
+                    # returns a list of dist names, pick the first one
+                    package_name = dists["moleditpy"][0]
+            except ImportError:
+                # Fallback for Python < 3.10
+                import importlib.metadata
+                for dist in importlib.metadata.distributions():
+                    try:
+                        toplevels = (dist.read_text('top_level.txt') or '').split()
+                        if "moleditpy" in toplevels:
+                            package_name = dist.metadata['Name']
+                            break
+                    except Exception:
+                        pass
+        except Exception as e:
+            print(f"Error detecting package name: {e}")
+
+        cmd = f"pip install --upgrade {package_name}"
+        QApplication.clipboard().setText(cmd)
+        QMessageBox.information(self, "Upgrade Command", 
+                                f"Command copied to clipboard:\n\n{cmd}\n\nPlease close MoleditPy and run this command in your terminal.")
+
+    def init_ui(self):
+        layout = QVBoxLayout(self)
+
+        # Header Info
+        try:
+            from moleditpy.modules.constants import VERSION as APP_VERSION
+        except ImportError:
+            # Fallback for Linux/other environments: Try adding main script dir to sys.path
+            try:
+                import sys
+                import os
+                sys.path.append(os.path.dirname(os.path.abspath(sys.argv[0])))
+                from moleditpy.modules.constants import VERSION as APP_VERSION
+            except ImportError:
+                APP_VERSION = "Unknown"
+
+        # Check PyPI for latest version
+        self.latest_app_version = "Checking..."
+        
+        info_layout = QHBoxLayout()
+        
+        self.lbl_current_version = QLabel(f"<b>MoleditPy Version:</b> {APP_VERSION}")
+        self.lbl_current_version.setStyleSheet("font-size: 14px;")
+        info_layout.addWidget(self.lbl_current_version)
+        
+        info_layout.addSpacing(20)
+        
+        self.lbl_latest_version = QLabel(f"<b>Latest (PyPI):</b> {self.latest_app_version}")
+        self.lbl_latest_version.setStyleSheet("font-size: 14px; color: gray;")
+        info_layout.addWidget(self.lbl_latest_version)
+        
+        # Upgrade Button (Hidden by default)
+        self.btn_upgrade_app = QPushButton("Copy upgrade command")
+        self.btn_upgrade_app.setVisible(False)
+        self.btn_upgrade_app.setStyleSheet("color: blue; font-weight: bold;")
+        self.btn_upgrade_app.clicked.connect(self.copy_upgrade_command)
+        info_layout.addWidget(self.btn_upgrade_app)
+        
         info_layout.addStretch()
         layout.addLayout(info_layout)
         
@@ -178,15 +385,20 @@ class PluginInstallerWindow(QDialog):
 
         # Table
         self.table = QTableWidget()
-        self.table.setColumnCount(5) # Added "Action" column
-        self.table.setHorizontalHeaderLabels(["Plugin Name", "Local Version", "Latest Version", "Status", "Action"])
-        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents) # Action
+        self.table.setColumnCount(6) # Name, Author, Local Ver, Latest Ver, Status, Action
+        self.table.setHorizontalHeaderLabels(["Plugin Name", "Author", "Local Ver", "Latest Ver", "Status", "Action"])
+        
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)          # Name (Stretch)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)          # Author (Stretch)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents) # Local Ver
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents) # Latest Ver
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents) # Status
+        header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents) # Action
+        
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.cellDoubleClicked.connect(self.show_plugin_details)
         layout.addWidget(self.table)
         
         # Settings Checkbox
@@ -205,7 +417,7 @@ class PluginInstallerWindow(QDialog):
         btn_layout.addStretch()
         
         close_btn = QPushButton("Close")
-        close_btn.clicked.connect(self.accept)
+        close_btn.clicked.connect(self.on_close_clicked) # Changed connection
         btn_layout.addWidget(close_btn)
         
         layout.addLayout(btn_layout)
@@ -310,9 +522,10 @@ class PluginInstallerWindow(QDialog):
             remote_info = remote_map.get(name)
             local_info = installed_map.get(name)
             
-            local_ver = "Unknown"
+            local_ver = "-"
             remote_ver = "Unknown"
             status = "Unknown"
+            author = "Unknown"
             color = None
             
             is_installed = (local_info is not None)
@@ -334,9 +547,25 @@ class PluginInstallerWindow(QDialog):
 
             if remote_info:
                 remote_ver = remote_info.get('version', 'Unknown')
+                # Prioritize remote author info
+                author = remote_info.get('author', 'Unknown')
             
+            # If author still unknown, try local
+            if author == "Unknown" and is_installed:
+                author = local_info.get('author', 'Unknown')
+
             if is_installed:
                 if remote_info:
+                    if self.latest_app_version != "Checking..." and self.latest_app_version != "Unknown":
+                        try:
+                            if self.latest_app_version > APP_VERSION:
+                                self.updates_found = True
+                                self.btn_upgrade_app.setVisible(True)
+                                self.btn_upgrade_app.setText(f"Copy upgrade command (v{self.latest_app_version})")
+                            else:
+                                self.btn_upgrade_app.setVisible(False)
+                        except:
+                            pass
                     if local_ver != 'Unknown' and remote_ver != 'Unknown':
                         if remote_ver > local_ver:
                             status = "Update Available"
@@ -348,7 +577,7 @@ class PluginInstallerWindow(QDialog):
                             color = QColor("#d4edda")
                             can_update = True # Allow manual reinstall
                         else:
-                            status = "Up to date (Newer?)"
+                            status = "Newer"
                             color = QColor("#cce5ff")
                             can_update = True # Allow manual reinstall
                     else:
@@ -375,14 +604,16 @@ class PluginInstallerWindow(QDialog):
             row = self.table.rowCount()
             self.table.insertRow(row)
             
+            # Name, Author, Local Ver, Latest Ver, Status, Action
             self.table.setItem(row, 0, QTableWidgetItem(name))
-            self.table.setItem(row, 1, QTableWidgetItem(str(local_ver)))
-            self.table.setItem(row, 2, QTableWidgetItem(str(remote_ver)))
+            self.table.setItem(row, 1, QTableWidgetItem(author))
+            self.table.setItem(row, 2, QTableWidgetItem(str(local_ver)))
+            self.table.setItem(row, 3, QTableWidgetItem(str(remote_ver)))
             
             status_item = QTableWidgetItem(status)
             if color:
                 status_item.setBackground(color)
-            self.table.setItem(row, 3, status_item)
+            self.table.setItem(row, 4, status_item)
             
             # Action Button
             if remote_info and 'downloadUrl' in remote_info:
@@ -393,20 +624,77 @@ class PluginInstallerWindow(QDialog):
                     else:
                         label = "Reinstall"
                 elif can_download:
-                     label = "Download"
+                     label = "Install"
                 
                 if label:
                     btn_action = QPushButton(label)
                     btn_action.setProperty("plugin_name", name)
                     btn_action.setProperty("download_url", remote_info['downloadUrl'])
                     btn_action.setProperty("target_file", target_file)
-                    # We might need to differentiate clean install vs overwrite in message?
-                    # The on_update_clicked handles prompt.
+                    
+                    if remote_info:
+                        dependencies = remote_info.get('dependencies', [])
+                        btn_action.setProperty("dependencies", dependencies)
+                    
+                    # Store data for double click lookups if needed, or we just look up in map
                     btn_action.clicked.connect(self.on_update_clicked)
-                    self.table.setCellWidget(row, 4, btn_action)
+                    self.table.setCellWidget(row, 5, btn_action)
             else:
-                self.table.setItem(row, 4, QTableWidgetItem(""))
+                self.table.setItem(row, 5, QTableWidgetItem(""))
 
+
+
+    def show_plugin_details(self, row, col):
+        name_item = self.table.item(row, 0)
+        if not name_item: return
+        name = name_item.text()
+        
+        # Find info
+        remote_info = None
+        for entry in self.remote_data:
+            if entry.get('name') == name:
+                remote_info = entry
+                break
+        
+        # Also check local
+        local_info = None
+        for p in self.main_window.plugin_manager.plugins:
+            if p.get('name') == name:
+                local_info = p
+                break
+        
+        description = "No description available."
+        author = "Unknown"
+        version = "Unknown"
+        dependencies = []
+        target_file = None
+        
+        if remote_info:
+            description = remote_info.get('description', description)
+            author = remote_info.get('author', author)
+            version = remote_info.get('version', version)
+            dependencies = remote_info.get('dependencies', [])
+        
+        if local_info:
+            if description == "No description available.":
+                description = local_info.get('description', description)
+            if author == "Unknown":
+                author = local_info.get('author', author)
+            local_ver = local_info.get('version', 'Unknown')
+            target_file = local_info.get('filepath')
+            
+            if remote_info:
+                version = f"Installed: {local_ver}\nLatest: {version}"
+            else:
+                version = f"Installed: {local_ver}"
+
+        dialog = PluginDetailsDialog(self, name, author, version, description, dependencies, local_info, target_file)
+        dialog.exec()
+
+    def on_close_clicked(self):
+        # Reload plugins on close
+        self.main_window.plugin_manager.discover_plugins(self.main_window)
+        self.accept()
 
     def on_update_clicked(self):
         btn = self.sender()
@@ -415,13 +703,70 @@ class PluginInstallerWindow(QDialog):
         plugin_name = btn.property("plugin_name")
         download_url = btn.property("download_url")
         target_file = btn.property("target_file")
+        dependencies = btn.property("dependencies") or []
+        missing_deps = []
         
+        # Check dependencies first
+        if dependencies:
+            import importlib.metadata
+            missing_deps = []
+            for dep in dependencies:
+                try:
+                    importlib.metadata.distribution(dep)
+                except:
+                    missing_deps.append(dep)
+            
+            if missing_deps:
+                # Show Details Dialog instead of installing
+                # We need to reconstruct the arguments for show_plugin_details logic or just call it if we have row/col
+                # But we don't know the row here easily without searching.
+                # Easier to just instantiate the dialog directly since we have the data
+                
+                # Fetch full info to pass to dialog
+                remote_info = None
+                for entry in self.remote_data:
+                    if entry.get('name') == plugin_name:
+                        remote_info = entry
+                        break
+                
+                # Local info
+                local_info = None
+                for p in self.main_window.plugin_manager.plugins:
+                    if p.get('name') == plugin_name:
+                        local_info = p
+                        break
+                
+                description = remote_info.get('description', "No description available.") if remote_info else ""
+                author = remote_info.get('author', "Unknown") if remote_info else "Unknown"
+                version = remote_info.get('version', "Unknown") if remote_info else "Unknown"
+                
+                if local_info:
+                    local_ver = local_info.get('version', 'Unknown')
+                    version = f"Installed: {local_ver}\nLatest: {version}"
+                
+                # Ask user: Install anyway or View Details?
+                ret = QMessageBox.question(self, "Missing Dependencies", 
+                                    f"The following dependencies are missing: {', '.join(missing_deps)}.\n\nThe plugin may not work without them.\nDo you want to install it anyway?",
+                                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                
+                if ret == QMessageBox.StandardButton.No:
+                    # User chose NO, so show details to let them fix it
+                    dialog = PluginDetailsDialog(self, plugin_name, author, version, description, dependencies, local_info, target_file)
+                    dialog.exec()
+                    return
+                # If Yes, proceed to standard install confirmation below
+
         if not download_url:
             QMessageBox.warning(self, "Error", "Cannot update: Missing download URL.")
             return
 
         # Confirm
-        action_verb = "Update" if target_file else "Install"
+        # Check if installed to decide text
+        is_installed = False
+        if target_file and os.path.exists(target_file):
+             is_installed = True
+        
+        action_verb = "Update" if is_installed else "Install"
         ret = QMessageBox.question(self, f"{action_verb} Plugin", 
                                    f"{action_verb} '{plugin_name}'?\nThis will download and install the plugin.",
                                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
@@ -436,7 +781,7 @@ class PluginInstallerWindow(QDialog):
             from urllib.parse import urljoin
             final_url = urljoin(base_url + "/", download_url)
 
-        print(f"Downloading update from: {final_url}")
+        print(f"{action_verb}ing from: {final_url}")
         
         # Download to Temp File
         try:
@@ -502,8 +847,8 @@ class PluginInstallerWindow(QDialog):
                                         print(f"Manual overwrite failed: {e}. Falling back to manager.")
                             
                             if did_manual_overwrite:
-                                # If we manually overwrote, we just need to refresh
-                                QMessageBox.information(self, "Success", f"Successfully updated '{plugin_name}'.\nReloading plugins...")
+                                # Manual overwrite success
+                                pass
                             else:
                                 # Standard Install (New, ZIP, or Transition)
                                 self.main_window.plugin_manager.install_plugin(download_path)
@@ -530,8 +875,16 @@ class PluginInstallerWindow(QDialog):
                                             parent_dir = os.path.dirname(target_file)
                                             shutil.rmtree(parent_dir)
                                         except: pass
-                                        
-                                QMessageBox.information(self, "Success", f"Successfully installed/updated '{plugin_name}'.\nReloading plugins...")
+                            
+                            # Success Message
+                            verb_past = "updated" if is_installed else "installed"
+                            QMessageBox.information(self, "Success", f"Successfully {verb_past} '{plugin_name}'.")
+
+                            if missing_deps:
+                                QMessageBox.warning(self, "Dependencies Required", 
+                                                    "The plugin is installed, but you must install the missing dependencies for it to work.\n\nOpening details window...")
+                                dialog = PluginDetailsDialog(self, plugin_name, author, version, description, dependencies, local_info, target_file)
+                                dialog.exec()
                             
                             # Reload plugins
                             self.main_window.plugin_manager.discover_plugins(self.main_window)
@@ -551,3 +904,5 @@ class PluginInstallerWindow(QDialog):
                     
         except Exception as e:
              QMessageBox.warning(self, "Update Error", f"Failed to update plugin:\n{e}")
+
+
