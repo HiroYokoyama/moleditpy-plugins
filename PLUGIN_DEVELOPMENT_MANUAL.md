@@ -102,12 +102,7 @@ Register a custom item in the main menu.
 - **shortcut** (`str`, optional): Keyboard shortcut (e.g., "Ctrl+Shift+X").
 
 **Example Usage:**
-context.add_menu_action("Edit/My Action", my_func, shortcut="Ctrl+M")
-```
-
-> [!NOTE]
-> **Automatic Separators**: If you add an action to an existing menu (like "Edit"), MoleditPy will automatically insert a separator before your action if the preceding item is a native menu item (not added by another plugin).
-python
+```python
 context.add_menu_action("Edit/My Action", my_func, shortcut="Ctrl+M")
 ```
 
@@ -607,6 +602,7 @@ def initialize(context):
     # in "Settings" > "3D Optimization Settings".
     context.register_optimization_method("Naive UFF", optimize_naive)
 ```
+
 
 
 
