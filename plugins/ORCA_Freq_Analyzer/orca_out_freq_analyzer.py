@@ -20,8 +20,8 @@ except ImportError:
     Chem = None
 
 PLUGIN_NAME = "ORCA Freq Analyzer"
-__version__="2026.01.07"
-__author__="HiroYokoyama"
+PLUGIN_VERSION = "2026.01.07"
+PLUGIN_AUTHOR = "HiroYokoyama"
 
 class OrcaParser:
     def __init__(self):
