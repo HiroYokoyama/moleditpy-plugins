@@ -11,8 +11,8 @@ try:
 except ImportError:
     Chem = None
 
-__version__="2026.01.07"
-__author__="HiroYokoyama"
+PLUGIN_VERSION = "2026.01.07"
+PLUGIN_AUTHOR = "HiroYokoyama"
 
 PLUGIN_NAME = "MS Spectrum Simulation Neo"
 
@@ -66,6 +66,12 @@ class MSSpectrumDialog(QDialog):
             self.formula_input.setText(Chem.rdMolDescriptors.CalcMolFormula(self.mol))
         settings_layout.addRow("Formula:", self.formula_input)
         
+        # 4. Sync
+        self.sync_check = QCheckBox("Sync with Main Window")
+        self.sync_check.stateChanged.connect(self.toggle_sync)
+        self.sync_check.setChecked(True)
+        settings_layout.addRow("Sync:", self.sync_check)
+        
         # 2. Charge (Signed)
         self.charge_spin = QSpinBox()
         self.charge_spin.setRange(-10, 10)
@@ -78,12 +84,6 @@ class MSSpectrumDialog(QDialog):
         self.adduct_combo = QComboBox()
         self.update_adduct_options() # Populate initial
         settings_layout.addRow("Adduct:", self.adduct_combo)
-        
-        # 4. Sync
-        self.sync_check = QCheckBox("Sync with Main Window (0.5s)")
-        self.sync_check.stateChanged.connect(self.toggle_sync)
-        self.sync_check.setChecked(True)
-        settings_layout.addRow("Sync:", self.sync_check)
 
         layout.addWidget(settings_group)
 
