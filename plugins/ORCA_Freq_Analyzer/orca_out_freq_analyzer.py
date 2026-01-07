@@ -20,7 +20,7 @@ except ImportError:
     Chem = None
 
 PLUGIN_NAME = "ORCA Freq Analyzer"
-__version__="2025.12.25"
+__version__="2026.01.07"
 __author__="HiroYokoyama"
 
 class OrcaParser:
@@ -375,6 +375,21 @@ class OrcaOutFreqAnalyzer(QWidget):
         btn_open.clicked.connect(self.open_file_dialog)
         layout.addWidget(btn_open)
         
+        # Scaling Factor
+        scale_layout = QHBoxLayout()
+        scale_layout.addWidget(QLabel("Scaling Factor:"))
+        self.spin_sf = QDoubleSpinBox()
+        self.spin_sf.setRange(0.0, 2.0)
+        self.spin_sf.setSingleStep(0.001)
+        self.spin_sf.setDecimals(4)
+        self.spin_sf.setValue(1.0) # Default
+        self.spin_sf.valueChanged.connect(self.update_list_and_spectrum_values)
+        scale_layout.addWidget(self.spin_sf)
+        scale_layout.addStretch()
+        layout.addLayout(scale_layout)
+        
+        # Frequency List
+        
 
         # Frequency List
         # Frequency List
@@ -520,6 +535,9 @@ class OrcaOutFreqAnalyzer(QWidget):
             self.lbl_info.setText(os.path.basename(filename))
             self.lbl_info.setStyleSheet("border: 2px solid #4CAF50; padding: 10px; color: #4CAF50;")
             
+             # Reset SF if needed? Or keep user setting?
+            # self.spin_sf.setValue(1.0)
+            
             # Update Main Window Context
             if hasattr(self.mw, 'current_file_path'):
                 self.mw.current_file_path = filename
@@ -557,6 +575,146 @@ class OrcaOutFreqAnalyzer(QWidget):
         # Load molecule into main window
         if len(self.parser.atoms) > 0 and Chem:
             self.create_base_molecule()
+
+    def show_spectrum(self):
+        if not self.parser or not hasattr(self.parser, 'final_modes'):
+             return
+
+        freqs = []
+        intensities = []
+        
+        sf = self.spin_sf.value()
+
+        for mode in self.parser.final_modes:
+             f = mode['freq']
+             inten = mode['intensity']
+             if inten is None: inten = 0.0
+             
+             if abs(f) > 10.0:
+                 freqs.append(f * sf) # Apply Scale
+                 intensities.append(inten)
+        
+        if not freqs:
+             QMessageBox.information(self, "Info", "No valid frequencies found.")
+             return
+             
+        # Reuse existing SpectrumDialog class if possible, or define here too
+        # To avoid duplicating code, we could move SpectrumDialog to a separate file later.
+        # For now, let's paste the same class or assume it's available?
+        # It's better to implement it here to be self-contained as requested.
+        
+        dlg = SpectrumDialog(freqs, intensities, title=f"IR Spectrum - {os.path.basename(self.parser.filename)}", parent=self)
+        dlg.exec()
+
+    class SpectrumDialog(QDialog):
+        def __init__(self, freqs, intensities, title="Spectrum", parent=None):
+            super().__init__(parent)
+            self.setWindowTitle(title)
+            self.resize(600, 400)
+            
+            layout = QVBoxLayout(self)
+            
+            # Simple Matplotlib Plot? Or custom painter?
+            # Trying custom widget for speed/deps
+            self.plot = SpectrumWidget(freqs, intensities)
+            layout.addWidget(self.plot)
+            
+            btn_close = QPushButton("Close")
+            btn_close.clicked.connect(self.accept)
+            layout.addWidget(btn_close)
+
+    class SpectrumWidget(QWidget):
+        def __init__(self, freqs, intensities):
+            super().__init__()
+            self.freqs = freqs
+            self.intensities = intensities
+            self.setBackgroundRole(QPalette.ColorRole.Base)
+            self.setAutoFillBackground(True)
+            
+            # Normalize
+            self.max_int = max(intensities) if intensities else 1.0
+            if self.max_int == 0: self.max_int = 1.0
+            
+        def paintEvent(self, event):
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            
+            w = self.width()
+            h = self.height()
+            
+            # Margins
+            ml, mr, mt, mb = 50, 20, 20, 40
+            plot_w = w - ml - mr
+            plot_h = h - mt - mb
+            
+            # Range
+            if not self.freqs: return
+            min_f = min(self.freqs) - 50
+            max_f = max(self.freqs) + 50
+            f_range = max_f - min_f
+            if f_range == 0: f_range = 100
+            
+            # Axes
+            painter.drawLine(ml, h - mb, w - mr, h - mb) # X
+            painter.drawLine(ml, mt, ml, h - mb) # Y
+            
+            # Grid X
+            painter.setPen(QColor("#ddd"))
+            n_ticks = 8
+            for i in range(n_ticks + 1):
+                 val = min_f + (f_range * i / n_ticks)
+                 x = ml + (val - min_f) / f_range * plot_w
+                 painter.drawLine(int(x), mt, int(x), h - mb)
+                 painter.setPen(QColor("#000"))
+                 painter.drawText(int(x) - 20, h - mb + 5, 40, 15, Qt.AlignmentFlag.AlignCenter, f"{int(val)}")
+                 painter.setPen(QColor("#ddd"))
+
+            # Compute Profile
+            import math
+            x_vals = np.linspace(min_f, max_f, w // 2)
+            y_vals = np.zeros_like(x_vals)
+            
+            sigma = 20.0 # Broadening
+            
+            for f, inten in zip(self.freqs, self.intensities):
+                 # Lorentzian
+                 gamma = sigma
+                 denom = (x_vals - f)**2 + (gamma/2.0)**2
+                 y_vals += inten * (gamma/2.0)**2 / denom
+                 
+            # Scale Y
+            max_y = np.max(y_vals) if len(y_vals) > 0 else 1.0
+            if max_y == 0: max_y = 1.0
+            
+            # Draw Curve
+            painter.setPen(QPen(QColor("red"), 2))
+            path_points = []
+            for i, val in enumerate(x_vals):
+                 x_px = ml + (val - min_f) / f_range * plot_w
+                 y_px = (h - mb) - (y_vals[i] / max_y) * plot_h
+                 path_points.append(QPointF(x_px, y_px))
+                 
+            painter.drawPolyline(path_points)
+            
+            # X Label
+            painter.setPen(QColor("black"))
+            painter.drawText(w//2, h-5, "Wavenumber (cm⁻¹)")
+    def update_list_and_spectrum_values(self):
+        if not self.parser or not self.parser.final_modes: return
+        
+        sf = self.spin_sf.value()
+        
+        # Update List values
+        # Top level iteration
+        root = self.list_freq.invisibleRootItem()
+        for i in range(root.childCount()):
+            item = root.child(i)
+            # Find corresponding mode freq
+            idx = int(item.text(0)) - 1
+            if 0 <= idx < len(self.parser.final_modes):
+                 mode = self.parser.final_modes[idx]
+                 scaled = mode['freq'] * sf
+                 item.setText(1, f"{scaled:.2f}")
 
     def create_base_molecule(self):
         if not self.parser: return
@@ -871,18 +1029,20 @@ class OrcaOutFreqAnalyzer(QWidget):
         freqs = []
         intensities = []
         
+        sf = self.spin_sf.value()
+        
         for mode in self.parser.final_modes:
-            freqs.append(mode['freq'])
+            freqs.append(mode['freq'] * sf)
             intensities.append(mode.get('intensity', 0.0))
         
-        dlg = SpectrumDialog(freqs, intensities, self)
+        dlg = SpectrumDialog(freqs, intensities, title=f"IR Spectrum (SF: {sf:.4f}) - {os.path.basename(self.parser.filename)}", parent=self)
         dlg.exec()
 
 
 class SpectrumDialog(QDialog):
-    def __init__(self, freqs, intensities, parent=None):
+    def __init__(self, freqs, intensities, title="IR Spectrum", parent=None):
         super().__init__(parent)
-        self.setWindowTitle("IR Spectrum")
+        self.setWindowTitle(title)
         self.resize(800, 600)
         
         self.freqs = np.array(freqs)
@@ -910,7 +1070,7 @@ class SpectrumDialog(QDialog):
         # Axis Range
         controls.addWidget(QLabel("Min WN:"))
         self.spin_min = QSpinBox()
-        self.spin_min.setRange(0, 5000)
+        self.spin_min.setRange(0, 10000)
         self.spin_min.setValue(0)
         self.spin_min.setSingleStep(100)
         self.spin_min.valueChanged.connect(self.on_range_changed)
@@ -918,7 +1078,7 @@ class SpectrumDialog(QDialog):
 
         controls.addWidget(QLabel("Max WN:"))
         self.spin_max = QSpinBox()
-        self.spin_max.setRange(0, 5000)
+        self.spin_max.setRange(0, 10000)
         self.spin_max.setValue(4000)
         self.spin_max.setSingleStep(100)
         self.spin_max.valueChanged.connect(self.on_range_changed)
@@ -1141,6 +1301,13 @@ class SpectrumPlotWidget(QWidget):
 
 
 def load_from_file(main_window, fname):
+    driver = None
+    
+    # FIRST: Close conflicting plugin (Gaussian)
+    for d in main_window.findChildren(QDockWidget):
+        if d.windowTitle() == "Gaussian Freq Analyzer":
+            d.close()
+
     dock = None
     analyzer = None
     
