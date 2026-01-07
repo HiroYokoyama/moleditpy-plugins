@@ -15,7 +15,7 @@ except ImportError:
     Chem = None
 
 PLUGIN_NAME = "Gaussian Freq Analyzer"
-__version__="2025.12.25"
+__version__="2026.01.07"
 __author__="HiroYokoyama"
 
 class FCHKParser:
@@ -301,6 +301,21 @@ class GaussianFCHKFreqAnalyzer(QWidget):
         btn_open.clicked.connect(self.open_file_dialog)
         layout.addWidget(btn_open)
         
+        # Scaling Factor
+        scale_layout = QHBoxLayout()
+        scale_layout.addWidget(QLabel("Scaling Factor:"))
+        self.spin_sf = QDoubleSpinBox()
+        self.spin_sf.setRange(0.0, 2.0)
+        self.spin_sf.setSingleStep(0.001)
+        self.spin_sf.setDecimals(4)
+        self.spin_sf.setValue(1.0) # Default
+        self.spin_sf.valueChanged.connect(self.update_list_and_spectrum_values)
+        scale_layout.addWidget(self.spin_sf)
+        scale_layout.addStretch()
+        layout.addLayout(scale_layout)
+        
+        # Frequency List
+        
         # Frequency List
         # Frequency List
         layout.addWidget(QLabel("Vibrational Frequencies:"))
@@ -415,7 +430,7 @@ class GaussianFCHKFreqAnalyzer(QWidget):
         if event.mimeData().hasUrls():
             for url in event.mimeData().urls():
                 fname = url.toLocalFile().lower()
-                if fname.endswith(".fchk") or fname.endswith(".fck"):
+                if fname.endswith(".fchk") or fname.endswith(".fck") or fname.endswith(".fch"):
                     event.acceptProposedAction()
                     return
         event.ignore()
@@ -423,13 +438,13 @@ class GaussianFCHKFreqAnalyzer(QWidget):
     def dropEvent(self, event):
         for url in event.mimeData().urls():
             file_path = url.toLocalFile()
-            if file_path.lower().endswith((".fchk", ".fck")):
+            if file_path.lower().endswith((".fchk", ".fck", ".fch")):
                 self.load_file(file_path)
                 event.acceptProposedAction()
                 break
                 
     def open_file_dialog(self):
-        fname, _ = QFileDialog.getOpenFileName(self, "Open Gaussian FCHK", "", "FCHK Files (*.fchk *.fck)")
+        fname, _ = QFileDialog.getOpenFileName(self, "Open Gaussian FCHK", "", "FCHK Files (*.fchk *.fck *.fch)")
         if fname:
             self.load_file(fname)
             
@@ -438,8 +453,12 @@ class GaussianFCHKFreqAnalyzer(QWidget):
         try:
             self.parser.parse(filename)
             self.update_ui_after_load()
+            self.update_ui_after_load()
             self.lbl_info.setText(os.path.basename(filename))
             self.lbl_info.setStyleSheet("border: 2px solid #4CAF50; padding: 10px; color: #4CAF50;")
+            
+            # Reset SF if needed? Or keep user setting? User usually keeps preferred SF.
+            # self.spin_sf.setValue(1.0)
             
             # Update Main Window Context
             if hasattr(self.mw, 'current_file_path'):
@@ -478,6 +497,23 @@ class GaussianFCHKFreqAnalyzer(QWidget):
         # Load molecule into main window
         if len(self.parser.atoms) > 0 and Chem:
             self.create_base_molecule()
+
+    def update_list_and_spectrum_values(self):
+        if not self.parser or not self.parser.frequencies: return
+        
+        sf = self.spin_sf.value()
+        
+        # Update List items (assume order matches parser.frequencies)
+        # We can iterate top level items
+        root = self.list_freq.invisibleRootItem()
+        for i in range(root.childCount()):
+            item = root.child(i)
+            # Index is in col 0 text "1", "2"... but assume linear
+            idx = int(item.text(0)) - 1
+            if 0 <= idx < len(self.parser.frequencies):
+                raw_freq = self.parser.frequencies[idx]
+                scaled_freq = raw_freq * sf
+                item.setText(1, f"{scaled_freq:.2f}")
 
     def create_base_molecule(self):
         if not self.parser: return
@@ -793,29 +829,40 @@ class GaussianFCHKFreqAnalyzer(QWidget):
         
         parser_intensities = self.parser.intensities if hasattr(self.parser, 'intensities') and self.parser.intensities else [1.0]*len(self.parser.frequencies)
         
+        
+        sf = self.spin_sf.value()
+        
         for i, freq in enumerate(self.parser.frequencies):
             # Use abs() to preserve imaginary frequencies (negative values)
             # Only exclude low-frequency modes (translations/rotations)
             if abs(freq) > 10.0:
-                freqs.append(freq)
+                freqs.append(freq * sf) # Apply Scale
+                
+                # Check Intensity
+                val = 0.0
                 if i < len(parser_intensities):
-                    intensities.append(parser_intensities[i])
-                else:
-                    intensities.append(1.0)
-        
-        dlg = SpectrumDialog(freqs, intensities, self)
+                     val = parser_intensities[i]
+                intensities.append(val)
+                
+        if not freqs:
+             QMessageBox.information(self, "Info", "No valid frequencies found.")
+             return
+
+        # Show Plot
+        dlg = SpectrumDialog(freqs, intensities, title=f"IR Spectrum (SF: {sf:.4f}) - {os.path.basename(self.parser.filename)}", parent=self)
         dlg.exec()
+        
+
 
 
 class SpectrumDialog(QDialog):
-    def __init__(self, freqs, intensities, parent=None):
+    def __init__(self, freqs, intensities, title="IR Spectrum", parent=None):
         super().__init__(parent)
-        self.setWindowTitle("IR Spectrum")
+        self.setWindowTitle(title)
         self.resize(800, 600)
         
         self.freqs = np.array(freqs)
         self.intensities = np.array(intensities)
-        self.scaling_factor = 1.0
         
         # Layout
         layout = QVBoxLayout(self)
@@ -827,17 +874,6 @@ class SpectrumDialog(QDialog):
         # Controls
         controls = QHBoxLayout()
         
-        # Scaling Factor
-        controls.addWidget(QLabel("Scaling Factor:"))
-        from PyQt6.QtWidgets import QDoubleSpinBox
-        self.spin_scale = QDoubleSpinBox()
-        self.spin_scale.setRange(0.5, 1.5)
-        self.spin_scale.setValue(1.0)
-        self.spin_scale.setSingleStep(0.01)
-        self.spin_scale.setDecimals(3)
-        self.spin_scale.valueChanged.connect(self.on_scaling_changed)
-        controls.addWidget(self.spin_scale)
-        
         controls.addWidget(QLabel("FWHM (cm⁻¹):"))
         self.spin_fwhm = QSpinBox()
         self.spin_fwhm.setRange(1, 500)
@@ -848,7 +884,7 @@ class SpectrumDialog(QDialog):
         # Axis Range
         controls.addWidget(QLabel("Min WN:"))
         self.spin_min = QSpinBox()
-        self.spin_min.setRange(0, 5000)
+        self.spin_min.setRange(0, 10000)
         self.spin_min.setValue(0)
         self.spin_min.setSingleStep(100)
         self.spin_min.valueChanged.connect(self.on_range_changed)
@@ -856,7 +892,7 @@ class SpectrumDialog(QDialog):
 
         controls.addWidget(QLabel("Max WN:"))
         self.spin_max = QSpinBox()
-        self.spin_max.setRange(0, 5000)
+        self.spin_max.setRange(0, 10000)
         self.spin_max.setValue(4000)
         self.spin_max.setSingleStep(100)
         self.spin_max.valueChanged.connect(self.on_range_changed)
@@ -880,10 +916,6 @@ class SpectrumDialog(QDialog):
         # Initial Plot
         self.on_range_changed()
 
-    def on_scaling_changed(self, val):
-        self.scaling_factor = val
-        scaled_freqs = self.freqs * self.scaling_factor
-        self.plot_widget.set_frequencies(scaled_freqs)
     
     def on_fwhm_changed(self, val):
         self.plot_widget.set_fwhm(val)
@@ -1088,6 +1120,11 @@ class SpectrumPlotWidget(QWidget):
                     self.mw.plotter.render()
 
 def load_from_file(main_window, fname):
+    # FIRST: Close conflicting plugin (ORCA)
+    for d in main_window.findChildren(QDockWidget):
+        if d.windowTitle() == "ORCA Output Freq Analyzer":
+            d.close()
+            
     # Check for existing dock
     dock = None
     analyzer = None
