@@ -14,17 +14,19 @@ import urllib.error
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
     QTableWidget, QTableWidgetItem, QPushButton, 
-    QHeaderView, QMessageBox, QAbstractItemView, QApplication, QCheckBox
+    QHeaderView, QMessageBox, QAbstractItemView, QApplication, QCheckBox,
+    QLineEdit
 )
 from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QDesktopServices, QColor, QIcon
+import importlib.metadata
 
 import shutil
 import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.01.07"
+PLUGIN_VERSION = "2026.01.08"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Checks for updates, installs new plugins, and allows manual reinstallation."
 
@@ -156,8 +158,6 @@ class PluginDetailsDialog(QDialog):
             lbl_dep_header = QLabel("<b>Dependencies:</b>")
             layout.addWidget(lbl_dep_header)
             
-            import importlib.metadata
-            
             installed_deps = []
             missing_deps = []
             
@@ -283,14 +283,18 @@ class PluginInstallerWindow(QDialog):
         try:
             from moleditpy.modules.constants import VERSION as APP_VERSION
         except ImportError:
-            # Fallback for Linux/other environments: Try adding main script dir to sys.path
             try:
-                import sys
-                import os
-                sys.path.append(os.path.dirname(os.path.abspath(sys.argv[0])))
-                from moleditpy.modules.constants import VERSION as APP_VERSION
+                from moleditpy_linux.modules.constants import VERSION as APP_VERSION
             except ImportError:
-                APP_VERSION = "Unknown"
+                # Fallback for Linux/other environments: Try adding main script dir to sys.path
+                try:
+                    sys.path.append(os.path.dirname(os.path.abspath(sys.argv[0])))
+                    try:
+                        from moleditpy.modules.constants import VERSION as APP_VERSION
+                    except ImportError:
+                        from moleditpy_linux.modules.constants import VERSION as APP_VERSION
+                except ImportError:
+                    APP_VERSION = "Unknown"
 
         # Check PyPI for latest version
         self.latest_app_version = "Checking..."
@@ -321,6 +325,15 @@ class PluginInstallerWindow(QDialog):
         line = QLabel()
         line.setFrameStyle(QLabel.Shape.HLine | QLabel.Shadow.Sunken)
         layout.addWidget(line)
+
+        # Search Bar
+        search_layout = QHBoxLayout()
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Search plugins by name or author...")
+        self.search_input.textChanged.connect(self.filter_plugins)
+        search_layout.addWidget(QLabel("Search:"))
+        search_layout.addWidget(self.search_input)
+        layout.addLayout(search_layout)
 
         # Table
         self.table = QTableWidget()
@@ -396,7 +409,10 @@ class PluginInstallerWindow(QDialog):
         try:
             from moleditpy.modules.constants import VERSION as APP_VERSION
         except ImportError:
-            APP_VERSION = "0.0.0"
+            try:
+                from moleditpy_linux.modules.constants import VERSION as APP_VERSION
+            except ImportError:
+                APP_VERSION = "0.0.0"
             
         if latest != "Unknown" and latest > APP_VERSION:
              self.updates_found = True
@@ -418,7 +434,10 @@ class PluginInstallerWindow(QDialog):
         try:
             from moleditpy.modules.constants import VERSION as APP_VERSION
         except ImportError:
-            APP_VERSION = "0.0.0"
+            try:
+                from moleditpy_linux.modules.constants import VERSION as APP_VERSION
+            except ImportError:
+                APP_VERSION = "0.0.0"
 
         color = "gray"
         if latest != "Unknown":
@@ -581,6 +600,23 @@ class PluginInstallerWindow(QDialog):
             else:
                 self.table.setItem(row, 5, QTableWidgetItem(""))
 
+        # Re-apply filter if needed
+        if hasattr(self, 'search_input'):
+            self.filter_plugins()
+
+    def filter_plugins(self):
+        text = self.search_input.text().lower()
+        rows = self.table.rowCount()
+        for r in range(rows):
+            name_item = self.table.item(r, 0)
+            author_item = self.table.item(r, 1)
+            
+            name = name_item.text().lower() if name_item else ""
+            author = author_item.text().lower() if author_item else ""
+            
+            should_show = (text in name) or (text in author)
+            self.table.setRowHidden(r, not should_show)
+
 
 
     def show_plugin_details(self, row, col):
@@ -631,9 +667,12 @@ class PluginInstallerWindow(QDialog):
         dialog.exec()
 
     def on_close_clicked(self):
-        # Reload plugins on close
-        self.main_window.plugin_manager.discover_plugins(self.main_window)
         self.accept()
+
+    def closeEvent(self, event):
+        # Reload plugins on close (X button or Close button)
+        self.main_window.plugin_manager.discover_plugins(self.main_window)
+        super().closeEvent(event)
 
     def copy_upgrade_command(self):
         package_name = "moleditpy"
@@ -649,7 +688,6 @@ class PluginInstallerWindow(QDialog):
                     package_name = dists["moleditpy"][0]
             except ImportError:
                 # Fallback for Python < 3.10
-                import importlib.metadata
                 for dist in importlib.metadata.distributions():
                     try:
                         toplevels = (dist.read_text('top_level.txt') or '').split()
@@ -679,7 +717,7 @@ class PluginInstallerWindow(QDialog):
         
         # Check dependencies first
         if dependencies:
-            import importlib.metadata
+            
             missing_deps = []
             for dep in dependencies:
                 try:
