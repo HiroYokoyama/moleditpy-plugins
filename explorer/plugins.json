@@ -757,11 +757,12 @@
       "geometric",
       "numpy"
     ],
-    "downloadUrl": "https://raw.githubusercontent.com/HiroYokoyama/moleditpy_pyscf-calculator/blob/0a6028d149ee4253a8fdf1d6d8754c68e4e77980/pyscf_calculator.zip",
+    "downloadUrl": "https://raw.githubusercontent.com/HiroYokoyama/moleditpy_pyscf-calculator/0a6028d149ee4253a8fdf1d6d8754c68e4e77980/pyscf_calculator.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_pyscf-calculator",
     "lastUpdated": "2026-01-09"
   }
 ]
+
 
 
 
