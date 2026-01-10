@@ -9,6 +9,7 @@ Checks for updates of moleditpy plugins.
 import sys
 import os
 import json
+import zipfile
 import urllib.request
 import urllib.error
 from PyQt6.QtWidgets import (
@@ -906,6 +907,53 @@ class PluginInstallerWindow(QDialog):
                                         did_manual_overwrite = True
                                     except Exception as e:
                                         print(f"Manual overwrite failed: {e}. Falling back to manager.")
+                                
+                                # Check: Folder Plugin Overwrite (Target is __init__.py, Source is ZIP)
+                                elif (file_name_existing == "__init__.py" and 
+                                      final_url.lower().endswith(".zip")):
+                                      
+                                      try:
+                                          target_dir = os.path.dirname(target_file)
+                                          print(f"Overwriting existing folder plugin: {target_dir}")
+                                          
+                                          # Extract to temp
+                                          extract_temp = os.path.join(temp_dir, "extracted")
+                                          with zipfile.ZipFile(download_path, 'r') as z:
+                                              z.extractall(extract_temp)
+                                          
+                                          # Determine source content
+                                          # If zip contains a single folder, use that inner folder as source
+                                          items = os.listdir(extract_temp)
+                                          if len(items) == 1 and os.path.isdir(os.path.join(extract_temp, items[0])):
+                                               source = os.path.join(extract_temp, items[0])
+                                          else:
+                                               source = extract_temp
+                                          
+                                          # Backup settings.json
+                                          settings_backup = None
+                                          settings_path = os.path.join(target_dir, "settings.json")
+                                          if os.path.exists(settings_path):
+                                               try:
+                                                   with open(settings_path, 'r', encoding='utf-8') as f:
+                                                       settings_backup = f.read()
+                                               except: pass
+
+                                          # Overwrite using copytree with dirs_exist_ok=True
+                                          # This overwrites existing files and adds new ones
+                                          shutil.copytree(source, target_dir, dirs_exist_ok=True)
+                                          
+                                          # Restore settings.json
+                                          if settings_backup:
+                                               try:
+                                                   with open(settings_path, 'w', encoding='utf-8') as f:
+                                                       f.write(settings_backup)
+                                                   print("Plugin Installer: Successfully restored settings.json")
+                                               except: pass
+                                          
+                                          did_manual_overwrite = True
+
+                                      except Exception as e:
+                                          print(f"Manual folder overwrite failed: {e}. Falling back to manager.")
                             
                             if did_manual_overwrite:
                                 # Manual overwrite success
