@@ -143,15 +143,20 @@ context.add_export_action("Export as JSON...", export_json_func)
 
 ### 3.2 File Handling & Project State
 
-#### `register_file_opener(extension, callback)`
+#### `register_file_opener(extension, callback, priority=0)`
 Register a handler for opening a specific file type.
 
 - **extension** (`str`): File extension (e.g., `.xyz`, `.cub`).
 - **callback** (`Callable[[str], None]`): Function that receives the absolute file path and handles loading.
+- **priority** (`int`): Handlers with higher priority are checked first. Default is 0.
 
 **Example Usage:**
 ```python
+# Standard registration
 context.register_file_opener(".mysim", open_simulation_file)
+
+# High priority opener (overrides default or other plugins)
+context.register_file_opener(".common", my_opener, priority=100)
 ```
 
 #### `register_drop_handler(callback, priority=0)`
