@@ -144,11 +144,11 @@ context.add_export_action("Export as JSON...", export_json_func)
 ### 3.2 File Handling & Project State
 
 #### `register_file_opener(extension, callback, priority=0)`
-Register a handler for opening a specific file type.
+Register a handler for opening a specific file type. This handler is used for both the **Import** menu and **Command Line** file opening (e.g., `moleditpy myfile.ext`).
 
 - **extension** (`str`): File extension (e.g., `.xyz`, `.cub`).
 - **callback** (`Callable[[str], None]`): Function that receives the absolute file path and handles loading.
-- **priority** (`int`): Handlers with higher priority are checked first. Default is 0.
+- **priority** (`int`): Handlers with higher priority are checked first. Default is 0. You can use **negative values** (e.g., -1) to register a fallback handler that only runs if no other plugin handles the file.
 
 **Example Usage:**
 ```python
@@ -157,13 +157,16 @@ context.register_file_opener(".mysim", open_simulation_file)
 
 # High priority opener (overrides default or other plugins)
 context.register_file_opener(".common", my_opener, priority=100)
+
+# Fallback opener (runs only if nobody else claims it)
+context.register_file_opener(".common", fallback_opener, priority=-1)
 ```
 
 #### `register_drop_handler(callback, priority=0)`
-Register a handler for files dropped onto the main window.
+Register a handler for files dropped onto the main window. **Note**: This is distinct from `register_file_opener`; handlers here are ONLY triggered by drag-and-drop operations, not by the Import menu or Command Line.
 
 - **callback** (`Callable[[str], bool]`): Function that receives the dropped file path. Must return `True` if it handled the file, `False` otherwise.
-- **priority** (`int`): Handlers with higher priority are checked first.
+- **priority** (`int`): Handlers with higher priority are checked first. Default is 0. Negative values (e.g., -1) can be used for fallback handlers.
 
 **Example Usage:**
 ```python
@@ -172,7 +175,12 @@ def handle_drop(path):
         parse_log(path)
         return True
     return False
+
+# High priority
 context.register_drop_handler(handle_drop, priority=10)
+
+# Fallback (runs last)
+context.register_drop_handler(my_fallback_func, priority=-1)
 ```
 
 #### `register_save_handler(callback)`
@@ -347,6 +355,14 @@ def my_callback():
         # Safe access to MW might fail if MW is not stored, so catch broadly
         print(f"Plugin Error: {e}")
 ```
+
+### Plugin Naming & Menu Grouping
+- **Unique Names**: Ensure your `PLUGIN_NAME` is unique. Plugins with identical names may be grouped together in the UI, which can lead to confusion.
+- **Menu Sorting**: The **Import** menu is sorted alphabetically by Plugin Name.
+
+### File Extension Conflicts
+- **Import Menu**: If multiple plugins accept the same extension, they will all appear in the Import menu as separate entries (e.g., "Import .xyz (Plugin A)" and "Import .xyz (Plugin B)").
+- **Command Line / Open Command**: If the user opens a file directly (e.g. via CLI), the plugin with the **highest priority** wins. If priorities are equal, the behavior is undefined (first registered wins).
 
 ### Hot Reloading
 MoleditPy loads plugins at startup. To see changes in your code, you must currently **restart the application** or use the **"Reload Plugins"** feature if available (Settings dependent).
