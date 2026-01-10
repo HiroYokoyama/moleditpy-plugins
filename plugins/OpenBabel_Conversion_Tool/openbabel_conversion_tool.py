@@ -72,7 +72,7 @@ def initialize(context):
             # Note: context.register_file_opener replaces existing if any? 
             # The manual doesn't say, but usually last registered wins or it's a list.
             # We'll assume we can register.
-            context.register_file_opener(f".{ext}", open_file_wrapper)
+            context.register_file_opener(f".{ext}", open_file_wrapper, priority=-1)
 
     # 2. Register Drop Handler
     def drop_handler(path):
@@ -87,7 +87,7 @@ def initialize(context):
              return True
         return False
 
-    context.register_drop_handler(drop_handler, priority=5)
+    context.register_drop_handler(drop_handler, priority=-1)
 
     # 3. Register Export Action
     def export_wrapper():
