@@ -63,6 +63,9 @@ def initialize(context):
     helper_function(context)
 ```
 
+> [!NOTE]
+> **Update Behavior:** The **Plugin Installer** plugin completely replaces the plugin folder when updating a folder-based plugin. It specifically preserves **only** `settings.json` (by backing it up before the update and restoring it afterwards). Any other user data or configuration files stored inside the plugin folder will be lost.
+
 ---
 
 ## 3. The PluginContext API
