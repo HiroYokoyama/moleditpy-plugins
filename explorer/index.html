@@ -389,7 +389,11 @@
         /* Mobile Responsiveness */
         @media (max-width: 600px) {
             header {
-                padding: 2rem 1rem;
+                padding: 2rem 1rem 1rem;
+            }
+
+            .controls-header {
+                margin-bottom: 20px;
             }
 
             header h1 {
@@ -489,7 +493,7 @@
     </div>
 
     <div class="filter-container" id="filterContainer">
-        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn active" data-filter="all">ALL</button>
     </div>
 
     <div class="container" id="pluginGrid">
@@ -722,6 +726,7 @@
             if (query) {
                 searchInput.value = query;
                 filterPlugins(query, 'all');
+                toggleClearBtn(query);
             }
         });
     </script>
