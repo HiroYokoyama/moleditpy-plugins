@@ -760,16 +760,25 @@
     "downloadUrl": "https://raw.githubusercontent.com/HiroYokoyama/moleditpy_pyscf-calculator/788cdaf98d694d3a1a459adc595892b9c2d4929a/pyscf_calculator.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_pyscf-calculator",
     "lastUpdated": "2026-01-10"
-  }
+  },
+  {
+    "id": "openbabel_conversion_tool",
+    "visible": true,
+    "name": "OpenBabel Conversion Tool",
+    "version": "2026.01.10",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Import various chemical file formats using OpenBabel with multi-molecule support.",
+    "tags": [
+        "Import",
+        "Export",
+        "Utility"
+    ],
+    "dependencies": [
+        "openbabel"
+    ],
+    "downloadUrl": "../plugins/OpenBabel_Conversion_Tool/openbabel_conversion_tool.py",
+    "lastUpdated": "2026-01-10"
+}
 ]
-
-
-
-
-
-
-
-
-
-
 
