@@ -743,7 +743,7 @@
     "id": "pyscf_calculator",
     "visible": true,
     "name": "PySCF Calculator",
-    "version": "1.2.2",
+    "version": "1.2.3",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Perform PySCF quantum chemistry calculations directly in MoleditPy. Features: Single Point Energy (RHF/UHF/DFT), Geometry Optimization (Geometric/Berny), Frequency Analysis, and interactive 3D visualization of Molecular Orbitals (HOMO/LUMO) and Electrostatic Potential (ESP) mapped on Density surfaces.",
@@ -757,11 +757,12 @@
       "geometric",
       "numpy"
     ],
-    "downloadUrl": "https://raw.githubusercontent.com/HiroYokoyama/moleditpy_pyscf-calculator/9320a2f26d1ddce557695934ac71120d0d922482/pyscf_calculator.zip",
+    "downloadUrl": "https://raw.githubusercontent.com/HiroYokoyama/moleditpy_pyscf-calculator/997782399074722cb811e2c464ba6e73d5a889bf/pyscf_calculator.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_pyscf-calculator",
-    "lastUpdated": "2026-01-09"
+    "lastUpdated": "2026-01-10"
   }
 ]
+
 
 
 
