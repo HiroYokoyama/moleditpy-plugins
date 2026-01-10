@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
     QTableWidget, QTableWidgetItem, QPushButton, 
     QHeaderView, QMessageBox, QAbstractItemView, QApplication, QCheckBox,
-    QLineEdit
+    QLineEdit, QMenu
 )
 from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QDesktopServices, QColor, QIcon
@@ -26,7 +26,7 @@ import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.01.08"
+PLUGIN_VERSION = "2026.01.11"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Checks for updates, installs new plugins, and allows manual reinstallation."
 
@@ -671,7 +671,53 @@ class PluginInstallerWindow(QDialog):
 
     def closeEvent(self, event):
         # Reload plugins on close (X button or Close button)
-        self.main_window.plugin_manager.discover_plugins(self.main_window)
+        if self.main_window and hasattr(self.main_window, 'plugin_manager'):
+            self.main_window.plugin_manager.discover_plugins(self.main_window)
+
+            # Hot Replace: Update Main Window Menu to reflect changes
+            # if hasattr(self.main_window, 'update_plugin_menu'):
+            #     plugin_menu = None
+            #     try:
+            #         if hasattr(self.main_window, 'menuBar'):
+            #             menus = [a.menu() for a in self.main_window.menuBar().actions() if a.menu()]
+            #             
+            #             # Strategy 1: Find by Name "Plugin" (startswith to handle "Plugins")
+            #             for menu in menus:
+            #                 title = menu.title().replace('&', '')
+            #                 if title.lower().startswith('plugin'):
+            #                     plugin_menu = menu
+            #                     break
+            #             
+            #             # Strategy 2: Find by Content (contains "Plugin Manager...")
+            #             if not plugin_menu:
+            #                 for menu in menus:
+            #                     for action in menu.actions():
+            #                         if action.text().replace('&', '') == "Plugin Manager...":
+            #                             plugin_menu = menu
+            #                             break
+            #                     if plugin_menu: break
+            #     except Exception:
+            #         pass
+            #     
+            #     if not plugin_menu:
+            #         # Fallback: Use dummy menu to ensure toolbars/global menus update
+            #         # even if we can't update the specific Plugin menu list.
+            #         plugin_menu = QMenu()
+            #     
+            #     try:
+            #         self.main_window.update_plugin_menu(plugin_menu)
+            #     except Exception as e:
+            #         print(f"Failed to update plugin menu: {e}")
+
+        # Refresh PluginManagerWindow if it is open (Sync with Manager Window logic)
+        for widget in QApplication.topLevelWidgets():
+            if type(widget).__name__ == 'PluginManagerWindow':
+                if hasattr(widget, 'refresh_plugin_list'):
+                    try:
+                        widget.refresh_plugin_list()
+                    except Exception as e:
+                        print(f"Failed to refresh PluginManagerWindow: {e}")
+
         super().closeEvent(event)
 
     def copy_upgrade_command(self):
@@ -714,6 +760,7 @@ class PluginInstallerWindow(QDialog):
         target_file = btn.property("target_file")
         dependencies = btn.property("dependencies") or []
         missing_deps = []
+        user_confirmed_intent = False
         
         # Check dependencies first
         if dependencies:
@@ -764,6 +811,7 @@ class PluginInstallerWindow(QDialog):
                     dialog.exec()
                     return
                 # If Yes, proceed to standard install confirmation below
+                user_confirmed_intent = True
 
         if not download_url:
             QMessageBox.warning(self, "Error", "Cannot update: Missing download URL.")
@@ -775,12 +823,16 @@ class PluginInstallerWindow(QDialog):
         if target_file and os.path.exists(target_file):
              is_installed = True
         
-        action_verb = "Update" if is_installed else "Install"
-        ret = QMessageBox.question(self, f"{action_verb} Plugin", 
-                                   f"{action_verb} '{plugin_name}'?\nThis will download and install the plugin.",
-                                   QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        if ret != QMessageBox.StandardButton.Yes:
-            return
+        # If user already confirmed "Install anyway" despite missing deps, skip this generic confirmation
+        if not user_confirmed_intent:
+            action_verb = "Update" if is_installed else "Install"
+            ret = QMessageBox.question(self, f"{action_verb} Plugin", 
+                                       f"{action_verb} '{plugin_name}'?\nThis will download and install the plugin.",
+                                       QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            if ret != QMessageBox.StandardButton.Yes:
+                return
+        else:
+            action_verb = "Update" if is_installed else "Install" # Need this for logging below
 
         # Resolve URL (handle relative)
         final_url = download_url
@@ -860,7 +912,39 @@ class PluginInstallerWindow(QDialog):
                                 pass
                             else:
                                 # Standard Install (New, ZIP, or Transition)
+                            
+                                # Preservation Logic for settings.json (Folder directory plugins only)
+                                # When installing a ZIP, the old directory is often wiped. We save settings.json to memory.
+                                saved_settings_content = None
+                                target_dir_for_restore = None
+
+                                if target_file and os.path.exists(target_file):
+                                    # Check if it is a folder plugin (target is __init__.py)
+                                    if os.path.basename(target_file) == "__init__.py":
+                                        folder_dir = os.path.dirname(target_file)
+                                        settings_json = os.path.join(folder_dir, "settings.json")
+                                        if os.path.exists(settings_json):
+                                            try:
+                                                with open(settings_json, 'r', encoding='utf-8') as f:
+                                                    saved_settings_content = f.read()
+                                                target_dir_for_restore = folder_dir
+                                            except Exception as e:
+                                                print(f"Plugin Installer: Failed to backup settings.json: {e}")
+
                                 self.main_window.plugin_manager.install_plugin(download_path)
+                                
+                                # Restore settings.json
+                                if saved_settings_content and target_dir_for_restore:
+                                    # We assume the directory name is preserved or at least we try to write back to the same location
+                                    # install_plugin replaces the directory.
+                                    if os.path.exists(target_dir_for_restore):
+                                        settings_json = os.path.join(target_dir_for_restore, "settings.json")
+                                        try:
+                                            with open(settings_json, 'w', encoding='utf-8') as f:
+                                                f.write(saved_settings_content)
+                                            print("Plugin Installer: Successfully restored settings.json")
+                                        except Exception as e:
+                                            print(f"Plugin Installer: Failed to restore settings.json: {e}")
                                 
                                 # Post-Install Cleanup (Transitions)
                                 if target_file and os.path.exists(target_file):
@@ -886,14 +970,17 @@ class PluginInstallerWindow(QDialog):
                                         except: pass
                             
                             # Success Message
+                            # Success Message & Dependency Check
                             verb_past = "updated" if is_installed else "installed"
-                            QMessageBox.information(self, "Success", f"Successfully {verb_past} '{plugin_name}'.")
-
+                            
                             if missing_deps:
-                                QMessageBox.warning(self, "Dependencies Required", 
-                                                    "The plugin is installed, but you must install the missing dependencies for it to work.\n\nOpening details window...")
+                                # Reduce dialogs: Combine Success + Warning
+                                QMessageBox.warning(self, "Installation Complete (Dependencies Missing)", 
+                                                    f"Successfully {verb_past} '{plugin_name}'.\n\nHowever, you must install the missing dependencies for it to work.\n\nOpening details window...")
                                 dialog = PluginDetailsDialog(self, plugin_name, author, version, description, dependencies, local_info, target_file)
                                 dialog.exec()
+                            else:
+                                QMessageBox.information(self, "Success", f"Successfully {verb_past} '{plugin_name}'.")
                             
                             # Reload plugins
                             self.main_window.plugin_manager.discover_plugins(self.main_window)
