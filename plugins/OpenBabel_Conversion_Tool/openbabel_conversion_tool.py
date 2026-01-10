@@ -25,7 +25,7 @@ PLUGIN_NAME = "OpenBabel Conversion Tool"
 PLUGIN_VERSION = "2026.01.10"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Import various chemical file formats using OpenBabel with multi-molecule support."
-PLUGIN_DEPENDENCIES = ["openbabel"]
+PLUGIN_DEPENDENCIES = ["openbabel-wheel"]
 
 def initialize(context):
     """
@@ -345,3 +345,4 @@ class MoleculeSelectionDialog(QDialog):
         if rows:
             return rows[0].row()
         return None
+
