@@ -434,7 +434,7 @@
     "id": "plugin_installer",
     "visible": true,
     "name": "Plugin Installer",
-    "version": "2026.01.08",
+    "version": "2026.01.11",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Checks for updates, installs new plugins, and allows manual reinstallation.",
@@ -446,7 +446,7 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Plugin_Installer/plugin_installer.py",
-    "lastUpdated": "2026-01-08"
+    "lastUpdated": "2026-01-11"
   },
   {
     "id": "chat_with_molecule",
@@ -781,5 +781,6 @@
     "lastUpdated": "2026-01-10"
 }
 ]
+
 
 
