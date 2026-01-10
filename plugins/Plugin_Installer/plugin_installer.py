@@ -31,7 +31,7 @@ PLUGIN_VERSION = "2026.01.11"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Checks for updates, installs new plugins, and allows manual reinstallation."
 
-REMOTE_JSON_URL = "https://raw.githubusercontent.com/HiroYokoyama/moleditpy-plugins/refs/heads/main/explorer/plugins.json"
+REMOTE_JSON_URL = "https://hiroyokoyama.github.io/moleditpy-plugins/explorer/plugins.json"
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "plugin_installer.json")
 
 # Global flag to ensure startup check runs only once per session
@@ -1048,5 +1048,6 @@ class PluginInstallerWindow(QDialog):
                     
         except Exception as e:
              QMessageBox.warning(self, "Update Error", f"Failed to update plugin:\n{e}")
+
 
 
