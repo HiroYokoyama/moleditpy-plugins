@@ -34,7 +34,7 @@
         header {
             background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
             color: white;
-            padding: 3rem 1rem;
+            padding: 4rem 1rem 0.8rem;
             text-align: center;
             position: relative;
         }
@@ -52,9 +52,12 @@
         /* Controls */
         .controls {
             max-width: 800px;
-            margin: -30px auto 30px;
+            margin: -28px auto 30px;
+            /* Overlap effect */
             padding: 0 20px;
             position: relative;
+            z-index: 2;
+            /* Above header */
         }
 
         .search-box {
@@ -70,6 +73,38 @@
 
         .search-box:focus {
             box-shadow: 0 10px 30px rgba(37, 99, 235, 0.2);
+        }
+
+        .search-clear-btn {
+            position: absolute;
+            right: 40px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #cbd5e1;
+            border: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 5px;
+            transition: all 0.2s;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .search-clear-btn.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .search-clear-btn:hover {
+            background-color: #94a3b8;
+            transform: translateY(-50%) scale(1.1);
         }
 
         /* Filter Tags */
@@ -205,8 +240,11 @@
             justify-content: space-between;
             align-items: center;
             max-width: 800px;
-            margin: 0 auto 10px;
+            margin: 5px auto 28px;
+            /* Increased bottom margin for search bar overlap space */
             padding: 0 20px;
+            position: relative;
+            z-index: 1;
         }
 
         .sort-select {
@@ -287,26 +325,31 @@
         .github-link {
             position: absolute;
             top: 24px;
-            right: 24px;
-            color: var(--text-sub);
+            right: 240px;
+            /* Moved left of the button */
+            color: white;
             transition: all 0.2s;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 6px;
-            background-color: #f1f5f9;
-            padding: 4px 12px;
-            border-radius: 20px;
+            background-color: rgba(255, 255, 255, 0.15);
+            /* Match download button */
+            padding: 8px 16px;
+            border-radius: 8px;
             text-decoration: none;
-            font-size: 0.85rem;
+            font-size: 0.9rem;
             font-weight: 600;
-            border: 1px solid transparent;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            /* Match download button */
+            backdrop-filter: blur(4px);
         }
 
         .github-link:hover {
-            color: var(--primary-color);
-            background-color: #e0f2fe;
-            border-color: var(--primary-color);
+            background-color: white;
+            color: #0f172a;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
 
         .github-link svg {
@@ -319,12 +362,14 @@
             position: absolute;
             top: 24px;
             right: 24px;
+            /* Move to far right */
             background-color: rgba(255, 255, 255, 0.15);
             color: white;
             text-decoration: none;
-            padding: 10px 20px;
+            padding: 8px 16px;
             border-radius: 8px;
             font-weight: 600;
+            font-size: 0.9rem;
             border: 1px solid rgba(255, 255, 255, 0.3);
             transition: all 0.2s;
             display: inline-flex;
@@ -383,8 +428,8 @@
             }
 
             .github-link {
-                top: 16px;
-                right: 16px;
+                display: none;
+                /* Hide GitHub link on mobile to save space */
             }
 
             .actions {
@@ -396,9 +441,13 @@
             .header-dl-btn {
                 position: static;
                 display: inline-flex;
-                margin-top: 20px;
-                width: 80%;
+                margin-top: 16px;
+                margin-bottom: 24px;
+                width: auto;
+                padding: 10px 24px;
                 justify-content: center;
+                background-color: rgba(255, 255, 255, 0.2);
+                border: 1px solid rgba(255, 255, 255, 0.4);
             }
         }
     </style>
@@ -418,19 +467,25 @@
             </svg>
             Plugin Installer Plugin
         </a>
+        <div class="controls-header">
+            <span style="font-weight:bold; color: rgba(255,255,255,0.9);">Search & Filter</span>
+            <select id="sortSelect" class="sort-select">
+                <option value="name">Name (A-Z)</option>
+                <option value="newest">Newest First</option>
+            </select>
+        </div>
     </header>
 
     <div class="controls">
         <input type="text" id="searchInput" class="search-box"
-            placeholder="Search plugins (e.g., 'optimization', 'theme')...">
-    </div>
-
-    <div class="controls-header">
-        <span style="font-weight:bold; color:var(--text-sub);">Search & Filter</span>
-        <select id="sortSelect" class="sort-select">
-            <option value="name">Name (A-Z)</option>
-            <option value="newest">Newest First</option>
-        </select>
+            placeholder="Search plugins (e.g., 'optimization', 'theme')..." style="padding-right: 50px;">
+        <button id="clearSearch" class="search-clear-btn" aria-label="Clear search">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" stroke-linecap="round"
+                stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+        </button>
     </div>
 
     <div class="filter-container" id="filterContainer">
@@ -535,11 +590,32 @@
 
         // 3. Search & Filter Logic
         const searchInput = document.getElementById('searchInput');
+        const clearBtn = document.getElementById('clearSearch');
         const filterContainer = document.getElementById('filterContainer');
         const sortSelect = document.getElementById('sortSelect');
         let currentTag = 'all';
 
-        searchInput.addEventListener('input', (e) => filterPlugins(e.target.value, currentTag));
+        // Search Input Event
+        searchInput.addEventListener('input', (e) => {
+            filterPlugins(e.target.value, currentTag);
+            toggleClearBtn(e.target.value);
+        });
+
+        // Clear Button Event
+        clearBtn.addEventListener('click', () => {
+            searchInput.value = '';
+            filterPlugins('', currentTag);
+            toggleClearBtn('');
+            searchInput.focus();
+        });
+
+        function toggleClearBtn(value) {
+            if (value.length > 0) {
+                clearBtn.classList.add('visible');
+            } else {
+                clearBtn.classList.remove('visible');
+            }
+        }
         sortSelect.addEventListener('change', (e) => {
             sortPlugins(e.target.value);
             filterPlugins(searchInput.value, currentTag);
