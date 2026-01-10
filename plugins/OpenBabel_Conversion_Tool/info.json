@@ -12,8 +12,9 @@
         "Utility"
     ],
     "dependencies": [
-        "openbabel"
+        "openbabel-wheel"
     ],
     "downloadUrl": "../plugins/OpenBabel_Conversion_Tool/openbabel_conversion_tool.py",
     "lastUpdated": "2026-01-10"
+
 }
