@@ -36,6 +36,7 @@
             color: white;
             padding: 3rem 1rem;
             text-align: center;
+            position: relative;
         }
 
         header h1 {
@@ -313,6 +314,31 @@
             height: 18px;
             fill: currentColor;
         }
+
+        .header-dl-btn {
+            position: absolute;
+            top: 24px;
+            right: 24px;
+            background-color: rgba(255, 255, 255, 0.15);
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            backdrop-filter: blur(4px);
+        }
+
+        .header-dl-btn:hover {
+            background-color: white;
+            color: #0f172a;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
     </style>
     <style>
         /* Mobile Responsiveness */
@@ -366,6 +392,14 @@
                 /* Stack buttons */
                 gap: 8px;
             }
+
+            .header-dl-btn {
+                position: static;
+                display: inline-flex;
+                margin-top: 20px;
+                width: 80%;
+                justify-content: center;
+            }
         }
     </style>
 </head>
@@ -375,6 +409,15 @@
     <header>
         <h1>MoleditPy Plugins</h1>
         <p>Extend your molecular editing experience</p>
+        <a href="../plugins/Plugin_Installer/plugin_installer.py" class="header-dl-btn" download>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Plugin Installer Plugin
+        </a>
     </header>
 
     <div class="controls">
