@@ -322,10 +322,8 @@
         }
 
         /* GitHub Link (Card Badge) */
+        /* GitHub Link (Card Badge) */
         .github-link {
-            position: absolute;
-            top: 24px;
-            right: 24px;
             color: var(--text-sub);
             transition: all 0.2s;
             display: flex;
@@ -340,7 +338,6 @@
             font-weight: 600;
             border: none;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            z-index: 10;
         }
 
         .github-link:hover {
@@ -443,10 +440,7 @@
                 padding: 16px;
             }
 
-            .github-link {
-                top: 16px;
-                right: 16px;
-            }
+
 
             .actions {
                 grid-template-columns: 1fr;
@@ -576,12 +570,12 @@
                 ` : '';
 
                 card.innerHTML = `
-                ${githubHtml}
                 <div class="card-header">
                     <div>
                         <span class="plugin-version">v${plugin.version}</span>
                         ${badgeHtml}
                     </div>
+                    ${githubHtml}
                 </div>
                 <h3 class="plugin-title" style="padding-right: 30px;">${plugin.name}</h3>
                 <div class="plugin-author">
