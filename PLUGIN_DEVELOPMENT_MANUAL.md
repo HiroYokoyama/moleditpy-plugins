@@ -84,6 +84,7 @@ The `context` object (Type: `PluginContext`) passed to your `initialize` functio
 | **Files** | `register_drop_handler` | Handle drag-and-drop files. |
 | **State** | `register_save_handler` | Save data to `.pmeprj`. |
 | **State** | `register_load_handler` | Load data from `.pmeprj`. |
+| **State** | `register_document_reset_handler` | Reset plugin state on File→New. |
 | **3D** | `register_optimization_method`| Add geometry optimization method. |
 | **3D** | `register_3d_style` | Add custom 3D visualization style. |
 | **Access** | `current_molecule` | Get/Set the active RDKit molecule. |
