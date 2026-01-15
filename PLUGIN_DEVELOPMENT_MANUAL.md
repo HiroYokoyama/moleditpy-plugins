@@ -209,6 +209,35 @@ def restore_state(data):
 context.register_load_handler(restore_state)
 ```
 
+#### `register_document_reset_handler(callback)`
+Register a callback to be invoked when a new document is created (File→New). Use this to reset your plugin's internal state when the user clears all data.
+
+- **callback** (`Callable[[], None]`): Function with no arguments that resets plugin state.
+
+**Example Usage:**
+```python
+# Plugin state
+calculation_cache = {}
+last_result = None
+
+def on_document_reset():
+    """Reset plugin data when user creates a new document."""
+    global calculation_cache, last_result
+    calculation_cache.clear()
+    last_result = None
+    print("Plugin state has been reset")
+
+context.register_document_reset_handler(on_document_reset)
+```
+
+**Use Cases:**
+- Clear cached calculation results
+- Reset UI state (close dialogs, clear selections)
+- Release resources associated with the previous document
+- Reset counters or temporary data
+
+**Note:** This handler is called AFTER the main application has cleared all molecular data but BEFORE the "Cleared all data" status message is displayed.
+
 ### 3.3 Computation & 3D Visualization
 
 #### `register_optimization_method(method_name, callback)`
