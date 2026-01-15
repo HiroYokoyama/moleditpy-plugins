@@ -779,8 +779,28 @@
     ],
     "downloadUrl": "../plugins/OpenBabel_Conversion_Tool/openbabel_conversion_tool.py",
     "lastUpdated": "2026-01-10"
+},
+{
+    "id": "paste_from_chemdraw",
+    "visible": true,
+    "name": "Paste from ChemDraw",
+    "version": "2026.01.15",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Paste chemical structures from ChemDraw clipboard data. Developed on ChemDraw version 25.5.",
+    "tags": [
+        "Clipboard",
+        "Import",
+        "Utility"
+    ],
+    "dependencies": [
+        "rdkit"
+    ],
+    "downloadUrl": "../plugins/Paste_from_ChemDraw/paste_chemdraw.py",
+    "lastUpdated": "2026-01-15"
 }
 ]
+
 
 
 
