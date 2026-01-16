@@ -759,7 +759,7 @@
     ],
     "downloadUrl": "https://raw.githubusercontent.com/HiroYokoyama/moleditpy_pyscf-calculator/06c6a455d3633a4b32f4640014896f762fcfcc79/pyscf_calculator.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_pyscf-calculator",
-    "lastUpdated": "2026-01-15"
+    "lastUpdated": "2026-01-16"
   },
   {
     "id": "openbabel_conversion_tool",
@@ -800,6 +800,7 @@
     "lastUpdated": "2026-01-15"
 }
 ]
+
 
 
 
