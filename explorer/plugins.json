@@ -753,13 +753,14 @@
       "Visualization"
     ],
     "dependencies": [
-      "pyscf",
-      "geometric",
-      "numpy"
+      "PySCF",
+      "geomeTRIC",
+      "NumPy",
+      "Matplotlib"
     ],
-    "downloadUrl": "https://raw.githubusercontent.com/HiroYokoyama/moleditpy_pyscf-calculator/8eaa3b36450421801d8037e571ad73a171dd425a/pyscf_calculator.zip",
+    "downloadUrl": "https://raw.githubusercontent.com/HiroYokoyama/moleditpy_pyscf-calculator/4ee8b18ddc9bb7750bf3a77460f4d51b036732dc/pyscf_calculator.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_pyscf-calculator",
-    "lastUpdated": "2026-01-16"
+    "lastUpdated": "2026-01-17"
   },
   {
     "id": "openbabel_conversion_tool",
@@ -800,6 +801,7 @@
     "lastUpdated": "2026-01-15"
 }
 ]
+
 
 
 
