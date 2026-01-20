@@ -1,17 +1,20 @@
 # -*- coding: utf-8 -*-
 import sys
 import math
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QWidget, QMessageBox, QPushButton, QFileDialog, QCheckBox, QDoubleSpinBox
-from PyQt6.QtGui import QPainter, QPen, QBrush, QColor, QFont, QPalette, QLinearGradient, QGradient
-from PyQt6.QtCore import Qt, QRectF, QPointF, QTimer
+from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QWidget, QMessageBox, QPushButton, QFileDialog, QCheckBox, QDoubleSpinBox, QApplication
+from PyQt6.QtGui import QPainter, QPen, QBrush, QColor, QFont, QPalette, QLinearGradient, QGradient, QPageSize, QTextDocument, QImage, QPageLayout
+from PyQt6.QtCore import Qt, QRectF, QPointF, QTimer, QByteArray, QBuffer, QIODevice, QSizeF, QMarginsF
+from PyQt6.QtPrintSupport import QPrinter
 
 try:
     from rdkit import Chem
-    from rdkit.Chem import Descriptors
+    from rdkit.Chem import Descriptors, Draw
 except ImportError:
     Chem = None
+    Descriptors = None
+    Draw = None
 
-PLUGIN_VERSION = "2026.01.07"
+PLUGIN_VERSION = "2026.01.20"
 PLUGIN_AUTHOR = "HiroYokoyama"
 
 PLUGIN_NAME = "MS Spectrum Simulation Neo"
@@ -23,8 +26,11 @@ class MSSpectrumDialog(QDialog):
         self.resize(500, 700) 
         self.mol = mol
         
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.check_update)
+        # Setup timer for auto-update if integrated (not standalone/mock)
+        if self.parent():
+            self.timer = QTimer(self)
+            self.timer.timeout.connect(self.check_update)
+            self.timer.start(1000)
         
         # Clean white look
         self.setStyleSheet("""
@@ -69,7 +75,12 @@ class MSSpectrumDialog(QDialog):
         # 4. Sync
         self.sync_check = QCheckBox("Sync with Main Window")
         self.sync_check.stateChanged.connect(self.toggle_sync)
-        self.sync_check.setChecked(True)
+        if self.parent():
+             self.sync_check.setChecked(True)
+        else:
+             self.sync_check.setChecked(False)
+             self.sync_check.setEnabled(False) # Disable in standalone/mock
+             
         settings_layout.addRow("Sync:", self.sync_check)
         
         # 2. Charge (Signed)
@@ -146,6 +157,11 @@ class MSSpectrumDialog(QDialog):
         self.btn_export_csv.clicked.connect(self.export_csv)
         btn_layout.addWidget(self.btn_export_csv)
 
+        # Report Button
+        self.btn_report = QPushButton("PDF Report")
+        self.btn_report.clicked.connect(self.create_report)
+        btn_layout.addWidget(self.btn_report)
+
         layout.addLayout(btn_layout)
 
         # Signals
@@ -161,7 +177,14 @@ class MSSpectrumDialog(QDialog):
         # Initial Calc
         self.recalc_peaks(reset=True)
 
+    def closeEvent(self, event):
+        if hasattr(self, 'timer') and self.timer.isActive():
+            self.timer.stop()
+        event.accept()
+
     def toggle_sync(self, state):
+        if not hasattr(self, 'timer'): return
+        
         if state == 2: # Checked
             self.timer.start(500)
             self.check_update()
@@ -169,18 +192,40 @@ class MSSpectrumDialog(QDialog):
             self.timer.stop()
 
     def check_update(self):
-        parent = self.parent()
-        if not parent or not hasattr(parent, 'current_mol') or not parent.current_mol:
+        if Chem is None:
             return
 
         try:
+            parent = self.parent()
+            # Basic checks for parent validity
+            if parent is None:
+                return
+                
+            # Check if parent C++ object is deleted (prevent crash)
+            try:
+                import sip
+                if hasattr(sip, 'isdeleted') and sip.isdeleted(parent):
+                    return
+            except ImportError:
+                pass
+            except Exception:
+                pass
+
+            if not hasattr(parent, 'current_mol') or not parent.current_mol:
+                return
+
+            # Update internal molecule reference to stay in sync
+            # This ensures 'Report' uses the correct molecule structure
+            self.mol = parent.current_mol
+
             # Generate formula from current main window molecule
-            current_formula = Chem.rdMolDescriptors.CalcMolFormula(parent.current_mol)
+            current_formula = Chem.rdMolDescriptors.CalcMolFormula(self.mol)
             
             # If different from text box, update
             if self.formula_input.text() != current_formula:
                  self.formula_input.setText(current_formula)
-        except:
+        except Exception as e:
+            # Fail silently to avoid spamming errors in timer
             pass
 
     def export_image(self):
@@ -278,8 +323,13 @@ class MSSpectrumDialog(QDialog):
 
     def parse_formula_str(self, formula):
         import re
-        # Tokenize: Elements (e.g., "Na", "C"), Numbers, Parentheses
-        tokens = re.findall(r"([A-Z][a-z]*|\d+|\(|\))", formula)
+        # Tokenize: Elements (e.g., "Na", "C"), Numbers, Parentheses, Plus, Minus
+        # We perform strict validation: joined tokens must match the input string (less whitespace)
+        tokens = re.findall(r"([A-Z][a-z]*|\d+|\(|\)|[\+\-])", formula)
+        
+        # Strict Check
+        if "".join(tokens) != formula.replace(" ", ""):
+            return None # Invalid characters found
         
         stack = [{}]
         
@@ -302,6 +352,9 @@ class MSSpectrumDialog(QDialog):
                     top = stack.pop()
                     for el, count in top.items():
                         stack[-1][el] = stack[-1].get(el, 0) + count * multiplier
+                i += 1
+            elif token in ['+', '-']:
+                # Ignore charge symbols in formula (handled by spinbox, or just noise)
                 i += 1
             elif token.isdigit():
                 # Should have been handled, but ignore if standalone
@@ -506,6 +559,8 @@ class MSSpectrumDialog(QDialog):
                     total_mw += base_mass * count
                     
                     atomic_num = pt.GetAtomicNumber(sym)
+                    if atomic_num <= 0: raise RuntimeError("Invalid Atom") # Just in case
+
                     atom_iso_dist = []
                     center_mass = pt.GetMostCommonIsotope(atomic_num)
                     # Scan a range
@@ -522,8 +577,8 @@ class MSSpectrumDialog(QDialog):
                     if total_p == 0: continue
                     atom_iso_dist = [(m, p / total_p) for m, p in atom_iso_dist]
                 except:
-                    # Ignore unknown elements
-                    continue
+                    # Found an unrecognized element -> Invalid Formula -> Hide Spectrum
+                    return [], 0.0, 0.0, 0.0
 
             # Convolve 'count' times
             for _ in range(count):
@@ -608,6 +663,247 @@ class MSSpectrumDialog(QDialog):
         exact_mz = exact_mass_sum / charge if charge != 0 else 0
 
         return [p for p in final_peaks if p[1] > 0.05], total_mw, neutral_exact_mass, exact_mz
+
+    def create_report(self):
+        filename, _ = QFileDialog.getSaveFileName(self, "Save PDF Report", "spectrum_report.pdf", "PDF Files (*.pdf)")
+        if not filename:
+             return
+
+        # 1. Prepare Images
+        # Spectrum
+        pixmap = self.plot_widget.grab()
+        ba = QByteArray()
+        buf = QBuffer(ba)
+        buf.open(QIODevice.OpenModeFlag.WriteOnly)
+        pixmap.save(buf, "PNG")
+        spec_b64 = ba.toBase64().data().decode("utf-8")
+
+        # Molecule Image Logic & Scaling
+        mol_b64 = ""
+        img_w, img_h = 0, 0
+        
+        if self.mol:
+            # 1. Try to grabbing from Main Window Scene (User's View)
+            if self.parent() and hasattr(self.parent(), 'scene'):
+                try:
+                    scene = self.parent().scene
+                    
+                    # Calculate tight bounding box around atoms/bonds only
+                    molecule_bounds = QRectF()
+                    for item in scene.items():
+                        item_type = type(item).__name__
+                        if item_type in ["AtomItem", "BondItem"] and item.isVisible():
+                            molecule_bounds = molecule_bounds.united(item.sceneBoundingRect())
+                    
+                    if molecule_bounds.isEmpty():
+                        molecule_bounds = scene.itemsBoundingRect()
+                    
+                    if not molecule_bounds.isEmpty():
+                        padding = 20
+                        source_rect = molecule_bounds.adjusted(-padding, -padding, padding, padding)
+                        
+                        w = int(source_rect.width())
+                        h = int(source_rect.height())
+                        
+                        if w > 0 and h > 0:
+                            img = QImage(w, h, QImage.Format.Format_ARGB32)
+                            img.fill(Qt.GlobalColor.white)
+                            
+                            if not img.isNull():
+                                painter = QPainter()
+                                if painter.begin(img):
+                                    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+                                    scene.render(painter, QRectF(0, 0, w, h), source_rect)
+                                    painter.end()
+                                    
+                                    ba = QByteArray()
+                                    buf = QBuffer(ba)
+                                    buf.open(QIODevice.OpenModeFlag.WriteOnly)
+                                    img.save(buf, "PNG")
+                                    mol_b64 = ba.toBase64().data().decode("utf-8")
+                                    img_w, img_h = w, h
+                                else:
+                                    print("QPainter failed to begin on image")
+                except Exception as e:
+                    print(f"Scene Capture Error: {e}")
+
+            # 2. Fallback to RDKit Draw
+            if not mol_b64 and Draw:
+                 try:
+                    img = Draw.MolToImage(self.mol, size=(300, 300))
+                    from io import BytesIO
+                    buffered = BytesIO()
+                    img.save(buffered, format="PNG")
+                    import base64
+                    mol_b64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
+                    img_w, img_h = 300, 300
+                 except Exception as e:
+                    print(f"Mol Image Error: {e}")
+
+        # Calculate Scaled Dimensions for Report (Max 330x250 inside 340x260 frame)
+        disp_w, disp_h = 0, 0
+        if mol_b64 and img_w > 0 and img_h > 0:
+            max_w, max_h = 320, 240 # Slight padding inside the 340x260 frame
+            ratio = min(max_w / img_w, max_h / img_h)
+            # If image is smaller, don't upscale? Or Upscale? Usually keep natural or downscale.
+            # Let's upscale if tiny, but usually downscale.
+            # Actually, user wants it "fitted".
+            final_ratio = ratio if ratio < 1.0 else min(ratio, 2.0) # Limit upscaling
+            disp_w = int(img_w * final_ratio)
+            disp_h = int(img_h * final_ratio)
+        else:
+            disp_w, disp_h = 0, 0
+
+        # ... (Prepare Data section - reusing existing vars)
+        formula = self.formula_input.text()
+        adduct = self.adduct_combo.currentText()
+        mz_text = self.lbl_ion.text().replace("<b>", "").replace("</b>", "")
+        mw_text = self.lbl_mw.text().replace("<b>", "").replace("</b>", "")
+        em_text = self.lbl_em.text().replace("<b>", "").replace("</b>", "")
+
+        # 3. HTML Content
+        # Split Label/Values for Table
+        def split_lbl_val(text):
+            parts = text.split(":", 1)
+            if len(parts) == 2:
+                return parts[0].strip(), parts[1].strip()
+            return text, ""
+
+        mz_lbl, mz_val = split_lbl_val(mz_text)
+        em_lbl, em_val = split_lbl_val(em_text)
+        mw_lbl, mw_val = split_lbl_val(mw_text)
+        
+        html = f"""
+        <html>
+        <body style="font-family: sans-serif;">
+            <h1 style="color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; text-align: center;">
+                MS Spectrum Simulation Report
+            </h1>
+            <br>
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <!-- ROW 1: HEADERS -->
+                <tr>
+                    <td width="35%" valign="top" style="padding-bottom: 5px; padding-right: 20px;">
+                        <h3 style="margin: 0; color: #555; text-align: center;">Parameters</h3>
+                    </td>
+                    <td width="65%" valign="top" style="padding-bottom: 5px;">
+                        <h3 style="margin: 0; color: #555; text-align: center;">Structure</h3>
+                    </td>
+                </tr>
+                
+                <!-- ROW 2: CONTENT -->
+                <tr>
+                    <!-- LEFT CONTENT: TEXT INFO -->
+                    <td width="35%" valign="middle" style="padding-right: 20px;">
+                        <table width="100%" cellpadding="5" cellspacing="0" style="border: 1px solid #ddd; border-collapse: collapse;">
+                            <tr style="background-color: #f2f2f2;">
+                                <td width="140" style="border-bottom: 1px solid #ddd; font-weight: bold;">Formula</td>
+                                <td style="border-bottom: 1px solid #ddd;">{formula}</td>
+                            </tr>
+                            <tr>
+                                <td style="border-bottom: 1px solid #ddd; font-weight: bold;">Adduct</td>
+                                <td style="border-bottom: 1px solid #ddd;">{adduct}</td>
+                            </tr>
+                            <tr style="background-color: #f2f2f2;">
+                                <td style="border-bottom: 1px solid #ddd; font-weight: bold;">{mz_lbl}</td>
+                                <td style="border-bottom: 1px solid #ddd;">{mz_val}</td>
+                            </tr>
+                            <tr>
+                                <td style="border-bottom: 1px solid #ddd; font-weight: bold;">{em_lbl}</td>
+                                <td style="border-bottom: 1px solid #ddd;">{em_val}</td>
+                            </tr>
+                            <tr style="background-color: #f2f2f2;">
+                                <td style="border-bottom: 1px solid #ddd; font-weight: bold;">{mw_lbl}</td>
+                                <td style="border-bottom: 1px solid #ddd;">{mw_val}</td>
+                            </tr>
+                        </table>
+                    </td>
+                    
+                    <!-- RIGHT CONTENT: MOLECULE -->
+                    <td width="65%" valign="middle" align="center">
+                        <table width="340" height="260" cellpadding="0" cellspacing="0" border="1" bordercolor="#999999" style="border-collapse: collapse; background-color: #ffffff;">
+                            <tr>
+                                <td align="center" valign="middle" width="340" height="260">
+                                    {f'<img src="data:image/png;base64,{mol_b64}" width="{disp_w}" height="{disp_h}" style="display: block; margin: 0 auto;">' if (mol_b64 and disp_w > 0) else '<p style="color:#888;">No Structure</p>'}
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+
+            <br>
+            <h2>Simulated Spectrum</h2>
+            <br>
+            <div align="left">
+                <img src="data:image/png;base64,{spec_b64}" width="560">
+            </div>
+            
+            <br><br>
+        </body>
+        </html>
+        """
+
+        # 4. Print to PDF
+        try:
+            # Use default constructor + explicit resolution to ensure consistent sizing (approx 300 DPI)
+            # HighResolution mode often defaults to system driver max (e.g. 600/1200 DPI) making content tiny
+            printer = QPrinter()
+            printer.setOutputFormat(QPrinter.OutputFormat.PdfFormat)
+            printer.setOutputFileName(filename)
+            printer.setResolution(300) # High Resolution for quality, manually utilizing full width pixels
+            
+            # Page Layout
+            margins = QMarginsF(30, 30, 30, 30)
+            layout = QPageLayout(QPageSize(QPageSize.PageSizeId.A4), QPageLayout.Orientation.Portrait, margins)
+            layout.setUnits(QPageLayout.Unit.Millimeter)
+            printer.setPageLayout(layout)
+            
+            doc = QTextDocument()
+            doc.setHtml(html)
+            
+            # Use paintRectPixels at printer resolution
+            paint_rect = layout.paintRectPixels(printer.resolution())
+            
+            # Coordinate scaling for High DPI standard sizing
+            # Map logical screen pixels (96 DPI) to printer resolution (300 DPI)
+            scale_factor = printer.resolution() / 96.0
+            logical_w = paint_rect.width() / scale_factor
+            logical_h = paint_rect.height() / scale_factor
+            
+            doc.setPageSize(QSizeF(logical_w, logical_h))
+            
+            # Manual Painting
+            painter = QPainter(printer)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            
+            # Save state before scaling for HTML
+            painter.save()
+            
+            # Apply scaling for HTML content
+            painter.scale(scale_factor, scale_factor)
+            
+            doc.drawContents(painter)
+            
+            # Restore state (remove scaling) for Footer
+            painter.restore()
+            
+            # Draw Footer at absolute bottom of printable area (in Native Printer Coordinates)
+            footer_text = "Generated by MoleditPy MS Spectrum Simulation Neo Plugin (Ver. " + PLUGIN_VERSION + ")"
+            f_font = QFont("Arial", 9) # Standard readable size (native 300 DPI points)
+            painter.setFont(f_font)
+            painter.setPen(QColor("#888888"))
+            
+            # Position: Bottom 100 pixels (in native 300 DPI pixels)
+            # paint_rect.height() is native pixels
+            footer_rect = QRectF(0, paint_rect.height() - 100, paint_rect.width(), 100)
+            painter.drawText(footer_rect, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom, footer_text)
+            
+            painter.end()
+            
+            QMessageBox.information(self, "Report Saved", f"Report saved to:\n{filename}")
+        except Exception as e:
+             QMessageBox.critical(self, "Report Logic Error", f"Failed to generate PDF content: {e}")
 
 
 class HistogramWidget(QWidget):
@@ -971,3 +1267,20 @@ def initialize(context):
 
 
 # initialize removed as it only registered the analysis tool
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    
+    # Mock Molecule (Empty)
+    mol = None
+    # if Chem:
+    #     try:
+    #         mol = Chem.MolFromSmiles("CC(=O)Oc1ccccc1C(=O)O")
+    #         if mol:
+    #              print("Loaded Mock Molecule: Aspirin")
+    #     except:
+    #         print("Failed to create mock molecule")
+
+    dialog = MSSpectrumDialog(mol)
+    dialog.show()
+    sys.exit(app.exec())
