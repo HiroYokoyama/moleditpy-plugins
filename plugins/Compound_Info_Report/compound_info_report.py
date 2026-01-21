@@ -305,22 +305,6 @@ class ReportDialog(QDialog):
         return mol_b64, img_w, img_h
 
 
-    def generate_html(self, for_pdf=False, img_b64=None, img_w=0, img_h=0):
-        # Gather Data
-        formula = Chem.rdMolDescriptors.CalcMolFormula(self.mol)
-        mw = Descriptors.MolWt(self.mol)
-        exact_mass = Descriptors.ExactMolWt(self.mol)
-        logp = Descriptors.MolLogP(self.mol)
-
-        # PubChem Data
-        cas_numbers = []
-        common_name = ""
-        density = None
-        phys_desc = None
-        
-
-
-
     def fetch_pubchem_data(self, progress_callback=None):
         data = {
             "common_name": "",
@@ -421,7 +405,7 @@ class ReportDialog(QDialog):
 
         # PDF Image Insertion
         img_html = ""
-        if for_pdf and img_b64:
+        if img_b64:
 
             # Calculate text-document friendly scaling
             # Target Box (The "Frame")
@@ -533,11 +517,15 @@ class ReportDialog(QDialog):
             pubchem_data = self.fetch_pubchem_data(update_progress)
             progress.setValue(4)
         
-        html = self.build_html(pubchem_data, for_pdf=False)
+        # Capture Image for Preview
+        img_b64, w, h = self.capture_scene_image()
+
+        html = self.build_html(pubchem_data, for_pdf=False, img_b64=img_b64, img_w=w, img_h=h)
         self.preview.setHtml(html)
         
         # Cache data
         self.last_pubchem_data = pubchem_data
+        self.last_img = (img_b64, w, h)
 
     def print_report(self):
         printer = QPrinter(QPrinter.PrinterMode.HighResolution)
@@ -557,8 +545,13 @@ class ReportDialog(QDialog):
 
             try:
                 # 1. Capture Image
-                progress.setLabelText("Capturing Molecule Image...")
-                img_b64, w, h = self.capture_scene_image()
+                # Use cached image if available, else capture
+                if hasattr(self, 'last_img') and self.last_img[0]:
+                     img_b64, w, h = self.last_img
+                else:
+                     progress.setLabelText("Capturing Molecule Image...")
+                     img_b64, w, h = self.capture_scene_image()
+                
                 progress.setValue(1)
                 QApplication.processEvents()
 
