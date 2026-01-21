@@ -209,25 +209,35 @@ class ReportDialog(QDialog):
         self.generate_report()
 
     def calculate_adducts(self, exact_mass):
-        # Masses: H: 1.007825, Na: 22.989769, K: 38.963707, Cl: 34.968853
-        # [M+H]+
-        m_h = exact_mass + 1.007276
-        # [M+Na]+
-        m_na = exact_mass + 22.989769
-        # [M+K]+
-        m_k = exact_mass + 38.963707
-        # [M+Cl]-
-        m_cl = exact_mass + 34.968853
-        
-        # [M-H]- (Deprotonation) - common in neg mode
-        m_minus_h = exact_mass - 1.007276
+        # Constants (IUPAC/NIST standard atomic weights for monoisotopic mass)
+        MASS_ELECTRON = 0.00054858
+        MASS_H = 1.00782503
+        MASS_NA = 22.98976928
+        MASS_K  = 38.96370668
+        MASS_CL = 34.96885268
+
+        # [M+H]+ : Add H, remove electron
+        m_h = exact_mass + MASS_H - MASS_ELECTRON  # = exact_mass + 1.007276
+
+        # [M+Na]+ : Add Na, remove electron
+        m_na = exact_mass + MASS_NA - MASS_ELECTRON # = exact_mass + 22.989221
+
+        # [M+K]+ : Add K, remove electron
+        m_k = exact_mass + MASS_K - MASS_ELECTRON   # = exact_mass + 38.963158
+
+        # [M+Cl]- : Add Cl, add electron (Negative mode)
+        m_cl = exact_mass + MASS_CL + MASS_ELECTRON # = exact_mass + 34.969401
+
+        # [M-H]- : Remove H, add electron (net: remove proton)
+        # Calculation: M - H + e_ = M - (H - e_) = M - Proton
+        m_minus_h = exact_mass - (MASS_H - MASS_ELECTRON) # = exact_mass - 1.007276
 
         return [
             ("[M+H]<sup>+</sup>", f"{m_h:.4f}"),
             ("[M+Na]<sup>+</sup>", f"{m_na:.4f}"),
             ("[M+K]<sup>+</sup>", f"{m_k:.4f}"),
-            ("[M+Cl]<sup>-</sup>", f"{m_cl:.4f}"),
             ("[M-H]<sup>-</sup>", f"{m_minus_h:.4f}"),
+            ("[M+Cl]<sup>-</sup>", f"{m_cl:.4f}"),
         ]
 
 
