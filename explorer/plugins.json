@@ -801,9 +801,9 @@
     "lastUpdated": "2026-01-15"
   },
   {
-    "id": "synthesis_report",
+    "id": "synthesis_info_report",
     "visible": true,
-    "name": "Synthesis Report",
+    "name": "Synthesis Info Report",
     "version": "2025.01.21",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
@@ -816,7 +816,7 @@
       "rdkit",
       "PyQt6"
     ],
-    "downloadUrl": "../plugins/Synthesis_Report/synthesis_report.py",
+    "downloadUrl": "../plugins/Synthesis_Info_Report/synthesis_info_report.py",
     "lastUpdated": "2025-01-21"
   }
 ]
