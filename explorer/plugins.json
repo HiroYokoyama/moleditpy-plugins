@@ -801,13 +801,13 @@
     "lastUpdated": "2026-01-15"
   },
   {
-    "id": "synthesis_info_report",
+    "id": "compound_info_report",
     "visible": true,
-    "name": "Synthesis Info Report",
+    "name": "Compound Info Report",
     "version": "2025.01.21",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "Generate a synthesis report with properties, adducts, and structure. Useful for organic synthesis experiments.",
+    "description": "Generate a compound info report with properties, adducts, and structure. Useful for organic synthesis experiments.",
     "tags": [
       "Analysis",
       "Report"
@@ -816,7 +816,7 @@
       "rdkit",
       "PyQt6"
     ],
-    "downloadUrl": "../plugins/Synthesis_Info_Report/synthesis_info_report.py",
+    "downloadUrl": "../plugins/Compound_Info_Report/compound_info_report.py",
     "lastUpdated": "2025-01-21"
   }
 ]
