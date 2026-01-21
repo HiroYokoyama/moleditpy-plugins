@@ -771,17 +771,17 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Import various chemical file formats using OpenBabel with multi-molecule support.",
     "tags": [
-        "Import",
-        "Export",
-        "Utility"
+      "Import",
+      "Export",
+      "Utility"
     ],
     "dependencies": [
-        "openbabel-wheel"
+      "openbabel-wheel"
     ],
     "downloadUrl": "../plugins/OpenBabel_Conversion_Tool/openbabel_conversion_tool.py",
     "lastUpdated": "2026-01-10"
-},
-{
+  },
+  {
     "id": "paste_from_chemdraw",
     "visible": true,
     "name": "Paste from ChemDraw",
@@ -790,41 +790,33 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Paste chemical structures from ChemDraw clipboard data. Developed on ChemDraw version 25.5.",
     "tags": [
-        "Clipboard",
-        "Import",
-        "Utility"
+      "Clipboard",
+      "Import",
+      "Utility"
     ],
     "dependencies": [
-        "rdkit"
+      "rdkit"
     ],
     "downloadUrl": "../plugins/Paste_from_ChemDraw/paste_chemdraw.py",
     "lastUpdated": "2026-01-15"
-}
+  },
+  {
+    "id": "synthesis_report",
+    "visible": true,
+    "name": "Synthesis Report",
+    "version": "2025.01.21",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Generate a synthesis report with properties, adducts, and structure. Useful for organic synthesis experiments.",
+    "tags": [
+      "Analysis",
+      "Report"
+    ],
+    "dependencies": [
+      "rdkit",
+      "PyQt6"
+    ],
+    "downloadUrl": "../plugins/Synthesis_Report/synthesis_report.py",
+    "lastUpdated": "2025-01-21"
+  }
 ]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
