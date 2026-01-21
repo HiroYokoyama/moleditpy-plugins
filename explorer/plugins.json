@@ -804,7 +804,7 @@
     "id": "compound_info_report",
     "visible": true,
     "name": "Compound Info Report",
-    "version": "2025.01.21",
+    "version": "2026.01.21",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generate a compound info report with properties, adducts, and structure. Useful for organic synthesis experiments.",
@@ -817,6 +817,6 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Compound_Info_Report/compound_info_report.py",
-    "lastUpdated": "2025-01-21"
+    "lastUpdated": "2026-01-21"
   }
 ]
