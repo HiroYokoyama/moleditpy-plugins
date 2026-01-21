@@ -3,7 +3,7 @@ import sys
 import math
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QWidget, QMessageBox, QPushButton, QFileDialog, QCheckBox, QDoubleSpinBox, QApplication
 from PyQt6.QtGui import QPainter, QPen, QBrush, QColor, QFont, QPalette, QLinearGradient, QGradient, QPageSize, QTextDocument, QImage, QPageLayout
-from PyQt6.QtCore import Qt, QRectF, QPointF, QTimer, QByteArray, QBuffer, QIODevice, QSizeF, QMarginsF
+from PyQt6.QtCore import Qt, QRectF, QPointF, QTimer, QByteArray, QBuffer, QIODevice, QSizeF, QMarginsF, QLineF
 from PyQt6.QtPrintSupport import QPrinter
 
 try:
@@ -14,7 +14,7 @@ except ImportError:
     Descriptors = None
     Draw = None
 
-PLUGIN_VERSION = "2026.01.20"
+PLUGIN_VERSION = "2026.01.21"
 PLUGIN_AUTHOR = "HiroYokoyama"
 
 PLUGIN_NAME = "MS Spectrum Simulation Neo"
@@ -670,12 +670,21 @@ class MSSpectrumDialog(QDialog):
              return
 
         # 1. Prepare Images
-        # Spectrum
-        pixmap = self.plot_widget.grab()
+        # 1. Prepare Images
+        # Spectrum - High Resolution Render
+        spec_w, spec_h = 2400, 1200 # 2x High Res
+        spec_img = QImage(spec_w, spec_h, QImage.Format.Format_ARGB32)
+        spec_img.fill(Qt.GlobalColor.white)
+        
+        spec_painter = QPainter(spec_img)
+        # Use a localized rect for the painter
+        self.plot_widget.draw_spectrum(spec_painter, QRectF(0, 0, spec_w, spec_h))
+        spec_painter.end()
+
         ba = QByteArray()
         buf = QBuffer(ba)
         buf.open(QIODevice.OpenModeFlag.WriteOnly)
-        pixmap.save(buf, "PNG")
+        spec_img.save(buf, "PNG")
         spec_b64 = ba.toBase64().data().decode("utf-8")
 
         # Molecule Image Logic & Scaling
@@ -740,15 +749,13 @@ class MSSpectrumDialog(QDialog):
                  except Exception as e:
                     print(f"Mol Image Error: {e}")
 
-        # Calculate Scaled Dimensions for Report (Max 330x250 inside 340x260 frame)
+        # Calculate Scaled Dimensions for Report (Max 260x190 inside 270x200 frame)
         disp_w, disp_h = 0, 0
         if mol_b64 and img_w > 0 and img_h > 0:
-            max_w, max_h = 320, 240 # Slight padding inside the 340x260 frame
+            max_w, max_h = 260, 190 # Padding inside the 270x200 frame
             ratio = min(max_w / img_w, max_h / img_h)
-            # If image is smaller, don't upscale? Or Upscale? Usually keep natural or downscale.
-            # Let's upscale if tiny, but usually downscale.
-            # Actually, user wants it "fitted".
-            final_ratio = ratio if ratio < 1.0 else min(ratio, 2.0) # Limit upscaling
+            # Scale to fit (contain) inside the box
+            final_ratio = ratio 
             disp_w = int(img_w * final_ratio)
             disp_h = int(img_h * final_ratio)
         else:
@@ -783,10 +790,10 @@ class MSSpectrumDialog(QDialog):
             <table width="100%" cellpadding="0" cellspacing="0" border="0">
                 <!-- ROW 1: HEADERS -->
                 <tr>
-                    <td width="35%" valign="top" style="padding-bottom: 5px; padding-right: 20px;">
+                    <td width="50%" valign="top" style="padding-bottom: 5px; padding-right: 20px;">
                         <h3 style="margin: 0; color: #555; text-align: center;">Parameters</h3>
                     </td>
-                    <td width="65%" valign="top" style="padding-bottom: 5px;">
+                    <td width="50%" valign="top" style="padding-bottom: 5px;">
                         <h3 style="margin: 0; color: #555; text-align: center;">Structure</h3>
                     </td>
                 </tr>
@@ -794,7 +801,7 @@ class MSSpectrumDialog(QDialog):
                 <!-- ROW 2: CONTENT -->
                 <tr>
                     <!-- LEFT CONTENT: TEXT INFO -->
-                    <td width="35%" valign="middle" style="padding-right: 20px;">
+                    <td width="50%" valign="middle" style="padding-right: 20px;">
                         <table width="100%" cellpadding="5" cellspacing="0" style="border: 1px solid #ddd; border-collapse: collapse;">
                             <tr style="background-color: #f2f2f2;">
                                 <td width="140" style="border-bottom: 1px solid #ddd; font-weight: bold;">Formula</td>
@@ -820,10 +827,10 @@ class MSSpectrumDialog(QDialog):
                     </td>
                     
                     <!-- RIGHT CONTENT: MOLECULE -->
-                    <td width="65%" valign="middle" align="center">
-                        <table width="340" height="260" cellpadding="0" cellspacing="0" border="1" bordercolor="#999999" style="border-collapse: collapse; background-color: #ffffff;">
+                    <td width="50%" valign="middle" align="center">
+                        <table width="270" height="200" cellpadding="0" cellspacing="0" border="0" style="border-collapse: collapse; background-color: #ffffff; width: 270px; height: 200px;">
                             <tr>
-                                <td align="center" valign="middle" width="340" height="260">
+                                <td align="center" valign="middle" width="270" height="200" style="width: 270px; height: 200px;">
                                     {f'<img src="data:image/png;base64,{mol_b64}" width="{disp_w}" height="{disp_h}" style="display: block; margin: 0 auto;">' if (mol_b64 and disp_w > 0) else '<p style="color:#888;">No Structure</p>'}
                                 </td>
                             </tr>
@@ -1020,26 +1027,36 @@ class HistogramWidget(QWidget):
 
     def paintEvent(self, event):
         painter = QPainter(self)
+        self.draw_spectrum(painter, self.rect())
+
+    def draw_spectrum(self, painter, rect):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         
-        w = self.width()
-        h = self.height()
+        # Use passed rect dimensions
+        w = rect.width()
+        h = rect.height()
         
         # 1. Background White
-        painter.fillRect(0, 0, w, h, QColor("#ffffff"))
+        painter.fillRect(rect, QColor("#ffffff"))
         
-        # Margins (Increased Top Margin for Labels)
-        ml, mt, mr, mb = 60, 60, 40, 50
+        # Scaled Margins (Base 60,60,40,50 on standard size, scale up for high res)
+        # We can keep fixed margins, but for high res image (e.g. 2400 width), 
+        # fixed pixel margins might be too small/large.
+        # Let's use proportional scaling or fixed reasonable margins.
+        # Actually, let's keep them somewhat fixed or scaled relative to 'standard' ~600px width.
+        scale = w / 600.0 # Pure proportional scaling
+        ml = int(60 * scale)
+        mt = int(60 * scale)
+        mr = int(40 * scale)
+        mb = int(50 * scale)
 
-
-        
         if not self.peaks:
             painter.setPen(QColor("#999999"))
             font = painter.font()
-            font.setPointSize(12)
+            font.setPointSizeF(12 * scale)
             font.setBold(False)
             painter.setFont(font)
-            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "No Data")
+            painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, "No Data")
             return
 
         plot_w = w - ml - mr
@@ -1055,9 +1072,9 @@ class HistogramWidget(QWidget):
         max_intensity = 110.0 
 
         # 2. Draw Grid & Y-Axis Labels
-        painter.setPen(QPen(QColor("#eeeeee"), 1, Qt.PenStyle.SolidLine))
+        painter.setPen(QPen(QColor("#eeeeee"), 1 * scale, Qt.PenStyle.SolidLine))
         font = painter.font()
-        font.setPixelSize(10)
+        font.setPointSizeF(10 * scale)
         font.setBold(False)
         painter.setFont(font)
         
@@ -1069,20 +1086,20 @@ class HistogramWidget(QWidget):
             
             # Grid Line
             if i > 0: # Don't draw over X axis
-                painter.setPen(QPen(QColor("#eeeeee"), 1, Qt.PenStyle.SolidLine))
-                painter.drawLine(ml, int(y), w - mr, int(y))
+                painter.setPen(QPen(QColor("#eeeeee"), 1 * scale, Qt.PenStyle.SolidLine))
+                painter.drawLine(QLineF(ml, y, w - mr, y))
             
             # Label
             painter.setPen(QColor("#000000"))
-            painter.drawText(QRectF(0, y - 10, ml - 5, 20), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, str(val))
+            painter.drawText(QRectF(0, y - (10 * scale), ml - (5 * scale), 20 * scale), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, str(val))
 
         # 3. Draw Axes
-        axis_pen = QPen(QColor("#000000"), 2)
+        axis_pen = QPen(QColor("#000000"), 2 * scale)
         painter.setPen(axis_pen)
         # Y axis
-        painter.drawLine(ml, mt, ml, h - mb)
+        painter.drawLine(QLineF(ml, mt, ml, h - mb))
         # X axis
-        painter.drawLine(ml, h - mb, w - mr, h - mb)
+        painter.drawLine(QLineF(ml, h - mb, w - mr, h - mb))
         
         # X-Axis Ticks
         n_ticks = 5
@@ -1101,15 +1118,15 @@ class HistogramWidget(QWidget):
             x = ml + x_ratio * plot_w
             
             if ml <= x <= w - mr:
-                painter.drawLine(int(x), h - mb, int(x), h - mb + 5)
-                painter.drawText(QRectF(x - 30, h - mb + 5, 60, 20), Qt.AlignmentFlag.AlignCenter, f"{curr_tick:.1f}")
+                painter.drawLine(QLineF(x, h - mb, x, h - mb + (5 * scale)))
+                painter.drawText(QRectF(x - (30 * scale), h - mb + (5 * scale), 60 * scale, 20 * scale), Qt.AlignmentFlag.AlignCenter, f"{curr_tick:.1f}")
             
             curr_tick += nice_step
         
         # 4. Draw Peaks
 
 
-        font.setPixelSize(11)
+        font.setPointSizeF(11 * scale)
         painter.setFont(font)
         
         base_y = h - mb
@@ -1117,7 +1134,7 @@ class HistogramWidget(QWidget):
         if self.draw_mode == "profile":
             # 1. Draw Profile Curve (CLIPPED)
             painter.save()
-            painter.setClipRect(ml, mt, plot_w, plot_h)
+            painter.setClipRect(QRectF(ml, mt, plot_w, plot_h))
             
             path_points = []
             first_mass = self.peaks[0][0]
@@ -1139,7 +1156,7 @@ class HistogramWidget(QWidget):
             last_x = ml + last_x_ratio * plot_w
             path_points.append(QPointF(last_x, base_y))
             
-            profile_pen = QPen(QColor("#007bff"), 2)
+            profile_pen = QPen(QColor("#007bff"), 2 * scale)
             painter.setPen(profile_pen)
             painter.drawPolyline(path_points)
             
@@ -1165,7 +1182,7 @@ class HistogramWidget(QWidget):
                     
                     # Mass Label - Higher Position over stick peak
                     # NOTE: We draw label at STICK height, not PROFILE height
-                    label_rect = QRectF(x_pos - 40, y_pos - 25, 80, 20)
+                    label_rect = QRectF(x_pos - (40 * scale), y_pos - (25 * scale), 80 * scale, 20 * scale)
                     painter.setPen(QColor("#000000"))
                     painter.drawText(label_rect, Qt.AlignmentFlag.AlignCenter, f"{s_mass:.4f}")
 
@@ -1174,9 +1191,9 @@ class HistogramWidget(QWidget):
             
             # 1. Draw Sticks (CLIPPED)
             painter.save()
-            painter.setClipRect(ml, mt, plot_w, plot_h)
+            painter.setClipRect(QRectF(ml, mt, plot_w, plot_h))
             
-            stick_pen = QPen(QColor("#007bff"), 3) 
+            stick_pen = QPen(QColor("#007bff"), 3 * scale) 
             stick_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
             painter.setPen(stick_pen)
             
@@ -1204,41 +1221,35 @@ class HistogramWidget(QWidget):
                 painter.setPen(QPen(QColor("#000000")))
                 
                 # Mass Label (Line 1)
-                label_rect = QRectF(x_pos - 40, y_pos - 35, 80, 15) 
+                label_rect = QRectF(x_pos - (40 * scale), y_pos - (35 * scale), 80 * scale, 15 * scale) 
                 painter.drawText(label_rect, Qt.AlignmentFlag.AlignCenter, f"{mass:.4f}")
                 
                 # Intensity Label (Line 2)
                 painter.setPen(QPen(QColor("#007bff")))
-                int_rect = QRectF(x_pos - 40, y_pos - 20, 80, 15)
+                int_rect = QRectF(x_pos - (40 * scale), y_pos - (20 * scale), 80 * scale, 15 * scale)
                 painter.drawText(int_rect, Qt.AlignmentFlag.AlignCenter, f"{int(intensity)}%")
         
         # Axis Labels
         painter.setPen(QColor("#000000"))
         font.setBold(True)
         painter.setFont(font)
-        painter.drawText(QRectF(0, h - 30, w, 20), Qt.AlignmentFlag.AlignCenter, "m/z")
+        painter.drawText(QRectF(0, h - (30 * scale), w, 20 * scale), Qt.AlignmentFlag.AlignCenter, "m/z")
 
         # Draw Info Text (Top Right) - Drawn Last to be on top of Grid
         if self.info_text:
              painter.setPen(QColor("#333333"))
              font = painter.font()
-             font.setPointSize(14)
+             font.setPointSizeF(14 * scale)
              font.setBold(True)
              painter.setFont(font)
              
-             rect = QRectF(w - 250 - mr, mt, 250, 60)
-             # Optional: White background for text to strictly hide grid? 
-             # User just said "change drawing order", implying text on top is enough.
-             # If grid is black and text is black, it might collide.
-             # But usually text on top is standard.
-             # Let's add a slight semi-transparent white bg if needed? 
-             # No, user said "Revert", so let's go back to original simple text but drawn last.
-             painter.drawText(rect, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop, self.info_text)
+             rect_info = QRectF(w - (250 * scale) - mr, mt, 250 * scale, 60 * scale)
+             painter.drawText(rect_info, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop, self.info_text)
         
         save_state = painter.save()
-        painter.translate(20, h / 2)
+        painter.translate(20 * scale, h / 2)
         painter.rotate(-90)
-        painter.drawText(QRectF(-100, -100, 200, 20), Qt.AlignmentFlag.AlignCenter, "Relative Intensity (%)")
+        painter.drawText(QRectF(-100 * scale, -100 * scale, 200 * scale, 20 * scale), Qt.AlignmentFlag.AlignCenter, "Relative Intensity (%)")
         painter.restore()
 
 def run(mw):
