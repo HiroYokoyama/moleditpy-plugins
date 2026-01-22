@@ -818,5 +818,27 @@
     ],
     "downloadUrl": "../plugins/Compound_Info_Report/compound_info_report.py",
     "lastUpdated": "2026-01-21"
+  },
+  {
+    "id": "gaussian_mo_analyzer",
+    "visible": true,
+    "name": "Gaussian MO Analyzer",
+    "version": "2026.01.23",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Visualizes Molecular Orbitals from Gaussian FCHK files by generating Cube files.",
+    "tags": [
+      "Analysis",
+      "Visualization",
+      "File"
+    ],
+    "dependencies": [
+      "rdkit",
+      "numpy",
+      "pyvista",
+      "PyQt6"
+    ],
+    "downloadUrl": "../plugins/Gaussian_MO_Analyzer/gaussian_fchk_mo_analyzer.zip",
+    "lastUpdated": "2026-01-23"
   }
 ]
