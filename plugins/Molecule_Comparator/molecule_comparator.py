@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QListWidget, QListWidgetItem,
     QLabel, QComboBox, QGroupBox, QRadioButton, QDockWidget, QMessageBox,
     QColorDialog, QFormLayout, QTableWidget, QTableWidgetItem, QHeaderView,
-    QFileDialog, QMenuBar, QCheckBox, QToolButton
+    QFileDialog, QMenuBar, QCheckBox, QToolButton, QMenu
 )
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QColor, QIcon, QAction
@@ -13,7 +13,7 @@ from rdkit.Chem import AllChem
 import copy
 
 PLUGIN_NAME = "Molecule Comparator"
-PLUGIN_VERSION = "2026.01.03"
+PLUGIN_VERSION = "2026.01.23"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Compare multiple molecules in 3D, calculate RMSD, and align them."
 
@@ -131,6 +131,9 @@ class MoleculeComparator(QWidget):
         self.table_results.setHorizontalHeaderLabels(["Molecule", "RMSD (Å)"])
         self.table_results.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table_results.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)  # Make non-editable
+        self.table_results.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows) # Select full row
+        self.table_results.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.table_results.customContextMenuRequested.connect(self.show_results_context_menu)
         layout.addWidget(QLabel("Results:"))
         layout.addWidget(self.table_results)
         
@@ -156,6 +159,58 @@ class MoleculeComparator(QWidget):
         # Events
         self.mol_list.currentRowChanged.connect(self.on_selection_changed)
 
+    def show_results_context_menu(self, pos):
+        item = self.table_results.itemAt(pos)
+        if not item:
+            return
+            
+        row = item.row()
+        if row < 0 or row >= len(self.molecules):
+            return
+
+        from PyQt6.QtWidgets import QMenu
+        menu = QMenu(self)
+        
+        action_mol = QAction("Export Coordinates as MOL...", self)
+        action_mol.triggered.connect(lambda: self.export_molecule_coords(row, "mol"))
+        menu.addAction(action_mol)
+        
+        action_xyz = QAction("Export Coordinates as XYZ...", self)
+        action_xyz.triggered.connect(lambda: self.export_molecule_coords(row, "xyz"))
+        menu.addAction(action_xyz)
+        
+        menu.exec(self.table_results.mapToGlobal(pos))
+
+    def export_molecule_coords(self, row, format_type):
+        if row < 0 or row >= len(self.molecules):
+            return
+            
+        entry = self.molecules[row]
+        mol = entry['mol']
+        name = entry['name']
+        
+        default_ext = f".{format_type}"
+        file_filter = f"{format_type.upper()} File (*{default_ext});;All Files (*)"
+        
+        default_name = f"{name}_aligned{default_ext}"
+        
+        file_path, _ = QFileDialog.getSaveFileName(
+            self.mw, f"Export {name} as {format_type.upper()}", default_name, file_filter
+        )
+        
+        if not file_path:
+            return
+            
+        try:
+            if format_type == "mol":
+                print(Chem.MolToMolBlock(mol), file=open(file_path, 'w'))
+            elif format_type == "xyz":
+                print(Chem.MolToXYZBlock(mol), file=open(file_path, 'w'))
+                
+            QMessageBox.information(self.mw, "Exported", f"Saved to:\n{file_path}")
+        except Exception as e:
+            QMessageBox.critical(self.mw, "Error", f"Failed to export:\n{str(e)}")
+
     def closeEvent(self, event):
         self.cleanup_and_close()
         super().closeEvent(event)
@@ -173,6 +228,10 @@ class MoleculeComparator(QWidget):
             self.mw.plotter.clear()
             
         self.exit_3d_only_mode()
+
+    def exit_3d_only_mode(self):
+         # Placeholder if not defined in snippet, but cleanup calls it
+         pass
 
     def add_current_molecule(self):
         mol = self.mw.current_mol
@@ -207,6 +266,10 @@ class MoleculeComparator(QWidget):
         self.update_visualization()
         self.update_wireframe_lighting()
         self.reset_view()
+
+    def reset_view(self):
+        # Placeholder for view reset if needed
+        pass
 
     def load_from_file(self):
         file_path, _ = QFileDialog.getOpenFileName(
@@ -399,8 +462,8 @@ class MoleculeComparator(QWidget):
             probe_work = copy.deepcopy(probe_mol)
             ref_work = copy.deepcopy(ref_mol)
 
-            # Create temporary Mol without hydrogens for RMSD calculation
-            if ignore_hs:
+            # Create temporary Mol without hydrogens for MCS/RMSD calculation if needed
+            if ignore_hs and method == "Substructure (MCS)":
                 probe_calc = Chem.RemoveHs(probe_work)
                 ref_calc = Chem.RemoveHs(ref_work)
             else:
@@ -413,33 +476,49 @@ class MoleculeComparator(QWidget):
                 
                 # --- Method A: Atom IDs (Topology must be identical) ---
                 if method == "Atom IDs":
-                    if probe_calc.GetNumAtoms() != ref_calc.GetNumAtoms():
-                         target_entry['rms'] = -1.0
-                         continue
+                    # Use Original Data (probe_work/ref_work) directly
+                    if probe_work.GetNumAtoms() != ref_work.GetNumAtoms():
+                         # If strict atom count differs, we can't do simple 1:1
+                         # But wait, if Ignore Hs is ON, we might allow different H counts?
+                         # "Atom ID" fitting usually implies strict identity.
+                         # But if we map heavy-to-heavy, we only care about heavy count.
+                         pass 
                     
-                    # Calculate RMSD with same basis (with or without H)
                     if ignore_hs:
-                        # Map heavy atom indices from calc to work molecules
-                        heavy_to_full = []
-                        for atom in probe_work.GetAtoms():
-                            if atom.GetAtomicNum() != 1:  # Not hydrogen
-                                heavy_to_full.append(atom.GetIdx())
+                        # Map N-th heavy atom to N-th heavy atom using ORIGINAL Indices
+                        # This avoids any renumbering from RemoveHs
+                        probe_heavy_indices = [a.GetIdx() for a in probe_work.GetAtoms() if a.GetAtomicNum() != 1]
+                        ref_heavy_indices = [a.GetIdx() for a in ref_work.GetAtoms() if a.GetAtomicNum() != 1]
                         
-                        # Align using heavy atoms only, apply to full molecule
-                        rms = AllChem.AlignMol(probe_calc, ref_calc, reflect=False)
-                        
-                        # Apply transformation to full molecule (with H)
-                        # Create atom map for full molecule
-                        atom_map = [(heavy_to_full[idx], heavy_to_full[idx]) 
-                                   for idx in range(len(heavy_to_full))]
-                        AllChem.AlignMol(probe_work, ref_work, atomMap=atom_map, reflect=False)
-                        best_rms = rms
-                        target_entry['mol'] = probe_work
+                        # Verify Heavy Atom Counts match
+                        if len(probe_heavy_indices) == len(ref_heavy_indices):
+                            # Map sequential heavy atoms
+                            atom_map = list(zip(probe_heavy_indices, ref_heavy_indices))
+                            
+                            # Align using heavy atoms map on the FULL molecule
+                            try:
+                                rms = AllChem.AlignMol(probe_work, ref_work, atomMap=atom_map, reflect=False)
+                                best_rms = rms
+                                target_entry['mol'] = probe_work
+                            except RuntimeError:
+                                target_entry['rms'] = -1.0
+                        else:
+                            target_entry['rms'] = -1.0
+                            
                     else:
-                        # Align using all atoms
-                        rms = AllChem.AlignMol(probe_work, ref_work, reflect=False)
-                        best_rms = rms
-                        target_entry['mol'] = probe_work
+                        # INCLUDE HYDROGEN INDICES: Strict 1:1 mapping of ALL atoms
+                        if probe_work.GetNumAtoms() == ref_work.GetNumAtoms():
+                            atom_map = [(i, i) for i in range(probe_work.GetNumAtoms())]
+                            
+                            # Calculate RMSD and Transform using strict map
+                            try:
+                                rms = AllChem.AlignMol(probe_work, ref_work, atomMap=atom_map, reflect=False)
+                                best_rms = rms
+                                target_entry['mol'] = probe_work
+                            except RuntimeError:
+                                target_entry['rms'] = -1.0
+                        else:
+                             target_entry['rms'] = -1.0
 
                 # --- Method B: Substructure (MCS) with Symmetry Handling ---
                 elif method == "Substructure (MCS)":
@@ -450,61 +529,54 @@ class MoleculeComparator(QWidget):
                         [ref_calc, probe_calc],
                         matchValences=True,
                         ringMatchesRingOnly=True,
-                        completeRingsOnly=True,  # Match complete rings only (better accuracy)
+                        completeRingsOnly=True,
                         timeout=5
                     )
                     
                     if res.numAtoms > 0:
                         patt = Chem.MolFromSmarts(res.smartsString)
                         
-                        # Get ALL matching patterns to account for symmetry
+                        # Get ALL matching patterns
                         ref_matches = ref_calc.GetSubstructMatches(patt, uniquify=False)
                         probe_matches = probe_calc.GetSubstructMatches(patt, uniquify=False)
                         
-                        # Find best alignment considering symmetry
-                        # Fix reference to first match, iterate through probe matches
+                        # Find best alignment considering symmetry of BOTH Ref and Probe
                         if ref_matches and probe_matches:
-                            ref_match = ref_matches[0]  # Fix reference
                             
-                            for probe_match in probe_matches:
-                                # Create atom map: (Probe atom ID, Ref atom ID)
-                                atom_map = list(zip(probe_match, ref_match))
-                                
-                                # Calculate RMSD with this mapping
-                                probe_temp = copy.deepcopy(probe_calc)
-                                rms = AllChem.AlignMol(probe_temp, ref_calc, atomMap=atom_map, reflect=False)
-                                
-                                if rms < best_rms:
-                                    best_rms = rms
+                            # Iterate all combinations
+                            for ref_match in ref_matches:
+                                for probe_match in probe_matches:
                                     
-                                    if ignore_hs:
-                                        # --- 修正: ProbeとRefそれぞれのマッピングを作成 ---
+                                    # Create atom map: (Probe atom ID, Ref atom ID)
+                                    atom_map = list(zip(probe_match, ref_match))
+                                    
+                                    # Calculate RMSD with this mapping
+                                    probe_temp = copy.deepcopy(probe_calc)
+                                    try:
+                                        rms = AllChem.AlignMol(probe_temp, ref_calc, atomMap=atom_map, reflect=False)
+                                    except RuntimeError:
+                                        # Skip failed alignments
+                                        continue
+                                    
+                                    if rms < best_rms:
+                                        best_rms = rms
                                         
-                                        # 1. Probe用のマッピング (Hなし -> Hあり)
-                                        probe_heavy_to_full = []
-                                        for atom in probe_work.GetAtoms():
-                                            if atom.GetAtomicNum() != 1:
-                                                probe_heavy_to_full.append(atom.GetIdx())
-                                        
-                                        # 2. Ref用のマッピング (Hなし -> Hあり)
-                                        ref_heavy_to_full = []
-                                        for atom in ref_work.GetAtoms():
-                                            if atom.GetAtomicNum() != 1:
-                                                ref_heavy_to_full.append(atom.GetIdx())
+                                        if ignore_hs:
+                                            # Mapping for final transform (H-less indices -> Full indices)
+                                            probe_heavy_to_full = [a.GetIdx() for a in probe_work.GetAtoms() if a.GetAtomicNum() != 1]
+                                            ref_heavy_to_full = [a.GetIdx() for a in ref_work.GetAtoms() if a.GetAtomicNum() != 1]
 
-                                        # 3. 正しいマッピングを使って変換
-                                        # p: Probe(Hなし)のidx -> probe_heavy_to_full[p] でProbe(Hあり)のidxへ
-                                        # r: Ref(Hなし)のidx   -> ref_heavy_to_full[r] でRef(Hあり)のidxへ
-                                        full_atom_map = [(probe_heavy_to_full[p], ref_heavy_to_full[r]) 
-                                                        for p, r in atom_map]
-                                        
-                                        # Apply best alignment to full molecule
-                                        probe_final = copy.deepcopy(probe_work)
-                                        # Refは変更しないので transform 用の map には full_atom_map をそのまま使用
-                                        AllChem.AlignMol(probe_final, ref_work, atomMap=full_atom_map, reflect=False)
-                                        best_transform = probe_final
-                                    else:
-                                        best_transform = probe_temp
+                                            # Map: Probe(H-less idx) -> Probe(Full idx) -> Ref(Full idx) <- Ref(H-less idx)
+                                            # atom_map is pairs of (Probe H-less Idx, Ref H-less Idx)
+                                            full_atom_map = [(probe_heavy_to_full[p], ref_heavy_to_full[r]) 
+                                                            for p, r in atom_map]
+                                            
+                                            # Apply best alignment to full molecule
+                                            probe_final = copy.deepcopy(probe_work)
+                                            AllChem.AlignMol(probe_final, ref_work, atomMap=full_atom_map, reflect=False)
+                                            best_transform = probe_final
+                                        else:
+                                            best_transform = probe_temp
                             
                             if best_transform is not None:
                                 target_entry['mol'] = best_transform
@@ -522,8 +594,8 @@ class MoleculeComparator(QWidget):
                 
             except Exception as e:
                 print(f"Alignment failed: {e}")
-                import traceback
-                traceback.print_exc()
+                # import traceback
+                # traceback.print_exc()
                 target_entry['rms'] = -1.0
 
         self.update_results_table()
