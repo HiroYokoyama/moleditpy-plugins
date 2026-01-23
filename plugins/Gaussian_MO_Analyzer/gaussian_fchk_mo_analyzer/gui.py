@@ -97,6 +97,18 @@ class OrbitalWidget(QWidget):
         self.spin_iso.valueChanged.connect(self.on_iso_changed)
         iso_layout.addWidget(self.spin_iso)
         layout.addLayout(iso_layout)
+
+        # Opacity Control
+        op_layout = QHBoxLayout()
+        op_layout.addWidget(QLabel("Opacity:"))
+        self.spin_opacity = QDoubleSpinBox()
+        self.spin_opacity.setRange(0.0, 1.0)
+        self.spin_opacity.setSingleStep(0.1)
+        self.spin_opacity.setDecimals(1)
+        self.spin_opacity.setValue(0.4)
+        self.spin_opacity.valueChanged.connect(self.on_iso_changed)
+        op_layout.addWidget(self.spin_opacity)
+        layout.addLayout(op_layout)
         
         # Mode Selection (Disabled/Commented out per user request)
         # ...
@@ -271,16 +283,17 @@ class OrbitalWidget(QWidget):
         
         # Get Isovalue
         val = self.spin_iso.value()
+        op_val = self.spin_opacity.value()
 
         # Use our visualizer
         vis = CubeVisualizer(mw)
         if vis.load_file(cube_path):
-            vis.show_iso(isovalue=val)
+            vis.show_iso(isovalue=val, opacity=op_val)
             # Only reset camera if it's the first time or user requests it?
             # Creating a new actor usually keeps camera if not reset.
             # But let's reset to ensure visibility.
             # mw.plotter.reset_camera() 
             mw.plotter.render()
-            mw.statusBar().showMessage(f"Visualizing {os.path.basename(cube_path)} (Iso={val})")
+            mw.statusBar().showMessage(f"Visualizing {os.path.basename(cube_path)} (Iso={val}, Opacity={op_val})")
         else:
             QMessageBox.warning(self, "Error", "Failed to load generated Cube file.")
