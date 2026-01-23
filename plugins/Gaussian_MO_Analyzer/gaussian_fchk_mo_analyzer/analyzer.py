@@ -105,6 +105,7 @@ class FCHKReader:
 class BasisSetEngine:
     """
     Constructs basis set from FCHK data and evaluates it on a grid.
+    Supports both Cartesian and Spherical basis functions.
     """
     def __init__(self, fchk_data: FCHKReader):
         self.fchk = fchk_data
@@ -114,10 +115,9 @@ class BasisSetEngine:
 
     def _normalization_prefactor(self, alpha, l, m, n):
         L = l + m + n
-        # Simple implementation for S, P, D
         # Simple implementation for S, P, D, F, G
-        fact = {0: 1, 1: 1, 2: 2, 3: 6, 4: 24}
-        fact2 = {0: 1, 1: 2, 2: 24, 3: 720, 4: 40320} # (2n)! mapped by n
+        fact = {0: 1, 1: 1, 2: 2, 3: 6, 4: 24, 5: 120}
+        fact2 = {0: 1, 1: 2, 2: 24, 3: 720, 4: 40320, 5: 3628800} # (2n)! mapped by n
         
         # FIX: Access fact2 with n (l), not 2*n, because keys recall (2n)!
         num = (8 * alpha)**L * fact[l] * fact[m] * fact[n]
@@ -132,6 +132,113 @@ class BasisSetEngine:
         prim_exps = self.fchk.get("Primitive exponents")
         cont_coeffs = self.fchk.get("Contraction coefficients")
         
+        # Pure/Cartesian Flags (0=Pure/Spherical, 1=Cartesian)
+        # Default to 1 (Cartesian) if not found, to match old behavior
+        d_is_cart = True
+        f_is_cart = True
+        
+        flag_d = self.fchk.get("Pure/Cartesian d shells")
+        if flag_d is not None and len(flag_d) > 0 and flag_d[0] == 0:
+            d_is_cart = False
+            
+        flag_f = self.fchk.get("Pure/Cartesian f shells")
+        if flag_f is not None and len(flag_f) > 0 and flag_f[0] == 0:
+            f_is_cart = False
+
+        # Build Basis Definitions (Linear Combinations)
+        # Structure: Type -> [  List of Basis Functions in this Shell ]
+        # Each Basis Function -> List of Components (coeff, (l,m,n))
+        
+        # Cartesian Definitions (Simple 1:1 map)
+        cart_s = [ [(1.0, (0,0,0))] ] # S
+        cart_p = [ [(1.0, (1,0,0))], [(1.0, (0,1,0))], [(1.0, (0,0,1))] ] # Px, Py, Pz
+        cart_d = [ 
+            [(1.0, (2,0,0))], [(1.0, (0,2,0))], [(1.0, (0,0,2))], 
+            [(1.0, (1,1,0))], [(1.0, (1,0,1))], [(1.0, (0,1,1))]
+        ] # XX, YY, ZZ, XY, XZ, YZ
+        cart_f = [
+            [(1.0, (3,0,0))], [(1.0, (0,3,0))], [(1.0, (0,0,3))],
+            [(1.0, (1,2,0))], [(1.0, (2,1,0))], [(1.0, (2,0,1))],
+            [(1.0, (1,0,2))], [(1.0, (0,1,2))], [(1.0, (0,2,1))],
+            [(1.0, (1,1,1))]
+        ] # XXX, YYY, ZZZ, XYY, XXY, XXZ, XZZ, YZZ, YYZ, XYZ
+        
+        self.basis_definitions = {
+            0: cart_s,
+            1: cart_p,
+            -1: cart_s + cart_p # SP
+        }
+        
+        # Handle D Shells
+        if d_is_cart:
+            self.basis_definitions[2] = cart_d
+        else:
+            # Spherical D (5 components)
+            # Gaussian Spherical D ordering: d(0), d(+1), d(-1), d(+2), d(-2)
+            # Mapped as:
+            # 1. d(3z^2-r^2) -> 2z^2 - x^2 - y^2 (Need -0.5, -0.5, 1.0)
+            # 2. d(xz)
+            # 3. d(yz)
+            # 4. d(x^2-y^2) -> sqrt(3)/2 ?? Wait, standard real harmonic is X^2-Y^2.
+            #    However, normalization implies specific coeffs.
+            #    Standard un-normalized Cartesian form:
+            #    d(0) = 2z^2 - x^2 - y^2
+            #    d(x^2-y^2) = x^2 - y^2
+            #    BUT Gaussian internal might require normalized angular parts.
+            #    Let's use the coefficients that construct the SHAPE correctly.
+            #    The radial parts are normalized separately.
+            
+            # Using common conversion (approximate for shape):
+            # Spherical D (5 components)
+            # Normalized to sum-of-squares of weights = 1 (assuming normalized Cartesians)
+            # Calculated via calculate_norm.py accounting for overlaps.
+            
+            # D0: 2z^2 - x^2 - y^2. Weights (2, -1, -1). Norm factor 0.5.
+            # D2: x^2 - y^2. Norm factor sqrt(3)/2 = 0.8660254
+            
+            sph_d = [
+                [ (-0.5, (2,0,0)), (-0.5, (0,2,0)), (1.0, (0,0,2)) ], # d(3z^2-r^2) -> 0.5*(2z^2-x^2-y^2) gives -0.5x^2... Correct.
+                [ (1.0, (1,0,1)) ], # d(xz)
+                [ (1.0, (0,1,1)) ], # d(yz)
+                [ (0.8660254037844387, (2,0,0)), (-0.8660254037844387, (0,2,0)) ], # d(x^2-y^2)
+                [ (1.0, (1,1,0)) ]  # d(xy)
+            ]
+            self.basis_definitions[2] = sph_d
+
+        # Handle F Shells
+        if f_is_cart:
+            self.basis_definitions[3] = cart_f
+        else:
+            # Spherical F (7 components) - Normalized
+            # Calculated via calculate_norm.py accounting for overlaps.
+            
+            # F0 (5z^2-3r^2)z -> 2z^3 - 3x^2z - 3y^2z. Norm Factor: 0.24065403
+            f0_n = 0.24065403
+            # F1 (5z^2-r^2)x -> 4xz^2 - x^3 - xy^2. Norm Factor: 0.28116020
+            f1_n = 0.28116020
+            # F2 (x^2-y^2)z -> x^2z - y^2z. Norm Factor: 0.86602540
+            f2_n = 0.86602540
+            # F3 (x^3-3xy^2). Norm Factor: 0.36969351
+            f3_n = 0.36969351
+            
+            sph_f = [
+                # f(0): 2ZZZ - 3XXZ - 3YYZ.
+                [ (2.0*f0_n, (0,0,3)), (-3.0*f0_n, (2,0,1)), (-3.0*f0_n, (0,2,1)) ], 
+                # 1: x(5z^2-r^2) -> 4XZZ - XXX - XYY
+                [ (4.0*f1_n, (1,0,2)), (-1.0*f1_n, (3,0,0)), (-1.0*f1_n, (1,2,0)) ], 
+                # 2: y(5z^2-r^2) -> 4YZZ - XXY - YYY
+                [ (4.0*f1_n, (0,1,2)), (-1.0*f1_n, (2,1,0)), (-1.0*f1_n, (0,3,0)) ],
+                # 3: z(x^2-y^2) -> X2Z - Y2Z
+                [ (1.0*f2_n, (2,0,1)), (-1.0*f2_n, (0,2,1)) ],
+                # 4: xyz
+                [ (1.0, (1,1,1)) ],
+                # 5: x(x^2-3y^2) -> XXX - 3XYY
+                [ (1.0*f3_n, (3,0,0)), (-3.0*f3_n, (1,2,0)) ],
+                # 6: y(3x^2-y^2) -> 3XXY - YYY
+                [ (3.0*f3_n, (2,1,0)), (-1.0*f3_n, (0,3,0)) ]
+            ]
+            self.basis_definitions[3] = sph_f
+
         # Check for P-modifiers (used for SP shells P-component)
         # Try both tag variations
         p_modifiers = self.fchk.get("P(S=P) Contraction coefficients")
@@ -142,25 +249,6 @@ class BasisSetEngine:
         
         exp_ptr = 0
         coeff_ptr = 0
-        
-        self.angular_paths = {
-            0: [(0,0,0)],
-            1: [(1,0,0), (0,1,0), (0,0,1)],
-            2: [(2,0,0), (0,2,0), (0,0,2), (1,1,0), (1,0,1), (0,1,1)],
-            3: [ # F (10)
-                (3,0,0), (0,3,0), (0,0,3), 
-                (1,2,0), (2,1,0), (2,0,1), (1,0,2), 
-                (0,1,2), (0,2,1), (1,1,1)
-            ],
-            4: [ # G (15) - Gaussian ordering: ZZZZ, YZZZ, YYZZ, YYYZ, YYYY, XZZZ, XYZZ, XYYZ, XYYY, XXZZ, XXYZ, XXYY, XXXZ, XXXY, XXXX
-                 (0,0,4), (0,1,3), (0,2,2), (0,3,1), (0,4,0),
-                 (1,0,3), (1,1,2), (1,2,1), (1,3,0),
-                 (2,0,2), (2,1,1), (2,2,0),
-                 (3,0,1), (3,1,0),
-                 (4,0,0)
-            ]
-        }
-
         basis_idx_counter = 0
 
         for i, stype in enumerate(shell_types):
@@ -169,148 +257,70 @@ class BasisSetEngine:
             atom_center = coords[atom_idx]
 
             exps = prim_exps[exp_ptr : exp_ptr + n_prim]
-            # S coefficients (always from main array)
-            # Note: cont_coeffs is also aligned with primitives?
-            # Standard FCHK: "Contraction coefficients" N=N_primitives. 1:1 map.
             coeffs_s = cont_coeffs[coeff_ptr : coeff_ptr + n_prim]
             
             current_shells_to_add = []
 
             if stype == -1: # SP Shell
-                # Check where P coeffs are
                 if p_modifiers is not None and len(p_modifiers) > 0:
-                    # P coeffs in modifiers array (aligned with exp_ptr)
                     coeffs_p = p_modifiers[exp_ptr : exp_ptr + n_prim]
-                    # coeff_ptr consumes S only from main array
                     coeff_ptr += n_prim
                 else:
-                    # Legacy/Standard fallback: P coeffs follow S coeffs in cont_coeffs
-                    # This implies cont_coeffs has 2*N entries for these?
-                    # or that they are interleaved?
-                    # Standard fallback logic usually implies packed.
                     coeffs_p = cont_coeffs[coeff_ptr + n_prim : coeff_ptr + 2 * n_prim]
                     coeff_ptr += 2 * n_prim
                 
                 current_shells_to_add.append({
-                    'type': 0, 'center': atom_center, 'exps': exps, 'coeffs': coeffs_s, 'lmn': self.angular_paths[0]
+                    'type': 0, 'center': atom_center, 'exps': exps, 'coeffs': coeffs_s, 'defs': self.basis_definitions[0]
                 })
                 current_shells_to_add.append({
-                    'type': 1, 'center': atom_center, 'exps': exps, 'coeffs': coeffs_p, 'lmn': self.angular_paths[1]
+                    'type': 1, 'center': atom_center, 'exps': exps, 'coeffs': coeffs_p, 'defs': self.basis_definitions[1]
                 })
                 
                 exp_ptr += n_prim
 
-            elif stype >= 0: # S, P, D...
-                lmn_list = self.angular_paths.get(stype)
-                if lmn_list is None:
-                    print(f"Warning: Shell type {stype} not supported yet. Skipping.")
+            else: # S, P, D, F... AND -2(D), -3(F) handling
+                # Handle negative types -2, -3 etc which are just D, F...
+                effective_type = stype
+                if effective_type < -1:
+                    effective_type = abs(effective_type)
+                
+                defs_list = self.basis_definitions.get(effective_type)
+                if defs_list is None:
+                    print(f"Warning: Shell type {stype} (Effective {effective_type}) not supported. Skipping.")
                     exp_ptr += n_prim
                     coeff_ptr += n_prim
                     continue
 
                 current_shells_to_add.append({
-                    'type': stype, 'center': atom_center, 'exps': exps, 'coeffs': coeffs_s, 'lmn': lmn_list
+                    'type': effective_type, 'center': atom_center, 'exps': exps, 'coeffs': coeffs_s, 'defs': defs_list
                 })
                 
                 exp_ptr += n_prim
                 coeff_ptr += n_prim
 
             for sh in current_shells_to_add:
-                # 1. Normalize primitives (compute N_i)
-                # 2. Normalize contraction (compute N_cont)
+                func_norm_coeffs = []
                 
-                # Pre-compute primitive norms for this angular momentum
-                # Assuming all components in the shell (e.g. Px, Py, Pz) share the same radial part normalization?
-                # Yes, L is constant for the shell.
-                l_sample, m_sample, n_sample = sh['lmn'][0]
-                total_L = l_sample + m_sample + n_sample
-                
-                prim_norms = [self._normalization_prefactor(a, l_sample, m_sample, n_sample) for a in sh['exps']]
-                prim_norms = np.array(prim_norms)
-                
-                # Check Contraction Normalization
-                # <Chi|Chi> = sum_ij c_i c_j <phi_i|phi_j>
-                # <phi_i|phi_j> = S_ij (overlap of normalized primitives)
-                # Overlap of normalized primitives with exponents a, b:
-                # S_ab = (2*sqrt(a*b)/(a+b))**(L+1.5) ?
-                # Let's check formula.
-                # For S-orbitals: (2*sqrt(ab)/(a+b))^3/2
-                # For general L: (2*sqrt(ab)/(a+b))^(L+1.5)
-                # Provided they are centered at same origin (which they are).
-                
-                norm_sq = 0.0
-                n_prims = len(sh['exps'])
-                c = sh['coeffs']
-                alpha = sh['exps']
-                
-                # Calculate Contraction Norm Square
-                for idx_i in range(n_prims):
-                    for idx_j in range(n_prims):
-                        ai = alpha[idx_i]
-                        aj = alpha[idx_j]
-                        overlap = (2.0 * np.sqrt(ai * aj) / (ai + aj)) ** (total_L + 1.5)
-                        norm_sq += c[idx_i] * c[idx_j] * prim_norms[idx_i] * prim_norms[idx_j] * overlap
-                
-                contraction_norm = np.sqrt(norm_sq)
-                
-                # Scale coefficients so that the final function is normalized
-                # We need final coeff C_final_i = C_input_i * PrimNorm_i / ContractionNorm
-                
-                scale = 1.0 / contraction_norm if contraction_norm > 1e-12 else 1.0
-                
-                norm_coeffs = []
-                for (l, m, n) in sh['lmn']:
-                    # We re-calculate primitive norm for specific L,M,N just in case factor depends on it
-                    # (Actually _normalization_prefactor DOES depend on l,m,n factorial distribution!)
-                    # Wait, do we normalize Px, Py, Pz differently?
-                    # The formula relies on L+m+n. All P have same total L.
-                    # Factorials: Px (1,0,0) -> 1!0!0! / (2!0!0!) = 1/2. 
-                    # Py (0,1,0) -> same. 
-                    # Dxy (1,1,0) vs Dxx (2,0,0)?
-                    # Dxy: 1!1!0! / (2!2!0!) = 1/4
-                    # Dxx: 2!0!0! / (4!0!0!) = 2/24 = 1/12
-                    # So Cartesian D norms ARE different.
+                # Precompute coefficients for efficient evaluation
+                for basis_func_def in sh['defs']:
+                    comps_data = []
+                    for weight, (l, m, n) in basis_func_def:
+                        # Calculate prefactors for this l,m,n for all exponents
+                        prim_norms = np.array([self._normalization_prefactor(a, l, m, n) for a in sh['exps']])
+                        
+                        # Apply Contraction Coeffs & Weights
+                        comp_coeffs = sh['coeffs'] * prim_norms * weight
+                        
+                        comps_data.append( {
+                            'l': l, 'm': m, 'n': n,
+                            'coeffs': comp_coeffs 
+                        })
                     
-                    # However, the overlap formula used above assumed generic radial overlap.
-                    # The contraction coefficients in FCHK are usually shared for the whole shell.
-                    # This implies the contraction applies to the RADIAL part primarily?
-                    # If I normalize the Radial part times Spherical harmonic... 
-                    # But here I am using Cartesian.
-                    
-                    # Standard Strategy:
-                    # Normalize each Cartesian component independently. 
-                    # Because they are orthogonal (mostly).
-                    # Actually Px, Py, Pz are orthogonal.
-                    # So we can normalize "Px" contraction.
-                    
-                    real_prim_norms = [self._normalization_prefactor(a, l, m, n) for a in sh['exps']]
-                    real_prim_norms = np.array(real_prim_norms)
-                    
-                    # Recalculate contraction norm for THIS component (l,m,n)
-                    # Because prim_norm changes, the 'N*N' term in the sum changes.
-                    
-                    
-                    # comp_norm_sq = 0.0
-                    # for idx_i in range(n_prims):
-                    #     for idx_j in range(n_prims):
-                    #         ai = alpha[idx_i]
-                    #         aj = alpha[idx_j]
-                    #         overlap = (2.0 * np.sqrt(ai * aj) / (ai + aj)) ** ((l+m+n) + 1.5)
-                    #         comp_norm_sq += c[idx_i] * c[idx_j] * real_prim_norms[idx_i] * real_prim_norms[idx_j] * overlap
-                    
-                    # comp_contraction_norm = np.sqrt(comp_norm_sq)
-                    # comp_scale = 1.0 / comp_contraction_norm if comp_contraction_norm > 1e-12 else 1.0
-
-                    # Gaussian FCHK coefficients are usually already normalized.
-                    comp_scale = 1.0
-                    
-                    # Store final coefficients: c_input * prim_norm * scale
-                    c_final = sh['coeffs'] * real_prim_norms * comp_scale
-                    norm_coeffs.append(c_final)
+                    func_norm_coeffs.append(comps_data)
                 
-                sh['norm_coeffs'] = np.array(norm_coeffs)
+                sh['basis_data'] = func_norm_coeffs
                 sh['start_idx'] = basis_idx_counter
-                basis_idx_counter += len(sh['lmn'])
+                basis_idx_counter += len(sh['defs'])
                 
                 self.shells.append(sh)
         
@@ -320,7 +330,7 @@ class BasisSetEngine:
         start = mo_idx * self.n_basis
         end = start + self.n_basis
         if end > len(mo_coeffs_all):
-             raise ValueError("MO index out of range or Basis count mismatch")
+             raise ValueError(f"MO index {mo_idx} out of range (need {end} coeffs, have {len(mo_coeffs_all)})")
         
         my_coeffs = mo_coeffs_all[start:end]
         phi_mo = np.zeros(grid_coords.shape[0])
@@ -332,52 +342,41 @@ class BasisSetEngine:
             
             current_basis_idx = sh['start_idx']
             
-            for ang_idx, (l, m, n) in enumerate(sh['lmn']):
+            # Iterate over Basis Functions in this Shell
+            for basis_func_data in sh['basis_data']:
                 c_mo = my_coeffs[current_basis_idx]
                 current_basis_idx += 1
                 
                 if abs(c_mo) < 1e-8:
                     continue
-
-                ang_val = np.ones(grid_coords.shape[0])
-                if l > 0: ang_val *= r_vec[:, 0]**l
-                if m > 0: ang_val *= r_vec[:, 1]**m
-                if n > 0: ang_val *= r_vec[:, 2]**n
                 
-                contracted_radial = np.dot(sh['norm_coeffs'][ang_idx], E)
-                phi_mo += c_mo * ang_val * contracted_radial
+                val_accum = np.zeros(grid_coords.shape[0])
+                
+                for comp in basis_func_data:
+                    l, m, n = comp['l'], comp['m'], comp['n']
+                    coeffs_prim = comp['coeffs']
+                    
+                    ang_val = np.ones(grid_coords.shape[0])
+                    if l > 0: ang_val *= r_vec[:, 0]**l
+                    if m > 0: ang_val *= r_vec[:, 1]**m
+                    if n > 0: ang_val *= r_vec[:, 2]**n
+                    
+                    contracted_radial = np.dot(coeffs_prim, E)
+                    val_accum += ang_val * contracted_radial
+                
+                phi_mo += c_mo * val_accum
                 
         return phi_mo
 
     def get_basis_labels(self):
         """
-        Returns a list of labels for the basis functions, e.g. "1 C 1s", "1 C 2px"...
+        Returns a list of labels for the basis functions.
         """
         labels = []
-        
-        # Shell path labels
-        # 0: S
-        # 1: Px, Py, Pz
-        # 2: XX, YY, ZZ, XY, XZ, YZ (6D)
-        
-        type_map = {
-            0: ["S"],
-            1: ["Px", "Py", "Pz"],
-            2: ["dXX", "dYY", "dZZ", "dXY", "dXZ", "dYZ"],
-            3: ["fXXX", "fYYY", "fZZZ", "fXYY", "fXXY", "fXXZ", "fXZZ", "fYZZ", "fYYZ", "fXYZ"],
-            4: ["gZZZZ", "gYZZZ", "gYYZZ", "gYYYZ", "gYYYY", "gXZZZ", "gXYZZ", "gXYYZ", "gXYYY", "gXXZZ", "gXXYZ", "gXXYY", "gXXXZ", "gXXXY", "gXXXX"]
-        }
-        
-        # We need atom symbol map
         atom_list = self.fchk.get("Atomic numbers")
-        
-        # Need to reconstruct which shell belongs to which atom
-        # We can replay the shell loop
         shell_to_atom = self.fchk.get("Shell to atom map")
         shell_types = self.fchk.get("Shell types")
         
-        # Periodic Table 
-        # (Simple lookup or import. Since we used rdkit in FCHKReader, we assume availability or fallback)
         try:
             from rdkit import Chem
             pt = Chem.GetPeriodicTable()
@@ -390,15 +389,12 @@ class BasisSetEngine:
             atom_num = atom_list[atom_idx]
             sym = to_sym(atom_num)
             
-            # Determine n (principal quantum number) guess? 
-            # Hard to parse exact n from just S/P types without electron config map.
-            # But we can just say "C1 S", "C1 Px"...
-            
             comps = []
             if stype == -1: # SP
                 comps = ["S", "Px", "Py", "Pz"]
-            else:
-                comps = type_map.get(stype, [f"?{stype}?"])
+            elif stype >= 0:
+                count = len(self.basis_definitions.get(stype, []))
+                comps = [f"L{stype}_{k}" for k in range(count)]
                 
             for c in comps:
                 labels.append(f"{atom_idx+1} {sym} {c}")
@@ -411,18 +407,15 @@ class BasisSetEngine:
         """
         phi = np.zeros(grid_coords.shape[0])
         
-        # Find which shell this basis_idx belongs to
-        # We need to iterate to find the range
-        
         current_idx = 0
         target_shell = None
-        target_ang_idx = 0
+        target_func_idx = 0
         
         for sh in self.shells:
-            n_funcs = len(sh['lmn'])
+            n_funcs = len(sh['basis_data'])
             if current_idx + n_funcs > basis_idx:
                 target_shell = sh
-                target_ang_idx = basis_idx - current_idx
+                target_func_idx = basis_idx - current_idx
                 break
             current_idx += n_funcs
             
@@ -430,23 +423,23 @@ class BasisSetEngine:
             return phi
             
         sh = target_shell
-        l, m, n = sh['lmn'][target_ang_idx]
+        basis_func_data = sh['basis_data'][target_func_idx]
         
         r_vec = grid_coords - sh['center']
         r2 = np.sum(r_vec**2, axis=1)
         E = np.exp(-np.outer(sh['exps'], r2))
         
-        # Contraction
-        # AO = sum_k ( d_k * N_k * x^l... * exp )
-        #    = (x^l...) * sum_k ( coeff_k * E_k )
-        
-        ang_val = np.ones(grid_coords.shape[0])
-        if l > 0: ang_val *= r_vec[:, 0]**l
-        if m > 0: ang_val *= r_vec[:, 1]**m
-        if n > 0: ang_val *= r_vec[:, 2]**n
-        
-        contracted_radial = np.dot(sh['norm_coeffs'][target_ang_idx], E)
-        phi = ang_val * contracted_radial
+        for comp in basis_func_data:
+            l, m, n = comp['l'], comp['m'], comp['n']
+            coeffs_prim = comp['coeffs']
+            
+            ang_val = np.ones(grid_coords.shape[0])
+            if l > 0: ang_val *= r_vec[:, 0]**l
+            if m > 0: ang_val *= r_vec[:, 1]**m
+            if n > 0: ang_val *= r_vec[:, 2]**n
+            
+            contracted_radial = np.dot(coeffs_prim, E)
+            phi += ang_val * contracted_radial
         
         return phi
 

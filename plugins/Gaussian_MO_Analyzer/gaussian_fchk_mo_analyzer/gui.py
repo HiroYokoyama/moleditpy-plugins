@@ -111,7 +111,6 @@ class OrbitalWidget(QWidget):
         layout.addLayout(op_layout)
         
         # Mode Selection (Disabled/Commented out per user request)
-        # ...
         
         # List
         self.list_widget = QListWidget()
@@ -209,6 +208,7 @@ class OrbitalWidget(QWidget):
         mo_idx = row + 1
         path = self.get_cube_path(mo_idx)
         if os.path.exists(path):
+            self.last_cube_path = path # Update current reference
             self.visualize(path)
 
     def on_double_click(self, item):
