@@ -1,4 +1,4 @@
-from .gui import OrbitalDialog
+from .gui import OrbitalWidget
 
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Gaussian MO Analyzer"
@@ -14,7 +14,7 @@ def initialize(context):
         mw = context.get_main_window()
         # Create and show dialog (keep reference to avoid GC)
         # Attach to context to keep alive
-        context._fchk_dialog = OrbitalDialog(mw, context, path)
+        context._fchk_dialog = OrbitalWidget(mw, context, path)
         context._fchk_dialog.show() 
     
     context.register_file_opener(".fchk", open_fchk, priority=10)

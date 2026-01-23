@@ -1,95 +1,23 @@
 import os
 import numpy as np
 import pyvista as pv
-from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton, 
-                             QListWidget, QLabel, QDoubleSpinBox, QProgressBar, 
-                             QGroupBox, QMessageBox, QWidget, QAbstractItemView)
+from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton,
+                             QListWidget, QLabel, QDoubleSpinBox, QProgressBar, QSpinBox, 
+                             QGroupBox, QMessageBox, QWidget, QAbstractItemView, QListWidgetItem, QFormLayout)
+from PyQt6.QtGui import QColor, QBrush
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 
 # Relative imports
-from .analyzer import FCHKReader, BasisSetEngine, CubeWriter
+from .analyzer import FCHKReader, BasisSetEngine
 from .vis import CubeVisualizer
+from .worker import CalcWorker
 
-class CalcWorker(QThread):
-    progress_sig = pyqtSignal(int)
-    finished_sig = pyqtSignal(bool, str) # success, message/path
-
-    def __init__(self, engine, mo_idx, resolution, margin, atoms, mo_coeffs, output_path, mode="MO"):
-        super().__init__()
-        self.engine = engine
-        self.mo_idx = mo_idx
-        self.resolution = resolution
-        self.margin = margin
-        self.atoms = atoms
-        self.mo_coeffs = mo_coeffs
-        self.output_path = output_path
-        self.mode = mode
-        self._is_cancelled = False
-
-    def run(self):
-        try:
-            # Grid Definition
-            min_c = np.min(self.atoms, axis=0) - self.margin
-            max_c = np.max(self.atoms, axis=0) + self.margin
-            span = max_c - min_c
-            
-            nx = int(np.ceil(span[0] / self.resolution))
-            ny = int(np.ceil(span[1] / self.resolution))
-            nz = int(np.ceil(span[2] / self.resolution))
-            
-            # Generate points
-            x = np.linspace(min_c[0], min_c[0] + (nx-1)*self.resolution, nx)
-            y = np.linspace(min_c[1], min_c[1] + (ny-1)*self.resolution, ny)
-            z = np.linspace(min_c[2], min_c[2] + (nz-1)*self.resolution, nz)
-            
-            X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
-            grid_points = np.column_stack([X.ravel(), Y.ravel(), Z.ravel()])
-            
-            n_total = grid_points.shape[0]
-            chunk_size = 50000
-            result_flat = np.zeros(n_total)
-            
-            for i, start in enumerate(range(0, n_total, chunk_size)):
-                if self._is_cancelled: return
-                
-                end = min(start + chunk_size, n_total)
-                chunk_pts = grid_points[start:end]
-                
-                # Evaluate
-                if self.mode == "MO":
-                    val = self.engine.evaluate_mo_on_grid(self.mo_idx, chunk_pts, self.mo_coeffs)
-                else:
-                    # self.mo_idx is basis_idx in this context
-                    val = self.engine.evaluate_basis_on_grid(self.mo_idx, chunk_pts)
-                    
-                result_flat[start:end] = val
-                
-                # Progress
-                pct = int((end / n_total) * 100)
-                self.progress_sig.emit(pct)
-            
-            # Write
-            vol_data = result_flat.reshape(nx, ny, nz)
-            vectors = np.identity(3) * self.resolution
-            
-            atom_nos = self.engine.fchk.get("Atomic numbers")
-            
-            label = f"MO {self.mo_idx+1}" if self.mode == "MO" else f"Basis {self.mo_idx+1}"
-            CubeWriter.write(self.output_path, self.atoms, atom_nos, min_c, vectors, vol_data, comment=label)
-            
-            self.finished_sig.emit(True, self.output_path)
-            
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            self.finished_sig.emit(False, str(e))
-
-class OrbitalDialog(QDialog):
+class OrbitalWidget(QWidget):
     def __init__(self, parent, context, fchk_path):
         super().__init__(parent)
         # Make this a Tool window so it stays on top of parent but doesn't block (Modeless)
         # and doesn't sit on top of other apps (unlike WindowStaysOnTopHint)
-        self.setWindowFlags(Qt.WindowType.Tool)
+        # self.setWindowFlags(Qt.WindowType.Tool)
         
         self.context = context
         self.fchk_path = fchk_path
@@ -129,9 +57,11 @@ class OrbitalDialog(QDialog):
                     
                     context.current_molecule = mol
                     
-                    # Push undo state so user can revert
                     mw = context.get_main_window()
-                    mw.push_undo_state()
+                    
+                    if hasattr(mw, '_enter_3d_viewer_ui_mode'):
+                        mw._enter_3d_viewer_ui_mode()
+                        
                     mw.plotter.reset_camera()
         except Exception as e:
             print(f"Failed to load molecule structure: {e}")
@@ -141,20 +71,18 @@ class OrbitalDialog(QDialog):
         
         # Settings
         grp = QGroupBox("Generation Settings")
-        form = QHBoxLayout(grp)
+        form = QFormLayout(grp)
         
-        form.addWidget(QLabel("Resolution (Bohr):"))
-        self.spin_res = QDoubleSpinBox()
-        self.spin_res.setRange(0.05, 1.0)
-        self.spin_res.setValue(0.2)
-        self.spin_res.setSingleStep(0.05)
-        form.addWidget(self.spin_res)
+        self.spin_points = QSpinBox()
+        self.spin_points.setRange(10, 500)
+        self.spin_points.setValue(40)
+        self.spin_points.setSingleStep(5)
+        form.addRow("Grid Points (x,y,z):", self.spin_points)
         
-        form.addWidget(QLabel("Margin (Bohr):"))
         self.spin_gap = QDoubleSpinBox()
         self.spin_gap.setRange(1.0, 20.0) 
         self.spin_gap.setValue(4.0) 
-        form.addWidget(self.spin_gap)
+        form.addRow("Margin (Bohr):", self.spin_gap)
         
         layout.addWidget(grp)
         
@@ -176,6 +104,7 @@ class OrbitalDialog(QDialog):
         # List
         self.list_widget = QListWidget()
         self.list_widget.itemDoubleClicked.connect(self.on_double_click)
+        self.list_widget.itemClicked.connect(self.on_single_click)
         layout.addWidget(self.list_widget)
         
         # Populate List
@@ -199,6 +128,16 @@ class OrbitalDialog(QDialog):
     def on_iso_changed(self, val):
         if self.last_cube_path and os.path.exists(self.last_cube_path):
             self.visualize(self.last_cube_path)
+
+    def get_cube_path(self, mo_idx):
+        # mo_idx is 1-based index
+        base_dir = os.path.dirname(self.fchk_path)
+        base_name = os.path.splitext(os.path.basename(self.fchk_path))[0]
+        out_dir = os.path.join(base_dir, f"{base_name}_cubes")
+        # Ensure dir exists? Maybe not here, only when writing.
+        # But for checking existence, we need the path.
+        out_name = f"{base_name}_MO{mo_idx}.cube"
+        return os.path.join(out_dir, out_name)
 
     def populate_list(self):
         self.list_widget.clear()
@@ -233,7 +172,15 @@ class OrbitalDialog(QDialog):
                         label += "  <-- HOMO"
                 elif i == n_occ:
                     label += "  <-- LUMO"
-                self.list_widget.addItem(label)
+                
+                item = QListWidgetItem(label)
+                
+                # Check existence
+                path = self.get_cube_path(mo_idx)
+                if os.path.exists(path):
+                    item.setForeground(QBrush(QColor("darkgreen")))
+                
+                self.list_widget.addItem(item)
                 
             # Scroll to HOMO
             # n_occ is number of occupied orbitals.
@@ -244,6 +191,13 @@ class OrbitalDialog(QDialog):
                  self.list_widget.setCurrentRow(homo_idx)
                  self.list_widget.scrollToItem(self.list_widget.item(homo_idx), 
                                                QAbstractItemView.ScrollHint.PositionAtCenter)
+
+    def on_single_click(self, item):
+        row = self.list_widget.row(item)
+        mo_idx = row + 1
+        path = self.get_cube_path(mo_idx)
+        if os.path.exists(path):
+            self.visualize(path)
 
     def on_double_click(self, item):
         self.generate_current()
@@ -285,7 +239,7 @@ class OrbitalDialog(QDialog):
         
         self.worker = CalcWorker(
             self.engine, row, 
-            self.spin_res.value(), 
+            self.spin_points.value(), 
             self.spin_gap.value(),
             atoms, coeffs, out_path,
             mode=mode_str
@@ -300,6 +254,13 @@ class OrbitalDialog(QDialog):
         self.list_widget.setEnabled(True)
         
         if success:
+            # Mark as generated
+            if self.worker:
+                row = self.worker.mo_idx # This is 0-based index from list logic: row passed to worker
+                if row >= 0 and row < self.list_widget.count():
+                    item = self.list_widget.item(row)
+                    item.setForeground(QBrush(QColor("darkgreen")))
+
             # Visualize
             self.visualize(result)
         else:
