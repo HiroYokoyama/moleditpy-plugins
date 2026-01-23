@@ -840,5 +840,23 @@
     ],
     "downloadUrl": "../plugins/Gaussian_MO_Analyzer/gaussian_fchk_mo_analyzer.zip",
     "lastUpdated": "2026-01-23"
+  },
+  {
+    "id": "gaussian_fchk_loader",
+    "visible": true,
+    "name": "Gaussian FCHK Loader",
+    "version": "2026.01.23",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Smart loader for FCHK, FCH, and FCK files. Dispatches to Frequency or MO Analyzer with priority handling.",
+    "tags": [
+      "System",
+      "Utility"
+    ],
+    "dependencies": [
+      "PyQt6"
+    ],
+    "downloadUrl": "../plugins/Gaussian_FCHK_Loader/gaussian_fchk_loader.py",
+    "lastUpdated": "2026-01-23"
   }
 ]
