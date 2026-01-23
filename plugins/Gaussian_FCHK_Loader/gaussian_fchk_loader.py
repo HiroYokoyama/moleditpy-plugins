@@ -124,6 +124,8 @@ class FCHKLoaderDialog(QDialog):
 
     def launch_freq(self):
         if not self.freq_analyzer_path: return
+        self.btn_freq.setEnabled(False)
+        self.btn_mo.setEnabled(False)
         self.close_existing_analyzers()
         try:
             mod = load_module_from_path("gaussian_fchk_freq_analyzer_dynamic", self.freq_analyzer_path)
@@ -143,10 +145,14 @@ class FCHKLoaderDialog(QDialog):
                  dock.show()
                  self.accept()
         except Exception as e:
+            self.btn_freq.setEnabled(True)
+            self.btn_mo.setEnabled(True)
             QMessageBox.critical(self.mw, "Error", f"Failed to launch Frequency Analyzer:\n{e}")
 
     def launch_mo(self):
         if not self.mo_analyzer_pkg: return
+        self.btn_freq.setEnabled(False)
+        self.btn_mo.setEnabled(False)
         self.close_existing_analyzers()
         try:
             # Add plugin parent dir to sys.path to support package import
@@ -172,6 +178,8 @@ class FCHKLoaderDialog(QDialog):
                 dock.show()
                 self.accept()
         except Exception as e:
+             self.btn_freq.setEnabled(True)
+             self.btn_mo.setEnabled(True)
              QMessageBox.critical(self.mw, "Error", f"Failed to launch MO Analyzer:\n{e}")
 
 def initialize(context):
