@@ -4,13 +4,184 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QListWidget, QListWidgetItem,
     QLabel, QComboBox, QGroupBox, QRadioButton, QDockWidget, QMessageBox,
     QColorDialog, QFormLayout, QTableWidget, QTableWidgetItem, QHeaderView,
-    QFileDialog, QMenuBar, QCheckBox, QToolButton, QMenu
+    QFileDialog, QMenuBar, QCheckBox, QToolButton, QMenu, QProgressDialog
 )
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
 from PyQt6.QtGui import QColor, QIcon, QAction
 from rdkit import Chem
 from rdkit.Chem import AllChem
 import copy
+import sys
+
+class AlignmentWorker(QThread):
+    progress = pyqtSignal(int, int, str) # current, total, status_message
+    finished_signal = pyqtSignal(list)   # list of result dicts
+    error_signal = pyqtSignal(str)
+
+    def __init__(self, ref_mol, target_entries, method, ignore_hs):
+        super().__init__()
+        self.ref_mol_raw = ref_mol
+        self.ref_work = copy.deepcopy(ref_mol)
+        
+        self.targets = []
+        for idx, mol in target_entries:
+             self.targets.append((idx, copy.deepcopy(mol)))
+             
+        self.method = method
+        self.ignore_hs = ignore_hs
+        
+        # ★追加: 組み合わせ計算の上限回数（これを超えたら打ち切る）
+        self.MAX_COMBINATIONS = 100000
+
+    def run(self):
+        results = []
+        total_steps = len(self.targets)
+        
+        try:
+            # Pre-calculation for Reference
+            if self.ignore_hs and self.method == "Substructure (MCS)":
+                ref_calc = Chem.RemoveHs(self.ref_work)
+            else:
+                ref_calc = self.ref_work
+
+            for i, (orig_idx, probe_mol) in enumerate(self.targets):
+                if self.isInterruptionRequested():
+                    break
+                    
+                self.progress.emit(i, total_steps, f"Aligning Mol {orig_idx + 1}...")
+                
+                probe_work = copy.deepcopy(probe_mol)
+                
+                result_entry = {
+                    'index': orig_idx,
+                    'mol': probe_work,
+                    'rms': -1.0
+                }
+
+                # Pre-calc for Probe
+                if self.ignore_hs and self.method == "Substructure (MCS)":
+                    probe_calc = Chem.RemoveHs(probe_work)
+                else:
+                    probe_calc = probe_work
+
+                best_rms = float('inf')
+                best_transform = None
+
+                # --- Method A: Atom IDs ---
+                if self.method == "Atom IDs":
+                    if self.ignore_hs:
+                        probe_heavy = [a.GetIdx() for a in probe_work.GetAtoms() if a.GetAtomicNum() != 1]
+                        ref_heavy = [a.GetIdx() for a in self.ref_work.GetAtoms() if a.GetAtomicNum() != 1]
+                        
+                        if len(probe_heavy) == len(ref_heavy):
+                            atom_map = list(zip(probe_heavy, ref_heavy))
+                            try:
+                                rms = AllChem.AlignMol(probe_work, self.ref_work, atomMap=atom_map, reflect=False)
+                                best_rms = rms
+                                result_entry['mol'] = probe_work
+                            except RuntimeError:
+                                pass
+                    else:
+                        if probe_work.GetNumAtoms() == self.ref_work.GetNumAtoms():
+                            atom_map = [(k, k) for k in range(probe_work.GetNumAtoms())]
+                            try:
+                                rms = AllChem.AlignMol(probe_work, self.ref_work, atomMap=atom_map, reflect=False)
+                                best_rms = rms
+                                result_entry['mol'] = probe_work
+                            except RuntimeError:
+                                pass
+
+                # --- Method B: MCS (修正箇所) ---
+                elif self.method == "Substructure (MCS)":
+                    from rdkit.Chem import rdFMCS
+                    # タイムアウトを少し短く設定 (5秒は長い場合があるため適宜調整)
+                    res = rdFMCS.FindMCS(
+                        [ref_calc, probe_calc],
+                        matchValences=True, ringMatchesRingOnly=True, completeRingsOnly=True, timeout=5
+                    )
+                    
+                    if res.numAtoms > 0:
+                        patt = Chem.MolFromSmarts(res.smartsString)
+                        # uniquify=False は対称性を考慮するが、数が爆発する原因
+                        ref_matches = ref_calc.GetSubstructMatches(patt, uniquify=False)
+                        probe_matches = probe_calc.GetSubstructMatches(patt, uniquify=False)
+                        
+                        if ref_matches and probe_matches:
+                            total_combos = len(ref_matches) * len(probe_matches)
+                            
+                            # ★ユーザーへの警告: 組み合わせが多すぎる場合
+                            if total_combos > self.MAX_COMBINATIONS:
+                                print(f"[WARNING] Mol {orig_idx}: Too many MCS matches ({total_combos} combinations).")
+                                print(f"          Search will be limited to {self.MAX_COMBINATIONS} iterations.")
+                                print(f"          Consider using 'Atom IDs' fitting method for better performance.")
+                            
+                            combo_count = 0
+                            abort_search = False # 打ち切りフラグ
+                            
+                            for ref_match in ref_matches:
+                                if abort_search: break 
+                                
+                                for probe_match in probe_matches:
+                                    if self.isInterruptionRequested():
+                                        abort_search = True
+                                        break
+                                    
+                                    combo_count += 1
+                                    
+                                    # ★追加: 計算回数上限チェック
+                                    if combo_count > self.MAX_COMBINATIONS:
+                                        #print(f"Align stop: Exceeded max combinations ({self.MAX_COMBINATIONS}) for Mol {orig_idx}")
+                                        abort_search = True
+                                        break
+
+                                    # 進捗更新（頻度を落として負荷軽減）
+                                    if combo_count % 50 == 0:
+                                         # Calculate percentage: if total < 2000, use total; otherwise cap at 2000
+                                         max_value = min(total_combos, self.MAX_COMBINATIONS)
+                                         progress_pct = int(combo_count / max_value * 100)
+                                         self.progress.emit(i, total_steps, f"Aligning Mol {orig_idx+1}: {progress_pct}% ({combo_count}/{max_value})")
+
+                                    atom_map = list(zip(probe_match, ref_match))
+                                    probe_temp = copy.deepcopy(probe_calc)
+                                    try:
+                                        rms = AllChem.AlignMol(probe_temp, ref_calc, atomMap=atom_map, reflect=False)
+                                    except RuntimeError:
+                                        continue
+                                        
+                                    if rms < best_rms:
+                                        best_rms = rms
+                                        
+                                        # ベストアラインメントが見つかった場合の変換適用ロジック
+                                        if self.ignore_hs:
+                                            p_heavy = [a.GetIdx() for a in probe_work.GetAtoms() if a.GetAtomicNum()!=1]
+                                            r_heavy = [a.GetIdx() for a in self.ref_work.GetAtoms() if a.GetAtomicNum()!=1]
+                                            full_map = [(p_heavy[p], r_heavy[r]) for p, r in atom_map]
+                                            
+                                            probe_final = copy.deepcopy(probe_work)
+                                            try:
+                                                AllChem.AlignMol(probe_final, self.ref_work, atomMap=full_map, reflect=False)
+                                                best_transform = probe_final
+                                            except:
+                                                pass
+                                        else:
+                                            best_transform = probe_temp
+
+                            if best_transform is not None:
+                                result_entry['mol'] = best_transform
+                                result_entry['rms'] = best_rms
+                
+                # Store valid result
+                if best_rms != float('inf'):
+                    result_entry['rms'] = best_rms
+                
+                results.append(result_entry)
+            
+            self.finished_signal.emit(results)
+            
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            self.error_signal.emit(str(e))
 
 PLUGIN_NAME = "Molecule Comparator"
 PLUGIN_VERSION = "2026.01.23"
@@ -444,163 +615,70 @@ class MoleculeComparator(QWidget):
             return
 
         ref_entry = self.molecules[0]
-        ref_mol = ref_entry['mol']
-        
-        # Get ignore hydrogens option from GUI checkbox
-        ignore_hs = self.check_ignore_hs.isChecked()
-
-        method = self.combo_align_method.currentText()
-        
         # Reset reference RMSD
         ref_entry['rms'] = 0.0
-        
+
+        # Prepare Data for Worker
+        target_entries = [] # List of (index, mol)
         for i in range(1, len(self.molecules)):
-            target_entry = self.molecules[i]
-            probe_mol = target_entry['mol']
-            
-            # Deep copy for safety
-            probe_work = copy.deepcopy(probe_mol)
-            ref_work = copy.deepcopy(ref_mol)
+            target_entries.append((i, self.molecules[i]['mol']))
+        
+        if not target_entries:
+            return
 
-            # Create temporary Mol without hydrogens for MCS/RMSD calculation if needed
-            if ignore_hs and method == "Substructure (MCS)":
-                probe_calc = Chem.RemoveHs(probe_work)
-                ref_calc = Chem.RemoveHs(ref_work)
-            else:
-                probe_calc = probe_work
-                ref_calc = ref_work
+        method = self.combo_align_method.currentText()
+        ignore_hs = self.check_ignore_hs.isChecked()
 
-            try:
-                best_rms = float('inf')
-                best_transform = None
-                
-                # --- Method A: Atom IDs (Topology must be identical) ---
-                if method == "Atom IDs":
-                    # Use Original Data (probe_work/ref_work) directly
-                    if probe_work.GetNumAtoms() != ref_work.GetNumAtoms():
-                         # If strict atom count differs, we can't do simple 1:1
-                         # But wait, if Ignore Hs is ON, we might allow different H counts?
-                         # "Atom ID" fitting usually implies strict identity.
-                         # But if we map heavy-to-heavy, we only care about heavy count.
-                         pass 
-                    
-                    if ignore_hs:
-                        # Map N-th heavy atom to N-th heavy atom using ORIGINAL Indices
-                        # This avoids any renumbering from RemoveHs
-                        probe_heavy_indices = [a.GetIdx() for a in probe_work.GetAtoms() if a.GetAtomicNum() != 1]
-                        ref_heavy_indices = [a.GetIdx() for a in ref_work.GetAtoms() if a.GetAtomicNum() != 1]
-                        
-                        # Verify Heavy Atom Counts match
-                        if len(probe_heavy_indices) == len(ref_heavy_indices):
-                            # Map sequential heavy atoms
-                            atom_map = list(zip(probe_heavy_indices, ref_heavy_indices))
-                            
-                            # Align using heavy atoms map on the FULL molecule
-                            try:
-                                rms = AllChem.AlignMol(probe_work, ref_work, atomMap=atom_map, reflect=False)
-                                best_rms = rms
-                                target_entry['mol'] = probe_work
-                            except RuntimeError:
-                                target_entry['rms'] = -1.0
-                        else:
-                            target_entry['rms'] = -1.0
-                            
-                    else:
-                        # INCLUDE HYDROGEN INDICES: Strict 1:1 mapping of ALL atoms
-                        if probe_work.GetNumAtoms() == ref_work.GetNumAtoms():
-                            atom_map = [(i, i) for i in range(probe_work.GetNumAtoms())]
-                            
-                            # Calculate RMSD and Transform using strict map
-                            try:
-                                rms = AllChem.AlignMol(probe_work, ref_work, atomMap=atom_map, reflect=False)
-                                best_rms = rms
-                                target_entry['mol'] = probe_work
-                            except RuntimeError:
-                                target_entry['rms'] = -1.0
-                        else:
-                             target_entry['rms'] = -1.0
+        # Setup Progress Dialog
+        self.progress_dialog = QProgressDialog("Initializing alignment...", "Stop", 0, len(target_entries), self.mw)
+        self.progress_dialog.setWindowTitle("Alignment Progress")
+        self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
+        self.progress_dialog.setMinimumDuration(0) # Show immediately
+        self.progress_dialog.setValue(0)
 
-                # --- Method B: Substructure (MCS) with Symmetry Handling ---
-                elif method == "Substructure (MCS)":
-                    from rdkit.Chem import rdFMCS
-                    
-                    # MCS search
-                    res = rdFMCS.FindMCS(
-                        [ref_calc, probe_calc],
-                        matchValences=True,
-                        ringMatchesRingOnly=True,
-                        completeRingsOnly=True,
-                        timeout=5
-                    )
-                    
-                    if res.numAtoms > 0:
-                        patt = Chem.MolFromSmarts(res.smartsString)
-                        
-                        # Get ALL matching patterns
-                        ref_matches = ref_calc.GetSubstructMatches(patt, uniquify=False)
-                        probe_matches = probe_calc.GetSubstructMatches(patt, uniquify=False)
-                        
-                        # Find best alignment considering symmetry of BOTH Ref and Probe
-                        if ref_matches and probe_matches:
-                            
-                            # Iterate all combinations
-                            for ref_match in ref_matches:
-                                for probe_match in probe_matches:
-                                    
-                                    # Create atom map: (Probe atom ID, Ref atom ID)
-                                    atom_map = list(zip(probe_match, ref_match))
-                                    
-                                    # Calculate RMSD with this mapping
-                                    probe_temp = copy.deepcopy(probe_calc)
-                                    try:
-                                        rms = AllChem.AlignMol(probe_temp, ref_calc, atomMap=atom_map, reflect=False)
-                                    except RuntimeError:
-                                        # Skip failed alignments
-                                        continue
-                                    
-                                    if rms < best_rms:
-                                        best_rms = rms
-                                        
-                                        if ignore_hs:
-                                            # Mapping for final transform (H-less indices -> Full indices)
-                                            probe_heavy_to_full = [a.GetIdx() for a in probe_work.GetAtoms() if a.GetAtomicNum() != 1]
-                                            ref_heavy_to_full = [a.GetIdx() for a in ref_work.GetAtoms() if a.GetAtomicNum() != 1]
+        # Setup Worker
+        self.worker = AlignmentWorker(ref_entry['mol'], target_entries, method, ignore_hs)
+        
+        # Connect Signals
+        self.worker.progress.connect(self.update_progress)
+        self.worker.finished_signal.connect(self.on_alignment_finished)
+        self.worker.error_signal.connect(self.on_alignment_error)
+        self.progress_dialog.canceled.connect(self.worker.requestInterruption)
+        
+        # Start
+        self.worker.start()
 
-                                            # Map: Probe(H-less idx) -> Probe(Full idx) -> Ref(Full idx) <- Ref(H-less idx)
-                                            # atom_map is pairs of (Probe H-less Idx, Ref H-less Idx)
-                                            full_atom_map = [(probe_heavy_to_full[p], ref_heavy_to_full[r]) 
-                                                            for p, r in atom_map]
-                                            
-                                            # Apply best alignment to full molecule
-                                            probe_final = copy.deepcopy(probe_work)
-                                            AllChem.AlignMol(probe_final, ref_work, atomMap=full_atom_map, reflect=False)
-                                            best_transform = probe_final
-                                        else:
-                                            best_transform = probe_temp
-                            
-                            if best_transform is not None:
-                                target_entry['mol'] = best_transform
-                                target_entry['rms'] = best_rms
-                            else:
-                                target_entry['rms'] = -1.0
-                        else:
-                            target_entry['rms'] = -1.0
-                    else:
-                        target_entry['rms'] = -1.0
+    def update_progress(self, current, total, message):
+        if self.progress_dialog.wasCanceled():
+            return
+        self.progress_dialog.setMaximum(total)
+        self.progress_dialog.setValue(current)
+        self.progress_dialog.setLabelText(message)
 
-                # Save results
-                if best_rms != float('inf') and method == "Atom IDs":
-                    target_entry['rms'] = best_rms
-                
-            except Exception as e:
-                print(f"Alignment failed: {e}")
-                # import traceback
-                # traceback.print_exc()
-                target_entry['rms'] = -1.0
-
+    def on_alignment_finished(self, results):
+        # Update Data
+        for res in results:
+            idx = res['index']
+            if idx < len(self.molecules):
+                self.molecules[idx]['mol'] = res['mol']
+                self.molecules[idx]['rms'] = res['rms']
+        
+        # self.progress_dialog.display() # Ensure events processed
+        self.progress_dialog.close()
+        
         self.update_results_table()
         self.update_visualization()
         self.update_wireframe_lighting()
+        
+        # Determine success count
+        success_count = sum(1 for r in results if r['rms'] != -1.0)
+        if success_count < len(results):
+             # Maybe show a small distinct message if some failed/stopped?
+             pass
+
+    def on_alignment_error(self, message):
+        self.progress_dialog.close()
+        QMessageBox.critical(self.mw, "Alignment Error", f"An error occurred during alignment:\n{message}")
 
     def update_results_table(self):
         self.table_results.setRowCount(len(self.molecules))
