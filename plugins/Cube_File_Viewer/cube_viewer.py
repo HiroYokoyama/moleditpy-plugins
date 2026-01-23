@@ -1,5 +1,6 @@
 
 import os
+import json
 import tempfile
 import numpy as np
 import pyvista as pv
@@ -23,7 +24,7 @@ except ImportError:
     Geometry = None
     rdDetermineBonds = None
     
-__version__="2025.12.25"
+__version__="2026.01.23"
 __author__="HiroYokoyama"
 PLUGIN_NAME = "Cube File Viewer"
 
@@ -204,6 +205,18 @@ def read_cube(filename):
     meta = parse_cube_data(filename)
     return build_grid_from_meta(meta)
 
+class FlexibleDoubleSpinBox(QDoubleSpinBox):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setDecimals(10) # Set extremely high to allow typing, but we format display manually
+
+    def textFromValue(self, value):
+        # Return simplest string representation (stripping 0s)
+        # Using string formatting to avoid scientific notation if possible
+        text = f"{value:.10f}".rstrip('0').rstrip('.')
+        if text == "": text = "0"
+        return text
+
 class CubeViewerWidget(QWidget):
     def __init__(self, parent_window, dock_widget, grid, data_max=1.0):
         super().__init__(parent_window)
@@ -245,10 +258,10 @@ class CubeViewerWidget(QWidget):
         # We allow going a bit higher than the max found in data, e.g. 1.2x, just in case
         self.max_val = self.data_max * 1.2
         
-        self.spin = QDoubleSpinBox()
-        self.spin.setRange(0.0001, self.max_val) 
+        self.spin = FlexibleDoubleSpinBox()
+        self.spin.setRange(0.00001, self.max_val) 
         self.spin.setSingleStep(0.01) # User requested 0.01 step
-        self.spin.setDecimals(5)
+        # self.spin.setDecimals(10) # already set in class __init__
         
         # Default value strategy: 
         # User requested hardcoded 0.05
@@ -341,6 +354,66 @@ class CubeViewerWidget(QWidget):
         
         layout.addStretch()
         self.setLayout(layout)
+        
+        # Load settings after UI init
+        self.load_settings()
+
+    def get_settings_path(self):
+        """Returns the path to the JSON settings file in the same directory."""
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)), "cube_viewer.json")
+
+    def load_settings(self):
+        """Loads settings from JSON file."""
+        try:
+            settings_path = self.get_settings_path()
+            if os.path.exists(settings_path):
+                with open(settings_path, 'r') as f:
+                    settings = json.load(f)
+                
+                # Apply settings
+                if "isovalue" in settings:
+                    self.spin.setValue(float(settings["isovalue"]))
+                
+                if "color_p" in settings:
+                    col = settings["color_p"]
+                    if QColor(col).isValid():
+                        self.color_p = col
+                        self.btn_color_p.setStyleSheet(f"background-color: {self.color_p}; border: 1px solid gray;")
+
+                if "color_n" in settings:
+                    col = settings["color_n"]
+                    if QColor(col).isValid():
+                        self.color_n = col
+                        self.btn_color_n.setStyleSheet(f"background-color: {self.color_n}; border: 1px solid gray;")
+                
+                if "use_complementary" in settings:
+                    self.check_comp_color.setChecked(bool(settings["use_complementary"]))
+                    # Force update of neg color button enabled state
+                    self.btn_color_n.setEnabled(not self.check_comp_color.isChecked())
+
+                if "opacity" in settings:
+                    val = float(settings["opacity"])
+                    self.opacity_spin.setValue(val)
+                    
+        except Exception as e:
+            print(f"Error loading settings: {e}")
+
+    def save_settings(self):
+        """Saves current settings to JSON file."""
+        try:
+            settings = {
+                "isovalue": self.spin.value(),
+                "color_p": self.color_p,
+                "color_n": self.color_n,
+                "use_complementary": self.check_comp_color.isChecked(),
+                "opacity": self.opacity_spin.value()
+            }
+            
+            with open(self.get_settings_path(), 'w') as f:
+                json.dump(settings, f, indent=4)
+                
+        except Exception as e:
+            print(f"Error saving settings: {e}")
 
     def on_comp_color_toggled(self, checked):
         self.btn_color_n.setEnabled(not checked)
@@ -455,6 +528,7 @@ class CubeViewerWidget(QWidget):
         self.update_iso()
 
     def close_plugin(self):
+        self.save_settings()
         try:
              # Full cleanup
              self.mw.plotter.clear()
