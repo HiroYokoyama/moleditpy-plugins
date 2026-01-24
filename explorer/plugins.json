@@ -874,7 +874,8 @@
     "dependencies": [
       "PyQt6"
     ],
-    "downloadUrl": "../Settings_Saver/settings_saver.py",
+    "downloadUrl": "../plugins/Settings_Saver/settings_saver.py",
     "lastUpdated": "2026-01-25"
   }
+
 ]
