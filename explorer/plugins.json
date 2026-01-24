@@ -858,8 +858,23 @@
     ],
     "downloadUrl": "../plugins/Gaussian_FCHK_Loader/gaussian_fchk_loader.py",
     "lastUpdated": "2026-01-23"
+  },
+  {
+    "id": "settings_saver",
+    "visible": true,
+    "name": "Settings Saver",
+    "version": "2026.01.25",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Save, load, and manage settings presets in a unified dialog.",
+    "tags": [
+      "Settings",
+      "Utility"
+    ],
+    "dependencies": [
+      "PyQt6"
+    ],
+    "downloadUrl": "../Settings_Saver/settings_saver.py",
+    "lastUpdated": "2026-01-25"
   }
-
 ]
-
-
