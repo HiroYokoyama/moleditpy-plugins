@@ -20,7 +20,7 @@ def initialize(context):
     """Initialize the Settings Saver plugin."""
     
     # Menu Action under "Settings"
-    context.add_menu_action("Settings/Settings Saver...", lambda: open_manager(context))
+    context.add_menu_action("Settings/Presets...", lambda: open_manager(context))
 
     # Toolbar Button (Quick Access to Manager)
     #context.add_toolbar_action(lambda: open_manager(context), "Settings Manager", icon=None, tooltip="Manage Settings Presets")
