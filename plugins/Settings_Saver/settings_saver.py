@@ -16,14 +16,19 @@ PLUGIN_DESCRIPTION = "Save, load, and manage settings presets in a unified dialo
 
 SETTINGS_FILENAME = "settings_saver.json"
 
-def run(main_window):
-    """Run the Settings Saver plugin."""
-    open_manager(main_window)
+def initialize(context):
+    """Initialize the Settings Saver plugin."""
+    
+    # Menu Action under "Settings"
+    context.add_menu_action("Settings/Settings Saver...", lambda: open_manager(context))
 
-def open_manager(mw):
+    # Toolbar Button (Quick Access to Manager)
+    context.add_toolbar_action(lambda: open_manager(context), "Settings Manager", icon=None, tooltip="Manage Settings Presets")
+
+def open_manager(context):
     """Open the SettingsManager dialog."""
-    # Context is None for run() mode as we don't have the plugin context object
-    dialog = SettingsSaverDialog(None, mw)
+    mw = context.get_main_window()
+    dialog = SettingsSaverDialog(context, mw)
     dialog.exec()
 
 # --- Helper Functions ---
