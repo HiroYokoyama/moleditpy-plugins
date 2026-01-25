@@ -23,7 +23,7 @@ def initialize(context):
     context.add_menu_action("Settings/Settings Saver...", lambda: open_manager(context))
 
     # Toolbar Button (Quick Access to Manager)
-    context.add_toolbar_action(lambda: open_manager(context), "Settings Manager", icon=None, tooltip="Manage Settings Presets")
+    #context.add_toolbar_action(lambda: open_manager(context), "Settings Manager", icon=None, tooltip="Manage Settings Presets")
 
 def open_manager(context):
     """Open the SettingsManager dialog."""
