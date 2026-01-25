@@ -78,11 +78,11 @@ def enable_project_mode(mw):
         
         # Define proxy
         def proxy_save_settings():
-            print("[Settings Saver] Global save blocked by Project Settings mode.")
+            # print("[Settings Saver] Global save blocked by Project Settings mode.")
             return # Block it!
             
         mw.save_settings = proxy_save_settings
-        print("[Settings Saver] Enforcing strict Project Mode: Global saving blocked.")
+        # print("[Settings Saver] Enforcing strict Project Mode: Global saving blocked.")
 
 def disable_project_mode(mw, restore_content=True):
     """Disable Project Mode and restore global save functionality."""
@@ -93,7 +93,7 @@ def disable_project_mode(mw, restore_content=True):
     if hasattr(mw, '_original_save_settings'):
         mw.save_settings = mw._original_save_settings
         del mw._original_save_settings
-        print("[Settings Saver] Project Mode disabled: Global saving restored.")
+        # print("[Settings Saver] Project Mode disabled: Global saving restored.")
         
     # 2. Restore Original Settings Content & Alias
     if restore_content and ORIGINAL_SETTINGS is not None:
@@ -106,7 +106,8 @@ def disable_project_mode(mw, restore_content=True):
                 mw.settings.update(ORIGINAL_SETTINGS)
                 apply_settings_hot(mw)
             except Exception as e:
-                print(f"[Settings Saver] Error restoring original settings: {e}")
+                # print(f"[Settings Saver] Error restoring original settings: {e}")
+                pass
                 
         ORIGINAL_SETTINGS = None
 
@@ -163,7 +164,8 @@ def on_load_project(data):
                     
                 mw.statusBar().showMessage(f"Applied project settings.")
             except Exception as e:
-                print(f"Error auto-applying project settings: {e}")
+                # print(f"Error auto-applying project settings: {e}")
+                pass
 
 def on_document_reset():
     """Clear project presets when creating a new file."""
@@ -208,7 +210,7 @@ def load_library():
         with open(path, 'r', encoding='utf-8') as f:
             return json.load(f)
     except Exception as e:
-        print(f"Error loading settings library: {e}")
+        # print(f"Error loading settings library: {e}")
         return {}
 
 def save_library(data, parent_window=None):
@@ -242,14 +244,16 @@ def apply_settings_hot(mw):
             if hasattr(mw, 'apply_3d_settings'):
                 mw.apply_3d_settings()
         except Exception as e:
-            print(f"Error applying 3D settings: {e}")
+            # print(f"Error applying 3D settings: {e}")
+            pass
 
         # 2. Update CPK Colors
         try:
             if hasattr(mw, 'update_cpk_colors_from_settings'):
                 mw.update_cpk_colors_from_settings()
         except Exception as e:
-            print(f"Error updating CPK colors: {e}")
+            # print(f"Error updating CPK colors: {e}")
+            pass
 
         # 3. Refresh Color Dialogs
         try:
@@ -264,7 +268,8 @@ def apply_settings_hot(mw):
             if hasattr(mw, 'current_mol') and mw.current_mol:
                 mw.draw_molecule_3d(mw.current_mol)
         except Exception as e:
-            print(f"Error redrawing 3D molecule: {e}")
+            # print(f"Error redrawing 3D molecule: {e}")
+            pass
 
         # 5. Update 2D SCENE
         try:
@@ -279,18 +284,21 @@ def apply_settings_hot(mw):
                 if hasattr(mw, 'view_2d') and mw.view_2d and hasattr(mw.view_2d, 'viewport'):
                     mw.view_2d.viewport().update()
         except Exception as e:
-            print(f"Error updating 2D settings: {e}")
+            # print(f"Error updating 2D settings: {e}")
+            pass
 
         # 6. Push Undo State (Requirement: "push undo when applied", Manual: "Call after modifying")
         try:
             if hasattr(mw, 'push_undo_state'):
                 mw.push_undo_state()
         except Exception as e:
-            print(f"Error pushing undo state: {e}")
+            # print(f"Error pushing undo state: {e}")
+            pass
 
     except Exception as e:
-        print(f"Hot loading failed: {e}")
-        traceback.print_exc()
+        # print(f"Hot loading failed: {e}")
+        # traceback.print_exc()
+        pass
 
 # --- Main Dialog Class ---
 
@@ -352,6 +360,7 @@ class SettingsSaverDialog(QDialog):
         self.chk_embed = QCheckBox("Save Settings to Project (This Project Only)")
         self.chk_embed.setChecked(EMBED_SETTINGS["enabled"])
         self.chk_embed.toggled.connect(self.on_embed_toggled)
+        self.btn_set_global.setEnabled(self.chk_embed.isChecked())
         project_layout.addWidget(self.chk_embed)
         
         # Enforce dirty flag logic on open
@@ -400,7 +409,7 @@ class SettingsSaverDialog(QDialog):
         
         # 1. User Library Presets (Standard)
         # Filter out _PLUGIN_CONFIG
-        names = sorted([k for k in self.library.keys() if not k.startswith("_")])
+        names = sorted([k for k in self.library.keys() if not k.startswith("_") and k != "PLUGIN_CONFIG"])
         for name in names:
             item = QListWidgetItem(name)
             self.preset_list.addItem(item)
@@ -432,6 +441,7 @@ class SettingsSaverDialog(QDialog):
     # --- Event Handlers ---
 
     def on_embed_toggled(self, checked):
+        self.btn_set_global.setEnabled(checked)
         if hasattr(self.main_window, 'settings_dirty'):
             if checked:
                 # ENABLE PROJECT MODE (Strict Protection)
