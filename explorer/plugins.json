@@ -876,6 +876,24 @@
     ],
     "downloadUrl": "../plugins/Settings_Saver/settings_saver.py",
     "lastUpdated": "2026-01-25"
+  },
+  {
+    "id": "structural_updater",
+    "visible": true,
+    "name": "Structural Updater",
+    "version": "0.1.0",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Applies 2D structural changes to 3D conformation without full re-embedding.",
+    "tags": [
+      "Utility",
+      "Analysis"
+    ],
+    "dependencies": [
+      "rdkit",
+      "PyQt6"
+    ],
+    "downloadUrl": "../plugins/Structural_Updater/structural_updater.py",
+    "lastUpdated": "2026-01-28"
   }
-
 ]
