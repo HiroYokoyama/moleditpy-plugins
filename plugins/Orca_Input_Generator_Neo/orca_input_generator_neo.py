@@ -673,7 +673,7 @@ class OrcaSetupDialogNeo(QDialog):
                     f.write(content)
 
                 QMessageBox.information(self, "Success", f"File saved:\\n{file_path}")
-                QMessageBox.information(self, "Success", f"File saved:\n{file_path}")
+                #QMessageBox.information(self, "Success", f"File saved:\n{file_path}")
                 # Do not close automatically
                 # self.accept()
             except Exception as e:
@@ -1073,3 +1073,4 @@ def initialize(context):
         mw = context.get_main_window()
         run(mw)
     context.add_export_action("ORCA Input...", show_dialog)
+
