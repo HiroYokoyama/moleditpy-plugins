@@ -88,7 +88,7 @@
     "id": "cube_file_viewer",
     "visible": true,
     "name": "Cube File Viewer",
-    "version": "2026.01.23",
+    "version": "2026.01.29",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes Gaussian Cube files (.cube) containing volumetric data (e.g., orbitals, densities).",
@@ -101,7 +101,7 @@
       "numpy"
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer/cube_viewer.py",
-    "lastUpdated": "2026-01-23"
+    "lastUpdated": "2026-01-29"
   },
   {
     "id": "gaussian_input_generator",
@@ -897,3 +897,4 @@
   }
 
 ]
+
