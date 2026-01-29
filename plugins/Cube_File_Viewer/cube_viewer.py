@@ -7,9 +7,9 @@ import pyvista as pv
 from PyQt6.QtWidgets import (QFileDialog, QDockWidget, QWidget, QVBoxLayout, 
                              QSlider, QLabel, QHBoxLayout, QPushButton, QMessageBox, 
                              QDoubleSpinBox, QColorDialog, QInputDialog, QDialog, 
-                             QFormLayout, QDialogButtonBox, QSpinBox, QCheckBox)
+                             QFormLayout, QDialogButtonBox, QSpinBox, QCheckBox, QComboBox)
 from PyQt6.QtGui import QColor
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, QCoreApplication
 
 # RDKit imports for molecule construction
 try:
@@ -24,7 +24,7 @@ except ImportError:
     Geometry = None
     rdDetermineBonds = None
     
-__version__="2026.01.23"
+__version__="2026.01.29"
 __author__="HiroYokoyama"
 PLUGIN_NAME = "Cube File Viewer"
 
@@ -240,6 +240,9 @@ class CubeViewerWidget(QWidget):
         # When opening from command line, the window might not be fully ready.
         # A small delay ensures the plotter is ready for actors.
         QTimer.singleShot(100, self.initial_update)
+        
+        # Ensure settings are saved when application quits (Main Window X button)
+        QCoreApplication.instance().aboutToQuit.connect(self.save_settings)
 
     def initial_update(self):
         self.update_iso()
@@ -347,6 +350,21 @@ class CubeViewerWidget(QWidget):
         opacity_layout.addWidget(self.opacity_slider)
         
         layout.addLayout(opacity_layout)
+        
+        # --- Style Controls ---
+        style_layout = QHBoxLayout()
+        style_layout.addWidget(QLabel("Style:"))
+        self.combo_style = QComboBox()
+        self.combo_style.addItems(["Surface", "Smoothed Surface", "Wireframe", "Points"])
+        self.combo_style.currentIndexChanged.connect(self.update_iso)
+        style_layout.addWidget(self.combo_style)
+        
+        self.check_smooth = QCheckBox("Smooth Shading")
+        self.check_smooth.setChecked(True)
+        self.check_smooth.toggled.connect(self.update_iso)
+        style_layout.addWidget(self.check_smooth)
+        
+        layout.addLayout(style_layout)
 
         close_btn = QPushButton("Close Plugin")
         close_btn.clicked.connect(self.close_plugin)
@@ -395,6 +413,22 @@ class CubeViewerWidget(QWidget):
                     val = float(settings["opacity"])
                     self.opacity_spin.setValue(val)
                     
+                if "style" in settings:
+                    # Robust find
+                    text = settings["style"]
+                    idx = self.combo_style.findText(text)
+                    if idx < 0:
+                        # try case insensitive
+                        for i in range(self.combo_style.count()):
+                            if self.combo_style.itemText(i).lower() == text.lower():
+                                idx = i
+                                break
+                    if idx >= 0: 
+                        self.combo_style.setCurrentIndex(idx)
+                    
+                if "smooth_shading" in settings:
+                    self.check_smooth.setChecked(bool(settings["smooth_shading"]))
+                    
         except Exception as e:
             print(f"Error loading settings: {e}")
 
@@ -406,7 +440,9 @@ class CubeViewerWidget(QWidget):
                 "color_p": self.color_p,
                 "color_n": self.color_n,
                 "use_complementary": self.check_comp_color.isChecked(),
-                "opacity": self.opacity_spin.value()
+                "opacity": self.opacity_spin.value(),
+                "style": self.combo_style.currentText(),
+                "smooth_shading": self.check_smooth.isChecked()
             }
             
             with open(self.get_settings_path(), 'w') as f:
@@ -462,7 +498,27 @@ class CubeViewerWidget(QWidget):
     def update_iso(self):
         val = self.spin.value()
         # Prefer numeric spinbox value (kept in sync with slider)
-        opacity = self.opacity_spin.value() if hasattr(self, 'opacity_spin') else self.opacity_slider.value() / 100.0
+        opacity_val = self.opacity_spin.value() if hasattr(self, 'opacity_spin') else self.opacity_slider.value() / 100.0
+        
+        # Style settings
+        style = self.combo_style.currentText() # Keep original case for check
+        smooth = self.check_smooth.isChecked()
+        
+        render_style = style.lower()
+        do_geometric_smooth = False
+        is_density_mode = False
+        
+        if style == "Smoothed Surface":
+            render_style = "surface"
+            do_geometric_smooth = True
+        elif render_style in ["wireframe", "points"]:
+            is_density_mode = True
+            
+        # Update Label to reflect usage
+        if is_density_mode:
+            self.opacity_label.setText("Density:")
+        else:
+            self.opacity_label.setText("Opacity:")
         
         try:
             # Cleanup previous
@@ -476,15 +532,49 @@ class CubeViewerWidget(QWidget):
             # Using full grid
             using_grid = self.grid
 
+            # Decimation / Opacity Logic
+            render_opacity = opacity_val
+            target_reduction = 0.0
+            
+            if is_density_mode:
+                # In density mode, opacity slider controls density (1.0 = full, 0.0 = empty)
+                # target_reduction is fraction to REMOVE.
+                # If opacity_val is 1.0 (Density), reduction is 0.0
+                # If opacity_val is 0.1 (Density), reduction is 0.9
+                target_reduction = 1.0 - opacity_val
+                # Clamp to avoid total destruction or errors
+                target_reduction = max(0.0, min(0.99, target_reduction))
+                
+                # Force full opacity for the lines/points themselves so they are visible
+                render_opacity = 1.0
+
+            def process_mesh(iso_mesh):
+                m = iso_mesh
+                
+                # 1. Geometric Smoothing (Before decimation usually better for shape, 
+                # but if decimating heavily, smoothing after might be cleaner? 
+                # Let's stick to user request order: Smoothing is a style feature, usually implies high qual.
+                # Decimation is for sparse view.)
+                if do_geometric_smooth:
+                     m = m.smooth(n_iter=100)
+                     
+                # 2. Decimation (Density)
+                if is_density_mode and target_reduction > 0.0:
+                    m = m.decimate(target_reduction)
+                    
+                return m
+
             # Positive lobe
             iso_p = using_grid.contour(isosurfaces=[val])
             if iso_p.n_points > 0:
-                self.iso_actor_p = self.plotter.add_mesh(iso_p, color=self.color_p, opacity=opacity, name="cube_iso_p", reset_camera=False)
+                iso_p = process_mesh(iso_p)
+                self.iso_actor_p = self.plotter.add_mesh(iso_p, color=self.color_p, opacity=render_opacity, name="cube_iso_p", reset_camera=False, style=render_style, smooth_shading=smooth)
                 
             # Negative lobe
             iso_n = using_grid.contour(isosurfaces=[-val])
             if iso_n.n_points > 0:
-                self.iso_actor_n = self.plotter.add_mesh(iso_n, color=self.color_n, opacity=opacity, name="cube_iso_n", reset_camera=False)
+                iso_n = process_mesh(iso_n)
+                self.iso_actor_n = self.plotter.add_mesh(iso_n, color=self.color_n, opacity=render_opacity, name="cube_iso_n", reset_camera=False, style=render_style, smooth_shading=smooth)
                 
             self.plotter.render()
             
@@ -526,6 +616,10 @@ class CubeViewerWidget(QWidget):
             self.slider.setValue(int_val)
             self.slider.blockSignals(False)
         self.update_iso()
+
+    def closeEvent(self, event):
+        self.save_settings()
+        super().closeEvent(event)
 
     def close_plugin(self):
         self.save_settings()
