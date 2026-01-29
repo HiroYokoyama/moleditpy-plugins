@@ -915,5 +915,27 @@
     "downloadUrl": "https://raw.githubusercontent.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin/7d7ef0d635ae44a65225124f34c1157fa3125fa6/orca_result_analyzer.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin",
     "lastUpdated": "2026-01-29"
+  },
+  {
+    "id": "nmr_predictor_nmrshiftdb2",
+    "visible": true,
+    "name": "NMR Predictor (nmrshiftdb2)",
+    "version": "1.0.0",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Predict 1H and 13C NMR shifts using nmrshiftdb2. Requires Java Runtime (JRE).",
+    "tags": [
+      "Analysis"
+    ],
+    "dependencies": [
+      "rdkit",
+      "pyvista",
+      "numpy",
+      "matplotlib",
+      "PyQt6"
+    ],
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_nmr_predicator_nmrshiftdb2/a07a226c817f2a1388090f40d32cbb78f91d4d18/nmr_predicator_nmrshiftdb2.zip",
+    "projectUrl": "https://github.com/HiroYokoyama/moleditpy_nmr_predicator_nmrshiftdb2",
+    "lastUpdated": "2026-01-29"
   }
 ]
