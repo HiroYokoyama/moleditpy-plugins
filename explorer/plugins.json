@@ -1,4 +1,4 @@
-﻿[
+[
   {
     "id": "all-trans_optimizer",
     "visible": true,
@@ -25,8 +25,8 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A player for viewing multi-frame XYZ files and recording GIF animations using PIL.",
     "tags": [
-      "File",
-      "Animation"
+      "File IO",
+      "Visualization"
     ],
     "dependencies": [
       "Pillow"
@@ -43,8 +43,8 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A player for viewing multi-frame XYZ files, such as molecular dynamics trajectories.",
     "tags": [
-      "File",
-      "Animation"
+      "File IO",
+      "Visualization"
     ],
     "dependencies": [],
     "downloadUrl": "../plugins/Animated_XYZ_Player/animated_xyz.py",
@@ -93,7 +93,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes Gaussian Cube files (.cube) containing volumetric data (e.g., orbitals, densities).",
     "tags": [
-      "File"
+      "File IO"
     ],
     "dependencies": [
       "rdkit",
@@ -112,7 +112,8 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A comprehensive tool to generate input files for Gaussian quantum chemistry calculations.",
     "tags": [
-      "Input Generator"
+      "DFT",
+      "Generator"
     ],
     "dependencies": [],
     "downloadUrl": "../plugins/Gaussian_Input_Generator/gaussian_input_generator.py",
@@ -159,7 +160,8 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates input files for the ORCA quantum chemistry package.",
     "tags": [
-      "Input Generator"
+      "DFT",
+      "Generator"
     ],
     "dependencies": [],
     "downloadUrl": "../plugins/ORCA_Input_Generator/orca_input_generator.py",
@@ -192,9 +194,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "An interactive Python interpreter embedded in the application. Allows runtime script execution with access to the MainWindow (mw) and current molecule (mol).",
     "tags": [
-      "Utility",
-      "Development",
-      "Scripting"
+      "Utility"
     ],
     "dependencies": [
       "rdkit",
@@ -212,8 +212,8 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Select atoms in the 3D viewer and apply color.",
     "tags": [
-      "Visualization",
-      "Utility"
+      "Utility",
+      "Visualization"
     ],
     "dependencies": [
       "numpy",
@@ -232,8 +232,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A plugin that automatically applies a dark mode stylesheet to MoleditPy upon loading.",
     "tags": [
-      "UI",
-      "Theme"
+      "Visualization"
     ],
     "dependencies": [
       "PyQt6"
@@ -250,7 +249,8 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "High-functionality setting dialog for Gaussian input creation. Supports Link 0, Route, Title, Charge/Mult, and appended data.",
     "tags": [
-      "Input Generator"
+      "DFT",
+      "Generator"
     ],
     "dependencies": [
       "rdkit",
@@ -287,8 +287,8 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes a property (e.g. ESP) mapped onto an isosurface (e.g. electron density) from two Cube files.",
     "tags": [
-      "File",
-      "Analysis"
+      "Analysis",
+      "File IO"
     ],
     "dependencies": [
       "numpy",
@@ -308,7 +308,8 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "High-functionality setting dialog for ORCA input creation. Supports Route, Block Builder, and Validations.",
     "tags": [
-      "Input Generator"
+      "DFT",
+      "Generator"
     ],
     "dependencies": [
       "rdkit",
@@ -326,8 +327,9 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "GUI for generating ORCA input files from XYZ data with templates.",
     "tags": [
-      "Input Generator",
-      "File"
+      "DFT",
+      "File IO",
+      "Generator"
     ],
     "dependencies": [
       "rdkit",
@@ -365,7 +367,8 @@
     "description": "Analyzes vibrational frequencies from Gaussian FCHK files. View IR spectrum, animate normal modes, and export GIF animations.",
     "tags": [
       "Analysis",
-      "File"
+      "DFT",
+      "File IO"
     ],
     "dependencies": [
       "rdkit",
@@ -386,7 +389,8 @@
     "description": "Analyzes vibrational frequencies from ORCA output files. View IR spectrum, animate normal modes, and export GIF animations.",
     "tags": [
       "Analysis",
-      "File"
+      "DFT",
+      "File IO"
     ],
     "dependencies": [
       "rdkit",
@@ -406,7 +410,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Paste XYZ to view in 3D.",
     "tags": [
-      "File"
+      "File IO"
     ],
     "dependencies": [],
     "downloadUrl": "../plugins/Paste_XYZ/paste_xyz.py",
@@ -421,8 +425,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Checks installed plugins against the official repository for updates.",
     "tags": [
-      "Utility",
-      "System"
+      "Utility"
     ],
     "dependencies": [
       "PyQt6"
@@ -439,8 +442,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Checks for updates, installs new plugins, and allows manual reinstallation.",
     "tags": [
-      "Utility",
-      "System"
+      "Utility"
     ],
     "dependencies": [
       "PyQt6"
@@ -457,8 +459,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with Google Gemini about the current molecule. Automatically injects SMILES context.",
     "tags": [
-      "AI",
-      "Chat"
+      "AI"
     ],
     "dependencies": [
       "google-generativeai",
@@ -479,8 +480,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with Google Gemini about the current molecule. Automatically injects SMILES context. (Neo Version)",
     "tags": [
-      "AI",
-      "Chat"
+      "AI"
     ],
     "dependencies": [
       "google-generativeai",
@@ -519,8 +519,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with OpenAI ChatGPT about the current molecule. Automatically injects SMILES context. (Neo Version)",
     "tags": [
-      "AI",
-      "Chat"
+      "AI"
     ],
     "dependencies": [
       "openai",
@@ -541,8 +540,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with local LLM about the current molecule. Automatically injects SMILES context. (Neo Version)",
     "tags": [
-      "AI",
-      "Chat"
+      "AI"
     ],
     "dependencies": [
       "openai",
@@ -563,8 +561,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Analyzes molecular symmetry (point group) and symmetrizes structures.",
     "tags": [
-      "Analysis",
-      "Symmetry"
+      "Analysis"
     ],
     "dependencies": [
       "rdkit",
@@ -583,8 +580,8 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes vectors (e.g. dipole moment) and exports PNGs.",
     "tags": [
-      "Visualization",
-      "Utility"
+      "Utility",
+      "Visualization"
     ],
     "dependencies": [
       "numpy",
@@ -603,7 +600,8 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates input files for MOPAC semi-empirical quantum chemistry calculations.",
     "tags": [
-      "Input Generator"
+      "DFT",
+      "Generator"
     ],
     "dependencies": [
       "rdkit",
@@ -621,7 +619,8 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates input files for GAMESS (US) quantum chemistry calculations.",
     "tags": [
-      "Input Generator"
+      "DFT",
+      "Generator"
     ],
     "dependencies": [
       "rdkit",
@@ -639,8 +638,9 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates Python scripts for PySCF quantum chemistry calculations.",
     "tags": [
-      "Input Generator",
-      "Scripting"
+      "DFT",
+      "Generator",
+      "Utility"
     ],
     "dependencies": [
       "rdkit",
@@ -658,7 +658,8 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates input files for Psi4 quantum chemistry calculations.",
     "tags": [
-      "Input Generator"
+      "DFT",
+      "Generator"
     ],
     "dependencies": [
       "rdkit",
@@ -695,7 +696,8 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates input files for NWChem quantum chemistry calculations.",
     "tags": [
-      "Input Generator"
+      "DFT",
+      "Generator"
     ],
     "dependencies": [
       "rdkit",
@@ -713,8 +715,8 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A table-based editor for atom coordinates and symbols, supporting ghost atoms, adding and deleting atoms.",
     "tags": [
-      "Editor",
-      "Utility"
+      "Utility",
+      "Visualization"
     ],
     "dependencies": [
       "rdkit",
@@ -732,8 +734,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A simple hello world plugin distributed as a zip.",
     "tags": [
-      "Sample",
-      "Folder"
+      "Sample"
     ],
     "dependencies": [],
     "downloadUrl": "../plugins/Hello_World_Folder_Plugin/HelloWorldFolderPlugin.zip",
@@ -771,8 +772,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Import various chemical file formats using OpenBabel with multi-molecule support.",
     "tags": [
-      "Import",
-      "Export",
+      "File IO",
       "Utility"
     ],
     "dependencies": [
@@ -790,8 +790,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Paste chemical structures from ChemDraw clipboard data. Developed on ChemDraw version 25.5.",
     "tags": [
-      "Clipboard",
-      "Import",
+      "File IO",
       "Utility"
     ],
     "dependencies": [
@@ -809,8 +808,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generate a compound info report with properties, adducts, and structure. Useful for organic synthesis experiments.",
     "tags": [
-      "Analysis",
-      "Report"
+      "Analysis"
     ],
     "dependencies": [
       "rdkit",
@@ -829,8 +827,9 @@
     "description": "Visualizes Molecular Orbitals from Gaussian FCHK files by generating Cube files. The current implementation supports S, P, D, and F shells",
     "tags": [
       "Analysis",
-      "Visualization",
-      "File"
+      "DFT",
+      "File IO",
+      "Visualization"
     ],
     "dependencies": [
       "rdkit",
@@ -850,7 +849,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Smart loader for FCHK, FCH, and FCK files. Dispatches to Frequency or MO Analyzer with priority handling.",
     "tags": [
-      "System",
+      "DFT",
       "Utility"
     ],
     "dependencies": [
@@ -868,7 +867,6 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Save, load, and manage settings presets in a unified dialog.",
     "tags": [
-      "Settings",
       "Utility"
     ],
     "dependencies": [
@@ -895,7 +893,7 @@
     "downloadUrl": "../plugins/Structural_Updater/structural_updater.py",
     "lastUpdated": "2026-01-28"
   },
-    {
+  {
     "id": "orca_result_analyzer",
     "visible": true,
     "name": "ORCA Result Analyzer",
@@ -905,8 +903,8 @@
     "description": "Comprehensive analyzer for ORCA output files (.out, .log). Includes Vibrational, MO, TDDFT, and NMR analysis.",
     "tags": [
       "Analysis",
-      "ORCA",
-      "File"
+      "DFT",
+      "File IO"
     ],
     "dependencies": [
       "rdkit",
@@ -918,8 +916,4 @@
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin",
     "lastUpdated": "2026-01-29"
   }
-
 ]
-
-
-
