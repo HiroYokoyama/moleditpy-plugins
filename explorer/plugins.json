@@ -894,6 +894,28 @@
     ],
     "downloadUrl": "../plugins/Structural_Updater/structural_updater.py",
     "lastUpdated": "2026-01-28"
+  },
+    {
+    "id": "orca_result_analyzer",
+    "visible": true,
+    "name": "ORCA Result Analyzer",
+    "version": "0.6.0",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Comprehensive analyzer for ORCA output files (.out, .log). Includes Vibrational, MO, TDDFT, and NMR analysis.",
+    "tags": [
+      "Analysis",
+      "ORCA",
+      "File"
+    ],
+    "dependencies": [
+      "rdkit",
+      "PyQt6",
+      "matplotlib",
+      "Pillow"
+    ],
+    "downloadUrl": "https://raw.githubusercontent.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin/7bc30643e6c12799563426ad8ca728d03343e333/orca_result_analyzer.zip",
+    "lastUpdated": "2026-01-29"
   }
 
 ]
