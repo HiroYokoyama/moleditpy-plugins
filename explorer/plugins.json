@@ -934,7 +934,7 @@
       "matplotlib",
       "PyQt6"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_nmr_predicator_nmrshiftdb2/a07a226c817f2a1388090f40d32cbb78f91d4d18/nmr_predicator_nmrshiftdb2.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_nmr_predicator_nmrshiftdb2/releases/download/1.0.0/nmr_predicator_nmrshiftdb2.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_nmr_predicator_nmrshiftdb2",
     "lastUpdated": "2026-01-29"
   }
