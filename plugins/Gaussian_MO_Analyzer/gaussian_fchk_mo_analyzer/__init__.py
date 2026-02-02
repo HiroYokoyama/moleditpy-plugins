@@ -2,7 +2,7 @@ from .gui import OrbitalWidget
 
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Gaussian MO Analyzer"
-PLUGIN_VERSION = "2026.01.24"
+PLUGIN_VERSION = "2026.02.02"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Visualizes Molecular Orbitals from Gaussian FCHK files by generating Cube files."
 
