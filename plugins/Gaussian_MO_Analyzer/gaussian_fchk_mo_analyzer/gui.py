@@ -269,6 +269,10 @@ class OrbitalWidget(QWidget):
         # Setup Path
         path = self.get_cube_path(self.current_gen_mo_idx)
         self.last_cube_path = path
+        
+        # Ensure output directory exists
+        out_dir = os.path.dirname(path)
+        os.makedirs(out_dir, exist_ok=True)
 
         # Check Existence
         if os.path.exists(path):
