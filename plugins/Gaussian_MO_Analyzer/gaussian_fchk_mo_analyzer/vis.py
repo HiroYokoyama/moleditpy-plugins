@@ -94,7 +94,7 @@ class CubeVisualizer:
         
         return grid
 
-    def show_iso(self, isovalue=0.02, color_p='red', color_n='blue', opacity=0.5):
+    def show_iso(self, isovalue=0.02, color_p='red', color_n='blue', opacity=0.5, smooth_shading=True):
         if not self.current_grid: return
         
         self.plotter.remove_actor("fchk_iso_p")
@@ -103,11 +103,11 @@ class CubeVisualizer:
         try:
             iso_p = self.current_grid.contour([isovalue], scalars="values")
             if iso_p.n_points > 0:
-                self.plotter.add_mesh(iso_p, color=color_p, opacity=opacity, name="fchk_iso_p")
+                self.plotter.add_mesh(iso_p, color=color_p, opacity=opacity, name="fchk_iso_p", smooth_shading=smooth_shading)
                 
             iso_n = self.current_grid.contour([-isovalue], scalars="values")
             if iso_n.n_points > 0:
-                self.plotter.add_mesh(iso_n, color=color_n, opacity=opacity, name="fchk_iso_n")
+                self.plotter.add_mesh(iso_n, color=color_n, opacity=opacity, name="fchk_iso_n", smooth_shading=smooth_shading)
                 
             self.plotter.render()
         except Exception as e:
