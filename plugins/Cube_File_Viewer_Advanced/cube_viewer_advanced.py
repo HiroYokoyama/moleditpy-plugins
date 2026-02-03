@@ -7,7 +7,7 @@ import pyvista as pv
 from PyQt6.QtWidgets import (QFileDialog, QDockWidget, QWidget, QVBoxLayout, 
                              QSlider, QLabel, QHBoxLayout, QPushButton, QMessageBox, 
                              QDoubleSpinBox, QColorDialog, QInputDialog, QDialog, 
-                             QFormLayout, QDialogButtonBox, QSpinBox, QCheckBox, QComboBox)
+                             QFormLayout, QDialogButtonBox, QSpinBox, QCheckBox, QComboBox, QLineEdit)
 from PyQt6.QtGui import QColor
 from PyQt6.QtCore import Qt, QTimer, QCoreApplication
 
@@ -247,8 +247,29 @@ class CubeViewerWidget(QWidget):
         self.use_depth_peeling = False
         self.use_silhouette = False
         self.env_texture_path = ""
+        
+        # New Graphics Options
+        self.use_aa = False
+        self.use_edl = False
+        self.edl_strength = 0.2
+        self.use_shadows = False
+        self.light_intensity = 1.0
+        
+        # Atom PBR specific
+        self.atom_metallic = 0.0
+        self.atom_roughness = 0.5
+        self.use_atom_pbr = False
+        
+        # Presets {name: settings_dict}
+        self.presets = {}
+        self.default_preset_names = set()  # Track which presets are defaults (read-only)
+        self._init_default_presets()
 
         self.init_ui()
+        
+        # Populate preset dropdown with defaults
+        self.update_preset_combo()
+        
         # DELAY INITIAL UPDATE: 
         # When opening from command line, the window might not be fully ready.
         # A small delay ensures the plotter is ready for actors.
@@ -267,6 +288,30 @@ class CubeViewerWidget(QWidget):
         
         # --- Isovalue Controls ---
         ctrl_layout = QHBoxLayout()
+
+        preset_layout = QHBoxLayout()
+        preset_layout.addWidget(QLabel("Preset:"))
+        
+        self.combo_presets = QComboBox()
+        self.combo_presets.setEditable(False)  # Not editable - use Save dialog to name presets
+        self.combo_presets.setPlaceholderText("Select preset...")
+        self.combo_presets.setMinimumWidth(150)
+        self.combo_presets.currentTextChanged.connect(self.on_preset_text_changed)
+        self.combo_presets.activated.connect(self.on_preset_activated)
+        preset_layout.addWidget(self.combo_presets)
+        
+        btn_save_preset = QPushButton("Save")
+        btn_save_preset.setToolTip("Save current settings")
+        btn_save_preset.clicked.connect(self.save_preset)
+        preset_layout.addWidget(btn_save_preset)
+        
+        btn_del_preset = QPushButton("Del")
+        btn_del_preset.setToolTip("Delete preset")
+        btn_del_preset.clicked.connect(self.delete_preset)
+        preset_layout.addWidget(btn_del_preset)
+        
+        layout.addLayout(preset_layout)
+        
         ctrl_layout.addWidget(QLabel("Isovalue:"))
         
         # Spinbox: Fixed max 1.0 as requested
@@ -399,77 +444,196 @@ class CubeViewerWidget(QWidget):
         self.load_settings()
 
     def init_advanced_ui(self, layout):
-        from PyQt6.QtWidgets import QGroupBox, QGridLayout
+        from PyQt6.QtWidgets import QGroupBox, QGridLayout, QTabWidget, QWidget, QVBoxLayout, QComboBox, QMessageBox, QInputDialog
 
         group = QGroupBox("Advanced Rendering")
-        glayout = QGridLayout()
+        # Main Layout of Group is just a VBox holding the TabWidget
+        group_layout = QVBoxLayout()
         
+        tabs = QTabWidget()
+        
+        # --- TAB 1: SCENE (Global Effects) ---
+        tab_scene = QWidget()
+        scene_layout = QGridLayout()
+        
+        # Texture
+        scene_layout.addWidget(QLabel("Env Texture:"), 0, 0)
+        tex_layout = QHBoxLayout()
+        self.line_env_path = QLineEdit()
+        self.line_env_path.setPlaceholderText("Path to .png/.jpg texture...")
+        self.line_env_path.returnPressed.connect(self.on_texture_path_entered)
+        tex_layout.addWidget(self.line_env_path)
+        btn_browse_tex = QPushButton("...")
+        btn_browse_tex.setFixedWidth(30); btn_browse_tex.clicked.connect(self.on_load_env_texture)
+        tex_layout.addWidget(btn_browse_tex)
+        btn_clear_tex = QPushButton("X")
+        btn_clear_tex.setFixedWidth(30); btn_clear_tex.clicked.connect(self.on_remove_env_texture)
+        tex_layout.addWidget(btn_clear_tex)
+        scene_layout.addLayout(tex_layout, 0, 1)
+
+        # Shadows
+        self.check_shadows = QCheckBox("Shadows")
+        self.check_shadows.setToolTip("Enable Shadows (requires compatible lighting)")
+        self.check_shadows.toggled.connect(self.on_shadows_toggled)
+        scene_layout.addWidget(self.check_shadows, 1, 0)
+
+        # Light Intensity
+        scene_layout.addWidget(QLabel("Light Int:"), 2, 0)
+        self.slider_light = QSlider(Qt.Orientation.Horizontal)
+        self.slider_light.setRange(0, 500)
+        self.slider_light.setValue(int(self.light_intensity * 100))
+        self.slider_light.valueChanged.connect(self.on_light_intensity_changed)
+        scene_layout.addWidget(self.slider_light, 2, 1)
+
+        # SSAO
+        self.check_ssao = QCheckBox("SSAO")
+        if not hasattr(self.plotter, 'enable_ssao'): self.check_ssao.setEnabled(False)
+        self.check_ssao.toggled.connect(self.on_ssao_toggled)
+        scene_layout.addWidget(self.check_ssao, 3, 0)
+
+        # AA
+        self.check_aa = QCheckBox("Anti-Aliasing")
+        self.check_aa.toggled.connect(self.on_aa_toggled)
+        scene_layout.addWidget(self.check_aa, 3, 1)
+        
+        # EDL
+        self.check_edl = QCheckBox("EDL (Depth)")
+        self.check_edl.toggled.connect(self.on_edl_toggled)
+        scene_layout.addWidget(self.check_edl, 4, 0)
+        
+        edl_layout = QHBoxLayout()
+        edl_layout.addWidget(QLabel("Str:"))
+        self.slider_edl = QSlider(Qt.Orientation.Horizontal)
+        self.slider_edl.setRange(1, 100) 
+        self.slider_edl.setValue(int(self.edl_strength * 100)) 
+        self.slider_edl.valueChanged.connect(self.on_edl_strength_changed)
+        self.slider_edl.setEnabled(False)
+        edl_layout.addWidget(self.slider_edl)
+        scene_layout.addLayout(edl_layout, 4, 1)
+
+        tab_scene.setLayout(scene_layout)
+        tabs.addTab(tab_scene, "Scene")
+
+        # --- TAB 2: ORBITAL (Isosurface) ---
+        tab_orb = QWidget()
+        orb_layout = QGridLayout()
+        
+        # PBR Toggle
         self.check_pbr = QCheckBox("Enable PBR")
         self.check_pbr.toggled.connect(self.on_pbr_toggled)
-        glayout.addWidget(self.check_pbr, 0, 0)
+        orb_layout.addWidget(self.check_pbr, 0, 0, 1, 2)
         
-        # Env Buttons container
-        env_widget = QWidget()
-        env_layout = QHBoxLayout(env_widget)
-        env_layout.setContentsMargins(0, 0, 0, 0)
-        
-        btn_env = QPushButton("Load Tex")
-        btn_env.setToolTip("Load an HDRI/Skybox image for reflections")
-        btn_env.clicked.connect(self.on_load_env_texture)
-        env_layout.addWidget(btn_env)
-
-        btn_clear_env = QPushButton("Clear Tex")
-        btn_clear_env.setToolTip("Remove current environment texture")
-        btn_clear_env.clicked.connect(self.on_remove_env_texture)
-        env_layout.addWidget(btn_clear_env)
-        
-        glayout.addWidget(env_widget, 0, 1)
-
-        # Row 1: Metallic
-        glayout.addWidget(QLabel("Metallic:"), 1, 0)
+        # Metallic
+        orb_layout.addWidget(QLabel("Metallic:"), 1, 0)
         self.slider_metallic = QSlider(Qt.Orientation.Horizontal)
         self.slider_metallic.setRange(0, 100)
         self.slider_metallic.setValue(int(self.metallic * 100))
         self.slider_metallic.valueChanged.connect(self.on_metallic_changed)
-        self.slider_metallic.setEnabled(False) # detailed logic in toggle
-        glayout.addWidget(self.slider_metallic, 1, 1)
+        self.slider_metallic.setEnabled(False)
+        orb_layout.addWidget(self.slider_metallic, 1, 1)
 
-        # Row 2: Roughness
-        glayout.addWidget(QLabel("Roughness:"), 2, 0)
+        # Roughness
+        orb_layout.addWidget(QLabel("Roughness:"), 2, 0)
         self.slider_roughness = QSlider(Qt.Orientation.Horizontal)
         self.slider_roughness.setRange(0, 100)
         self.slider_roughness.setValue(int(self.roughness * 100))
         self.slider_roughness.valueChanged.connect(self.on_roughness_changed)
         self.slider_roughness.setEnabled(False)
-        glayout.addWidget(self.slider_roughness, 2, 1)
+        orb_layout.addWidget(self.slider_roughness, 2, 1)
         
-        # Row 3: Effects 1
-        self.check_ssao = QCheckBox("SSAO")
-        if hasattr(self.plotter, 'enable_ssao'):
-            self.check_ssao.setToolTip("Screen Space Ambient Occlusion (Shadows)")
-        else:
-            self.check_ssao.setEnabled(False)
-            self.check_ssao.setToolTip("SSAO not supported by this plotter/PyVista version")
-        self.check_ssao.toggled.connect(self.on_ssao_toggled)
-        glayout.addWidget(self.check_ssao, 3, 0)
-
-        # Row 4: Depth Peeling and Silhouette
-        self.check_depth = QCheckBox("Depth Peeling")
-        if hasattr(self.plotter, 'enable_depth_peeling'):
-            self.check_depth.setToolTip("Correct transparency sorting")
-        else:
-             self.check_depth.setEnabled(False)
-             self.check_depth.setToolTip("Depth Peeling not supported")
-        self.check_depth.toggled.connect(self.on_depth_peeling_toggled)
-        glayout.addWidget(self.check_depth, 3, 1)
-        
+        # Silhouette
         self.check_silhouette = QCheckBox("Silhouette")
-        self.check_silhouette.setToolTip("Draw outline")
         self.check_silhouette.toggled.connect(self.on_silhouette_toggled)
-        glayout.addWidget(self.check_silhouette, 4, 0)
+        orb_layout.addWidget(self.check_silhouette, 3, 0)
+        
+        # Depth Peeling
+        self.check_depth = QCheckBox("Depth Peeling")
+        if not hasattr(self.plotter, 'enable_depth_peeling'): self.check_depth.setEnabled(False)
+        self.check_depth.toggled.connect(self.on_depth_peeling_toggled)
+        orb_layout.addWidget(self.check_depth, 3, 1)
+        
+        tab_orb.setLayout(orb_layout)
+        tabs.addTab(tab_orb, "Orbital")
 
-        group.setLayout(glayout)
+        # --- TAB 3: ATOMS (Molecule) ---
+        tab_atom = QWidget()
+        atom_layout = QGridLayout()
+        
+        # Atom PBR Enable
+        self.check_atom_pbr = QCheckBox("Enable Atom PBR")
+        self.check_atom_pbr.toggled.connect(self.on_atom_pbr_toggled)
+        atom_layout.addWidget(self.check_atom_pbr, 0, 0, 1, 2)
+        
+        # Atom Metallic
+        atom_layout.addWidget(QLabel("Metallic:"), 1, 0)
+        self.slider_atom_metallic = QSlider(Qt.Orientation.Horizontal)
+        self.slider_atom_metallic.setRange(0, 100)
+        self.slider_atom_metallic.setValue(int(self.atom_metallic * 100))
+        self.slider_atom_metallic.valueChanged.connect(self.on_atom_metallic_changed)
+        self.slider_atom_metallic.setEnabled(False)
+        atom_layout.addWidget(self.slider_atom_metallic, 1, 1)
+        
+        # Atom Roughness
+        atom_layout.addWidget(QLabel("Roughness:"), 2, 0)
+        self.slider_atom_roughness = QSlider(Qt.Orientation.Horizontal)
+        self.slider_atom_roughness.setRange(0, 100)
+        self.slider_atom_roughness.setValue(int(self.atom_roughness * 100))
+        self.slider_atom_roughness.valueChanged.connect(self.on_atom_roughness_changed)
+        self.slider_atom_roughness.setEnabled(False)
+        atom_layout.addWidget(self.slider_atom_roughness, 2, 1)
+        
+        atom_layout.setRowStretch(3, 1)
+        
+        # Apply/Clear Buttons (at bottom)
+        button_layout = QHBoxLayout()
+        btn_apply_atom = QPushButton("Apply")
+        btn_apply_atom.setToolTip("Apply PBR settings")
+        btn_apply_atom.clicked.connect(self.update_atoms_pbr)
+        button_layout.addWidget(btn_apply_atom)
+        
+        btn_clear_atom = QPushButton("Clear")
+        btn_clear_atom.setToolTip("Reset to default")
+        btn_clear_atom.clicked.connect(self.clear_atoms_pbr)
+        button_layout.addWidget(btn_clear_atom)
+        
+        atom_layout.addLayout(button_layout, 4, 0, 1, 2)
+
+        tab_atom.setLayout(atom_layout)
+        tabs.addTab(tab_atom, "Atoms")
+
+        group_layout.addWidget(tabs)
+        group.setLayout(group_layout)
         layout.addWidget(group)
+
+    def _init_default_presets(self):
+        """Initialize built-in default presets that cannot be overwritten or deleted."""
+        # Default preset - standard settings
+        self.presets["Default"] = {
+            "isovalue": 0.02,
+            "color_p": [0, 0, 255],
+            "color_n": [255, 0, 0],
+            "opacity": 0.4,
+            "metallic": 0.5,
+            "roughness": 0.5,
+            "use_pbr": False,
+            "env_texture_path": "",
+            "use_ssao": False,
+            "use_depth_peeling": False,
+            "use_silhouette": False,
+            "use_aa": False,
+            "use_edl": False,
+            "edl_strength": 0.2,
+            "use_shadows": False,
+            "light_intensity": 1.0,
+            "atom_metallic": 0.0,
+            "atom_roughness": 0.5,
+            "use_atom_pbr": False
+        }
+        
+        
+        # Mark these as default (read-only)
+        self.default_preset_names = {"Default"}
+
 
     def get_settings_path(self):
         """Returns the path to the JSON settings file in the same directory."""
@@ -484,6 +648,15 @@ class CubeViewerWidget(QWidget):
                     settings = json.load(f)
                 
                 # Apply settings
+                # Merge user presets with defaults (don't overwrite defaults)
+                if "presets" in settings:
+                    user_presets = settings["presets"]
+                    # Add user presets that aren't defaults
+                    for name, preset_data in user_presets.items():
+                        if name not in self.default_preset_names:
+                            self.presets[name] = preset_data
+                    self.update_preset_combo()
+
                 if "isovalue" in settings:
                     self.spin.setValue(float(settings["isovalue"]))
                 
@@ -556,6 +729,35 @@ class CubeViewerWidget(QWidget):
                 if "use_ssao" in settings: self.check_ssao.setChecked(bool(settings["use_ssao"]))
                 if "use_depth_peeling" in settings: self.check_depth.setChecked(bool(settings["use_depth_peeling"]))
                 if "use_silhouette" in settings: self.check_silhouette.setChecked(bool(settings["use_silhouette"]))
+                
+                # New Graphics Settings
+                if "use_aa" in settings: self.check_aa.setChecked(bool(settings["use_aa"]))
+                
+                if "edl_strength" in settings:
+                    self.edl_strength = float(settings["edl_strength"])
+                    self.slider_edl.setValue(int(self.edl_strength * 100))
+                    
+                if "use_edl" in settings: self.check_edl.setChecked(bool(settings["use_edl"]))
+                
+                self.atom_metallic = settings.get("atom_metallic", 0.0)
+                self.atom_roughness = settings.get("atom_roughness", 0.5)
+                self.use_atom_pbr = settings.get("use_atom_pbr", False)
+                self.use_atom_silhouette = settings.get("use_atom_silhouette", False)
+                
+                self.check_atom_pbr.setChecked(self.use_atom_pbr)
+                self.slider_atom_metallic.setValue(int(self.atom_metallic * 100))
+                self.slider_atom_roughness.setValue(int(self.atom_roughness * 100))
+                self.slider_atom_metallic.setEnabled(self.use_atom_pbr)
+                self.slider_atom_roughness.setEnabled(self.use_atom_pbr)
+
+
+                # Update Text Field if texture loaded
+                if self.env_texture_path:
+                    self.line_env_path.setText(self.env_texture_path)
+                
+                # Redraw orbital with loaded settings
+                self.update_iso()
+                self.plotter.render()
                     
         except Exception as e:
             print(f"Error loading settings: {e}")
@@ -577,11 +779,40 @@ class CubeViewerWidget(QWidget):
                 "use_ssao": self.check_ssao.isChecked(),
                 "use_depth_peeling": self.check_depth.isChecked(),
                 "use_silhouette": self.check_silhouette.isChecked(),
-                "env_texture_path": self.env_texture_path
+                "env_texture_path": self.env_texture_path,
+                "use_aa": self.use_aa,
+                "use_edl": self.use_edl,
+                "edl_strength": self.edl_strength,
+                "use_shadows": self.use_shadows,
+                "light_intensity": self.light_intensity,
+                # Atom specific
+                "atom_metallic": self.atom_metallic,
+                "atom_roughness": self.atom_roughness,
+                "use_atom_pbr": self.use_atom_pbr,
+                "use_atom_silhouette": self.use_atom_silhouette,
+                "presets": self.presets
             }
             
+            # Helper to sanitize data for JSON
+            def sanitize(obj):
+                if isinstance(obj, np.generic):
+                    return obj.item()
+                if isinstance(obj, np.ndarray):
+                    return obj.tolist()
+                if isinstance(obj, (QColor,)):  # Add other PyQt types if needed
+                    return [obj.red(), obj.green(), obj.blue()]
+                if isinstance(obj, dict):
+                    return {k: sanitize(v) for k, v in obj.items()}
+                if isinstance(obj, list):
+                    return [sanitize(v) for v in obj]
+                if isinstance(obj, tuple):
+                    return [sanitize(v) for v in obj] # JSON doesn't support tuples
+                return obj
+            
+            clean_settings = sanitize(settings)
+            
             with open(self.get_settings_path(), 'w') as f:
-                json.dump(settings, f, indent=4)
+                json.dump(clean_settings, f, indent=4)
                 
         except Exception as e:
             print(f"Error saving settings: {e}")
@@ -816,17 +1047,22 @@ class CubeViewerWidget(QWidget):
             print("PBR enabled without environment texture. Surfaces may appear dark.")
         
         self.update_iso()
+        self.update_atoms_pbr()
 
     def on_metallic_changed(self, val):
         self.metallic = val / 100.0
         self.update_iso()
+        self.update_atoms_pbr()
 
     def on_roughness_changed(self, val):
         self.roughness = val / 100.0
         self.update_iso()
+        self.update_atoms_pbr()
 
     def on_ssao_toggled(self, checked):
         self.use_ssao = checked
+        self._disable_conflicting_effects(exclude="ssao" if checked else "")
+
         try:
             if checked:
                 if hasattr(self.plotter, 'enable_ssao'):
@@ -840,6 +1076,8 @@ class CubeViewerWidget(QWidget):
 
     def on_depth_peeling_toggled(self, checked):
         self.use_depth_peeling = checked
+        self._disable_conflicting_effects(exclude="depth" if checked else "")
+            
         try:
             if checked:
                 if hasattr(self.plotter, 'enable_depth_peeling'):
@@ -853,6 +1091,426 @@ class CubeViewerWidget(QWidget):
 
     def on_silhouette_toggled(self, checked):
         self.use_silhouette = checked
+        self.update_iso()
+             
+    def on_shadows_toggled(self, checked):
+        self.use_shadows = checked
+        self._disable_conflicting_effects(exclude="shadows" if checked else "")
+
+        try:
+            if checked:
+                self.plotter.enable_shadows()
+            else:
+                self.plotter.disable_shadows()
+        except Exception:
+            pass
+        self.plotter.render()
+            
+    def on_light_intensity_changed(self, val):
+        self.light_intensity = val / 100.0
+        try:
+            # Update all lights
+            if hasattr(self.plotter, 'renderer'):
+                lights = self.plotter.renderer.GetLights()
+                for light in lights:
+                    light.SetIntensity(self.light_intensity)
+            self.plotter.render()
+        except Exception:
+            pass  # Silently fail for compatibility
+
+    def on_aa_toggled(self, checked):
+        self.use_aa = checked
+        try:
+            if checked:
+                self.plotter.enable_anti_aliasing()
+            else:
+                self.plotter.disable_anti_aliasing()
+            self.plotter.render()
+        except Exception as e:
+            print(f"AA Error: {e}")
+
+    def on_edl_toggled(self, checked):
+        self.use_edl = checked
+        self._disable_conflicting_effects(exclude="edl" if checked else "")
+            
+        self.slider_edl.setEnabled(checked)
+        self.apply_edl()
+
+    def on_edl_strength_changed(self, val):
+        self.edl_strength = val / 100.0
+        if self.use_edl:
+            self.apply_edl()
+            
+    def apply_edl(self):
+        try:
+            if self.use_edl:
+                self.plotter.enable_eye_dome_lighting()
+                
+                # Access the EDL pass to set strength
+                try:
+                    if hasattr(self.plotter.renderer, '_edl_pass'):
+                        edl_pass = self.plotter.renderer._edl_pass
+                        if edl_pass and hasattr(edl_pass, 'SetEDLStrength'):
+                            edl_pass.SetEDLStrength(self.edl_strength)
+                except Exception:
+                    pass
+                
+            else:
+                if hasattr(self.plotter, 'disable_eye_dome_lighting'):
+                    self.plotter.disable_eye_dome_lighting()
+            self.plotter.render()
+        except Exception as e:
+            # Plotter might be closed or invalid
+            pass 
+
+    def _disable_conflicting_effects(self, exclude=""):
+        """
+        排他制御ヘルパー:
+        - Depth Peeling (透明モード)
+        - EDL / Shadows / SSAO (不透明エフェクト)
+        これらは共存できないため、一方をONにしたら他方を無効化(Disable & Uncheck)する。
+        """
+        # 無限ループ防止
+        self.blockSignals(True) 
+        
+        # 1. Depth PeelingがONの場合 -> 他のエフェクトをOFFにしてDisable
+        if exclude == "depth" and self.use_depth_peeling:
+            # EDL check OFF
+            if self.use_edl:
+                self.check_edl.setChecked(False)
+                self.use_edl = False
+                try: 
+                    if hasattr(self.plotter, 'disable_eye_dome_lighting'):
+                        self.plotter.disable_eye_dome_lighting()
+                except: pass
+            
+            # Shadows check OFF
+            if self.use_shadows:
+                self.check_shadows.setChecked(False)
+                self.use_shadows = False
+                try: self.plotter.disable_shadows()
+                except: pass
+
+            # SSAO check OFF
+            if self.use_ssao:
+                self.check_ssao.setChecked(False)
+                self.use_ssao = False
+                try: 
+                    if hasattr(self.plotter, 'disable_ssao'): self.plotter.disable_ssao()
+                except: pass
+
+        # 2. エフェクト(EDL/Shadows/SSAO)がONの場合 -> Depth PeelingをOFFにしてDisable
+        elif exclude in ["edl", "shadows", "ssao"] and (self.use_edl or self.use_shadows or self.use_ssao):
+            if self.use_depth_peeling:
+                self.check_depth.setChecked(False)
+                self.use_depth_peeling = False
+                try:
+                    if hasattr(self.plotter, 'disable_depth_peeling'):
+                        self.plotter.disable_depth_peeling()
+                except: pass
+        
+        # 3. 最後に有効/無効状態を更新 (グレーアウト処理)
+        has_ssao = hasattr(self.plotter, 'enable_ssao')
+        has_depth = hasattr(self.plotter, 'enable_depth_peeling')
+
+        # Depth PeelingがONなら、エフェクト類は操作不能
+        self.check_edl.setEnabled(not self.use_depth_peeling)
+        self.check_shadows.setEnabled(not self.use_depth_peeling)
+        if has_ssao:
+            self.check_ssao.setEnabled(not self.use_depth_peeling)
+
+        # いずれかの不透明エフェクトがONなら、Depth Peelingは操作不能
+        if has_depth:
+            effects_on = self.use_edl or self.use_shadows or self.use_ssao
+            self.check_depth.setEnabled(not effects_on)
+        
+        self.blockSignals(False)
+
+    # --- ATOM METHODS ---
+    def on_atom_pbr_toggled(self, checked):
+        self.use_atom_pbr = checked
+        self.slider_atom_metallic.setEnabled(checked)
+        self.slider_atom_roughness.setEnabled(checked)
+        self.update_atoms_pbr()
+
+    def on_atom_metallic_changed(self, val):
+        self.atom_metallic = val / 100.0
+        self.update_atoms_pbr()
+
+    def on_atom_roughness_changed(self, val):
+        self.atom_roughness = val / 100.0
+        self.update_atoms_pbr()
+        
+    def update_atoms_pbr(self):
+        """Applies PBR settings to ALL actors (atoms, bonds, aromatics) in the scene."""
+        try:
+            # Get all actors from the renderer
+            actors_list = []
+            
+            if hasattr(self.plotter, 'renderer') and hasattr(self.plotter.renderer, 'GetActors'):
+                actors_collection = self.plotter.renderer.GetActors()
+                if actors_collection:
+                    actors_collection.InitTraversal()
+                    for _ in range(actors_collection.GetNumberOfItems()):
+                        actor = actors_collection.GetNextActor()
+                        if actor:
+                            actors_list.append(actor)
+            
+            # Apply or remove PBR from all actors
+            for actor in actors_list:
+                try:
+                    prop = actor.GetProperty()
+                    if self.use_atom_pbr:
+                        # Enable PBR
+                        if hasattr(prop, 'SetInterpolationToPBR'):
+                            prop.SetInterpolationToPBR()
+                            prop.SetMetallic(self.atom_metallic)
+                            prop.SetRoughness(self.atom_roughness)
+                    else:
+                        # Disable PBR - revert to Phong
+                        if hasattr(prop, 'SetInterpolationToPhong'):
+                            prop.SetInterpolationToPhong()
+                            prop.SetMetallic(0.0)
+                            prop.SetRoughness(0.5)
+                except Exception:
+                    continue  # Skip actors that don't support these properties
+            
+            self.plotter.render()
+        except Exception:
+            pass  # Silently fail for compatibility
+
+    def clear_atoms_pbr(self):
+        """Reset atom settings to defaults."""
+        self.use_atom_pbr = False
+        self.check_atom_pbr.setChecked(False)
+        self.update_atoms_pbr()
+        
+        # Save state of advanced rendering effects that get lost during plotter.clear()
+        edl_was_enabled = self.use_edl
+        shadows_were_enabled = self.use_shadows
+        
+        # Temporarily disable these effects to prevent FrameBufferObject cleanup errors
+        if edl_was_enabled:
+            try:
+                self.plotter.disable_eye_dome_lighting()
+            except Exception:
+                pass
+        
+        if shadows_were_enabled:
+            try:
+                self.plotter.disable_shadows()
+            except Exception:
+                pass
+        
+        # Redraw molecule 3D and orbital
+        # Redraw molecule using main window's draw_molecule_3d method
+        if hasattr(self.mw, 'current_mol') and self.mw.current_mol:
+            try:
+                self.mw.draw_molecule_3d(self.mw.current_mol)
+            except Exception as e:
+                print(f"Error redrawing molecule: {e}")
+        
+        # Redraw orbital
+        try:
+            self.update_iso()
+        except Exception as e:
+            print(f"Error updating orbital: {e}")
+        
+        # Restore advanced rendering effects
+        if shadows_were_enabled:
+            try:
+                self.plotter.enable_shadows()
+            except Exception as e:
+                print(f"Error restoring shadows: {e}")
+        
+        if edl_was_enabled:
+            try:
+                self.plotter.enable_eye_dome_lighting()
+            except Exception as e:
+                print(f"Error restoring EDL: {e}")
+        
+        # Final render to apply all effects
+        try:
+            self.plotter.render()
+        except Exception:
+            pass
+
+    def on_texture_path_entered(self):
+        path = self.line_env_path.text().strip()
+        if path:
+             # Just update internal state, load is triggered by Browse or manual logic if needed? 
+             # Actually existing code handled path directly. Let's ensure consistency.
+             self.env_texture_path = path
+
+    # --- PRESET HANDLERS ---
+    def update_preset_combo(self):
+        current = self.combo_presets.currentText()
+        self.combo_presets.blockSignals(True)
+        self.combo_presets.clear()
+        self.combo_presets.addItems(sorted(self.presets.keys()))
+        self.combo_presets.setEditText(current)
+        self.combo_presets.blockSignals(False)
+        
+    def on_preset_text_changed(self, text):
+        pass # Just typing
+
+    def on_preset_activated(self, index):
+        name = self.combo_presets.currentText()
+        if name in self.presets:
+            # Redraw molecule and orbital before loading preset
+            if hasattr(self.mw, 'current_mol') and self.mw.current_mol:
+                try:
+                    self.mw.draw_molecule_3d(self.mw.current_mol)
+                except Exception:
+                    pass
+            
+            try:
+                self.update_iso()
+            except Exception:
+                pass
+            
+            self.load_preset_settings(self.presets[name])
+            print(f"Loaded preset: {name}")
+
+    def save_preset(self):
+        # Show dialog to ask for preset name
+        from PyQt6.QtWidgets import QInputDialog
+        name, ok = QInputDialog.getText(
+            self, 
+            "Save Preset", 
+            "Enter preset name:",
+            text=self.combo_presets.currentText()
+        )
+        
+        if not ok or not name.strip():
+            return
+        
+        name = name.strip()
+        
+        # Prevent overwriting default presets
+        if name in self.default_preset_names:
+            QMessageBox.warning(self, "Cannot Overwrite Default", 
+                              f"'{name}' is a built-in preset and cannot be overwritten.\nPlease use a different name.")
+            return
+        
+        # Gather current settings
+        current_data = {
+            "isovalue": self.spin.value(),
+            "color_p": list(self.color_p),
+            "color_n": list(self.color_n),
+            "opacity": self.opacity_spin.value(),
+            "metallic": self.metallic,
+            "roughness": self.roughness,
+            "use_pbr": self.use_pbr,
+            "env_texture_path": self.env_texture_path,
+            "use_ssao": self.use_ssao,
+            "use_depth_peeling": self.use_depth_peeling,
+            "use_silhouette": self.use_silhouette,
+            "use_aa": self.use_aa,
+            "use_edl": self.use_edl,
+            "edl_strength": self.edl_strength,
+            "use_shadows": self.use_shadows,
+            "light_intensity": self.light_intensity,
+            "atom_metallic": self.atom_metallic,
+            "atom_roughness": self.atom_roughness,
+            "use_atom_pbr": self.use_atom_pbr
+        }
+        
+        self.presets[name] = current_data
+        self.update_preset_combo()
+        self.combo_presets.setCurrentText(name)
+        self.save_settings()
+        print(f"Saved preset: {name}")
+        
+    def delete_preset(self):
+        name = self.combo_presets.currentText().strip()
+        
+        # Prevent deleting default presets
+        if name in self.default_preset_names:
+            QMessageBox.warning(self, "Cannot Delete Default", 
+                              f"'{name}' is a built-in preset and cannot be deleted.")
+            return
+        
+        if name in self.presets:
+            del self.presets[name]
+            self.update_preset_combo()
+            self.save_settings() # Update disk
+            print(f"Deleted preset: {name}")
+            
+    def load_preset_settings(self, settings):
+        # Apply settings dict to UI
+        if "isovalue" in settings: self.spin.setValue(float(settings["isovalue"]))
+        
+        if "color_p" in settings:
+            col = settings["color_p"]
+            if isinstance(col, list): col = tuple(col)
+            self.color_p = col
+            self.btn_color_p.setStyleSheet(f"background-color: rgb{self.color_p}; border: 1px solid gray;")
+
+        if "color_n" in settings:
+            col = settings["color_n"]
+            if isinstance(col, list): col = tuple(col)
+            self.color_n = col
+            self.btn_color_n.setStyleSheet(f"background-color: rgb{self.color_n}; border: 1px solid gray;")
+            
+        if "opacity" in settings:
+            val = float(settings["opacity"])
+            self.opacity_spin.setValue(val)
+            self.opacity_slider.setValue(int(val * 100))
+            
+        if "metallic" in settings:
+            self.metallic = float(settings["metallic"])
+            self.slider_metallic.setValue(int(self.metallic * 100))
+            
+        if "roughness" in settings:
+            self.roughness = float(settings["roughness"])
+            self.slider_roughness.setValue(int(self.roughness * 100))
+            
+        if "use_pbr" in settings:
+            self.use_pbr = bool(settings["use_pbr"])
+            self.check_pbr.setChecked(self.use_pbr) # This triggers toggle signal -> Enable/Disable sliders
+
+        if "env_texture_path" in settings:
+            self.env_texture_path = settings["env_texture_path"]
+            if self.env_texture_path:
+                self.line_env_path.setText(self.env_texture_path)
+                if os.path.exists(self.env_texture_path):
+                    self.load_env_texture(self.env_texture_path)
+            else:
+                 self.line_env_path.clear()
+
+        if "use_ssao" in settings: self.check_ssao.setChecked(bool(settings["use_ssao"]))
+        if "use_depth_peeling" in settings: self.check_depth.setChecked(bool(settings["use_depth_peeling"]))
+        if "use_silhouette" in settings: self.check_silhouette.setChecked(bool(settings["use_silhouette"]))
+        if "use_aa" in settings: self.check_aa.setChecked(bool(settings["use_aa"]))
+        
+        if "edl_strength" in settings:
+            self.edl_strength = float(settings["edl_strength"])
+            self.slider_edl.setValue(int(self.edl_strength * 100))
+            
+        if "use_edl" in settings: self.check_edl.setChecked(bool(settings["use_edl"]))
+        if "use_shadows" in settings: self.check_shadows.setChecked(bool(settings["use_shadows"]))
+        if "light_intensity" in settings:
+            self.light_intensity = float(settings["light_intensity"])
+            self.slider_light.setValue(int(self.light_intensity * 100))
+            
+        if "atom_metallic" in settings:
+            self.atom_metallic = float(settings["atom_metallic"])
+            self.slider_atom_metallic.setValue(int(self.atom_metallic * 100))
+            
+        if "atom_roughness" in settings:
+            self.atom_roughness = float(settings["atom_roughness"])
+            self.slider_atom_roughness.setValue(int(self.atom_roughness * 100))
+            
+        if "use_atom_pbr" in settings:
+            self.use_atom_pbr = bool(settings["use_atom_pbr"])
+            self.check_atom_pbr.setChecked(self.use_atom_pbr)
+            
+        if "use_atom_silhouette" in settings:
+            self.use_atom_silhouette = bool(settings["use_atom_silhouette"])
+            self.check_atom_silhouette.setChecked(self.use_atom_silhouette)
+        
+        # Redraw orbital with loaded preset settings
         self.update_iso()
 
     def on_load_env_texture(self):
@@ -940,6 +1598,7 @@ class CubeViewerWidget(QWidget):
                 raise ValueError(f"VTK failed to apply texture (possibly incompatible format): {vtk_err}")
             
             self.env_texture_path = path
+            self.line_env_path.setText(path)
             
             # Check for cancellation
             if progress.wasCanceled():
@@ -976,6 +1635,7 @@ class CubeViewerWidget(QWidget):
                     print("Could not clear environment texture (set_environment_texture(None) failed).")
             
             self.env_texture_path = ""
+            self.line_env_path.clear()
             self.plotter.render()
         except Exception as e:
             print(f"Error removing texture: {e}")
@@ -1011,16 +1671,69 @@ class CubeViewerWidget(QWidget):
             self.slider_roughness.setValue(50)
             
             # 6. Reset Effects
-            self.check_ssao.setChecked(False)
-            self.check_depth.setChecked(False)
-            self.check_silhouette.setChecked(False)
+            # --- FIX START: シグナルブロック中は手動で無効化が必要 ---
             
+            # SSAO
+            self.check_ssao.setChecked(False)
+            if self.use_ssao:
+                try: 
+                    if hasattr(self.plotter, 'disable_ssao'): self.plotter.disable_ssao()
+                except: pass
+                self.use_ssao = False
+
+            # Depth Peeling
+            self.check_depth.setChecked(False)
+            if self.use_depth_peeling:
+                try:
+                    if hasattr(self.plotter, 'disable_depth_peeling'): self.plotter.disable_depth_peeling()
+                except: pass
+                self.use_depth_peeling = False
+
+            # Silhouette
+            self.check_silhouette.setChecked(False)
+            self.use_silhouette = False
+            
+            # EDL (Eye Dome Lighting)
+            self.check_edl.setChecked(False)
+            self.slider_edl.setValue(20) # 0.2
+            if self.use_edl:
+                try:
+                    self.plotter.disable_eye_dome_lighting()
+                except: pass
+                self.use_edl = False
+
+            # Anti-Aliasing
+            self.check_aa.setChecked(False)
+            if self.use_aa:
+                try:
+                    self.plotter.disable_anti_aliasing()
+                except: pass
+                self.use_aa = False
+
+            # Shadows
+            self.check_shadows.setChecked(False)
+            self.slider_light.setValue(100) # 1.0
+            if self.use_shadows:
+                try:
+                    self.plotter.disable_shadows()
+                except: pass
+                self.use_shadows = False
+            
+            # --- FIX END ---
+
+            self.check_atom_pbr.setChecked(False)
+             
             # 7. Clear Environment Texture
             self.on_remove_env_texture()
             
             # 8. Trigger Update
             self.blockSignals(False)
+            
+            # 確実に描画更新
             self.update_iso()
+            self.update_atoms_pbr() # Atom側のPBRなどもリセット反映
+            self.plotter.render()
+
             print("All settings have been reset to defaults.")
             
         except Exception as e:
@@ -1034,16 +1747,37 @@ class CubeViewerWidget(QWidget):
     def close_plugin(self):
         self.save_settings()
         try:
-             # Full cleanup
-             self.mw.plotter.clear()
-             self.mw.current_mol = None
-             self.mw.current_file_path = None
-             self.mw.plotter.render()
+            # --- FIX START: FBO Warning対策 ---
+            # Plotterをクリアする前に、レンダリングパス(Shadows, EDL)を
+            # 明示的に無効化しないと、バインドされていないFBOへのアクセス警告が出る
+            if self.use_edl:
+                try:
+                    self.plotter.disable_eye_dome_lighting()
+                except: pass
+            
+            if self.use_shadows:
+                try:
+                    self.plotter.disable_shadows()
+                except: pass
+            
+            if self.use_ssao:
+                try:
+                    if hasattr(self.plotter, 'disable_ssao'):
+                        self.plotter.disable_ssao()
+                except: pass
+            # --- FIX END ---
+
+            # Full cleanup
+            self.mw.plotter.clear()
+            self.mw.current_mol = None
+            self.mw.current_file_path = None
+            self.mw.plotter.render()
              
-             # Restore UI state
-             if hasattr(self.mw, 'restore_ui_for_editing'):
-                 self.mw.restore_ui_for_editing()
-        except: pass
+            # Restore UI state
+            if hasattr(self.mw, 'restore_ui_for_editing'):
+                self.mw.restore_ui_for_editing()
+        except Exception as e: 
+            print(f"Error closing plugin: {e}")
         
         if self.dock:
             self.mw.removeDockWidget(self.dock)
