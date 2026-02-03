@@ -27,7 +27,7 @@ except ImportError:
 
 
 # Plugin Metadata
-__version__="2025.12.25"
+__version__="2026.02.03"
 __author__="HiroYokoyama"
 PLUGIN_NAME = "VDW Radii Overlay"
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vdw_radii_overlay.json")
@@ -388,45 +388,10 @@ def initialize(context):
     else:
         print("Error: PluginContext does not support register_3d_style")
 
-    # 1. Register Configuration Menu - REMOVED in favor of run()
-    # (Managed by run() function now)
-
-    # 2. Inject into Style Menu (Legacy behavior preserved via mw access)
-    def add_menu_item():
-        # Locate the "3D Style" tool button on the main toolbar
-        style_button = getattr(mw, 'style_button', None)
-        
-        if style_button and style_button.menu():
-            style_menu = style_button.menu()
-            
-            # Check if already added
-            exists = False
-            for a in style_menu.actions():
-                if a.text() == "VDW Overlay":
-                    exists = True
-                    break
-            
-            if not exists:
-                # Add to action group for mutual exclusion
-                existing_actions = style_menu.actions()
-                group = None
-                if existing_actions:
-                    group = existing_actions[0].actionGroup()
-                
-                action = QAction("VDW Overlay", mw)
-                action.setCheckable(True)
-                
-                if group:
-                    group.addAction(action)
-                
-                # Connect to set_3d_style
-                action.triggered.connect(lambda: mw.set_3d_style("vdw_overlay"))
-                
-                style_menu.addAction(action)
-    
-    # Run after 2000ms to ensure UI is ready
-    QTimer.singleShot(2000, add_menu_item)
+    # Manual menu injection removed.
+    # The main application now automatically adds registered 3D styles to the menu.
 
 def _cleanup_config():
     global _config_window
     _config_window = None
+
