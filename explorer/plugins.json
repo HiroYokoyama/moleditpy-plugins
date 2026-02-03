@@ -959,6 +959,26 @@
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer_Advanced/cube_viewer_advanced.py",
     "lastUpdated": "2026-02-03"
+  },
+    {
+    "id": "advanced_rendering",
+    "visible": true,
+    "name": "Advanced Rendering",
+    "version": "2026.02.03",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Fine-grained control over Scene lighting, shadows, post-processing effects (SSAO, Depth Peeling, EDL), and Atom/Bond rendering (PBR, Silhouette).",
+    "tags": [
+      "Visualization"
+    ],
+    "dependencies": [
+      "pyvista",
+      "PyQt6",
+      "numpy"
+    ],
+    "downloadUrl": "../plugins/Advanced_Rendering/advanced_rendering.py",
+    "lastUpdated": "2026-02-03"
   }
 
 ]
+
