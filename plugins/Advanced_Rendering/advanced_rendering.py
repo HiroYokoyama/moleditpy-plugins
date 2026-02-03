@@ -156,56 +156,7 @@ def initialize(context):
     for display_name, style_key in styles:
         context.register_3d_style(style_key, make_style_drawer(style_key.split(' (')[0].lower().replace(' & ', '_and_'), force_pbr=True))
 
-    # 5. Manually inject styles into the 3D Style menu button
-    # Delay execution to ensure MainWindow UI is fully built
-    def inject_styles_into_menu():
-        # Safety checks: ensure style_button exists and has a valid menu
-        if not hasattr(mw, 'style_button') or not mw.style_button:
-            return
-        
-        menu = mw.style_button.menu()
-        if not menu:
-            return
-        
-        # Additional safety: verify this is actually the 3D Style menu
-        # by checking if it has standard 3D style actions (Ball & Stick, CPK, etc)
-        existing_action_texts = [a.text() for a in menu.actions() if not a.isSeparator()]
-        expected_styles = ["Ball & Stick", "CPK (Space-filling)", "Wireframe", "Stick"]
-        
-        # If menu doesn't contain any expected style actions, it's not the right menu
-        if not any(style in existing_action_texts for style in expected_styles):
-            return
-        
-        # Check if our styles are already present
-        if any("(Advanced Rendering)" in a.text() for a in menu.actions()):
-            return
-        
-        # Only add separator if the last action isn't already a separator
-        actions = menu.actions()
-        if actions and not actions[-1].isSeparator():
-            menu.addSeparator()
-        
-        style_group = None
-        # Find existing ActionGroup from any action that has one
-        for action in menu.actions():
-            if action.actionGroup():
-                style_group = action.actionGroup()
-                break
-        
-        for display_name, style_key in styles:
-            action = QAction(display_name, mw, checkable=True)
-            action.triggered.connect(lambda checked, s=style_key: mw.set_3d_style(s))
-            
-            menu.addAction(action)
-            if style_group:
-                style_group.addAction(action)
-            
-            # Sync check state AFTER adding to group to enforce exclusivity
-            if getattr(mw, 'current_3d_style', '') == style_key:
-                action.setChecked(True)
-
-    # Also trigger immediately once after a short delay
-    QTimer.singleShot(500, inject_styles_into_menu)
+    # Styles are now automatically added to the menu by the main application via register_3d_style.
 
 # --- MAIN WIDGET ---
 
