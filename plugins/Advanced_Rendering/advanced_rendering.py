@@ -4,7 +4,6 @@
 """
 Advanced Rendering Plugin (Fixed & Optimized)
 Provides detailed control over Scene and Atomic rendering (PBR, Shadows, etc.).
-Fixed issues with window lifecycle, actor validation, and render pipeline conflicts.
 """
 
 import os
@@ -19,7 +18,7 @@ from PyQt6.QtWidgets import (
     QMessageBox
 )
 from PyQt6.QtCore import Qt, QTimer, QCoreApplication
-from PyQt6.QtGui import QColor, QCloseEvent
+from PyQt6.QtGui import QColor, QCloseEvent, QAction
 
 # PyVista / VTK Import Check
 try:
@@ -30,7 +29,7 @@ except ImportError:
     vtk = None
 
 PLUGIN_NAME = "Advanced Rendering"
-PLUGIN_VERSION = "2026.02.03-fix"
+PLUGIN_VERSION = "2026.02.03"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Fine-grained control over Scene lighting, shadows, and PBR effects. (Stability Fixed)"
 
@@ -43,8 +42,16 @@ class HideOnCloseDialog(QDialog):
     """
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.viewer = None 
     
+    def set_viewer(self, viewer):
+        self.viewer = viewer
+
     def closeEvent(self, event: QCloseEvent):
+        # Save settings before hiding
+        if self.viewer and hasattr(self.viewer, 'save_settings'):
+            self.viewer.save_settings()
+        
         # Do not destroy the widget, just hide it
         event.ignore()
         self.hide()
@@ -81,6 +88,10 @@ def load_plugin(main_window):
         # Reparent viewer to this dialog
         viewer.setParent(dialog)
         dlg_layout.addWidget(viewer)
+        viewer.show()  # Make widget visible within the dialog
+        
+        # Link viewer for save on close
+        dialog.set_viewer(viewer)
         
         main_window._adv_graphics_dialog = dialog
 
@@ -102,10 +113,14 @@ def initialize(context):
     else:
         viewer = mw._adv_rendering_viewer
 
-    # 2. Register Menu Action
+    # Ensure settings are loaded to check toolbar preference
+    viewer.load_settings()
+
+    # 2. Register Menu Action - DISABLED (causes menu artifacts)
     context.add_menu_action("Settings/Advanced Graphics Settings", lambda: load_plugin(mw))
 
-    # 3. Register PBR Styles & Draw Overrides
+
+    # 4. Register PBR Styles & Draw Overrides
     def make_style_drawer(base_style_key, force_pbr=False):
         def drawer(mw_obj, mol):
             # A. Draw standard version using built-in method
@@ -122,23 +137,82 @@ def initialize(context):
                     # Use current checkbox state
                     v.update_atoms_pbr()
                 
+                # Apply Custom Lighting Override
+                v.update_lights()
+                
                 # Sync UI to match the new style
                 v.sync_style_ui(getattr(mw_obj, 'current_3d_style', ''))
                     
         return drawer
 
     # Register PBR variants
-    context.register_3d_style("Ball & Stick (PBR)", make_style_drawer('ball_and_stick', force_pbr=True))
-    context.register_3d_style("CPK (PBR)", make_style_drawer('cpk', force_pbr=True))
-    context.register_3d_style("Wireframe (PBR)", make_style_drawer('wireframe', force_pbr=True))
-    context.register_3d_style("Stick (PBR)", make_style_drawer('stick', force_pbr=True))
+    styles = [
+        ("Ball & Stick (Advanced Rendering)", "Ball & Stick (Advanced Rendering)"),
+        ("CPK (Advanced Rendering)", "CPK (Advanced Rendering)"),
+        ("Wireframe (Advanced Rendering)", "Wireframe (Advanced Rendering)"),
+        ("Stick (Advanced Rendering)", "Stick (Advanced Rendering)")
+    ]
 
+    for display_name, style_key in styles:
+        context.register_3d_style(style_key, make_style_drawer(style_key.split(' (')[0].lower().replace(' & ', '_and_'), force_pbr=True))
+
+    # 5. Manually inject styles into the 3D Style menu button
+    # Delay execution to ensure MainWindow UI is fully built
+    def inject_styles_into_menu():
+        # Safety checks: ensure style_button exists and has a valid menu
+        if not hasattr(mw, 'style_button') or not mw.style_button:
+            return
+        
+        menu = mw.style_button.menu()
+        if not menu:
+            return
+        
+        # Additional safety: verify this is actually the 3D Style menu
+        # by checking if it has standard 3D style actions (Ball & Stick, CPK, etc)
+        existing_action_texts = [a.text() for a in menu.actions() if not a.isSeparator()]
+        expected_styles = ["Ball & Stick", "CPK (Space-filling)", "Wireframe", "Stick"]
+        
+        # If menu doesn't contain any expected style actions, it's not the right menu
+        if not any(style in existing_action_texts for style in expected_styles):
+            return
+        
+        # Check if our styles are already present
+        if any("(Advanced Rendering)" in a.text() for a in menu.actions()):
+            return
+        
+        # Only add separator if the last action isn't already a separator
+        actions = menu.actions()
+        if actions and not actions[-1].isSeparator():
+            menu.addSeparator()
+        
+        style_group = None
+        # Find existing ActionGroup from any action that has one
+        for action in menu.actions():
+            if action.actionGroup():
+                style_group = action.actionGroup()
+                break
+        
+        for display_name, style_key in styles:
+            action = QAction(display_name, mw, checkable=True)
+            action.triggered.connect(lambda checked, s=style_key: mw.set_3d_style(s))
+            
+            menu.addAction(action)
+            if style_group:
+                style_group.addAction(action)
+            
+            # Sync check state AFTER adding to group to enforce exclusivity
+            if getattr(mw, 'current_3d_style', '') == style_key:
+                action.setChecked(True)
+
+    # Also trigger immediately once after a short delay
+    QTimer.singleShot(500, inject_styles_into_menu)
 
 # --- MAIN WIDGET ---
 
 class AdvancedGraphicsWidget(QWidget):
     def __init__(self, parent_window):
         super().__init__(parent_window)
+        self.hide()  # Prevent gray bar from appearing before widget is added to layout
         self.mw = parent_window
         self.plotter = getattr(self.mw, 'plotter', None)
         
@@ -165,6 +239,7 @@ class AdvancedGraphicsWidget(QWidget):
         # Presets
         self.presets = {}
         self.default_preset_names = {"Default"}
+        #self.show_toolbar_button = True
         self._init_default_presets()
         
         self.init_ui()
@@ -172,6 +247,13 @@ class AdvancedGraphicsWidget(QWidget):
         
         # Delay load to ensure UI is ready
         QTimer.singleShot(100, self.load_settings)
+
+        # Force Lighting Update at startup (Fixes lighting not applied bug)
+        # Force Lighting Update at startup (Fixes lighting not applied bug)
+        # Use robust retry logic to wait for Plotter/Renderer
+        self._init_attempts = 0
+        self._max_init_attempts = 20 # 20 * 250ms = 5 seconds
+        QTimer.singleShot(250, self._retry_init_lighting)
         
         # Save on exit
         QCoreApplication.instance().aboutToQuit.connect(self.save_settings)
@@ -181,6 +263,46 @@ class AdvancedGraphicsWidget(QWidget):
         self._sync_timer = QTimer(self)
         self._sync_timer.timeout.connect(self._poll_style_change)
         self._sync_timer.start(500)
+        
+    def _retry_init_lighting(self):
+        """Robustly retries lighting initialization until renderer is ready."""
+        # Check if we can access the renderer
+        ready = False
+        try:
+             plotter = self.safe_plotter
+             if plotter and hasattr(plotter, 'renderer') and plotter.renderer:
+                 ready = True
+        except:
+             pass
+        
+        if ready:
+             # Apply everything
+             self.update_lights()
+             self.update_atoms_pbr()
+             # Enforce scene effects for persistence
+             self.sync_style_ui(getattr(self.mw, 'current_3d_style', ''))
+             
+             logging.info("Advanced Rendering: Lighting & Effects Initialized Successfully.")
+        else:
+             self._init_attempts += 1
+             if self._init_attempts < self._max_init_attempts:
+                 QTimer.singleShot(250, self._retry_init_lighting)
+             else:
+                 logging.warning("Advanced Rendering: Timed out waiting for renderer initialization.")
+
+        # Apply persisted style on startup -> REMOVED as per request "default shou be normal ball and stick"
+        # QTimer.singleShot(200, self._apply_persisted_style)
+
+    # def _apply_persisted_style(self):
+    #     """Loads and applies the last used 3D style from plugin settings."""
+    #     try:
+    #         saved_style = self.presets.get("last_active_style", "")
+    #         current = getattr(self.mw, 'current_3d_style', '')
+    #         if saved_style and saved_style != current:
+    #             if hasattr(self.mw, 'set_3d_style'):
+    #                 self.mw.set_3d_style(saved_style)
+    #     except Exception as e:
+    #         logging.warning(f"Failed to apply persisted style: {e}")
 
     def _init_default_presets(self):
         self.presets["Default"] = {
@@ -287,6 +409,7 @@ class AdvancedGraphicsWidget(QWidget):
         ele_layout.addWidget(self.slider_ele)
         light_group_layout.addLayout(ele_layout)
 
+        light_group.setLayout(light_group_layout)
         scene_layout.addWidget(light_group)
         
         # Effects
@@ -328,17 +451,17 @@ class AdvancedGraphicsWidget(QWidget):
         self.check_atom_pbr.toggled.connect(self.on_atom_pbr_toggled)
         atoms_layout.addWidget(self.check_atom_pbr)
         
-        # Apply/Clear
-        button_layout = QHBoxLayout()
-        btn_apply = QPushButton("Force Apply")
-        btn_apply.setToolTip("Re-apply settings to current scene actors")
-        btn_apply.clicked.connect(self.update_atoms_pbr)
-        button_layout.addWidget(btn_apply)
+        # Apply/Clear Removed as per request
+        # button_layout = QHBoxLayout()
+        # btn_apply = QPushButton("Force Apply")
+        # btn_apply.setToolTip("Switch to Advanced Rendering mode for current style")
+        # btn_apply.clicked.connect(self.force_enable_advanced_style)
+        # button_layout.addWidget(btn_apply)
         
-        btn_clear = QPushButton("Reset Actors")
-        btn_clear.clicked.connect(self.clear_atom_settings)
-        button_layout.addWidget(btn_clear)
-        atoms_layout.addLayout(button_layout)
+        # btn_clear = QPushButton("Reset Actors")
+        # btn_clear.clicked.connect(self.clear_atom_settings)
+        # button_layout.addWidget(btn_clear)
+        # atoms_layout.addLayout(button_layout)
         
         # Metallic
         met_layout = QHBoxLayout()
@@ -362,27 +485,62 @@ class AdvancedGraphicsWidget(QWidget):
         rough_layout.addWidget(self.slider_atom_roughness)
         atoms_layout.addLayout(rough_layout)
         
-        # Silhouette
-        self.check_atom_sil = QCheckBox("Silhouette (Outline)")
-        self.check_atom_sil.toggled.connect(self.on_atom_silhouette_toggled)
-        atoms_layout.addWidget(self.check_atom_sil)
-        
         atoms_layout.addStretch()
         tab_atoms.setLayout(atoms_layout)
         tabs.addTab(tab_atoms, "Atoms")
         
         layout.addWidget(tabs)
+        
+        # Toolbar Preference
+        #self.check_toolbar_btn = QCheckBox("Show Button in Plugin Toolbar (Requires Restart)")
+        #self.check_toolbar_btn.setChecked(self.show_toolbar_button)
+        #self.check_toolbar_btn.toggled.connect(self.on_toolbar_btn_toggled)
+        #layout.addWidget(self.check_toolbar_btn)
+        
         self.setLayout(layout)
+
+    #def on_toolbar_btn_toggled(self, checked):
+    #    self.show_toolbar_button = checked
 
     # --- CORE LOGIC ---
 
+    # def force_enable_advanced_style(self):
+    #     """Switches the current style to its Advanced Rendering counterpart."""
+    #     curr = getattr(self.mw, 'current_3d_style', 'ball_and_stick')
+    #     # If already advanced, just update settings
+    #     if "(Advanced Rendering)" in curr:
+    #         self.update_atoms_pbr()
+    #         return
+            
+    #     # Map standard styles to advanced styles
+    #     style_map = {
+    #         'ball_and_stick': "Ball & Stick (Advanced Rendering)",
+    #         'cpk': "CPK (Advanced Rendering)",
+    #         'wireframe': "Wireframe (Advanced Rendering)",
+    #         'stick': "Stick (Advanced Rendering)"
+    #     }
+        
+    #     # Try to find a match, defaulting to Ball & Stick Advanced if unknown
+    #     target_style = style_map.get(curr, "Ball & Stick (Advanced Rendering)")
+        
+    #     # Set the style on the main window
+    #     if hasattr(self.mw, 'set_3d_style'):
+    #         self.mw.set_3d_style(target_style)
+    #         # Ensure the checkbox is checked essentially by the style change, 
+    #         # but we can also sync immediately just in case.
+    #         self.sync_style_ui(target_style)
+            
     def _poll_style_change(self):
         """Monitors current_3d_style and updates UI if changed."""
         if not self.mw: return
         curr = getattr(self.mw, 'current_3d_style', '')
         if curr != self._last_polled_style:
             self._last_polled_style = curr
+            self._last_polled_style = curr
             self.sync_style_ui(curr)
+            # Persist the current style
+            self.presets["last_active_style"] = curr
+            self.save_settings()
 
     def apply_pbr_forced(self):
         """Used by PBR-specific styles to force PBR on without changing UI check state permanently."""
@@ -391,58 +549,85 @@ class AdvancedGraphicsWidget(QWidget):
         self.update_atoms_pbr()
         self.use_atom_pbr = old_state # Restore internal state
 
+    # --- 修正版 AdvancedGraphicsWidget メソッド ---
+
+    @property
+    def safe_plotter(self):
+        """
+        Plotterを安全に取得するヘルパー。
+        初期化時にPlotterがまだない場合でも、後から参照できるようにする。
+        """
+        if self.plotter:
+            return self.plotter
+        # まだ取得できていない場合は親から再取得を試みる
+        if hasattr(self.mw, 'plotter'):
+            self.plotter = self.mw.plotter
+        return self.plotter
+
     def update_atoms_pbr(self):
-        """Applies PBR settings to relevant actors."""
-        if not self.plotter or not hasattr(self.plotter, 'renderer'): return
+        """Applies PBR settings to relevant actors. (Fixed Version)"""
+        plotter = self.safe_plotter
+        if not plotter or not hasattr(plotter, 'renderer'): return
 
         try:
             curr_style = getattr(self.mw, 'current_3d_style', '')
-            is_pbr_style = "(PBR)" in curr_style
+            is_pbr_style = "(Advanced Rendering)" in curr_style
             
-            # If manually enabled via checkbox OR it's a PBR style, we use PBR
+            # PBRを使うべきかの判定
             should_use_pbr = self.use_atom_pbr or is_pbr_style
             
-            # Sync UI Checkbox if it's a PBR style
-            if is_pbr_style and hasattr(self, 'check_atom_pbr'):
-                self.check_atom_pbr.blockSignals(True)
-                self.check_atom_pbr.setChecked(True)
-                self.check_atom_pbr.blockSignals(False)
+            # --- FIX 1: シグナルループ防止 ---
+            if hasattr(self, 'check_atom_pbr'):
+                self.check_atom_pbr.blockSignals(True) # シグナルを遮断
+                # スタイルがPBRなら強制的にチェックを入れる、そうでなければ内部状態に合わせる
+                # if is_pbr_style:
+                #     self.check_atom_pbr.setChecked(True)
+                # else:
+                #     self.check_atom_pbr.setChecked(self.use_atom_pbr)
+                self.check_atom_pbr.blockSignals(False) # 解除
 
-            # --- FIX: Use 'actors' property (dict) or GetActors() for PyVista compatibility ---
-            if hasattr(self.plotter.renderer, 'actors'):
-                # PyVista standard: actors is a dict {name: actor}
-                actors_list = list(self.plotter.renderer.actors.values())
-            elif hasattr(self.plotter.renderer, 'GetActors'):
-                # VTK fallback
-                actors_list = self.plotter.renderer.GetActors()
-            else:
-                logging.warning("Advanced Rendering: Could not retrieve actors from renderer.")
-                return
+            # --- FIX 2: アクター取得の互換性確保 ---
+            actors_list = []
+            if hasattr(plotter.renderer, 'actors'):
+                # PyVistaのバージョンによって dict だったり list だったりするため吸収
+                acts = plotter.renderer.actors
+                if isinstance(acts, dict):
+                    actors_list = list(acts.values())
+                else:
+                    actors_list = list(acts)
+            elif hasattr(plotter.renderer, 'GetActors'):
+                actors_list = plotter.renderer.GetActors()
             
             for actor in actors_list:
-                if not actor: continue
-                # Validate it is a VTK Actor (Geometry)
+                if actor is None: continue
+                
+                # --- FIX 3: 厳密な型チェック ---
+                # テキストやスカラバーなどの非ジオメトリアクターを除外
                 if vtk and not actor.IsA("vtkActor"):
                     continue
 
                 prop = actor.GetProperty()
                 if not prop: continue
 
+                # プロパティ変更の適用
                 if should_use_pbr:
                     if hasattr(prop, 'SetInterpolationToPBR'):
                         prop.SetInterpolationToPBR()
                         prop.SetMetallic(self.atom_metallic)
                         prop.SetRoughness(self.atom_roughness)
                 else:
+                    # Phongに戻す (PBR非対応環境への配慮)
                     if hasattr(prop, 'SetInterpolationToPhong'):
                         prop.SetInterpolationToPhong()
-                        # Phong defaults
-                        prop.SetMetallic(0.0)
-                        prop.SetRoughness(0.5) # Not strictly used in Phong but safe reset
+                        # Phong用デフォルトリセット
+                        prop.SetMetallic(0.0) 
+                        prop.SetRoughness(0.5) 
+                        # Specularなどもリセットした方が安全だが一旦最小限に
             
-            self.plotter.render()
+            plotter.render()
         except Exception as e:
             logging.error(f"PBR Update Error: {e}")
+
 
     # --- EVENT HANDLERS ---
 
@@ -459,33 +644,6 @@ class AdvancedGraphicsWidget(QWidget):
     def on_atom_roughness_changed(self, val):
         self.atom_roughness = val / 100.0
         if self.use_atom_pbr: self.update_atoms_pbr()
-        
-    def on_atom_silhouette_toggled(self, checked):
-        self.use_atom_silhouette = checked
-        if not self.plotter: return
-
-        try:
-             # Remove old silhouette if exists
-             if self.atom_actor_sil:
-                 self.plotter.remove_actor(self.atom_actor_sil)
-                 self.atom_actor_sil = None
-             
-             if checked:
-                 # Try to find a valid target actor
-                 target_actor = None
-                 if hasattr(self.mw, 'atom_actor') and self.mw.atom_actor:
-                     target_actor = self.mw.atom_actor
-                 elif hasattr(self.mw, 'main_window_view_3d'):
-                      if hasattr(self.mw.main_window_view_3d, 'atom_actor'):
-                          target_actor = self.mw.main_window_view_3d.atom_actor
-                 
-                 if target_actor and hasattr(self.plotter, 'add_silhouette'):
-                      self.atom_actor_sil = self.plotter.add_silhouette(
-                          target_actor, color='black', line_width=2.0
-                      )
-             self.plotter.render()
-        except Exception as e:
-            logging.error(f"Silhouette Toggle Error: {e}")
 
     def clear_atom_settings(self):
         """Reset atom settings to defaults without clearing the whole scene."""
@@ -544,7 +702,7 @@ class AdvancedGraphicsWidget(QWidget):
         if not self.plotter: return
         
         curr_style = getattr(self.mw, 'current_3d_style', '')
-        if checked and "(PBR)" not in curr_style and not self.use_atom_pbr:
+        if checked and "(Advanced Rendering)" not in curr_style and not self.use_atom_pbr:
              # Warn user or auto-enable PBR? For now just auto-disable shadows
              self.check_shadows.blockSignals(True)
              self.check_shadows.setChecked(False)
@@ -608,63 +766,81 @@ class AdvancedGraphicsWidget(QWidget):
         self.update_lights()
 
     def update_lights(self):
-        if not self.plotter or not hasattr(self.plotter, 'renderer'): return
+        plotter = self.safe_plotter
+        if not plotter or not hasattr(plotter, 'renderer'): return
         
         try:
-            # Calculate new position (Spherical -> Cartesian)
-            # Assumption: Center is (0,0,0) or Camera Focal Point
-            # Assuming camera focal point is better if we want to orbit the subject
-            center = (0,0,0)
-            if hasattr(self.plotter, 'camera'):
-                center = self.plotter.camera.focal_point
-
-            r = 100.0 # Distance
+            # Calculate new position (Spherical -> Cartesian) relative to Camera
+            # r = distance
+            r = 100.0 
             
+            # Convert degrees to radians
             rad_azi = math.radians(self.light_azimuth)
             rad_ele = math.radians(self.light_elevation)
             
-            # Y-up world? VTK default is often Y-up or Z-up depending on view.
-            # Standard Math: Z-up
-            # x = r * cos(ele) * cos(azi)
-            # y = r * cos(ele) * sin(azi)
-            # z = r * sin(ele)
+            # Coordinate System for Camera Light:
+            # Y is UP (Vertical on screen)
+            # X is RIGHT (Horizontal on screen)
+            # Z is Depth (Towards user or into screen depending on handedness, usually +Z is towards viewer in Camera space)
             
-            # Let's assume generic orbit
-            x = center[0] + r * math.cos(rad_ele) * math.sin(rad_azi)
-            y = center[1] + r * math.sin(rad_ele)
-            z = center[2] + r * math.cos(rad_ele) * math.cos(rad_azi)
+            # Spherical conversion:
+            # y = r * sin(ele)
+            # x = r * cos(ele) * sin(azi)
+            # z = r * cos(ele) * cos(azi)
             
-            lights = self.plotter.renderer.GetLights()
-            # Modify the first light (Headlight/Keylight)
-            found = False
+            # Adjust Z to ensure light comes from "front" (viewers side) when azimuth is 0
+            # If Z is "towards viewer", strictly positive Z is front.
+            
+            y = r * math.sin(rad_ele)
+            h_proj = r * math.cos(rad_ele)
+            x = h_proj * math.sin(rad_azi)
+            z = h_proj * math.cos(rad_azi)
+
+            lights = plotter.renderer.GetLights()
+            
+            # Ensure at least one light exists
+            if lights.GetNumberOfItems() == 0:
+                new_light = vtk.vtkLight()
+                new_light.SetLightTypeToCameraLight()
+                new_light.SetSwitch(True)
+                plotter.renderer.AddLight(new_light)
+                lights = plotter.renderer.GetLights() # Refresh collection
+
+            # Modify the first light to be our Main Light
+            # Disable others to prevent conflict if "Override" is implied
+            
+            main_light = None
+            
+            is_first = True
             for light in lights:
-                if light.GetSwitch(): # Only modify active lights
-                    light.SetPosition(x, y, z)
-                    light.SetFocalPoint(center)
-                    # If it was a headlight, it might be locked to camera. 
-                    # We might need to ensure it's not.
-                    found = True
-                    # Only do one for now to avoid chaotic lighting
-                    break 
+                if is_first:
+                    main_light = light
+                    is_first = False
+                    
+                    # Force Type to CameraLight so it is fixed to Camera Angle
+                    if main_light.GetLightType() != vtk.VTK_LIGHT_TYPE_CAMERA_LIGHT:
+                        main_light.SetLightTypeToCameraLight()
+                    
+                    # Position is relative to Camera (0,0,0 is Focus/Eye depending on impl, usually Eye)
+                    # For CameraLight, FocalPoint is also relative.
+                    # We want it pointing at the center of view (0,0,0) from (x,y,z)
+                    main_light.SetPosition(x, y, z)
+                    main_light.SetFocalPoint(0, 0, 0)
+                    
+                    main_light.SetIntensity(self.light_intensity)
+                    main_light.SetSwitch(True)
+                    main_light.SetPositional(True) 
+                else:
+                    # Disable other lights to ensure "Override"
+                    light.SetSwitch(False)
             
-            if not found:
-                 # Create a light if none?
-                 pass
-            
-            self.plotter.render()
+            plotter.render()
         except Exception as e:
-            pass
+            logging.error(f"Lighting Update Error: {e}")
 
     def on_light_changed(self, val):
         self.light_intensity = val / 100.0
-        if not self.plotter: return
-        try:
-            if hasattr(self.plotter, 'renderer'):
-                lights = self.plotter.renderer.GetLights()
-                for light in lights:
-                    light.SetIntensity(self.light_intensity)
-            self.plotter.render()
-        except Exception: pass
+        self.update_lights()
 
     def on_ssao_toggled(self, checked):
         self.use_ssao = checked
@@ -776,7 +952,7 @@ class AdvancedGraphicsWidget(QWidget):
             "env_texture_path": self.env_texture_path,
             "use_atom_pbr": self.use_atom_pbr,
             "atom_metallic": self.atom_metallic,
-            "atom_roughness": self.atom_roughness
+            "atom_roughness": self.atom_roughness,
         }
 
     def apply_settings_dict(self, data):
@@ -813,21 +989,66 @@ class AdvancedGraphicsWidget(QWidget):
         if "atom_roughness" in data:
             self.atom_roughness = data.get("atom_roughness", 0.5)
             self.slider_atom_roughness.setValue(int(self.atom_roughness * 100))
-        
+                   
         self.update_atoms_pbr() 
         self.update_lights() # Apply new light positions
 
     def sync_style_ui(self, active_style_name):
-        """Syncs widget state with active style (simplified)."""
-        is_active_pbr = "(PBR)" in active_style_name
+        """Syncs widget state and scene effects with active style."""
+        is_active_pbr = "(Advanced Rendering)" in active_style_name
         
-        # Sync Widget State
-        if hasattr(self, 'check_atom_pbr'):
-            self.check_atom_pbr.blockSignals(True)
-            self.check_atom_pbr.setChecked(is_active_pbr)
-            if not is_active_pbr:
-                self.use_atom_pbr = False
-            self.check_atom_pbr.blockSignals(False)
+        # Enforce Scene Effects based on whether we are in "Advanced" mode or not
+        self._enforce_scene_state(enable=is_active_pbr)
+
+
+    def _enforce_scene_state(self, enable=True):
+        """
+        If enable=True: Apply settings based on internal state (self.use_shadows, etc.)
+        If enable=False: Force disable all advanced effects (Revert to System Defaults)
+        """
+        if not self.plotter: return
+
+        try:
+            # Shadows
+            if enable and self.use_shadows:
+                self.plotter.enable_shadows()
+            else:
+                self.plotter.disable_shadows()
+
+            # SSAO
+            if enable and self.use_ssao:
+                self.plotter.enable_ssao()
+            else:
+                self.plotter.disable_ssao()
+            
+            # EDL
+            if enable and self.use_edl:
+                self.plotter.enable_eye_dome_lighting()
+                # Restore strength
+                if hasattr(self.plotter.renderer, '_edl_pass'):
+                     edl_pass = self.plotter.renderer._edl_pass
+                     if edl_pass and hasattr(edl_pass, 'SetEDLStrength'):
+                         edl_pass.SetEDLStrength(self.edl_strength)
+            else:
+                self.plotter.disable_eye_dome_lighting()
+
+            # Anti-Aliasing (Maybe safer to leave if system uses it? But user said "system setting")
+            # Usually PyVista enables AA by default if asked. Let's assume plugin controls explicit overrides.
+            if enable and self.use_aa:
+                 self.plotter.enable_anti_aliasing()
+            elif not enable:
+                 # Don't strictly disable if system might want it, but usually safe to disable explicit override
+                 self.plotter.disable_anti_aliasing()
+
+            # Depth Peeling (Transparency)
+            if enable and self.use_depth_peeling:
+                self.plotter.enable_depth_peeling()
+            elif not enable:
+                self.plotter.disable_depth_peeling()
+                
+            self.plotter.render()
+        except Exception as e:
+            logging.warning(f"Scene Sync Error: {e}")
 
     # --- FILE IO ---
     def save_settings(self):
