@@ -1263,6 +1263,7 @@ def run(mw):
             mw._ms_spectrum_dialog.show()
             mw._ms_spectrum_dialog.raise_()
             mw._ms_spectrum_dialog.activateWindow()
+            mw._ms_spectrum_dialog.check_update()
             return
         except RuntimeError:
             # Wrapped C/C++ object has been deleted
