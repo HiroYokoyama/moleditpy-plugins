@@ -327,29 +327,41 @@ class PluginInstallerWindow(QDialog):
     def init_ui(self):
         layout = QVBoxLayout(self)
 
-        # Header Info
+    def get_app_version(self):
+        """Robustly detect MoleditPy version."""
         try:
             from moleditpy.modules.constants import VERSION as APP_VERSION
+            return APP_VERSION
         except ImportError:
             try:
                 from moleditpy_linux.modules.constants import VERSION as APP_VERSION
+                return APP_VERSION
             except ImportError:
-                # Fallback for Linux/other environments: Try adding main script dir to sys.path
+                # Fallback: Try adding main script dir to sys.path
                 try:
-                    sys.path.append(os.path.dirname(os.path.abspath(sys.argv[0])))
+                    import sys
+                    import os
+                    main_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+                    if main_dir not in sys.path:
+                        sys.path.append(main_dir)
                     try:
                         from moleditpy.modules.constants import VERSION as APP_VERSION
                     except ImportError:
                         from moleditpy_linux.modules.constants import VERSION as APP_VERSION
-                except ImportError:
-                    APP_VERSION = "Unknown"
+                    return APP_VERSION
+                except:
+                    return "0.0.0"
 
-        # Check PyPI for latest version
+    def init_ui(self):
         self.latest_app_version = "Checking..."
+        layout = QVBoxLayout(self)
+
+        # Header Info
+        app_ver = self.get_app_version()
         
         info_layout = QHBoxLayout()
         
-        self.lbl_current_version = QLabel(f"<b>MoleditPy Version:</b> {APP_VERSION}")
+        self.lbl_current_version = QLabel(f"<b>MoleditPy Version:</b> {app_ver}")
         self.lbl_current_version.setStyleSheet("font-size: 14px;")
         info_layout.addWidget(self.lbl_current_version)
         
@@ -454,15 +466,10 @@ class PluginInstallerWindow(QDialog):
         """Perform checking without updating UI labels aggressively, return True if updates found."""
         # Check App Version
         latest = self.fetch_pypi_version()
-        try:
-            from moleditpy.modules.constants import VERSION as APP_VERSION
-        except ImportError:
-            try:
-                from moleditpy_linux.modules.constants import VERSION as APP_VERSION
-            except ImportError:
-                APP_VERSION = "0.0.0"
+        self.latest_app_version = latest
+        app_ver = self.get_app_version()
             
-        if latest != "Unknown" and self.compare_versions(latest, APP_VERSION) > 0:
+        if latest != "Unknown" and self.compare_versions(latest, app_ver) > 0:
              self.updates_found = True
 
         self.remote_data = self.fetch_remote_data()
@@ -479,17 +486,11 @@ class PluginInstallerWindow(QDialog):
         latest = self.fetch_pypi_version()
         self.latest_app_version = latest
         
-        try:
-            from moleditpy.modules.constants import VERSION as APP_VERSION
-        except ImportError:
-            try:
-                from moleditpy_linux.modules.constants import VERSION as APP_VERSION
-            except ImportError:
-                APP_VERSION = "0.0.0"
+        app_ver = self.get_app_version()
 
         color = "gray"
         if latest != "Unknown":
-            comp = self.compare_versions(latest, APP_VERSION)
+            comp = self.compare_versions(latest, app_ver)
             if comp > 0:
                  color = "#dc3545" # Red
                  status_text = f"{latest} (Update Available)"
@@ -510,8 +511,19 @@ class PluginInstallerWindow(QDialog):
     def populate_table(self, silent=False):
         self.table.setRowCount(0)
         self.updates_found = False
-        # Reset flag so app upgrade button visibility is checked fresh
-        self._app_upgrade_checked = False
+        
+        # Check app version upgrade button visibility once per populate
+        app_ver = self.get_app_version()
+        if self.latest_app_version != "Checking..." and self.latest_app_version != "Unknown":
+            try:
+                if self.compare_versions(self.latest_app_version, app_ver) > 0:
+                    self.updates_found = True
+                    self.btn_upgrade_app.setVisible(True)
+                    self.btn_upgrade_app.setText(f"Copy upgrade command (v{self.latest_app_version})")
+                else:
+                    self.btn_upgrade_app.setVisible(False)
+            except:
+                self.btn_upgrade_app.setVisible(False)
         
         # Create map of remote data
         remote_map = {}
@@ -562,30 +574,6 @@ class PluginInstallerWindow(QDialog):
             # If author still unknown, try local
             if author == "Unknown" and is_installed:
                 author = local_info.get('author', 'Unknown')
-
-            # Check app version upgrade button visibility (only once per populate, not per plugin)
-            if not hasattr(self, '_app_upgrade_checked'):
-                self._app_upgrade_checked = True
-                # Get APP_VERSION for comparison
-                try:
-                    from moleditpy.modules.constants import VERSION as APP_VERSION
-                except ImportError:
-                    try:
-                        from moleditpy_linux.modules.constants import VERSION as APP_VERSION
-                    except ImportError:
-                        APP_VERSION = "0.0.0"
-                
-                if self.latest_app_version != "Checking..." and self.latest_app_version != "Unknown":
-                    try:
-                        if self.compare_versions(self.latest_app_version, APP_VERSION) > 0:
-                            self.updates_found = True
-                            self.btn_upgrade_app.setVisible(True)
-                            self.btn_upgrade_app.setText(f"Copy upgrade command (v{self.latest_app_version})")
-                        else:
-                            self.btn_upgrade_app.setVisible(False)
-                    except:
-                        # If comparison fails (e.g. types), hide the button
-                        self.btn_upgrade_app.setVisible(False)
 
             if is_installed:
                 if remote_info:
