@@ -164,7 +164,8 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 12px;
-            min-height: 48px; /* Fixed height to prevent shifting when badge is absent */
+            min-height: 48px;
+            /* Fixed height to prevent shifting when badge is absent */
         }
 
         .plugin-version {
@@ -587,12 +588,11 @@
                         </svg>
                         <a href="${plugin.authorUrl}" target="_blank">${plugin.author}</a>
                     </span>
-                    <span style="margin: 0 6px; color: #cbd5e1;">|</span>
-                    <span style="color:#94a3b8; font-size: 0.85em;">Updated: ${plugin.lastUpdated}</span>
                 </div>
                 <div style="font-size: 0.8em; color: #94a3b8; margin-bottom: 8px;">
-                     ${plugin.firstAppeared ? `<span>First Appeared: ${plugin.firstAppeared}</span>` : ''}
-                     ${plugin.sha256 ? `<div title="${plugin.sha256}" style="margin-top:2px;">SHA256: ${plugin.sha256.substring(0, 8)}...</div>` : ''}
+                     <span>Updated: ${plugin.lastUpdated}</span>
+                     ${plugin.firstAppeared ? `<span style="margin-left: 12px;">First appeared: ${plugin.firstAppeared}</span>` : ''}
+                     ${plugin.sha256 ? `<div title="${plugin.sha256}" style="margin-top:2px; word-break:break-all;">SHA256: ${plugin.sha256}</div>` : ''}
                 </div>
                 <p class="plugin-desc">${plugin.description}</p>
                 ${plugin.dependencies && plugin.dependencies.length > 0 ?
