@@ -373,7 +373,9 @@
     ],
     "downloadUrl": "https://raw.githubusercontent.com/HiroYokoyama/orca_xyz2inp/aa469e02e847c81b102bfdb20d240372ab1e4d52/moleditpy_plugin/orca_xyz2inp_gui.py",
     "projectUrl": "https://github.com/HiroYokoyama/orca_xyz2inp",
-    "lastUpdated": "2025-12-25"
+    "lastUpdated": "2025-12-25",
+    "sha256": "e9deaffd40bdb3ed9b262846a825f7bac229970fa539456af7a90405fdf64b78",
+    "firstAppeared": "2025-12-13"
   },
   {
     "id": "ms_spectrum_simulation_neo",
@@ -839,7 +841,9 @@
     ],
     "downloadUrl": "https://raw.githubusercontent.com/HiroYokoyama/moleditpy_pyscf-calculator/ecb4c37080da729b4c4019a3fb15d8297ea8d848/pyscf_calculator.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_pyscf-calculator",
-    "lastUpdated": "2026-01-19"
+    "lastUpdated": "2026-01-19",
+    "sha256": "c3899f11f03bfe99ea5a0c7f62e1b9179fc3c51eee39a958307f2a7c91e2788b",
+    "firstAppeared": "2026-01-09"
   },
   {
     "id": "openbabel_conversion_tool",
@@ -1007,7 +1011,9 @@
     ],
     "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin/releases/download/1.5.0/orca_result_analyzer.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin",
-    "lastUpdated": "2026-02-02"
+    "lastUpdated": "2026-02-02",
+    "sha256": "3351a01a6ec59238e29d84150aa8e045430a64eabd6b95a4b0f1ff84ad091f01",
+    "firstAppeared": "2026-01-27"
   },
   {
     "id": "nmr_predictor_nmrshiftdb2",
@@ -1029,7 +1035,9 @@
     ],
     "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_nmr_predicator_nmrshiftdb2/releases/download/1.2.0/nmr_predicator_nmrshiftdb2.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_nmr_predicator_nmrshiftdb2",
-    "lastUpdated": "2026-02-02"
+    "lastUpdated": "2026-02-02",
+    "sha256": "10d446f1d7c8c6b74b761834046ee84590a6f44123b91762b6f1cff88de2e60f",
+    "firstAppeared": "2026-01-29"
   },
   {
     "id": "cube_file_viewer_advanced",

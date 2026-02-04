@@ -395,6 +395,31 @@
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
+
+        .copy-sha-btn {
+            background: none;
+            border: none;
+            padding: 2px 4px;
+            margin-left: 4px;
+            cursor: pointer;
+            color: #94a3b8;
+            border-radius: 4px;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            vertical-align: middle;
+        }
+
+        .copy-sha-btn:hover {
+            background-color: #e2e8f0;
+            color: var(--primary-color);
+        }
+
+        .copy-sha-btn svg {
+            width: 14px;
+            height: 14px;
+        }
     </style>
     <style>
         /* Mobile Responsiveness */
@@ -592,7 +617,16 @@
                 <div style="font-size: 0.8em; color: #94a3b8; margin-bottom: 8px;">
                      <span>Updated: ${plugin.lastUpdated}</span>
                      ${plugin.firstAppeared ? `<span style="margin-left: 12px;">First appeared: ${plugin.firstAppeared}</span>` : ''}
-                     ${plugin.sha256 ? `<div title="${plugin.sha256}" style="margin-top:2px; word-break:break-all;">SHA256: ${plugin.sha256}</div>` : ''}
+                     ${plugin.sha256 ? `
+                        <div style="margin-top:2px; display: flex; align-items: center;">
+                            <span title="${plugin.sha256}">SHA256: ${plugin.sha256.substring(0, 8)}...</span>
+                            <button class="copy-sha-btn" onclick="copyToClipboard(this, '${plugin.sha256}')" title="Copy full SHA256">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                            </button>
+                        </div>` : ''}
                 </div>
                 <p class="plugin-desc">${plugin.description}</p>
                 ${plugin.dependencies && plugin.dependencies.length > 0 ?
@@ -725,6 +759,21 @@
                 }, 2000);
 
                 console.log('Link copied:', linkToCopy);
+            });
+        }
+
+        // Utility: Copy text to clipboard
+        function copyToClipboard(btnElement, text) {
+            navigator.clipboard.writeText(text).then(() => {
+                const originalContent = btnElement.innerHTML;
+                btnElement.innerHTML = `
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                `;
+                setTimeout(() => {
+                    btnElement.innerHTML = originalContent;
+                }, 2000);
             });
         }
 
