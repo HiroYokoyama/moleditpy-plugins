@@ -17,6 +17,13 @@ from PyQt6.QtWidgets import (
     QGroupBox, QTabWidget, QFileDialog, QDialog,
     QMessageBox
 )
+try:
+    from PyQt6 import sip
+except ImportError:
+    try:
+        import sip
+    except ImportError:
+        sip = None
 from PyQt6.QtCore import Qt, QTimer, QCoreApplication
 from PyQt6.QtGui import QColor, QCloseEvent, QAction
 
@@ -29,7 +36,7 @@ except ImportError:
     vtk = None
 
 PLUGIN_NAME = "Advanced Rendering"
-PLUGIN_VERSION = "2026.02.03"
+PLUGIN_VERSION = "2026.02.04"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Fine-grained control over Scene lighting, shadows, and PBR effects. (Stability Fixed)"
 
@@ -68,10 +75,21 @@ def load_plugin(main_window):
     # 1. Retrieve the persistent dialog instance
     dialog = getattr(main_window, '_adv_graphics_dialog', None)
     
-    # 2. If it doesn't exist or was accidentally destroyed, recreate it
-    if not dialog or not isinstance(dialog, QDialog):
+    # 2. If it doesn't exist or was accidentally destroyed from C++, recreate it
+    # Check if dialog is a disconnected C++ object using sip (if available) or simple try/except later
+    is_deleted = False
+    try:
+        if dialog and sip.isdeleted(dialog):
+            is_deleted = True
+    except: pass
+
+    if not dialog or not isinstance(dialog, QDialog) or is_deleted:
         # Ensure the viewer widget exists
         viewer = getattr(main_window, '_adv_rendering_viewer', None)
+        try:
+            if viewer and sip.isdeleted(viewer):
+                viewer = None
+        except: pass
         if not viewer:
             # Should have been created in initialize, but fallback just in case
             viewer = AdvancedGraphicsWidget(main_window)
@@ -96,9 +114,16 @@ def load_plugin(main_window):
         main_window._adv_graphics_dialog = dialog
 
     # 3. Show the dialog
-    dialog.show()
-    dialog.raise_()
-    dialog.activateWindow()
+    try:
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
+    except RuntimeError:
+        # Detected deleted C++ object, force recreate
+        main_window._adv_graphics_dialog = None
+        load_plugin(main_window)
+    except Exception as e:
+        logging.error(f"Error showing plugin dialog: {e}")
 
 def initialize(context):
     """
@@ -106,12 +131,25 @@ def initialize(context):
     """
     mw = context.get_main_window()
     
-    # 1. Create Background Widget (State Holder)
-    if not hasattr(mw, '_adv_rendering_viewer'):
-        viewer = AdvancedGraphicsWidget(mw)
-        mw._adv_rendering_viewer = viewer
-    else:
-        viewer = mw._adv_rendering_viewer
+    # 1. Cleanup Old Instances (Fix Reloading)
+    if hasattr(mw, '_adv_rendering_viewer') and mw._adv_rendering_viewer:
+        try:
+            old_viewer = mw._adv_rendering_viewer
+            if hasattr(old_viewer, '_sync_timer'):
+                old_viewer._sync_timer.stop()
+            old_viewer.deleteLater()
+        except: pass
+    
+    if hasattr(mw, '_adv_graphics_dialog') and mw._adv_graphics_dialog:
+        try:
+            mw._adv_graphics_dialog.close()
+            mw._adv_graphics_dialog.deleteLater()
+        except: pass
+        mw._adv_graphics_dialog = None  # Ensure ID is cleared
+    
+    # 2. Create Background Widget (State Holder)
+    viewer = AdvancedGraphicsWidget(mw)
+    mw._adv_rendering_viewer = viewer
 
     # Ensure settings are loaded to check toolbar preference
     viewer.load_settings()
@@ -487,7 +525,6 @@ class AdvancedGraphicsWidget(QWidget):
         curr = getattr(self.mw, 'current_3d_style', '')
         if curr != self._last_polled_style:
             self._last_polled_style = curr
-            self._last_polled_style = curr
             self.sync_style_ui(curr)
             # Persist the current style
             self.presets["last_active_style"] = curr
@@ -495,10 +532,7 @@ class AdvancedGraphicsWidget(QWidget):
 
     def apply_pbr_forced(self):
         """Used by PBR-specific styles to force PBR on without changing UI check state permanently."""
-        old_state = self.use_atom_pbr
-        self.use_atom_pbr = True
-        self.update_atoms_pbr()
-        self.use_atom_pbr = old_state # Restore internal state
+        self.update_atoms_pbr(force_pbr=True)
 
     # --- 修正版 AdvancedGraphicsWidget メソッド ---
 
@@ -515,26 +549,26 @@ class AdvancedGraphicsWidget(QWidget):
             self.plotter = self.mw.plotter
         return self.plotter
 
-    def update_atoms_pbr(self):
+    def update_atoms_pbr(self, force_pbr=False):
         """Applies PBR settings to relevant actors. (Fixed Version)"""
         plotter = self.safe_plotter
         if not plotter or not hasattr(plotter, 'renderer'): return
 
         try:
             curr_style = getattr(self.mw, 'current_3d_style', '')
-            is_pbr_style = "(Advanced Rendering)" in curr_style
+            is_advanced = "(Advanced Rendering)" in curr_style
             
-            # PBRを使うべきかの判定
-            should_use_pbr = self.use_atom_pbr or is_pbr_style
+            # --- FIX: Strict Policy for PBR ---
+            if not is_advanced:
+                 # Strict requirement: If not Advanced, PBR is Force Disable.
+                 should_use_pbr = False
+            else:
+                 # Standard logic
+                 should_use_pbr = self.use_atom_pbr or force_pbr
             
             # --- FIX 1: シグナルループ防止 ---
             if hasattr(self, 'check_atom_pbr'):
                 self.check_atom_pbr.blockSignals(True) # シグナルを遮断
-                # スタイルがPBRなら強制的にチェックを入れる、そうでなければ内部状態に合わせる
-                # if is_pbr_style:
-                #     self.check_atom_pbr.setChecked(True)
-                # else:
-                #     self.check_atom_pbr.setChecked(self.use_atom_pbr)
                 self.check_atom_pbr.blockSignals(False) # 解除
 
             # --- FIX 2: アクター取得の互換性確保 ---
@@ -587,14 +621,19 @@ class AdvancedGraphicsWidget(QWidget):
         self.slider_atom_metallic.setEnabled(checked)
         self.slider_atom_roughness.setEnabled(checked)
         self.update_atoms_pbr()
+        self.save_settings()
         
     def on_atom_metallic_changed(self, val):
         self.atom_metallic = val / 100.0
-        if self.use_atom_pbr: self.update_atoms_pbr()
+        if self.use_atom_pbr:
+            self.update_atoms_pbr()
+            self.save_settings()
         
     def on_atom_roughness_changed(self, val):
         self.atom_roughness = val / 100.0
-        if self.use_atom_pbr: self.update_atoms_pbr()
+        if self.use_atom_pbr:
+             self.update_atoms_pbr()
+             self.save_settings()
 
     def clear_atom_settings(self):
         """Reset atom settings to defaults without clearing the whole scene."""
@@ -648,30 +687,59 @@ class AdvancedGraphicsWidget(QWidget):
         except Exception as e:
             logging.error(f"Failed to load environment texture: {e}")
             QMessageBox.warning(self, "Texture Load Error", f"Could not load texture:\n{e}")
+    
+    def _clean_render_pipeline(self):
+        """
+        重要: パス切り替え時に発生するVTKエラーを防ぐため、
+        一度レンダリングパイプラインを完全にリセットする。
+        """
+        if not self.plotter or not hasattr(self.plotter, 'renderer'): return
         
+        try:
+            # 既存のパスを強制解除 (これがReleaseGraphicsResourcesエラーを防ぐ鍵)
+            if hasattr(self.plotter.renderer, 'SetPasses'):
+                self.plotter.renderer.SetPasses(None)
+            
+            # Note: Do NOT call render() here. Rendering with None passes can cause
+            # VTK to complain about missing resources or invalid state.
+            # self.plotter.render() 
+        except Exception as e:
+            logging.warning(f"Pipeline clean error: {e}")
+
     def on_shadows_toggled(self, checked):
         if not self.plotter: return
         
+        # PBRスタイル以外で強制的にチェックされた場合のガード
         curr_style = getattr(self.mw, 'current_3d_style', '')
         if checked and "(Advanced Rendering)" not in curr_style and not self.use_atom_pbr:
-             # Warn user or auto-enable PBR? For now just auto-disable shadows
              self.check_shadows.blockSignals(True)
              self.check_shadows.setChecked(False)
              self.check_shadows.blockSignals(False)
              return
 
         self.use_shadows = checked
+        
+        # 排他制御
         if checked:
             self._disable_conflicting_effects(exclude="shadows")
+            # ★修正: ここでパイプラインを洗浄して再有効化を可能にする
+            self._clean_render_pipeline()
 
         try:
             if checked:
                 self.plotter.enable_shadows()
+                self.update_lights() # 影有効化後はライト更新が必須
             else:
                 self.plotter.disable_shadows()
+            
+            # AA等の復帰
+            if self.use_aa:
+                self.plotter.enable_anti_aliasing()
+
             self.plotter.render()
         except Exception as e:
             logging.warning(f"Shadow error: {e}")
+        self.save_settings()
 
     def _disable_conflicting_effects(self, exclude=""):
         """
@@ -717,6 +785,13 @@ class AdvancedGraphicsWidget(QWidget):
         self.update_lights()
 
     def update_lights(self):
+        # --- FIX: Strict Light Control ---
+        # Default styles (SRC) must keep their original lighting.
+        # Only override lighting if we are definitely in an Advanced Requesting style.
+        curr_style = getattr(self.mw, 'current_3d_style', '')
+        if "(Advanced Rendering)" not in curr_style:
+            return
+
         plotter = self.safe_plotter
         if not plotter or not hasattr(plotter, 'renderer'): return
         
@@ -794,6 +869,14 @@ class AdvancedGraphicsWidget(QWidget):
         self.update_lights()
 
     def on_ssao_toggled(self, checked):
+        # Strict Policy
+        curr_style = getattr(self.mw, 'current_3d_style', '')
+        if checked and "(Advanced Rendering)" not in curr_style:
+             self.check_ssao.blockSignals(True)
+             self.check_ssao.setChecked(False)
+             self.check_ssao.blockSignals(False)
+             return
+
         self.use_ssao = checked
         if checked:
             self._disable_conflicting_effects(exclude="ssao")
@@ -802,8 +885,16 @@ class AdvancedGraphicsWidget(QWidget):
             else: self.plotter.disable_ssao()
             self.plotter.render()
         except Exception: pass
-
+    
     def on_depth_peeling_toggled(self, checked):
+        # Strict Policy
+        curr_style = getattr(self.mw, 'current_3d_style', '')
+        if checked and "(Advanced Rendering)" not in curr_style:
+             self.check_depth.blockSignals(True)
+             self.check_depth.setChecked(False)
+             self.check_depth.blockSignals(False)
+             return
+
         self.use_depth_peeling = checked
         if checked:
             self._disable_conflicting_effects(exclude="depth")
@@ -822,30 +913,85 @@ class AdvancedGraphicsWidget(QWidget):
         except: pass
 
     def on_edl_toggled(self, checked):
+        # Strict Policy
+        curr_style = getattr(self.mw, 'current_3d_style', '')
+        if checked and "(Advanced Rendering)" not in curr_style:
+             self.check_edl.blockSignals(True)
+             self.check_edl.setChecked(False)
+             self.check_edl.blockSignals(False)
+             return
+
         self.use_edl = checked
         if checked:
             self._disable_conflicting_effects(exclude="edl")
+            # ★修正: パイプライン洗浄
+            self._clean_render_pipeline()
         
         self.slider_edl.setEnabled(checked)
         self.apply_edl()
         
     def on_edl_strength_changed(self, val):
         self.edl_strength = val / 100.0
-        if self.use_edl: self.apply_edl()
+        if self.use_edl:
+             self.update_edl_strength()
+             self.save_settings()
+
+    def update_edl_strength(self):
+        """スライダーの値をEDLパスに適用"""
+        if not self.plotter or not self.use_edl: return
+        try:
+            # PyVistaが保持しているEDLパスインスタンスにアクセス
+            # バージョンによって _edl_pass または edl_pass の可能性があるため両方チェック
+            edl_pass = getattr(self.plotter.renderer, '_edl_pass', None)
+            if not edl_pass:
+                edl_pass = getattr(self.plotter.renderer, 'edl_pass', None)
+
+            if edl_pass:
+                # ★修正: Radius(半径)だけでなくDist(距離)も変更しないと見た目が変わらない
+                # slider: 1-100
+                # Radius: ぼかし範囲 (通常 1.0 - 10.0)
+                # Dist: 深度の強調度合い (通常 0.0001 - 0.01 程度だがシーンスケールによる)
+                
+                # 半径の設定
+                if hasattr(edl_pass, 'SetRadius'):
+                    edl_pass.SetRadius(self.edl_strength * 10.0)
+                
+                # 距離の設定 (これを追加することで凹凸がはっきりする)
+                if hasattr(edl_pass, 'SetDist'):
+                    # シーンによって適切な値は異なるが、スライダーで調整できるようにする
+                    # 1.0は大きすぎる場合が多いのでスケーリングする
+                    edl_pass.SetDist(self.edl_strength * 5.0) 
+
+            self.plotter.render()
+        except Exception as e:
+            logging.warning(f"EDL Update Error: {e}")
         
     def apply_edl(self):
         if not self.plotter: return
         try:
             if self.use_edl:
                 self.plotter.enable_eye_dome_lighting()
-                if hasattr(self.plotter.renderer, '_edl_pass'):
-                    edl_pass = self.plotter.renderer._edl_pass
-                    if edl_pass and hasattr(edl_pass, 'SetEDLStrength'):
-                        edl_pass.SetEDLStrength(self.edl_strength)
+                self.update_edl_strength() # 値を適用
             else:
                 self.plotter.disable_eye_dome_lighting()
+            
+            if self.use_aa:
+                self.plotter.enable_anti_aliasing()
+
             self.plotter.render()
-        except Exception: pass
+        except Exception as e:
+            logging.warning(f"EDL Apply error: {e}")
+
+    def closeEvent(self, event):
+        """終了時に特殊効果をOFFにしてリソースを解放する"""
+        try:
+            if self.plotter:
+                self.plotter.disable_eye_dome_lighting()
+                self.plotter.disable_shadows()
+                self.plotter.disable_ssao()
+        except:
+            pass
+        super().closeEvent(event)
 
     # --- PRESETS & PERSISTENCE ---
 
@@ -948,6 +1094,25 @@ class AdvancedGraphicsWidget(QWidget):
         """Syncs widget state and scene effects with active style."""
         is_active_pbr = "(Advanced Rendering)" in active_style_name
         
+        # --- FIX: Strictly enforce PBR Checkbox/State based on Style ---
+        # This prevents PBR from "leaking" into Standard styles
+        if hasattr(self, 'check_atom_pbr'):
+            self.check_atom_pbr.blockSignals(True)
+            if is_active_pbr:
+                self.check_atom_pbr.setChecked(True)
+                self.use_atom_pbr = True
+                self.slider_atom_metallic.setEnabled(True)
+                self.slider_atom_roughness.setEnabled(True)
+            else:
+                self.check_atom_pbr.setChecked(False)
+                self.use_atom_pbr = False
+                self.slider_atom_metallic.setEnabled(False)
+                self.slider_atom_roughness.setEnabled(False)
+            self.check_atom_pbr.blockSignals(False)
+        
+        # Apply the PBR state immediately
+        self.update_atoms_pbr()
+
         # Enforce Scene Effects based on whether we are in "Advanced" mode or not
         self._enforce_scene_state(enable=is_active_pbr)
 
