@@ -22,6 +22,7 @@ from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QDesktopServices, QColor, QIcon
 import importlib.metadata
 import hashlib
+import re
 
 import shutil
 import tempfile
@@ -219,7 +220,17 @@ class PluginDetailsDialog(QDialog):
         if not hasattr(self, 'missing_deps') or not self.missing_deps:
             return
             
-        deps_str = " ".join(self.missing_deps)
+        # Security: sanitize dependency names (allow alphanumeric, underscore, hyphen, period)
+        safe_deps = [d for d in self.missing_deps if re.match(r'^[a-zA-Z0-9_\-\.]+$', d)]
+        
+        if len(safe_deps) != len(self.missing_deps):
+            QMessageBox.warning(self, "Security Warning", 
+                                "Some dependencies contain invalid characters and were skipped.")
+            
+        if not safe_deps:
+            return
+
+        deps_str = " ".join(safe_deps)
         cmd = f"pip install {deps_str}"
         QApplication.clipboard().setText(cmd)
         QMessageBox.information(self, "Install Command", 
@@ -284,6 +295,34 @@ class PluginInstallerWindow(QDialog):
             for byte_block in iter(lambda: f.read(4096), b""):
                 sha256_hash.update(byte_block)
         return sha256_hash.hexdigest()
+
+    def compare_versions(self, v1, v2):
+        """
+        Compare two version strings. 
+        Returns 1 if v1 > v2, -1 if v1 < v2, 0 if v1 == v2.
+        Handles nested numbers like 2.10.0 > 2.5.0
+        """
+        try:
+            def parse(v):
+                # Extract digits, ignore non-numeric suffixes for simple comparison
+                return [int(x) for x in re.findall(r'\d+', v)]
+            
+            p1 = parse(v1)
+            p2 = parse(v2)
+            
+            # Pad with zeros to handle different lengths (e.g. 2.5 vs 2.5.1)
+            length = max(len(p1), len(p2))
+            p1 += [0] * (length - len(p1))
+            p2 += [0] * (length - len(p2))
+            
+            if p1 > p2: return 1
+            if p1 < p2: return -1
+            return 0
+        except:
+            # Fallback to string comparison
+            if v1 > v2: return 1
+            if v1 < v2: return -1
+            return 0
 
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -423,7 +462,7 @@ class PluginInstallerWindow(QDialog):
             except ImportError:
                 APP_VERSION = "0.0.0"
             
-        if latest != "Unknown" and latest > APP_VERSION:
+        if latest != "Unknown" and self.compare_versions(latest, APP_VERSION) > 0:
              self.updates_found = True
 
         self.remote_data = self.fetch_remote_data()
@@ -450,10 +489,11 @@ class PluginInstallerWindow(QDialog):
 
         color = "gray"
         if latest != "Unknown":
-            if latest > APP_VERSION:
+            comp = self.compare_versions(latest, APP_VERSION)
+            if comp > 0:
                  color = "#dc3545" # Red
                  status_text = f"{latest} (Update Available)"
-            elif latest == APP_VERSION:
+            elif comp == 0:
                  color = "green"
                  status_text = f"{latest} (Up to date)"
             else:
@@ -537,7 +577,7 @@ class PluginInstallerWindow(QDialog):
                 
                 if self.latest_app_version != "Checking..." and self.latest_app_version != "Unknown":
                     try:
-                        if self.latest_app_version > APP_VERSION:
+                        if self.compare_versions(self.latest_app_version, APP_VERSION) > 0:
                             self.updates_found = True
                             self.btn_upgrade_app.setVisible(True)
                             self.btn_upgrade_app.setText(f"Copy upgrade command (v{self.latest_app_version})")
@@ -551,12 +591,13 @@ class PluginInstallerWindow(QDialog):
                 if remote_info:
                     
                     if local_ver != 'Unknown' and remote_ver != 'Unknown':
-                        if remote_ver > local_ver:
+                        comp = self.compare_versions(remote_ver, local_ver)
+                        if comp > 0:
                             status = "Update Available"
                             color = QColor("#f8d7da")
                             can_update = True
                             self.updates_found = True
-                        elif local_ver == remote_ver:
+                        elif comp == 0:
                             status = "Up to date"
                             color = QColor("#d4edda")
                             can_update = True # Allow manual reinstall
@@ -988,10 +1029,17 @@ class PluginInstallerWindow(QDialog):
                                           target_dir = os.path.dirname(target_file)
                                           print(f"Overwriting existing folder plugin: {target_dir}")
                                           
-                                          # Extract to temp
+                                          # Extract and validate (Security Fix)
                                           extract_temp = os.path.join(temp_dir, "extracted")
+                                          os.makedirs(extract_temp, exist_ok=True)
                                           with zipfile.ZipFile(download_path, 'r') as z:
-                                              z.extractall(extract_temp)
+                                              for member in z.infolist():
+                                                  # Security check for directory traversal
+                                                  target_path = os.path.join(extract_temp, member.filename)
+                                                  if not os.path.abspath(target_path).startswith(os.path.abspath(extract_temp)):
+                                                      print(f"Skipping suspicious file: {member.filename}")
+                                                      continue
+                                                  z.extract(member, extract_temp)
                                           
                                           # Determine source content
                                           # If zip contains a single folder, use that inner folder as source
