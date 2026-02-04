@@ -660,17 +660,48 @@ class CubeViewerWidget(QWidget):
                 # Advanced Settings
                 if "env_texture_path" in settings:
                     path = settings["env_texture_path"]
-                    # Check for spaces first (VTK can't handle them)
+                    
+                    # 1. Always populate the text field if we have a path (user sees what was attempted)
+                    if path:
+                        self.line_env_path.setText(path)
+                        self.env_texture_path = path
+
+                    # 2. Check for spaces first (VTK can't handle them)
                     if path and ' ' in path:
                         print(f"Skipping texture with spaces in path: {path}")
-                        self.env_texture_path = ""
+                        # Keep text field for user to fix, but don't try to load
                     elif path and os.path.exists(path):
                         try:
                             self.load_env_texture(path)
                         except Exception as e:
                             print(f"Failed to restore texture from settings: {e}")
-                            # Clear the invalid path
-                            self.env_texture_path = ""
+                            # Do NOT clear the path; let user retry or see the error
+                    elif not path:
+                        # 3. SYNC: If no specific path is saved for this instance, check if the renderer 
+                        # already has a texture (e.g. from another plugin or previous session state in main window)
+                        # or if there is a shared path in the main window.
+                        
+                        shared_path = getattr(self.mw, "current_env_texture_path", "")
+                        # Try to find specific instance
+                        adv_viewer = getattr(self.mw, '_adv_rendering_viewer', None)
+                        if adv_viewer and hasattr(adv_viewer, 'env_texture_path') and adv_viewer.env_texture_path:
+                             shared_path = adv_viewer.env_texture_path
+                             if os.path.exists(shared_path) and ' ' not in shared_path:
+                                 print(f"Syncing texture from Advanced Renderer: {shared_path}")
+                                 self.line_env_path.setText(shared_path)
+                                 self.env_texture_path = shared_path
+                                 try:
+                                     self.load_env_texture(shared_path)
+                                 except: pass
+                        else:
+                             # Check shared global variable fallback
+                             shared_path = getattr(self.mw, "current_env_texture_path", "")
+                             if shared_path and os.path.exists(shared_path):
+                                 self.line_env_path.setText(shared_path)
+                                 self.env_texture_path = shared_path
+                                 try:
+                                     self.load_env_texture(shared_path)
+                                 except: pass
 
                 if "metallic" in settings: 
                     self.metallic = float(settings["metallic"])
@@ -695,14 +726,11 @@ class CubeViewerWidget(QWidget):
                     
                 if "use_edl" in settings: self.check_edl.setChecked(bool(settings["use_edl"]))
                 
-                if "use_edl" in settings: self.check_edl.setChecked(bool(settings["use_edl"]))
+                if "use_shadows" in settings: self.check_shadows.setChecked(bool(settings["use_shadows"]))
+                if "light_intensity" in settings:
+                     self.light_intensity = float(settings["light_intensity"])
+                     self.slider_light.setValue(int(self.light_intensity * 100))
 
-
-
-                # Update Text Field if texture loaded
-                if self.env_texture_path:
-                    self.line_env_path.setText(self.env_texture_path)
-                
                 # Redraw orbital with loaded settings
                 self.update_iso()
                 self.plotter.render()
@@ -1241,9 +1269,14 @@ class CubeViewerWidget(QWidget):
     def on_texture_path_entered(self):
         path = self.line_env_path.text().strip()
         if path:
-             # Just update internal state, load is triggered by Browse or manual logic if needed? 
-             # Actually existing code handled path directly. Let's ensure consistency.
-             self.env_texture_path = path
+             # TRIGGER LOAD
+             try:
+                 if os.path.exists(path):
+                    self.load_env_texture(path)
+                 else:
+                    print(f"Texture path not found: {path}")
+             except Exception as e:
+                 print(f"Error loading entered texture: {e}")
 
     # --- PRESET HANDLERS ---
     def update_preset_combo(self):
@@ -1315,7 +1348,8 @@ class CubeViewerWidget(QWidget):
             "use_shadows": self.use_shadows,
             "light_intensity": self.light_intensity,
             "smooth_shading": self.check_smooth.isChecked(),
-            "style": self.combo_style.currentText()
+            "style": self.combo_style.currentText(),
+            "env_texture_path": self.env_texture_path # Ensure save
         }
         
         self.presets[name] = current_data
@@ -1501,6 +1535,26 @@ class CubeViewerWidget(QWidget):
             
             self.env_texture_path = path
             self.line_env_path.setText(path)
+            
+            # SYNC: Share state with Advanced Renderer & Global
+            if hasattr(self.mw, "current_env_texture_path"):
+                 self.mw.current_env_texture_path = path
+            else:
+                 self.mw.current_env_texture_path = path
+            
+            # Also update Advanced Renderer instance if it exists
+            adv_viewer = getattr(self.mw, '_adv_rendering_viewer', None)
+            if adv_viewer:
+                adv_viewer.env_texture_path = path
+                # Ideally we shouldn't trigger double-load, but setting path is safe
+
+            
+            # SHARE PATH GLOBALLY
+            if hasattr(self.mw, "current_env_texture_path"):
+                 self.mw.current_env_texture_path = path
+            else:
+                 # Create it if it doesn't exist (simples way to share state)
+                 self.mw.current_env_texture_path = path
             
             # Check for cancellation
             if progress.wasCanceled():
