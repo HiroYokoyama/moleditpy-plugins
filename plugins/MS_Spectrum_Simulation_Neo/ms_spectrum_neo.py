@@ -14,7 +14,7 @@ except ImportError:
     Descriptors = None
     Draw = None
 
-PLUGIN_VERSION = "2026.01.21"
+PLUGIN_VERSION = "2026.02.04"
 PLUGIN_AUTHOR = "HiroYokoyama"
 
 PLUGIN_NAME = "MS Spectrum Simulation Neo"
@@ -1264,6 +1264,8 @@ def run(mw):
             mw._ms_spectrum_dialog.raise_()
             mw._ms_spectrum_dialog.activateWindow()
             mw._ms_spectrum_dialog.check_update()
+            if mw._ms_spectrum_dialog.sync_check.isChecked() and not mw._ms_spectrum_dialog.timer.isActive():
+                mw._ms_spectrum_dialog.timer.start(1000)
             return
         except RuntimeError:
             # Wrapped C/C++ object has been deleted
