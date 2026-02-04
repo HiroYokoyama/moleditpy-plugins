@@ -24,7 +24,7 @@ except ImportError:
     Geometry = None
     rdDetermineBonds = None
     
-__version__="2026.02.02"
+__version__="2026.02.04"
 __author__="HiroYokoyama"
 PLUGIN_NAME = "Cube File Viewer Advanced"
 PLUGIN_DESCRIPTION = "Advanced 3D visualization for Gaussian Cube files with PBR, SSAO, and other effects."
@@ -255,10 +255,9 @@ class CubeViewerWidget(QWidget):
         self.use_shadows = False
         self.light_intensity = 1.0
         
-        # Atom PBR specific
-        self.atom_metallic = 0.0
-        self.atom_roughness = 0.5
-        self.use_atom_pbr = False
+
+        # Atom PBR specific - REMOVED (Handled by different plugin)
+
         
         # Presets {name: settings_dict}
         self.presets = {}
@@ -555,55 +554,11 @@ class CubeViewerWidget(QWidget):
         tab_orb.setLayout(orb_layout)
         tabs.addTab(tab_orb, "Orbital")
 
-        # --- TAB 3: ATOMS (Molecule) ---
-        tab_atom = QWidget()
-        atom_layout = QGridLayout()
-        
-        # Atom PBR Enable
-        self.check_atom_pbr = QCheckBox("Enable Atom PBR")
-        self.check_atom_pbr.toggled.connect(self.on_atom_pbr_toggled)
-        atom_layout.addWidget(self.check_atom_pbr, 0, 0, 1, 2)
-        
-        # Atom Metallic
-        atom_layout.addWidget(QLabel("Metallic:"), 1, 0)
-        self.slider_atom_metallic = QSlider(Qt.Orientation.Horizontal)
-        self.slider_atom_metallic.setRange(0, 100)
-        self.slider_atom_metallic.setValue(int(self.atom_metallic * 100))
-        self.slider_atom_metallic.valueChanged.connect(self.on_atom_metallic_changed)
-        self.slider_atom_metallic.setEnabled(False)
-        atom_layout.addWidget(self.slider_atom_metallic, 1, 1)
-        
-        # Atom Roughness
-        atom_layout.addWidget(QLabel("Roughness:"), 2, 0)
-        self.slider_atom_roughness = QSlider(Qt.Orientation.Horizontal)
-        self.slider_atom_roughness.setRange(0, 100)
-        self.slider_atom_roughness.setValue(int(self.atom_roughness * 100))
-        self.slider_atom_roughness.valueChanged.connect(self.on_atom_roughness_changed)
-        self.slider_atom_roughness.setEnabled(False)
-        atom_layout.addWidget(self.slider_atom_roughness, 2, 1)
-        
-        atom_layout.setRowStretch(3, 1)
-        
-        # Apply/Clear Buttons (at bottom)
-        button_layout = QHBoxLayout()
-        btn_apply_atom = QPushButton("Apply")
-        btn_apply_atom.setToolTip("Apply PBR settings")
-        btn_apply_atom.clicked.connect(self.update_atoms_pbr)
-        button_layout.addWidget(btn_apply_atom)
-        
-        btn_clear_atom = QPushButton("Clear")
-        btn_clear_atom.setToolTip("Reset to default")
-        btn_clear_atom.clicked.connect(self.clear_atoms_pbr)
-        button_layout.addWidget(btn_clear_atom)
-        
-        atom_layout.addLayout(button_layout, 4, 0, 1, 2)
-
-        tab_atom.setLayout(atom_layout)
-        tabs.addTab(tab_atom, "Atoms")
 
         group_layout.addWidget(tabs)
         group.setLayout(group_layout)
         layout.addWidget(group)
+
 
     def _init_default_presets(self):
         """Initialize built-in default presets that cannot be overwritten or deleted."""
@@ -624,10 +579,11 @@ class CubeViewerWidget(QWidget):
             "use_edl": False,
             "edl_strength": 0.2,
             "use_shadows": False,
+            "edl_strength": 0.2,
+            "use_shadows": False,
             "light_intensity": 1.0,
-            "atom_metallic": 0.0,
-            "atom_roughness": 0.5,
-            "use_atom_pbr": False
+            "smooth_shading": True,
+            "style": "Surface"
         }
         
         
@@ -739,16 +695,8 @@ class CubeViewerWidget(QWidget):
                     
                 if "use_edl" in settings: self.check_edl.setChecked(bool(settings["use_edl"]))
                 
-                self.atom_metallic = settings.get("atom_metallic", 0.0)
-                self.atom_roughness = settings.get("atom_roughness", 0.5)
-                self.use_atom_pbr = settings.get("use_atom_pbr", False)
-                self.use_atom_silhouette = settings.get("use_atom_silhouette", False)
-                
-                self.check_atom_pbr.setChecked(self.use_atom_pbr)
-                self.slider_atom_metallic.setValue(int(self.atom_metallic * 100))
-                self.slider_atom_roughness.setValue(int(self.atom_roughness * 100))
-                self.slider_atom_metallic.setEnabled(self.use_atom_pbr)
-                self.slider_atom_roughness.setEnabled(self.use_atom_pbr)
+                if "use_edl" in settings: self.check_edl.setChecked(bool(settings["use_edl"]))
+
 
 
                 # Update Text Field if texture loaded
@@ -785,11 +733,8 @@ class CubeViewerWidget(QWidget):
                 "edl_strength": self.edl_strength,
                 "use_shadows": self.use_shadows,
                 "light_intensity": self.light_intensity,
-                # Atom specific
-                "atom_metallic": self.atom_metallic,
-                "atom_roughness": self.atom_roughness,
-                "use_atom_pbr": self.use_atom_pbr,
-                "use_atom_silhouette": self.use_atom_silhouette,
+                "use_shadows": self.use_shadows,
+                "light_intensity": self.light_intensity,
                 "presets": self.presets
             }
             
@@ -1047,25 +992,27 @@ class CubeViewerWidget(QWidget):
             print("PBR enabled without environment texture. Surfaces may appear dark.")
         
         self.update_iso()
-        self.update_atoms_pbr()
+
 
     def on_metallic_changed(self, val):
         self.metallic = val / 100.0
         self.update_iso()
-        self.update_atoms_pbr()
+
 
     def on_roughness_changed(self, val):
         self.roughness = val / 100.0
         self.update_iso()
-        self.update_atoms_pbr()
+
 
     def on_ssao_toggled(self, checked):
         self.use_ssao = checked
         self._disable_conflicting_effects(exclude="ssao" if checked else "")
 
         try:
+            self._clean_render_pipeline()
             if checked:
                 if hasattr(self.plotter, 'enable_ssao'):
+
                     self.plotter.enable_ssao()
             else:
                 if hasattr(self.plotter, 'disable_ssao'):
@@ -1074,11 +1021,31 @@ class CubeViewerWidget(QWidget):
         except Exception as e:
             print(f"SSAO error: {e}")
 
+    def _clean_render_pipeline(self):
+        """
+        重要: パス切り替え時に発生するVTKエラーを防ぐため、
+        一度レンダリングパイプラインを完全にリセットする。
+        """
+        if not self.plotter or not hasattr(self.plotter, 'renderer'): return
+        
+        try:
+            # 既存のパスを強制解除 (これがReleaseGraphicsResourcesエラーを防ぐ鍵)
+            if hasattr(self.plotter.renderer, 'SetPasses'):
+                self.plotter.renderer.SetPasses(None)
+            
+            # Note: Do NOT call render() here. Rendering with None passes can cause
+            # VTK to complain about missing resources or invalid state.
+            # self.plotter.render() 
+        except Exception as e:
+            print(f"Pipeline clean error: {e}")
+
+
     def on_depth_peeling_toggled(self, checked):
         self.use_depth_peeling = checked
         self._disable_conflicting_effects(exclude="depth" if checked else "")
             
         try:
+            self._clean_render_pipeline() # Clean before switching transparency mode
             if checked:
                 if hasattr(self.plotter, 'enable_depth_peeling'):
                     self.plotter.enable_depth_peeling()
@@ -1098,6 +1065,7 @@ class CubeViewerWidget(QWidget):
         self._disable_conflicting_effects(exclude="shadows" if checked else "")
 
         try:
+            self._clean_render_pipeline()
             if checked:
                 self.plotter.enable_shadows()
             else:
@@ -1134,6 +1102,7 @@ class CubeViewerWidget(QWidget):
         self._disable_conflicting_effects(exclude="edl" if checked else "")
             
         self.slider_edl.setEnabled(checked)
+        self._clean_render_pipeline()
         self.apply_edl()
 
     def on_edl_strength_changed(self, val):
@@ -1209,81 +1178,15 @@ class CubeViewerWidget(QWidget):
                         self.plotter.disable_depth_peeling()
                 except: pass
         
-        # 3. 最後に有効/無効状態を更新 (グレーアウト処理)
-        has_ssao = hasattr(self.plotter, 'enable_ssao')
-        has_depth = hasattr(self.plotter, 'enable_depth_peeling')
 
-        # Depth PeelingがONなら、エフェクト類は操作不能
-        self.check_edl.setEnabled(not self.use_depth_peeling)
-        self.check_shadows.setEnabled(not self.use_depth_peeling)
-        if has_ssao:
-            self.check_ssao.setEnabled(not self.use_depth_peeling)
-
-        # いずれかの不透明エフェクトがONなら、Depth Peelingは操作不能
-        if has_depth:
-            effects_on = self.use_edl or self.use_shadows or self.use_ssao
-            self.check_depth.setEnabled(not effects_on)
+        # 3. 最後に有効/無効状態を更新 (グレーアウト処理) -> REMOVED
+        # User requested to allow direct switching (auto-uncheck instead of disable).
+        # We only keep the static checks (e.g. if VTK doesn't support it) which are done at init.
         
         self.blockSignals(False)
 
-    # --- ATOM METHODS ---
-    def on_atom_pbr_toggled(self, checked):
-        self.use_atom_pbr = checked
-        self.slider_atom_metallic.setEnabled(checked)
-        self.slider_atom_roughness.setEnabled(checked)
-        self.update_atoms_pbr()
+    # --- ATOM METHODS REMOVED ---
 
-    def on_atom_metallic_changed(self, val):
-        self.atom_metallic = val / 100.0
-        self.update_atoms_pbr()
-
-    def on_atom_roughness_changed(self, val):
-        self.atom_roughness = val / 100.0
-        self.update_atoms_pbr()
-        
-    def update_atoms_pbr(self):
-        """Applies PBR settings to ALL actors (atoms, bonds, aromatics) in the scene."""
-        try:
-            # Get all actors from the renderer
-            actors_list = []
-            
-            if hasattr(self.plotter, 'renderer') and hasattr(self.plotter.renderer, 'GetActors'):
-                actors_collection = self.plotter.renderer.GetActors()
-                if actors_collection:
-                    actors_collection.InitTraversal()
-                    for _ in range(actors_collection.GetNumberOfItems()):
-                        actor = actors_collection.GetNextActor()
-                        if actor:
-                            actors_list.append(actor)
-            
-            # Apply or remove PBR from all actors
-            for actor in actors_list:
-                try:
-                    prop = actor.GetProperty()
-                    if self.use_atom_pbr:
-                        # Enable PBR
-                        if hasattr(prop, 'SetInterpolationToPBR'):
-                            prop.SetInterpolationToPBR()
-                            prop.SetMetallic(self.atom_metallic)
-                            prop.SetRoughness(self.atom_roughness)
-                    else:
-                        # Disable PBR - revert to Phong
-                        if hasattr(prop, 'SetInterpolationToPhong'):
-                            prop.SetInterpolationToPhong()
-                            prop.SetMetallic(0.0)
-                            prop.SetRoughness(0.5)
-                except Exception:
-                    continue  # Skip actors that don't support these properties
-            
-            self.plotter.render()
-        except Exception:
-            pass  # Silently fail for compatibility
-
-    def clear_atoms_pbr(self):
-        """Reset atom settings to defaults."""
-        self.use_atom_pbr = False
-        self.check_atom_pbr.setChecked(False)
-        self.update_atoms_pbr()
         
         # Save state of advanced rendering effects that get lost during plotter.clear()
         edl_was_enabled = self.use_edl
@@ -1411,9 +1314,8 @@ class CubeViewerWidget(QWidget):
             "edl_strength": self.edl_strength,
             "use_shadows": self.use_shadows,
             "light_intensity": self.light_intensity,
-            "atom_metallic": self.atom_metallic,
-            "atom_roughness": self.atom_roughness,
-            "use_atom_pbr": self.use_atom_pbr
+            "smooth_shading": self.check_smooth.isChecked(),
+            "style": self.combo_style.currentText()
         }
         
         self.presets[name] = current_data
@@ -1494,21 +1396,21 @@ class CubeViewerWidget(QWidget):
             self.light_intensity = float(settings["light_intensity"])
             self.slider_light.setValue(int(self.light_intensity * 100))
             
-        if "atom_metallic" in settings:
-            self.atom_metallic = float(settings["atom_metallic"])
-            self.slider_atom_metallic.setValue(int(self.atom_metallic * 100))
-            
-        if "atom_roughness" in settings:
-            self.atom_roughness = float(settings["atom_roughness"])
-            self.slider_atom_roughness.setValue(int(self.atom_roughness * 100))
-            
-        if "use_atom_pbr" in settings:
-            self.use_atom_pbr = bool(settings["use_atom_pbr"])
-            self.check_atom_pbr.setChecked(self.use_atom_pbr)
-            
-        if "use_atom_silhouette" in settings:
-            self.use_atom_silhouette = bool(settings["use_atom_silhouette"])
-            self.check_atom_silhouette.setChecked(self.use_atom_silhouette)
+        if "smooth_shading" in settings:
+            self.check_smooth.setChecked(bool(settings["smooth_shading"]))
+
+        if "style" in settings:
+            # Robust find
+            text = settings["style"]
+            idx = self.combo_style.findText(text)
+            if idx < 0:
+                # try case insensitive
+                for i in range(self.combo_style.count()):
+                    if self.combo_style.itemText(i).lower() == text.lower():
+                        idx = i
+                        break
+            if idx >= 0: 
+                self.combo_style.setCurrentIndex(idx)
         
         # Redraw orbital with loaded preset settings
         self.update_iso()
@@ -1721,7 +1623,7 @@ class CubeViewerWidget(QWidget):
             
             # --- FIX END ---
 
-            self.check_atom_pbr.setChecked(False)
+
              
             # 7. Clear Environment Texture
             self.on_remove_env_texture()
@@ -1731,7 +1633,6 @@ class CubeViewerWidget(QWidget):
             
             # 確実に描画更新
             self.update_iso()
-            self.update_atoms_pbr() # Atom側のPBRなどもリセット反映
             self.plotter.render()
 
             print("All settings have been reset to defaults.")
@@ -1798,7 +1699,7 @@ class ChargeDialog(QDialog):
     def init_ui(self):
         layout = QVBoxLayout()
         layout.addWidget(QLabel("Could not determine connectivity with charge: " + str(self.charge)))
-        layout.addWidget(QLabel("Please specificy correct charge or skip chemistry check."))
+        layout.addWidget(QLabel("Please specify correct charge or skip chemistry check."))
         
         form = QFormLayout()
         self.spin = QSpinBox()
