@@ -14,7 +14,9 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/All-Trans_Optimizer/all-trans_optimizer.py",
-    "lastUpdated": "2025-12-25"
+    "lastUpdated": "2025-12-25",
+    "sha256": "ffbcc09d82114a13eab8838551ff3fe4dd68d20ee221728599c0f411ecbc2da7",
+    "firstAppeared": "2025-12-15"
   },
   {
     "id": "animated_xyz_giffer",
@@ -32,7 +34,9 @@
       "Pillow"
     ],
     "downloadUrl": "../plugins/Animated_XYZ_Giffer/animated_xyz_giffer.py",
-    "lastUpdated": "2025-12-25"
+    "lastUpdated": "2025-12-25",
+    "sha256": "c820a097d1a569d922ede349ea3fbcd9dc7c4a5a01eb3c2eccdbc41d14e9da5a",
+    "firstAppeared": "2025-12-15"
   },
   {
     "id": "animated_xyz_player",
@@ -48,7 +52,9 @@
     ],
     "dependencies": [],
     "downloadUrl": "../plugins/Animated_XYZ_Player/animated_xyz.py",
-    "lastUpdated": "2025-12-15"
+    "lastUpdated": "2025-12-15",
+    "sha256": "c97fc6b5c4cf19c19400ebb9a980b478edbf07281738c8e2bc7ed7704841778c",
+    "firstAppeared": "2025-12-15"
   },
   {
     "id": "complex_molecule_untangler",
@@ -65,7 +71,9 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/Complex_Molecule_Untangler/complex_molecule_untangler.py",
-    "lastUpdated": "2025-12-25"
+    "lastUpdated": "2025-12-25",
+    "sha256": "9062759c859d2c2712c662893872e14d6e120104ab1123242ac20b783a8a6e10",
+    "firstAppeared": "2025-12-15"
   },
   {
     "id": "conformational_search",
@@ -82,7 +90,9 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/Conformational_Search/conf_search.py",
-    "lastUpdated": "2026-01-02"
+    "lastUpdated": "2026-01-02",
+    "sha256": "a6d98b347984ab01780dd3fa5044eed0ab358af0cda46219042bd8162de4c536",
+    "firstAppeared": "2025-12-15"
   },
   {
     "id": "cube_file_viewer",
@@ -101,7 +111,9 @@
       "numpy"
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer/cube_viewer.py",
-    "lastUpdated": "2026-01-29"
+    "lastUpdated": "2026-01-29",
+    "sha256": "98b23a3a05c5fdb83f400d19bbafc38170b1ab2b326aa16c1c23b0f049424990",
+    "firstAppeared": "2025-12-15"
   },
   {
     "id": "gaussian_input_generator",
@@ -117,7 +129,9 @@
     ],
     "dependencies": [],
     "downloadUrl": "../plugins/Gaussian_Input_Generator/gaussian_input_generator.py",
-    "lastUpdated": "2025-12-15"
+    "lastUpdated": "2025-12-15",
+    "sha256": "dc75995709ab18f595031d4db09e4541d4c55f54cc1ee9a23c52233f0e3c0acc",
+    "firstAppeared": "2025-12-15"
   },
   {
     "id": "hello_world",
@@ -132,7 +146,9 @@
     ],
     "dependencies": [],
     "downloadUrl": "../plugins/Hello_World/hello.py",
-    "lastUpdated": "2025-12-12"
+    "lastUpdated": "2025-12-12",
+    "sha256": "1f631c486e9b8512930c81f64b70022208e14b7f6098f9a45afa8cad754febba",
+    "firstAppeared": "2025-12-15"
   },
   {
     "id": "ms_spectrum_simulation",
@@ -149,7 +165,9 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/MS_Spectrum_Simulation/ms_spectrum.py",
-    "lastUpdated": "2025-12-25"
+    "lastUpdated": "2025-12-25",
+    "sha256": "27c6623f309ff66e3c2a972e17c26456f13add99b983efa95ef61ed133442f28",
+    "firstAppeared": "2025-12-15"
   },
   {
     "id": "orca_input_generator",
@@ -165,7 +183,9 @@
     ],
     "dependencies": [],
     "downloadUrl": "../plugins/ORCA_Input_Generator/orca_input_generator.py",
-    "lastUpdated": "2025-12-15"
+    "lastUpdated": "2025-12-15",
+    "sha256": "736cbac14240117c0eac98942142df15a5cee43f02cbd04c32e737a9bffbff02",
+    "firstAppeared": "2025-12-15"
   },
   {
     "id": "pubchem_name_ressolver",
@@ -183,7 +203,9 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/PubChem_Name_Ressolver/pubchem_ressolver.py",
-    "lastUpdated": "2025-12-25"
+    "lastUpdated": "2025-12-25",
+    "sha256": "c3565f9bfd8b4c386e53ab98290492686a72537ebed7892f0ecb1cd0bf21b037",
+    "firstAppeared": "2025-12-15"
   },
   {
     "id": "console",
@@ -201,7 +223,9 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Python_Console/console.py",
-    "lastUpdated": "2025-12-25"
+    "lastUpdated": "2025-12-25",
+    "sha256": "f51c1b0ebeab5d20aeee832a01cf5be066264140b483578da5f96fbd41e8d068",
+    "firstAppeared": "2025-12-16"
   },
   {
     "id": "atom_colorizer",
@@ -221,7 +245,9 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Atom_Colorizer/atom_colorizer.py",
-    "lastUpdated": "2025-12-25"
+    "lastUpdated": "2025-12-25",
+    "sha256": "0543be12421e5b090613a0ed3ae5e0c344240c005eb7f61f3577e93d91560654",
+    "firstAppeared": "2025-12-16"
   },
   {
     "id": "dark_mode_theme",
@@ -238,7 +264,9 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Dark_Mode_Theme/dark_mode_plugin.py",
-    "lastUpdated": "2025-12-16"
+    "lastUpdated": "2025-12-16",
+    "sha256": "a7bc80959084172aaad67a12196b94e365a048b99c1f19067ba2a0cbec5e9113",
+    "firstAppeared": "2025-12-16"
   },
   {
     "id": "gaussian_input_generator_neo",
@@ -257,7 +285,9 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Gaussian_Input_Generator_Neo/gaussian_input_generator_neo.py",
-    "lastUpdated": "2026-01-04"
+    "lastUpdated": "2026-01-04",
+    "sha256": "d3d39c560d243a66f07d107d773eb4111cf964f027e9ad94edd4726414f075fc",
+    "firstAppeared": "2025-12-16"
   },
   {
     "id": "vdw_radii_overlay",
@@ -276,7 +306,9 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/VDW_Radii_Overlay/vdw_radii_overlay.py",
-    "lastUpdated": "2026-02-03"
+    "lastUpdated": "2026-02-03",
+    "sha256": "c4ba087d48cd896be2bdb259fcace2a27c170ddf56e7250711c6eb492d9f6823",
+    "firstAppeared": "2025-12-17"
   },
   {
     "id": "mapped_cube_viewer",
@@ -297,7 +329,9 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/Mapped_Cube_Viewer/mapped_cube_viewer.py",
-    "lastUpdated": "2025-12-25"
+    "lastUpdated": "2025-12-25",
+    "sha256": "b4ed616e35c6db1a74a515e6c1504d08ed1cd0752ed4753bcc8149e12edbba5b",
+    "firstAppeared": "2025-12-17"
   },
   {
     "id": "orca_input_generator_neo",
@@ -316,7 +350,9 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Orca_Input_Generator_Neo/orca_input_generator_neo.py",
-    "lastUpdated": "2026-01-04"
+    "lastUpdated": "2026-01-04",
+    "sha256": "b2ff42bd7938706702ad9730b8aa0eb85f33b01a7de50982b347b8c229f27423",
+    "firstAppeared": "2026-01-03"
   },
   {
     "id": "orca_xyz2inp_gui",
@@ -355,7 +391,9 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/MS_Spectrum_Simulation_Neo/ms_spectrum_neo.py",
-    "lastUpdated": "2026-02-04"
+    "lastUpdated": "2026-02-04",
+    "sha256": "74424643cff1408d317f30eabac51098e0ddbf925bd20ad074d9b05522b5715b",
+    "firstAppeared": "2025-12-18"
   },
   {
     "id": "gaussian_freq_analyzer",
@@ -377,7 +415,9 @@
       "Pillow"
     ],
     "downloadUrl": "../plugins/Gaussian_Freq_Analyzer/gaussian_fchk_freq_analyzer.py",
-    "lastUpdated": "2026-01-07"
+    "lastUpdated": "2026-01-07",
+    "sha256": "1374fe34e038f3889804892ce6313a74d96db980587acc45e3b28c8e9eec3bbc",
+    "firstAppeared": "2025-12-20"
   },
   {
     "id": "orca_freq_analyzer",
@@ -399,7 +439,9 @@
       "Pillow"
     ],
     "downloadUrl": "../plugins/ORCA_Freq_Analyzer/orca_out_freq_analyzer.py",
-    "lastUpdated": "2026-01-07"
+    "lastUpdated": "2026-01-07",
+    "sha256": "c36fc4b9c812b450e160f3da6b0ad87eb0202b0dd508e2f653b1f0a11a3d72b1",
+    "firstAppeared": "2025-12-20"
   },
   {
     "id": "paste_xyz",
@@ -414,7 +456,9 @@
     ],
     "dependencies": [],
     "downloadUrl": "../plugins/Paste_XYZ/paste_xyz.py",
-    "lastUpdated": "2025-12-25"
+    "lastUpdated": "2025-12-25",
+    "sha256": "915fbf08c9972dca8c23214d4407a2c2c38408f13ae060a2cd3de10c235f6979",
+    "firstAppeared": "2025-12-20"
   },
   {
     "id": "version_checker",
@@ -431,7 +475,9 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Version_Checker/version_checker.py",
-    "lastUpdated": "2025-12-26"
+    "lastUpdated": "2025-12-26",
+    "sha256": "f302273f471d3992084df94affa8fb5c6ac8d71f3a986e651f355722470e05ae",
+    "firstAppeared": "2025-12-26"
   },
   {
     "id": "plugin_installer",
@@ -448,7 +494,9 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Plugin_Installer/plugin_installer.py",
-    "lastUpdated": "2026-01-11"
+    "lastUpdated": "2026-01-11",
+    "sha256": "7a47aee34ba6e8075a9a494d60286abffbaceeaacb48d3abad91a312eed56f03",
+    "firstAppeared": "2026-01-04"
   },
   {
     "id": "chat_with_molecule",
@@ -469,7 +517,9 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule/chat_with_molecule.py",
-    "lastUpdated": "2025-12-27"
+    "lastUpdated": "2025-12-27",
+    "sha256": "b147bcd281f37281d0a204dbf5451513860e70ecd8b0727c656f31f498d04d8f",
+    "firstAppeared": "2025-12-26"
   },
   {
     "id": "chat_with_molecule_neo",
@@ -490,7 +540,9 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo/chat_with_molecule_neo.py",
-    "lastUpdated": "2025-12-30"
+    "lastUpdated": "2025-12-30",
+    "sha256": "5d23d9696833dc0419ac67289be4dd9c98302635fc9fc87e5d14bd73ed7efe2a",
+    "firstAppeared": "2025-12-28"
   },
   {
     "id": "pubchem_structure_identifier",
@@ -508,7 +560,9 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/PubChem_Structure_Identifier/pubchem_structure_identifier.py",
-    "lastUpdated": "2025-12-28"
+    "lastUpdated": "2025-12-28",
+    "sha256": "51974e8d2b20b73892de05c997167132ac537c402387542267f524e05a8d1bec",
+    "firstAppeared": "2025-12-28"
   },
   {
     "id": "chat_with_molecule_neo_chatgpt",
@@ -529,7 +583,9 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_ChatGPT/chat_with_molecule_neo_chatGPT.py",
-    "lastUpdated": "2025-12-30"
+    "lastUpdated": "2025-12-30",
+    "sha256": "9b5ac553ac212fe46c6a2c99863deb8c7c987a2edf44ad1abc981eac0e44fd42",
+    "firstAppeared": "2025-12-30"
   },
   {
     "id": "chat_with_molecule_neo_local",
@@ -550,7 +606,9 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_Local/chat_with_molecule_neo_local.py",
-    "lastUpdated": "2025-12-30"
+    "lastUpdated": "2025-12-30",
+    "sha256": "2485e56a40593057d532db7f554c1f1572f766b5036d51ba4b2c0c5b2b5d9536",
+    "firstAppeared": "2025-12-30"
   },
   {
     "id": "symmetry_analyzer",
@@ -569,7 +627,9 @@
       "pymatgen"
     ],
     "downloadUrl": "../plugins/Symmetry_Analyzer/symmetry_analyzer.py",
-    "lastUpdated": "2025-12-31"
+    "lastUpdated": "2025-12-31",
+    "sha256": "e9b960dc8933edb46ac364329f011ddb81970d3b5fc975eea0150d68e17ed5d8",
+    "firstAppeared": "2025-12-31"
   },
   {
     "id": "vector_viewer",
@@ -589,7 +649,9 @@
       "pyvista"
     ],
     "downloadUrl": "../plugins/Vector_Viewer/vector_viewer.py",
-    "lastUpdated": "2025-12-31"
+    "lastUpdated": "2025-12-31",
+    "sha256": "2b64faafdc4d4b5fe5fb6c269c610f7723c3740b0e9832ce4120b44798859922",
+    "firstAppeared": "2025-12-31"
   },
   {
     "id": "mopac_input_generator",
@@ -608,7 +670,9 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Mopac_Input_Generator/mopac_input_generator.py",
-    "lastUpdated": "2026-01-03"
+    "lastUpdated": "2026-01-03",
+    "sha256": "d16ff15b78e8cf53288ef2f5ca39a95b2e18ee95eba368ebf8b4ed13690d2f90",
+    "firstAppeared": "2026-01-03"
   },
   {
     "id": "gamess_input_generator",
@@ -627,7 +691,9 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Gamess_Input_Generator/gamess_input_generator.py",
-    "lastUpdated": "2026-01-03"
+    "lastUpdated": "2026-01-03",
+    "sha256": "5d7f0a579b9ffa4344db81c9bcdb057b7e048826a3ba3d682b8a0151557d464b",
+    "firstAppeared": "2026-01-03"
   },
   {
     "id": "pyscf_input_generator",
@@ -647,7 +713,9 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/PySCF_Input_Generator/pyscf_input_generator.py",
-    "lastUpdated": "2026-01-03"
+    "lastUpdated": "2026-01-03",
+    "sha256": "91c4df1e193297f2926344a87986908405a8a40e04e1e0ebc0b65b2d834f7030",
+    "firstAppeared": "2026-01-03"
   },
   {
     "id": "psi4_input_generator",
@@ -666,7 +734,9 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Psi4_Input_Generator/psi4_input_generator.py",
-    "lastUpdated": "2026-01-03"
+    "lastUpdated": "2026-01-03",
+    "sha256": "e838a19658aae86d8efa30d5754e76a91ad88f129ee623329bf9a9136c48274a",
+    "firstAppeared": "2026-01-03"
   },
   {
     "id": "molecule_comparator",
@@ -685,7 +755,9 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Molecule_Comparator/molecule_comparator.py",
-    "lastUpdated": "2026-01-23"
+    "lastUpdated": "2026-01-23",
+    "sha256": "9f457e155df6d3ab44f9f8bde8c34b5daa9b888cd05b8dc2b6565cd3526c7210",
+    "firstAppeared": "2026-01-03"
   },
   {
     "id": "nwchem_input_generator",
@@ -704,7 +776,9 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/NWChem_Input_Generator/nwchem_input_generator.py",
-    "lastUpdated": "2026-01-03"
+    "lastUpdated": "2026-01-03",
+    "sha256": "90955c56ab9969669d64e9799d97a158803777871e0d7ec9e3e4d704d2ac7df9",
+    "firstAppeared": "2026-01-03"
   },
   {
     "id": "xyz_editor",
@@ -723,7 +797,9 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/XYZ_Editor/xyz_editor.py",
-    "lastUpdated": "2026-01-04"
+    "lastUpdated": "2026-01-04",
+    "sha256": "c555e81013e89e6b5d39990acd4dc01a19522eae5cade6a5a9fa0ef0a54b0d9d",
+    "firstAppeared": "2026-01-03"
   },
   {
     "id": "hello_world_folder",
@@ -738,7 +814,9 @@
     ],
     "dependencies": [],
     "downloadUrl": "../plugins/Hello_World_Folder_Plugin/HelloWorldFolderPlugin.zip",
-    "lastUpdated": "2026-01-05"
+    "lastUpdated": "2026-01-05",
+    "sha256": "ced69c06a80f8965990e0622695efb2e350872e2cc2035848d359ce64a1a9ad3",
+    "firstAppeared": "2026-01-04"
   },
   {
     "id": "pyscf_calculator",
@@ -779,7 +857,9 @@
       "openbabel-wheel"
     ],
     "downloadUrl": "../plugins/OpenBabel_Conversion_Tool/openbabel_conversion_tool.py",
-    "lastUpdated": "2026-01-10"
+    "lastUpdated": "2026-01-10",
+    "sha256": "9f8cab5b9dda9889f4943c6dae0e39d4a13f87508b23a6f01f5888cd40cf78ae",
+    "firstAppeared": "2026-01-10"
   },
   {
     "id": "paste_from_chemdraw",
@@ -797,7 +877,9 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/Paste_from_ChemDraw/paste_chemdraw.py",
-    "lastUpdated": "2026-01-15"
+    "lastUpdated": "2026-01-15",
+    "sha256": "9578ae23873c30f156302140f0aae4c4051938d27f3384c4aa52d5666c34af82",
+    "firstAppeared": "2026-01-15"
   },
   {
     "id": "compound_info_report",
@@ -815,7 +897,9 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Compound_Info_Report/compound_info_report.py",
-    "lastUpdated": "2026-01-21"
+    "lastUpdated": "2026-01-21",
+    "sha256": "dfa1f0107b41669e26abd9c978fcdccb30f545443f66590d39cad2a0865349c5",
+    "firstAppeared": "2026-01-21"
   },
   {
     "id": "gaussian_mo_analyzer",
@@ -838,7 +922,9 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Gaussian_MO_Analyzer/gaussian_fchk_mo_analyzer.zip",
-    "lastUpdated": "2026-02-02"
+    "lastUpdated": "2026-02-02",
+    "sha256": "7c9e50d6f170477a402508caad4ed6ce2ddf63cafa97aab256046ae978dc22d9",
+    "firstAppeared": "2026-01-23"
   },
   {
     "id": "gaussian_fchk_loader",
@@ -856,7 +942,9 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Gaussian_FCHK_Loader/gaussian_fchk_loader.py",
-    "lastUpdated": "2026-01-23"
+    "lastUpdated": "2026-01-23",
+    "sha256": "ff6c78af1ab062c670f22950cf350faee48bdd54d85fb1b1f694cd0d6650159d",
+    "firstAppeared": "2026-01-23"
   },
   {
     "id": "settings_saver",
@@ -873,7 +961,9 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Settings_Saver/settings_saver.py",
-    "lastUpdated": "2026-01-25"
+    "lastUpdated": "2026-01-25",
+    "sha256": "69ec4b15cbcee0c7aaf511c956bf61b6d92adcc4dae4aae1a6a53b654b08de1c",
+    "firstAppeared": "2026-01-25"
   },
   {
     "id": "structural_updater",
@@ -891,7 +981,9 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Structural_Updater/structural_updater.py",
-    "lastUpdated": "2026-01-28"
+    "lastUpdated": "2026-01-28",
+    "sha256": "f6ae8901b27cbcadd3840da4cf2217405d8deeeb98a6970483db6b2346f6951e",
+    "firstAppeared": "2026-01-28"
   },
   {
     "id": "orca_result_analyzer",
@@ -958,9 +1050,11 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer_Advanced/cube_viewer_advanced.py",
-    "lastUpdated": "2026-02-02"
+    "lastUpdated": "2026-02-02",
+    "sha256": "e68d4c4fd2885ed4fb94328fb81455dd839c26911ef4fbc012b3046efc28be3b",
+    "firstAppeared": "2026-02-02"
   },
-    {
+  {
     "id": "advanced_rendering",
     "visible": true,
     "name": "Advanced Rendering",
@@ -977,12 +1071,8 @@
       "numpy"
     ],
     "downloadUrl": "../plugins/Advanced_Rendering/advanced_rendering.py",
-    "lastUpdated": "2026-02-04"
+    "lastUpdated": "2026-02-04",
+    "sha256": "7eb6aaf015c06940df21190dae9b612d3669a17fa5957a473a74c64f3d377f39",
+    "firstAppeared": "2026-02-03"
   }
-
 ]
-
-
-
-
-

@@ -21,13 +21,14 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QDesktopServices, QColor, QIcon
 import importlib.metadata
+import hashlib
 
 import shutil
 import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.01.11"
+PLUGIN_VERSION = "2026.02.04"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Checks for updates, installs new plugins, and allows manual reinstallation."
 
@@ -277,6 +278,13 @@ class PluginInstallerWindow(QDialog):
         else:
             self.check_updates()
 
+    def calculate_sha256(self, filepath):
+        sha256_hash = hashlib.sha256()
+        with open(filepath, "rb") as f:
+            for byte_block in iter(lambda: f.read(4096), b""):
+                sha256_hash.update(byte_block)
+        return sha256_hash.hexdigest()
+
     def init_ui(self):
         layout = QVBoxLayout(self)
 
@@ -462,6 +470,8 @@ class PluginInstallerWindow(QDialog):
     def populate_table(self, silent=False):
         self.table.setRowCount(0)
         self.updates_found = False
+        # Reset flag so app upgrade button visibility is checked fresh
+        self._app_upgrade_checked = False
         
         # Create map of remote data
         remote_map = {}
@@ -513,18 +523,33 @@ class PluginInstallerWindow(QDialog):
             if author == "Unknown" and is_installed:
                 author = local_info.get('author', 'Unknown')
 
+            # Check app version upgrade button visibility (only once per populate, not per plugin)
+            if not hasattr(self, '_app_upgrade_checked'):
+                self._app_upgrade_checked = True
+                # Get APP_VERSION for comparison
+                try:
+                    from moleditpy.modules.constants import VERSION as APP_VERSION
+                except ImportError:
+                    try:
+                        from moleditpy_linux.modules.constants import VERSION as APP_VERSION
+                    except ImportError:
+                        APP_VERSION = "0.0.0"
+                
+                if self.latest_app_version != "Checking..." and self.latest_app_version != "Unknown":
+                    try:
+                        if self.latest_app_version > APP_VERSION:
+                            self.updates_found = True
+                            self.btn_upgrade_app.setVisible(True)
+                            self.btn_upgrade_app.setText(f"Copy upgrade command (v{self.latest_app_version})")
+                        else:
+                            self.btn_upgrade_app.setVisible(False)
+                    except:
+                        # If comparison fails (e.g. types), hide the button
+                        self.btn_upgrade_app.setVisible(False)
+
             if is_installed:
                 if remote_info:
-                    if self.latest_app_version != "Checking..." and self.latest_app_version != "Unknown":
-                        try:
-                            if self.latest_app_version > APP_VERSION:
-                                self.updates_found = True
-                                self.btn_upgrade_app.setVisible(True)
-                                self.btn_upgrade_app.setText(f"Copy upgrade command (v{self.latest_app_version})")
-                            else:
-                                self.btn_upgrade_app.setVisible(False)
-                        except:
-                            pass
+                    
                     if local_ver != 'Unknown' and remote_ver != 'Unknown':
                         if remote_ver > local_ver:
                             status = "Update Available"
@@ -745,6 +770,13 @@ class PluginInstallerWindow(QDialog):
                         pass
         except Exception as e:
             print(f"Error detecting package name: {e}")
+            # Even if detection fails, show the button but maybe default to 'moleditpy'
+            pass
+        
+        # Always show button if we are here? Wait, the visibility is controlled in check_updates.
+        # But if the button is clicked, we just copy. The issue is "button not appearing".
+        # This is likely in check_updates where it checks for upgrade.
+        pass
 
         cmd = f"pip install --upgrade {package_name}"
         QApplication.clipboard().setText(cmd)
@@ -886,6 +918,46 @@ class PluginInstallerWindow(QDialog):
                         with open(download_path, 'wb') as f:
                             f.write(content)
                         
+                        # SHA256 Verification
+                        # Find remote_info for this plugin to get SHA256
+                        remote_info = None
+                        for entry in self.remote_data:
+                            if entry.get('name') == plugin_name:
+                                remote_info = entry
+                                break
+                        
+                        remote_sha256 = None
+                        if remote_info and 'sha256' in remote_info:
+                            remote_sha256 = remote_info['sha256']
+                        
+                        # Warn if SHA256 not available
+                        if not remote_sha256:
+                            ret = QMessageBox.warning(self, "Security Warning", 
+                                                      f"SHA256 checksum is not available for '{plugin_name}'.\n\nThis means the plugin file's integrity cannot be verified.\n\nDo you want to proceed anyway?",
+                                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                                      QMessageBox.StandardButton.No)
+                            if ret != QMessageBox.StandardButton.Yes:
+                                return
+                        else:
+                            # Verify SHA256 checksum
+                            calculated_sha256 = self.calculate_sha256(download_path)
+                            if calculated_sha256 != remote_sha256:
+                                # Show details and ask for support
+                                detail_msg = (
+                                    f"SHA256 Checksum Mismatch for '{plugin_name}'!\n\n"
+                                    f"Expected: {remote_sha256}\n"
+                                    f"Calculated: {calculated_sha256}\n\n"
+                                    f"This could indicate:\n"
+                                    f"• The file was corrupted during download\n"
+                                    f"• The file has been tampered with\n"
+                                    f"• The plugin registry data is outdated\n\n"
+                                    f"Installation has been stopped for your safety.\n\n"
+                                    f"Please report this issue to the plugin author or visit:\n"
+                                    f"https://github.com/HiroYokoyama/moleditpy-plugins/issues"
+                                )
+                                QMessageBox.critical(self, "Security Error", detail_msg)
+                                return
+
                         # Install / Update Logic
                         try:
                             # Strict Update Mode:
