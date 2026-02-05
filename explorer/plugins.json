@@ -1103,5 +1103,49 @@
     "lastUpdated": "2026-02-05",
     "sha256": "0b6205333021c3cf7bdcd8b55c8fafa914f1b11b3dfff8553d4adbc3aa8548ef",
     "firstAppeared": "2026-02-05"
+  },
+  {
+    "id": "blender_export",
+    "visible": true,
+    "name": "Blender Export",
+    "version": "2026.02.05",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Export molecular structures as Blender Python scripts that create 3D visualizations",
+    "tags": [
+      "Export",
+      "Visualization"
+    ],
+    "dependencies": [
+      "rdkit",
+      "numpy",
+      "PyQt6"
+    ],
+    "downloadUrl": "../plugins/Blender_Export/blender_export.py",
+    "lastUpdated": "2026-02-05",
+    "sha256": "ee292cadb3a1ac2fcaf241ad63b31f74b64d71ceabe1e7a71612fdef2b24eb2f",
+    "firstAppeared": "2026-02-05"
+  },
+  {
+    "id": "povray_export",
+    "visible": true,
+    "name": "POV-Ray Export",
+    "version": "2026.02.05",
+    "author": "MoleditPy Community",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Export molecular structures as POV-Ray scene files for professional ray-traced rendering",
+    "tags": [
+      "Export",
+      "Visualization"
+    ],
+    "dependencies": [
+      "rdkit",
+      "numpy",
+      "PyQt6"
+    ],
+    "downloadUrl": "../plugins/POV-Ray_Export/povray_export.py",
+    "lastUpdated": "2026-02-05",
+    "sha256": "78e0b75e7ad2f3061b40a330f137e8c0a9267305349e76c06728dda64d9bd18d",
+    "firstAppeared": "2026-02-05"
   }
 ]
