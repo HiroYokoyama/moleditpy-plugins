@@ -1082,5 +1082,26 @@
     "lastUpdated": "2026-02-04",
     "sha256": "7eb6aaf015c06940df21190dae9b612d3669a17fa5957a473a74c64f3d377f39",
     "firstAppeared": "2026-02-03"
+  },
+  {
+    "id": "high_res_imager",
+    "visible": true,
+    "name": "High Resolution Imager",
+    "version": "2026.02.05",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Take high-resolution screenshots of the 3D view with custom resolution.",
+    "tags": [
+      "Visualization",
+      "Utility"
+    ],
+    "dependencies": [
+      "pyvista",
+      "PyQt6"
+    ],
+    "downloadUrl": "../plugins/High_Resolution_Imager/high_res_imager.py",
+    "lastUpdated": "2026-02-05",
+    "sha256": "e2e8dd4b04c45e4c21a018c486a397f78d79f10780f05d9c795216a3ab9084ee",
+    "firstAppeared": "2026-02-05"
   }
 ]
