@@ -1131,7 +1131,7 @@
     "visible": true,
     "name": "POV-Ray Export",
     "version": "2026.02.05",
-    "author": "MoleditPy Community",
+    "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Export molecular structures as POV-Ray scene files for professional ray-traced rendering",
     "tags": [
@@ -1145,7 +1145,7 @@
     ],
     "downloadUrl": "../plugins/POV-Ray_Export/povray_export.py",
     "lastUpdated": "2026-02-05",
-    "sha256": "78e0b75e7ad2f3061b40a330f137e8c0a9267305349e76c06728dda64d9bd18d",
+    "sha256": "1d3592b604b12e3b70f70d630bfa0096244531e02b38041cba4a3b619f8571ba",
     "firstAppeared": "2026-02-05"
   }
 ]
