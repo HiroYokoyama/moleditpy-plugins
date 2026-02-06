@@ -1011,7 +1011,7 @@
     ],
     "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin/releases/download/1.5.1/orca_result_analyzer.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin",
-    "lastUpdated": "2026-02-02",
+    "lastUpdated": "2026-02-06",
     "sha256": "d8b5ea4e7e61a01e32dcfbecb2d532d842e91158785e5456901ffa35449029bf",
     "firstAppeared": "2026-01-27"
   },
@@ -1150,3 +1150,4 @@
   }
 
 ]
+
