@@ -14,7 +14,7 @@ except ImportError:
     Descriptors = None
     Draw = None
 
-PLUGIN_VERSION = "2026.02.04"
+PLUGIN_VERSION = "2026.02.09"
 PLUGIN_AUTHOR = "HiroYokoyama"
 
 PLUGIN_NAME = "MS Spectrum Simulation Neo"
@@ -69,19 +69,32 @@ class MSSpectrumDialog(QDialog):
         # 1. Formula Input
         self.formula_input = QLineEdit()
         if self.mol:
+            # Initial calculation (usually from passed 3D molecule)
             self.formula_input.setText(Chem.rdMolDescriptors.CalcMolFormula(self.mol))
         settings_layout.addRow("Formula:", self.formula_input)
         
-        # 4. Sync
+        # 4. Sync & 2D Option
         self.sync_check = QCheckBox("Sync with Main Window")
         self.sync_check.stateChanged.connect(self.toggle_sync)
+        
+        self.use_2d_check = QCheckBox("Use 2D molecule")
+        self.use_2d_check.setChecked(True)
+        self.use_2d_check.toggled.connect(lambda: self.check_update())
+        
+        sync_layout = QHBoxLayout()
+        sync_layout.addWidget(self.sync_check)
+        sync_layout.addWidget(self.use_2d_check)
+        sync_layout.addStretch()
+        
         if self.parent():
              self.sync_check.setChecked(True)
         else:
              self.sync_check.setChecked(False)
              self.sync_check.setEnabled(False) # Disable in standalone/mock
-             
-        settings_layout.addRow("Sync:", self.sync_check)
+             self.use_2d_check.setEnabled(False)
+             self.use_2d_check.setChecked(False)
+
+        settings_layout.addRow("Options:", sync_layout)
         
         # 2. Charge (Signed)
         self.charge_spin = QSpinBox()
@@ -174,7 +187,8 @@ class MSSpectrumDialog(QDialog):
         self.gauss_check.stateChanged.connect(lambda: self.recalc_peaks(reset=False))
         self.width_spin.valueChanged.connect(lambda: self.recalc_peaks(reset=False))
         
-        # Initial Calc
+        # Initial Sync & Calc
+        self.check_update()
         self.recalc_peaks(reset=True)
 
     def closeEvent(self, event):
@@ -197,34 +211,54 @@ class MSSpectrumDialog(QDialog):
 
         try:
             parent = self.parent()
-            # Basic checks for parent validity
             if parent is None:
                 return
                 
-            # Check if parent C++ object is deleted (prevent crash)
             try:
                 import sip
                 if hasattr(sip, 'isdeleted') and sip.isdeleted(parent):
                     return
-            except ImportError:
-                pass
             except Exception:
                 pass
 
-            if not hasattr(parent, 'current_mol') or not parent.current_mol:
+            new_mol = None
+            is_from_2d = False
+            # Option 1: Use 2D sketch from parent's MolecularData
+            if self.use_2d_check.isChecked() and hasattr(parent, 'data'):
+                try:
+                    # Retrieve 2D molecule from MoleditPy core
+                    new_mol = parent.data.to_rdkit_mol()
+                    if new_mol:
+                        is_from_2d = True
+                except Exception:
+                    new_mol = None
+            
+            # Option 2: Use 3D molecule if 2D is not requested or failed
+            if new_mol is None and hasattr(parent, 'current_mol'):
+                new_mol = parent.current_mol
+                is_from_2d = False
+                
+            if not new_mol:
                 return
 
             # Update internal molecule reference to stay in sync
-            # This ensures 'Report' uses the correct molecule structure
-            self.mol = parent.current_mol
+            # This ensures 'Report' and formula calculation use the intended structure
+            self.mol = new_mol
 
-            # Generate formula from current main window molecule
-            current_formula = Chem.rdMolDescriptors.CalcMolFormula(self.mol)
+            # Generate formula from current molecule
+            if is_from_2d:
+                 # Add hydrogens for 2D molecules to ensure correct formula
+                 mol_to_calc = Chem.AddHs(self.mol)
+            else:
+                 # Use 3D molecule as is (AddHs only for 2D)
+                 mol_to_calc = self.mol
+
+            current_formula = Chem.rdMolDescriptors.CalcMolFormula(mol_to_calc)
             
             # If different from text box, update
             if self.formula_input.text() != current_formula:
                  self.formula_input.setText(current_formula)
-        except Exception as e:
+        except Exception:
             # Fail silently to avoid spamming errors in timer
             pass
 
