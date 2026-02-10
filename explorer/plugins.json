@@ -993,7 +993,7 @@
     "id": "orca_result_analyzer",
     "visible": true,
     "name": "ORCA Result Analyzer",
-    "version": "1.5.2",
+    "version": "1.6.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Comprehensive analyzer for ORCA output files (.out, .log). Includes Vibrational, MO, TDDFT, and NMR analysis.",
@@ -1009,10 +1009,10 @@
       "Pillow",
       "nmrsim"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin/releases/download/1.5.2/orca_result_analyzer.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin/releases/download/1.6.0/orca_result_analyzer.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin",
     "lastUpdated": "2026-02-10",
-    "sha256": "0b31ed15eabe7806788fa6728a527d56321efc79504ea94f2b0f43bbb418ddfa",
+    "sha256": "b587d4d325c81a28eba667ea5db1416bdbbc3e761f1467ccdebb6b826c9b0deb",
     "firstAppeared": "2026-01-27"
   },
   {
@@ -1173,5 +1173,6 @@
   }
 
 ]
+
 
 
