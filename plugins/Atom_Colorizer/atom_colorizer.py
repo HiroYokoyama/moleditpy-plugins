@@ -21,7 +21,7 @@ except ImportError:
         # Final fallback map
         CPK_COLORS_PV = {}
 
-__version__="2026.02.13"
+__version__="2026.02.12"
 __author__="HiroYokoyama"
 
 PLUGIN_NAME = "Atom Colorizer"
