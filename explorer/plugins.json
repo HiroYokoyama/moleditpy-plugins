@@ -231,7 +231,7 @@
     "id": "atom_colorizer",
     "visible": true,
     "name": "Atom Colorizer",
-    "version": "2025.12.25",
+    "version": "2026.02.12",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Select atoms in the 3D viewer and apply color.",
@@ -245,8 +245,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Atom_Colorizer/atom_colorizer.py",
-    "lastUpdated": "2025-12-25",
-    "sha256": "0543be12421e5b090613a0ed3ae5e0c344240c005eb7f61f3577e93d91560654",
+    "lastUpdated": "2026-02-12",
+    "sha256": "b115b4b8ed6d53e0ce6c70907966bc199662b2e9e9db1d0472a4bf5e2bb233a0",
     "firstAppeared": "2025-12-16"
   },
   {
@@ -1113,7 +1113,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Export molecular structures as Blender Python scripts that create 3D visualizations",
     "tags": [
-      "Export",
+      "File IO",
       "Visualization"
     ],
     "dependencies": [
@@ -1135,7 +1135,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Export molecular structures as POV-Ray scene files for professional ray-traced rendering",
     "tags": [
-      "Export",
+      "File IO",
       "Visualization"
     ],
     "dependencies": [
@@ -1159,7 +1159,7 @@
     "tags": [
       "Visualization",
       "Utility",
-      "Export"
+      "File IO"
     ],
     "dependencies": [
       "rdkit",
@@ -1170,13 +1170,25 @@
     "lastUpdated": "2026-02-10",
     "sha256": "49e38e749561658bded16becc88a1d94f356c9e812737a742b688b6daebfe9f1",
     "firstAppeared": "2026-02-08"
+  },
+  {
+    "id": "encrypted_project",
+    "visible": true,
+    "name": "Encrypted Project",
+    "version": "2026.02.12",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Securely saves molecular data using AES-128 encryption with password protection.",
+    "tags": [
+      "File IO",
+      "Security"
+    ],
+    "dependencies": [
+      "cryptography"
+    ],
+    "downloadUrl": "../plugins/Encrypted_Project/encrypted_project.py",
+    "lastUpdated": "2026-02-12",
+    "sha256": "cd55018c395dd99e3592214032fdcdb4b3c22ced01c3d426701e99082b9661d5",
+    "firstAppeared": "2026-02-12"
   }
-
 ]
-
-
-
-
-
-
-

@@ -21,7 +21,7 @@ except ImportError:
         # Final fallback map
         CPK_COLORS_PV = {}
 
-__version__="2025.12.25"
+__version__="2026.02.13"
 __author__="HiroYokoyama"
 
 PLUGIN_NAME = "Atom Colorizer"
@@ -257,6 +257,15 @@ def initialize(context):
                 except Exception as e:
                     print(f"Failed to restore color for atom {atom_idx_str}: {e}")
     
+    def on_document_reset():
+        """Reset colors when a new document is created."""
+        if hasattr(mw, '_plugin_color_overrides'):
+            mw._plugin_color_overrides.clear()
+        global _atom_colorizer_window
+        if _atom_colorizer_window:
+            _atom_colorizer_window.le_indices.clear()
+
     # Register handlers
     context.register_save_handler(save_handler)
+    context.register_document_reset_handler(on_document_reset)
     context.register_load_handler(load_handler)
