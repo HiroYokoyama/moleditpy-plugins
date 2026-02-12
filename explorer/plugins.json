@@ -1178,7 +1178,7 @@
     "version": "2026.02.12",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "Securely saves molecular data using AES-128 encryption with password protection.",
+    "description": "Securely saves molecular data using AES-128 encryption with password protection (.pmeenc file).",
     "tags": [
       "File IO",
       "Security"
@@ -1191,4 +1191,5 @@
     "sha256": "cd55018c395dd99e3592214032fdcdb4b3c22ced01c3d426701e99082b9661d5",
     "firstAppeared": "2026-02-12"
   }
+
 ]
