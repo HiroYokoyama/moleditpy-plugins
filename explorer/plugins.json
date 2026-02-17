@@ -1195,7 +1195,7 @@
     "id": "3d_molecule_on_2d",
     "visible": true,
     "name": "3D Molecule on 2D",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Integrated 3D depth cues, rotation, and 3D-aware Mol export.",
@@ -1208,14 +1208,15 @@
       "PyQt6",
       "numpy"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_3d-molecule-on-2d/releases/download/1.0.0/3d_molecule_on_2d.py",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_3d-molecule-on-2d/releases/download/1.1.0/3d_molecule_on_2d.py",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_3d-molecule-on-2d",
-    "lastUpdated": "2026-02-17",
-    "sha256": "2c7a6270d21f8e5a4c44138b7039e647cc293d2525fe9a984c27ec1e3752a912",
+    "lastUpdated": "2026-02-18",
+    "sha256": "c238cd71f1138adb99cf5fb11a000d1b03abf1db5f4c551f1b8b36964e2ebb84",
     "firstAppeared": "2026-02-17"
   }
 
 ]
+
 
 
 
