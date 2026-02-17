@@ -7,8 +7,7 @@ Explorer: [https://hiroyokoyama.github.io/moleditpy-plugins/explorer/](https://h
 This directory contains the official plugins for **MoleditPy**. 
 
 **Contribute Your Plugin**
-We believe in the power of community\!  
-If you have created a useful plugin, we would love to include it as an official part of this collection. Please feel free to submit a Pull Request with your plugin to help us expand what MoleditPy can do.
+We believe in the power of community! If you have created a useful plugin, we would love to include it as an official part of this collection. Please refer to our [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to submit your work.
 
 ## Featured Plugins
 
