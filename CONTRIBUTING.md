@@ -51,8 +51,8 @@ If you are updating a plugin that is already located in the `plugins/` directory
 The `explorer/plugins.json` file is the registry that the application uses to discover and install plugins. 
 
 ### Field Descriptions
-- `id`: A unique string identifier (e.g., `my_plugin_id`).
-- `name`: Display name.
+- `id`: A unique string identifier (e.g., `my_plugin_id`). (Optional/Secondary)
+- `name`: **Critical Identifier**. This must be unique across all plugins. It is used as the primary identifier by the application for indexing, updates, and UI display.
 - `version`: Version string (e.g., `2026.02.18` or `1.0.0`).
 - `author`: Your name.
 - `authorUrl`: URL to your GitHub profile or project homepage.
