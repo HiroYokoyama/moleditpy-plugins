@@ -51,7 +51,7 @@ If you are updating a plugin that is already located in the `plugins/` directory
 The `explorer/plugins.json` file is the registry that the application uses to discover and install plugins. 
 
 ### Field Descriptions
-- `id`: A unique string identifier (e.g., `my_plugin_id`). (Optional/Secondary)
+- `id`: A unique string identifier (e.g., `my_plugin_id`).
 - `name`: **Critical Identifier**. This must be unique across all plugins. It is used as the primary identifier by the application for indexing, updates, and UI display.
 - `version`: Version string (e.g., `2026.02.18` or `1.0.0`).
 - `author`: Your name.
@@ -106,3 +106,4 @@ shasum -a 256 my_plugin.py
 - **Isolation**: Ensure your plugin does not interfere with core application functions unless intended.
 - **Error Handling**: Wrap UI callbacks in `try...except` blocks to prevent application crashes.
 - **Dependencies**: Keep dependencies to a minimum. If you use external libraries, list them in the `dependencies` field in `plugins.json`.
+
