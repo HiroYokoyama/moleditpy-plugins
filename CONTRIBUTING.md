@@ -55,8 +55,8 @@ The `explorer/plugins.json` file is the registry that the application uses to di
 - `name`: **Critical Identifier**. This must be unique across all plugins. It is used as the primary identifier by the application for indexing, updates, and UI display.
 - `version`: Version string (e.g., `2026.02.18` or `1.0.0`).
 - `author`: Your name.
-- `authorUrl`: URL to your GitHub profile or project homepage.
-- `projectUrl`: URL to the plugin's source code repository (recommended for external plugins).
+- `authorUrl`: URL to your GitHub profile.
+- `projectUrl`: URL to the plugin's source code repository.
 - `description`: A clear, concise description.
 - `tags`: Array of categories (e.g., `["Analysis", "Visualization"]`).
 - `dependencies`: Array of required Python packages.
@@ -106,4 +106,5 @@ shasum -a 256 my_plugin.py
 - **Isolation**: Ensure your plugin does not interfere with core application functions unless intended.
 - **Error Handling**: Wrap UI callbacks in `try...except` blocks to prevent application crashes.
 - **Dependencies**: Keep dependencies to a minimum. If you use external libraries, list them in the `dependencies` field in `plugins.json`.
+
 
