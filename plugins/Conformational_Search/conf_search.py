@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QTableWidget, 
     QTableWidgetItem, QPushButton, QMessageBox, QLabel, QHeaderView, QAbstractItemView,
-    QApplication, QComboBox
+    QApplication, QComboBox, QCheckBox
 )
 from PyQt6.QtCore import Qt
 from rdkit import Chem
@@ -9,7 +9,7 @@ from rdkit.Chem import AllChem
 import copy
 
 PLUGIN_NAME = "Conformational Search"
-__version__="2026.01.02"
+__version__="2026.02.19"
 __author__="HiroYokoyama"
 
 class ConformerSearchDialog(QDialog):
@@ -26,6 +26,8 @@ class ConformerSearchDialog(QDialog):
         self.temp_mol = None
         # 生成された配座データのリスト [(Energy, ConformerID), ...]
         self.conformer_data = []
+        # 全ての計算結果（未フィルタ）
+        self.results_raw = []
 
         self.init_ui()
 
@@ -44,6 +46,12 @@ class ConformerSearchDialog(QDialog):
         hbox_ff.addWidget(self.combo_ff)
         hbox_ff.addStretch()
         layout.addLayout(hbox_ff)
+
+        # Show All Checkbox (Moving under FF box)
+        self.cb_show_all = QCheckBox("Show All Conformers (ignore energy redundancy)")
+        self.cb_show_all.setChecked(False)
+        self.cb_show_all.toggled.connect(self.apply_filter_and_update)
+        layout.addWidget(self.cb_show_all)
         
         # Set default based on main window setting
         default_method = getattr(self.main_window, "optimization_method", "MMFF_RDKIT")
@@ -145,20 +153,41 @@ class ConformerSearchDialog(QDialog):
 
             # エネルギーが低い順にソート
             results.sort(key=lambda x: x[0])
-            
-            # データを保持
-            self.temp_mol = mol_calc
-            self.conformer_data = results
+            self.results_raw = results
 
-            # テーブル更新
-            self.update_table()
-            self.lbl_info.setText(f"Found {len(results)} conformers ({selected_ff}).")
+            # データを保持 & 更新
+            self.temp_mol = mol_calc
+            self.apply_filter_and_update()
 
         except Exception as e:
             QMessageBox.critical(self, PLUGIN_NAME, f"Error during search: {str(e)}")
             self.lbl_info.setText("Error occurred.")
         finally:
             self.btn_run.setEnabled(True)
+
+    def apply_filter_and_update(self):
+        """現在のフィルタ設定に基づいてデータを抽出し、テーブルを更新する"""
+        if not self.results_raw:
+            return
+
+        if self.cb_show_all.isChecked():
+            self.conformer_data = self.results_raw
+        else:
+            # エネルギーの重複を排除
+            filtered = []
+            ENERGY_THRESHOLD = 0.0001
+            for energy, cid in self.results_raw:
+                is_redundant = False
+                for existing_energy, _ in filtered:
+                    if abs(energy - existing_energy) < ENERGY_THRESHOLD:
+                        is_redundant = True
+                        break
+                if not is_redundant:
+                    filtered.append((energy, cid))
+            self.conformer_data = filtered
+
+        self.update_table()
+        self.lbl_info.setText(f"Showing {len(self.conformer_data)} conformers (Total found: {len(self.results_raw)}).")
 
     def update_table(self):
         self.table.setRowCount(0)
@@ -205,6 +234,14 @@ class ConformerSearchDialog(QDialog):
             # GLWidgetのリフレッシュ
             getattr(self.main_window.gl_widget, "update", lambda: None)()
 
+def initialize(context):
+    """Register the plugin in the 3D Edit menu."""
+    def show_dialog():
+        mw = context.get_main_window()
+        run(mw)
+
+    context.add_menu_action("3D Edit/Conformational Search...", show_dialog)
+
 def run(mw):
     mol = getattr(mw, "current_mol", None)
     if not mol:
@@ -221,5 +258,3 @@ def run(mw):
     # 参照を保持してGCを防ぐ
     mw._conformer_search_dialog = dialog
     dialog.show() # モーダルではなくModeless（非ブロック）で表示
-
-# initialize removed as it only registered the menu action
