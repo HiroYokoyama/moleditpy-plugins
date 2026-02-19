@@ -20,8 +20,12 @@ except ImportError:
 from PyQt6.QtCore import Qt, QTimer, QSize
 from rdkit import Chem
 from rdkit.Chem import AllChem, rdGeometry
+try:
+    from rdkit.Chem import rdDetermineBonds
+except ImportError:
+    rdDetermineBonds = None
 
-__version__="2025.12.25"
+__version__="2026.02.19"
 __author__="HiroYokoyama"
 PLUGIN_NAME = "Animated XYZ Giffer"
 
@@ -38,6 +42,7 @@ class AnimatedXYZPlayer(QDialog):
         self.current_frame_idx = 0
         self.target_frame_idx = 0
         self.base_mol = None # RDKit Mol with topology
+        self.original_topology = None # Copy of base_mol with initial bonds
         self.is_playing = False
         self.fps = 10
         
@@ -97,6 +102,20 @@ class AnimatedXYZPlayer(QDialog):
         self.spin_fps.setValue(self.fps)
         self.spin_fps.valueChanged.connect(self.set_fps)
         fps_layout.addWidget(self.spin_fps)
+        
+        # Dynamic Bonds & Loop
+        self.chk_dynamic_bonds = QCheckBox("Dynamic Bonds")
+        self.chk_dynamic_bonds.setToolTip("Recalculate bonds at every frame (useful for reactions)")
+        self.chk_dynamic_bonds.setChecked(True)
+        self.chk_dynamic_bonds.toggled.connect(self.schedule_update)
+        
+        self.chk_loop = QCheckBox("Loop Animation")
+        self.chk_loop.setChecked(True)
+        
+        fps_layout.addStretch()
+        fps_layout.addWidget(self.chk_dynamic_bonds)
+        fps_layout.addWidget(self.chk_loop)
+        
         layout.addLayout(fps_layout)
 
         # Timer
@@ -259,6 +278,7 @@ class AnimatedXYZPlayer(QDialog):
             self.mw.estimate_bonds_from_distances(mol)
         
         self.base_mol = mol.GetMol()
+        self.original_topology = Chem.Mol(self.base_mol) # Store a copy
         
         # Set as current mol in main window so it can be drawn
         self.mw.current_mol = self.base_mol
@@ -301,6 +321,22 @@ class AnimatedXYZPlayer(QDialog):
                 if not self.frames or self.base_mol is None:
                     break
                 
+                # Check for Dynamic Bonds restoration
+                if not self.chk_dynamic_bonds.isChecked() and self.original_topology:
+                    # If currently showing dynamic bonds, but checkbox is now OFF,
+                    # we should restore the original connectivity if it differs.
+                    # Simple way: If we don't calculate dynamic bonds, we just use whatever is there.
+                    # But to be "correct", if the user UNCHECKS it, they expect the original bonds.
+                    # Let's check if the bond count differs as a proxy, or just always restore if OFF.
+                    if self.base_mol.GetNumBonds() != self.original_topology.GetNumBonds():
+                        # Clear and copy bonds from original_topology
+                        for i in reversed(range(self.base_mol.GetNumBonds())):
+                            b = self.base_mol.GetBondWithIdx(i)
+                            self.base_mol.RemoveBond(b.GetBeginAtomIdx(), b.GetEndAtomIdx())
+                        
+                        for b in self.original_topology.GetBonds():
+                            self.base_mol.AddBond(b.GetBeginAtomIdx(), b.GetEndAtomIdx(), b.GetBondType())
+                
                 # Use target frame
                 self.current_frame_idx = self.target_frame_idx
                 
@@ -314,15 +350,57 @@ class AnimatedXYZPlayer(QDialog):
                 conf = self.base_mol.GetConformer()
                 coords = frame['coords']
                 
-                # Safety check for atom count mismatch
-                if len(coords) == self.base_mol.GetNumAtoms():
-                     for idx, (x, y, z) in enumerate(coords):
-                        conf.SetAtomPosition(idx, rdGeometry.Point3D(x, y, z))
-                
+                # Dynamic Bonds: Reconstruct Mol from scratch to ensure topology refresh
+                if self.chk_dynamic_bonds.isChecked() and rdDetermineBonds:
+                    try:
+                        # Construct XYZ block
+                        xyz_lines = [str(len(frame['symbols'])), frame.get('comment', '')]
+                        for sym, (x, y, z) in zip(frame['symbols'], frame['coords']):
+                            xyz_lines.append(f"{sym} {x} {y} {z}")
+                        xyz_block = "\n".join(xyz_lines)
+                        
+                        # Create fresh mol
+                        new_mol = Chem.MolFromXYZBlock(xyz_block)
+                        if new_mol:
+                            # Re-add bonds using rdDetermineBonds
+                            rdDetermineBonds.DetermineConnectivity(new_mol)
+                            try:
+                                rdDetermineBonds.DetermineBondOrders(new_mol)
+                            except: pass
+                            
+                            # Use this new mol for display
+                            display_mol = new_mol
+                        else:
+                            # Fallback to coordinate update if XYZ block fails
+                            display_mol = self.base_mol
+                            for idx, (x, y, z) in enumerate(coords):
+                                conf.SetAtomPosition(idx, rdGeometry.Point3D(x, y, z))
+                    except Exception as e:
+                        print(f"Dynamic bond calculation failed: {e}")
+                        display_mol = self.base_mol
+                else:
+                    # Static / Pre-calculated topology restoration
+                    if self.original_topology:
+                        # Ensure base_mol has original bonds if dynamic was previously on
+                        if self.base_mol.GetNumBonds() != self.original_topology.GetNumBonds():
+                            # Clear and copy bonds from original_topology
+                            for i in reversed(range(self.base_mol.GetNumBonds())):
+                                b = self.base_mol.GetBondWithIdx(i)
+                                self.base_mol.RemoveBond(b.GetBeginAtomIdx(), b.GetEndAtomIdx())
+                            
+                            for b in self.original_topology.GetBonds():
+                                self.base_mol.AddBond(b.GetBeginAtomIdx(), b.GetEndAtomIdx(), b.GetBondType())
+                    
+                    # Update coordinates
+                    if len(coords) == self.base_mol.GetNumAtoms():
+                         for idx, (x, y, z) in enumerate(coords):
+                            conf.SetAtomPosition(idx, rdGeometry.Point3D(x, y, z))
+                    display_mol = self.base_mol
+
                 # Redraw
                 # This calls main_window.draw_molecule_3d which might call processEvents
                 if hasattr(self.mw, 'draw_molecule_3d'):
-                    self.mw.draw_molecule_3d(self.base_mol)
+                    self.mw.draw_molecule_3d(display_mol)
                     # Update frame comment/title if possible
                     if 'comment' in frame:
                         self.mw.statusBar().showMessage(f"Frame {self.current_frame_idx+1}/{len(self.frames)}: {frame['comment']}")
@@ -359,6 +437,11 @@ class AnimatedXYZPlayer(QDialog):
     def toggle_play(self):
         self.is_playing = not self.is_playing
         if self.is_playing:
+            # If at the very end, jump to start immediately
+            if self.current_frame_idx >= len(self.frames) - 1:
+                self.target_frame_idx = 0
+                self.schedule_update()
+            
             self.btn_play.setText("Pause")
             self.timer.start(int(1000 / self.fps))
         else:
@@ -369,11 +452,28 @@ class AnimatedXYZPlayer(QDialog):
             self.mw.current_mol = self.base_mol
 
     def next_frame(self):
-        self.target_frame_idx = (self.current_frame_idx + 1) % len(self.frames)
+        next_idx = self.current_frame_idx + 1
+        if next_idx >= len(self.frames):
+            if self.chk_loop.isChecked():
+                next_idx = 0
+            else:
+                # Stop play if we reached the end and loop is off
+                if self.is_playing:
+                    self.toggle_play()
+                return
+        
+        self.target_frame_idx = next_idx
         self.schedule_update()
 
     def prev_frame(self):
-        self.target_frame_idx = (self.current_frame_idx - 1) % len(self.frames)
+        prev_idx = self.current_frame_idx - 1
+        if prev_idx < 0:
+            if self.chk_loop.isChecked():
+                prev_idx = len(self.frames) - 1
+            else:
+                return
+        
+        self.target_frame_idx = prev_idx
         self.schedule_update()
 
     def on_timer(self):

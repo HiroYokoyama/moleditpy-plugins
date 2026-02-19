@@ -22,7 +22,7 @@
     "id": "animated_xyz_giffer",
     "visible": true,
     "name": "Animated XYZ Giffer",
-    "version": "2025.12.25",
+    "version": "2026.02.19",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A player for viewing multi-frame XYZ files and recording GIF animations using PIL.",
@@ -34,8 +34,8 @@
       "Pillow"
     ],
     "downloadUrl": "../plugins/Animated_XYZ_Giffer/animated_xyz_giffer.py",
-    "lastUpdated": "2025-12-25",
-    "sha256": "c820a097d1a569d922ede349ea3fbcd9dc7c4a5a01eb3c2eccdbc41d14e9da5a",
+    "lastUpdated": "2026-02-19",
+    "sha256": "5ee12732c1e4f57212cee490c81948a32f6ee99924676843b48e34f640d057d4",
     "firstAppeared": "2025-12-15"
   },
   {
@@ -1191,7 +1191,7 @@
     "sha256": "cd55018c395dd99e3592214032fdcdb4b3c22ced01c3d426701e99082b9661d5",
     "firstAppeared": "2026-02-12"
   },
-    {
+  {
     "id": "3d_molecule_on_2d",
     "visible": true,
     "name": "3D Molecule on 2D",
@@ -1214,15 +1214,4 @@
     "sha256": "5bf1f549f65867a5729f5b6f06b3102978c54b06765d3672606ecf1d86083fab",
     "firstAppeared": "2026-02-17"
   }
-
 ]
-
-
-
-
-
-
-
-
-
-

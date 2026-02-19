@@ -107,4 +107,12 @@ shasum -a 256 my_plugin.py
 - **Error Handling**: Wrap UI callbacks in `try...except` blocks to prevent application crashes.
 - **Dependencies**: Keep dependencies to a minimum. If you use external libraries, list them in the `dependencies` field in `plugins.json`.
 
+## Security and Verification Policy
+
+To ensure the safety and integrity of the MoleditPy ecosystem, the following policies are strictly enforced:
+
+1.  **Human Verification Required**: Only plugins that have been manually reviewed and verified by a human maintainer are acceptable for inclusion in the official registry (`plugins.json`).
+2.  **No Autonomous AI Submissions**: Direct pushes or automated registry updates by autonomous AI agents (e.g., **OpenClaw**) are strictly prohibited.
+3.  **Mandatory Pull Requests**: All contributions, whether human-authored or AI-assisted, must be submitted via a **Pull Request** for human review. Autonomous agent activity bypasses our security model and will be rejected or reverted.
+4.  **Registry Access**: The application's **Plugin Installer** will only provide access to plugins that have passed this verification process.
 
