@@ -786,7 +786,7 @@
     "id": "xyz_editor",
     "visible": true,
     "name": "XYZ Editor",
-    "version": "2026.01.04",
+    "version": "2026.02.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A table-based editor for atom coordinates and symbols, supporting ghost atoms, adding and deleting atoms.",
@@ -799,8 +799,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/XYZ_Editor/xyz_editor.py",
-    "lastUpdated": "2026-01-04",
-    "sha256": "c555e81013e89e6b5d39990acd4dc01a19522eae5cade6a5a9fa0ef0a54b0d9d",
+    "lastUpdated": "2026-02-20",
+    "sha256": "e99f33a2d61aab28c10378ad36ded4c987a2edf44ad1abc981eac0e44fd420608",
     "firstAppeared": "2026-01-03"
   },
   {

@@ -2,7 +2,7 @@ import sys
 import numpy as np
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, 
-    QPushButton, QHBoxLayout, QMessageBox, QHeaderView
+    QPushButton, QHBoxLayout, QMessageBox, QHeaderView, QFileDialog
 )
 from PyQt6.QtCore import Qt, QTimer
 from rdkit import Chem
@@ -10,7 +10,7 @@ from rdkit.Geometry import Point3D
 import pyvista as pv
 
 PLUGIN_NAME = "XYZ Editor"
-PLUGIN_VERSION = "2026.01.04"
+PLUGIN_VERSION = "2026.02.20"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "A table-based editor for atom coordinates and symbols, supporting ghost atoms."
 
@@ -30,10 +30,7 @@ class XYZEditorWindow(QWidget):
         self.update_timer = QTimer(self)
         self.update_timer.timeout.connect(self.check_molecule_update)
         self.update_timer.start(500) # Check every 500ms
-
-        # Connect to selection changes in the main window if possible
-        # For now, we'll just handle our own selection
-
+        
     def init_ui(self):
         layout = QVBoxLayout(self)
 
@@ -71,6 +68,10 @@ class XYZEditorWindow(QWidget):
         self.apply_btn = QPushButton("Apply to View")
         self.apply_btn.clicked.connect(self.apply_changes)
         btn_layout.addWidget(self.apply_btn)
+
+        self.save_btn = QPushButton("Save as XYZ...")
+        self.save_btn.clicked.connect(self.save_as_xyz)
+        btn_layout.addWidget(self.save_btn)
 
         layout.addLayout(btn_layout)
 
@@ -152,18 +153,16 @@ class XYZEditorWindow(QWidget):
             
             # Atomic Symbol handling
             symbol = atom.GetSymbol()
-            if atom.GetAtomicNum() == 0:
-                # Check for custom label property first (our new standard)
-                if atom.HasProp("custom_symbol"):
-                    symbol = atom.GetProp("custom_symbol")
-                # Fallback to dummyLabel if custom_symbol missing (legacy/other plugins)
-                elif atom.HasProp("dummyLabel"):
-                    val = atom.GetProp("dummyLabel")
-                    # If it's the safe proxy "X", ignore it? No, might be legacy "X".
-                    # We trust it if custom_symbol is not set.
-                    symbol = val
-                elif symbol == '*': 
-                    symbol = 'X' 
+            
+            # Check for custom label property first (our new standard)
+            if atom.HasProp("custom_symbol"):
+                symbol = atom.GetProp("custom_symbol")
+            # Fallback to dummyLabel if custom_symbol missing (legacy/other plugins)
+            elif atom.HasProp("dummyLabel"):
+                symbol = atom.GetProp("dummyLabel")
+            
+            # Note: We no longer map '*' to 'X' here to allow asterisks as requested.
+            # RDKit dummy atoms default to '*' symbol.
 
             self._add_row(idx, symbol, pos.x, pos.y, pos.z)
 
@@ -201,6 +200,32 @@ class XYZEditorWindow(QWidget):
         self.table.clearSelection()
 
     def copy_to_clipboard(self):
+        lines = self._generate_xyz_content()
+        clipboard_text = "\n".join(lines)
+        from PyQt6.QtGui import QGuiApplication
+        clipboard = QGuiApplication.clipboard()
+        clipboard.setText(clipboard_text)
+        self.mw.statusBar().showMessage("XYZ data copied to clipboard.", 3000)
+
+    def save_as_xyz(self):
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Save XYZ File", "", "XYZ Files (*.xyz);;All Files (*)"
+        )
+        if not file_path:
+            return
+            
+        if not file_path.lower().endswith(".xyz"):
+            file_path += ".xyz"
+            
+        try:
+            lines = self._generate_xyz_content()
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write("\n".join(lines))
+            self.mw.statusBar().showMessage(f"XYZ saved to {file_path}", 3000)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to save XYZ: {str(e)}")
+
+    def _generate_xyz_content(self):
         lines = []
         atom_count = self.table.rowCount()
         lines.append(str(atom_count))
@@ -212,12 +237,7 @@ class XYZEditorWindow(QWidget):
             y = self.table.item(row, 3).text()
             z = self.table.item(row, 4).text()
             lines.append(f"{symbol:<4} {x:>12} {y:>12} {z:>12}")
-            
-        clipboard_text = "\n".join(lines)
-        from PyQt6.QtGui import QGuiApplication
-        clipboard = QGuiApplication.clipboard()
-        clipboard.setText(clipboard_text)
-        self.mw.statusBar().showMessage("XYZ data copied to clipboard.", 3000)
+        return lines
 
     def highlight_selected_atoms(self):
         # Identify selected rows
@@ -283,6 +303,7 @@ class XYZEditorWindow(QWidget):
             self.highlight_selected_atoms()
 
     def apply_changes(self):
+        self.mw.push_undo_state()
         mol = self.mw.current_mol
         # Create new editable molecule from scratch or copy
         if mol:
@@ -316,19 +337,41 @@ class XYZEditorWindow(QWidget):
 
                 # Create Atom
                 try:
-                    # Check if it is a known element
                     pt = Chem.GetPeriodicTable()
-                    # RDKit uses title case for symbols (e.g. "He", not "HE")
-                    # but GetAtomicNumber is smart enough usually.
-                    atomic_num = pt.GetAtomicNumber(symbol.capitalize())
-                    atom = Chem.Atom(atomic_num)
-                except RuntimeError:
-                    # Unknown symbol -> Treat as Ghost/Dummy Atom
-                    atom = Chem.Atom(0)
-                    atom.SetProp("custom_symbol", symbol) # Store true label for export/editor
-                    # Set dummyLabel to something safe for 3D viewer (avoid "Bq" -> crash)
-                    # We use "*" which has AtomicNum 0, avoiding the "Element not found" crash.
-                    #atom.SetProp("dummyLabel", "*")
+                    # 1. Selection logic: Strict Case matching for Element Identification
+                    # We only treat it as a real element if the casing is perfect (C, Ag, He).
+                    at_num = -1
+                    try:
+                        potential_num = pt.GetAtomicNumber(symbol)
+                        if pt.GetElementSymbol(potential_num) == symbol:
+                            at_num = potential_num
+                    except Exception:
+                        pass
+
+                    if at_num > 0:
+                        atom = Chem.Atom(at_num)
+                        # No custom_symbol needed if it matches canonical perfectly
+                    else:
+                        # 2. Try Prefix Match (Strict Case) for things like "Ag*"
+                        found_atomic_num = 0
+                        for i in range(len(symbol), 0, -1):
+                            prefix = symbol[:i]
+                            try:
+                                p_num = pt.GetAtomicNumber(prefix)
+                                if pt.GetElementSymbol(p_num) == prefix:
+                                    found_atomic_num = p_num
+                                    break
+                            except Exception:
+                                continue
+                        
+                        # Create atom (defaults to dummy 0 if no prefix found)
+                        atom = Chem.Atom(found_atomic_num)
+                        # Store the EXACT string (c, ag, Ag*, etc.)
+                        atom.SetProp("custom_symbol", symbol)
+                except Exception as e:
+                    print(f"Error creating atom for row {row}: {e}")
+                    # Fallback to Carbon if something goes wrong
+                    atom = Chem.Atom(6)
 
                 new_idx = new_rw_mol.AddAtom(atom)
                 atom_coords.append(Point3D(x, y, z))
@@ -356,7 +399,7 @@ class XYZEditorWindow(QWidget):
             new_rw_mol.AddConformer(conf)
             
             # Commit changes
-            self.mw.push_undo_state()
+            # self.mw.push_undo_state()  # MOVED TO START
             # Update properties and ring info to avoid RDKit errors
             try:
                 Chem.SanitizeMol(new_rw_mol)
@@ -413,30 +456,45 @@ def initialize(context):
         return {"custom_labels": custom_labels}
 
     def load_plugin_state(data):
+        from PyQt6.QtCore import QTimer
         # Restore custom labels (name mapping)
         custom_labels = data.get("custom_labels")
         if not custom_labels:
             return
 
-        mol = mw.current_mol
-        if mol:
-            for idx_str, label in custom_labels.items():
-                try:
-                    idx = int(idx_str)
-                    if idx < mol.GetNumAtoms():
-                        atom = mol.GetAtomWithIdx(idx)
-                        atom.SetProp("custom_symbol", label)
-                        # Also set safe proxy for 3D viewer
-                        atom.SetProp("dummyLabel", "*")
-                except:
-                    pass
+        def _apply_stored_labels():
+            mol = mw.current_mol
+            if mol:
+                for idx_str, label in custom_labels.items():
+                    try:
+                        idx = int(idx_str)
+                        if idx < mol.GetNumAtoms():
+                            atom = mol.GetAtomWithIdx(idx)
+                            # Store the raw label from project (no auto-capitalization)
+                            atom.SetProp("custom_symbol", label)
+                            # Also set safe proxy for 3D viewer
+                            atom.SetProp("dummyLabel", label)
+                    except:
+                        pass
 
-        # If the editor is open, refresh it
-        if hasattr(mw, 'xyz_editor_window') and mw.xyz_editor_window and mw.xyz_editor_window.isVisible():
+            # Trigger redraw to show updated labels/colors
+            context.current_molecule = mol
+
+            # If the editor is open, refresh it
+            if hasattr(mw, 'xyz_editor_window') and mw.xyz_editor_window and mw.xyz_editor_window.isVisible():
+                mw.xyz_editor_window.load_molecule()
+        
+        # Defer execution until after the main load_from_json_data completes
+        QTimer.singleShot(0, _apply_stored_labels)
+
+    def on_document_reset():
+        # Refresh editor table (will show empty if no mol)
+        if hasattr(mw, 'xyz_editor_window') and mw.xyz_editor_window:
             mw.xyz_editor_window.load_molecule()
 
     context.register_save_handler(save_plugin_state)
     context.register_load_handler(load_plugin_state)
+    context.register_document_reset_handler(on_document_reset)
 
 def run(mw):
     # Legacy support
