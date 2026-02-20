@@ -359,6 +359,12 @@ class XYZEditorWindow(QWidget):
                             try:
                                 p_num = pt.GetAtomicNumber(prefix)
                                 if pt.GetElementSymbol(p_num) == prefix:
+                                    # NEW LOGIC: If we found a prefix match, ensure the next character
+                                    # is NOT an alphabet (which would imply it's part of a longer 
+                                    # unidentified symbol like 'Bq' or 'Calpha')
+                                    if i < len(symbol) and symbol[i].isalpha():
+                                        continue
+                                    
                                     found_atomic_num = p_num
                                     break
                             except Exception:
