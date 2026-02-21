@@ -263,9 +263,9 @@
 
         /* Action Buttons */
         .actions {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
         }
 
         .btn {
@@ -723,7 +723,7 @@
                      ${plugin.sha256 ? `
                         <div style="margin-top:2px; display: flex; align-items: center;">
                             <span title="${plugin.sha256}">SHA256: ${plugin.sha256.substring(0, 8)}...</span>
-                            <button class="copy-sha-btn" onclick="copyToClipboard(this, '${plugin.sha256}')" title="Copy full SHA256">
+                            <button class="copy-sha-btn" onclick="copyToClipboard(this, '${plugin.sha256}', event)" title="Copy full SHA256">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
@@ -866,8 +866,11 @@
         }
 
         // Utility: Copy text to clipboard
-        function copyToClipboard(btnElement, text) {
-            if (window.event) window.event.stopPropagation();
+        function copyToClipboard(btnElement, text, event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
             navigator.clipboard.writeText(text).then(() => {
                 const originalContent = btnElement.innerHTML;
                 btnElement.innerHTML = `
@@ -907,7 +910,7 @@
                 container.style.display = 'flex';
                 container.innerHTML = `
                     <span title="${installer.sha256}">SHA256: ${installer.sha256.substring(0, 8)}...</span>
-                    <button class="copy-sha-btn" onclick="copyToClipboard(this, '${installer.sha256}')" title="Copy full SHA256">
+                    <button class="copy-sha-btn" onclick="copyToClipboard(this, '${installer.sha256}', event)" title="Copy full SHA256">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
