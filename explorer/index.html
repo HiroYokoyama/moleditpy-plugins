@@ -275,6 +275,12 @@
             border: none;
             font-size: 0.9rem;
             transition: background 0.2s;
+            width: 125px;
+            /* Fixed width to prevent jitter */
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
 
         .btn-primary {
@@ -396,6 +402,51 @@
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
 
+        .header-installer-container {
+            position: absolute;
+            top: 24px;
+            right: 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+        }
+
+        /* Override button position when inside container */
+        .header-installer-container .header-dl-btn {
+            position: static;
+            top: auto;
+            right: auto;
+        }
+
+        .header-sha-display {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 4px 10px;
+            border-radius: 6px;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .header-sha-display span {
+            font-family: monospace;
+        }
+
+        .header-sha-display .copy-sha-btn {
+            color: rgba(255, 255, 255, 0.6);
+            padding: 2px;
+            margin-left: 2px;
+        }
+
+        .header-sha-display .copy-sha-btn:hover {
+            color: white;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
         .security-banner {
             max-width: 700px;
             margin: 15px auto 10px;
@@ -494,11 +545,17 @@
                 gap: 8px;
             }
 
-            .header-dl-btn {
+            .header-installer-container {
                 position: static;
-                display: inline-flex;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
                 margin-top: 16px;
                 margin-bottom: 24px;
+            }
+
+            .header-dl-btn {
+                margin: 0;
                 width: auto;
                 padding: 10px 24px;
                 justify-content: center;
@@ -525,15 +582,20 @@
                 or using the <strong>Plugin Installer</strong> for automated, verified installations.
             </span>
         </div>
-        <a href="../plugins/Plugin_Installer/plugin_installer.py" class="header-dl-btn" download>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
-            Plugin Installer Plugin
-        </a>
+        <div class="header-installer-container">
+            <a href="../plugins/Plugin_Installer/plugin_installer.py" class="header-dl-btn" download>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                Plugin Installer
+            </a>
+            <div id="headerShaDisplay" class="header-sha-display" style="display: none;">
+                <!-- Dynamically populated -->
+            </div>
+        </div>
         <div class="controls-header">
             <span style="font-weight:bold; color: rgba(255,255,255,0.9);">Search & Filter</span>
             <select id="sortSelect" class="sort-select">
@@ -588,6 +650,7 @@
 
                 generateFilterButtons();
                 renderPlugins(allPlugins);
+                updateHeaderSha();
             } catch (error) {
                 document.getElementById('pluginGrid').innerHTML =
                     `<p style="text-align:center; color:red;">Error loading plugins: ${error.message}</p>`;
@@ -822,6 +885,24 @@
                 allPlugins.sort((a, b) => a.name.localeCompare(b.name));
             } else if (criteria === 'newest') {
                 allPlugins.sort((a, b) => new Date(b.lastUpdated) - new Date(a.lastUpdated));
+            }
+        }
+
+        // Update Header SHA
+        function updateHeaderSha() {
+            const installer = allPlugins.find(p => p.id === 'plugin_installer');
+            const container = document.getElementById('headerShaDisplay');
+            if (installer && installer.sha256 && container) {
+                container.style.display = 'flex';
+                container.innerHTML = `
+                    <span title="${installer.sha256}">SHA256: ${installer.sha256.substring(0, 8)}...</span>
+                    <button class="copy-sha-btn" onclick="copyToClipboard(this, '${installer.sha256}')" title="Copy full SHA256">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                    </button>
+                `;
             }
         }
 
