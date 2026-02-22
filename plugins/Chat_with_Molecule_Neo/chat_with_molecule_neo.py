@@ -178,7 +178,7 @@ class PubChemResolver:
 
 # --- Metadata ---
 PLUGIN_NAME = "Chat with Molecule Neo (Gemini)"
-PLUGIN_VERSION = "2025.12.30"
+PLUGIN_VERSION = "2026.02.22"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with Google Gemini about the current molecule. Automatically injects SMILES context. (Neo Version)"
 PLUGIN_ID = "chat_with_molecule_neo"
