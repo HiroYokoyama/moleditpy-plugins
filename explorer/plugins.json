@@ -527,7 +527,7 @@
     "id": "chat_with_molecule_neo",
     "visible": true,
     "name": "Chat with Molecule Neo (Gemini)",
-    "version": "2025.12.30",
+    "version": "2026.02.22",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with Google Gemini about the current molecule. Automatically injects SMILES context. (Neo Version)",
@@ -535,15 +535,15 @@
       "AI"
     ],
     "dependencies": [
-      "google-generativeai",
+      "google-genai",
       "rdkit",
       "PyQt6",
       "markdown",
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo/chat_with_molecule_neo.py",
-    "lastUpdated": "2025-12-30",
-    "sha256": "5d23d9696833dc0419ac67289be4dd9c98302635fc9fc87e5d14bd73ed7efe2a",
+    "lastUpdated": "2026-02-22",
+    "sha256": "07994420005dbc90bc3c1542ef0b4dd2c5480404829afe7745be8c7404a716c8",
     "firstAppeared": "2025-12-28"
   },
   {

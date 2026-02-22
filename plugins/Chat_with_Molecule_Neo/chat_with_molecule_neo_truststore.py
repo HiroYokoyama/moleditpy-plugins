@@ -3,7 +3,7 @@
 
 """
 PLUGIN_NAME = "Chat with Molecule Neo (Gemini) (truststore)"
-PLUGIN_VERSION = "2025.12.30"
+PLUGIN_VERSION = "2026.02.22"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with Google Gemini about the current molecule. Automatically injects SMILES context. (Neo Version)"
 PLUGIN_ID = "chat_with_molecule_neo_truststore"
@@ -220,7 +220,7 @@ class PubChemResolver:
 
 # --- Metadata ---
 PLUGIN_NAME = "Chat with Molecule Neo (Gemini) (truststore)"
-PLUGIN_VERSION = "2025.12.30"
+PLUGIN_VERSION = "2026.02.22"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with Google Gemini about the current molecule. Automatically injects SMILES context. (Neo Version)"
 PLUGIN_ID = "chat_with_molecule_neo_truststore"
@@ -423,7 +423,8 @@ except ImportError:
     HAS_MARKDOWN = False
 
 try:
-    import google.generativeai as genai
+    from google import genai
+    from google.genai import types
     HAS_GENAI = True
 except ImportError:
     HAS_GENAI = False
@@ -543,8 +544,14 @@ class InitWorker(QThread):
 
     def run(self):
         try:
-            genai.configure(api_key=self.api_key)
-            models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+            client = genai.Client(api_key=self.api_key)
+            models = []
+            for m in client.models.list():
+                # The new SDK uses 'supported_actions' and snake_case activity names
+                # We check multiple variants for robustness
+                actions = getattr(m, 'supported_actions', []) or getattr(m, 'supported_generation_methods', [])
+                if any(x in actions for x in ['generate_content', 'generateContent']):
+                    models.append(m.name)
             self.finished.emit(models, "")
         except Exception as e:
             self.finished.emit([], str(e))
@@ -588,30 +595,23 @@ class GenAIWorker(QThread):
 
     def run(self):
         try:
-            # Enable streaming
-            response = self.chat_session.send_message(self.user_message, stream=True)
+            # Enable streaming using the new SDK method
+            # Note: client.chats.send_message_stream is used via the chat_session object
+            response_stream = self.chat_session.send_message_stream(self.user_message)
             
             # Iterate through chunks
-
-
-            # Iterate through chunks
-            for chunk in response:
+            for chunk in response_stream:
                 if self._is_interrupted:
                     break
 
-                if hasattr(chunk, 'text') and chunk.text:
+                if chunk.text:
                     self.chunk_received.emit(chunk.text)
             
-            # CRITICAL: Always resolve response to release session state
-            # This fixes "complete iteration" errors on subsequent requests
-            try:
-                response.resolve()
-            except Exception:
-                pass
-
-            # Emit final complete response object for usage logging etc.
+            # No need for response.resolve() in the new SDK common patterns for stream
+            
+            # Emit final complete response object
             if not self._is_interrupted:
-                self.response_received.emit(response)
+                self.response_received.emit(response_stream)
             else:
                 self.error_occurred.emit("Interrupted by User")
 
@@ -645,6 +645,7 @@ class ChatMoleculeWindow(QDialog):
             
             self.pending_context_msg = None # Pending context update to send with next user message
             self.pending_info_text = None # Pending visual notification to show in chat on next send
+            self.calc_results_by_smiles = {} # Dictionary of SMILES -> result_text (for context injection)
             self.first_check_done = False # Track if we've done the initial check
     
             # Streaming State
@@ -715,6 +716,7 @@ class ChatMoleculeWindow(QDialog):
              # Calculate InChIKey (only if molecule changed)
              if smiles_changed:
                  self.last_inchikey = None
+                 self.calc_results_by_smiles.clear() # Reset on NEW molecule load
                  if current_smiles and Chem:
                      try:
                          mol = Chem.MolFromSmiles(current_smiles)
@@ -1365,6 +1367,8 @@ class ChatMoleculeWindow(QDialog):
             self.settings["model"] = target_model_name
             save_settings(self.settings)
 
+        api_key = self.settings.get("api_key")
+
         # --- Start Chat ---
         self.append_message("System", f"Initializing chat with: {target_model_name}", "gray")
         
@@ -1373,12 +1377,17 @@ class ChatMoleculeWindow(QDialog):
         append_log("INFO", f"Target Model: {target_model_name}")
         
         try:
-            model = genai.GenerativeModel(
-                target_model_name,
-                system_instruction=SYSTEM_PROMPT,
-                generation_config=GENERATION_CONFIG
+            self.client = genai.Client(api_key=api_key)
+            self.chat_session = self.client.chats.create(
+                model=target_model_name,
+                config=types.GenerateContentConfig(
+                    system_instruction=SYSTEM_PROMPT,
+                    temperature=GENERATION_CONFIG["temperature"],
+                    top_p=GENERATION_CONFIG["top_p"],
+                    top_k=GENERATION_CONFIG["top_k"],
+                    max_output_tokens=GENERATION_CONFIG["max_output_tokens"],
+                )
             )
-            self.chat_session = model.start_chat(history=[])
         except Exception as e:
             self.append_message("System", f"Error starting chat: {e}", "red")
             self.chat_session = None
@@ -1764,6 +1773,7 @@ class ChatMoleculeWindow(QDialog):
             
             # Re-trigger check to update pending messages cleanly
             self.check_molecule_change()
+        self.pending_calc_results = "" # Clear any previous calculation results when a new name is resolved
 
     def _get_descriptors_str(self, smiles):
         """Calculate basic descriptors for unknown molecules to help LLM"""
@@ -2554,6 +2564,10 @@ class ChatMoleculeWindow(QDialog):
              
              result_text = "Properties:\n" + "\n".join(results)
              
+             # Store for context (associated with SMILES)
+             if current_smiles:
+                 self.calc_results_by_smiles[current_smiles] = f"\n[System: Last calculated properties: {', '.join(results)}]"
+             
              # Show in chat
              self.append_message("System", result_text, "blue")
              
@@ -2926,9 +2940,15 @@ class ChatMoleculeWindow(QDialog):
         except Exception:
             pass
 
+        # --- Calculated Results Injection ---
+        calc_info = ""
+        if smiles and smiles in self.calc_results_by_smiles:
+            calc_info = self.calc_results_by_smiles[smiles]
+            self.calc_results_by_smiles.pop(smiles) # Clear after use for this molecule
+            
         return (
             f"I am currently looking at a molecule. {name_str}{descriptor_str}"
-            f"{state_info}SMILES string: {smiles}.{selection_info} "
+            f"{state_info}SMILES string: {smiles}.{selection_info}{calc_info} "
             f"Please use this as context for our conversation. "
             f"Please do not reply to this information."
         )
@@ -3463,12 +3483,17 @@ class ChatMoleculeWindow(QDialog):
     def log_usage(self, response):
         """Helper to log usage metadata"""
         try:
+            # In the new SDK, the response object from an iterator might not have usage_metadata 
+            # until the end, or it might be on the chunk.
+            # If 'response' is the stream iterator, we might need the last chunk.
+            usage = None
             if hasattr(response, 'usage_metadata'):
                 usage = response.usage_metadata
+            
+            if usage:
                 append_log("usage", str(usage))
                 
             # User Request: "History Management" - Check token/turn count
-            # Simple heuristic: If history > N turns, prone.
             if self.chat_session and hasattr(self.chat_session, 'history'):
                 history_len = len(self.chat_session.history)
                 if history_len > MAX_HISTORY:
@@ -3485,15 +3510,24 @@ class ChatMoleculeWindow(QDialog):
             new_history = old_history[-10:]
             
             # Restart session with trimmed history
-            # Note: start_chat history argument takes list of Content objects.
             model_name = self.settings.get("model", "gemini-flash-latest")
             
-            model = genai.GenerativeModel(
-                model_name,
-                system_instruction=SYSTEM_PROMPT,
-                generation_config=GENERATION_CONFIG
+            # Re-use existing client to create a new session
+            if not hasattr(self, 'client') or self.client is None:
+                api_key = self.settings.get("api_key")
+                self.client = genai.Client(api_key=api_key)
+            
+            self.chat_session = self.client.chats.create(
+                model=model_name,
+                history=new_history,
+                config=types.GenerateContentConfig(
+                    system_instruction=SYSTEM_PROMPT,
+                    temperature=GENERATION_CONFIG["temperature"],
+                    top_p=GENERATION_CONFIG["top_p"],
+                    top_k=GENERATION_CONFIG["top_k"],
+                    max_output_tokens=GENERATION_CONFIG["max_output_tokens"],
+                )
             )
-            self.chat_session = model.start_chat(history=new_history)
             
             self.append_message("System", "History pruned to save tokens (Rolling update).", "gray")
             append_log("System", "History pruned.")
