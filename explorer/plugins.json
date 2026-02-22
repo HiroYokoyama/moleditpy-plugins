@@ -543,7 +543,7 @@
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo/chat_with_molecule_neo.py",
     "lastUpdated": "2026-02-22",
-    "sha256": "07994420005dbc90bc3c1542ef0b4dd2c5480404829afe7745be8c7404a716c8",
+    "sha256": "1995ea79a7ae08cb2fa6d14978a8b62a51f7dd39fad7a87d43f2f89e987ca27d",
     "firstAppeared": "2025-12-28"
   },
   {
@@ -563,7 +563,7 @@
     ],
     "downloadUrl": "../plugins/PubChem_Structure_Identifier/pubchem_structure_identifier.py",
     "lastUpdated": "2025-12-28",
-    "sha256": "1995ea79a7ae08cb2fa6d14978a8b62a51f7dd39fad7a87d43f2f89e987ca27d",
+    "sha256": "51974e8d2b20b73892de05c997167132ac537c402387542267f524e05a8d1bec",
     "firstAppeared": "2025-12-28"
   },
   {
