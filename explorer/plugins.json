@@ -22,7 +22,7 @@
     "id": "animated_xyz_giffer",
     "visible": true,
     "name": "Animated XYZ Giffer",
-    "version": "2026.02.19",
+    "version": "2026.03.05",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A player for viewing multi-frame XYZ files and recording GIF animations using PIL.",
@@ -34,8 +34,8 @@
       "Pillow"
     ],
     "downloadUrl": "../plugins/Animated_XYZ_Giffer/animated_xyz_giffer.py",
-    "lastUpdated": "2026-02-19",
-    "sha256": "5ee12732c1e4f57212cee490c81948a32f6ee99924676843b48e34f640d057d4",
+    "lastUpdated": "2026-03-05",
+    "sha256": "eb95076ef3dd16e5bd63c54390b1ea7206e52bbc6e28369fede882a6d06db515",
     "firstAppeared": "2025-12-15"
   },
   {

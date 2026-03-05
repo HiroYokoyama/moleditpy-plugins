@@ -25,7 +25,7 @@ try:
 except ImportError:
     rdDetermineBonds = None
 
-__version__="2026.02.19"
+__version__="2026.03.05"
 __author__="HiroYokoyama"
 PLUGIN_NAME = "Animated XYZ Giffer"
 
@@ -397,6 +397,8 @@ class AnimatedXYZPlayer(QDialog):
                             conf.SetAtomPosition(idx, rdGeometry.Point3D(x, y, z))
                     display_mol = self.base_mol
 
+                self.last_display_mol = display_mol
+
                 # Redraw
                 # This calls main_window.draw_molecule_3d which might call processEvents
                 if hasattr(self.mw, 'draw_molecule_3d'):
@@ -449,7 +451,10 @@ class AnimatedXYZPlayer(QDialog):
             self.timer.stop()
             # Ensure the main window knows this is the generic current molecule 
             # so the user can use File->Save As... to export the current frame.
-            self.mw.current_mol = self.base_mol
+            if hasattr(self, 'last_display_mol'):
+                self.mw.current_mol = self.last_display_mol
+            else:
+                self.mw.current_mol = self.base_mol
 
     def next_frame(self):
         next_idx = self.current_frame_idx + 1
@@ -628,6 +633,18 @@ class AnimatedXYZPlayer(QDialog):
 
     def closeEvent(self, event):
         self.timer.stop()
+
+        # Push to current_molecule
+        try:
+            if hasattr(self, 'last_display_mol') and self.last_display_mol:
+                self.mw.current_mol = self.last_display_mol
+            elif hasattr(self, 'base_mol') and self.base_mol:
+                self.mw.current_mol = self.base_mol
+            
+            if hasattr(self.mw, 'push_undo_state'):
+                self.mw.push_undo_state()
+        except Exception:
+            pass
 
         '''
         
