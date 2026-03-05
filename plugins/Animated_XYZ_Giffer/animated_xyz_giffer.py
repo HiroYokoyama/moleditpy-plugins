@@ -398,6 +398,10 @@ class AnimatedXYZPlayer(QDialog):
                     display_mol = self.base_mol
 
                 self.last_display_mol = display_mol
+                
+                # Push to current molecule every time the frame changes
+                if hasattr(self, 'mw') and self.mw:
+                    self.mw.current_mol = display_mol
 
                 # Redraw
                 # This calls main_window.draw_molecule_3d which might call processEvents
