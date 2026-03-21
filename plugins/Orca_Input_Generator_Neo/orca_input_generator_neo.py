@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
     QLineEdit, QSpinBox, QPushButton, QFileDialog, 
     QFormLayout, QGroupBox, QHBoxLayout, QComboBox, QTextEdit, 
     QTabWidget, QCheckBox, QWidget, QScrollArea, QMenu, QSizePolicy,
-    QInputDialog, QGridLayout)
+    QInputDialog, QGridLayout, QPlainTextEdit)
 from PyQt6.QtGui import QPalette, QColor, QAction, QFont, QSyntaxHighlighter, QTextCharFormat
 from PyQt6.QtCore import Qt, QRegularExpression
 from rdkit import Chem
@@ -118,32 +118,45 @@ class OrcaSyntaxHighlighter(QSyntaxHighlighter):
         keyword_format = QTextCharFormat()
         keyword_format.setForeground(QColor("#D32F2F")) # Red
         keyword_format.setFontWeight(QFont.Weight.Bold)
-        self.rules.append((QRegularExpression("^!.*"), keyword_format))
+        self.rules.append((QRegularExpression(r"^!.*"), keyword_format))
+        # Highlight tokens like B3LYP, Opt, Freq, etc.
+        self.rules.append((QRegularExpression(r"\b(B3LYP|PBE0|CAM-B3LYP|wB97X-D3|NMR|Opt|Freq|OptTS|Scan|NormalOpt|LooseOpt|TightOpt|VeryTightOpt|COpt|SloppySCF|LooseSCF|NormalSCF|StrongSCF|TightSCF|VeryTightSCF|ExtremeSCF|RIJCOSX|RI|RI-MP2|DLPNO-CCSD|DLPNO-CCSD\(T\))\b", QRegularExpression.CaseInsensitiveOption), keyword_format))
 
         # Blocks (%)
         block_format = QTextCharFormat()
         block_format.setForeground(QColor("#1976D2")) # Blue
         block_format.setFontWeight(QFont.Weight.Bold)
-        self.rules.append((QRegularExpression("^%.*"), block_format))
-        self.rules.append((QRegularExpression("^end.*"), block_format))
+        self.rules.append((QRegularExpression(r"^%.*"), block_format))
+        self.rules.append((QRegularExpression(r"^\bend\b", QRegularExpression.CaseInsensitiveOption), block_format))
 
         # Coordinates/Title (*)
         coord_format = QTextCharFormat()
         coord_format.setForeground(QColor("#388E3C")) # Green
         coord_format.setFontWeight(QFont.Weight.Bold)
-        self.rules.append((QRegularExpression("^\\*.*"), coord_format))
+        self.rules.append((QRegularExpression(r"^\*.*"), coord_format))
 
         # Comments (#)
         comment_format = QTextCharFormat()
         comment_format.setForeground(QColor("#757575")) # Grey
-        self.rules.append((QRegularExpression("#.*"), comment_format))
+        self.rules.append((QRegularExpression(r"#.*"), comment_format))
 
     def highlightBlock(self, text):
+        # State-based block highlighting can be complex, 
+        # but we can improve line-based matching.
         for pattern, format in self.rules:
-            match_iterator = pattern.globalMatch(text)
+            # Check for non-anchored matches for comments and some keywords
+            if pattern.pattern() == "#.*":
+                 match_iterator = pattern.globalMatch(text)
+            else:
+                 # Standard anchored match for start-of-line tokens
+                 match_iterator = pattern.globalMatch(text)
+                 
             while match_iterator.hasNext():
                 match = match_iterator.next()
                 self.setFormat(match.capturedStart(), match.capturedLength(), format)
+        
+        # Additional: Highlight individual keywords (! B3LYP etc) even if not at start
+        # if the user wants more granular highlighting.
 
 class OrcaKeywordBuilderDialog(QDialog):
     """
@@ -187,6 +200,11 @@ class OrcaKeywordBuilderDialog(QDialog):
         self.tab_tddft = QWidget()
         self.setup_tddft_tab()
         self.tabs.addTab(self.tab_tddft, "TD-DFT")
+        
+        # --- Tab 6: Constraints ---
+        self.tab_constraints = QWidget()
+        self.setup_constraints_tab()
+        self.tabs.addTab(self.tab_constraints, "Constraints")
 
         layout.addWidget(self.tabs)
 
@@ -494,6 +512,44 @@ class OrcaKeywordBuilderDialog(QDialog):
 
         self.tab_tddft.setLayout(layout)
 
+    def setup_constraints_tab(self):
+        layout = QVBoxLayout()
+        
+        layout.addWidget(QLabel("<b>Geometry Constraints (%geom ... Constraints ... end)</b>"))
+        
+        self.constraints_edit = QPlainTextEdit()
+        self.constraints_edit.setPlaceholderText("{ C 0 C }\n{ B 0 1 C }")
+        self.constraints_edit.textChanged.connect(self.update_preview)
+        layout.addWidget(self.constraints_edit)
+        
+        h_layout = QHBoxLayout()
+        self.constr_type = QComboBox()
+        self.constr_type.addItems(["Atom (C)", "Bond (B)", "Angle (A)", "Dihedral (D)"])
+        self.constr_indices = QLineEdit()
+        self.constr_indices.setPlaceholderText("Indices (e.g. 0 1)")
+        btn_add = QPushButton("Add Constraint")
+        btn_add.clicked.connect(self.add_constraint_line)
+        
+        h_layout.addWidget(self.constr_type)
+        h_layout.addWidget(self.constr_indices, 1)
+        h_layout.addWidget(btn_add)
+        layout.addLayout(h_layout)
+        
+        layout.addWidget(QLabel("<font color='gray'>Note: Indices are 0-based. 'C' means constant/fixed.</font>"))
+        
+        self.tab_constraints.setLayout(layout)
+
+    def add_constraint_line(self):
+        ctype = self.constr_type.currentText()[0] # C, B, A, or D
+        indices = self.constr_indices.text().strip()
+        if not indices: return
+        
+        line = f"{{ {ctype} {indices} C }}"
+        current = self.constraints_edit.toPlainText()
+        if current and not current.endswith("\n"):
+            current += "\n"
+        self.constraints_edit.setPlainText(current + line + "\n")
+
     def connect_signals(self):
         widgets = [
             self.method_type, self.method_name, self.basis_set, self.aux_basis,
@@ -506,7 +562,8 @@ class OrcaKeywordBuilderDialog(QDialog):
             self.scf_sloppy, self.scf_loose, self.scf_normal, self.scf_strong, 
             self.scf_tight, self.scf_verytight, self.scf_extreme,
             self.pop_nbo, self.tddft_enable, self.tddft_nroots, self.tddft_singlets, 
-            self.tddft_triplets, self.tddft_tda, self.tddft_iroot
+            self.tddft_triplets, self.tddft_tda, self.tddft_iroot,
+            self.constraints_edit
         ]
         for w in widgets:
             if isinstance(w, QComboBox):
@@ -524,6 +581,8 @@ class OrcaKeywordBuilderDialog(QDialog):
                     w.clicked.connect(self.enforce_opt_mutual_exclusion)
             elif isinstance(w, QSpinBox):
                 w.valueChanged.connect(self.update_preview)
+            elif isinstance(w, (QTextEdit, QPlainTextEdit)):
+                w.textChanged.connect(self.update_preview)
 
     def update_ui_state(self):
         """Update usability of widgets based on current selection."""
@@ -698,6 +757,18 @@ class OrcaKeywordBuilderDialog(QDialog):
                 f"end"
             )
             self.preview_str += block
+
+        # Add constraints to %geom if present
+        constraints = self.constraints_edit.toPlainText().strip()
+        if constraints:
+            # We wrap it in %geom if it's not already there in the builder's logic
+            # ORCA supports multiple %geom blocks, but we'll try to keep it clean.
+            constr_block = f"\n\n%geom\n  Constraints\n"
+            for line in constraints.splitlines():
+                if line.strip():
+                    constr_block += f"    {line.strip()}\n"
+            constr_block += "  end\nend"
+            self.preview_str += constr_block
 
         self.preview_label.setText(self.preview_str)
 
@@ -922,7 +993,7 @@ class OrcaSetupDialogNeo(QDialog):
         kw_h_layout.addWidget(self.btn_route)
         kw_layout.addWidget(QLabel("Keywords:"))
         kw_layout.addLayout(kw_h_layout)
-        self.comment_edit = QLineEdit("Generated by MoleditPy")
+        self.comment_edit = QLineEdit("Generated by MoleditPy ORCA Input Generator Neo Plugin")
         self.comment_edit.textChanged.connect(self.update_preview)
         kw_layout.addWidget(QLabel("Comment:"))
         kw_layout.addWidget(self.comment_edit)
