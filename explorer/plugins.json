@@ -1221,7 +1221,7 @@
     "version": "1.0.3",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "High-functionality setting dialog for ORCA input creation. Supports Route, Block Builder, and Validations.",
+    "description": "High-functionality setting dialog for ORCA input creation. Supports Keywords, Block Builder, and Validations.",
     "tags": [
       "DFT",
       "Generator"
