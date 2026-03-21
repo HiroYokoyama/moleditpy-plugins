@@ -335,7 +335,7 @@
   },
   {
     "id": "orca_input_generator_neo",
-    "visible": true,
+    "visible": false,
     "name": "ORCA Input Generator Neo",
     "version": "2026.01.04",
     "author": "HiroYokoyama",
@@ -1213,6 +1213,28 @@
     "lastUpdated": "2026-02-21",
     "sha256": "df48525743bf12c3ad287be6115ea612551f0140cf763b9075e25256507d0b12",
     "firstAppeared": "2026-02-17"
+  },
+    {
+    "id": "orca_input_generator_pro",
+    "visible": true,
+    "name": "ORCA Input Generator Pro",
+    "version": "1.0.0",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "High-functionality setting dialog for ORCA input creation. Supports Route, Block Builder, and Validations.",
+    "tags": [
+      "DFT",
+      "Generator"
+    ],
+    "dependencies": [
+      "rdkit",
+      "PyQt6"
+    ],
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/releases/download/1.0.0/orca_input_generator_pro.zip",
+    "projectUrl": "https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro",
+    "lastUpdated": "2026-03-21",
+    "sha256": "a09cc5dce7df2f7376ab8b3a99497c070c55f6a302d825c501980abf7847f9b9",
+    "firstAppeared": "2026-03-21"
   }
 
 ]
