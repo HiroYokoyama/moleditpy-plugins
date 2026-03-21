@@ -1,162 +1,20 @@
-from PyQt6 import QtCore
 # -*- coding: utf-8 -*-
 import os
-from PyQt6.QtWidgets import (
-    QCompleter, QMessageBox, QDialog, QVBoxLayout, QLabel, 
-    QLineEdit, QSpinBox, QPushButton, QFileDialog, 
-    QFormLayout, QGroupBox, QHBoxLayout, QComboBox, QTextEdit, 
-    QTabWidget, QCheckBox, QWidget, QScrollArea, QMenu, QSizePolicy,
-    QInputDialog, QGridLayout, QPlainTextEdit)
-from PyQt6.QtGui import QPalette, QColor, QAction, QFont, QSyntaxHighlighter, QTextCharFormat
-from PyQt6.QtCore import Qt, QRegularExpression
+from PyQt6.QtWidgets import (QMessageBox, QDialog, QVBoxLayout, QLabel, 
+                             QLineEdit, QSpinBox, QPushButton, QFileDialog, 
+                             QFormLayout, QGroupBox, QHBoxLayout, QComboBox, QTextEdit, 
+                             QTabWidget, QCheckBox, QWidget, QScrollArea, QMenu, QSizePolicy)
+from PyQt6.QtGui import QPalette, QColor, QAction, QFont
+from PyQt6.QtCore import Qt
 from rdkit import Chem
 from rdkit.Chem import rdMolTransforms
 import json
 
 PLUGIN_NAME = "ORCA Input Generator Neo"
-PLUGIN_VERSION = "2026.03.21"
+PLUGIN_VERSION = "2026.01.04"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Advanced ORCA Input Generator with Preview and Presets"
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "orca_input_generator_neo.json")
-
-# ORCA Methods (Cleaned)
-ALL_ORCA_METHODS = [
-    # 密度汎関数理論 (DFT)
-    "B2GP-PLYP", "B2PLYP", "B3LYP", "B3PW91", "B97-3c", "B97M-rV", "B97M-V", "BHandHLYP", "BLYP", "BP", 
-    "BP86", "CAM-B3LYP", "DSD-BLYP", "DSD-PBEP86", "LC-wPBE", "M06", "M06-2X", "M06-HF", "M06-L", 
-    "mPW2PLYP", "O3LYP", "PBE", "PBE0", "PBEh-3c", "PTPSS-D3", "PW91", "PWPB95", "r2SCAN-3c", "SCAN", 
-    "TPSS", "TPSSh", "wB97", "wB97M-V", "wB97X", "wB97X-D3", "wB97X-V", "wPBE", "wPBEh", "X3LYP",
-    # 波動関数理論 (HF / Post-HF)
-    "ACPF", "AQCC", "BD", "CASSCF", "CCSD", "CCSD(T)", "CCSD(T)-F12", "CCSD(T)-F12/RI", "CCSD(T)-F12D/RI", 
-    "CCSD-F12", "CCSD-F12/RI", "CCSD-F12D/RI", "CEPA/1", "CEPA/2", "CEPA/3", "DLPNO-CCSD", "DLPNO-CCSD(T)", 
-    "DLPNO-CCSD(T)-F12", "DLPNO-CCSD(T)-F12/D", "DLPNO-CCSD(T1)", "DLPNO-CCSD(T1)-F12", "DLPNO-CCSD(T1)-F12/D", 
-    "DLPNO-CCSD-F12", "DLPNO-CCSD-F12/D", "DLPNO-MP2", "DLPNO-NEVPT2", "DLPNO-SCS-MP2", "DLPNO-SOS-MP2", 
-    "F12-DLPNO-MP2", "F12-MP2", "F12-RI-MP2", "F12/D-DLPNO-MP2", "F12/D-RI-MP2", "HF", "MP2", "MP3", "MRCI", 
-    "NCEPA/1", "NCPF/1", "NEVPT2", "OO-RI-MP2", "OO-RI-SCS-MP2", "OO-RI-SOS-MP2", "QCISD", "QCISD(T)", 
-    "QCISD(T)-F12", "QCISD(T)-F12/RI", "QCISD-F12", "QCISD-F12/RI", "RI-CEPA/1-F12", "RI-MP2", "RI-SCS-MP2", 
-    "RI-SOS-MP2", "ROHF", "SCS-MP2", "SCS-MP3", "UHF",
-    # 半経験的手法・xTB・力場
-    "AM1", "GFN-FF", "GFN0-XTB", "GFN1-XTB", "GFN1-xTB", "GFN2-XTB", "GFN2-xTB", "MNDO", "NATIVE-GFN-XTB", 
-    "NATIVE-GFN1-XTB", "NATIVE-GFN2-XTB", "NATIVE-spGFN-XTB", "NATIVE-spGFN1-XTB", "NATIVE-spGFN2-XTB", 
-    "NATIVE-spXTB", "NATIVE-spXTB1", "NATIVE-spXTB2", "NATIVE-XTB", "NATIVE-XTB1", "NATIVE-XTB2", "PM3", 
-    "PM6", "XTB", "XTB0", "XTB1", "XTB2", "XTBFF", "ZINDO/1", "ZINDO/2", "ZINDO/S", "ZNDDO/1", "ZNDDO/2"
-]
-
-# ORCA Basis Sets (Cleaned)
-ALL_ORCA_BASIS_SETS = [
-    "3-21G", "3-21GSP", "4-22GSP", "6-31++G(2d2p)", "6-31++G(2df2p)", "6-31++G(2df2pd)", "6-31++G(2dp)", 
-    "6-31++G(dp)", "6-31++G**", "6-31+G(2d)", "6-31+G(2d2p)", "6-31+G(2df)", "6-31+G(2df2p)", "6-31+G(2df2pd)", 
-    "6-31+G(2dp)", "6-31+G(d)", "6-31+G(dp)", "6-31+G*", "6-31+G**", "6-311++G(2d2p)", "6-311++G(2df2p)", 
-    "6-311++G(2df2pd)", "6-311++G(2dp)", "6-311++G(3df3pd)", "6-311++G(dp)", "6-311++G**", "6-311+G(2d)", 
-    "6-311+G(2d2p)", "6-311+G(2df)", "6-311+G(2df2p)", "6-311+G(2df2pd)", "6-311+G(2dp)", "6-311+G(3df)", 
-    "6-311+G(3df2p)", "6-311+G(3df3pd)", "6-311+G(d)", "6-311+G(dp)", "6-311+G*", "6-311+G**", "6-311G", 
-    "6-311G(2d)", "6-311G(2d2p)", "6-311G(2df)", "6-311G(2df2p)", "6-311G(2df2pd)", "6-311G(2dp)", "6-311G(3df)", 
-    "6-311G(3df3pd)", "6-311G(d)", "6-311G(dp)", "6-311G*", "6-311G**", "6-31G", "6-31G(2d)", "6-31G(2d2p)", 
-    "6-31G(2df)", "6-31G(2df2p)", "6-31G(2df2pd)", "6-31G(2dp)", "6-31G(d)", "6-31G(dp)", "6-31G*", "6-31G**", 
-    "AHGBS-5", "AHGBS-7", "AHGBS-9", "AHGBSP1-5", "AHGBSP1-7", "AHGBSP1-9", "AHGBSP2-5", "AHGBSP2-7", 
-    "AHGBSP2-9", "AHGBSP3-5", "AHGBSP3-7", "AHGBSP3-9", "ANO-pV5Z", "ANO-pV6Z", "ANO-pVDZ", "ANO-pVQZ", 
-    "ANO-pVTZ", "ANO-RCC-DZP", "ANO-RCC-Full", "ANO-RCC-QZP", "ANO-RCC-TZP", "ANO-SZ", "apr-cc-pV(Q+d)Z", 
-    "aug-ANO-pV5Z", "aug-ANO-pVDZ", "aug-ANO-pVQZ", "aug-ANO-pVTZ", "aug-cc-pCV5Z", "aug-cc-pCV5Z-PP", 
-    "aug-cc-pCV6Z", "aug-cc-pCVDZ", "aug-cc-pCVDZ-PP", "aug-cc-pCVQZ", "aug-cc-pCVQZ-PP", "aug-cc-pCVTZ", 
-    "aug-cc-pCVTZ-PP", "aug-cc-pV5(+d)Z", "aug-cc-pV5Z", "aug-cc-pV5Z-DK", "aug-cc-pV5Z-PP", "aug-cc-pV6(+d)Z", 
-    "aug-cc-pV6Z", "aug-cc-pVD(+d)Z", "aug-cc-pVDZ", "aug-cc-pVDZ-DK", "aug-cc-pVDZ-PP", "aug-cc-pVQ(+d)Z", 
-    "aug-cc-pVQZ", "aug-cc-pVQZ-DK", "aug-cc-pVQZ-PP", "aug-cc-pVT(+d)Z", "aug-cc-pVTZ", "aug-cc-pVTZ-DK", 
-    "aug-cc-pVTZ-J", "aug-cc-pVTZ-PP", "aug-cc-pwCV5Z", "aug-cc-pwCV5Z-DK", "aug-cc-pwCV5Z-PP", "aug-cc-pwCVDZ", 
-    "aug-cc-pwCVDZ-DK", "aug-cc-pwCVDZ-PP", "aug-cc-pwCVQZ", "aug-cc-pwCVQZ-DK", "aug-cc-pwCVQZ-PP", 
-    "aug-cc-pwCVTZ", "aug-cc-pwCVTZ-DK", "aug-cc-pwCVTZ-PP", "aug-pc-0", "aug-pc-1", "aug-pc-2", "aug-pc-3", 
-    "aug-pc-4", "aug-pcH-1", "aug-pcH-2", "aug-pcH-3", "aug-pcH-4", "aug-pcJ-0", "aug-pcJ-1", "aug-pcJ-2", 
-    "aug-pcJ-3", "aug-pcJ-4", "aug-pcseg-0", "aug-pcseg-1", "aug-pcseg-2", "aug-pcseg-3", "aug-pcseg-4", 
-    "aug-pcSseg-0", "aug-pcSseg-1", "aug-pcSseg-2", "aug-pcSseg-3", "aug-pcSseg-4", "aug-pcX-1", "aug-pcX-2", 
-    "aug-pcX-3", "aug-pcX-4", "cc-pCV5Z", "cc-pCV5Z-PP", "cc-pCV6Z", "cc-pCVDZ", "cc-pCVDZ-F12", "cc-pCVDZ-PP", 
-    "cc-pCVQZ", "cc-pCVQZ-F12", "cc-pCVQZ-PP", "cc-pCVTZ", "cc-pCVTZ-F12", "cc-pCVTZ-PP", "cc-pV5(+d)Z", 
-    "cc-pV5Z", "cc-pV5Z-DK", "cc-pV5Z-PP", "cc-pV6Z", "cc-pVD(+d)Z", "cc-pVDZ", "cc-pVDZ-DK", "cc-pVDZ-DK3", 
-    "cc-pVDZ-F12", "cc-pVDZ-PP", "cc-pVDZ-PP-F12", "cc-pVQ(+d)Z", "cc-pVQZ", "cc-pVQZ-DK", "cc-pVQZ-DK3", 
-    "cc-pVQZ-F12", "cc-pVQZ-PP", "cc-pVQZ-PP-F12", "cc-pVT(+d)Z", "cc-pVTZ", "cc-pVTZ-DK", "cc-pVTZ-DK3", 
-    "cc-pVTZ-F12", "cc-pVTZ-PP", "cc-pVTZ-PP-F12", "cc-pwCV5Z", "cc-pwCV5Z-DK", "cc-pwCV5Z-PP", "cc-pwCVDZ", 
-    "cc-pwCVDZ-DK", "cc-pwCVDZ-DK3", "cc-pwCVDZ-PP", "cc-pwCVQZ", "cc-pwCVQZ-DK", "cc-pwCVQZ-DK3", 
-    "cc-pwCVQZ-PP", "cc-pwCVTZ", "cc-pwCVTZ-DK", "cc-pwCVTZ-DK3", "cc-pwCVTZ-PP", "CRENBL", "D95", "D95p", 
-    "def-SV(P)", "def-SVP", "def-TZVP", "def-TZVPP", "def2-mSVP", "def2-mTZVP", "def2-mTZVPP", "def2-QZVP", 
-    "def2-QZVPD", "def2-QZVPP", "def2-QZVPPD", "def2-SV(P)", "def2-SVP", "def2-SVPD", "def2-TZVP", 
-    "def2-TZVP(-f)", "def2-TZVPD", "def2-TZVPP", "def2-TZVPPD", "dhf-QZVP", "dhf-QZVP-2c", "dhf-QZVPP", 
-    "dhf-QZVPP-2c", "dhf-SV(P)", "dhf-SVP", "dhf-SVP-2c", "dhf-TZVP", "dhf-TZVP-2c", "dhf-TZVPP", 
-    "dhf-TZVPP-2c", "DKH-def2-QZVPP", "DKH-def2-SV(P)", "DKH-def2-SVP", "DKH-def2-TZVP", "DKH-def2-TZVP(-f)", 
-    "DKH-def2-TZVPP", "DKH-QZVP", "DKH-QZVPP", "DKH-SV(P)", "DKH-SVP", "DKH-TZV(P)", "DKH-TZVP", "DKH-TZVPP", 
-    "EPR-II", "EPR-III", "haV(5+d)Z", "haV(Q+d)Z", "haV(T+d)Z", "HGBS-5", "HGBS-7", "HGBS-9", "HGBSP1-5", 
-    "HGBSP1-7", "HGBSP1-9", "HGBSP2-5", "HGBSP2-7", "HGBSP2-9", "HGBSP3-5", "HGBSP3-7", "HGBSP3-9", "IGLO-II", 
-    "IGLO-III", "jul-cc-pV(D+d)Z", "jul-cc-pV(Q+d)Z", "jul-cc-pV(T+d)Z", "jun-cc-pV(D+d)Z", "jun-cc-pV(Q+d)Z", 
-    "jun-cc-pV(T+d)Z", "LANL08", "LANL08(f)", "LANL2DZ", "LANL2TZ", "LANL2TZ(f)", "m6-31G", "m6-31G*", 
-    "ma-def-TZVP", "ma-def2-mSVP", "ma-def2-QZVP", "ma-def2-QZVPP", "ma-def2-SV(P)", "ma-def2-SVP", "ma-def2-TZVP", 
-    "ma-def2-TZVP(-f)", "ma-def2-TZVPP", "ma-DKH-def2-QZVPP", "ma-DKH-def2-SV(P)", "ma-DKH-def2-SVP", 
-    "ma-DKH-def2-TZVP", "ma-DKH-def2-TZVP(-f)", "ma-DKH-def2-TZVPP", "ma-ZORA-def2-QZVPP", "ma-ZORA-def2-SV(P)", 
-    "ma-ZORA-def2-SVP", "ma-ZORA-def2-TZVP", "ma-ZORA-def2-TZVP(-f)", "ma-ZORA-def2-TZVPP", "maug-cc-pV(D+d)Z", 
-    "maug-cc-pV(Q+d)Z", "maug-cc-pV(T+d)Z", "may-cc-pV(Q+d)Z", "may-cc-pV(T+d)Z", "MIDI", "MINI", "MINIS", 
-    "MINIX", "old-DKH-SV(P)", "old-DKH-SVP", "old-DKH-TZV(P)", "old-DKH-TZVP", "old-DKH-TZVPP", "old-SV", 
-    "old-SV(P)", "old-SVP", "old-TZV", "old-TZV(P)", "old-TZVP", "old-TZVPP", "old-ZORA-SV(P)", "old-ZORA-SVP", 
-    "old-ZORA-TZV(P)", "old-ZORA-TZVP", "old-ZORA-TZVPP", "Partridge-1", "Partridge-2", "Partridge-3", 
-    "Partridge-4", "pc-0", "pc-1", "pc-2", "pc-3", "pc-4", "pcH-1", "pcH-2", "pcH-3", "pcH-4", "pcJ-0", 
-    "pcJ-1", "pcJ-2", "pcJ-3", "pcJ-4", "pcseg-0", "pcseg-1", "pcseg-2", "pcseg-3", "pcseg-4", "pcSseg-0", 
-    "pcSseg-1", "pcSseg-2", "pcSseg-3", "pcSseg-4", "pcX-1", "pcX-2", "pcX-3", "pcX-4", "QZVP", "QZVPP", 
-    "Sapporo-DKH3-DZP-2012", "Sapporo-DKH3-QZP-2012", "Sapporo-DKH3-TZP-2012", "Sapporo-DZP-2012", 
-    "Sapporo-QZP-2012", "Sapporo-TZP-2012", "SARC-DKH-SVP", "SARC-DKH-TZVP", "SARC-DKH-TZVPP", "SARC-ZORA-SVP", 
-    "SARC-ZORA-TZVP", "SARC-ZORA-TZVPP", "SARC2-DKH-QZV", "SARC2-DKH-QZVP", "SARC2-ZORA-QZV", "SARC2-ZORA-QZVP", 
-    "saug-ANO-pV5Z", "saug-ANO-pVDZ", "saug-ANO-pVQZ", "saug-ANO-pVTZ", "STO-3G", "SV", "SV(P)", "SVP", "TZV", 
-    "TZV(P)", "TZVP", "TZVPP", "UGBS", "vDZP", "W1-DZ", "W1-mtsmall", "W1-Opt", "W1-QZ", "W1-TZ", "Wachters+f", 
-    "x2c-QZVPall", "x2c-QZVPall-2c", "x2c-QZVPall-2c-s", "x2c-QZVPall-s", "x2c-QZVPPall", "x2c-QZVPPall-2c", 
-    "x2c-QZVPPall-2c-s", "x2c-QZVPPall-s", "x2c-SV(P)all", "x2c-SV(P)all-2c", "x2c-SV(P)all-s", "x2c-SVPall", 
-    "x2c-SVPall-2c", "x2c-SVPall-s", "x2c-TZVPall", "x2c-TZVPall-2c", "x2c-TZVPall-s", "x2c-TZVPPall", 
-    "x2c-TZVPPall-2c", "x2c-TZVPPall-s", "ZORA-def2-QZVPP", "ZORA-def2-SV(P)", "ZORA-def2-SVP", "ZORA-def2-TZVP", 
-    "ZORA-def2-TZVP(-f)", "ZORA-def2-TZVPP", "ZORA-QZVP", "ZORA-QZVPP", "ZORA-SV(P)", "ZORA-SVP", "ZORA-TZV(P)", 
-    "ZORA-TZVP", "ZORA-TZVPP"
-]
-
-class OrcaSyntaxHighlighter(QSyntaxHighlighter):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.rules = []
-
-        # Keywords (!)
-        keyword_format = QTextCharFormat()
-        keyword_format.setForeground(QColor("#D32F2F")) # Red
-        keyword_format.setFontWeight(QFont.Weight.Bold)
-        self.rules.append((QRegularExpression(r"^!.*"), keyword_format))
-        # Highlight tokens like B3LYP, Opt, Freq, etc.
-        self.rules.append((QRegularExpression(r"\b(B3LYP|PBE0|CAM-B3LYP|wB97X-D3|NMR|Opt|Freq|OptTS|Scan|NormalOpt|LooseOpt|TightOpt|VeryTightOpt|COpt|SloppySCF|LooseSCF|NormalSCF|StrongSCF|TightSCF|VeryTightSCF|ExtremeSCF|RIJCOSX|RI|RI-MP2|DLPNO-CCSD|DLPNO-CCSD\(T\))\b", QRegularExpression.CaseInsensitiveOption), keyword_format))
-
-        # Blocks (%)
-        block_format = QTextCharFormat()
-        block_format.setForeground(QColor("#1976D2")) # Blue
-        block_format.setFontWeight(QFont.Weight.Bold)
-        self.rules.append((QRegularExpression(r"^%.*"), block_format))
-        self.rules.append((QRegularExpression(r"^\bend\b", QRegularExpression.CaseInsensitiveOption), block_format))
-
-        # Coordinates/Title (*)
-        coord_format = QTextCharFormat()
-        coord_format.setForeground(QColor("#388E3C")) # Green
-        coord_format.setFontWeight(QFont.Weight.Bold)
-        self.rules.append((QRegularExpression(r"^\*.*"), coord_format))
-
-        # Comments (#)
-        comment_format = QTextCharFormat()
-        comment_format.setForeground(QColor("#757575")) # Grey
-        self.rules.append((QRegularExpression(r"#.*"), comment_format))
-
-    def highlightBlock(self, text):
-        # State-based block highlighting can be complex, 
-        # but we can improve line-based matching.
-        for pattern, format in self.rules:
-            # Check for non-anchored matches for comments and some keywords
-            if pattern.pattern() == "#.*":
-                 match_iterator = pattern.globalMatch(text)
-            else:
-                 # Standard anchored match for start-of-line tokens
-                 match_iterator = pattern.globalMatch(text)
-                 
-            while match_iterator.hasNext():
-                match = match_iterator.next()
-                self.setFormat(match.capturedStart(), match.capturedLength(), format)
-        
-        # Additional: Highlight individual keywords (! B3LYP etc) even if not at start
-        # if the user wants more granular highlighting.
 
 class OrcaKeywordBuilderDialog(QDialog):
     """
@@ -195,16 +53,6 @@ class OrcaKeywordBuilderDialog(QDialog):
         self.tab_props = QWidget()
         self.setup_props_tab()
         self.tabs.addTab(self.tab_props, "Properties")
-        
-        # --- Tab 5: TD-DFT ---
-        self.tab_tddft = QWidget()
-        self.setup_tddft_tab()
-        self.tabs.addTab(self.tab_tddft, "TD-DFT")
-        
-        # --- Tab 6: Constraints ---
-        self.tab_constraints = QWidget()
-        self.setup_constraints_tab()
-        self.tabs.addTab(self.tab_constraints, "Constraints")
 
         layout.addWidget(self.tabs)
 
@@ -236,30 +84,10 @@ class OrcaKeywordBuilderDialog(QDialog):
         self.update_ui_state() # Initial UI state update
         self.update_preview()
 
-    def get_inferred_category(self, text):
-        if not text: return "All Methods"
-        text_upper = text.upper()
-        
-        if text_upper in [m.upper() for m in ['CAM-B3LYP', 'LC-wPBE', 'wB97', 'wB97M-V', 'wB97X', 'wB97X-D3', 'wB97X-V', 'wPBE', 'wPBEh']]:
-            return "DFT (Range-Separated)"
-        elif text_upper in [m.upper() for m in ['B2GP-PLYP', 'B2PLYP', 'DSD-BLYP', 'DSD-PBEP86', 'mPW2PLYP', 'PTPSS-D3', 'PWPB95']]:
-            return "DFT (Double Hybrid)"
-        elif text_upper in [m.upper() for m in ['B3LYP', 'B3PW91', 'B97-3c', 'B97M-rV', 'B97M-V', 'BHandHLYP', 'BLYP', 'BP', 'BP86', 'M06', 'M06-2X', 'M06-HF', 'M06-L', 'O3LYP', 'PBE', 'PBE0', 'PBEh-3c', 'PW91', 'r2SCAN-3c', 'SCAN', 'TPSS', 'TPSSh', 'X3LYP']]:
-            return "DFT (GGA/Hybrid/Meta)"
-        elif text_upper in [m.upper() for m in ['HF', 'MP2', 'MP3', 'DLPNO-MP2', 'DLPNO-SCS-MP2', 'DLPNO-SOS-MP2', 'F12-DLPNO-MP2', 'F12-MP2', 'F12-RI-MP2', 'F12/D-DLPNO-MP2', 'F12/D-RI-MP2', 'OO-RI-MP2', 'OO-RI-SCS-MP2', 'OO-RI-SOS-MP2', 'RI-MP2', 'RI-SCS-MP2', 'RI-SOS-MP2', 'ROHF', 'SCS-MP2', 'SCS-MP3', 'UHF']]:
-            return "Wavefunction (HF/MP2)"
-        elif text_upper in [m.upper() for m in ['ACPF', 'AQCC', 'BD', 'CCSD', 'CCSD(T)', 'CCSD(T)-F12', 'CCSD(T)-F12/RI', 'CCSD(T)-F12D/RI', 'CCSD-F12', 'CCSD-F12/RI', 'CCSD-F12D/RI', 'CEPA/1', 'CEPA/2', 'CEPA/3', 'DLPNO-CCSD', 'DLPNO-CCSD(T)', 'DLPNO-CCSD(T)-F12', 'DLPNO-CCSD(T)-F12/D', 'DLPNO-CCSD(T1)', 'DLPNO-CCSD(T1)-F12', 'DLPNO-CCSD(T1)-F12/D', 'DLPNO-CCSD-F12', 'DLPNO-CCSD-F12/D', 'NCEPA/1', 'NCPF/1', 'QCISD', 'QCISD(T)', 'QCISD(T)-F12', 'QCISD(T)-F12/RI', 'QCISD-F12', 'QCISD-F12/RI', 'RI-CEPA/1-F12']]:
-            return "Wavefunction (Coupled Cluster)"
-        elif text_upper in [m.upper() for m in ['CASSCF', 'NEVPT2', 'DLPNO-NEVPT2', 'MRCI']]:
-            return "Wavefunction (Multireference)"
-        elif text_upper in [m.upper() for m in ['AM1', 'GFN-FF', 'GFN0-XTB', 'GFN1-XTB', 'GFN1-xTB', 'GFN2-XTB', 'GFN2-xTB', 'MNDO', 'NATIVE-GFN-XTB', 'NATIVE-GFN1-XTB', 'NATIVE-GFN2-XTB', 'NATIVE-spGFN-XTB', 'NATIVE-spGFN1-XTB', 'NATIVE-spGFN2-XTB', 'NATIVE-spXTB', 'NATIVE-spXTB1', 'NATIVE-spXTB2', 'NATIVE-XTB', 'NATIVE-XTB1', 'NATIVE-XTB2', 'PM3', 'PM6', 'XTB', 'XTB0', 'XTB1', 'XTB2', 'XTBFF', 'ZINDO/1', 'ZINDO/2', 'ZINDO/S', 'ZNDDO/1', 'ZNDDO/2']]:
-            return "Semi-Empirical"
-            
-        return "All Methods"
-
     def setup_method_tab(self):
         layout = QFormLayout()
 
+        # Method Type
         self.method_type = QComboBox()
         self.method_type.addItems([
             "DFT (GGA/Hybrid/Meta)", 
@@ -268,30 +96,23 @@ class OrcaKeywordBuilderDialog(QDialog):
             "Wavefunction (HF/MP2)",
             "Wavefunction (Coupled Cluster)",
             "Wavefunction (Multireference)",
-            "Semi-Empirical",
-            "All Methods"
+            "Semi-Empirical"
         ])
         self.method_type.currentIndexChanged.connect(self.update_method_list)
         layout.addRow("Method Type:", self.method_type)
         
+        # Method Name
         self.method_name = QComboBox()
-        self.method_name.setEditable(True)
-        m_completer = QCompleter(ALL_ORCA_METHODS, self)
-        m_completer.setCaseSensitivity(QtCore.Qt.CaseSensitivity.CaseInsensitive)
-        m_completer.setFilterMode(QtCore.Qt.MatchFlag.MatchContains)
-        self.method_name.setCompleter(m_completer)
         self.update_method_list()
         layout.addRow("Method:", self.method_name)
         
+        # Basis Set
         self.basis_set = QComboBox()
-        self.basis_set.setEditable(True)
-        self.basis_set.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
         basis_groups = [
             "--- Karlsruhe (Def2) ---",
             "def2-SV(P)", "def2-SVP", "def2-TZVP", "def2-QZVP",
-            "def2-SVPD", "def2-TZVPD", "def2-QZVPD",
             "ma-def2-SVP", "ma-def2-TZVP", "ma-def2-QZVP",
-            "def2-TZVPP", "def2-QZVPP", "def2-TZVPPD", "def2-QVPPD",
+            "def2-TZVPP", "def2-QZVPP",
             "--- Dunning (cc-pV) ---",
             "cc-pVDZ", "cc-pVTZ", "cc-pVQZ", "cc-pV5Z",
             "aug-cc-pVDZ", "aug-cc-pVTZ", "aug-cc-pVQZ", "aug-cc-pV5Z",
@@ -304,10 +125,6 @@ class OrcaKeywordBuilderDialog(QDialog):
             "EPR-II", "EPR-III", "IGLO-II", "IGLO-III"
         ]
         self.basis_set.addItems(basis_groups)
-        b_completer = QCompleter(ALL_ORCA_BASIS_SETS, self)
-        b_completer.setCaseSensitivity(QtCore.Qt.CaseSensitivity.CaseInsensitive)
-        b_completer.setFilterMode(QtCore.Qt.MatchFlag.MatchContains)
-        self.basis_set.setCompleter(b_completer)
         self.basis_set.setCurrentText("def2-SVP")
         layout.addRow("Basis Set:", self.basis_set)
         
@@ -323,37 +140,47 @@ class OrcaKeywordBuilderDialog(QDialog):
 
     def update_method_list(self):
         mtype = self.method_type.currentText()
-        current_text = self.method_name.currentText()
-        
         self.method_name.blockSignals(True)
         self.method_name.clear()
         
         if "GGA/Hybrid" in mtype:
-             self.method_name.addItems(['B3LYP', 'B3PW91', 'B97-3c', 'B97M-rV', 'B97M-V', 'BHandHLYP', 'BLYP', 'BP', 'BP86', 'M06', 'M06-2X', 'M06-HF', 'M06-L', 'O3LYP', 'PBE', 'PBE0', 'PBEh-3c', 'PW91', 'r2SCAN-3c', 'SCAN', 'TPSS', 'TPSSh', 'X3LYP'])
+             self.method_name.addItems([
+                 "B3LYP", "PBE0", "PBE", "BP86", "BLYP", "PW91", 
+                 "TPSSh", "TPSS", "SCAN", "r2SCAN-3c", "B97-3c", "PBEh-3c", # 3c系を追加
+                 "M06", "M06-2X", "M06-HF", "M06-L",
+                 "X3LYP", "O3LYP", "B3PW91", "BHandHLYP" # BH&HLYPをBHandHLYPに修正
+             ])
         elif "Range-Separated" in mtype:
-             self.method_name.addItems(['CAM-B3LYP', 'LC-wPBE', 'wB97', 'wB97M-V', 'wB97X', 'wB97X-D3', 'wB97X-V', 'wPBE', 'wPBEh'])
+             self.method_name.addItems([
+                 "wB97X-D3", "wB97X-V", "wB97M-V", "wB97X", "wB97",
+                 "CAM-B3LYP", "LC-wPBE", "wPBE", "wPBEh"
+             ])
         elif "Double Hybrid" in mtype:
-             self.method_name.addItems(['B2GP-PLYP', 'B2PLYP', 'DSD-BLYP', 'DSD-PBEP86', 'mPW2PLYP', 'PTPSS-D3', 'PWPB95'])
-        elif "HF/MP2" in mtype:
-             self.method_name.addItems(['HF', 'MP2', 'MP3', 'DLPNO-MP2', 'DLPNO-SCS-MP2', 'DLPNO-SOS-MP2', 'F12-DLPNO-MP2', 'F12-MP2', 'F12-RI-MP2', 'F12/D-DLPNO-MP2', 'F12/D-RI-MP2', 'OO-RI-MP2', 'OO-RI-SCS-MP2', 'OO-RI-SOS-MP2', 'RI-MP2', 'RI-SCS-MP2', 'RI-SOS-MP2', 'ROHF', 'SCS-MP2', 'SCS-MP3', 'UHF'])
+             self.method_name.addItems([
+                 "B2PLYP", "mPW2PLYP", "B2GP-PLYP", "DSD-PBEP86", "DSD-BLYP",
+                 "PTPSS-D3", "PWPB95"
+             ])
+        elif "Wavefunction (HF/MP2)" in mtype:
+             self.method_name.addItems([
+                 "HF", "HF-3c", "UHF", "ROHF", # HF-3cを追加
+                 "MP2", "RI-MP2", "SCS-MP2", "OO-RI-MP2"
+             ])
         elif "Coupled Cluster" in mtype:
-             self.method_name.addItems(['ACPF', 'AQCC', 'BD', 'CCSD', 'CCSD(T)', 'CCSD(T)-F12', 'CCSD(T)-F12/RI', 'CCSD(T)-F12D/RI', 'CCSD-F12', 'CCSD-F12/RI', 'CCSD-F12D/RI', 'CEPA/1', 'CEPA/2', 'CEPA/3', 'DLPNO-CCSD', 'DLPNO-CCSD(T)', 'DLPNO-CCSD(T)-F12', 'DLPNO-CCSD(T)-F12/D', 'DLPNO-CCSD(T1)', 'DLPNO-CCSD(T1)-F12', 'DLPNO-CCSD(T1)-F12/D', 'DLPNO-CCSD-F12', 'DLPNO-CCSD-F12/D', 'NCEPA/1', 'NCPF/1', 'QCISD', 'QCISD(T)', 'QCISD(T)-F12', 'QCISD(T)-F12/RI', 'QCISD-F12', 'QCISD-F12/RI', 'RI-CEPA/1-F12'])
+             self.method_name.addItems([
+                 "DLPNO-CCSD(T)", "DLPNO-CCSD(T1)", "DLPNO-CCSD", 
+                 "CCSD(T)", "CCSD", "QCISD(T)", "CEPA/1"
+             ])
         elif "Multireference" in mtype:
-             self.method_name.addItems(['CASSCF', 'NEVPT2', 'DLPNO-NEVPT2', 'MRCI'])
+             self.method_name.addItems([
+                 "CASSCF", "NEVPT2", "DLPNO-NEVPT2", "MRCI"
+             ])
         elif "Semi-Empirical" in mtype:
-             self.method_name.addItems(['AM1', 'GFN-FF', 'GFN0-XTB', 'GFN1-XTB', 'GFN1-xTB', 'GFN2-XTB', 'GFN2-xTB', 'MNDO', 'NATIVE-GFN-XTB', 'NATIVE-GFN1-XTB', 'NATIVE-GFN2-XTB', 'NATIVE-spGFN-XTB', 'NATIVE-spGFN1-XTB', 'NATIVE-spGFN2-XTB', 'NATIVE-spXTB', 'NATIVE-spXTB1', 'NATIVE-spXTB2', 'NATIVE-XTB', 'NATIVE-XTB1', 'NATIVE-XTB2', 'PM3', 'PM6', 'XTB', 'XTB0', 'XTB1', 'XTB2', 'XTBFF', 'ZINDO/1', 'ZINDO/2', 'ZINDO/S', 'ZNDDO/1', 'ZNDDO/2'])
-        elif mtype == "All Methods":
-             self.method_name.addItems(ALL_ORCA_METHODS)
-             
-        if mtype == "All Methods":
-            if current_text:
-                self.method_name.setCurrentText(current_text)
+            self.method_name.addItems(["XT", "GFN1-xTB", "GFN2-xTB", "PM3", "AM1", "ZINDO/S", "PM6", "MNDO"])
         else:
-            if self.method_name.count() > 0:
-                 self.method_name.setCurrentIndex(0)
-             
+            self.method_name.addItem("Custom")
+            
         self.method_name.blockSignals(False)
-        self.update_ui_state()
+        self.update_ui_state() # Update visibility when method type changes
         self.update_preview()
 
     def setup_job_tab(self):
@@ -365,7 +192,6 @@ class OrcaKeywordBuilderDialog(QDialog):
             "Optimization Only (Opt)", 
             "Frequency Only (Freq)", 
             "Single Point Energy (SP)",
-            "NMR",
             "Scan (Relaxed Surface)",
             "Transition State Opt (OptTS)",
             "Gradient",
@@ -375,49 +201,17 @@ class OrcaKeywordBuilderDialog(QDialog):
         layout.addWidget(self.job_type)
         self.job_type.currentIndexChanged.connect(self.update_ui_state)
         
-        # SCF Options (Moved to below Task)
-        self.scf_group = QGroupBox("SCF Convergence")
-        scf_layout = QGridLayout()
-        
-        self.scf_sloppy = QCheckBox("Sloppy")
-        self.scf_loose = QCheckBox("Loose")
-        self.scf_normal = QCheckBox("Normal")
-        self.scf_strong = QCheckBox("Strong")
-        self.scf_tight = QCheckBox("Tight")
-        self.scf_verytight = QCheckBox("VeryTight")
-        self.scf_extreme = QCheckBox("Extreme")
-        
-        # Row 1
-        scf_layout.addWidget(self.scf_sloppy, 0, 0)
-        scf_layout.addWidget(self.scf_loose, 0, 1)
-        scf_layout.addWidget(self.scf_normal, 0, 2)
-        scf_layout.addWidget(self.scf_strong, 0, 3)
-        # Row 2
-        scf_layout.addWidget(self.scf_tight, 1, 0)
-        scf_layout.addWidget(self.scf_verytight, 1, 1)
-        scf_layout.addWidget(self.scf_extreme, 1, 2)
-        
-        self.scf_group.setLayout(scf_layout)
-        layout.addWidget(self.scf_group)
-        
         # Opt Options
         self.opt_group = QGroupBox("Optimization Options")
-        opt_layout = QGridLayout()
+        opt_layout = QHBoxLayout()
         self.opt_tight = QCheckBox("TightOpt")
-        self.opt_verytight = QCheckBox("VeryTightOpt")
         self.opt_loose = QCheckBox("LooseOpt")
-        self.opt_cart = QCheckBox("COpt (Cartesian)")
         self.opt_calcfc = QCheckBox("CalcFC")
         self.opt_ts_mode = QCheckBox("CalcHess (for TS)")
-        
-        # Row 1: Convergence
-        opt_layout.addWidget(self.opt_tight, 0, 0)
-        opt_layout.addWidget(self.opt_verytight, 0, 1)
-        opt_layout.addWidget(self.opt_loose, 0, 2)
-        # Row 2: Methods/Hessian
-        opt_layout.addWidget(self.opt_cart, 1, 0)
-        opt_layout.addWidget(self.opt_calcfc, 1, 1)
-        
+        opt_layout.addWidget(self.opt_tight)
+        opt_layout.addWidget(self.opt_loose)
+        opt_layout.addWidget(self.opt_calcfc)
+        opt_layout.addWidget(self.opt_ts_mode)
         self.opt_group.setLayout(opt_layout)
         layout.addWidget(self.opt_group)
         
@@ -468,10 +262,12 @@ class OrcaKeywordBuilderDialog(QDialog):
         layout.addRow(self.rijcosx)
         
         self.grid_combo = QComboBox()
-        self.grid_combo.addItems(["Default", "defgrid1", "defgrid2", "defgrid3", "Grid4", "Grid5", "Grid6", "NoGrid"])
-        self.grid_combo.setCurrentText("Default")
+        self.grid_combo.addItems(["Default", "DefGrid2", "DefGrid3", "Grid4", "Grid5", "Grid6", "NoGrid"])
         layout.addRow("Grid:", self.grid_combo)
 
+        self.scf_conv = QComboBox()
+        self.scf_conv.addItems(["Default", "LooseSCF", "TightSCF", "VeryTightSCF"])
+        layout.addRow("SCF Convergence:", self.scf_conv)
 
         # NBO
         self.pop_nbo = QCheckBox("NBO Analysis (! NBO)")
@@ -479,125 +275,33 @@ class OrcaKeywordBuilderDialog(QDialog):
 
         self.tab_props.setLayout(layout)
 
-    def setup_tddft_tab(self):
-        layout = QFormLayout()
-        
-        self.tddft_enable = QCheckBox("Enable TD-DFT (%)")
-        self.tddft_enable.toggled.connect(self.update_preview)
-        layout.addRow(self.tddft_enable)
-        
-        self.tddft_nroots = QSpinBox()
-        self.tddft_nroots.setRange(1, 500)
-        self.tddft_nroots.setValue(10)
-        layout.addRow("Number of Roots (NRoots):", self.tddft_nroots)
-        
-        self.tddft_singlets = QCheckBox("Singlets")
-        self.tddft_singlets.setChecked(True)
-        self.tddft_triplets = QCheckBox("Triplets")
-        self.tddft_triplets.setChecked(False)
-        
-        s_layout = QHBoxLayout()
-        s_layout.addWidget(self.tddft_singlets)
-        s_layout.addWidget(self.tddft_triplets)
-        layout.addRow("States:", s_layout)
-        
-        self.tddft_tda = QCheckBox("Use TDA (Tamm-Dancoff Approximation)")
-        self.tddft_tda.setChecked(True)
-        layout.addRow(self.tddft_tda)
-        
-        self.tddft_iroot = QSpinBox()
-        self.tddft_iroot.setRange(1, 500)
-        self.tddft_iroot.setValue(1)
-        layout.addRow("Root for Polar./Grad. (IRoot):", self.tddft_iroot)
-
-        self.tab_tddft.setLayout(layout)
-
-    def setup_constraints_tab(self):
-        layout = QVBoxLayout()
-        
-        layout.addWidget(QLabel("<b>Geometry Constraints (%geom ... Constraints ... end)</b>"))
-        
-        self.constraints_edit = QPlainTextEdit()
-        self.constraints_edit.setPlaceholderText("{ C 0 C }\n{ B 0 1 C }")
-        self.constraints_edit.textChanged.connect(self.update_preview)
-        layout.addWidget(self.constraints_edit)
-        
-        h_layout = QHBoxLayout()
-        self.constr_type = QComboBox()
-        self.constr_type.addItems(["Atom (C)", "Bond (B)", "Angle (A)", "Dihedral (D)"])
-        self.constr_indices = QLineEdit()
-        self.constr_indices.setPlaceholderText("Indices (e.g. 0 1)")
-        btn_add = QPushButton("Add Constraint")
-        btn_add.clicked.connect(self.add_constraint_line)
-        
-        h_layout.addWidget(self.constr_type)
-        h_layout.addWidget(self.constr_indices, 1)
-        h_layout.addWidget(btn_add)
-        layout.addLayout(h_layout)
-        
-        layout.addWidget(QLabel("<font color='gray'>Note: Indices are 0-based. 'C' means constant/fixed.</font>"))
-        
-        self.tab_constraints.setLayout(layout)
-
-    def add_constraint_line(self):
-        ctype = self.constr_type.currentText()[0] # C, B, A, or D
-        indices = self.constr_indices.text().strip()
-        if not indices: return
-        
-        line = f"{{ {ctype} {indices} C }}"
-        current = self.constraints_edit.toPlainText()
-        if current and not current.endswith("\n"):
-            current += "\n"
-        self.constraints_edit.setPlainText(current + line + "\n")
-
     def connect_signals(self):
         widgets = [
             self.method_type, self.method_name, self.basis_set, self.aux_basis,
-            self.job_type, self.opt_tight, self.opt_verytight, self.opt_loose, 
-            self.opt_cart, self.opt_calcfc,
+            self.job_type, self.opt_tight, self.opt_loose, self.opt_calcfc, self.opt_ts_mode,
             self.freq_num, self.freq_raman,
             self.solv_model, self.solvent, self.dispersion,
-            self.solv_model, self.solvent, self.dispersion,
-            self.rijcosx, self.grid_combo, 
-            self.scf_sloppy, self.scf_loose, self.scf_normal, self.scf_strong, 
-            self.scf_tight, self.scf_verytight, self.scf_extreme,
-            self.pop_nbo, self.tddft_enable, self.tddft_nroots, self.tddft_singlets, 
-            self.tddft_triplets, self.tddft_tda, self.tddft_iroot,
-            self.constraints_edit
+            self.rijcosx, self.grid_combo, self.scf_conv, self.pop_nbo
         ]
         for w in widgets:
             if isinstance(w, QComboBox):
                 w.currentIndexChanged.connect(self.update_preview)
-                if w.isEditable():
-                    w.currentTextChanged.connect(self.update_preview)
             elif isinstance(w, QCheckBox):
                 w.toggled.connect(self.update_preview)
-                # Mutual exclusivity for SCF
-                if w in [self.scf_sloppy, self.scf_loose, self.scf_normal, self.scf_strong, 
-                           self.scf_tight, self.scf_verytight, self.scf_extreme]:
-                    w.clicked.connect(self.enforce_scf_mutual_exclusion)
-                # Mutual exclusivity for Opt
-                if w in [self.opt_tight, self.opt_verytight, self.opt_loose]:
-                    w.clicked.connect(self.enforce_opt_mutual_exclusion)
             elif isinstance(w, QSpinBox):
                 w.valueChanged.connect(self.update_preview)
-            elif isinstance(w, (QTextEdit, QPlainTextEdit)):
-                w.textChanged.connect(self.update_preview)
 
     def update_ui_state(self):
         """Update usability of widgets based on current selection."""
         if not getattr(self, 'ui_ready', False): return
 
         # 1. Method Dependent
-        method_text = self.method_name.currentText()
-        mtype = self.get_inferred_category(method_text)
+        mtype = self.method_type.currentText()
         is_semi = "Semi-Empirical" in mtype
-        is_3c = "3C" in method_text.upper()
-        no_basis = is_semi or is_3c
         
-        # Disable Basis Set & Aux Basis for Semi-Empirical and 3c
-        self.basis_set.setEnabled(not no_basis)
-        self.aux_basis.setEnabled(not no_basis)
+        # Disable Basis Set & Aux Basis for Semi-Empirical
+        self.basis_set.setEnabled(not is_semi)
+        self.aux_basis.setEnabled(not is_semi)
         
         # Handling RI / RIJCOSX
         if is_semi:
@@ -628,34 +332,9 @@ class OrcaKeywordBuilderDialog(QDialog):
 
         # 4. TD-DFT (Removed from Route Builder, handled via blocks)
 
-    def enforce_scf_mutual_exclusion(self):
-        ctx = self.sender()
-        if not ctx.isChecked(): return
-        scf_boxes = [
-            self.scf_sloppy, self.scf_loose, self.scf_normal, self.scf_strong, 
-            self.scf_tight, self.scf_verytight, self.scf_extreme
-        ]
-        for cb in scf_boxes:
-            if cb != ctx:
-                cb.blockSignals(True)
-                cb.setChecked(False)
-                cb.blockSignals(False)
-        self.update_preview()
-
-    def enforce_opt_mutual_exclusion(self):
-        ctx = self.sender()
-        if not ctx.isChecked(): return
-        for cb in [self.opt_tight, self.opt_verytight, self.opt_loose]:
-            if cb != ctx:
-                cb.blockSignals(True)
-                cb.setChecked(False)
-                cb.blockSignals(False)
-        self.update_preview()
-
     def update_preview(self):
         if not getattr(self, 'ui_ready', False):
             return
-        self.update_ui_state()
 
         route_parts = ["!"]
         
@@ -664,7 +343,7 @@ class OrcaKeywordBuilderDialog(QDialog):
         basis = self.basis_set.currentText()
         
         # 3c methods usually don't need basis set
-        mtype = self.get_inferred_category(self.method_name.currentText())
+        mtype = self.method_type.currentText()
         if "Semi-Empirical" in mtype:
             route_parts.append(method)
         elif "3c" in method:
@@ -693,16 +372,14 @@ class OrcaKeywordBuilderDialog(QDialog):
         elif "Scan" in job_txt: route_parts.append("Scan")
         elif "Gradient" in job_txt: route_parts.append("Gradient")
         elif "Hessian" in job_txt: route_parts.append("Hessian")
-        elif "NMR" in job_txt: route_parts.append("NMR")
         elif "SP" in job_txt: pass # No keyword
         
         # Opt Options
         if self.opt_group.isVisible():
             if self.opt_tight.isChecked(): route_parts.append("TightOpt")
-            if self.opt_verytight.isChecked(): route_parts.append("VeryTightOpt")
             if self.opt_loose.isChecked(): route_parts.append("LooseOpt")
-            if self.opt_cart.isChecked(): route_parts.append("COpt")
             if self.opt_calcfc.isChecked(): route_parts.append("CalcFC")
+            if self.opt_ts_mode.isChecked(): route_parts.append("CalcHess")
         
         # Freq Options
         if self.freq_group.isVisible():
@@ -729,13 +406,8 @@ class OrcaKeywordBuilderDialog(QDialog):
             route_parts.append(disp)
 
         # SCF / Grid
-        if self.scf_sloppy.isChecked(): route_parts.append("SloppySCF")
-        elif self.scf_loose.isChecked(): route_parts.append("LooseSCF")
-        elif self.scf_normal.isChecked(): route_parts.append("NormalSCF")
-        elif self.scf_strong.isChecked(): route_parts.append("StrongSCF")
-        elif self.scf_tight.isChecked(): route_parts.append("TightSCF")
-        elif self.scf_verytight.isChecked(): route_parts.append("VeryTightSCF")
-        elif self.scf_extreme.isChecked(): route_parts.append("ExtremeSCF")
+        scf = self.scf_conv.currentText()
+        if scf != "Default": route_parts.append(scf)
         
         grid = self.grid_combo.currentText()
         if grid != "Default": route_parts.append(grid)
@@ -744,162 +416,13 @@ class OrcaKeywordBuilderDialog(QDialog):
         if self.pop_nbo.isChecked(): route_parts.append("NBO")
 
         self.preview_str = " ".join(route_parts)
-        
-        # Add %tddft block if enabled
-        if self.tddft_enable.isChecked():
-            block = (
-                f"\n\n%tddft\n"
-                f"  NRoots {self.tddft_nroots.value()}\n"
-                f"  Singlets {'true' if self.tddft_singlets.isChecked() else 'false'}\n"
-                f"  Triplets {'true' if self.tddft_triplets.isChecked() else 'false'}\n"
-                f"  TDA {'true' if self.tddft_tda.isChecked() else 'false'}\n"
-                f"  IRoot {self.tddft_iroot.value()}\n"
-                f"end"
-            )
-            self.preview_str += block
-
-        # Add constraints to %geom if present
-        constraints = self.constraints_edit.toPlainText().strip()
-        if constraints:
-            # We wrap it in %geom if it's not already there in the builder's logic
-            # ORCA supports multiple %geom blocks, but we'll try to keep it clean.
-            constr_block = f"\n\n%geom\n  Constraints\n"
-            for line in constraints.splitlines():
-                if line.strip():
-                    constr_block += f"    {line.strip()}\n"
-            constr_block += "  end\nend"
-            self.preview_str += constr_block
-
         self.preview_label.setText(self.preview_str)
 
     def get_route(self):
         return self.preview_str
         
     def parse_route(self, route):
-        if not route: return
-        self.ui_ready = False 
-        
-        # Normalize route
-        cleaned_route = route.strip()
-        if cleaned_route.startswith("!"):
-            cleaned_route = cleaned_route[1:].strip()
-            
-        tokens = cleaned_route.split()
-        if not tokens: 
-            self.ui_ready = True
-            return
-
-        method_list_upper = [m.upper() for m in ALL_ORCA_METHODS]
-        basis_list_upper = [b.upper() for b in ALL_ORCA_BASIS_SETS]
-        
-        found_method = False
-        found_basis = False
-        
-        for t in tokens:
-            tu = t.upper()
-            
-            # 1. Method & Basis (Priority)
-            if not found_method and tu in method_list_upper:
-                idx = method_list_upper.index(tu)
-                self.method_name.setCurrentText(ALL_ORCA_METHODS[idx])
-                found_method = True
-                continue
-            elif not found_basis and tu in basis_list_upper:
-                idx = basis_list_upper.index(tu)
-                self.basis_set.setCurrentText(ALL_ORCA_BASIS_SETS[idx])
-                found_basis = True
-                continue
-            
-            # 2. Job Types
-            if tu == "OPT":
-                 if self.job_type.currentText() == "Frequency Only (Freq)":
-                      self.job_type.setCurrentText("Optimization + Freq (Opt Freq)")
-                 else:
-                      self.job_type.setCurrentText("Optimization Only (Opt)")
-            elif tu == "FREQ": 
-                if self.job_type.currentText() == "Optimization Only (Opt)":
-                    self.job_type.setCurrentText("Optimization + Freq (Opt Freq)")
-                else:
-                    self.job_type.setCurrentText("Frequency Only (Freq)")
-            elif tu == "OPTTS": self.job_type.setCurrentText("Transition State Opt (OptTS)")
-            elif tu == "SCAN": self.job_type.setCurrentText("Scan (Relaxed Surface)")
-            elif tu == "NMR": self.job_type.setCurrentText("NMR")
-            elif tu in ["GRADIENT", "HESSIAN"]:
-                 # Direct match for Gradient/Hessian
-                 for i in range(self.job_type.count()):
-                     if tu in self.job_type.itemText(i).upper():
-                         self.job_type.setCurrentIndex(i)
-                         break
-            
-            # 3. Opt Options
-            if tu == "TIGHTOPT": self.opt_tight.setChecked(True)
-            elif tu == "VERYTIGHTOPT": self.opt_verytight.setChecked(True)
-            elif tu == "LOOSEOPT": self.opt_loose.setChecked(True)
-            elif tu == "COPT": self.opt_cart.setChecked(True)
-            elif tu == "CALCFC": self.opt_calcfc.setChecked(True)
-            
-            # 4. Freq Options
-            if tu == "NUMFREQ": self.freq_num.setChecked(True)
-            if tu == "RAMAN": self.freq_raman.setChecked(True)
-            
-            # 5. Solvation
-            if "(" in tu and any(x in tu for x in ["CPCM", "SMD", "IEFPCM"]):
-                s_model = tu.split("(")[0]
-                s_name = t.split("(")[1].split(")")[0]
-                
-                if s_model == "CPCM": self.solv_model.setCurrentText("CPCM")
-                elif s_model == "SMD": self.solv_model.setCurrentText("SMD")
-                elif s_model == "IEFPCM": self.solv_model.setCurrentText("IEFPCM")
-                
-                for i in range(self.solvent.count()):
-                    if self.solvent.itemText(i).upper() == s_name.upper():
-                        self.solvent.setCurrentIndex(i)
-                        break
-            elif tu == "SMD": self.solv_model.setCurrentText("SMD")
-            elif tu == "CPC(WATER)": self.solv_model.setCurrentText("CPC(Water) (Short)")
-            
-            # 6. Dispersion
-            if tu in ["D3BJ", "D3ZERO", "D4", "D2", "NL"]:
-                self.dispersion.setCurrentText(tu)
-            
-            # 7. RI / RIJCOSX
-            if tu in ["RIJCOSX", "RI"]:
-                self.rijcosx.setChecked(True)
-            
-            # 8. Aux Basis
-            if tu == "DEF2/J": self.aux_basis.setCurrentText("Def2/J")
-            elif tu == "DEF2/JK": self.aux_basis.setCurrentText("Def2/JK")
-            elif tu == "AUTOMX": self.aux_basis.setCurrentText("AutoAux")
-            
-            # 9. SCF / Grid
-            if tu == "SLOPPYSCF": self.scf_sloppy.setChecked(True)
-            elif tu == "LOOSESCF": self.scf_loose.setChecked(True)
-            elif tu == "NORMALSCF": self.scf_normal.setChecked(True)
-            elif tu == "STRONGSCF": self.scf_strong.setChecked(True)
-            elif tu == "TIGHTSCF": self.scf_tight.setChecked(True)
-            elif tu == "VERYTIGHTSCF": self.scf_verytight.setChecked(True)
-            elif tu == "EXTREMESCF": self.scf_extreme.setChecked(True)
-            
-            for combo in [self.grid_combo]:
-                for i in range(combo.count()):
-                    if combo.itemText(i).lower() == tu.lower():
-                        combo.setCurrentIndex(i)
-                        break
-            
-            # 10. NBO
-            if tu == "NBO": self.pop_nbo.setChecked(True)
-
-        self.ui_ready = True
-        self.update_ui_state()
-        self.update_preview()
-
-    def keyPressEvent(self, event):
-        if event.key() == Qt.Key.Key_Escape:
-            focused = self.focusWidget()
-            if isinstance(focused, (QLineEdit, QComboBox, QSpinBox, QTextEdit)):
-                focused.clearFocus()
-                return
-        super().keyPressEvent(event)
+        pass
 
 class OrcaSetupDialogNeo(QDialog):
     """
@@ -908,7 +431,7 @@ class OrcaSetupDialogNeo(QDialog):
     def __init__(self, parent=None, mol=None, filename=None):
         super().__init__(parent)
         self.setWindowTitle(PLUGIN_NAME)
-        self.resize(1100, 800)
+        self.resize(600, 700)
         self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowMinMaxButtonsHint)
         self.setSizeGripEnabled(True)
         self.mol = mol
@@ -921,206 +444,196 @@ class OrcaSetupDialogNeo(QDialog):
 
     def setup_ui(self):
         main_layout = QVBoxLayout()
-        
-        # --- Horizontal Split Layer ---
-        content_layout = QHBoxLayout()
-        
-        # --- Right Side: Settings (Scrollable) ---
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setFrameShape(QScrollArea.Shape.NoFrame)
-        
-        settings_container = QWidget()
-        settings_layout = QVBoxLayout(settings_container)
 
         # --- 0. Preset Management ---
         preset_group = QGroupBox("Preset Management")
         preset_layout = QHBoxLayout()
+        
         self.preset_combo = QComboBox()
         self.preset_combo.currentIndexChanged.connect(self.apply_selected_preset)
         preset_layout.addWidget(QLabel("Preset:"))
         preset_layout.addWidget(self.preset_combo, 1)
+
         self.btn_save_preset = QPushButton("Save New...")
         self.btn_save_preset.clicked.connect(self.save_preset_dialog)
         preset_layout.addWidget(self.btn_save_preset)
+
         self.btn_del_preset = QPushButton("Delete")
         self.btn_del_preset.clicked.connect(self.delete_preset)
         preset_layout.addWidget(self.btn_del_preset)
+
         preset_group.setLayout(preset_layout)
-        settings_layout.addWidget(preset_group)
+        main_layout.addWidget(preset_group)
 
         # --- 1. Resource Configuration ---
         res_group = QGroupBox("Resources (%pal, %maxcore)")
         res_layout = QFormLayout()
-        res_h1 = QHBoxLayout()
+
+        # NProcs
         self.nproc_spin = QSpinBox()
         self.nproc_spin.setRange(1, 128)
         self.nproc_spin.setValue(4)
         self.nproc_spin.valueChanged.connect(self.update_preview)
-        btn_auto_proc = QPushButton("Auto")
-        btn_auto_proc.setFixedWidth(50)
-        btn_auto_proc.clicked.connect(self.auto_detect_nproc)
-        res_h1.addWidget(self.nproc_spin)
-        res_h1.addWidget(btn_auto_proc)
-        res_layout.addRow("Processors:", res_h1)
+        res_layout.addRow("Number of Processors (nprocs):", self.nproc_spin)
 
-        res_h2 = QHBoxLayout()
+        # Memory
         self.mem_spin = QSpinBox()
         self.mem_spin.setRange(100, 999999)
         self.mem_spin.setValue(2000) 
         self.mem_spin.setSuffix(" MB")
         self.mem_spin.valueChanged.connect(self.update_preview)
-        btn_auto_mem = QPushButton("Auto")
-        btn_auto_mem.setFixedWidth(50)
-        btn_auto_mem.clicked.connect(self.auto_detect_mem)
-        res_h2.addWidget(self.mem_spin)
-        res_h2.addWidget(btn_auto_mem)
-        res_layout.addRow("MaxCore:", res_h2)
+        res_layout.addRow("Memory per Core (MaxCore):", self.mem_spin)
+
         res_group.setLayout(res_layout)
-        settings_layout.addWidget(res_group)
+        main_layout.addWidget(res_group)
 
         # --- 2. Simple Input Line ---
         kw_group = QGroupBox("Simple Input Line (!)")
         kw_layout = QVBoxLayout()
+        
         kw_h_layout = QHBoxLayout()
-        self.keywords_edit = QTextEdit("! B3LYP def2-SVP RIJCOSX Def2/J Opt Freq")
-        self.keywords_edit.setFixedHeight(70)
+        self.keywords_edit = QLineEdit("! B3LYP def2-SVP Opt Freq")
         self.keywords_edit.textChanged.connect(self.update_preview)
-        self.kw_highlighter = OrcaSyntaxHighlighter(self.keywords_edit.document())
-        self.btn_route = QPushButton("Builder...")
+        self.btn_route = QPushButton("Keyword Builder...")
         self.btn_route.clicked.connect(self.open_keyword_builder)
         kw_h_layout.addWidget(self.keywords_edit)
         kw_h_layout.addWidget(self.btn_route)
-        kw_layout.addWidget(QLabel("Keywords:"))
+        
+        kw_layout.addWidget(QLabel("Keywords (starts with !):"))
         kw_layout.addLayout(kw_h_layout)
-        self.comment_edit = QLineEdit("Generated by MoleditPy ORCA Input Generator Neo Plugin")
+        
+        # Comment
+        self.comment_edit = QLineEdit("Generated by MoleditPy ORCA Neo")
         self.comment_edit.textChanged.connect(self.update_preview)
-        kw_layout.addWidget(QLabel("Comment:"))
+        kw_layout.addWidget(QLabel("Comment (# ...):"))
         kw_layout.addWidget(self.comment_edit)
+
         kw_group.setLayout(kw_layout)
-        settings_layout.addWidget(kw_group)
+        main_layout.addWidget(kw_group)
 
         # --- 3. Molecular State ---
         mol_group = QGroupBox("Molecular Specification")
         mol_layout = QHBoxLayout()
+        
         self.charge_spin = QSpinBox()
         self.charge_spin.setRange(-10, 10)
         self.charge_spin.valueChanged.connect(self.validate_charge_mult)
+        
         self.mult_spin = QSpinBox()
         self.mult_spin.setRange(1, 10)
         self.mult_spin.valueChanged.connect(self.validate_charge_mult)
+
         mol_layout.addWidget(QLabel("Charge:"))
         mol_layout.addWidget(self.charge_spin)
-        mol_layout.addWidget(QLabel("Mult:"))
+        mol_layout.addWidget(QLabel("Multiplicity:"))
         mol_layout.addWidget(self.mult_spin)
+
         self.default_palette = self.charge_spin.palette()
+        
         mol_group.setLayout(mol_layout)
-        settings_layout.addWidget(mol_group)
+        main_layout.addWidget(mol_group)
 
         # --- 3b. Coordinate Format ---
         coord_group = QGroupBox("Coordinate Format")
         coord_layout = QHBoxLayout()
         self.coord_format_combo = QComboBox()
-        self.coord_format_combo.addItems(["Cartesian (XYZ)", "Internal (* int)", "Internal (* gzmt)"])
+        self.coord_format_combo.addItems(["Cartesian (XYZ)", "Internal (Z-Matrix / * int)", "Internal (Z-Matrix / * gzmt)"])
+        self.coord_format_combo.setCurrentIndex(0)
+        self.coord_format_combo.setEnabled(True)
         self.coord_format_combo.currentIndexChanged.connect(self.update_preview)
+        coord_layout.addWidget(QLabel("Format:"))
         coord_layout.addWidget(self.coord_format_combo)
         coord_group.setLayout(coord_layout)
-        settings_layout.addWidget(coord_group)
+        main_layout.addWidget(coord_group)
 
         # --- 4. Advanced/Blocks ---
-        adv_group = QGroupBox("Advanced Blocks")
+        adv_group = QGroupBox("Advanced Blocks (Pre/Post Coordinates)")
         adv_layout = QVBoxLayout()
+        
+        # Block Helper
         blk_h_layout = QHBoxLayout()
+        blk_h_layout.addWidget(QLabel("Block Helper:"))
+        
         self.block_combo = QComboBox()
         self.block_combo.addItems([
-            "Select Block to Insert...",
-            "%output (Basis/MOs)",
-            "%eprnmr (NMR/J-coupling)",
-            "%scf ... end",
-            "%geom ... end",
-            "%elprop ... end",
-            "%plots ... end",
-            "%tddft ... end",
-            "%cis ... end", 
-            "%mrci ... end",
-            "%casscf ... end"
+             "Select Block to Insert...",
+             "%scf ... end",
+             "%output ... end",
+             "%geom ... end",
+             "%elprop ... end",
+             "%plots ... end",
+             "%tddft ... end",
+             "%cis ... end", 
+             "%mrci ... end",
+             "%casscf ... end",
+             "%eprnmr ... end (Post)",
         ])
         blk_h_layout.addWidget(self.block_combo, 1)
+        
         self.btn_insert_block = QPushButton("Insert")
         self.btn_insert_block.clicked.connect(self.insert_block_template)
         blk_h_layout.addWidget(self.btn_insert_block)
+        
         adv_layout.addLayout(blk_h_layout)
+        
+        # Tabs for Pre/Post
         self.adv_tabs = QTabWidget()
-        self.adv_tabs.setFixedHeight(120)
+        self.adv_tabs.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.adv_tabs.setFixedHeight(150)
+        
         self.adv_edit = QTextEdit()
+        self.adv_edit.setPlaceholderText("Pre-Coordinate Blocks\\nExample:\\n%scf\\n MaxIter 100\\nend")
         self.adv_edit.textChanged.connect(self.update_preview)
-        self.adv_tabs.addTab(self.adv_edit, "Pre-Coord")
+        self.adv_tabs.addTab(self.adv_edit, "Pre-Coordinate")
+        
         self.post_adv_edit = QTextEdit()
+        self.post_adv_edit.setPlaceholderText("Post-Coordinate Blocks")
         self.post_adv_edit.textChanged.connect(self.update_preview)
-        self.adv_tabs.addTab(self.post_adv_edit, "Post-Coord")
+        self.adv_tabs.addTab(self.post_adv_edit, "Post-Coordinate")
+        
         adv_layout.addWidget(self.adv_tabs)
+
         adv_group.setLayout(adv_layout)
-        settings_layout.addWidget(adv_group)
+        main_layout.addWidget(adv_group)
 
-        settings_layout.addStretch()
-        scroll_area.setWidget(settings_container)
-        content_layout.addWidget(scroll_area, 3) # Left side settings
-
-        # --- Right Side: Preview ---
-        preview_group = QGroupBox("Input Preview")
+        # --- Preview ---
+        preview_group = QGroupBox("Preview")
         preview_layout = QVBoxLayout()
         self.preview_text = QTextEdit()
-        self.preview_text.setReadOnly(False)
+        self.preview_text.setReadOnly(False) # Editable
         self.preview_text.setFont(QFont("Courier New", 10))
+        self.preview_text.setMinimumHeight(200) # Adjusted height
         self.preview_text.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.highlighter = OrcaSyntaxHighlighter(self.preview_text.document())
-        preview_layout.addWidget(self.preview_text)
+        preview_layout.addWidget(self.preview_text, 1)
+        
         btn_refresh = QPushButton("Reset/Refresh Preview")
         btn_refresh.clicked.connect(self.update_preview)
         preview_layout.addWidget(btn_refresh)
-        preview_group.setLayout(preview_layout)
-        content_layout.addWidget(preview_group, 4) # Right side preview
         
-        main_layout.addLayout(content_layout)
+        preview_group.setLayout(preview_layout)
+        main_layout.addWidget(preview_group, 1)
 
-        # --- Save Button ---
-        self.save_btn = QPushButton("Save ORCA Input File...")
+        # --- Save/Preview Buttons ---
+        btn_box = QHBoxLayout()
+        
+        # self.btn_preview removed as per user request (redundant with Refresh)
+        
+        self.save_btn = QPushButton("Save Input File...")
         self.save_btn.clicked.connect(self.save_file)
-        self.save_btn.setStyleSheet("font-weight: bold; padding: 8px; font-size: 14px;")
-        main_layout.addWidget(self.save_btn)
+        self.save_btn.setStyleSheet("font-weight: bold; padding: 5px;")
+        btn_box.addWidget(self.save_btn)
+        
+        main_layout.addLayout(btn_box)
         
         self.setLayout(main_layout)
+        
+        # Initial preview
         self.update_preview()
         
     def update_preview(self):
         if not getattr(self, 'ui_ready', False):
             return
         self.preview_text.setText(self.generate_input_content())
-
-    def auto_detect_nproc(self):
-        try:
-            import psutil
-            cpus = psutil.cpu_count(logical=False)
-        except:
-            cpus = os.cpu_count()
-            
-        if cpus:
-            self.nproc_spin.setValue(cpus)
-
-    def auto_detect_mem(self):
-        # Default fallback
-        total_mb = 8000
-        try:
-            import psutil
-            # Total system memory
-            total_mb = psutil.virtual_memory().total // (1024 * 1024)
-        except:
-             pass
-        
-        # Use roughly 75-80% of total memory to be safe, divided by nprocs
-        nprocs = self.nproc_spin.value()
-        rec_core = int((total_mb * 0.80) / nprocs)
-        self.mem_spin.setValue(max(500, rec_core))
 
     def preview_file(self):
         # Legacy stub
@@ -1174,9 +687,9 @@ class OrcaSetupDialogNeo(QDialog):
         if "%scf" in txt:
              template = "%scf\n MaxIter 125\nend\n"
         elif "%output" in txt:
-             template = "%output\n  Print[P_Basis] 2  # Required for Basis Set parsing\n  Print[P_Mos] 1    # Ensure MO coefficients are printed\nend\n"
+             template = "%output\n  PrintLevel     Normal\nend\n"
         elif "%geom" in txt:
-             template = "%geom\n  Calc_Hess   true\n  Recalc_Hess 1\n  MaxIter     100\nend\n"
+             template = "%geom\n MaxIter 100\nend\n"
         elif "%elprop" in txt:
              template = "%elprop\n Dipole True\n Quadrupole True\nend\n"
         elif "%plots" in txt:
@@ -1188,7 +701,7 @@ class OrcaSetupDialogNeo(QDialog):
                  "  MaxDim 10       # Max dimension of expansion space\n"
                  "  TDA true        # Tamm-Dancoff Approximation (true/false)\n"
                  "  IRoot 1         # State of interest for gradient properties\n"
-                 "  Triplets false  # Calculate triplet states\n"
+                 "  Triplets true   # Calculate triplet states\n"
                  "  Singlets true   # Calculate singlet states\n"
                  "  DoQuad true     # Compute quadrupole intensities\n"
                  "end\n"
@@ -1200,7 +713,7 @@ class OrcaSetupDialogNeo(QDialog):
         elif "%casscf" in txt:
              template = "%casscf\n Nel 2\n Norb 2\n Mult 1\nend\n"
         elif "%eprnmr" in txt:
-             template = "%eprnmr\n  NUCLEI = ALL H {SHIFT, SSALL} # Required for J-coupling (nmrsim)\nend\n"
+             template = "%eprnmr\n     nuclei = all h {shift, ssall}\nend\n"
              # Switch to Post-Coordinate tab automatically
              self.adv_tabs.setCurrentWidget(self.post_adv_edit)
         
@@ -1210,9 +723,9 @@ class OrcaSetupDialogNeo(QDialog):
             cursor.insertText(template)
 
     def open_keyword_builder(self):
-        dialog = OrcaKeywordBuilderDialog(self, self.keywords_edit.toPlainText())
+        dialog = OrcaKeywordBuilderDialog(self, self.keywords_edit.text())
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            self.keywords_edit.setPlainText(dialog.get_route())
+            self.keywords_edit.setText(dialog.get_route())
 
     def get_coords_lines(self):
         if not self.mol: return []
@@ -1373,28 +886,25 @@ class OrcaSetupDialogNeo(QDialog):
                 content.append(f"# {comment}")
         
         # Resources
-        res_part = []
         nprocs = self.nproc_spin.value()
         if nprocs > 1:
-            res_part.append(f"%pal nprocs {nprocs} end")
-        res_part.append(f"%maxcore {self.mem_spin.value()}")
-        content.append("\n".join(res_part))
+            content.append(f"%pal nprocs {nprocs} end")
+        content.append(f"%maxcore {self.mem_spin.value()}")
         
         # Keywords
-        kw = self.keywords_edit.toPlainText().strip()
+        kw = self.keywords_edit.text().strip()
         if not kw.startswith("!"): kw = "! " + kw
-        content.append(f"\n{kw}")
+        content.append(f"{kw}")
         
         # Advanced Blocks
         adv = self.adv_edit.toPlainText().strip()
         if adv:
-            content.append(f"\n{adv}")
+            content.append(f"{adv}")
         
         # Coordinates
         is_cartesian = "Cartesian" in self.coord_format_combo.currentText()
         coord_lines = self.get_coords_lines()
         
-        content.append("") # Blank line before coordinates
         if is_cartesian:
             content.append(f"* xyz {self.charge_spin.value()} {self.mult_spin.value()}")
             content.extend(coord_lines)
@@ -1423,7 +933,7 @@ class OrcaSetupDialogNeo(QDialog):
         # Post-Coordinate Blocks
         adv_post = self.post_adv_edit.toPlainText().strip()
         if adv_post:
-            content.append(f"\n{adv_post}")
+            content.append(f"{adv_post}")
             
         return "\n".join(content)
 
@@ -1442,7 +952,7 @@ class OrcaSetupDialogNeo(QDialog):
         if "Default" not in self.presets_data:
             self.presets_data["Default"] = {
                 "nproc": 4, "maxcore": 2000, 
-                "route": "! B3LYP def2-SVP RIJCOSX Def2/J Opt Freq", "adv": "", "adv_post": ""
+                "route": "! B3LYP def2-SVP Opt Freq", "adv": "", "adv_post": ""
             }
         
         self.update_preset_combo()
@@ -1468,7 +978,7 @@ class OrcaSetupDialogNeo(QDialog):
         
         self.nproc_spin.setValue(data.get("nproc", 4))
         self.mem_spin.setValue(data.get("maxcore", 2000))
-        self.keywords_edit.setText(data.get("route", "! B3LYP def2-SVP RIJCOSX Def2/J Opt Freq"))
+        self.keywords_edit.setText(data.get("route", "! B3LYP def2-SVP Opt Freq"))
         self.adv_edit.setPlainText(data.get("adv", ""))
         self.post_adv_edit.setPlainText(data.get("adv_post", ""))
             
@@ -1480,7 +990,7 @@ class OrcaSetupDialogNeo(QDialog):
             self.presets_data[name] = {
                 "nproc": self.nproc_spin.value(),
                 "maxcore": self.mem_spin.value(),
-                "route": self.keywords_edit.toPlainText(),
+                "route": self.keywords_edit.text(),
                 "adv": self.adv_edit.toPlainText(),
                 "adv_post": self.post_adv_edit.toPlainText()
             }
@@ -1547,14 +1057,6 @@ class OrcaSetupDialogNeo(QDialog):
             self.update_preview()
             
         except: pass
-
-    def keyPressEvent(self, event):
-        if event.key() == Qt.Key.Key_Escape:
-            focused = self.focusWidget()
-            if isinstance(focused, (QLineEdit, QComboBox, QSpinBox, QTextEdit)):
-                focused.clearFocus()
-                return
-        super().keyPressEvent(event)
 
 def run(mw):
     mol = getattr(mw, 'current_mol', None)
