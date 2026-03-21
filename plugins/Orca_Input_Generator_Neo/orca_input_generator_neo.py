@@ -384,7 +384,7 @@ class OrcaKeywordBuilderDialog(QDialog):
         
         # Opt Options
         self.opt_group = QGroupBox("Optimization Options")
-        opt_layout = QHBoxLayout()
+        opt_layout = QGridLayout()
         self.opt_tight = QCheckBox("TightOpt")
         self.opt_verytight = QCheckBox("VeryTightOpt")
         self.opt_loose = QCheckBox("LooseOpt")
@@ -392,12 +392,14 @@ class OrcaKeywordBuilderDialog(QDialog):
         self.opt_calcfc = QCheckBox("CalcFC")
         self.opt_ts_mode = QCheckBox("CalcHess (for TS)")
         
-        opt_layout.addWidget(self.opt_tight)
-        opt_layout.addWidget(self.opt_verytight)
-        opt_layout.addWidget(self.opt_loose)
-        opt_layout.addWidget(self.opt_cart)
-        opt_layout.addWidget(self.opt_calcfc)
-        opt_layout.addWidget(self.opt_ts_mode)
+        # Row 1: Convergence
+        opt_layout.addWidget(self.opt_tight, 0, 0)
+        opt_layout.addWidget(self.opt_verytight, 0, 1)
+        opt_layout.addWidget(self.opt_loose, 0, 2)
+        # Row 2: Methods/Hessian
+        opt_layout.addWidget(self.opt_cart, 1, 0)
+        opt_layout.addWidget(self.opt_calcfc, 1, 1)
+        
         self.opt_group.setLayout(opt_layout)
         layout.addWidget(self.opt_group)
         
@@ -496,7 +498,7 @@ class OrcaKeywordBuilderDialog(QDialog):
         widgets = [
             self.method_type, self.method_name, self.basis_set, self.aux_basis,
             self.job_type, self.opt_tight, self.opt_verytight, self.opt_loose, 
-            self.opt_cart, self.opt_calcfc, self.opt_ts_mode,
+            self.opt_cart, self.opt_calcfc,
             self.freq_num, self.freq_raman,
             self.solv_model, self.solvent, self.dispersion,
             self.solv_model, self.solvent, self.dispersion,
@@ -642,7 +644,6 @@ class OrcaKeywordBuilderDialog(QDialog):
             if self.opt_loose.isChecked(): route_parts.append("LooseOpt")
             if self.opt_cart.isChecked(): route_parts.append("COpt")
             if self.opt_calcfc.isChecked(): route_parts.append("CalcFC")
-            if self.opt_ts_mode.isChecked(): route_parts.append("CalcHess")
         
         # Freq Options
         if self.freq_group.isVisible():
@@ -765,7 +766,6 @@ class OrcaKeywordBuilderDialog(QDialog):
             elif tu == "LOOSEOPT": self.opt_loose.setChecked(True)
             elif tu == "COPT": self.opt_cart.setChecked(True)
             elif tu == "CALCFC": self.opt_calcfc.setChecked(True)
-            elif tu == "CALCHESS": self.opt_ts_mode.setChecked(True)
             
             # 4. Freq Options
             if tu == "NUMFREQ": self.freq_num.setChecked(True)
@@ -1105,7 +1105,7 @@ class OrcaSetupDialogNeo(QDialog):
         elif "%output" in txt:
              template = "%output\n  Print[P_Basis] 2  # Required for Basis Set parsing\n  Print[P_Mos] 1    # Ensure MO coefficients are printed\nend\n"
         elif "%geom" in txt:
-             template = "%geom\n MaxIter 100\nend\n"
+             template = "%geom\n  Calc_Hess   true\n  Recalc_Hess 1\n  MaxIter     100\nend\n"
         elif "%elprop" in txt:
              template = "%elprop\n Dipole True\n Quadrupole True\nend\n"
         elif "%plots" in txt:
