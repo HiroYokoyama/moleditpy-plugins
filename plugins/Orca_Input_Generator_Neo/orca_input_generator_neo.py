@@ -2,12 +2,13 @@ from PyQt6 import QtCore
 # -*- coding: utf-8 -*-
 import os
 from PyQt6.QtWidgets import (
-    QCompleter,QMessageBox, QDialog, QVBoxLayout, QLabel, 
-                             QLineEdit, QSpinBox, QPushButton, QFileDialog, 
-                             QFormLayout, QGroupBox, QHBoxLayout, QComboBox, QTextEdit, 
-                             QTabWidget, QCheckBox, QWidget, QScrollArea, QMenu, QSizePolicy)
-from PyQt6.QtGui import QPalette, QColor, QAction, QFont
-from PyQt6.QtCore import Qt
+    QCompleter, QMessageBox, QDialog, QVBoxLayout, QLabel, 
+    QLineEdit, QSpinBox, QPushButton, QFileDialog, 
+    QFormLayout, QGroupBox, QHBoxLayout, QComboBox, QTextEdit, 
+    QTabWidget, QCheckBox, QWidget, QScrollArea, QMenu, QSizePolicy,
+    QInputDialog)
+from PyQt6.QtGui import QPalette, QColor, QAction, QFont, QSyntaxHighlighter, QTextCharFormat
+from PyQt6.QtCore import Qt, QRegularExpression
 from rdkit import Chem
 from rdkit.Chem import rdMolTransforms
 import json
@@ -108,6 +109,42 @@ ALL_ORCA_BASIS_SETS = [
     "ZORA-TZVP", "ZORA-TZVPP"
 ]
 
+class OrcaSyntaxHighlighter(QSyntaxHighlighter):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.rules = []
+
+        # Keywords (!)
+        keyword_format = QTextCharFormat()
+        keyword_format.setForeground(QColor("#D32F2F")) # Red
+        keyword_format.setFontWeight(QFont.Weight.Bold)
+        self.rules.append((QRegularExpression("^!.*"), keyword_format))
+
+        # Blocks (%)
+        block_format = QTextCharFormat()
+        block_format.setForeground(QColor("#1976D2")) # Blue
+        block_format.setFontWeight(QFont.Weight.Bold)
+        self.rules.append((QRegularExpression("^%.*"), block_format))
+        self.rules.append((QRegularExpression("^end.*"), block_format))
+
+        # Coordinates/Title (*)
+        coord_format = QTextCharFormat()
+        coord_format.setForeground(QColor("#388E3C")) # Green
+        coord_format.setFontWeight(QFont.Weight.Bold)
+        self.rules.append((QRegularExpression("^\\*.*"), coord_format))
+
+        # Comments (#)
+        comment_format = QTextCharFormat()
+        comment_format.setForeground(QColor("#757575")) # Grey
+        self.rules.append((QRegularExpression("#.*"), comment_format))
+
+    def highlightBlock(self, text):
+        for pattern, format in self.rules:
+            match_iterator = pattern.globalMatch(text)
+            while match_iterator.hasNext():
+                match = match_iterator.next()
+                self.setFormat(match.capturedStart(), match.capturedLength(), format)
+
 class OrcaKeywordBuilderDialog(QDialog):
     """
     Dialog to construct the ORCA Job Route line.
@@ -145,6 +182,11 @@ class OrcaKeywordBuilderDialog(QDialog):
         self.tab_props = QWidget()
         self.setup_props_tab()
         self.tabs.addTab(self.tab_props, "Properties")
+        
+        # --- Tab 5: TD-DFT ---
+        self.tab_tddft = QWidget()
+        self.setup_tddft_tab()
+        self.tabs.addTab(self.tab_tddft, "TD-DFT")
 
         layout.addWidget(self.tabs)
 
@@ -317,13 +359,26 @@ class OrcaKeywordBuilderDialog(QDialog):
         
         # SCF Options (Moved to below Task)
         self.scf_group = QGroupBox("SCF Convergence")
-        scf_layout = QHBoxLayout()
-        self.scf_tight = QCheckBox("TightSCF")
-        self.scf_verytight = QCheckBox("VeryTightSCF")
-        self.scf_loose = QCheckBox("LooseSCF")
-        scf_layout.addWidget(self.scf_tight)
-        scf_layout.addWidget(self.scf_verytight)
-        scf_layout.addWidget(self.scf_loose)
+        scf_layout = QGridLayout()
+        
+        self.scf_sloppy = QCheckBox("Sloppy")
+        self.scf_loose = QCheckBox("Loose")
+        self.scf_normal = QCheckBox("Normal")
+        self.scf_strong = QCheckBox("Strong")
+        self.scf_tight = QCheckBox("Tight")
+        self.scf_verytight = QCheckBox("VeryTight")
+        self.scf_extreme = QCheckBox("Extreme")
+        
+        # Row 1
+        scf_layout.addWidget(self.scf_sloppy, 0, 0)
+        scf_layout.addWidget(self.scf_loose, 0, 1)
+        scf_layout.addWidget(self.scf_normal, 0, 2)
+        scf_layout.addWidget(self.scf_strong, 0, 3)
+        # Row 2
+        scf_layout.addWidget(self.scf_tight, 1, 0)
+        scf_layout.addWidget(self.scf_verytight, 1, 1)
+        scf_layout.addWidget(self.scf_extreme, 1, 2)
+        
         self.scf_group.setLayout(scf_layout)
         layout.addWidget(self.scf_group)
         
@@ -331,11 +386,16 @@ class OrcaKeywordBuilderDialog(QDialog):
         self.opt_group = QGroupBox("Optimization Options")
         opt_layout = QHBoxLayout()
         self.opt_tight = QCheckBox("TightOpt")
+        self.opt_verytight = QCheckBox("VeryTightOpt")
         self.opt_loose = QCheckBox("LooseOpt")
+        self.opt_cart = QCheckBox("COpt (Cartesian)")
         self.opt_calcfc = QCheckBox("CalcFC")
         self.opt_ts_mode = QCheckBox("CalcHess (for TS)")
+        
         opt_layout.addWidget(self.opt_tight)
+        opt_layout.addWidget(self.opt_verytight)
         opt_layout.addWidget(self.opt_loose)
+        opt_layout.addWidget(self.opt_cart)
         opt_layout.addWidget(self.opt_calcfc)
         opt_layout.addWidget(self.opt_ts_mode)
         self.opt_group.setLayout(opt_layout)
@@ -388,7 +448,8 @@ class OrcaKeywordBuilderDialog(QDialog):
         layout.addRow(self.rijcosx)
         
         self.grid_combo = QComboBox()
-        self.grid_combo.addItems(["Default", "DefGrid2", "DefGrid3", "Grid4", "Grid5", "Grid6", "NoGrid"])
+        self.grid_combo.addItems(["Default", "defgrid1", "defgrid2", "defgrid3", "Grid4", "Grid5", "Grid6", "NoGrid"])
+        self.grid_combo.setCurrentText("Default")
         layout.addRow("Grid:", self.grid_combo)
 
 
@@ -398,13 +459,52 @@ class OrcaKeywordBuilderDialog(QDialog):
 
         self.tab_props.setLayout(layout)
 
+    def setup_tddft_tab(self):
+        layout = QFormLayout()
+        
+        self.tddft_enable = QCheckBox("Enable TD-DFT (%)")
+        self.tddft_enable.toggled.connect(self.update_preview)
+        layout.addRow(self.tddft_enable)
+        
+        self.tddft_nroots = QSpinBox()
+        self.tddft_nroots.setRange(1, 500)
+        self.tddft_nroots.setValue(10)
+        layout.addRow("Number of Roots (NRoots):", self.tddft_nroots)
+        
+        self.tddft_singlets = QCheckBox("Singlets")
+        self.tddft_singlets.setChecked(True)
+        self.tddft_triplets = QCheckBox("Triplets")
+        self.tddft_triplets.setChecked(False)
+        
+        s_layout = QHBoxLayout()
+        s_layout.addWidget(self.tddft_singlets)
+        s_layout.addWidget(self.tddft_triplets)
+        layout.addRow("States:", s_layout)
+        
+        self.tddft_tda = QCheckBox("Use TDA (Tamm-Dancoff Approximation)")
+        self.tddft_tda.setChecked(True)
+        layout.addRow(self.tddft_tda)
+        
+        self.tddft_iroot = QSpinBox()
+        self.tddft_iroot.setRange(1, 500)
+        self.tddft_iroot.setValue(1)
+        layout.addRow("Root for Polar./Grad. (IRoot):", self.tddft_iroot)
+
+        self.tab_tddft.setLayout(layout)
+
     def connect_signals(self):
         widgets = [
             self.method_type, self.method_name, self.basis_set, self.aux_basis,
-            self.job_type, self.opt_tight, self.opt_loose, self.opt_calcfc, self.opt_ts_mode,
+            self.job_type, self.opt_tight, self.opt_verytight, self.opt_loose, 
+            self.opt_cart, self.opt_calcfc, self.opt_ts_mode,
             self.freq_num, self.freq_raman,
             self.solv_model, self.solvent, self.dispersion,
-            self.rijcosx, self.grid_combo, self.scf_tight, self.scf_verytight, self.scf_loose, self.pop_nbo
+            self.solv_model, self.solvent, self.dispersion,
+            self.rijcosx, self.grid_combo, 
+            self.scf_sloppy, self.scf_loose, self.scf_normal, self.scf_strong, 
+            self.scf_tight, self.scf_verytight, self.scf_extreme,
+            self.pop_nbo, self.tddft_enable, self.tddft_nroots, self.tddft_singlets, 
+            self.tddft_triplets, self.tddft_tda, self.tddft_iroot
         ]
         for w in widgets:
             if isinstance(w, QComboBox):
@@ -414,10 +514,11 @@ class OrcaKeywordBuilderDialog(QDialog):
             elif isinstance(w, QCheckBox):
                 w.toggled.connect(self.update_preview)
                 # Mutual exclusivity for SCF
-                if w in [self.scf_tight, self.scf_verytight, self.scf_loose]:
+                if w in [self.scf_sloppy, self.scf_loose, self.scf_normal, self.scf_strong, 
+                           self.scf_tight, self.scf_verytight, self.scf_extreme]:
                     w.clicked.connect(self.enforce_scf_mutual_exclusion)
                 # Mutual exclusivity for Opt
-                if w in [self.opt_tight, self.opt_loose]:
+                if w in [self.opt_tight, self.opt_verytight, self.opt_loose]:
                     w.clicked.connect(self.enforce_opt_mutual_exclusion)
             elif isinstance(w, QSpinBox):
                 w.valueChanged.connect(self.update_preview)
@@ -469,7 +570,11 @@ class OrcaKeywordBuilderDialog(QDialog):
     def enforce_scf_mutual_exclusion(self):
         ctx = self.sender()
         if not ctx.isChecked(): return
-        for cb in [self.scf_tight, self.scf_verytight, self.scf_loose]:
+        scf_boxes = [
+            self.scf_sloppy, self.scf_loose, self.scf_normal, self.scf_strong, 
+            self.scf_tight, self.scf_verytight, self.scf_extreme
+        ]
+        for cb in scf_boxes:
             if cb != ctx:
                 cb.blockSignals(True)
                 cb.setChecked(False)
@@ -479,7 +584,7 @@ class OrcaKeywordBuilderDialog(QDialog):
     def enforce_opt_mutual_exclusion(self):
         ctx = self.sender()
         if not ctx.isChecked(): return
-        for cb in [self.opt_tight, self.opt_loose]:
+        for cb in [self.opt_tight, self.opt_verytight, self.opt_loose]:
             if cb != ctx:
                 cb.blockSignals(True)
                 cb.setChecked(False)
@@ -533,7 +638,9 @@ class OrcaKeywordBuilderDialog(QDialog):
         # Opt Options
         if self.opt_group.isVisible():
             if self.opt_tight.isChecked(): route_parts.append("TightOpt")
+            if self.opt_verytight.isChecked(): route_parts.append("VeryTightOpt")
             if self.opt_loose.isChecked(): route_parts.append("LooseOpt")
+            if self.opt_cart.isChecked(): route_parts.append("COpt")
             if self.opt_calcfc.isChecked(): route_parts.append("CalcFC")
             if self.opt_ts_mode.isChecked(): route_parts.append("CalcHess")
         
@@ -562,9 +669,13 @@ class OrcaKeywordBuilderDialog(QDialog):
             route_parts.append(disp)
 
         # SCF / Grid
-        if self.scf_tight.isChecked(): route_parts.append("TightSCF")
-        elif self.scf_verytight.isChecked(): route_parts.append("VeryTightSCF")
+        if self.scf_sloppy.isChecked(): route_parts.append("SloppySCF")
         elif self.scf_loose.isChecked(): route_parts.append("LooseSCF")
+        elif self.scf_normal.isChecked(): route_parts.append("NormalSCF")
+        elif self.scf_strong.isChecked(): route_parts.append("StrongSCF")
+        elif self.scf_tight.isChecked(): route_parts.append("TightSCF")
+        elif self.scf_verytight.isChecked(): route_parts.append("VeryTightSCF")
+        elif self.scf_extreme.isChecked(): route_parts.append("ExtremeSCF")
         
         grid = self.grid_combo.currentText()
         if grid != "Default": route_parts.append(grid)
@@ -573,6 +684,20 @@ class OrcaKeywordBuilderDialog(QDialog):
         if self.pop_nbo.isChecked(): route_parts.append("NBO")
 
         self.preview_str = " ".join(route_parts)
+        
+        # Add %tddft block if enabled
+        if self.tddft_enable.isChecked():
+            block = (
+                f"\n\n%tddft\n"
+                f"  NRoots {self.tddft_nroots.value()}\n"
+                f"  Singlets {'true' if self.tddft_singlets.isChecked() else 'false'}\n"
+                f"  Triplets {'true' if self.tddft_triplets.isChecked() else 'false'}\n"
+                f"  TDA {'true' if self.tddft_tda.isChecked() else 'false'}\n"
+                f"  IRoot {self.tddft_iroot.value()}\n"
+                f"end"
+            )
+            self.preview_str += block
+
         self.preview_label.setText(self.preview_str)
 
     def get_route(self):
@@ -636,7 +761,9 @@ class OrcaKeywordBuilderDialog(QDialog):
             
             # 3. Opt Options
             if tu == "TIGHTOPT": self.opt_tight.setChecked(True)
+            elif tu == "VERYTIGHTOPT": self.opt_verytight.setChecked(True)
             elif tu == "LOOSEOPT": self.opt_loose.setChecked(True)
+            elif tu == "COPT": self.opt_cart.setChecked(True)
             elif tu == "CALCFC": self.opt_calcfc.setChecked(True)
             elif tu == "CALCHESS": self.opt_ts_mode.setChecked(True)
             
@@ -674,13 +801,17 @@ class OrcaKeywordBuilderDialog(QDialog):
             elif tu == "AUTOMX": self.aux_basis.setCurrentText("AutoAux")
             
             # 9. SCF / Grid
-            if tu == "TIGHTSCF": self.scf_tight.setChecked(True)
-            elif tu == "VERYTIGHTSCF": self.scf_verytight.setChecked(True)
+            if tu == "SLOPPYSCF": self.scf_sloppy.setChecked(True)
             elif tu == "LOOSESCF": self.scf_loose.setChecked(True)
+            elif tu == "NORMALSCF": self.scf_normal.setChecked(True)
+            elif tu == "STRONGSCF": self.scf_strong.setChecked(True)
+            elif tu == "TIGHTSCF": self.scf_tight.setChecked(True)
+            elif tu == "VERYTIGHTSCF": self.scf_verytight.setChecked(True)
+            elif tu == "EXTREMESCF": self.scf_extreme.setChecked(True)
             
             for combo in [self.grid_combo]:
                 for i in range(combo.count()):
-                    if combo.itemText(i).upper() == tu:
+                    if combo.itemText(i).lower() == tu.lower():
                         combo.setCurrentIndex(i)
                         break
             
@@ -706,7 +837,7 @@ class OrcaSetupDialogNeo(QDialog):
     def __init__(self, parent=None, mol=None, filename=None):
         super().__init__(parent)
         self.setWindowTitle(PLUGIN_NAME)
-        self.resize(600, 700)
+        self.resize(1100, 800)
         self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowMinMaxButtonsHint)
         self.setSizeGripEnabled(True)
         self.mol = mol
@@ -719,196 +850,206 @@ class OrcaSetupDialogNeo(QDialog):
 
     def setup_ui(self):
         main_layout = QVBoxLayout()
+        
+        # --- Horizontal Split Layer ---
+        content_layout = QHBoxLayout()
+        
+        # --- Right Side: Settings (Scrollable) ---
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QScrollArea.Shape.NoFrame)
+        
+        settings_container = QWidget()
+        settings_layout = QVBoxLayout(settings_container)
 
         # --- 0. Preset Management ---
         preset_group = QGroupBox("Preset Management")
         preset_layout = QHBoxLayout()
-        
         self.preset_combo = QComboBox()
         self.preset_combo.currentIndexChanged.connect(self.apply_selected_preset)
         preset_layout.addWidget(QLabel("Preset:"))
         preset_layout.addWidget(self.preset_combo, 1)
-
         self.btn_save_preset = QPushButton("Save New...")
         self.btn_save_preset.clicked.connect(self.save_preset_dialog)
         preset_layout.addWidget(self.btn_save_preset)
-
         self.btn_del_preset = QPushButton("Delete")
         self.btn_del_preset.clicked.connect(self.delete_preset)
         preset_layout.addWidget(self.btn_del_preset)
-
         preset_group.setLayout(preset_layout)
-        main_layout.addWidget(preset_group)
+        settings_layout.addWidget(preset_group)
 
         # --- 1. Resource Configuration ---
         res_group = QGroupBox("Resources (%pal, %maxcore)")
         res_layout = QFormLayout()
-
-        # NProcs
+        res_h1 = QHBoxLayout()
         self.nproc_spin = QSpinBox()
         self.nproc_spin.setRange(1, 128)
         self.nproc_spin.setValue(4)
         self.nproc_spin.valueChanged.connect(self.update_preview)
-        res_layout.addRow("Number of Processors (nprocs):", self.nproc_spin)
+        btn_auto_proc = QPushButton("Auto")
+        btn_auto_proc.setFixedWidth(50)
+        btn_auto_proc.clicked.connect(self.auto_detect_nproc)
+        res_h1.addWidget(self.nproc_spin)
+        res_h1.addWidget(btn_auto_proc)
+        res_layout.addRow("Processors:", res_h1)
 
-        # Memory
+        res_h2 = QHBoxLayout()
         self.mem_spin = QSpinBox()
         self.mem_spin.setRange(100, 999999)
         self.mem_spin.setValue(2000) 
         self.mem_spin.setSuffix(" MB")
         self.mem_spin.valueChanged.connect(self.update_preview)
-        res_layout.addRow("Memory per Core (MaxCore):", self.mem_spin)
-
+        btn_auto_mem = QPushButton("Auto")
+        btn_auto_mem.setFixedWidth(50)
+        btn_auto_mem.clicked.connect(self.auto_detect_mem)
+        res_h2.addWidget(self.mem_spin)
+        res_h2.addWidget(btn_auto_mem)
+        res_layout.addRow("MaxCore:", res_h2)
         res_group.setLayout(res_layout)
-        main_layout.addWidget(res_group)
+        settings_layout.addWidget(res_group)
 
         # --- 2. Simple Input Line ---
         kw_group = QGroupBox("Simple Input Line (!)")
         kw_layout = QVBoxLayout()
-        
         kw_h_layout = QHBoxLayout()
-        self.keywords_edit = QLineEdit("! B3LYP def2-SVP RIJCOSX Def2/J Opt Freq")
+        self.keywords_edit = QTextEdit("! B3LYP def2-SVP RIJCOSX Def2/J Opt Freq")
+        self.keywords_edit.setFixedHeight(70)
         self.keywords_edit.textChanged.connect(self.update_preview)
-        self.btn_route = QPushButton("Keyword Builder...")
+        self.kw_highlighter = OrcaSyntaxHighlighter(self.keywords_edit.document())
+        self.btn_route = QPushButton("Builder...")
         self.btn_route.clicked.connect(self.open_keyword_builder)
         kw_h_layout.addWidget(self.keywords_edit)
         kw_h_layout.addWidget(self.btn_route)
-        
-        kw_layout.addWidget(QLabel("Keywords (starts with !):"))
+        kw_layout.addWidget(QLabel("Keywords:"))
         kw_layout.addLayout(kw_h_layout)
-        
-        # Comment
-        self.comment_edit = QLineEdit("Generated by MoleditPy ORCA Input Generator Neo Plugin")
+        self.comment_edit = QLineEdit("Generated by MoleditPy")
         self.comment_edit.textChanged.connect(self.update_preview)
-        kw_layout.addWidget(QLabel("Comment (# ...):"))
+        kw_layout.addWidget(QLabel("Comment:"))
         kw_layout.addWidget(self.comment_edit)
-
         kw_group.setLayout(kw_layout)
-        main_layout.addWidget(kw_group)
+        settings_layout.addWidget(kw_group)
 
         # --- 3. Molecular State ---
         mol_group = QGroupBox("Molecular Specification")
         mol_layout = QHBoxLayout()
-        
         self.charge_spin = QSpinBox()
         self.charge_spin.setRange(-10, 10)
         self.charge_spin.valueChanged.connect(self.validate_charge_mult)
-        
         self.mult_spin = QSpinBox()
         self.mult_spin.setRange(1, 10)
         self.mult_spin.valueChanged.connect(self.validate_charge_mult)
-
         mol_layout.addWidget(QLabel("Charge:"))
         mol_layout.addWidget(self.charge_spin)
-        mol_layout.addWidget(QLabel("Multiplicity:"))
+        mol_layout.addWidget(QLabel("Mult:"))
         mol_layout.addWidget(self.mult_spin)
-
         self.default_palette = self.charge_spin.palette()
-        
         mol_group.setLayout(mol_layout)
-        main_layout.addWidget(mol_group)
+        settings_layout.addWidget(mol_group)
 
         # --- 3b. Coordinate Format ---
         coord_group = QGroupBox("Coordinate Format")
         coord_layout = QHBoxLayout()
         self.coord_format_combo = QComboBox()
-        self.coord_format_combo.addItems(["Cartesian (XYZ)", "Internal (Z-Matrix / * int)", "Internal (Z-Matrix / * gzmt)"])
-        self.coord_format_combo.setCurrentIndex(0)
-        self.coord_format_combo.setEnabled(True)
+        self.coord_format_combo.addItems(["Cartesian (XYZ)", "Internal (* int)", "Internal (* gzmt)"])
         self.coord_format_combo.currentIndexChanged.connect(self.update_preview)
-        coord_layout.addWidget(QLabel("Format:"))
         coord_layout.addWidget(self.coord_format_combo)
         coord_group.setLayout(coord_layout)
-        main_layout.addWidget(coord_group)
+        settings_layout.addWidget(coord_group)
 
         # --- 4. Advanced/Blocks ---
-        adv_group = QGroupBox("Advanced Blocks (Pre/Post Coordinates)")
+        adv_group = QGroupBox("Advanced Blocks")
         adv_layout = QVBoxLayout()
-        
-        # Block Helper
         blk_h_layout = QHBoxLayout()
-        blk_h_layout.addWidget(QLabel("Block Helper:"))
-        
         self.block_combo = QComboBox()
         self.block_combo.addItems([
-             "Select Block to Insert...",
-             "%scf ... end",
-             "%output ... end",
-             "%geom ... end",
-             "%elprop ... end",
-             "%plots ... end",
-             "%tddft ... end",
-             "%cis ... end", 
-             "%mrci ... end",
-             "%casscf ... end",
-             "%eprnmr ... end (Post)",
+            "Select Block to Insert...",
+            "%output (Basis/MOs)",
+            "%eprnmr (NMR/J-coupling)",
+            "%scf ... end",
+            "%geom ... end",
+            "%elprop ... end",
+            "%plots ... end",
+            "%tddft ... end",
+            "%cis ... end", 
+            "%mrci ... end",
+            "%casscf ... end"
         ])
         blk_h_layout.addWidget(self.block_combo, 1)
-        
         self.btn_insert_block = QPushButton("Insert")
         self.btn_insert_block.clicked.connect(self.insert_block_template)
         blk_h_layout.addWidget(self.btn_insert_block)
-        
         adv_layout.addLayout(blk_h_layout)
-        
-        # Tabs for Pre/Post
         self.adv_tabs = QTabWidget()
-        self.adv_tabs.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.adv_tabs.setFixedHeight(150)
-        
+        self.adv_tabs.setFixedHeight(120)
         self.adv_edit = QTextEdit()
-        self.adv_edit.setPlaceholderText("Pre-Coordinate Blocks\\nExample:\\n%scf\\n MaxIter 100\\nend")
         self.adv_edit.textChanged.connect(self.update_preview)
-        self.adv_tabs.addTab(self.adv_edit, "Pre-Coordinate")
-        
+        self.adv_tabs.addTab(self.adv_edit, "Pre-Coord")
         self.post_adv_edit = QTextEdit()
-        self.post_adv_edit.setPlaceholderText("Post-Coordinate Blocks")
         self.post_adv_edit.textChanged.connect(self.update_preview)
-        self.adv_tabs.addTab(self.post_adv_edit, "Post-Coordinate")
-        
+        self.adv_tabs.addTab(self.post_adv_edit, "Post-Coord")
         adv_layout.addWidget(self.adv_tabs)
-
         adv_group.setLayout(adv_layout)
-        main_layout.addWidget(adv_group)
+        settings_layout.addWidget(adv_group)
 
-        # --- Preview ---
-        preview_group = QGroupBox("Preview")
+        settings_layout.addStretch()
+        scroll_area.setWidget(settings_container)
+        content_layout.addWidget(scroll_area, 3) # Left side settings
+
+        # --- Right Side: Preview ---
+        preview_group = QGroupBox("Input Preview")
         preview_layout = QVBoxLayout()
         self.preview_text = QTextEdit()
-        self.preview_text.setReadOnly(False) # Editable
+        self.preview_text.setReadOnly(False)
         self.preview_text.setFont(QFont("Courier New", 10))
-        self.preview_text.setMinimumHeight(200) # Adjusted height
         self.preview_text.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        preview_layout.addWidget(self.preview_text, 1)
-        
+        self.highlighter = OrcaSyntaxHighlighter(self.preview_text.document())
+        preview_layout.addWidget(self.preview_text)
         btn_refresh = QPushButton("Reset/Refresh Preview")
         btn_refresh.clicked.connect(self.update_preview)
         preview_layout.addWidget(btn_refresh)
-        
         preview_group.setLayout(preview_layout)
-        main_layout.addWidget(preview_group, 1)
+        content_layout.addWidget(preview_group, 4) # Right side preview
+        
+        main_layout.addLayout(content_layout)
 
-        # --- Save/Preview Buttons ---
-        btn_box = QHBoxLayout()
-        
-        # self.btn_preview removed as per user request (redundant with Refresh)
-        
-        self.save_btn = QPushButton("Save Input File...")
+        # --- Save Button ---
+        self.save_btn = QPushButton("Save ORCA Input File...")
         self.save_btn.clicked.connect(self.save_file)
-        self.save_btn.setStyleSheet("font-weight: bold; padding: 5px;")
-        btn_box.addWidget(self.save_btn)
-        
-        main_layout.addLayout(btn_box)
+        self.save_btn.setStyleSheet("font-weight: bold; padding: 8px; font-size: 14px;")
+        main_layout.addWidget(self.save_btn)
         
         self.setLayout(main_layout)
-        
-        # Initial preview
         self.update_preview()
         
     def update_preview(self):
         if not getattr(self, 'ui_ready', False):
             return
         self.preview_text.setText(self.generate_input_content())
+
+    def auto_detect_nproc(self):
+        try:
+            import psutil
+            cpus = psutil.cpu_count(logical=False)
+        except:
+            cpus = os.cpu_count()
+            
+        if cpus:
+            self.nproc_spin.setValue(cpus)
+
+    def auto_detect_mem(self):
+        # Default fallback
+        total_mb = 8000
+        try:
+            import psutil
+            # Total system memory
+            total_mb = psutil.virtual_memory().total // (1024 * 1024)
+        except:
+             pass
+        
+        # Use roughly 75-80% of total memory to be safe, divided by nprocs
+        nprocs = self.nproc_spin.value()
+        rec_core = int((total_mb * 0.80) / nprocs)
+        self.mem_spin.setValue(max(500, rec_core))
 
     def preview_file(self):
         # Legacy stub
@@ -962,7 +1103,7 @@ class OrcaSetupDialogNeo(QDialog):
         if "%scf" in txt:
              template = "%scf\n MaxIter 125\nend\n"
         elif "%output" in txt:
-             template = "%output\n  PrintLevel     Normal\nend\n"
+             template = "%output\n  Print[P_Basis] 2  # Required for Basis Set parsing\n  Print[P_Mos] 1    # Ensure MO coefficients are printed\nend\n"
         elif "%geom" in txt:
              template = "%geom\n MaxIter 100\nend\n"
         elif "%elprop" in txt:
@@ -976,7 +1117,7 @@ class OrcaSetupDialogNeo(QDialog):
                  "  MaxDim 10       # Max dimension of expansion space\n"
                  "  TDA true        # Tamm-Dancoff Approximation (true/false)\n"
                  "  IRoot 1         # State of interest for gradient properties\n"
-                 "  Triplets true   # Calculate triplet states\n"
+                 "  Triplets false  # Calculate triplet states\n"
                  "  Singlets true   # Calculate singlet states\n"
                  "  DoQuad true     # Compute quadrupole intensities\n"
                  "end\n"
@@ -988,7 +1129,7 @@ class OrcaSetupDialogNeo(QDialog):
         elif "%casscf" in txt:
              template = "%casscf\n Nel 2\n Norb 2\n Mult 1\nend\n"
         elif "%eprnmr" in txt:
-             template = "%eprnmr\n     nuclei = all h {shift, ssall}\nend\n"
+             template = "%eprnmr\n  NUCLEI = ALL H {SHIFT, SSALL} # Required for J-coupling (nmrsim)\nend\n"
              # Switch to Post-Coordinate tab automatically
              self.adv_tabs.setCurrentWidget(self.post_adv_edit)
         
@@ -998,9 +1139,9 @@ class OrcaSetupDialogNeo(QDialog):
             cursor.insertText(template)
 
     def open_keyword_builder(self):
-        dialog = OrcaKeywordBuilderDialog(self, self.keywords_edit.text())
+        dialog = OrcaKeywordBuilderDialog(self, self.keywords_edit.toPlainText())
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            self.keywords_edit.setText(dialog.get_route())
+            self.keywords_edit.setPlainText(dialog.get_route())
 
     def get_coords_lines(self):
         if not self.mol: return []
@@ -1161,25 +1302,28 @@ class OrcaSetupDialogNeo(QDialog):
                 content.append(f"# {comment}")
         
         # Resources
+        res_part = []
         nprocs = self.nproc_spin.value()
         if nprocs > 1:
-            content.append(f"%pal nprocs {nprocs} end")
-        content.append(f"%maxcore {self.mem_spin.value()}")
+            res_part.append(f"%pal nprocs {nprocs} end")
+        res_part.append(f"%maxcore {self.mem_spin.value()}")
+        content.append("\n".join(res_part))
         
         # Keywords
-        kw = self.keywords_edit.text().strip()
+        kw = self.keywords_edit.toPlainText().strip()
         if not kw.startswith("!"): kw = "! " + kw
-        content.append(f"{kw}")
+        content.append(f"\n{kw}")
         
         # Advanced Blocks
         adv = self.adv_edit.toPlainText().strip()
         if adv:
-            content.append(f"{adv}")
+            content.append(f"\n{adv}")
         
         # Coordinates
         is_cartesian = "Cartesian" in self.coord_format_combo.currentText()
         coord_lines = self.get_coords_lines()
         
+        content.append("") # Blank line before coordinates
         if is_cartesian:
             content.append(f"* xyz {self.charge_spin.value()} {self.mult_spin.value()}")
             content.extend(coord_lines)
@@ -1208,7 +1352,7 @@ class OrcaSetupDialogNeo(QDialog):
         # Post-Coordinate Blocks
         adv_post = self.post_adv_edit.toPlainText().strip()
         if adv_post:
-            content.append(f"{adv_post}")
+            content.append(f"\n{adv_post}")
             
         return "\n".join(content)
 
@@ -1265,7 +1409,7 @@ class OrcaSetupDialogNeo(QDialog):
             self.presets_data[name] = {
                 "nproc": self.nproc_spin.value(),
                 "maxcore": self.mem_spin.value(),
-                "route": self.keywords_edit.text(),
+                "route": self.keywords_edit.toPlainText(),
                 "adv": self.adv_edit.toPlainText(),
                 "adv_post": self.post_adv_edit.toPlainText()
             }
