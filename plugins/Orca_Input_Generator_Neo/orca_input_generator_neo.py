@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
     QLineEdit, QSpinBox, QPushButton, QFileDialog, 
     QFormLayout, QGroupBox, QHBoxLayout, QComboBox, QTextEdit, 
     QTabWidget, QCheckBox, QWidget, QScrollArea, QMenu, QSizePolicy,
-    QInputDialog)
+    QInputDialog, QGridLayout)
 from PyQt6.QtGui import QPalette, QColor, QAction, QFont, QSyntaxHighlighter, QTextCharFormat
 from PyQt6.QtCore import Qt, QRegularExpression
 from rdkit import Chem
