@@ -293,7 +293,7 @@
     "id": "vdw_radii_overlay",
     "visible": true,
     "name": "VDW Radii Overlay",
-    "version": "2026.04.01",
+    "version": "2026.04.02",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes Van der Waals radii as a merged surface overlay using PyVista.",
@@ -306,8 +306,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/VDW_Radii_Overlay/vdw_radii_overlay.py",
-    "lastUpdated": "2026-04-01",
-    "sha256": "768770d66bf809bad19ac62ac0536fcf3f44dfba8002cd5e3e608e5a80dc8226",
+    "lastUpdated": "2026-04-02",
+    "sha256": "203eb344f6d89b347d19c9f9f0a056ef45adc87686830e5b749c00f87685463d",
     "firstAppeared": "2025-12-17"
   },
   {

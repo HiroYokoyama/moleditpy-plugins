@@ -25,7 +25,7 @@ except ImportError:
 
 # Plugin Metadata
 PLUGIN_NAME = "VDW Radii Overlay"
-PLUGIN_VERSION = "2026.04.01"
+PLUGIN_VERSION = "2026.04.02"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Visualizes VDW radii as a translucent surface overlay using PyVista. Refactored for V3 API."
 
@@ -220,8 +220,6 @@ class VDWConfigWindow(QDialog):
         mw = self.context.get_main_window()
         current_style = getattr(mw, 'current_3d_style', None)
         
-        if current_style == "vdw_overlay":
-            self.context.refresh_3d_view()
 
 def draw_vdw_overlay(mw, mol):
     """
