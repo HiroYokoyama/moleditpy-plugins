@@ -66,8 +66,10 @@ def enable_project_mode(mw):
     
     # 2. Alias initial_settings (Clean Exit Check)
     # # [DIRECT ACCESS] to baseline settings
-    if hasattr(mw, 'initial_settings') and hasattr(mw, 'settings'):
-        mw.initial_settings = mw.settings
+    if hasattr(mw, 'initial_settings'):
+        settings = _get_live_settings(mw)
+        if isinstance(settings, dict):
+            mw.initial_settings = settings.copy()
         
     # 3. Monkey-patch save_settings (Strict Protection)
     # Even if User changes settings manually -> dirty=True.
@@ -99,10 +101,12 @@ def disable_project_mode(mw, restore_content=True):
         if hasattr(mw, 'initial_settings'):
             mw.initial_settings = ORIGINAL_SETTINGS.copy()
             
-        if hasattr(mw, 'settings'):
+        settings = _get_live_settings(mw)
+        if isinstance(settings, dict):
             try:
-                mw.settings.clear()
-                mw.settings.update(ORIGINAL_SETTINGS)
+                settings.clear()
+                settings.update(ORIGINAL_SETTINGS)
+                _sync_legacy_settings_alias(mw, settings)
                 apply_settings_hot(mw)
             except Exception as e:
                 # print(f"[Settings Saver] Error restoring original settings: {e}")
@@ -123,13 +127,14 @@ def on_save_project():
     if not mw:
         mw = QApplication.activeWindow()
 
-    if mw and hasattr(mw, 'settings'):
+    settings = _get_live_settings(mw) if mw else None
+    if mw and isinstance(settings, dict):
         # Re-enforce protections just in case
         enable_project_mode(mw)
             
         return {
             "preset_name": "Project Settings", # Hardcoded name
-            "settings": mw.settings
+            "settings": settings.copy()
         }
     return None
 
@@ -149,13 +154,15 @@ def on_load_project(data):
     
     if PLUGIN_CONTEXT:
         mw = PLUGIN_CONTEXT.get_main_window()
-        if mw and hasattr(mw, 'settings'):
+        settings = _get_live_settings(mw) if mw else None
+        if isinstance(settings, dict):
             try:
                 # BACKUP ORIGINAL SETTINGS if not already backed up
                 if ORIGINAL_SETTINGS is None:
-                    ORIGINAL_SETTINGS = mw.settings.copy()
+                    ORIGINAL_SETTINGS = settings.copy()
 
-                mw.settings.update(project_settings)
+                settings.update(project_settings)
+                _sync_legacy_settings_alias(mw, settings)
                 apply_settings_hot(mw)
                 
                 # Auto-enable strict mode AND protections
@@ -198,6 +205,23 @@ def open_manager(context):
 
 # --- Helper Functions ---
 
+def _get_live_settings(mw):
+    """Return the authoritative settings dict from the main window."""
+    if hasattr(mw, "init_manager") and hasattr(mw.init_manager, "settings"):
+        return mw.init_manager.settings
+    if hasattr(mw, "settings"):
+        return mw.settings
+    return None
+
+def _sync_legacy_settings_alias(mw, settings):
+    """Mirror settings to legacy mw.settings when present and distinct."""
+    try:
+        if hasattr(mw, "settings") and mw.settings is not settings and isinstance(mw.settings, dict):
+            mw.settings.clear()
+            mw.settings.update(settings)
+    except Exception:
+        pass
+
 def get_plugin_data_path():
     """Get path to the storage JSON file in the plugin directory."""
     plugin_dir = os.path.dirname(os.path.abspath(__file__))
@@ -230,6 +254,11 @@ def save_library(data, parent_window=None):
 def apply_settings_hot(mw):
     """Apply settings immediately to the active window (Hot Loading)."""
     try:
+        settings = _get_live_settings(mw)
+        if not settings:
+            return
+        _sync_legacy_settings_alias(mw, settings)
+
         # Mark settings dirty, UNLESS we are in Project Mode
         try:
             # # [DIRECT ACCESS] to settings_dirty
@@ -277,7 +306,7 @@ def apply_settings_hot(mw):
         # 5. Update 2D SCENE
         try:
             if hasattr(mw, 'scene') and mw.scene:
-                bg_col_2d = mw.settings.get('background_color_2d', '#FFFFFF')
+                bg_col_2d = settings.get('background_color_2d', '#FFFFFF')
                 mw.scene.setBackgroundBrush(QColor(bg_col_2d))
                 for item in mw.scene.items():
                     if hasattr(item, 'update_style'):
@@ -517,6 +546,7 @@ class SettingsSaverDialog(QDialog):
         if settings_data and hasattr(self.main_window.init_manager, 'settings'):
             self.main_window.init_manager.settings.update(settings_data)
             apply_settings_hot(self.main_window)
+            refresh_loaded_scene(self.main_window)
             self.context.show_status_message(f"Preset '{name}' loaded.")
         else:
             QMessageBox.warning(self, "Error", "Could not load settings.")
