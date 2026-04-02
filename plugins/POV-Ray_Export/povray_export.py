@@ -7,7 +7,7 @@ Exports molecular structures as POV-Ray scene files for high-quality ray-traced 
 """
 
 PLUGIN_NAME = "POV-Ray Export"
-PLUGIN_VERSION = "2026.02.05"
+PLUGIN_VERSION = "2026.04.01"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Export molecular structures as POV-Ray scene files for professional ray-traced rendering"
 PLUGIN_DEPENDENCIES = ["rdkit", "numpy", "PyQt6"]
@@ -42,9 +42,9 @@ def export_to_povray(context):
     default_dir = ""
     default_name = "molecule"
     try:
-        if hasattr(mw, 'current_file_path') and mw.current_file_path:
-            default_dir = os.path.dirname(mw.current_file_path)
-            base_name = os.path.splitext(os.path.basename(mw.current_file_path))[0]
+        if hasattr(mw, 'current_file_path') and mw.init_manager.current_file_path:
+            default_dir = os.path.dirname(mw.init_manager.current_file_path)
+            base_name = os.path.splitext(os.path.basename(mw.init_manager.current_file_path))[0]
             default_name = base_name
     except Exception:
         pass
@@ -161,9 +161,9 @@ def generate_povray_scene(mol, mw):
     
     # Get actual atom radii from the glyph source if available
     actual_radii = None
-    if hasattr(mw, 'glyph_source') and mw.glyph_source is not None:
+    if hasattr(mw, 'glyph_source') and mw.view_3d_manager.glyph_source is not None:
         try:
-            actual_radii = mw.glyph_source['radii']
+            actual_radii = mw.view_3d_manager.glyph_source['radii']
         except Exception:
             pass
             
@@ -661,3 +661,14 @@ def generate_povray_scene(mol, mw):
     lines.append(f'// End of scene - {mol.GetNumAtoms()} atoms, {mol.GetNumBonds()} bonds')
     
     return '\n'.join(lines), exp_w, exp_h
+
+def run(mw):
+    if not hasattr(mw, 'plugin_manager'):
+        return
+
+    from moleditpy.plugins.plugin_interface import PluginContext
+    context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
+    if not context:
+        context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
+
+    export_to_povray(context)

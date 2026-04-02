@@ -12,25 +12,31 @@ from PyQt6.QtGui import QColor
 
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Vector Viewer"
-PLUGIN_VERSION = "2025.12.31"
+PLUGIN_VERSION = "2026.04.01"
 PLUGIN_AUTHOR = "HiroYokoyama"
-PLUGIN_DESCRIPTION = "Visualizes vectors and exports PNGs."
+PLUGIN_DESCRIPTION = "Visualizes vectors and exports PNGs using the V3 API."
 
 class VectorViewerPlugin(QWidget):
-    def __init__(self, interface):
+    """
+    Plugin for visualizing vectors (e.g. dipole moments) in the 3D scene.
+    Refactored for MoleditPy V3.0 API.
+    """
+    def __init__(self, context):
         """
-        :param interface: MoleditPy Main Window Interface
+        :param context: MoleditPy PluginContext
         """
-        parent = interface if hasattr(interface, 'windowTitle') else None 
-        super().__init__(parent)
+        super().__init__(parent=context.get_main_window())
         self.setWindowFlags(Qt.WindowType.Window)
         self.setWindowTitle("Vector Viewer")
         
-        self.interface = interface
+        self.context = context
         self.vis_actor = None # Store the arrow actor
         self.arrow_color = QColor("green")
         
         self.init_ui()
+        
+        # Register window for V3 lifecycle management
+        self.context.register_window("main_panel", self)
 
     def init_ui(self):
         main_layout = QVBoxLayout(self)
@@ -131,10 +137,7 @@ class VectorViewerPlugin(QWidget):
 
     def get_com(self):
         """Calculate Center of Mass (COM) of the current molecule."""
-        rd_mol = getattr(self.interface, 'current_mol', None)
-        if rd_mol is None and hasattr(self.interface, 'get_molecule'):
-            rd_mol = self.interface.get_molecule()
-            
+        rd_mol = self.context.current_molecule
         if rd_mol:
             try:
                 conf = rd_mol.GetConformer()
@@ -148,8 +151,9 @@ class VectorViewerPlugin(QWidget):
 
     def update_visualization(self):
         """Parse vector and draw arrow in PyVista plotter."""
-        if not hasattr(self.interface, 'plotter'):
-            return # No plotter available
+        plotter = self.context.plotter
+        if plotter is None:
+            return 
             
         text = self.vec_input.text().strip()
         if not text:
@@ -189,7 +193,7 @@ class VectorViewerPlugin(QWidget):
         start = com - (scaled_vec / 2.0)
         
         import pyvista as pv
-        plotter = self.interface.plotter
+        plotter = self.context.plotter
         
         # Remove old actor
         if self.vis_actor:
@@ -200,13 +204,27 @@ class VectorViewerPlugin(QWidget):
                          tip_length=0.2, tip_radius=0.1, shaft_radius=0.04, 
                          shaft_resolution=res, tip_resolution=res)
         
-        # opacity引数は add_mesh で指定
-        self.vis_actor = plotter.add_mesh(arrow, color=color, opacity=opacity)
-        plotter.render()
+        # Add to plotter
+        self.vis_actor = plotter.add_mesh(arrow, color=color, opacity=opacity, name="vector_viewer_arrow")
+        self.context.refresh_3d_view()
+
+    def closeEvent(self, event):
+        """Remove the vector actor from the 3D scene when the panel is closed."""
+        if self.vis_actor is not None:
+            try:
+                plotter = self.context.plotter
+                if plotter is not None:
+                    plotter.remove_actor(self.vis_actor)
+                    self.context.refresh_3d_view()
+            except Exception:
+                pass
+            self.vis_actor = None
+        super().closeEvent(event)
 
     def export_image(self):
         """Export current view to PNG."""
-        if not hasattr(self.interface, 'plotter'):
+        plotter = self.context.plotter
+        if plotter is None:
             QMessageBox.warning(self, "Error", "No 3D plotter found.")
             return
 
@@ -217,70 +235,33 @@ class VectorViewerPlugin(QWidget):
         transparent = self.trans_chk.isChecked()
         
         try:
-            self.interface.plotter.screenshot(filename, transparent_background=transparent)
-            QMessageBox.information(self, "Success", f"Saved to {filename}")
+            plotter.screenshot(filename, transparent_background=transparent)
+            self.context.show_status_message(f"Saved to {filename}")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to save image:\n{e}")
 
-def run(interface):
-    """Entry Point"""
-    if not hasattr(interface, 'vector_viewer_window'):
-        interface.vector_viewer_window = VectorViewerPlugin(interface)
-        interface.vector_viewer_window.resize(300, 450)
-    
-    interface.vector_viewer_window.show()
-    interface.vector_viewer_window.raise_()
+_launch_fn = None
 
-if __name__ == "__main__":
-    # Standalone Test
-    from PyQt6.QtWidgets import QApplication
-    
-    class MockInterface:
-        def __init__(self):
-            self.plotter = None
-            self.init_plotter()
-            self.current_mol = None
-            self._create_sample_molecule()
-            
-        def _create_sample_molecule(self):
-            try:
-                from rdkit import Chem
-                from rdkit.Chem import AllChem
-                m = Chem.MolFromSmiles('C') # Methane
-                m = Chem.AddHs(m)
-                AllChem.EmbedMolecule(m, randomSeed=42) 
-                AllChem.MMFFOptimizeMolecule(m)
-                self.current_mol = m
-            except ImportError:
-                print("RDKit not found")
+def initialize(context):
+    """MoleditPy Plugin Entry Point (V3.0)"""
+    global _launch_fn
 
-        def init_plotter(self):
-            try:
-                import pyvista as pv
-                self.plotter = pv.Plotter()
-                self.plotter.add_text("Mock Plotter", position='upper_left')
-                # Add a dummy sphere to represent molecule
-                self.plotter.add_mesh(pv.Sphere(radius=0.5), color='white')
-                self.plotter.show(auto_close=False, interactive_update=True)
-            except ImportError:
-                print("PyVista not found")
-                
-        def get_molecule(self):
-            return self.current_mol
+    def launch():
+        win = context.get_window("main_panel")
+        if win:
+            win.show()
+            win.raise_()
+            win.activateWindow()
+            return
+        win = VectorViewerPlugin(context)
+        win.show()
 
-    app = QApplication(sys.argv)
-    
-    # Check PyVista
-    try:
-        import pyvista
-    except ImportError:
-        print("This tool requires 'pyvista'.")
-        sys.exit(1)
+    _launch_fn = launch
+    context.show_status_message(f"{PLUGIN_NAME} Loaded.")
 
-    mock = MockInterface()
-    plugin = VectorViewerPlugin(mock)
-    plugin.show()
-    
-    print("Test: Paste '1 1 1' into vector input and press Enter.")
-    
-    sys.exit(app.exec())
+
+def run(mw):
+    if hasattr(mw, 'host'):
+        mw = mw.host
+    if _launch_fn:
+        _launch_fn()

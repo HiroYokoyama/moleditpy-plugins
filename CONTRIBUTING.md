@@ -35,7 +35,7 @@ All contributions—whether they are new plugin registrations or updates to exis
 **Rule: New plugins must be hosted in external repositories.** 
 To add a new plugin to the collection:
 1.  **Host your plugin**: Upload your plugin file (`.py`) or package (`.zip`) to a public repository (e.g., GitHub). We recommend using GitHub Releases to host stable versions.
-2.  **Register the plugin**: Add a new entry to [explorer/plugins.json](explorer/plugins.json) via a Pull Request.
+2.  **Register the plugin**: Add a new entry to [REGISTRY/plugins.json](REGISTRY/plugins.json) via a Pull Request.
 3.  **Download URL**: The `downloadUrl` in `plugins.json` should point to the direct download link (e.g., a GitHub Release asset or a raw file URL).
 
 ### 2. Updates to Existing Plugins
@@ -43,12 +43,12 @@ To add a new plugin to the collection:
 If you are updating a plugin that is already located in the `plugins/` directory:
 1.  **Update the source**: Replace the `.py` file or folder content in the `plugins/` directory.
 2.  **Update Metadata**: Increment the version number and update the metadata in the script.
-3.  **Update plugins.json**: Update the corresponding entry in `explorer/plugins.json` with the new version, `lastUpdated` timestamp, and a fresh `sha256` hash.
+3.  **Update plugins.json**: Update the corresponding entry in `REGISTRY/plugins.json` with the new version, `lastUpdated` timestamp, and a fresh `sha256` hash.
 4.  **Submit PR**: Push your changes to a branch and open a Pull Request.
 
 ## Registering in `plugins.json`
 
-The `explorer/plugins.json` file is the registry that the application uses to discover and install plugins. 
+The `REGISTRY/plugins.json` file is the registry that the application uses to discover and install plugins. 
 
 ### Field Descriptions
 - `id`: A unique string identifier (e.g., `my_plugin_id`).

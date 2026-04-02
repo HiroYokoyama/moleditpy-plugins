@@ -13,29 +13,27 @@ from PyQt6.QtCore import Qt, QTimer
 
 # Try to import VDW radii from constants, fallback if needed
 try:
-    from moleditpy.modules.constants import pt, CPK_COLORS_PV
+    from moleditpy.utils.constants import pt, CPK_COLORS_PV
 except ImportError:
     try:
-        from modules.constants import pt, CPK_COLORS_PV
-    except ImportError:
-        try:
-            from rdkit import Chem
-            pt = Chem.GetPeriodicTable()
-        except Exception:
-            pt = None
-        CPK_COLORS_PV = {} # Last resort fallback
+        from rdkit import Chem
+        pt = Chem.GetPeriodicTable()
+    except Exception:
+        pt = None
+    CPK_COLORS_PV = {}  # Last resort fallback
 
 
 # Plugin Metadata
-__version__="2026.02.03"
-__author__="HiroYokoyama"
 PLUGIN_NAME = "VDW Radii Overlay"
+PLUGIN_VERSION = "2026.04.01"
+PLUGIN_AUTHOR = "HiroYokoyama"
+PLUGIN_DESCRIPTION = "Visualizes VDW radii as a translucent surface overlay using PyVista. Refactored for V3 API."
+
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vdw_radii_overlay.json")
 
-# Global State
-_config_window = None
+# Global Settings (State)
 _vdw_settings = {
-    "occupancy": 0.3,  # Opacity (0.0 - 1.0)
+    "occupancy": 0.3,   # Opacity (0.0 - 1.0)
     "resolution": 0.125 # Voxel spacing in Angstroms
 }
 
@@ -60,13 +58,20 @@ def save_settings():
         print(f"Error saving VDW settings: {e}")
 
 class VDWConfigWindow(QDialog):
-    def __init__(self, main_window):
-        super().__init__(parent=main_window)
-        self.mw = main_window
+    """
+    Namespaced configuration window for VDW Overlay.
+    Refactored for MoleditPy V3.0 API.
+    """
+    def __init__(self, context):
+        super().__init__(parent=context.get_main_window())
+        self.context = context
         self.setWindowTitle("VDW Overlay Settings")
         self.setModal(False)
         self.resize(350, 150)
         self.init_ui()
+        
+        # Register window for V3 lifecycle management
+        self.context.register_window("main_panel", self)
 
     def init_ui(self):
         layout = QVBoxLayout()
@@ -211,30 +216,27 @@ class VDWConfigWindow(QDialog):
 
     def update_view(self):
         # Trigger redraw if we are in the correct mode
-        if hasattr(self.mw, 'current_3d_style') and self.mw.current_3d_style == "vdw_overlay":
-            if getattr(self.mw, 'current_mol', None):
-                # Trigger redraw
-                if hasattr(self.mw, 'draw_molecule_3d'):
-                    self.mw.draw_molecule_3d(self.mw.current_mol)
+        # # [DIRECT ACCESS] via proxy
+        mw = self.context.get_main_window()
+        current_style = getattr(mw, 'current_3d_style', None)
+        
+        if current_style == "vdw_overlay":
+            self.context.refresh_3d_view()
 
 def draw_vdw_overlay(mw, mol):
     """
-    Callback for drawing the VDW overlay style.
-    Registered via context.register_3d_style.
+    3D Rendering Callback for VDW Overlay Style.
+    Receives (mw, mol) from the engine.
     """
-    # 1. Draw standard Ball & Stick
-    # Attempt to locate the standard draw method
-    draw_std = None
-    if hasattr(mw, 'main_window_view_3d') and hasattr(mw.main_window_view_3d, 'draw_standard_3d_style'):
-        draw_std = mw.main_window_view_3d.draw_standard_3d_style
-    elif hasattr(mw, 'view3d') and hasattr(mw.view3d, 'draw_standard_3d_style'):
-        draw_std = mw.view3d.draw_standard_3d_style
-    
-    if draw_std:
-        draw_std(mol, style_override='ball_and_stick')
+    # 1. Draw standard Ball & Stick first
+    # # [DIRECT ACCESS] to manager
+    if hasattr(mw, 'view_3d_manager'):
+        mw.view_3d_manager.draw_standard_3d_style(mol, style_override='ball_and_stick')
     else:
-        print("VDW Plugin Error: could not find draw_standard_3d_style")
-        return
+        # Emergency fallback for legacy systems
+        print("VDW Warning: view_3d_manager not found, using legacy draw path.")
+        if hasattr(mw, 'view3d'):
+             mw.view3d.draw_standard_3d_style(mol, style_override='ball_and_stick')
 
     # 2. Draw VDW Surface Overlay
     if mol and mol.GetNumAtoms() > 0:
@@ -243,9 +245,14 @@ def draw_vdw_overlay(mw, mol):
             radii = []
             atom_colors = []
             
-            # Use custom colors if available (API-based or legacy)
-            custom_map = getattr(mw, '_plugin_color_overrides', {})
+            # Use color overrides from the new namespaced dictionary on the manager
+            custom_map = {}
+            # # [DIRECT ACCESS] to manager state
+            if hasattr(mw, 'view_3d_manager'):
+                custom_map = getattr(mw.view_3d_manager, '_plugin_color_overrides', {})
+            
             if not custom_map:
+                # # [DIRECT ACCESS] legacy
                 custom_map = getattr(mw, 'custom_atom_colors', {})
             
             if mol.GetNumConformers() > 0:
@@ -345,6 +352,7 @@ def draw_vdw_overlay(mw, mol):
                     opacity = _vdw_settings.get("occupancy", 0.3)
                     
                     # Assume mw.plotter is available
+                    # # [DIRECT ACCESS] to plotter
                     if hasattr(mw, 'plotter'):
                         mw.plotter.add_mesh(
                             mesh,
@@ -360,38 +368,31 @@ def draw_vdw_overlay(mw, mol):
             print(f"VDW Overlay Error: {e}")
             traceback.print_exc()
 
-def run(mw):
-    global _config_window
-    load_settings()
-    
-    if _config_window is None:
-        _config_window = VDWConfigWindow(mw)
-        _config_window.finished.connect(lambda: _cleanup_config())
-    
-    # Ensure UI reflects the loaded settings (important if window was already open or reused)
-    _config_window.refresh_ui_values()
-    
-    _config_window.show()
-    _config_window.raise_()
-    _config_window.activateWindow()
+def open_settings(context):
+    """Namespaced singleton launcher for the settings dialog."""
+    win = context.get_window("main_panel")
+    if win:
+        win.show()
+        win.raise_()
+        win.activateWindow()
+        return
+
+    win = VDWConfigWindow(context)
+    win.show()
 
 def initialize(context):
     """
-    New Plugin System Entry Point
+    MoleditPy Plugin Entry Point (V3.0)
     """
-    mw = context.get_main_window()
     load_settings()
     
-    # Register 3D Style
-    if hasattr(context, 'register_3d_style'):
-        context.register_3d_style("vdw_overlay", draw_vdw_overlay)
-    else:
-        print("Error: PluginContext does not support register_3d_style")
-
-    # Manual menu injection removed.
-    # The main application now automatically adds registered 3D styles to the menu.
-
-def _cleanup_config():
-    global _config_window
-    _config_window = None
+    # 1. Register the 3D Drawing Style
+    context.register_3d_style("vdw_overlay", draw_vdw_overlay)
+    
+def run(mw):
+    if hasattr(mw, 'host'):
+        mw = mw.host
+    from moleditpy.plugins.plugin_interface import PluginContext
+    context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
+    open_settings(context)
 

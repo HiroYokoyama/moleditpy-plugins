@@ -14,23 +14,23 @@ except ImportError:
     Descriptors = None
     Draw = None
 
-PLUGIN_VERSION = "2026.02.09"
+PLUGIN_VERSION = "2026.04.01"
 PLUGIN_AUTHOR = "HiroYokoyama"
 
 PLUGIN_NAME = "MS Spectrum Simulation Neo"
 
 class MSSpectrumDialog(QDialog):
-    def __init__(self, mol, parent=None):
-        super().__init__(parent)
+    def __init__(self, context):
+        super().__init__(parent=context.get_main_window())
         self.setWindowTitle("MS Spectrum Simulation Neo")
-        self.resize(500, 700) 
-        self.mol = mol
+        self.resize(500, 700)
+        self.context = context
+        self.mol = self.context.current_molecule
         
-        # Setup timer for auto-update if integrated (not standalone/mock)
-        if self.parent():
-            self.timer = QTimer(self)
-            self.timer.timeout.connect(self.check_update)
-            self.timer.start(1000)
+        # Setup timer for auto-update
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.check_update)
+        # We start the timer later if sync is checked
         
         # Clean white look
         self.setStyleSheet("""
@@ -57,6 +57,9 @@ class MSSpectrumDialog(QDialog):
             }
         """)
 
+        # Register window for V3 lifecycle management
+        self.context.register_window("main_panel", self)
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 10, 10, 10)
         
@@ -70,7 +73,11 @@ class MSSpectrumDialog(QDialog):
         self.formula_input = QLineEdit()
         if self.mol:
             # Initial calculation (usually from passed 3D molecule)
-            self.formula_input.setText(Chem.rdMolDescriptors.CalcMolFormula(self.mol))
+            try:
+                formula = Chem.rdMolDescriptors.CalcMolFormula(self.mol)
+                self.formula_input.setText(str(formula))
+            except:
+                pass
         settings_layout.addRow("Formula:", self.formula_input)
         
         # 4. Sync & 2D Option
@@ -86,7 +93,7 @@ class MSSpectrumDialog(QDialog):
         sync_layout.addWidget(self.use_2d_check)
         sync_layout.addStretch()
         
-        if self.parent():
+        if self.context.get_main_window():
              self.sync_check.setChecked(True)
         else:
              self.sync_check.setChecked(False)
@@ -210,49 +217,27 @@ class MSSpectrumDialog(QDialog):
             return
 
         try:
-            parent = self.parent()
-            if parent is None:
-                return
-                
-            try:
-                import sip
-                if hasattr(sip, 'isdeleted') and sip.isdeleted(parent):
-                    return
-            except Exception:
-                pass
+            # Use 2D molecule if checked to enable analysis without 3D generation
+            if self.use_2d_check.isChecked():
+                # V3 Architecture: Use state_manager.data.to_rdkit_mol()
+                mw = self.context.get_main_window()
+                if hasattr(mw, 'state_manager') and hasattr(mw.state_manager.data, 'to_rdkit_mol'):
+                    new_mol = mw.state_manager.data.to_rdkit_mol()
+                else:
+                    new_mol = self.context.current_molecule
+            else:
+                new_mol = self.context.current_molecule
 
-            new_mol = None
-            is_from_2d = False
-            # Option 1: Use 2D sketch from parent's MolecularData
-            if self.use_2d_check.isChecked() and hasattr(parent, 'data'):
-                try:
-                    # Retrieve 2D molecule from MoleditPy core
-                    new_mol = parent.data.to_rdkit_mol()
-                    if new_mol:
-                        is_from_2d = True
-                except Exception:
-                    new_mol = None
-            
-            # Option 2: Use 3D molecule if 2D is not requested or failed
-            if new_mol is None and hasattr(parent, 'current_mol'):
-                new_mol = parent.current_mol
-                is_from_2d = False
-                
             if not new_mol:
                 return
 
             # Update internal molecule reference to stay in sync
-            # This ensures 'Report' and formula calculation use the intended structure
             self.mol = new_mol
 
             # Generate formula from current molecule
-            if is_from_2d:
-                 # Add hydrogens for 2D molecules to ensure correct formula
-                 mol_to_calc = Chem.AddHs(self.mol)
-            else:
-                 # Use 3D molecule as is (AddHs only for 2D)
-                 mol_to_calc = self.mol
-
+            # For MS Spectrum, we usually want the formula including Hs
+            # We don't modify the original mol, just calculate on a version with Hs
+            mol_to_calc = Chem.AddHs(self.mol) if self.use_2d_check.isChecked() else self.mol
             current_formula = Chem.rdMolDescriptors.CalcMolFormula(mol_to_calc)
             
             # If different from text box, update
@@ -485,7 +470,7 @@ class MSSpectrumDialog(QDialog):
         # Prepare Info Text for Graph
         formula_raw = self.formula_input.text().strip()
         
-        # Format formula (C6H6 -> C₆H₆)
+        # Format formula (C6H6 -> C₁E₁E
         sub_map = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
         formula_formatted = formula_raw.translate(sub_map)
         
@@ -726,10 +711,10 @@ class MSSpectrumDialog(QDialog):
         img_w, img_h = 0, 0
         
         if self.mol:
-            # 1. Try to grabbing from Main Window Scene (User's View)
-            if self.parent() and hasattr(self.parent(), 'scene'):
+            # 1. Try to grabbing from Main Window Scene (User's View) via context.scene
+            if self.context.scene:
                 try:
-                    scene = self.parent().scene
+                    scene = self.context.scene
                     
                     # Calculate tight bounding box around atoms/bonds only
                     molecule_bounds = QRectF()
@@ -1286,35 +1271,29 @@ class HistogramWidget(QWidget):
         painter.drawText(QRectF(-100 * scale, -100 * scale, 200 * scale, 20 * scale), Qt.AlignmentFlag.AlignCenter, "Relative Intensity (%)")
         painter.restore()
 
-def run(mw):
-    if Chem is None:
-        QMessageBox.critical(mw, "MS Plugin", "RDKit is not available.")
-        return
-
-    # Singleton / Modeless check
-    if hasattr(mw, '_ms_spectrum_dialog') and mw._ms_spectrum_dialog is not None:
-        try:
-            mw._ms_spectrum_dialog.show()
-            mw._ms_spectrum_dialog.raise_()
-            mw._ms_spectrum_dialog.activateWindow()
-            mw._ms_spectrum_dialog.check_update()
-            if mw._ms_spectrum_dialog.sync_check.isChecked() and not mw._ms_spectrum_dialog.timer.isActive():
-                mw._ms_spectrum_dialog.timer.start(1000)
-            return
-        except RuntimeError:
-            # Wrapped C/C++ object has been deleted
-            mw._ms_spectrum_dialog = None
-
-    # Allow launching without a molecule (start empty)
-    dialog = MSSpectrumDialog(mw.current_mol, mw)
-    mw._ms_spectrum_dialog = dialog # Keep reference
-    dialog.show()
-
 def initialize(context):
-    context.add_analysis_tool("MS Spectrum", lambda: run(context.get_main_window()))
+    """
+    Initialize the MS Spectrum Simulation Neo plugin.
+    """
+    def toggle_window():
+        if Chem is None:
+            context.show_status_message("RDKit is not available.", 5000)
+            return
 
+        win = context.get_window("main_panel")
+        if win:
+            win.show()
+            win.raise_()
+            win.activateWindow()
+            win.check_update()
+            if hasattr(win, 'sync_check') and win.sync_check.isChecked() and not win.timer.isActive():
+                win.timer.start(1000)
+            return
 
-# initialize removed as it only registered the analysis tool
+        new_win = MSSpectrumDialog(context)
+        new_win.show()
+
+    context.add_analysis_tool("MS Spectrum Neo", toggle_window)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
@@ -1332,3 +1311,4 @@ if __name__ == "__main__":
     dialog = MSSpectrumDialog(mol)
     dialog.show()
     sys.exit(app.exec())
+

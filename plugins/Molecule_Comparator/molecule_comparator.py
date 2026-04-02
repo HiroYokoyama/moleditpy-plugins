@@ -13,6 +13,11 @@ from rdkit.Chem import AllChem
 import copy
 import sys
 
+PLUGIN_NAME = "Molecule Comparator"
+PLUGIN_VERSION = "2026.04.01"
+PLUGIN_AUTHOR = "HiroYokoyama"
+PLUGIN_DESCRIPTION = "Side-by-side comparison and alignment of multiple molecules."
+
 class AlignmentWorker(QThread):
     progress = pyqtSignal(int, int, str) # current, total, status_message
     finished_signal = pyqtSignal(list)   # list of result dicts
@@ -184,9 +189,9 @@ class AlignmentWorker(QThread):
             self.error_signal.emit(str(e))
 
 PLUGIN_NAME = "Molecule Comparator"
-PLUGIN_VERSION = "2026.01.23"
+PLUGIN_VERSION = "2026.04.01"
 PLUGIN_AUTHOR = "HiroYokoyama"
-PLUGIN_DESCRIPTION = "Compare multiple molecules in 3D, calculate RMSD, and align them."
+PLUGIN_DESCRIPTION = "Compare multiple molecules in 3D, calculate RMSD, and align them. Refactored for V3 API."
 
 # Default Palette
 DEFAULT_COLORS = [
@@ -201,10 +206,11 @@ DEFAULT_COLORS = [
 ]
 
 class MoleculeComparator(QWidget):
-    def __init__(self, mw, ctrl=None):
+    def __init__(self, context):
+        mw = context.get_main_window()
         super().__init__(mw) # Parent to mw to ensure close on exit
+        self.context = context
         self.mw = mw
-        self.ctrl = ctrl  # Plugin3DController for API access
         self.setWindowTitle("Molecule Comparator")
         self.molecules = [] # List of dicts: {'name': str, 'mol': Mol, 'color': str, 'scope': str, 'rms': float}
         
@@ -392,9 +398,11 @@ class MoleculeComparator(QWidget):
 
     def cleanup_and_close(self):
         # Restore original state
-        self.mw._plugin_color_overrides = {}
+        if hasattr(self.mw.view_3d_manager, '_plugin_color_overrides'):
+            self.mw.view_3d_manager._plugin_color_overrides = {}
+            
         if self.mw.current_mol:
-            self.mw.main_window_view_3d.draw_molecule_3d(self.mw.current_mol)
+            self.mw.view_3d_manager.draw_molecule_3d(self.mw.current_mol)
         else:
             self.mw.plotter.clear()
             
@@ -405,7 +413,7 @@ class MoleculeComparator(QWidget):
          pass
 
     def add_current_molecule(self):
-        mol = self.mw.current_mol
+        mol = self.context.current_molecule
         if not mol:
             QMessageBox.warning(self.mw, "Error", "No molecule loaded in Main Window.")
             return
@@ -439,8 +447,17 @@ class MoleculeComparator(QWidget):
         self.reset_view()
 
     def reset_view(self):
-        # Placeholder for view reset if needed
-        pass
+        # Use a timer to ensure the view is reset AFTER the visualization update is fully rendered/processed.
+        # NOTE: mw.view_3d_manager.fit_to_view() is for 2D. We must use plotter methods for 3D.
+        def _do_reset():
+            if hasattr(self.mw, 'plotter'):
+                try:
+                    self.mw.plotter.reset_camera()
+                    self.mw.plotter.render()
+                except Exception:
+                    pass
+        
+        QTimer.singleShot(100, _do_reset)
 
     def load_from_file(self):
         file_path, _ = QFileDialog.getOpenFileName(
@@ -709,7 +726,7 @@ class MoleculeComparator(QWidget):
         clipboard.setText(text)
         
         # Show confirmation
-        self.mw.statusBar().showMessage("Results copied to clipboard", 3000)
+        self.context.show_status_message("Results copied to clipboard", 3000)
 
     def save_results_to_file(self):
         """Save results table to a CSV file."""
@@ -791,6 +808,7 @@ class MoleculeComparator(QWidget):
         
         try:
             # Save screenshot using PyVista
+            # # [DIRECT ACCESS] to plotter
             self.mw.plotter.screenshot(file_path, transparent_background=transparent)
             
             # Show confirmation
@@ -801,11 +819,7 @@ class MoleculeComparator(QWidget):
     def update_visualization(self):
         # Combine all molecules
         if not self.molecules:
-            # Clear colors using API if available
-            if self.ctrl:
-                # No direct "clear all" in API, so just draw None
-                pass
-            self.mw.main_window_view_3d.draw_molecule_3d(None)
+            self.mw.view_3d_manager.draw_molecule_3d(None)
             return
 
         combined_mol = Chem.Mol()
@@ -824,10 +838,11 @@ class MoleculeComparator(QWidget):
             current_atom_offset += mol.GetNumAtoms()
 
         # Draw the combined molecule first
-        self.mw.main_window_view_3d.draw_molecule_3d(combined_mol)
+        self.mw.view_3d_manager.draw_molecule_3d(combined_mol)
         
         # Then apply colors using the API
-        if self.ctrl:
+        controller = self.context.get_3d_controller()
+        if controller:
             current_atom_offset = 0
             for entry in self.molecules:
                 mol = entry['mol']
@@ -847,14 +862,14 @@ class MoleculeComparator(QWidget):
                     
                     if apply_color:
                         try:
-                            self.ctrl.set_atom_color(global_idx, color_hex)
+                            controller.set_atom_color(global_idx, color_hex)
                         except Exception as e:
                             print(f"Failed to set atom color: {e}")
                 
                 current_atom_offset += mol.GetNumAtoms()
             
             # Trigger redraw after colors are set
-            self.mw.main_window_view_3d.draw_molecule_3d(combined_mol)
+            self.mw.view_3d_manager.draw_molecule_3d(combined_mol)
         else:
             # Fallback to direct access if controller not available (legacy)
             color_overrides = {}
@@ -879,8 +894,8 @@ class MoleculeComparator(QWidget):
                 
                 current_atom_offset += mol.GetNumAtoms()
             
-            self.mw._plugin_color_overrides = color_overrides
-            self.mw.main_window_view_3d.draw_molecule_3d(combined_mol)
+            self.mw.view_3d_manager._plugin_color_overrides = color_overrides
+            self.mw.view_3d_manager.draw_molecule_3d(combined_mol)
         
     def _find_style_tool_button(self):
         """Helper to find the Main Window's 3D Style QToolButton."""
@@ -924,17 +939,9 @@ class MoleculeComparator(QWidget):
         }
         style_id = mapping.get(style_name, "ball_and_stick")
             
-        # Update View 3D component
-        if hasattr(self.mw, 'main_window_view_3d') and hasattr(self.mw.main_window_view_3d, 'current_3d_style'):
-             self.mw.main_window_view_3d.current_3d_style = style_id
-        
-        # Also try direct mw attribute if exists (some versions might use mixin)
-        if hasattr(self.mw, 'current_3d_style'):
-            self.mw.current_3d_style = style_id
-
-        # Push to settings
-        if hasattr(self.mw, 'settings'):
-             self.mw.settings['default_3d_style'] = style_id
+        # Update View 3D component via the manager (Fixed for V3)
+        if hasattr(self.mw, 'view_3d_manager'):
+             self.mw.view_3d_manager.set_3d_style(style_id)
         
         # Sync with Main Window Actions (Visual Checkmark)
         try:
@@ -951,20 +958,8 @@ class MoleculeComparator(QWidget):
                     was_blocked = action.blockSignals(True)
                     action.setChecked(True)
                     action.blockSignals(was_blocked)
-                else:
-                    # Uncheck others if they are in an exclusive group (actions usually manage this, but being explicit helps)
-                    # But be careful not to uncheck unrelated things.
-                    # QActionGroup handles exclusivity automatically for these.
-                    pass
         except Exception:
             pass
-
-        # Ensure Main Window applies any side-effects of style change
-        if hasattr(self.mw, 'apply_3d_settings'):
-            try:
-                self.mw.apply_3d_settings(redraw=False)
-            except Exception:
-                pass
 
         self.update_visualization()
         
@@ -1006,7 +1001,7 @@ class MoleculeComparator(QWidget):
 
     def reset_view(self):
         # Use a timer to ensure the view is reset AFTER the visualization update is fully rendered/processed.
-        # NOTE: mw.fit_to_view() is for 2D. We must use plotter methods for 3D.
+        # NOTE: mw.view_3d_manager.fit_to_view() is for 2D. We must use plotter methods for 3D.
         def _do_reset():
             if hasattr(self.mw, 'plotter'):
                 try:
@@ -1020,19 +1015,19 @@ class MoleculeComparator(QWidget):
     def enter_3d_only_mode(self):
         # Save current splitter state if not already collapsed (approximately)
         if hasattr(self.mw, 'splitter'):
-            current_sizes = self.mw.splitter.sizes()
+            current_sizes = self.mw.init_manager.splitter.sizes()
             # Assuming [left, right] or similar. If > 0, left pane is visible.
             if len(current_sizes) >= 2 and current_sizes[0] > 0:
                 self.saved_splitter_sizes = current_sizes
                 # Collapse left (index 0)
                 # We can try setting strict 0.
-                self.mw.splitter.setSizes([0, 10000])
+                self.mw.init_manager.splitter.setSizes([0, 10000])
 
         # Disable 3D Drag (Edit Mode)
-        if hasattr(self.mw, 'toggle_3d_edit_mode'):
-            self.mw.toggle_3d_edit_mode(False)
-        if hasattr(self.mw, 'edit_3d_action'):
-            self.mw.edit_3d_action.setEnabled(False)
+        if hasattr(self.mw.ui_manager, 'toggle_3d_edit_mode'):
+            self.mw.ui_manager.toggle_3d_edit_mode(False)
+        if hasattr(self.mw.init_manager, 'edit_3d_action'):
+            self.mw.init_manager.edit_3d_action.setEnabled(False)
 
         # Disable Main Window Style Button (The Toolbar Button)
         btn = self._find_style_tool_button()
@@ -1047,12 +1042,12 @@ class MoleculeComparator(QWidget):
         # Restore splitter state if saved
         if hasattr(self, 'saved_splitter_sizes') and self.saved_splitter_sizes:
             if hasattr(self.mw, 'splitter'):
-                self.mw.splitter.setSizes(self.saved_splitter_sizes)
+                self.mw.init_manager.splitter.setSizes(self.saved_splitter_sizes)
             self.saved_splitter_sizes = None
             
         # Re-enable 3D Drag Action
-        if hasattr(self.mw, 'edit_3d_action'):
-            self.mw.edit_3d_action.setEnabled(True)
+        if hasattr(self.mw.init_manager, 'edit_3d_action'):
+            self.mw.init_manager.edit_3d_action.setEnabled(True)
 
         # Re-enable Main Window Style Button
         btn = self._find_style_tool_button()
@@ -1063,25 +1058,29 @@ class MoleculeComparator(QWidget):
         for action in self._find_style_actions():
             action.setEnabled(True)
 
-def run(mw, ctrl=None):
-    # Check if already exists to prevent duplicates
+def initialize(context):
+    """V3 entry point. Menu action is added automatically by run()."""
+    def on_reset():
+        mw = context.get_main_window()
+        if hasattr(mw, 'molecule_comparator_window'):
+            mw.molecule_comparator_window.close()
+    context.register_document_reset_handler(on_reset)
+
+def run(mw):
+    """Primary entry point (Automatic menu action)."""
+    if hasattr(mw, 'host'):
+        mw = mw.host
+    from moleditpy.plugins.plugin_interface import PluginContext
+    context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
+    
     if not hasattr(mw, 'molecule_comparator_window'):
-        # Pass mw and ctrl to ensure API access
-        # Task: Fix RMSD Calculation Consistency
-        win = MoleculeComparator(mw, ctrl)
+        win = MoleculeComparator(context)
         mw.molecule_comparator_window = win
     
     win = mw.molecule_comparator_window
     if win.isVisible():
-        # Toggle behavior: if open, close it (which triggers clean up)
         win.close()
     else:
         win.show()
         win.raise_()
         win.enter_3d_only_mode()
-
-def initialize(context):
-    def run_plugin():
-        mw = context.get_main_window()
-        ctrl = context.get_3d_controller()
-        run(mw, ctrl)

@@ -9,9 +9,9 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 
 PLUGIN_NAME = "Structural Updater"
-PLUGIN_VERSION = "2026.01.28"
+PLUGIN_VERSION = "2026.04.01"
 PLUGIN_AUTHOR = "HiroYokoyama"
-PLUGIN_DESCRIPTION = "Applies 2D structural changes to 3D conformation without full re-embedding."
+PLUGIN_DESCRIPTION = "Applies 2D structural changes to 3D conformation without full re-embedding. Refactored for V3 API."
 
 # Global reference to hold the original methods to prevent GC and allow restoration
 _ORIGINAL_METHODS = {}
@@ -74,10 +74,12 @@ class StructuralUpdaterPlugin:
         if not self.enabled: return
         
         # Do not interfere if calculation is running (Halt button active)
-        if self.mw.convert_button.text() == "Halt conversion":
+        # # [DIRECT ACCESS] to button text
+        if self.mw.init_manager.convert_button.text() == "Halt conversion":
             return
             
         # Check if 3D molecule exists and has original_atom_id props
+        # # [DIRECT ACCESS] to current_mol proxy
         has_3d = False
         if self.mw.current_mol and self.mw.current_mol.GetNumAtoms() > 0:
             # Check for at least one original_atom_id
@@ -90,11 +92,11 @@ class StructuralUpdaterPlugin:
         if has_3d:
             if not self.apply_mode_active:
                 self.apply_mode_active = True
-                self.mw.convert_button.setText("Apply 2D Changes to 3D")
+                self.mw.init_manager.convert_button.setText("Apply 2D Changes to 3D")
         else:
             if self.apply_mode_active:
                 self.apply_mode_active = False
-                self.mw.convert_button.setText("Convert 2D to 3D")
+                self.mw.init_manager.convert_button.setText("Convert 2D to 3D")
         
     def load_settings(self):
         try:
@@ -124,31 +126,33 @@ class StructuralUpdaterPlugin:
             
             # If disabled, restore original button text immediately
             if not self.enabled:
-                self.mw.convert_button.setText("Convert 2D to 3D")
+                self.mw.init_manager.convert_button.setText("Convert 2D to 3D")
                 
             status = "Enabled" if self.enabled else "Disabled"
-            self.mw.statusBar().showMessage(f"Structural Updater: {status}")
+            # # [DIRECT ACCESS] via proxy
+            self.context.show_status_message(f"Structural Updater: {status}")
             print(f"[{PLUGIN_NAME}] Enabled: {self.enabled}")
 
     def patch_mainwindow(self):
         # Store original methods
         if 'trigger_conversion' not in _ORIGINAL_METHODS:
-            _ORIGINAL_METHODS['trigger_conversion'] = self.mw.trigger_conversion
+            _ORIGINAL_METHODS['trigger_conversion'] = self.mw.compute_manager.trigger_conversion
         if 'on_calculation_finished' not in _ORIGINAL_METHODS:
-            _ORIGINAL_METHODS['on_calculation_finished'] = self.mw.on_calculation_finished
+            _ORIGINAL_METHODS['on_calculation_finished'] = self.mw.compute_manager.on_calculation_finished
         # Do not override show_convert_menu as per user request
 
         # Replace methods
-        self.mw.trigger_conversion = self.new_trigger_conversion
-        self.mw.on_calculation_finished = self.new_on_calculation_finished
+        self.mw.compute_manager.trigger_conversion = self.new_trigger_conversion
+        self.mw.compute_manager.on_calculation_finished = self.new_on_calculation_finished
         
         # CRITICAL: Reconnect the button signal!
         # The existing connection points to the OLD trigger_conversion function object.
         try:
-            self.mw.convert_button.clicked.disconnect()
+            # # [DIRECT ACCESS] to button signals
+            self.mw.init_manager.convert_button.clicked.disconnect()
         except Exception:
             pass 
-        self.mw.convert_button.clicked.connect(self.new_trigger_conversion)
+        self.mw.init_manager.convert_button.clicked.connect(self.new_trigger_conversion)
 
     def new_trigger_conversion(self):
         """Replacement for MainWindow.trigger_conversion"""
@@ -173,20 +177,20 @@ class StructuralUpdaterPlugin:
         # Force reconnection to our method because original method resets it to self.trigger_conversion
         # ensuring it points to our wrapper
         try:
-            self.mw.convert_button.clicked.disconnect()
+            self.mw.init_manager.convert_button.clicked.disconnect()
         except Exception:
             pass
-        self.mw.convert_button.clicked.connect(self.new_trigger_conversion)
+        self.mw.init_manager.convert_button.clicked.connect(self.new_trigger_conversion)
         
         # 2. If plugin is enabled and conversion was successful, switch to "Apply Mode"
         if self.enabled:
             # Check if we have a valid molecule now
             if self.mw.current_mol and self.mw.current_mol.GetNumAtoms() > 0:
                 self.apply_mode_active = True
-                self.mw.convert_button.setText("Apply 2D Changes to 3D")
+                self.mw.init_manager.convert_button.setText("Apply 2D Changes to 3D")
             else:
                 self.apply_mode_active = False
-                self.mw.convert_button.setText("Convert 2D to 3D")
+                self.mw.init_manager.convert_button.setText("Convert 2D to 3D")
 
     def force_full_conversion(self):
         """Forces a standard conversion, resetting the Apply Mode."""
@@ -205,13 +209,20 @@ class StructuralUpdaterPlugin:
         4. "Direct" Construction: Manually build conformer from old coords + random new atoms
         5. Constrained Optimization
         """
-        self.mw.statusBar().showMessage("Applying 2D changes to 3D structure...")
+        self.context.show_status_message("Applying 2D changes to 3D structure...")
         QApplication.processEvents() # Ensure message is shown
         
-        # 1. Get New 2D Mol
-        new_mol = self.mw.data.to_rdkit_mol()
+        # 1. Get New 2D Mol (Fixed Access Path)
+        # # [DIRECT ACCESS] to state_manager.data
+        new_mol = None
+        if hasattr(self.mw, "state_manager") and hasattr(self.mw.state_manager, "data"):
+             new_mol = self.mw.state_manager.data.to_rdkit_mol()
+        elif hasattr(self.mw, "data"): # Legacy fallback
+             new_mol = self.mw.state_manager.data.to_rdkit_mol()
+
         if not new_mol:
-            self.mw.statusBar().showMessage("Error: Invalid 2D structure.")
+            # # [DIRECT ACCESS] via proxy
+            self.context.show_status_message("Error: Invalid 2D structure.")
             return
 
         # 2. Get Old 3D Mol
@@ -313,7 +324,7 @@ class StructuralUpdaterPlugin:
             min_matches = 1 # Very small molecule
             
         if matches_count < min_matches:
-            self.mw.statusBar().showMessage(f"Notice: Too few matching atoms ({matches_count}). Performing full conversion.")
+            self.context.show_status_message(f"Notice: Too few matching atoms ({matches_count}). Performing full conversion.")
             self.force_full_conversion()
             return
             
@@ -397,9 +408,10 @@ class StructuralUpdaterPlugin:
 
 
         # 5. Success - Update UI
-        self.mw.on_calculation_finished(new_mol)
+        # # [DIRECT ACCESS] to core handler
+        self.mw.compute_manager.on_calculation_finished(new_mol)
         
-        self.mw.statusBar().showMessage("Applied 2D changes to 3D structure.")
+        self.context.show_status_message("Applied 2D changes to 3D structure.")
 
 def initialize(context):
     global _PLUGIN_INSTANCE
@@ -411,6 +423,3 @@ def finalize():
     for name, method in _ORIGINAL_METHODS.items():
         setattr(mw, name, method)
     
-    # Restore button signal?
-    # It takes effort, but generally resetting methods is enough for cleanup.
-    # The button connection might persist until restart, usually acceptable for python plugins.

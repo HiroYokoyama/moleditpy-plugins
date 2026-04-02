@@ -1,7 +1,7 @@
 PLUGIN_NAME = "Compound Info Report"
-PLUGIN_VERSION = "2026.01.21"
+PLUGIN_VERSION = "2026.04.01"
 PLUGIN_AUTHOR = "HiroYokoyama"
-PLUGIN_DESCRIPTION = "Generate a compound info report with properties, adducts, and structure. Useful for organic synthesis experiments."
+PLUGIN_DESCRIPTION = "Generate a compound info report with properties, adducts, and structure. Refactored for V3 API."
 PLUGIN_ID = "compound_info_report"
 
 import sys
@@ -594,15 +594,14 @@ def show_report(context):
         QMessageBox.warning(mw, "Error", "RDKit is not installed.")
         return
 
-    # Get Molecule
-    mol = None
-    if hasattr(mw, 'current_mol') and mw.current_mol:
-        mol = mw.current_mol
-    elif hasattr(mw, 'data') and hasattr(mw.data, 'to_rdkit_mol'):
-        try:
-            mol = mw.data.to_rdkit_mol()
-        except:
-            pass
+    # Get Molecule via V3 API
+    mol = context.current_molecule
+            
+    if not mol:
+        # Fallback to manual check (maybe molecule is not 'selected' but exists in data)
+        # # [DIRECT ACCESS]
+        if hasattr(mw, 'state_manager') and hasattr(mw.state_manager, 'data'):
+            mol = mw.state_manager.data.to_rdkit_mol()
             
     if not mol:
         QMessageBox.warning(mw, "Error", "Please load a molecule first.")
@@ -620,4 +619,4 @@ def show_report(context):
 
 def initialize(context):
     """Plugin Initialization Hook"""
-    context.add_analysis_tool("Compound Info Report", lambda: show_report(context))
+    context.add_menu_action("Analysis/Compound Info Report...", lambda: show_report(context))

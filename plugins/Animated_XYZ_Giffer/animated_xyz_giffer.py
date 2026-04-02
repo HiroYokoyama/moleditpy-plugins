@@ -25,14 +25,18 @@ try:
 except ImportError:
     rdDetermineBonds = None
 
-__version__="2026.03.05"
-__author__="HiroYokoyama"
+__version__ = "2026.04.01"
+__author__ = "HiroYokoyama"
 PLUGIN_NAME = "Animated XYZ Giffer"
+PLUGIN_VERSION = "2026.04.01"
+PLUGIN_DESCRIPTION = "Allows loading and playing multi-frame XYZ files (e.g., MD trajectories)."
 
 class AnimatedXYZPlayer(QDialog):
-    def __init__(self, main_window):
-        super().__init__(main_window)
-        self.mw = main_window
+    def __init__(self, context):
+        super().__init__(context.get_main_window())
+        self.context = context
+        # [DIRECT ACCESS] to main window for legacy UI parenting
+        self.mw = context.get_main_window()
         self.setWindowTitle("Animated XYZ Player")
         self.setWindowFlags(Qt.WindowType.Window) # Make it a separate window acting like a tool
         self.resize(400, 150)
@@ -141,8 +145,8 @@ class AnimatedXYZPlayer(QDialog):
         Check if the main window has an opened molecule (especially XYZ) and use it.
         Uses the file path from the main window and reloads it to ensure all frames are captured.
         """
-        if hasattr(self.mw, 'current_file_path') and self.mw.current_file_path:
-            fp = self.mw.current_file_path
+        if hasattr(self.mw.init_manager, 'current_file_path') and self.mw.init_manager.current_file_path:
+            fp = self.mw.init_manager.current_file_path
             # Basic check if it's an XYZ file or similar that we can handle
             if fp.lower().endswith('.xyz') or fp.lower().endswith('.extxyz'):
                 self.load_from_path(fp)
@@ -274,8 +278,8 @@ class AnimatedXYZPlayer(QDialog):
         # Estimate bonds (topology)
         # We try to use the main window's helper function if available, 
         # otherwise we manually do simple distance check or leave it unconnected
-        if hasattr(self.mw, 'estimate_bonds_from_distances'):
-            self.mw.estimate_bonds_from_distances(mol)
+        if hasattr(self.mw.io_manager, 'estimate_bonds_from_distances'):
+            self.mw.io_manager.estimate_bonds_from_distances(mol)
         
         self.base_mol = mol.GetMol()
         self.original_topology = Chem.Mol(self.base_mol) # Store a copy
@@ -284,8 +288,8 @@ class AnimatedXYZPlayer(QDialog):
         self.mw.current_mol = self.base_mol
 
         # Ensure 3D capabilities are on
-        if hasattr(self.mw, '_enter_3d_viewer_ui_mode'):
-            self.mw._enter_3d_viewer_ui_mode()
+        if hasattr(self.mw.ui_manager, '_enter_3d_viewer_ui_mode'):
+            self.mw.ui_manager._enter_3d_viewer_ui_mode()
         
         # Reset camera on first load
         if hasattr(self.mw, 'plotter'):
@@ -405,8 +409,8 @@ class AnimatedXYZPlayer(QDialog):
 
                 # Redraw
                 # This calls main_window.draw_molecule_3d which might call processEvents
-                if hasattr(self.mw, 'draw_molecule_3d'):
-                    self.mw.draw_molecule_3d(display_mol)
+                if hasattr(self.mw.view_3d_manager, 'draw_molecule_3d'):
+                    self.mw.view_3d_manager.draw_molecule_3d(display_mol)
                     # Update frame comment/title if possible
                     if 'comment' in frame:
                         self.mw.statusBar().showMessage(f"Frame {self.current_frame_idx+1}/{len(self.frames)}: {frame['comment']}")
@@ -645,8 +649,7 @@ class AnimatedXYZPlayer(QDialog):
             elif hasattr(self, 'base_mol') and self.base_mol:
                 self.mw.current_mol = self.base_mol
             
-            if hasattr(self.mw, 'push_undo_state'):
-                self.mw.push_undo_state()
+            self.context.push_undo_checkpoint()
         except Exception:
             pass
 
@@ -667,13 +670,13 @@ class AnimatedXYZPlayer(QDialog):
         # Exit 3D mode and restore 2D editor UI
         # We try calling it directly.
         try:
-            self.mw.restore_ui_for_editing()
+            self.mw.ui_manager.restore_ui_for_editing()
         except Exception as e:
             print(f"Error restoring UI: {e}")
 
         # Force a re-render/clear of the generic 3D draw function
         try:
-             self.mw.draw_molecule_3d(None)
+             self.mw.view_3d_manager.draw_molecule_3d(None)
         except:
              pass
 
@@ -685,20 +688,22 @@ class AnimatedXYZPlayer(QDialog):
 
         super().closeEvent(event)
 
-def run(mw):
-    # Always close/destroy old instance to reset variables and state
-    if hasattr(mw, '_plugin_animated_xyz_player'):
-        try:
-            mw._plugin_animated_xyz_player.close()
-        except:
-            pass
-        # Depending on if closeEvent did its job or not, strictly remove ref
-        if hasattr(mw, '_plugin_animated_xyz_player'):
-                del mw._plugin_animated_xyz_player
-
-    # Create fresh instance
-    player = AnimatedXYZPlayer(mw)
-    mw._plugin_animated_xyz_player = player
+def run_plugin(context):
+    """Run the Animated XYZ Player (singleton)."""
+    # Use context to manage the window as a singleton
+    player = AnimatedXYZPlayer(context)
+    context.register_window("main_panel", player)
     player.show()
     player.raise_()
     player.activateWindow()
+
+def run(mw):
+    if not hasattr(mw, 'plugin_manager'):
+        return
+
+    from moleditpy.plugins.plugin_interface import PluginContext
+    context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
+    if not context:
+        context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
+
+    run_plugin(context)

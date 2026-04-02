@@ -2,16 +2,16 @@ from PyQt6.QtWidgets import QMessageBox
 from rdkit import Chem
 from rdkit.Chem import rdMolTransforms
 
-__version__="2025.12.25"
+__version__="2026.04.01"
 __author__="HiroYokoyama"
 PLUGIN_NAME = "All-Trans Optimizer"
 
-def run(mw):
+def run_plugin(context):
     """
     現在の分子のアルキル鎖（非環状C-C結合）をAll-Trans配座に整形する
     """
-    # Access the current molecule via mw.current_mol
-    mol = getattr(mw, "current_mol", None)
+    mw = context.get_main_window()
+    mol = context.current_mol
 
     if not mol:
         QMessageBox.warning(mw, PLUGIN_NAME, "No molecule loaded.")
@@ -43,18 +43,14 @@ def run(mw):
                 rdMolTransforms.SetDihedralDeg(conf, idx1, idx2, idx3, idx4, 180.0)
                 count += 1
             
-            # ビューの更新
-            if hasattr(mw, "draw_molecule_3d"):
-                mw.draw_molecule_3d(mol)
-            elif hasattr(mw, "update_view"):
-                mw.update_view()
-            elif hasattr(mw, "gl_widget"):
-                getattr(mw.gl_widget, "update", lambda: None)()
+            # Push updated molecule back so 3D view redraws with new coordinates
+            context.current_mol = mol
+            context.refresh_3d_view()
 
-            # Push undo state after modification
-            if hasattr(mw, "push_undo_state"):
-                mw.push_undo_state()
+            # Push undo state via V3 API
+            context.push_undo_checkpoint()
 
+            context.show_status_message(f"Applied All-Trans to {count} torsions.")
             QMessageBox.information(mw, PLUGIN_NAME, f"Applied All-Trans to {count} torsions.")
         else:
             QMessageBox.information(mw, PLUGIN_NAME, "No alkyl chains found.")
@@ -62,4 +58,16 @@ def run(mw):
     except Exception as e:
         QMessageBox.critical(mw, PLUGIN_NAME, f"Error: {str(e)}")
 
-# initialize removed as it only registered the menu action
+
+_launch_fn = None
+
+def initialize(context):
+    global _launch_fn
+    _launch_fn = lambda: run_plugin(context)
+    context.add_plugin_menu("Optimization/All-Trans Optimizer", _launch_fn)
+
+def run(mw):
+    if hasattr(mw, 'host'):
+        mw = mw.host
+    if _launch_fn:
+        _launch_fn()

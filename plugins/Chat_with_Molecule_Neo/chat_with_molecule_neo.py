@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-"""
+
 PLUGIN_NAME = "Chat with Molecule Neo (Gemini)"
-PLUGIN_VERSION = "2026.02.22"
+PLUGIN_VERSION = "2026.04.01"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with Google Gemini about the current molecule. Automatically injects SMILES context. (Neo Version)"
 PLUGIN_ID = "chat_with_molecule_neo"
-"""
+
 
 
 import sys
@@ -175,13 +175,6 @@ class PubChemResolver:
             return None, f"HTTP Error: {e.code} {e.reason}"
         except Exception as e:
             return None, f"Lookup Error: {str(e)}"
-
-# --- Metadata ---
-PLUGIN_NAME = "Chat with Molecule Neo (Gemini)"
-PLUGIN_VERSION = "2026.02.22"
-PLUGIN_AUTHOR = "HiroYokoyama"
-PLUGIN_DESCRIPTION = "Chat with Google Gemini about the current molecule. Automatically injects SMILES context. (Neo Version)"
-PLUGIN_ID = "chat_with_molecule_neo"
 
 SYSTEM_PROMPT = """You are an expert computational and organic chemistry assistant embedded within the advanced molecular editor software "MoleditPy". 
 Your users are researchers, students, or chemistry enthusiasts. Adhere to the following guidelines:
@@ -577,9 +570,11 @@ class GenAIWorker(QThread):
             self.error_occurred.emit(str(e))
 
 class ChatMoleculeWindow(QDialog):
-    def __init__(self, main_window):
+    def __init__(self, context):
         # User Request: "On top of MoleditPy, but NOT other apps"
         # Solution: Set parent to main_window (Owned windows stay on top of parent in Qt)
+        self.context = context
+        main_window = context.get_main_window()
         super().__init__(main_window) 
         # Note: Previous "Force parent=None" was preventing this hierarchy. 
         # If clipping occurs, we might need Qt.WindowType.Window
@@ -742,7 +737,7 @@ class ChatMoleculeWindow(QDialog):
         # Set window icon (same as main app)
         try:
             # Try package import first (installed library)
-            from moleditpy.modules import main_window_main_init
+            from moleditpy.ui import main_window_init as main_window_main_init
             script_dir = os.path.dirname(os.path.abspath(main_window_main_init.__file__))
             icon_path = os.path.join(script_dir, 'assets', 'icon.png')
         except ImportError:
@@ -1053,9 +1048,9 @@ class ChatMoleculeWindow(QDialog):
             self.append_message("System", f"Loading molecule from SMILES: {smiles} ...", "blue")
 
             # Use MainWindow's importer if available
-            if hasattr(self.main_window, 'main_window_string_importers'):
+            if hasattr(self.main_window, 'string_importer_manager'):
                 try:
-                    self.main_window.main_window_string_importers.load_from_smiles(smiles)
+                    self.main_window.string_importer_manager.load_from_smiles(smiles)
                     # self.append_message("System", "Molecule loaded successfully.", "green")
                     
                     # Force immediate context update
@@ -1407,9 +1402,9 @@ class ChatMoleculeWindow(QDialog):
         
         # 1. Try reconstructing from 2D Data (Preserves internal IDs)
         try:
-            if hasattr(self.main_window, 'data') and hasattr(self.main_window.data, 'to_rdkit_mol'):
+            if hasattr(self.main_window.state_manager, 'data') and hasattr(self.main_window.state_manager.data, 'to_rdkit_mol'):
 
-                if hasattr(self.main_window.data, 'atoms') and self.main_window.data.atoms:
+                if hasattr(self.main_window.state_manager.data, 'atoms') and self.main_window.state_manager.data.atoms:
                     # --- ROBUST RECONSTRUCTION START ---
                     # Build RDKit mol manually to guarantee ID mapping matches UI perfectly
                     try:
@@ -1417,9 +1412,9 @@ class ChatMoleculeWindow(QDialog):
                         id_map = {} # UI ID -> RDKit Idx
                         
                         # 1. Add Atoms strictly from data keys
-                        sorted_ids = sorted(self.main_window.data.atoms.keys())
+                        sorted_ids = sorted(self.main_window.state_manager.data.atoms.keys())
                         for aid in sorted_ids:
-                            atom_data = self.main_window.data.atoms[aid]
+                            atom_data = self.main_window.state_manager.data.atoms[aid]
                             symbol = atom_data.get('symbol', 'C')
                             a = Chem.Atom(symbol)
                             
@@ -1434,10 +1429,10 @@ class ChatMoleculeWindow(QDialog):
                             id_map[aid] = idx
 
                         # 2. Add Bonds
-                        if hasattr(self.main_window.data, 'bonds') and self.main_window.data.bonds:
-                            sorted_bids = sorted(self.main_window.data.bonds.keys(), key=str)
+                        if hasattr(self.main_window.state_manager.data, 'bonds') and self.main_window.state_manager.data.bonds:
+                            sorted_bids = sorted(self.main_window.state_manager.data.bonds.keys(), key=str)
                             for bid in sorted_bids:
-                                bond_data = self.main_window.data.bonds[bid]
+                                bond_data = self.main_window.state_manager.data.bonds[bid]
                                 
                                 # PRIORITIZE bond_data values (Source->Target) to preserve direction for stereo
                                 id1 = bond_data.get('atom1')
@@ -1449,7 +1444,7 @@ class ChatMoleculeWindow(QDialog):
                                          id1, id2 = bid
 
                                 if id1 in id_map and id2 in id_map:
-                                    bond_data = self.main_window.data.bonds[bid]
+                                    bond_data = self.main_window.state_manager.data.bonds[bid]
                                     order = bond_data.get('order', 1)
                                     stereo_val = bond_data.get('stereo', 0)
                                     
@@ -1462,7 +1457,7 @@ class ChatMoleculeWindow(QDialog):
                                     
                                     # Set Stereo for Single Bonds (Wedge/Dash)
                                     if order == 1 and stereo_val > 0:
-                                        # Assuming mw.data.bonds uses 1=Wedge, 2=Dash (matches scene.create_bond stereo param)
+                                        # Assuming mw.state_manager.data.bonds uses 1=Wedge, 2=Dash (matches scene.create_bond stereo param)
                                         # However, RDKit requires the bond to be set on the specific bond object
                                         # We need to retrieve the bond we just added.
                                         new_bond = rwvm.GetBondWithIdx(bond_idx - 1)
@@ -1478,7 +1473,7 @@ class ChatMoleculeWindow(QDialog):
                     except Exception as e:
                         print(f"Local Mol Build Failed: {e}")
                         # Fallback to existing method if local build fails
-                        mol = self.main_window.data.to_rdkit_mol()
+                        mol = self.main_window.state_manager.data.to_rdkit_mol()
                     
                     if mol:
                         # Map internal IDs to MapNums if not already set (fallback)
@@ -1502,7 +1497,7 @@ class ChatMoleculeWindow(QDialog):
                 pass
 
         if mol is None:
-             if hasattr(self.main_window, 'data') and hasattr(self.main_window.data, 'atoms') and not self.main_window.data.atoms:
+             if hasattr(self.main_window.state_manager, 'data') and hasattr(self.main_window.state_manager.data, 'atoms') and not self.main_window.state_manager.data.atoms:
                  return None, "No molecule loaded (Scene is empty)."
              return None, "No valid molecule found."
             
@@ -1554,18 +1549,18 @@ class ChatMoleculeWindow(QDialog):
 
             # --- UNDO MAGIC ---
             # Push current state BEFORE clearing
-            mw.push_undo_state()
+            self.context.push_undo_checkpoint()
             
             # Clear editor WITHOUT pushing another undo state
-            mw.clear_2d_editor(push_to_undo=False)
+            mw.edit_actions_manager.clear_2d_editor(push_to_undo=False)
             
             mw.current_mol = None
             mw.plotter.clear()
-            mw.analysis_action.setEnabled(False)
+            mw.init_manager.analysis_action.setEnabled(False)
 
             # --- RECONSTRUCT SCENE ---
             SCALE_FACTOR = 50.0
-            view_center = mw.view_2d.mapToScene(mw.view_2d.viewport().rect().center())
+            view_center = mw.init_manager.view_2d.mapToScene(mw.init_manager.view_2d.viewport().rect().center())
             positions = [conf.GetAtomPosition(i) for i in range(mol.GetNumAtoms())]
             mol_center_x = sum(p.x for p in positions) / len(positions) if positions else 0.0
             mol_center_y = sum(p.y for p in positions) / len(positions) if positions else 0.0
@@ -1592,19 +1587,19 @@ class ChatMoleculeWindow(QDialog):
                 scene_x = (relative_x * SCALE_FACTOR) + view_center.x()
                 scene_y = (-relative_y * SCALE_FACTOR) + view_center.y()
                 
-                # Access mw.scene directly
-                atom_id = mw.scene.create_atom(atom.GetSymbol(), QPointF(scene_x, scene_y), charge=charge)
+                # Access mw.scene via init_manager
+                atom_id = mw.init_manager.scene.create_atom(atom.GetSymbol(), QPointF(scene_x, scene_y), charge=charge)
                 
                 # --- STRICT ID REMAPPING (FIX) ---
                 # Ensure ID = MapNum - 1 if MapNum exists
                 if map_num > 0:
                     target_id = map_num - 1
                     if atom_id != target_id:
-                        if target_id not in mw.data.atoms:
+                        if target_id not in mw.state_manager.data.atoms:
                             # Remap
                             try:
-                                adata = mw.data.atoms.pop(atom_id)
-                                mw.data.atoms[target_id] = adata
+                                adata = mw.state_manager.data.atoms.pop(atom_id)
+                                mw.state_manager.data.atoms[target_id] = adata
                                 atom_id = target_id
                                 # Update item internal ID if accessible (optional/risky if private)
                                 if 'item' in adata and hasattr(adata['item'], 'atom_id'):
@@ -1617,9 +1612,9 @@ class ChatMoleculeWindow(QDialog):
                 rdkit_idx_to_my_id[i] = atom_id
                 
                 # Update next_atom_id to avoid future collisions
-                if hasattr(mw.data, 'next_atom_id'):
-                     if atom_id >= mw.data.next_atom_id:
-                          mw.data.next_atom_id = atom_id + 1
+                if hasattr(mw.state_manager.data, 'next_atom_id'):
+                     if atom_id >= mw.state_manager.data.next_atom_id:
+                          mw.state_manager.data.next_atom_id = atom_id + 1
 
             for bond in mol.GetBonds():
                 b_idx, e_idx = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
@@ -1638,37 +1633,37 @@ class ChatMoleculeWindow(QDialog):
 
                 if b_idx in rdkit_idx_to_my_id and e_idx in rdkit_idx_to_my_id:
                     a1_id, a2_id = rdkit_idx_to_my_id[b_idx], rdkit_idx_to_my_id[e_idx]
-                    a1_item = mw.data.atoms[a1_id]['item']
-                    a2_item = mw.data.atoms[a2_id]['item']
-                    mw.scene.create_bond(a1_item, a2_item, bond_order=int(b_type), bond_stereo=stereo)
+                    a1_item = mw.state_manager.data.atoms[a1_id]['item']
+                    a2_item = mw.state_manager.data.atoms[a2_id]['item']
+                    mw.init_manager.scene.create_bond(a1_item, a2_item, bond_order=int(b_type), bond_stereo=stereo)
 
             # --- FINALIZE ---
-            mw.has_unsaved_changes = True
+            mw.state_manager.has_unsaved_changes = True
             
             # Update UI
-            if mw.data.atoms:
-                mw.view_2d.fitInView(mw.scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
-            mw.update_realtime_info()
-            mw.update_undo_redo_actions()
-            mw.update_window_title()
+            if mw.state_manager.data.atoms:
+                mw.init_manager.view_2d.fitInView(mw.init_manager.scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
+            mw.state_manager.update_realtime_info()
+            mw.edit_actions_manager.update_undo_redo_actions()
+            mw.state_manager.update_window_title()
 
             # Push Final State so Undo works (Current state is now on top of stack)
-            mw.push_undo_state()
+            mw.edit_actions_manager.push_undo_state()
             
             # --- Check for Chemistry Problems ---
             try:
-                if mw.check_chemistry_problems_fallback():
+                if mw.compute_manager.check_chemistry_problems_fallback():
                      pass
             except:
                 pass
             
-            mw.update_undo_redo_actions()
-            mw.update_window_title()
-            QTimer.singleShot(0, mw.fit_to_view)
+            mw.edit_actions_manager.update_undo_redo_actions()
+            mw.state_manager.update_window_title()
+            QTimer.singleShot(0, mw.view_3d_manager.fit_to_view)
             
             # Force Scene Update
-            if hasattr(mw, 'scene'): mw.scene.update()
-            if hasattr(mw, 'view_2d'): mw.view_2d.viewport().update()
+            if hasattr(mw.init_manager, 'scene'): mw.init_manager.scene.update()
+            if hasattr(mw.init_manager, 'view_2d'): mw.init_manager.view_2d.viewport().update()
             
             # Force check to update context immediately
             self.check_molecule_change()
@@ -2247,8 +2242,8 @@ class ChatMoleculeWindow(QDialog):
              self.update_structure_diff_based(final_smiles)
              
              # User Request: "Optimize 2D" after conversion
-             if hasattr(self.main_window, 'clean_up_2d_structure'):
-                 self.main_window.clean_up_2d_structure()
+             if hasattr(self.main_window.edit_actions_manager, 'clean_up_2d_structure'):
+                 self.main_window.edit_actions_manager.clean_up_2d_structure()
                  
              self.append_message("System", f"Transformation Applied.\nRule: `{reaction_smarts}`", "green")
                  
@@ -2318,7 +2313,7 @@ class ChatMoleculeWindow(QDialog):
             
             # Highlighting using Map Numbers (Robust)
             # The SMILES from get_current_molecule_smiles() includes Map Numbers [C:1].
-            # These MapNums correspond to the keys in mw.data.atoms via the exporter.
+            # These MapNums correspond to the keys in mw.state_manager.data.atoms via the exporter.
             
             highlight_ids = []
             
@@ -2332,15 +2327,15 @@ class ChatMoleculeWindow(QDialog):
                     pass
 
             count = 0
-            if hasattr(self.main_window, 'data') and hasattr(self.main_window.data, 'atoms'):
-                if hasattr(self.main_window, 'scene'):
-                     self.main_window.scene.clearSelection()
+            if hasattr(self.main_window.state_manager, 'data') and hasattr(self.main_window.state_manager.data, 'atoms'):
+                if hasattr(self.main_window.init_manager, 'scene'):
+                     self.main_window.init_manager.scene.clearSelection()
 
                 for aid in highlight_ids:
                     # Try to find aid in atoms.keys() (int or str mismatch check)
                     # dict keys might be int, aid is int.
-                    if aid in self.main_window.data.atoms:
-                        item = self.main_window.data.atoms[aid].get('item')
+                    if aid in self.main_window.state_manager.data.atoms:
+                        item = self.main_window.state_manager.data.atoms[aid].get('item')
                         if item:
                             item.setSelected(True)
                             count += 1
@@ -2399,11 +2394,11 @@ class ChatMoleculeWindow(QDialog):
             
             # B) User Selection (if no specific SMARTS)
             # If AI didn't specify SMARTS, check if there's a UI Selection to apply to
-            elif hasattr(self.main_window, 'data') and hasattr(self.main_window.data, 'atoms'):
+            elif hasattr(self.main_window.state_manager, 'data') and hasattr(self.main_window.state_manager.data, 'atoms'):
                  # We need to map UI Selection -> RDKit Indices
                  # This requires map numbers again
                  selected_map_nums = []
-                 for aid, adata in self.main_window.data.atoms.items():
+                 for aid, adata in self.main_window.state_manager.data.atoms.items():
                       item = adata.get('item')
                       if item and item.isSelected():
                           selected_map_nums.append(aid) # MapNum is ID + 1
@@ -2434,16 +2429,16 @@ class ChatMoleculeWindow(QDialog):
                  # Just explicitly update the global state variables without changing atoms
                  # This is for "Metadata" updates
                  msg = []
-                 if new_charge is not None and hasattr(self.main_window, 'current_charge'):
-                     self.main_window.current_charge = int(new_charge)
+                 if new_charge is not None and hasattr(self.main_window.state_manager, 'current_charge'):
+                     self.main_window.state_manager.current_charge = int(new_charge)
                      msg.append(f"Global Charge={new_charge}")
-                 if new_mult is not None and hasattr(self.main_window, 'current_mult'):
-                     self.main_window.current_mult = int(new_mult)
+                 if new_mult is not None and hasattr(self.main_window.state_manager, 'current_mult'):
+                     self.main_window.state_manager.current_mult = int(new_mult)
                      msg.append(f"Global Mult={new_mult}")
                  
                  if msg:
-                      if hasattr(self.main_window, 'update_realtime_info'):
-                           self.main_window.update_realtime_info()
+                      if hasattr(self.main_window.state_manager, 'update_realtime_info'):
+                           self.main_window.state_manager.update_realtime_info()
                       self.append_message("System", f"Updated Global Metadata: {', '.join(msg)} (Atoms unchanged)", "orange")
                       return
             
@@ -2454,8 +2449,8 @@ class ChatMoleculeWindow(QDialog):
                      Chem.SanitizeMol(mol)
                      # Determine new global charge from atoms
                      total_charge = Chem.GetFormalCharge(mol)
-                     if hasattr(self.main_window, 'current_charge'):
-                         self.main_window.current_charge = total_charge
+                     if hasattr(self.main_window.state_manager, 'current_charge'):
+                         self.main_window.state_manager.current_charge = total_charge
                          
                      new_smiles = Chem.MolToSmiles(mol)
                      self.load_smiles_undo_safe(new_smiles)
@@ -2554,8 +2549,8 @@ class ChatMoleculeWindow(QDialog):
             self.load_smiles_undo_safe(smiles)
             
             # Optimize 2D layout
-            if hasattr(self.main_window, 'clean_up_2d_structure'):
-                self.main_window.clean_up_2d_structure()
+            if hasattr(self.main_window.edit_actions_manager, 'clean_up_2d_structure'):
+                self.main_window.edit_actions_manager.clean_up_2d_structure()
             
             # Success message
             if name:
@@ -2595,8 +2590,8 @@ class ChatMoleculeWindow(QDialog):
             self.load_smiles_undo_safe(smiles)
             
             # 2D構造の整形
-            if hasattr(self.main_window, 'clean_up_2d_structure'):
-                self.main_window.clean_up_2d_structure()
+            if hasattr(self.main_window.edit_actions_manager, 'clean_up_2d_structure'):
+                self.main_window.edit_actions_manager.clean_up_2d_structure()
 
             self.append_message("System", f"Loaded '{name}' successfully.", "green")
 
@@ -2625,7 +2620,7 @@ class ChatMoleculeWindow(QDialog):
             mw = self.main_window
             
             # Push undo state BEFORE clearing
-            mw.push_undo_state()
+            mw.edit_actions_manager.push_undo_state()
             
             # --- Manual Clear 2D Logic ---
             # 1. Clear flags
@@ -2634,27 +2629,27 @@ class ChatMoleculeWindow(QDialog):
             
             # 2. Remove Items from Scene
             # Note: We must remove from scene before clearing data refs
-            for atom_id in list(mw.data.atoms.keys()):
-                atom_data = mw.data.atoms[atom_id]
+            for atom_id in list(mw.state_manager.data.atoms.keys()):
+                atom_data = mw.state_manager.data.atoms[atom_id]
                 if atom_data.get('item'):
                     if atom_data['item'].scene() == mw.scene:
                         mw.scene.removeItem(atom_data['item'])
             
-            for (id1, id2) in list(mw.data.bonds.keys()):
-                bond_data = mw.data.bonds.get((id1, id2))
+            for (id1, id2) in list(mw.state_manager.data.bonds.keys()):
+                bond_data = mw.state_manager.data.bonds.get((id1, id2))
                 if bond_data and bond_data.get('item'):
                    if bond_data['item'].scene() == mw.scene:
                         mw.scene.removeItem(bond_data['item'])
 
             # 3. Clear Data
-            mw.data.atoms.clear()
-            mw.data.bonds.clear()
-            mw.data.next_atom_id = 1
+            mw.state_manager.data.atoms.clear()
+            mw.state_manager.data.bonds.clear()
+            mw.state_manager.data.next_atom_id = 1
             
             # 4. Reset helper flags
             mw.is_xyz_derived = False
             if hasattr(mw, 'clear_2d_measurement_labels'):
-                mw.clear_2d_measurement_labels()
+                mw.edit_3d_manager.clear_2d_measurement_labels()
             
             # --- Manual Clear 3D Logic ---
             mw.plotter.clear()
@@ -2663,12 +2658,12 @@ class ChatMoleculeWindow(QDialog):
                 mw._enable_3d_features(False)
             
             # Update UI
-            mw.has_unsaved_changes = True
-            mw.update_undo_redo_actions()
-            mw.update_window_title()
+            mw.state_manager.has_unsaved_changes = True
+            mw.edit_actions_manager.update_undo_redo_actions()
+            mw.state_manager.update_window_title()
             
             # Push undo state AFTER clearing (Saves the "Empty" state on top of stack)
-            mw.push_undo_state()
+            mw.edit_actions_manager.push_undo_state()
             
             # Update context
             self.check_molecule_change()
@@ -3280,7 +3275,7 @@ class ChatMoleculeWindow(QDialog):
              
              # Force 3D Update as requested
              if hasattr(self.main_window, 'draw_molecule_3d'):
-                 self.main_window.draw_molecule_3d(self.main_window.current_mol)
+                 self.main_window.view_3d_manager.draw_molecule_3d(self.main_window.current_mol)
                   
         except Exception as e:
             self.append_message("Error", f"3D Conversion Wait Failed: {e}", "red")
@@ -3523,8 +3518,8 @@ class ChatMoleculeWindow(QDialog):
             
             # A. 現在のキャンバス上の選択原子（または全原子）の重心を計算
             current_points = []
-            if mw.data.atoms:
-                for ad in mw.data.atoms.values():
+            if mw.state_manager.data.atoms:
+                for ad in mw.state_manager.data.atoms.values():
                     if ad.get('item'):
                         current_points.append(ad['item'].scenePos())
             
@@ -3534,19 +3529,19 @@ class ChatMoleculeWindow(QDialog):
                 target_center = QPointF(avg_x, avg_y)
             else:
                 # 原子がない場合はビューの中心
-                if hasattr(mw, 'view_2d') and mw.view_2d:
-                     target_center = mw.view_2d.mapToScene(mw.view_2d.viewport().rect().center())
+                if hasattr(mw, 'view_2d') and mw.init_manager.view_2d:
+                     target_center = mw.init_manager.view_2d.mapToScene(mw.init_manager.view_2d.viewport().rect().center())
                 else:
                      target_center = QPointF(0, 0)
 
             # --- PATCH: Ensure next_atom_id exists ---
             # Fix for AttributeError: 'MolecularData' object has no attribute 'next_atom_id'
-            if not hasattr(mw.data, 'next_atom_id'):
-                if mw.data.atoms:
+            if not hasattr(mw.state_manager.data, 'next_atom_id'):
+                if mw.state_manager.data.atoms:
                     # simplistic max+1 (safe for unique ID generation)
-                    mw.data.next_atom_id = max(mw.data.atoms.keys()) + 1
+                    mw.state_manager.data.next_atom_id = max(mw.state_manager.data.atoms.keys()) + 1
                 else:
-                    mw.data.next_atom_id = 0
+                    mw.state_manager.data.next_atom_id = 0
 
             # B. RDKit側の重心を計算
             rd_positions = [conf.GetAtomPosition(i) for i in range(mol.GetNumAtoms())]
@@ -3559,7 +3554,7 @@ class ChatMoleculeWindow(QDialog):
             SCALE = 50.0  # RDKit -> Sceneのスケール係数
 
             # --- Undo State Push ---
-            mw.push_undo_state()
+            self.context.push_undo_checkpoint()
 
             # --- 2. 原子の更新 / 新規作成 ---
             
@@ -3586,9 +3581,9 @@ class ChatMoleculeWindow(QDialog):
                     target_id = map_num - 1 # MapNum is 1-based, internal ID is 0-based
                     processed_ids.add(target_id)
                     
-                    if target_id in mw.data.atoms:
+                    if target_id in mw.state_manager.data.atoms:
                         # === UPDATE (既存原子の変更) ===
-                        atom_data = mw.data.atoms[target_id]
+                        atom_data = mw.state_manager.data.atoms[target_id]
                         item = atom_data.get('item')
                         
                         # 属性更新
@@ -3610,10 +3605,10 @@ class ChatMoleculeWindow(QDialog):
                         
                         # --- STRICT ID REMAPPING (FIX) ---
                         if target_id >= 0 and actual_id != target_id:
-                             if target_id not in mw.data.atoms:
+                             if target_id not in mw.state_manager.data.atoms:
                                   try:
-                                       adata = mw.data.atoms.pop(actual_id)
-                                       mw.data.atoms[target_id] = adata
+                                       adata = mw.state_manager.data.atoms.pop(actual_id)
+                                       mw.state_manager.data.atoms[target_id] = adata
                                        # Remap internal item ID if possible
                                        if 'item' in adata and hasattr(adata['item'], 'atom_id'):
                                            adata['item'].atom_id = target_id
@@ -3625,9 +3620,9 @@ class ChatMoleculeWindow(QDialog):
                                   pass
                         
                         # Update next_atom_id
-                        if hasattr(mw.data, 'next_atom_id'):
-                            current_max = max(mw.data.atoms.keys()) if mw.data.atoms else 0
-                            mw.data.next_atom_id = current_max + 1
+                        if hasattr(mw.state_manager.data, 'next_atom_id'):
+                            current_max = max(mw.state_manager.data.atoms.keys()) if mw.state_manager.data.atoms else 0
+                            mw.state_manager.data.next_atom_id = current_max + 1
                 
                 else:
                     # B) 新規原子 (MapNumなし、または新しい原子)
@@ -3636,20 +3631,20 @@ class ChatMoleculeWindow(QDialog):
 
             # --- 3. 削除 (SMILESに含まれなかった原子を消す) ---
             # 「反応で消えた原子」を処理
-            existing_ids = list(mw.data.atoms.keys())
+            existing_ids = list(mw.state_manager.data.atoms.keys())
             for aid in existing_ids:
                 # 今回の更新対象（processed_ids）に含まれず、
                 if aid not in processed_ids:
                     # 削除処理
-                    if aid in mw.data.atoms:
-                        item = mw.data.atoms[aid].get('item')
+                    if aid in mw.state_manager.data.atoms:
+                        item = mw.state_manager.data.atoms[aid].get('item')
                         if item:
                             mw.scene.delete_items([item])
 
             # --- 4. 結合の再構築 (Differential Update) ---
             # UX IMPROVEMENT: Preserve selection by updating in-place instead of recreate
             
-            existing_bond_keys = set(mw.data.bonds.keys())
+            existing_bond_keys = set(mw.state_manager.data.bonds.keys())
             current_step_bond_keys = set()
             
             for bond in mol.GetBonds():
@@ -3664,7 +3659,7 @@ class ChatMoleculeWindow(QDialog):
                     id1 = a1_map - 1
                     id2 = a2_map - 1
                     
-                    if id1 in mw.data.atoms and id2 in mw.data.atoms:
+                    if id1 in mw.state_manager.data.atoms and id2 in mw.state_manager.data.atoms:
                         # Bond Key Normalization (Smaller ID first) - Assuming Main Window uses this?
                         # Actually main_window_edit_actions usually uses whatever order came in?
                         # Let's check how create_bond stores it. 
@@ -3674,8 +3669,8 @@ class ChatMoleculeWindow(QDialog):
                         # Let's check if (id1, id2) OR (id2, id1) is in bonds.
                         
                         found_key = None
-                        if (id1, id2) in mw.data.bonds: found_key = (id1, id2)
-                        elif (id2, id1) in mw.data.bonds: found_key = (id2, id1)
+                        if (id1, id2) in mw.state_manager.data.bonds: found_key = (id1, id2)
+                        elif (id2, id1) in mw.state_manager.data.bonds: found_key = (id2, id1)
                         
                         # Target Key for CREATE (Canonical logic preferred?)
                         # For consistency let's use what create_bond returns.
@@ -3697,7 +3692,7 @@ class ChatMoleculeWindow(QDialog):
                         if found_key:
                             # === UPDATE ===
                             current_step_bond_keys.add(found_key)
-                            b_data = mw.data.bonds[found_key]
+                            b_data = mw.state_manager.data.bonds[found_key]
                             
                             # Only update if changed (Minimize drawing)
                             if b_data.get('order') != order or b_data.get('stereo', 0) != stereo:
@@ -3716,8 +3711,8 @@ class ChatMoleculeWindow(QDialog):
                                      # No, create_bond makes NEW item usually.
                                      
                                      # Update item properties manually
-                                     item1 = mw.data.atoms[id1]['item']
-                                     item2 = mw.data.atoms[id2]['item']
+                                     item1 = mw.state_manager.data.atoms[id1]['item']
+                                     item2 = mw.state_manager.data.atoms[id2]['item']
                                      # Re-call create_bond helps?
                                      # If we want to strictly preserve selection, we should check setBondOrder on item.
                                      if hasattr(item, 'set_order'): item.set_order(order)
@@ -3726,34 +3721,34 @@ class ChatMoleculeWindow(QDialog):
 
                         else:
                             # === CREATE ===
-                            item1 = mw.data.atoms[id1]['item']
-                            item2 = mw.data.atoms[id2]['item']
+                            item1 = mw.state_manager.data.atoms[id1]['item']
+                            item2 = mw.state_manager.data.atoms[id2]['item']
                             # Note: create_bond returns key usually?
                             new_key = mw.scene.create_bond(item1, item2, bond_order=order, bond_stereo=stereo)
                             if new_key:
                                  # Depending on implementation, new_key is key or None?
-                                 # We just assume it updated mw.data.bonds internally.
+                                 # We just assume it updated mw.state_manager.data.bonds internally.
                                  # We need to find what key was added.
-                                 if (id1, id2) in mw.data.bonds: current_step_bond_keys.add((id1, id2))
-                                 elif (id2, id1) in mw.data.bonds: current_step_bond_keys.add((id2, id1))
+                                 if (id1, id2) in mw.state_manager.data.bonds: current_step_bond_keys.add((id1, id2))
+                                 elif (id2, id1) in mw.state_manager.data.bonds: current_step_bond_keys.add((id2, id1))
             
             # Ensure next_atom_id is correct after all additions/remappings
-            if mw.data.atoms:
-                 mw.data.next_atom_id = max(mw.data.atoms.keys()) + 1
+            if mw.state_manager.data.atoms:
+                 mw.state_manager.data.next_atom_id = max(mw.state_manager.data.atoms.keys()) + 1
 
             # === DELETE (Bonds not present in new) ===
             for b_key in existing_bond_keys:
                 if b_key not in current_step_bond_keys:
-                    if b_key in mw.data.bonds:
-                        item = mw.data.bonds[b_key].get('item')
+                    if b_key in mw.state_manager.data.bonds:
+                        item = mw.state_manager.data.bonds[b_key].get('item')
                         if item:
                             mw.scene.delete_items([item])
 
             # --- Finalize ---
-            mw.has_unsaved_changes = True
+            mw.state_manager.has_unsaved_changes = True
             if hasattr(mw, 'update_realtime_info'):
-                mw.update_realtime_info()
-            mw.update_undo_redo_actions()
+                mw.state_manager.update_realtime_info()
+            mw.edit_actions_manager.update_undo_redo_actions()
             
             mw.scene.update()
 
@@ -3764,39 +3759,20 @@ class ChatMoleculeWindow(QDialog):
             import traceback
             traceback.print_exc()
 
+def run_plugin(context):
+    """
+    Run the Chat with Molecule plugin (singleton).
+    """
+    # Use context to manage the window as a singleton
+    dialog = ChatMoleculeWindow(context)
+    context.register_window("main_panel", dialog)
+    dialog.show()
+    dialog.raise_()
+    dialog.activateWindow()
+
 def run(main_window):
-    """
-    Entry point for the plugin.
-    Display the ChatMoleculeWindow.
-    """
-    try:
-        # DEBUG: Confirm entry
-        # QMessageBox.information(None, "Debug", "Plugin Starting... Run() called.")
-        
-        if not hasattr(main_window, 'chat_molecule_window_instance'):
-            main_window.chat_molecule_window_instance = None
-    
-        if main_window.chat_molecule_window_instance:
-            try:
-                main_window.chat_molecule_window_instance.close()
-                main_window.chat_molecule_window_instance = None
-            except Exception as e:
-                print(f"Error closing existing instance: {e}")
-    
-        # Create new instance
-        # QMessageBox.information(None, "Debug", "Creating Instance...")
-        dialog = ChatMoleculeWindow(main_window)
-        main_window.chat_molecule_window_instance = dialog
-    
-        # Use show() for modeless
-        # QMessageBox.information(None, "Debug", "Calling show()")
-        dialog.show()
-        # QMessageBox.information(None, "Debug", "Run() returning")
-        
-    except BaseException as e:
-        import traceback
-        traceback.print_exc()
-        try:
-            QMessageBox.critical(None, "Plugin Critical Error", f"Failed to launch plugin:\n{e}\n\n{traceback.format_exc()}")
-        except:
-             print(f"CRITICAL: {e}")
+    if hasattr(main_window, 'host'):
+        main_window = main_window.host
+    from moleditpy.plugins.plugin_interface import PluginContext
+    context = PluginContext(main_window.plugin_manager, PLUGIN_NAME)
+    run_plugin(context)

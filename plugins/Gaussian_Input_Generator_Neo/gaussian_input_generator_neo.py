@@ -11,7 +11,7 @@ from rdkit import Chem
 import json
 
 PLUGIN_NAME = "Gaussian Input Generator Neo"
-PLUGIN_VERSION = "2026.01.04"
+PLUGIN_VERSION = "2026.04.01"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Advanced Gaussian Input Generator with Preview and Presets"
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "gaussian_input_generator_neo.json")
@@ -935,8 +935,9 @@ class GaussianSetupDialog(QDialog):
                 self.save_presets_to_file()
                 self.update_preset_combo()
 
-def run(mw):
-    mol = getattr(mw, 'current_mol', None)
+def run_plugin(context):
+    mw = context.get_main_window()
+    mol = context.current_mol
     
     if not mol or mol.GetNumAtoms() == 0:
         QMessageBox.warning(mw, PLUGIN_NAME, "No molecule loaded or molecule is empty.")
@@ -946,7 +947,16 @@ def run(mw):
     dialog.exec()
 
 def initialize(context):
-    def show_dialog():
-        mw = context.get_main_window()
-        run(mw)
-    context.add_export_action("Gaussian Input...", show_dialog)
+    """Initialize the Gaussian Input Generator plugin."""
+    context.add_export_action("Gaussian Input...", lambda: run_plugin(context))
+
+def run(mw):
+    if not hasattr(mw, 'plugin_manager'):
+        return
+
+    from moleditpy.plugins.plugin_interface import PluginContext
+    context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
+    if not context:
+        context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
+
+    run_plugin(context)

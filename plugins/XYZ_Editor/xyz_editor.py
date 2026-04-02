@@ -10,19 +10,25 @@ from rdkit.Geometry import Point3D
 import pyvista as pv
 
 PLUGIN_NAME = "XYZ Editor"
-PLUGIN_VERSION = "2026.02.20"
+PLUGIN_VERSION = "2026.04.01"
 PLUGIN_AUTHOR = "HiroYokoyama"
-PLUGIN_DESCRIPTION = "A table-based editor for atom coordinates and symbols, supporting ghost atoms."
+PLUGIN_DESCRIPTION = "A table-based editor for atom coordinates and symbols, supporting ghost atoms. Refactored for V3 API."
 
 class XYZEditorWindow(QWidget):
+    """
+    Namespaced window for editing XYZ coordinates and symbols.
+    Refactored for MoleditPy V3.0 API.
+    """
     def __init__(self, context):
-        self.mw = context.get_main_window()
-        super().__init__(self.mw) # Parent to main window to stay on top of it
-        self.setWindowFlags(Qt.WindowType.Window) # Ensure it's a separate window, not embedded
+        super().__init__(parent=context.get_main_window())
+        self.setWindowFlags(Qt.WindowType.Window)
         self.context = context
         self.setWindowTitle("XYZ Editor")
         self.resize(600, 400)
         self.init_ui()
+        
+        # Register window for V3 lifecycle management
+        self.context.register_window("main_panel", self)
         self.last_seen_signature = None
         self.load_molecule()
         
@@ -97,9 +103,10 @@ class XYZEditorWindow(QWidget):
 
     def closeEvent(self, event):
         # Cleanup highlights when window is closed
-        if hasattr(self.mw, 'plotter'):
-            self.mw.plotter.remove_actor("xyz_selection")
-            self.mw.plotter.render()
+        plotter = self.context.plotter
+        if plotter:
+            plotter.remove_actor("xyz_selection")
+            self.context.refresh_3d_view()
         super().closeEvent(event)
 
     def get_mol_signature(self, mol):
@@ -127,7 +134,7 @@ class XYZEditorWindow(QWidget):
 
     def check_molecule_update(self):
         try:
-            current_mol = self.mw.current_mol
+            current_mol = self.context.current_molecule
             current_sig = self.get_mol_signature(current_mol)
             
             if current_sig != self.last_seen_signature:
@@ -139,7 +146,7 @@ class XYZEditorWindow(QWidget):
         self.table.blockSignals(True)
         self.table.setRowCount(0)
 
-        mol = self.mw.current_mol
+        mol = self.context.current_molecule
         self.last_seen_signature = self.get_mol_signature(mol)
         
         if not mol:
@@ -205,7 +212,7 @@ class XYZEditorWindow(QWidget):
         from PyQt6.QtGui import QGuiApplication
         clipboard = QGuiApplication.clipboard()
         clipboard.setText(clipboard_text)
-        self.mw.statusBar().showMessage("XYZ data copied to clipboard.", 3000)
+        self.context.show_status_message("XYZ data copied to clipboard.")
 
     def save_as_xyz(self):
         file_path, _ = QFileDialog.getSaveFileName(
@@ -221,7 +228,7 @@ class XYZEditorWindow(QWidget):
             lines = self._generate_xyz_content()
             with open(file_path, 'w', encoding='utf-8') as f:
                 f.write("\n".join(lines))
-            self.mw.statusBar().showMessage(f"XYZ saved to {file_path}", 3000)
+            self.context.show_status_message(f"XYZ saved to {file_path}")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to save XYZ: {str(e)}")
 
@@ -245,8 +252,10 @@ class XYZEditorWindow(QWidget):
         
         if not rows:
             # Clear highlights
-            self.mw.plotter.remove_actor("xyz_selection")
-            self.mw.plotter.render()
+            plotter = self.context.plotter
+            if plotter:
+                plotter.remove_actor("xyz_selection")
+                self.context.refresh_3d_view()
             return
 
         points = []
@@ -277,8 +286,10 @@ class XYZEditorWindow(QWidget):
                 continue
         
         if not points:
-            self.mw.plotter.remove_actor("xyz_selection")
-            self.mw.plotter.render()
+            plotter = self.context.plotter
+            if plotter:
+                plotter.remove_actor("xyz_selection")
+                self.context.refresh_3d_view()
             return
             
         # Create polydata for points
@@ -286,16 +297,19 @@ class XYZEditorWindow(QWidget):
         poly["radii"] = radii # Add scalar array
         
         # Add spheres at these points, scaled by radius
-        spheres = poly.glyph(geom=pv.Sphere(radius=1.0), scale="radii")
+        # orient=False added to suppress PyVista UserWarning (No vector-like data to use for orient)
+        spheres = poly.glyph(geom=pv.Sphere(radius=1.0), scale="radii", orient=False)
         
-        self.mw.plotter.add_mesh(
-            spheres, 
-            name="xyz_selection", 
-            color="yellow", 
-            opacity=0.5,
-            pickable=False
-        )
-        self.mw.plotter.render()
+        plotter = self.context.plotter
+        if plotter:
+            plotter.add_mesh(
+                spheres, 
+                name="xyz_selection", 
+                color="yellow", 
+                opacity=0.5,
+                pickable=False
+            )
+            self.context.refresh_3d_view()
 
     def on_item_changed(self, item):
         # Update highlight if the row is selected to show live movement
@@ -303,8 +317,8 @@ class XYZEditorWindow(QWidget):
             self.highlight_selected_atoms()
 
     def apply_changes(self):
-        self.mw.push_undo_state()
-        mol = self.mw.current_mol
+        self.context.push_undo_checkpoint()
+        mol = self.context.current_molecule
         # Create new editable molecule from scratch or copy
         if mol:
             rw_mol = Chem.RWMol(mol)
@@ -405,7 +419,7 @@ class XYZEditorWindow(QWidget):
             new_rw_mol.AddConformer(conf)
             
             # Commit changes
-            # self.mw.push_undo_state()  # MOVED TO START
+            # self.mw.edit_actions_manager.push_undo_state()  # MOVED TO START
             # Update properties and ring info to avoid RDKit errors
             try:
                 Chem.SanitizeMol(new_rw_mol)
@@ -416,114 +430,67 @@ class XYZEditorWindow(QWidget):
             self.last_seen_signature = self.get_mol_signature(self.context.current_molecule)
             
             # Refresh visualization
-            self.mw.plotter.reset_camera() 
+            self.context.reset_3d_camera() 
             
             # Reload table to get clean indices and ensure properties stuck
             self.load_molecule()
             
-            self.mw.statusBar().showMessage("XYZ changes applied.", 3000)
+            self.context.show_status_message("XYZ changes applied.")
 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to apply changes: {str(e)}")
 
 
 def initialize(context):
-    # Store the window reference to prevent garbage collection
-    mw = context.get_main_window()
+    """MoleditPy Plugin Entry Point (V3.0)"""
     
     def show_editor():
-        if not hasattr(mw, 'xyz_editor_window') or mw.xyz_editor_window is None:
-            mw.xyz_editor_window = XYZEditorWindow(context)
-        
-        mw.xyz_editor_window.show()
-        mw.xyz_editor_window.raise_()
-        mw.xyz_editor_window.activateWindow()
-        mw.xyz_editor_window.load_molecule() # Refresh on show
+        win = context.get_window("main_panel")
+        if win:
+            win.show()
+            win.raise_()
+            win.activateWindow()
+            win.load_molecule()
+            return
+            
+        win = XYZEditorWindow(context)
+        win.show()
 
     context.add_menu_action("3D Edit/XYZ Editor...", show_editor)
 
     # Persistence Handling
     def save_plugin_state():
-        # Only save name mapping (custom labels)
-        mol = mw.current_mol
-        if not mol:
-            return {}
-            
-        custom_labels = {}
-        for atom in mol.GetAtoms():
-            if atom.HasProp("custom_symbol"):
-                custom_labels[atom.GetIdx()] = atom.GetProp("custom_symbol")
-            elif atom.HasProp("dummyLabel"):
-                # If only dummyLabel exists (legacy), save it.
-                # But check if it's our safe proxy "X" which we might not want as the "name"?
-                # Actually, if custom_symbol is missing, dummyLabel IS the name.
-                custom_labels[atom.GetIdx()] = atom.GetProp("dummyLabel")
-            
-        return {"custom_labels": custom_labels}
+        mol = context.current_molecule
+        if not mol: return {}
+        labels = {a.GetIdx(): a.GetProp("custom_symbol") for a in mol.GetAtoms() if a.HasProp("custom_symbol")}
+        return {"custom_labels": labels}
 
     def load_plugin_state(data):
-        from PyQt6.QtCore import QTimer
-        # Restore custom labels (name mapping)
-        custom_labels = data.get("custom_labels")
-        if not custom_labels:
-            return
-
-        def _apply_stored_labels():
-            mol = mw.current_mol
-            if mol:
-                for idx_str, label in custom_labels.items():
-                    try:
-                        idx = int(idx_str)
-                        if idx < mol.GetNumAtoms():
-                            atom = mol.GetAtomWithIdx(idx)
-                            # Store the raw label from project (no auto-capitalization)
-                            atom.SetProp("custom_symbol", label)
-                            # Also set safe proxy for 3D viewer
-                            atom.SetProp("dummyLabel", label)
-                    except:
-                        pass
-
-            # Trigger redraw to show updated labels/colors
+        labels = data.get("custom_labels", {})
+        mol = context.current_molecule
+        if mol:
+            for idx, lbl in labels.items():
+                try: mol.GetAtomWithIdx(int(idx)).SetProp("custom_symbol", lbl)
+                except: pass
             context.current_molecule = mol
 
-            # If the editor is open, refresh it
-            if hasattr(mw, 'xyz_editor_window') and mw.xyz_editor_window and mw.xyz_editor_window.isVisible():
-                mw.xyz_editor_window.load_molecule()
-        
-        # Defer execution until after the main load_from_json_data completes
-        QTimer.singleShot(0, _apply_stored_labels)
-
     def on_document_reset():
-        # Refresh editor table (will show empty if no mol)
-        if hasattr(mw, 'xyz_editor_window') and mw.xyz_editor_window:
-            mw.xyz_editor_window.load_molecule()
+        win = context.get_window("main_panel")
+        if win: win.load_molecule()
 
     context.register_save_handler(save_plugin_state)
     context.register_load_handler(load_plugin_state)
     context.register_document_reset_handler(on_document_reset)
 
 def run(mw):
-    # Legacy support
-    class LegacyContext:
-        def __init__(self, mw):
-            self.mw = mw
-            self.current_molecule = mw.current_mol
-        def get_main_window(self):
-            return self.mw
-        @property
-        def current_molecule(self):
-            return self.mw.current_mol
-        @current_molecule.setter
-        def current_molecule(self, mol):
-            self.mw.current_mol = mol
-            self.mw.draw_molecule_3d(mol)
-
-    context = LegacyContext(mw)
-
-    if not hasattr(mw, 'xyz_editor_window') or mw.xyz_editor_window is None:
-        mw.xyz_editor_window = XYZEditorWindow(context)
+    if hasattr(mw, 'host'):
+        mw = mw.host
+    from moleditpy.plugins.plugin_interface import PluginContext
+    context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
     
-    mw.xyz_editor_window.show()
-    mw.xyz_editor_window.raise_()
-    mw.xyz_editor_window.activateWindow()
-    mw.xyz_editor_window.load_molecule()
+    win = context.get_window("main_panel")
+    if win is None:
+        win = XYZEditorWindow(context)
+    win.show()
+    win.raise_()
+    win.activateWindow()

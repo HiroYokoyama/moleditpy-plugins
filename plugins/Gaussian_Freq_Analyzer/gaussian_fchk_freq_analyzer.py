@@ -15,8 +15,9 @@ except ImportError:
     Chem = None
 
 PLUGIN_NAME = "Gaussian Freq Analyzer"
-PLUGIN_VERSION = "2026.01.07"
+PLUGIN_VERSION = "2026.04.01"
 PLUGIN_AUTHOR = "HiroYokoyama"
+PLUGIN_DESCRIPTION = "Visualizes vibrational frequencies and normal modes from Gaussian FCHK files."
 
 class FCHKParser:
     def __init__(self):
@@ -271,9 +272,11 @@ except ImportError:
 
 
 class GaussianFCHKFreqAnalyzer(QWidget):
-    def __init__(self, main_window, dock_widget=None):
-        super().__init__(main_window)
-        self.mw = main_window
+    def __init__(self, context, dock_widget=None):
+        super().__init__(context.get_main_window())
+        self.context = context
+        # [DIRECT ACCESS] to main window for legacy plotter/view access
+        self.mw = context.get_main_window()
         self.dock = dock_widget
         self.setAcceptDrops(True)
         
@@ -462,9 +465,9 @@ class GaussianFCHKFreqAnalyzer(QWidget):
             
             # Update Main Window Context
             if hasattr(self.mw, 'current_file_path'):
-                self.mw.current_file_path = filename
+                self.mw.init_manager.current_file_path = filename
                 if hasattr(self.mw, 'update_window_title'):
-                    self.mw.update_window_title()
+                    self.mw.state_manager.update_window_title()
                 else:
                     self.mw.setWindowTitle(f"{os.path.basename(filename)} - MoleditPy")
                 
@@ -535,7 +538,7 @@ class GaussianFCHKFreqAnalyzer(QWidget):
         mol.AddConformer(conf)
         
         if hasattr(self.mw, 'estimate_bonds_from_distances'):
-            self.mw.estimate_bonds_from_distances(mol)
+            self.mw.io_manager.estimate_bonds_from_distances(mol)
             
         self.base_mol = mol.GetMol()
         self.mw.current_mol = self.base_mol
@@ -543,7 +546,7 @@ class GaussianFCHKFreqAnalyzer(QWidget):
         if hasattr(self.mw, '_enter_3d_viewer_ui_mode'):
             self.mw._enter_3d_viewer_ui_mode()
             
-        self.mw.draw_molecule_3d(self.base_mol)
+        self.mw.view_3d_manager.draw_molecule_3d(self.base_mol)
         if hasattr(self.mw, 'plotter'):
             self.mw.plotter.reset_camera()
 
@@ -594,7 +597,7 @@ class GaussianFCHKFreqAnalyzer(QWidget):
         conf = self.base_mol.GetConformer()
         for idx, (x, y, z) in enumerate(self.parser.coords):
             conf.SetAtomPosition(idx, Point3D(x, y, z))
-        self.mw.draw_molecule_3d(self.base_mol)
+        self.mw.view_3d_manager.draw_molecule_3d(self.base_mol)
         
         self.update_vectors()
         
@@ -623,7 +626,7 @@ class GaussianFCHKFreqAnalyzer(QWidget):
         factor = np.sin(phase) * scale
         
         self.apply_displacement(mode_vecs, factor)
-        self.mw.draw_molecule_3d(self.base_mol)
+        self.mw.view_3d_manager.draw_molecule_3d(self.base_mol)
         self.update_vectors(mode_vecs=mode_vecs, scale_factor=factor)
         
     def apply_displacement(self, mode_vecs, factor):
@@ -763,7 +766,7 @@ class GaussianFCHKFreqAnalyzer(QWidget):
                 scale = self.slider_amp.value() / 20.0
                 factor = np.sin(phase) * scale # Calculate factor here
                 self.apply_displacement(mode_vecs, factor)
-                self.mw.draw_molecule_3d(self.base_mol)
+                self.mw.view_3d_manager.draw_molecule_3d(self.base_mol)
                 self.update_vectors(mode_vecs, factor)
                 self.mw.plotter.render()
                 
@@ -1119,7 +1122,8 @@ class SpectrumPlotWidget(QWidget):
                 if hasattr(self.mw, 'plotter'):
                     self.mw.plotter.render()
 
-def load_from_file(main_window, fname):
+def load_from_file(context, fname):
+    main_window = context.get_main_window()
     # FIRST: Close conflicting plugin (ORCA)
     for d in main_window.findChildren(QDockWidget):
         if d.windowTitle() == "ORCA Output Freq Analyzer":
@@ -1139,12 +1143,18 @@ def load_from_file(main_window, fname):
     if not dock:
         dock = QDockWidget("Gaussian Freq Analyzer", main_window)
         dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea)
-        analyzer = GaussianFCHKFreqAnalyzer(main_window, dock)
+        analyzer = GaussianFCHKFreqAnalyzer(context, dock)
         dock.setWidget(analyzer)
+        
+        # [DIRECT ACCESS] for dock injection
         main_window.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
         
+        # Register for management
+        context.register_window("main_panel", dock)
+        
         # Connect visibility change
-        dock.visibilityChanged.connect(analyzer.on_dock_visibility_changed)
+        if hasattr(analyzer, 'on_dock_visibility_changed'):
+            dock.visibilityChanged.connect(analyzer.on_dock_visibility_changed)
     
     dock.show()
     dock.raise_()
@@ -1152,34 +1162,49 @@ def load_from_file(main_window, fname):
     if analyzer:
         analyzer.load_file(fname)
 
-def run(mw):
+def run_plugin(context):
+    """Entry point for manual launch via menu."""
+    mw = context.get_main_window()
     # Smart Open Logic
-    if hasattr(mw, 'current_file_path') and mw.current_file_path:
-        fpath = mw.current_file_path.lower()
+    if hasattr(mw, 'current_file_path') and mw.init_manager.current_file_path:
+        fpath = mw.init_manager.current_file_path.lower()
         if fpath.endswith((".fchk", ".fck")):
-             load_from_file(mw, mw.current_file_path)
+             load_from_file(context, mw.init_manager.current_file_path)
              return
     
     fname, _ = QFileDialog.getOpenFileName(mw, "Open Gaussian FCHK", "", "Gaussian FCHK (*.fchk *.fck);;All Files (*)")
     if fname:
-        load_from_file(mw, fname)
+        load_from_file(context, fname)
 
 def initialize(context):
-    mw = context.get_main_window()
+    """Initialize the Gaussian Freq Analyzer plugin."""
+    # 1. Register Menu Action
+    #context.add_menu_action("File/Gaussian Freq Analyzer...", lambda: run_plugin(context))
 
+    # 2. Register File Openers
     def load_wrapper(fname):
-        load_from_file(mw, fname)
+        load_from_file(context, fname)
 
-    # 1. Register File Openers
     context.register_file_opener('.fchk', load_wrapper)
     context.register_file_opener('.fck', load_wrapper)
+    context.register_file_opener('.fch', load_wrapper)
 
-    # 2. Register Drop Handler
+    # 3. Register Drop Handler
     def drop_handler(file_path):
-        if file_path.lower().endswith(('.fchk', '.fck')):
-            load_from_file(mw, file_path)
+        if file_path.lower().endswith(('.fchk', '.fck', '.fch')):
+            load_from_file(context, file_path)
             return True
         return False
     
-    if hasattr(context, 'register_drop_handler'):
-        context.register_drop_handler(drop_handler, priority=10)
+    context.register_drop_handler(drop_handler, priority=10)
+
+def run(mw):
+    if not hasattr(mw, 'plugin_manager'):
+        return
+
+    from moleditpy.plugins.plugin_interface import PluginContext
+    context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
+    if not context:
+        context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
+
+    run_plugin(context)

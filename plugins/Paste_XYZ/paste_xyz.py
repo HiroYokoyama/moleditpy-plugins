@@ -14,8 +14,9 @@ except ImportError:
     Chem = None
 
 PLUGIN_NAME = "Paste XYZ"
-__version__="2025.12.25"
-__author__="HiroYokoyama"
+PLUGIN_VERSION = "2026.04.01"
+PLUGIN_AUTHOR = "HiroYokoyama"
+PLUGIN_DESCRIPTION = "Allows pasting XYZ coordinates directly from the clipboard to create a new molecule."
 
 class PasteXYZDialog(QDialog):
     def __init__(self, parent=None):
@@ -45,13 +46,14 @@ class PasteXYZDialog(QDialog):
     def get_data(self):
         return self.text_edit.toPlainText()
 
-def run(mw):
+def run_plugin(context):
+    mw = context.get_main_window()
     if Chem is None:
         QMessageBox.critical(mw, "Error", "RDKit is not available.")
         return
 
     dialog = PasteXYZDialog(mw)
-    if dialog.exec() == QDialog.Accepted:
+    if dialog.exec() == QDialog.DialogCode.Accepted:
         xyz_text = dialog.get_data()
         if not xyz_text.strip():
             return
@@ -72,15 +74,10 @@ def run(mw):
                         symbol = parts[0]
                         # Verify symbol is likely an element (alpha)
                         if not symbol[0].isalpha():
-                                # Maybe it's 'Index Symbol X Y Z' or something else?
-                                # Strict requirement: "Header/Atom count ignored", assume Paste is pure or standard XYZ
-                                # If line starts with a number, it's likely count or index, SKIP.
-                                # Standard XYZ atom lines start with Symbol.
                                 continue
                         
                         atoms_data.append((symbol, x, y, z))
                     except ValueError:
-                        # Not coordinates, skip (likely header or title)
                         continue
 
             if not atoms_data:
@@ -88,10 +85,9 @@ def run(mw):
                 return
 
             # Clean workspace
+            # [DIRECT ACCESS] to main window for state reset
             if hasattr(mw, 'clear_all'):
-                mw.clear_all()
-            elif hasattr(mw, 'plotter'):
-                mw.plotter.clear()
+                mw.edit_actions_manager.clear_all()
             
             # Create RWMol and add atoms/conformers
             mol = Chem.RWMol()
@@ -102,235 +98,160 @@ def run(mw):
             
             conf = Chem.Conformer(len(atoms_data))
             for i, (symbol, x, y, z) in enumerate(atoms_data):
-                conf.SetAtomPosition(i, rdGeometry.Point3D(x, y, z))
+                conf.SetAtomPosition(i, AllChem.rdGeometry.Point3D(x, y, z))
             mol.AddConformer(conf)
 
-            # --- Chemistry Check Logic (Adapted from main_window_molecular_parsers.py) ---
-            
             # Helper: prompt for charge
             def prompt_for_charge():
+                dialog = QDialog(mw)
+                dialog.setWindowTitle("Import XYZ Charge")
+                layout = QVBoxLayout(dialog)
+                label = QLabel("Enter total molecular charge:")
+                line_edit = QLineEdit(dialog)
+                line_edit.setText("0")
+                btn_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel, parent=dialog)
+                skip_btn = QPushButton("Skip chemistry", dialog)
+                hl = QHBoxLayout()
+                hl.addWidget(btn_box)
+                hl.addWidget(skip_btn)
+                layout.addWidget(label)
+                layout.addWidget(line_edit)
+                layout.addLayout(hl)
+                
+                result = {"accepted": False, "skip": False}
+                def on_ok():
+                    result["accepted"] = True
+                    dialog.accept()
+                def on_skip():
+                    result["skip"] = True
+                    dialog.accept()
+
+                btn_box.accepted.connect(on_ok)
+                btn_box.rejected.connect(dialog.reject)
+                skip_btn.clicked.connect(on_skip)
+
+                if dialog.exec() != QDialog.DialogCode.Accepted:
+                    return None, False, False
+                if result["skip"]:
+                    return 0, True, True
+                
                 try:
-                    dialog = QDialog(mw)
-                    dialog.setWindowTitle("Import XYZ Charge")
-                    layout = QVBoxLayout(dialog)
-                    label = QLabel("Enter total molecular charge:")
-                    line_edit = QLineEdit(dialog)
-                    line_edit.setText("")
-                    btn_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, parent=dialog)
-                    skip_btn = QPushButton("Skip chemistry", dialog)
-                    hl = QHBoxLayout()
-                    hl.addWidget(btn_box)
-                    hl.addWidget(skip_btn)
-                    layout.addWidget(label)
-                    layout.addWidget(line_edit)
-                    layout.addLayout(hl)
-                    
-                    result = {"accepted": False, "skip": False}
-                    def on_ok():
-                        result["accepted"] = True
-                        dialog.accept()
-                    def on_cancel():
-                        dialog.reject()
-                    def on_skip():
-                        result["skip"] = True
-                        dialog.accept()
-
-                    try:
-                        btn_box.button(QDialogButtonBox.Ok).clicked.connect(on_ok)
-                        btn_box.button(QDialogButtonBox.Cancel).clicked.connect(on_cancel)
-                    except Exception:
-                        btn_box.accepted.connect(on_ok)
-                        btn_box.rejected.connect(on_cancel)
-                    skip_btn.clicked.connect(on_skip)
-
-                    if dialog.exec() != QDialog.Accepted:
-                        return None, False, False
-                    if result["skip"]:
-                        return 0, True, True
-                    if not result["accepted"]:
-                        return None, False, False
-                    
-                    charge_text = line_edit.text()
-                except Exception:
-                    # Fallback to simple input
-                    try:
-                        charge_text, ok = QInputDialog.getText(mw, "Import XYZ Charge", "Enter total molecular charge:", text="0")
-                        if not ok: return None, False, False
-                    except Exception:
-                        return 0, True, False
-
-                try:
-                    return int(str(charge_text).strip()), True, False
-                except Exception:
-                    try:
-                        return int(float(str(charge_text).strip())), True, False
-                    except Exception:
-                        return 0, True, False
+                    return int(line_edit.text().strip()), True, False
+                except:
+                    return 0, True, False
 
             # Inner helper: process with charge
             def _process_with_charge(charge_val):
-                buf = io.StringIO()
                 used_rd_determine = False
                 mol_to_finalize = None
-                with contextlib.redirect_stderr(buf):
-                    try:
-                        from rdkit.Chem import rdDetermineBonds
-                        try:
-                            # Try to copy mol
-                            try:
-                                mol_candidate = Chem.RWMol(Chem.Mol(mol))
-                            except Exception:
-                                mol_candidate = Chem.RWMol(mol)
-                            
-                            rdDetermineBonds.DetermineBonds(mol_candidate, charge=charge_val)
-                            mol_to_finalize = mol_candidate
-                            used_rd_determine = True
-                        except Exception:
-                            # DetermineBonds failed
-                            raise RuntimeError("DetermineBondsFailed")
-                    except RuntimeError:
-                        raise
-                    except Exception:
-                        used_rd_determine = False
-                        mol_to_finalize = mol
-                    
-                    if not used_rd_determine:
-                        # Fallback to distance based
-                        if hasattr(mw, 'estimate_bonds_from_distances'):
-                                mw.estimate_bonds_from_distances(mol_to_finalize)
+                try:
+                    from rdkit.Chem import rdDetermineBonds
+                    mol_candidate = Chem.RWMol(mol)
+                    rdDetermineBonds.DetermineBonds(mol_candidate, charge=charge_val)
+                    mol_to_finalize = mol_candidate
+                    used_rd_determine = True
+                except:
+                    used_rd_determine = False
+                    mol_to_finalize = mol
+                
+                if not used_rd_determine:
+                    if hasattr(mw, 'estimate_bonds_from_distances'):
+                        mw.io_manager.estimate_bonds_from_distances(mol_to_finalize)
 
-                    try:
-                            candidate_mol = mol_to_finalize.GetMol()
-                    except Exception:
-                            candidate_mol = None
+                candidate_mol = mol_to_finalize.GetMol()
+                candidate_mol.SetIntProp("_xyz_charge", int(charge_val))
+                
+                if hasattr(mw, '_apply_chem_check_and_set_flags'):
+                    mw._apply_chem_check_and_set_flags(candidate_mol, source_desc='PasteXYZ')
 
-                    if candidate_mol is None:
-                            # Salvage
-                            try:
-                                candidate_mol = mol.GetMol()
-                            except Exception:
-                                candidate_mol = None
-                    
-                    if candidate_mol is None:
-                        raise ValueError("Failed to create valid molecule object")
-
-                    # Attach charge prop
-                    try:
-                        candidate_mol.SetIntProp("_xyz_charge", int(charge_val))
-                    except Exception:
-                            pass
-                    
-                    # Apply chem check flags (if available in main_window)
-                    if hasattr(mw, '_apply_chem_check_and_set_flags'):
-                        mw._apply_chem_check_and_set_flags(candidate_mol, source_desc='PasteXYZ')
-
-                    return candidate_mol
+                return candidate_mol
 
             # Main Logic Loop
             final_mol = None
-            
-            # Check settings if available (defaulting to safe behavior)
             settings = getattr(mw, 'settings', {})
             always_ask = bool(settings.get('always_ask_charge', False))
             skip_checks_global = bool(settings.get('skip_chemistry_checks', False))
 
             if skip_checks_global:
-                    # Skip path
-                    if hasattr(mw, 'estimate_bonds_from_distances'):
-                        try: mw.estimate_bonds_from_distances(mol)
-                        except: pass
-                    try:
-                        final_mol = mol.GetMol()
-                        final_mol.SetIntProp("_xyz_skip_checks", 1)
-                        # Disable optimization for this mol
-                        mw.current_mol = final_mol
-                        mw.is_xyz_derived = True
+                if hasattr(mw, 'estimate_bonds_from_distances'):
+                    try: mw.io_manager.estimate_bonds_from_distances(mol)
                     except: pass
+                final_mol = mol.GetMol()
+                final_mol.SetIntProp("_xyz_skip_checks", 1)
             else:
-                # Normal path
                 try:
                     if not always_ask:
                         try:
                             final_mol = _process_with_charge(0)
-                        except RuntimeError:
-                            # DetermineBonds failed for 0, loop prompt
+                        except:
                             while True:
                                 charge_val, ok, skip_flag = prompt_for_charge()
-                                if not ok: return # User cancel
+                                if not ok: return
                                 if skip_flag:
-                                    # User skipped
                                     if hasattr(mw, 'estimate_bonds_from_distances'):
-                                        try: mw.estimate_bonds_from_distances(mol)
+                                        try: mw.io_manager.estimate_bonds_from_distances(mol)
                                         except: pass
-                                    try:
-                                        final_mol = mol.GetMol()
-                                        final_mol.SetIntProp("_xyz_skip_checks", 1)
-                                    except: pass
+                                    final_mol = mol.GetMol()
+                                    final_mol.SetIntProp("_xyz_skip_checks", 1)
                                     break
-                                
                                 try:
                                     final_mol = _process_with_charge(charge_val)
                                     break
-                                except RuntimeError:
-                                    mw.statusBar().showMessage("DetermineBonds failed for that charge...")
-                                    continue
-                                except Exception:
-                                    # Other error, try salvage if skip checks allowed? No, here we just continue or break
-                                    continue
+                                except:
+                                    context.show_status_message("Bond determination failed for that charge.")
                     else:
-                        # Always ask
                         while True:
                             charge_val, ok, skip_flag = prompt_for_charge()
                             if not ok: return
                             if skip_flag:
                                 if hasattr(mw, 'estimate_bonds_from_distances'):
-                                    try: mw.estimate_bonds_from_distances(mol)
+                                    try: mw.io_manager.estimate_bonds_from_distances(mol)
                                     except: pass
-                                try:
-                                    final_mol = mol.GetMol()
-                                    final_mol.SetIntProp("_xyz_skip_checks", 1)
-                                except: pass
+                                final_mol = mol.GetMol()
+                                final_mol.SetIntProp("_xyz_skip_checks", 1)
                                 break
                             try:
                                 final_mol = _process_with_charge(charge_val)
                                 break
-                            except RuntimeError:
-                                mw.statusBar().showMessage("DetermineBonds failed...")
-                                continue
-                            except Exception:
-                                continue
-                except Exception:
-                        # Any other unhandled fallback
-                        pass
+                            except:
+                                context.show_status_message("Bond determination failed.")
+                except:
+                    pass
 
-            # If failed to get final_mol, fallback to raw
             if final_mol is None:
                 if hasattr(mw, 'estimate_bonds_from_distances'):
-                    try: mw.estimate_bonds_from_distances(mol)
+                    try: mw.io_manager.estimate_bonds_from_distances(mol)
                     except: pass
-                try: final_mol = mol.GetMol()
-                except: pass
+                final_mol = mol.GetMol()
 
             if final_mol:
-                # We need RWMol for editing
                 rw_mol = Chem.RWMol(final_mol)
-                mw.current_mol = rw_mol
-                mw.current_file_path = None
-                mw.has_unsaved_changes = True
-
-                if hasattr(mw, 'update_window_title'): mw.update_window_title()
-                if hasattr(mw, 'reset_undo_stack'): mw.reset_undo_stack()
-                if hasattr(mw, 'draw_molecule_3d'): mw.draw_molecule_3d(rw_mol)
-                if hasattr(mw, 'fit_to_view'): mw.fit_to_view()
-                if hasattr(mw, 'statusBar'): mw.statusBar().showMessage(f"Loaded {len(atoms_data)} atoms from clipboard data.")
+                context.current_mol = rw_mol
+                context.push_undo_checkpoint()
+                context.show_status_message(f"Pasted {len(atoms_data)} atoms from clipboard.")
                 
-                # Enter 3D only mode as requested
                 if hasattr(mw, '_enter_3d_viewer_ui_mode'):
-                    try:
-                        mw._enter_3d_viewer_ui_mode()
-                    except Exception as e:
-                        print(f"Could not switch to 3D mode: {e}")
+                    try: mw._enter_3d_viewer_ui_mode()
+                    except: pass
+                # Minimize the 2D editor after loading XYZ into 3D-first workflow.
+                try:
+                    if hasattr(mw, "ui_manager") and hasattr(mw.ui_manager, "minimize_2d_panel"):
+                        mw.ui_manager.minimize_2d_panel()
+                    elif hasattr(mw, "init_manager") and hasattr(mw.init_manager, "splitter"):
+                        splitter = mw.init_manager.splitter
+                        if splitter and splitter.count() > 1:
+                            splitter.setSizes([0, 1000])
+                except Exception:
+                    pass
 
         except Exception as e:
             traceback.print_exc()
             QMessageBox.critical(mw, "Error", f"Failed to parse or load data:\n{e}")
+
+def run(mw):
+    if not hasattr(mw, 'plugin_manager'):
+        return
+
+    from moleditpy.plugins.plugin_interface import PluginContext
+    context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
+    run_plugin(context)
