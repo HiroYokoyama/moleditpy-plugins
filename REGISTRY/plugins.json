@@ -52,7 +52,7 @@
     ],
     "dependencies": [],
     "downloadUrl": "../plugins/Animated_XYZ_Player/animated_xyz.py",
-    "lastUpdated": "2026-04-01",
+    "lastUpdated": "2025-12-15",
     "sha256": "a5b19a226f0b48da0fbd68cc30fa0b0aae19bedbf845d43cf0a20152cdbacf85",
     "firstAppeared": "2025-12-15"
   },
@@ -129,7 +129,7 @@
     ],
     "dependencies": [],
     "downloadUrl": "../plugins/Gaussian_Input_Generator/gaussian_input_generator.py",
-    "lastUpdated": "2026-04-01",
+    "lastUpdated": "2025-12-15",
     "sha256": "1946d97787c48fe85fba90c196499716bc8f0a91339126498f4bd4ed57bff41d",
     "firstAppeared": "2025-12-15"
   },
@@ -146,7 +146,7 @@
     ],
     "dependencies": [],
     "downloadUrl": "../plugins/Hello_World/hello.py",
-    "lastUpdated": "2026-04-01",
+    "lastUpdated": "2026-12-12",
     "sha256": "0824670880c3f02439b977963e71418a7dedba13bc4d55b653415dd962ccd56b",
     "firstAppeared": "2025-12-15"
   },
@@ -165,7 +165,7 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/MS_Spectrum_Simulation/ms_spectrum.py",
-    "lastUpdated": "2026-04-01",
+    "lastUpdated": "2025-12-25",
     "sha256": "a3f4039d5bfd4c69cdd03085f8490a8c534939b8cd3200703e7a604a130f1b31",
     "firstAppeared": "2025-12-15"
   },
@@ -183,7 +183,7 @@
     ],
     "dependencies": [],
     "downloadUrl": "../plugins/ORCA_Input_Generator/orca_input_generator.py",
-    "lastUpdated": "2026-04-01",
+    "lastUpdated": "2025-12-15",
     "sha256": "541ba9a8682adf12b62298f36e76194cd46a1e4449821dd44f4b1f67ad8d5aa6",
     "firstAppeared": "2025-12-15"
   },
@@ -350,7 +350,7 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Orca_Input_Generator_Neo/orca_input_generator_neo.py",
-    "lastUpdated": "2026-04-01",
+    "lastUpdated": "2026-01-04",
     "sha256": "b2ff42bd7938706702ad9730b8aa0eb85f33b01a7de50982b347b8c229f27423",
     "firstAppeared": "2026-01-03"
   },
@@ -477,7 +477,7 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Version_Checker/version_checker.py",
-    "lastUpdated": "2026-04-01",
+    "lastUpdated": "2025-12-26",
     "sha256": "f302273f471d3992084df94affa8fb5c6ac8d71f3a986e651f355722470e05ae",
     "firstAppeared": "2025-12-26"
   },
@@ -519,7 +519,7 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule/chat_with_molecule.py",
-    "lastUpdated": "2026-04-01",
+    "lastUpdated": "2025-12-27",
     "sha256": "b147bcd281f37281d0a204dbf5451513860e70ecd8b0727c656f31f498d04d8f",
     "firstAppeared": "2025-12-26"
   },
@@ -672,7 +672,7 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Mopac_Input_Generator/mopac_input_generator.py",
-    "lastUpdated": "2026-04-01",
+    "lastUpdated": "2026-01-03",
     "sha256": "d16ff15b78e8cf53288ef2f5ca39a95b2e18ee95eba368ebf8b4ed13690d2f90",
     "firstAppeared": "2026-01-03"
   },
@@ -693,7 +693,7 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Gamess_Input_Generator/gamess_input_generator.py",
-    "lastUpdated": "2026-04-01",
+    "lastUpdated": "2026-01-03",
     "sha256": "5d7f0a579b9ffa4344db81c9bcdb057b7e048826a3ba3d682b8a0151557d464b",
     "firstAppeared": "2026-01-03"
   },
@@ -715,7 +715,7 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/PySCF_Input_Generator/pyscf_input_generator.py",
-    "lastUpdated": "2026-04-01",
+    "lastUpdated": "2026-01-03",
     "sha256": "91c4df1e193297f2926344a87986908405a8a40e04e1e0ebc0b65b2d834f7030",
     "firstAppeared": "2026-01-03"
   },
@@ -736,7 +736,7 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Psi4_Input_Generator/psi4_input_generator.py",
-    "lastUpdated": "2026-04-01",
+    "lastUpdated": "2026-01-03",
     "sha256": "e838a19658aae86d8efa30d5754e76a91ad88f129ee623329bf9a9136c48274a",
     "firstAppeared": "2026-01-03"
   },
@@ -778,7 +778,7 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/NWChem_Input_Generator/nwchem_input_generator.py",
-    "lastUpdated": "2026-04-01",
+    "lastUpdated": "2026-01-03",
     "sha256": "90955c56ab9969669d64e9799d97a158803777871e0d7ec9e3e4d704d2ac7df9",
     "firstAppeared": "2026-01-03"
   },
@@ -816,7 +816,7 @@
     ],
     "dependencies": [],
     "downloadUrl": "../plugins/Hello_World_Folder_Plugin/HelloWorldFolderPlugin.zip",
-    "lastUpdated": "2026-04-01",
+    "lastUpdated": "2025-01-05",
     "sha256": "ced69c06a80f8965990e0622695efb2e350872e2cc2035848d359ce64a1a9ad3",
     "firstAppeared": "2026-01-04"
   },
