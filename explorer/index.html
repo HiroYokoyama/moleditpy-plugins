@@ -647,7 +647,7 @@
         // 1. Fetch Data
         async function loadPlugins() {
             try {
-                const response = await fetch('plugins.json');
+                const response = await fetch('../REGISTRY/plugins.json');
                 if (!response.ok) throw new Error('Failed to load plugin list');
                 allPlugins = await response.json();
 
