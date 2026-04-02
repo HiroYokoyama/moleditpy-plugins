@@ -358,7 +358,7 @@
     "id": "orca_xyz2inp_gui",
     "visible": true,
     "name": "ORCA xyz2inp GUI",
-    "version": "2025.12.25",
+    "version": "2026.04.01",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "GUI for generating ORCA input files from XYZ data with templates.",
@@ -371,10 +371,10 @@
       "rdkit",
       "PyQt6"
     ],
-    "downloadUrl": "https://raw.githubusercontent.com/HiroYokoyama/orca_xyz2inp/aa469e02e847c81b102bfdb20d240372ab1e4d52/moleditpy_plugin/orca_xyz2inp_gui.py",
+    "downloadUrl": "https://github.com/HiroYokoyama/orca_xyz2inp/releases/download/2/orca_xyz2inp_gui.py",
     "projectUrl": "https://github.com/HiroYokoyama/orca_xyz2inp",
     "lastUpdated": "2026-04-01",
-    "sha256": "e9deaffd40bdb3ed9b262846a825f7bac229970fa539456af7a90405fdf64b78",
+    "sha256": "28676d750d4d16e54fa0e0bd01b060d2bbde8cb696d2c5832baa0d590f4059d0",
     "firstAppeared": "2025-12-13"
   },
   {
