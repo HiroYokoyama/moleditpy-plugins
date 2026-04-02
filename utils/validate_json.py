@@ -82,13 +82,12 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         target_file = sys.argv[1]
     else:
-        # Path relative to the script location or current working directory
-        # The script is expected to be in 'utils/' and 'plugins.json' in 'explorer/'
-        target_file = os.path.join("explorer", "plugins.json")
-        
-        # If not found (e.g. running from utils/), try parent directory's explorer/
+        # Default registry path from repository root.
+        target_file = os.path.join("REGISTRY", "plugins.json")
+
+        # If not found (e.g. running from utils/), try parent directory's REGISTRY/.
         if not os.path.exists(target_file):
-            target_file = os.path.join("..", "explorer", "plugins.json")
+            target_file = os.path.join("..", "REGISTRY", "plugins.json")
 
     success = validate_json(target_file)
     if not success:
