@@ -824,7 +824,7 @@
     "id": "pyscf_calculator",
     "visible": true,
     "name": "PySCF Calculator",
-    "version": "1.7.1",
+    "version": "2.0.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Perform PySCF quantum chemistry calculations directly in MoleditPy. Features: Single Point Energy (RHF/UHF/DFT), Geometry Optimization (GeomeTRIC/Berny), Frequency Analysis, and interactive 3D visualization of Molecular Orbitals (HOMO/LUMO) and Electrostatic Potential (ESP) mapped on Density surfaces.",
@@ -839,10 +839,10 @@
       "NumPy",
       "Matplotlib"
     ],
-    "downloadUrl": "https://raw.githubusercontent.com/HiroYokoyama/moleditpy_pyscf-calculator/ecb4c37080da729b4c4019a3fb15d8297ea8d848/pyscf_calculator.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_pyscf-calculator/releases/download/2.0.0/pyscf_calculator.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_pyscf-calculator",
     "lastUpdated": "2026-04-01",
-    "sha256": "c3899f11f03bfe99ea5a0c7f62e1b9179fc3c51eee39a958307f2a7c91e2788b",
+    "sha256": "29568048e04392f1d8cc49b09b27ad1b78182c9add4b03f7e987546805e8f010",
     "firstAppeared": "2026-01-09"
   },
   {
@@ -993,7 +993,7 @@
     "id": "orca_result_analyzer",
     "visible": true,
     "name": "ORCA Result Analyzer",
-    "version": "1.7.3",
+    "version": "2.0.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Comprehensive analyzer for ORCA output files (.out, .log). Includes Vibrational, MO, TDDFT, and NMR analysis.",
@@ -1009,17 +1009,17 @@
       "Pillow",
       "nmrsim"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin/releases/download/1.7.3/orca_result_analyzer.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin/releases/download/2.0.0/orca_result_analyzer.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin",
     "lastUpdated": "2026-04-01",
-    "sha256": "fb82217ded61f936a7935c6370b374902395e489a1c640fd01611249ce3c8f50",
+    "sha256": "cae558c363df03a73e57481f1d7c10222b59e7793b521f161fb3b1596b25e2f8",
     "firstAppeared": "2026-01-27"
   },
   {
     "id": "nmr_predictor_nmrshiftdb2",
     "visible": true,
     "name": "NMR Predictor (nmrshiftdb2)",
-    "version": "1.2.0",
+    "version": "2.0.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Predict 1H and 13C NMR shifts using nmrshiftdb2. Requires Java Runtime (JRE).",
@@ -1033,10 +1033,10 @@
       "matplotlib",
       "PyQt6"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_nmr_predicator_nmrshiftdb2/releases/download/1.2.0/nmr_predicator_nmrshiftdb2.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_nmr_predicator_nmrshiftdb2/releases/download/2.0.0/nmr_predicator_nmrshiftdb2.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_nmr_predicator_nmrshiftdb2",
     "lastUpdated": "2026-04-01",
-    "sha256": "10d446f1d7c8c6b74b761834046ee84590a6f44123b91762b6f1cff88de2e60f",
+    "sha256": "a247c23398cc7695bbf2532f0e96e5cdbbc378cdcac891de1b5b0d31af0ac3ce",
     "firstAppeared": "2026-01-29"
   },
   {
@@ -1152,7 +1152,7 @@
     "id": "reaction_sketcher",
     "visible": true,
     "name": "Reaction Sketcher",
-    "version": "1.4.5",
+    "version": "2.0.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Adds 2D reaction drawing tools (Arrows, Plus, Text) with a dedicated toolbar.",
@@ -1165,10 +1165,10 @@
       "rdkit",
       "PyQt6"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_reaction_sketcher_plugin/releases/download/1.4.5/reaction_sketcher.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_reaction_sketcher_plugin/releases/download/2.0.0/reaction_sketcher.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_reaction_sketcher_plugin",
     "lastUpdated": "2026-04-01",
-    "sha256": "9f8c72bf786e6baaa38a63666365318448b796d8597548821c765da6c16dbe92",
+    "sha256": "8a69844ed2d94d9acc5c32d64f0ca67de83d9529afd3e620704ca0cfda507922",
     "firstAppeared": "2026-02-08"
   },
   {
@@ -1195,7 +1195,7 @@
     "id": "3d_molecule_on_2d",
     "visible": true,
     "name": "3D Molecule on 2D",
-    "version": "1.3.0",
+    "version": "2.0.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Integrated 3D depth cues, rotation, and 3D-aware Mol export.",
@@ -1208,17 +1208,17 @@
       "PyQt6",
       "numpy"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_3d-molecule-on-2d/releases/download/1.3.0/3d_molecule_on_2d.py",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_3d-molecule-on-2d/releases/download/2.0.0/3d_molecule_on_2d.py",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_3d-molecule-on-2d",
     "lastUpdated": "2026-04-01",
-    "sha256": "df48525743bf12c3ad287be6115ea612551f0140cf763b9075e25256507d0b12",
+    "sha256": ":ef0133a672a98aa5f4ba59710c1aea9f9b16272ba2f80b501e5164463da56f0f",
     "firstAppeared": "2026-02-17"
   },
   {
     "id": "orca_input_generator_pro",
     "visible": true,
     "name": "ORCA Input Generator Pro",
-    "version": "1.0.3",
+    "version": "2.0.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "High-functionality setting dialog for ORCA input creation. Supports Keywords, Block Builder, and Validations.",
@@ -1230,10 +1230,10 @@
       "rdkit",
       "PyQt6"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/releases/download/1.0.3/orca_input_generator_pro.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/releases/download/2.0.0/orca_input_generator_pro.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro",
     "lastUpdated": "2026-04-01",
-    "sha256": "b7ef64396f93959cef9b3f07df20dc16f093d2505fe6580b762e6ecb04f44a30",
+    "sha256": "0f9c61ee28329e8e5f978f4bbe07cf62ac9bb46147e2572ab780b0d14c885d55",
     "firstAppeared": "2026-03-21"
   }
 ]
