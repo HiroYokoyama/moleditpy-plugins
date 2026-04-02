@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox,
 import pyvista as pv
 
 PLUGIN_NAME = "High Resolution Imager"
-PLUGIN_VERSION = "2026.02.05"
+PLUGIN_VERSION = "2026.04.01"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Take high-resolution screenshots of the 3D view with custom resolution."
 
@@ -181,3 +181,14 @@ def take_screenshot(context):
                 
             except Exception as e:
                 QMessageBox.critical(mw, "Error", f"Failed to take screenshot:\n{str(e)}\n\nNote: Extremely high resolutions might fail depending on graphics card memory.")
+
+def run(mw):
+    if not hasattr(mw, 'plugin_manager'):
+        return
+
+    from moleditpy.plugins.plugin_interface import PluginContext
+    context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
+    if not context:
+        context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
+
+    take_screenshot(context)

@@ -7,7 +7,7 @@ Exports molecular structures as Blender Python scripts
 """
 
 PLUGIN_NAME = "Blender Export"
-PLUGIN_VERSION = "2026.02.05"
+PLUGIN_VERSION = "2026.04.01"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Export molecular structures as Blender Python scripts that create 3D visualizations"
 
@@ -41,9 +41,9 @@ def export_to_blender(context):
     default_dir = ""
     default_name = "molecule_blender"
     try:
-        if hasattr(mw, 'current_file_path') and mw.current_file_path:
-            default_dir = os.path.dirname(mw.current_file_path)
-            base_name = os.path.splitext(os.path.basename(mw.current_file_path))[0]
+        if hasattr(mw, 'current_file_path') and mw.init_manager.current_file_path:
+            default_dir = os.path.dirname(mw.init_manager.current_file_path)
+            base_name = os.path.splitext(os.path.basename(mw.init_manager.current_file_path))[0]
             default_name = f"{base_name}_blender"
     except Exception:
         pass
@@ -175,9 +175,9 @@ def generate_blender_script(mol, mw):
     
     # Get actual atom radii from the glyph source if available
     actual_radii = None
-    if hasattr(mw, 'glyph_source') and mw.glyph_source is not None:
+    if hasattr(mw, 'glyph_source') and mw.view_3d_manager.glyph_source is not None:
         try:
-            actual_radii = mw.glyph_source['radii']
+            actual_radii = mw.view_3d_manager.glyph_source['radii']
         except Exception:
             pass
     
@@ -842,3 +842,14 @@ def generate_blender_script(mol, mw):
     script_lines.append('    create_molecule()')
     
     return '\n'.join(script_lines)
+
+def run(mw):
+    if not hasattr(mw, 'plugin_manager'):
+        return
+
+    from moleditpy.plugins.plugin_interface import PluginContext
+    context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
+    if not context:
+        context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
+
+    export_to_blender(context)

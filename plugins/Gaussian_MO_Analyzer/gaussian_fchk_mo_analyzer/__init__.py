@@ -2,7 +2,7 @@ from .gui import OrbitalWidget
 
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Gaussian MO Analyzer"
-PLUGIN_VERSION = "2026.02.02"
+PLUGIN_VERSION = "2026.04.01"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Visualizes Molecular Orbitals from Gaussian FCHK files by generating Cube files."
 
@@ -28,3 +28,12 @@ def initialize(context):
         return False
         
     context.register_drop_handler(handle_drop, priority=10)
+
+def run(mw):
+    if not hasattr(mw, 'plugin_manager'):
+        return
+
+    from PyQt6.QtWidgets import QFileDialog
+    path, _ = QFileDialog.getOpenFileName(mw, "Open Gaussian FCHK", "", "Gaussian FCHK (*.fchk *.fck);;All Files (*)")
+    if path:
+        mw.plugin_manager.open_file(path)

@@ -11,7 +11,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem, rdMolTransforms
 
 PLUGIN_NAME = "Complex Molecule Untangler"
-__version__="2025.12.25"
+__version__="2026.04.01"
 __author__="HiroYokoyama"
 
 
@@ -138,9 +138,10 @@ class UntangleWorker(QThread):
             self.finished.emit(None, str(e))
 
 class UntanglerDialog(QDialog):
-    def __init__(self, main_window, parent=None):
+    def __init__(self, context, parent=None):
         super().__init__(parent)
-        self.main_window = main_window
+        self.context = context
+        self.main_window = context.get_main_window()
         self.setWindowTitle("Complex Molecule Untangler")
         self.resize(320, 350)
         
@@ -175,7 +176,7 @@ class UntanglerDialog(QDialog):
         form_layout.addRow("Force Field:", self.combo_ff)
         
         # Set default based on main window setting
-        default_method = getattr(self.main_window, "optimization_method", "MMFF_RDKIT")
+        default_method = self.context.get_setting("optimization_method", "MMFF_RDKIT")
         if default_method:
             default_method = default_method.upper()
             if "UFF" in default_method:
@@ -210,7 +211,7 @@ class UntanglerDialog(QDialog):
         layout.addWidget(self.btn_run)
 
     def run_untangle(self):
-        mol = getattr(self.main_window, "current_mol", None)
+        mol = self.context.current_mol
         if not mol:
             QMessageBox.warning(self, PLUGIN_NAME, "No molecule loaded.\nPlease load a molecule first.")
             return
@@ -237,32 +238,47 @@ class UntanglerDialog(QDialog):
         self.pbar.setValue(0)
 
         if new_mol:
-            self.main_window.current_mol = new_mol
+            self.context.current_mol = new_mol
             
             # ビュー更新
-            if hasattr(self.main_window, "draw_molecule_3d"):
-                self.main_window.draw_molecule_3d(new_mol)
-            elif hasattr(self.main_window, "update_view"):
-                self.main_window.update_view()
-            elif hasattr(self.main_window, "gl_widget"):
-                getattr(self.main_window.gl_widget, "update", lambda: None)()
+            self.context.refresh_3d_view()
             
-            # Push undo state using the newly applied molecule
-            if hasattr(self.main_window, "push_undo_state"):
-                self.main_window.push_undo_state()
+            # Push undo state using context
+            self.context.push_undo_checkpoint()
                 
             QMessageBox.information(self, PLUGIN_NAME, f"Untangling Complete!\n{msg}")
         else:
             QMessageBox.warning(self, PLUGIN_NAME, f"Error: {msg}")
 
-def run(mw):
-    if hasattr(mw, "_untangler_dialog") and mw._untangler_dialog.isVisible():
-        mw._untangler_dialog.raise_()
-        mw._untangler_dialog.activateWindow()
+def run_plugin(context):
+    """
+    Launch the Complex Molecule Untangler dialog.
+    """
+    win = context.get_window("main_panel")
+    if win:
+        win.show()
+        win.raise_()
+        win.activateWindow()
         return
 
-    dialog = UntanglerDialog(mw, parent=mw)
-    mw._untangler_dialog = dialog
+    mw = context.get_main_window()
+    dialog = UntanglerDialog(context, parent=mw)
+    context.register_window("main_panel", dialog)
     dialog.show()
 
-# initialize removed as it only registered the menu action
+_launch_fn = None
+
+def initialize(context):
+    global _launch_fn
+    _launch_fn = lambda: run_plugin(context)
+    context.add_plugin_menu("Optimization/Complex Molecule Untangler...", _launch_fn)
+
+def run(mw):
+    if hasattr(mw, 'host'):
+        mw = mw.host
+    if _launch_fn:
+        _launch_fn()
+    elif hasattr(mw, 'plugin_manager'):
+        from moleditpy.plugins.plugin_interface import PluginContext
+        ctx = PluginContext(mw.plugin_manager, PLUGIN_NAME)
+        run_plugin(ctx)

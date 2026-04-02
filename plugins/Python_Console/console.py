@@ -15,7 +15,7 @@ from PyQt6.QtGui import (
 from PyQt6.QtCore import Qt, QRegularExpression, pyqtSignal
 import rdkit.Chem as Chem
 
-__version__ = "2025.12.25"
+__version__ = "2026.04.01"
 __author__ = "HiroYokoyama"
 PLUGIN_NAME = "Python Console"
 
@@ -143,9 +143,12 @@ class ConsoleInput(QPlainTextEdit):
 
 
 class PythonConsoleDialog(QDialog):
-    def __init__(self, main_window):
-        super().__init__(main_window)
-        self.main_window = main_window
+    def __init__(self, context):
+        super().__init__(context.get_main_window())
+        self.context = context
+        # Register window for V3 lifecycle management
+        self.context.register_window("main_panel", self)
+        
         self.setWindowTitle("MoleditPy Python Console")
         self.resize(700, 500)
         
@@ -187,8 +190,9 @@ class PythonConsoleDialog(QDialog):
         self.setLayout(layout)
         
         # Initialize execution environment (namespace)
+        # # [DIRECT ACCESS] to core objects for scripting
         self.local_scope = {
-            'mw': self.main_window,
+            'mw': self.context.get_main_window(),
             'Chem': Chem,
             'mol': self._get_best_mol(),
         }
@@ -200,10 +204,8 @@ class PythonConsoleDialog(QDialog):
         self.append_output(">>> Type commands and press Enter.")
 
     def _get_best_mol(self):
-        """Helper to get the most relevant RDKit molecule object.
-        """
-        mol = getattr(self.main_window, 'current_mol', None)
-        return mol
+        """Helper to get the most relevant RDKit molecule object."""
+        return self.context.current_molecule
 
     def append_output(self, text, color=None):
         if color:
@@ -221,7 +223,6 @@ class PythonConsoleDialog(QDialog):
         self.input_area.clear()
 
         # Display Input
-        # Format multiline commands nicely in output
         lines = command.split('\n')
         self.append_output(f">>> {lines[0]}", color="#4CAF50")
         for line in lines[1:]:
@@ -229,9 +230,10 @@ class PythonConsoleDialog(QDialog):
         
         # Sync variables
         self.local_scope['mol'] = self._get_best_mol()
+        self.local_scope['mw'] = self.context.get_main_window()
         
         if self.local_scope['mol'] is None and 'mol' in command:
-             print("Warning: 'mol' is None (no valid 2D or 3D structure found).")
+             print("Warning: 'mol' is None (no valid molecule found).")
 
         # Capture Output
         stdout_capture = io.StringIO()
@@ -239,28 +241,10 @@ class PythonConsoleDialog(QDialog):
 
         try:
             with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
-                # runsource handles compilation.
-                # If we have multiple lines, we need to treat it carefully.
-                # InteractiveInterpreter.runsource is designed for line-by-line usually, 
-                # but it can handle blocks if we pass "exec" symbol?
-                # Actually runsource documentation says: 
-                # "Compile and run some source in the interpreter. Arguments are the same as for compile_command()."
-                
-                # To support proper multiline definitions (classes/functions), we often interpret it as a whole block.
-                # However, runsource defaults to "single" which expects a single statement.
-                # We can try "exec" if there are newlines?
-                
-                # Let's try standard behavior.
                 more = self.interpreter.runsource(command, "<console>", "exec" if '\n' in command else "single")
-                
                 if more:
-                    # In a real REPL this asks for more input. 
-                    # Here we might have just failed to provide enough closed parenthesis.
-                    # Since we consumed the input, we just report it.
                     self.append_output("... (Incomplete input/block)", color="#FF9800")
-
         except Exception:
-            # This catches errors OUTSIDE runsource's internal handling if any (rare)
             traceback.print_exc(file=stderr_capture)
 
         # Process Captured Output
@@ -275,13 +259,29 @@ class PythonConsoleDialog(QDialog):
         # Scroll to bottom
         self.output_area.verticalScrollBar().setValue(self.output_area.verticalScrollBar().maximum())
 
-# Plugin Entry Point
-def run(mw):
-    if not hasattr(mw, 'python_console_dialog'):
-        mw.python_console_dialog = PythonConsoleDialog(mw)
-    
-    mw.python_console_dialog.show()
-    mw.python_console_dialog.raise_()
-    mw.python_console_dialog.activateWindow()
+def initialize(context):
+    def run_console():
+        win = context.get_window("main_panel")
+        if win is None:
+            win = PythonConsoleDialog(context)
+        
+        if win.isVisible():
+            win.hide()
+        else:
+            win.show()
+            win.raise_()
+            win.activateWindow()
+            
 
-# initialize removed as it only registered the menu action
+def run(mw):
+    if hasattr(mw, 'host'):
+        mw = mw.host
+    from moleditpy.plugins.plugin_interface import PluginContext
+    context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
+    
+    win = context.get_window("main_panel")
+    if win is None:
+        win = PythonConsoleDialog(context)
+    win.show()
+    win.raise_()
+    win.activateWindow()

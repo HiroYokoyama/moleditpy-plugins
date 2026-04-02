@@ -9,18 +9,19 @@ from rdkit.Chem import AllChem
 import copy
 
 PLUGIN_NAME = "Conformational Search"
-__version__="2026.02.19"
+__version__="2026.04.01"
 __author__="HiroYokoyama"
 
 class ConformerSearchDialog(QDialog):
-    def __init__(self, main_window, parent=None):
+    def __init__(self, context, parent=None):
         super().__init__(parent)
-        self.main_window = main_window
+        self.context = context
+        self.main_window = context.get_main_window()
         self.setWindowTitle("Conformational Search & Preview")
         self.resize(400, 500)
         
         # メインウィンドウの分子への参照
-        self.target_mol = getattr(main_window, "current_mol", None)
+        self.target_mol = context.current_mol
         
         # 計算用の一時的な分子（オリジナルを汚染しないため）
         self.temp_mol = None
@@ -28,7 +29,7 @@ class ConformerSearchDialog(QDialog):
         self.conformer_data = []
         # 全ての計算結果（未フィルタ）
         self.results_raw = []
-
+        
         self.init_ui()
 
     def init_ui(self):
@@ -54,7 +55,7 @@ class ConformerSearchDialog(QDialog):
         layout.addWidget(self.cb_show_all)
         
         # Set default based on main window setting
-        default_method = getattr(self.main_window, "optimization_method", "MMFF_RDKIT")
+        default_method = self.context.get_setting("optimization_method", "MMFF_RDKIT")
         if default_method:
             default_method = default_method.upper()
             if "UFF" in default_method:
@@ -87,8 +88,7 @@ class ConformerSearchDialog(QDialog):
 
     def accept(self):
         # Push undo state when closing the dialog (confirming the selection)
-        if hasattr(self.main_window, "push_undo_state"):
-            self.main_window.push_undo_state()
+        self.context.push_undo_checkpoint()
         super().accept()
 
     def run_search(self):
@@ -225,36 +225,37 @@ class ConformerSearchDialog(QDialog):
             pos = source_conf.GetAtomPosition(i)
             target_conf.SetAtomPosition(i, pos)
             
-        # ビューの更新（ユーザー提供コードのロジックに従う）
-        if hasattr(self.main_window, "draw_molecule_3d"):
-            self.main_window.draw_molecule_3d(self.target_mol)
-        elif hasattr(self.main_window, "update_view"):
-            self.main_window.update_view()
-        elif hasattr(self.main_window, "gl_widget"):
-            # GLWidgetのリフレッシュ
-            getattr(self.main_window.gl_widget, "update", lambda: None)()
+        # ビューの更新 (重要: V3ではdraw_molecule_3dを呼ぶことで座標更新を反映させる)
+        self.context.current_mol = self.target_mol
+        self.context.refresh_3d_view()
 
-def initialize(context):
-    """Register the plugin in the 3D Edit menu."""
-    def show_dialog():
-        mw = context.get_main_window()
-        run(mw)
-
-    context.add_menu_action("3D Edit/Conformational Search...", show_dialog)
-
-def run(mw):
-    mol = getattr(mw, "current_mol", None)
-    if not mol:
+def run_plugin(context):
+    mw = context.get_main_window()
+    if not context.current_mol:
         QMessageBox.warning(mw, PLUGIN_NAME, "No molecule loaded.")
         return
         
-    # 既存のダイアログがあればアクティブにする
-    if hasattr(mw, "_conformer_search_dialog") and mw._conformer_search_dialog.isVisible():
-        mw._conformer_search_dialog.raise_()
-        mw._conformer_search_dialog.activateWindow()
+    win = context.get_window("main_panel")
+    if win:
+        win.show()
+        win.raise_()
+        win.activateWindow()
         return
 
-    dialog = ConformerSearchDialog(mw, parent=mw)
-    # 参照を保持してGCを防ぐ
-    mw._conformer_search_dialog = dialog
-    dialog.show() # モーダルではなくModeless（非ブロック）で表示
+    dialog = ConformerSearchDialog(context, parent=mw)
+    context.register_window("main_panel", dialog)
+    dialog.show()
+
+_launch_fn = None
+
+def initialize(context):
+    """Register the plugin in the 3D Edit menu."""
+    global _launch_fn
+    _launch_fn = lambda: run_plugin(context)
+    context.add_menu_action("3D Edit/Conformational Search...", _launch_fn)
+
+def run(mw):
+    if hasattr(mw, 'host'):
+        mw = mw.host
+    if _launch_fn:
+        _launch_fn()

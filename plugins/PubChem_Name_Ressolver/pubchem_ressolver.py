@@ -9,14 +9,17 @@ from PyQt6.QtCore import Qt, QPointF
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
-__version__="2025.12.25"
+__version__="2026.04.01"
 __author__="HiroYokoyama"
 PLUGIN_NAME = "PubChem Name Resolver"
 
 class MoleculeResolverDialog(QDialog):
-    def __init__(self, main_window, parent=None):
-        super().__init__(parent)
-        self.main_window = main_window
+    def __init__(self, context):
+        super().__init__(context.get_main_window())
+        self.context = context
+        # Register window for V3 lifecycle management
+        self.context.register_window("main_panel", self)
+        
         self.setWindowTitle("PubChem Name Resolver")
         self.resize(500, 600)
         
@@ -66,7 +69,6 @@ class MoleculeResolverDialog(QDialog):
         
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        # 選択変更時にロードボタンを有効化するなどの処理を入れるならここ
         layout.addWidget(self.table)
 
         # --- ボタンエリア ---
@@ -113,9 +115,6 @@ class MoleculeResolverDialog(QDialog):
                     raise ValueError("Invalid SMILES string.")
             
             else: # Auto (PubChem API)
-                # PUG REST APIを使用して検索
-                # プロパティとしてSMILESと分子式を取得
-                # CanonicalSMILESも取得してフォールバックに使用
                 url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{query}/property/IsomericSMILES,CanonicalSMILES,MolecularFormula,Title/JSON"
                 
                 response = requests.get(url, timeout=10)
@@ -124,12 +123,10 @@ class MoleculeResolverDialog(QDialog):
                     data = response.json()
                     props = data.get('PropertyTable', {}).get('Properties', [])
                     for p in props:
-                        # SMILESの取得（Isomericを優先、なければCanonical、それでもなければキー検索）
                         smiles = p.get('IsomericSMILES')
                         if not smiles:
                             smiles = p.get('CanonicalSMILES')
                         
-                        # まだ取得できていない場合、キー名に'SMILES'が含まれるものを探す
                         if not smiles:
                             for k in p.keys():
                                 if 'SMILES' in k:
@@ -138,16 +135,22 @@ class MoleculeResolverDialog(QDialog):
                                         break
                         
                         if not smiles:
-                            smiles = "" # 見つからない場合
+                            smiles = ""
 
+                        # Fetch structure
+                        self.context.show_status_message(f"PubChem: Identifying structure...")
+                        identifier = PubChemIdentifier(smiles)
                         results.append({
                             'name': p.get('Title', query),
                             'smiles': smiles,
                             'formula': p.get('MolecularFormula', '')
                         })
                 else:
-                    # found nothing or error status
                     pass
+
+                # Get Result
+                self.context.show_status_message(f"PubChem: Resolving '{query}'...")
+                resolver = PubChemResolver(query)
 
         except requests.exceptions.RequestException:
             network_error = True
@@ -157,7 +160,6 @@ class MoleculeResolverDialog(QDialog):
             QApplication.restoreOverrideCursor()
             self.btn_search.setEnabled(True)
 
-        # UI updates after cursor restore
         if network_error:
             QMessageBox.critical(self, PLUGIN_NAME, "Network error. Please check your internet connection.")
             self.lbl_info.setText("Network error.")
@@ -167,7 +169,6 @@ class MoleculeResolverDialog(QDialog):
         elif not results and 'response' in locals() and response.status_code != 200:
             self.lbl_info.setText("Not found in PubChem search.")
         else:
-            # データを保持
             self.candidates_data = results
             self.update_table()
             
@@ -210,12 +211,13 @@ class MoleculeResolverDialog(QDialog):
         error_msg = None
 
         try:
-            # メインウィンドウのSMILES読み込み機能を使用
-            if hasattr(self.main_window, "load_from_smiles"):
-                self.main_window.load_from_smiles(smiles)
+            mw = self.context.get_main_window()
+            # # [DIRECT ACCESS] to string_importer_manager as this is not in the PluginContext API
+            if mw and hasattr(mw, "string_importer_manager"):
+                mw.string_importer_manager.load_from_smiles(smiles)
                 success = True
             else:
-                error_msg = "Main window does not support 'load_from_smiles'."
+                error_msg = "Application does not support 'string_importer_manager.load_from_smiles'."
 
         except Exception as e:
             error_msg = str(e)
@@ -226,19 +228,33 @@ class MoleculeResolverDialog(QDialog):
         if success:
              self.lbl_info.setText(f"Loaded: {name}")
              QMessageBox.information(self, PLUGIN_NAME, f"Successfully loaded: {name}")
-             self.accept() # ダイアログを閉じる
+             self.accept()
         elif error_msg:
              QMessageBox.critical(self, PLUGIN_NAME, f"Error: {error_msg}")
              self.lbl_info.setText("Load failed.")
 
+def initialize(context):
+    def run_resolver():
+        win = context.get_window("main_panel")
+        if win is None:
+            win = MoleculeResolverDialog(context)
+        
+        if win.isVisible():
+            win.hide()
+        else:
+            win.show()
+            win.raise_()
+            win.activateWindow()
+            
 def run(mw):
-    if hasattr(mw, "_molecule_resolver_dialog") and mw._molecule_resolver_dialog.isVisible():
-        mw._molecule_resolver_dialog.raise_()
-        mw._molecule_resolver_dialog.activateWindow()
-        return
-
-    dialog = MoleculeResolverDialog(mw, parent=mw)
-    mw._molecule_resolver_dialog = dialog
-    dialog.show()
-
-# initialize removed as it only registered the menu action
+    if hasattr(mw, 'host'):
+        mw = mw.host
+    from moleditpy.plugins.plugin_interface import PluginContext
+    context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
+    
+    win = context.get_window("main_panel")
+    if win is None:
+        win = MoleculeResolverDialog(context)
+    win.show()
+    win.raise_()
+    win.activateWindow()

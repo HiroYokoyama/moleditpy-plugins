@@ -1,3 +1,4 @@
+# Global state
 import os
 import json
 import traceback
@@ -8,12 +9,12 @@ from PyQt6.QtWidgets import (
     QListWidgetItem
 )
 from PyQt6.QtGui import QColor, QAction
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 
 PLUGIN_NAME = "Settings Saver"
-PLUGIN_VERSION = "2026.01.25"
+PLUGIN_VERSION = "2026.04.01"
 PLUGIN_AUTHOR = "HiroYokoyama"
-PLUGIN_DESCRIPTION = "Save, load, and manage settings presets in a unified dialog."
+PLUGIN_DESCRIPTION = "Save, load, and manage settings presets in a unified dialog. Refactored for V3 API."
 
 SETTINGS_FILENAME = "settings_saver.json"
 
@@ -25,7 +26,10 @@ ORIGINAL_SETTINGS = None
 PLUGIN_CONFIG = {"always_save_to_project": False}
 
 def initialize(context):
-    """Initialize the Settings Saver plugin."""
+    """
+    Initialize the Settings Saver plugin at startup.
+    Registers persistence handlers and menu actions.
+    """
     global PLUGIN_CONTEXT, PLUGIN_CONFIG
     PLUGIN_CONTEXT = context
     
@@ -34,25 +38,18 @@ def initialize(context):
     if "_PLUGIN_CONFIG" in library:
         PLUGIN_CONFIG.update(library["_PLUGIN_CONFIG"])
     
-    
     # Apply "Always Save to Project" preference
     if PLUGIN_CONFIG.get("always_save_to_project", False):
-        if PLUGIN_CONTEXT:
-            mw = PLUGIN_CONTEXT.get_main_window()
-            if not mw: mw = QApplication.activeWindow()
-            if mw:
-                enable_project_mode(mw)
+        mw = context.get_main_window()
+        if mw:
+            enable_project_mode(mw)
     
     # Menu Action under "Settings"
     context.add_menu_action("Settings/Presets...", lambda: open_manager(context))
 
-    # Register Save Handler (for .pmeprj)
+    # Register Persistence Handlers
     context.register_save_handler(on_save_project)
-
-    # Register Load Handler (for .pmeprj)
     context.register_load_handler(on_load_project)
-
-    # Register Reset Handler (File -> New)
     context.register_document_reset_handler(on_document_reset)
 
 # --- Project Mode Logic ---
@@ -63,10 +60,12 @@ def enable_project_mode(mw):
     EMBED_SETTINGS["enabled"] = True
     
     # 1. Reset Global Dirty Flag
+    # # [DIRECT ACCESS] to settings_dirty flag
     if hasattr(mw, 'settings_dirty'):
-        mw.settings_dirty = False
+        mw.init_manager.settings_dirty = False
     
     # 2. Alias initial_settings (Clean Exit Check)
+    # # [DIRECT ACCESS] to baseline settings
     if hasattr(mw, 'initial_settings') and hasattr(mw, 'settings'):
         mw.initial_settings = mw.settings
         
@@ -74,14 +73,14 @@ def enable_project_mode(mw):
     # Even if User changes settings manually -> dirty=True.
     # We must BLOCK the actual save to file.
     if hasattr(mw, 'save_settings') and not hasattr(mw, '_original_save_settings'):
-        mw._original_save_settings = mw.save_settings
+        mw._original_save_settings = mw.init_manager.save_settings
         
         # Define proxy
         def proxy_save_settings():
             # print("[Settings Saver] Global save blocked by Project Settings mode.")
             return # Block it!
             
-        mw.save_settings = proxy_save_settings
+        mw.init_manager.save_settings = proxy_save_settings
         # print("[Settings Saver] Enforcing strict Project Mode: Global saving blocked.")
 
 def disable_project_mode(mw, restore_content=True):
@@ -91,7 +90,7 @@ def disable_project_mode(mw, restore_content=True):
     
     # 1. Restore Original Save Function
     if hasattr(mw, '_original_save_settings'):
-        mw.save_settings = mw._original_save_settings
+        mw.init_manager.save_settings = mw._original_save_settings
         del mw._original_save_settings
         # print("[Settings Saver] Project Mode disabled: Global saving restored.")
         
@@ -161,8 +160,11 @@ def on_load_project(data):
                 
                 # Auto-enable strict mode AND protections
                 enable_project_mode(mw)
-                    
-                mw.statusBar().showMessage(f"Applied project settings.")
+
+                if PLUGIN_CONTEXT:
+                    PLUGIN_CONTEXT.show_status_message("Applied project settings.")
+
+                refresh_loaded_scene(mw)
             except Exception as e:
                 # print(f"Error auto-applying project settings: {e}")
                 pass
@@ -230,27 +232,28 @@ def apply_settings_hot(mw):
     try:
         # Mark settings dirty, UNLESS we are in Project Mode
         try:
+            # # [DIRECT ACCESS] to settings_dirty
             if EMBED_SETTINGS.get("enabled", False):
                 # If enabled, logic is handled by enable_project_mode elsewhere, 
                 # but ensure dirty flag is cleared here too just in case
-                mw.settings_dirty = False
+                mw.init_manager.settings_dirty = False
             else:
-                mw.settings_dirty = True
+                mw.init_manager.settings_dirty = True
         except Exception:
             pass
 
         # 1. Apply 3D Settings
         try:
-            if hasattr(mw, 'apply_3d_settings'):
-                mw.apply_3d_settings()
+            if hasattr(mw, 'view_3d_manager') and hasattr(mw.view_3d_manager, 'apply_3d_settings'):
+                mw.view_3d_manager.apply_3d_settings()
         except Exception as e:
             # print(f"Error applying 3D settings: {e}")
             pass
 
         # 2. Update CPK Colors
         try:
-            if hasattr(mw, 'update_cpk_colors_from_settings'):
-                mw.update_cpk_colors_from_settings()
+            if hasattr(mw, 'init_manager') and hasattr(mw.init_manager, 'update_cpk_colors_from_settings'):
+                mw.init_manager.update_cpk_colors_from_settings()
         except Exception as e:
             # print(f"Error updating CPK colors: {e}")
             pass
@@ -266,7 +269,7 @@ def apply_settings_hot(mw):
         # 4. Redraw 3D Molecule
         try:
             if hasattr(mw, 'current_mol') and mw.current_mol:
-                mw.draw_molecule_3d(mw.current_mol)
+                mw.view_3d_manager.draw_molecule_3d(mw.current_mol)
         except Exception as e:
             # print(f"Error redrawing 3D molecule: {e}")
             pass
@@ -281,24 +284,66 @@ def apply_settings_hot(mw):
                         item.update_style()
                     elif hasattr(item, 'update'):
                         item.update()
-                if hasattr(mw, 'view_2d') and mw.view_2d and hasattr(mw.view_2d, 'viewport'):
-                    mw.view_2d.viewport().update()
+                if hasattr(mw, 'init_manager') and hasattr(mw.init_manager, 'view_2d') and mw.init_manager.view_2d and hasattr(mw.init_manager.view_2d, 'viewport'):
+                    mw.init_manager.view_2d.viewport().update()
         except Exception as e:
             # print(f"Error updating 2D settings: {e}")
             pass
 
         # 6. Push Undo State (Requirement: "push undo when applied", Manual: "Call after modifying")
         try:
-            if hasattr(mw, 'push_undo_state'):
-                mw.push_undo_state()
+            if hasattr(mw, 'edit_actions_manager') and hasattr(mw.edit_actions_manager, 'push_undo_state'):
+                mw.edit_actions_manager.push_undo_state()
         except Exception as e:
             # print(f"Error pushing undo state: {e}")
             pass
+
+        # 7. Refresh 2D/3D scene state after settings are loaded.
+        refresh_loaded_scene(mw, defer=True)
 
     except Exception as e:
         # print(f"Hot loading failed: {e}")
         # traceback.print_exc()
         pass
+
+def refresh_loaded_scene(mw, defer=False):
+    """Refresh both 2D and 3D views after settings are applied."""
+    def _do_refresh():
+        try:
+            if hasattr(mw, 'scene') and mw.scene:
+                mw.scene.update()
+                try:
+                    views = mw.scene.views()
+                    if views:
+                        views[0].viewport().update()
+                except Exception:
+                    pass
+
+            if hasattr(mw, 'init_manager') and hasattr(mw.init_manager, 'view_2d') and mw.init_manager.view_2d:
+                try:
+                    mw.init_manager.view_2d.viewport().update()
+                except Exception:
+                    pass
+
+            if hasattr(mw, 'edit_3d_manager') and hasattr(mw.edit_3d_manager, 'update_2d_measurement_labels'):
+                try:
+                    mw.edit_3d_manager.update_2d_measurement_labels()
+                except Exception:
+                    pass
+
+            if hasattr(mw, 'view_3d_manager') and hasattr(mw.view_3d_manager, 'draw_molecule_3d'):
+                try:
+                    if hasattr(mw, 'current_mol') and mw.current_mol:
+                        mw.view_3d_manager.draw_molecule_3d(mw.current_mol)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    if defer:
+        QTimer.singleShot(0, _do_refresh)
+    else:
+        _do_refresh()
 
 # --- Main Dialog Class ---
 
@@ -364,11 +409,11 @@ class SettingsSaverDialog(QDialog):
         project_layout.addWidget(self.chk_embed)
         
         # Enforce dirty flag logic on open
-        if EMBED_SETTINGS["enabled"] and hasattr(self.main_window, 'settings_dirty'):
-            self.main_window.settings_dirty = False
-            # Ensure alias
-            if hasattr(self.main_window, 'initial_settings'):
-                self.main_window.initial_settings = self.main_window.settings
+        if EMBED_SETTINGS["enabled"] and hasattr(self.main_window.edit_actions_manager, 'settings_dirty'):
+            self.main_window.edit_actions_manager.settings_dirty = False
+            
+            if hasattr(self.main_window.init_manager, 'initial_settings'):
+                self.main_window.init_manager.initial_settings = self.main_window.init_manager.settings.copy()
 
         # --- Plugin Preference: Always Save ---
         self.chk_always_save = QCheckBox("Default: Always enable for new projects")
@@ -442,7 +487,7 @@ class SettingsSaverDialog(QDialog):
 
     def on_embed_toggled(self, checked):
         self.btn_set_global.setEnabled(checked)
-        if hasattr(self.main_window, 'settings_dirty'):
+        if hasattr(self.main_window.edit_actions_manager, 'settings_dirty'):
             if checked:
                 # ENABLE PROJECT MODE (Strict Protection)
                 enable_project_mode(self.main_window)
@@ -452,7 +497,7 @@ class SettingsSaverDialog(QDialog):
                 # Note: We don't restore content here because user might just want to 
                 # stop saving to project but keep current look.
                 # However, we DO want to restore the save_settings function.
-                self.main_window.settings_dirty = True
+                self.main_window.edit_actions_manager.settings_dirty = True
 
     def on_load(self):
         items = self.preset_list.selectedItems()
@@ -469,10 +514,10 @@ class SettingsSaverDialog(QDialog):
         else:
             settings_data = self.library.get(name)
 
-        if settings_data and hasattr(self.main_window, 'settings'):
-            self.main_window.settings.update(settings_data)
+        if settings_data and hasattr(self.main_window.init_manager, 'settings'):
+            self.main_window.init_manager.settings.update(settings_data)
             apply_settings_hot(self.main_window)
-            self.main_window.statusBar().showMessage(f"Preset '{name}' loaded.")
+            self.context.show_status_message(f"Preset '{name}' loaded.")
         else:
             QMessageBox.warning(self, "Error", "Could not load settings.")
 
@@ -497,19 +542,19 @@ class SettingsSaverDialog(QDialog):
             save_func = None
             if hasattr(mw, '_original_save_settings'):
                 save_func = mw._original_save_settings
-            elif hasattr(mw, 'save_settings'):
-                save_func = mw.save_settings
+            elif hasattr(mw.init_manager, 'save_settings'):
+                save_func = mw.init_manager.save_settings
             
             if save_func:
                 save_func() # Execute actual save
                 
                 # Also update our "Initial Settings" baseline so the app doesn't think we have diffs anymore
-                if hasattr(mw, 'settings'):
+                if hasattr(mw.init_manager, 'settings'):
                     global ORIGINAL_SETTINGS
-                    if hasattr(mw, 'initial_settings'):
-                         mw.initial_settings = mw.settings.copy()
+                    if hasattr(mw.init_manager, 'initial_settings'):
+                         mw.initial_settings = mw.init_manager.settings.copy()
                     # Update our plugin's backup too so "Reset" goes back to this new default
-                    ORIGINAL_SETTINGS = mw.settings.copy()
+                    ORIGINAL_SETTINGS = mw.init_manager.settings.copy()
                 
                 QMessageBox.information(self, "Success", "Global settings has been updated.")
             else:
@@ -534,8 +579,8 @@ class SettingsSaverDialog(QDialog):
             if reply != QMessageBox.StandardButton.Yes:
                 return
 
-        if hasattr(self.main_window, 'settings'):
-            self.library[name] = self.main_window.settings.copy()
+        if hasattr(self.main_window.init_manager, 'settings'):
+            self.library[name] = self.main_window.init_manager.settings.copy()
             save_library(self.library, self)
             self.refresh_list()
             # Select the new item

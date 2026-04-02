@@ -24,7 +24,7 @@ except ImportError:
     Geometry = None
     rdDetermineBonds = None
     
-__version__="2026.01.29"
+__version__="2026.04.01"
 __author__="HiroYokoyama"
 PLUGIN_NAME = "Cube File Viewer"
 
@@ -627,12 +627,12 @@ class CubeViewerWidget(QWidget):
              # Full cleanup
              self.mw.plotter.clear()
              self.mw.current_mol = None
-             self.mw.current_file_path = None
+             self.mw.init_manager.current_file_path = None
              self.mw.plotter.render()
              
              # Restore UI state
              if hasattr(self.mw, 'restore_ui_for_editing'):
-                 self.mw.restore_ui_for_editing()
+                 self.mw.ui_manager.restore_ui_for_editing()
         except: pass
         
         if self.dock:
@@ -779,13 +779,12 @@ def open_cube_viewer(main_window, fname):
 
         # Set current molecular data in main window for consistency
         main_window.current_mol = mol
-        main_window.current_file_path = fname
+        main_window.init_manager.current_file_path = fname
 
         # Draw
-        if hasattr(main_window, 'draw_molecule_3d'):
-             main_window.draw_molecule_3d(mol)
-        elif hasattr(main_window, 'main_window_view_3d'):
-             main_window.main_window_view_3d.draw_molecule_3d(mol)
+        if hasattr(main_window.view_3d_manager, 'draw_molecule_3d'):
+            main_window.view_3d_manager.draw_molecule_3d(mol)
+
              
         # Report bonds
         nb = mol.GetNumBonds() if mol else 0

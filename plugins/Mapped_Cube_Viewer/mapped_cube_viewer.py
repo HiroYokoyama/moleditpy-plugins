@@ -15,7 +15,7 @@ except ImportError:
 
 # Periodic Table for Radii
 try:
-    from moleditpy.modules.constants import pt
+    from moleditpy.utils.constants import pt
 except ImportError:
     try:
         from modules.constants import pt
@@ -26,9 +26,11 @@ except ImportError:
         except:
             pt = None
             
-__version__="2025.12.25" # Fixed version
-__author__="HiroYokoyama"
+__version__ = "2026.04.01"
+__author__ = "HiroYokoyama"
 PLUGIN_NAME = "Mapped Cube Viewer"
+PLUGIN_VERSION = "2026.04.01"
+PLUGIN_DESCRIPTION = "Visualizes electrostatic potential or other properties mapped onto an isosurface from Gaussian Cube files."
 
 # --- Core Logic: Robust Parser from cube_viewer.py ---
 
@@ -250,9 +252,11 @@ class MappedCubeSetupDialog(QDialog):
         super().accept()
 
 class MappedWidget(QWidget):
-    def __init__(self, mw, dock, grid_surf, grid_prop):
-        super().__init__()
-        self.mw = mw
+    def __init__(self, context, dock, grid_surf, grid_prop):
+        super().__init__(context.get_main_window())
+        self.context = context
+        # [DIRECT ACCESS] to main window for legacy plotter/view access
+        self.mw = context.get_main_window()
         self.dock = dock
         self.grid_surf = grid_surf
         self.grid_prop = grid_prop
@@ -483,12 +487,13 @@ class MappedWidget(QWidget):
         if self.dock:
             self.dock.close()
         try:
-            self.mw.clear_all()
+            self.mw.edit_actions_manager.clear_all()
         except: pass
         self.close()
 
 # --- Entry Point ---
-def run(mw):
+def run_plugin(context):
+    mw = context.get_main_window()
     dlg = MappedCubeSetupDialog(mw)
     if dlg.exec() != QDialog.DialogCode.Accepted:
         return
@@ -529,8 +534,8 @@ def run(mw):
             except: pass
             
             mw.current_mol = mol
-            if hasattr(mw, 'draw_molecule_3d'):
-                mw.draw_molecule_3d(mol)
+            if hasattr(mw, 'view_3d_manager'):
+                mw.view_3d_manager.draw_molecule_3d(mol)
 
         if hasattr(mw, 'main_window_ui_manager'):
             try: mw.main_window_ui_manager._enter_3d_viewer_ui_mode()
@@ -542,11 +547,27 @@ def run(mw):
 
         dock = QDockWidget("Mapped Viewer", mw)
         dock.setAllowedAreas(Qt.DockWidgetArea.RightDockWidgetArea)
-        widget = MappedWidget(mw, dock, grid_surf, grid_prop)
+        widget = MappedWidget(context, dock, grid_surf, grid_prop)
         dock.setWidget(widget)
+        
+        # [DIRECT ACCESS] for dock injection
         mw.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
+        
+        # Register for management
+        context.register_window("main_panel", dock)
         
     except Exception as e:
         import traceback
         traceback.print_exc()
-        QMessageBox.critical(mw, "Error", f"Failed:\n{e}")
+        context.show_status_message(f"Mapped Cube Viewer Error: {e}")
+
+def run(mw):
+    if not hasattr(mw, 'plugin_manager'):
+        return
+
+    from moleditpy.plugins.plugin_interface import PluginContext
+    context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
+    if not context:
+        context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
+
+    run_plugin(context)

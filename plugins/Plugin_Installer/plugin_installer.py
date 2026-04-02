@@ -29,7 +29,7 @@ import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.02.04"
+PLUGIN_VERSION = "2026.04.01"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Checks for updates, installs new plugins, and allows manual reinstallation."
 
@@ -38,6 +38,62 @@ SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "plugin_installer.json")
 
 # Global flag to ensure startup check runs only once per session
 _startup_check_performed = False
+
+
+def _refresh_plugin_menus(mw):
+    """
+    After discover_plugins(), strip stale plugin-managed menu/toolbar entries and
+    rebuild them from the newly populated plugin_manager registries.
+
+    This allows installs, updates, and removals to take effect immediately without
+    requiring an application restart.
+    """
+    PLUGIN_ACTION_TAG = "plugin_managed"
+
+    def _clean_menu(menu):
+        """Recursively remove plugin-managed leaf actions and now-empty submenus."""
+        for action in list(menu.actions()):
+            submenu = action.menu()
+            if submenu is not None:
+                _clean_menu(submenu)
+                # Remove the submenu entry itself if it has no visible items left
+                has_content = any(not a.isSeparator() for a in submenu.actions())
+                if not has_content:
+                    menu.removeAction(action)
+            elif action.data() == PLUGIN_ACTION_TAG:
+                menu.removeAction(action)
+
+    try:
+        for top_action in list(mw.menuBar().actions()):
+            top_menu = top_action.menu()
+            if top_menu is not None:
+                _clean_menu(top_menu)
+    except Exception as e:
+        print(f"Plugin Installer: menu cleanup error: {e}")
+
+    if not hasattr(mw, 'init_manager'):
+        return
+
+    im = mw.init_manager
+    # Allow _add_registered_plugin_actions to re-add a separator before any new
+    # top-level plugin menus (the flag is only used for first-time top-level menus,
+    # not for the existing Plugin menu, so it is safe to reset).
+    try:
+        im._plugin_menubar_separator_added = False
+    except Exception:
+        pass
+
+    try:
+        if hasattr(im, '_add_registered_plugin_actions'):
+            im._add_registered_plugin_actions()
+    except Exception as e:
+        print(f"Plugin Installer: menu rebuild error: {e}")
+
+    try:
+        if hasattr(im, '_add_plugin_toolbar_actions'):
+            im._add_plugin_toolbar_actions()
+    except Exception as e:
+        print(f"Plugin Installer: toolbar rebuild error: {e}")
 
 def load_settings():
     if os.path.exists(SETTINGS_FILE):
@@ -58,28 +114,24 @@ def save_settings(settings):
 
 def initialize(context):
     """
-    Called by PluginManager at startup.
-    Checks for updates if enabled in settings.
+    Called by PluginManager at startup (and on plugin reload).
+    Registers the Plugin menu entry every time, and schedules the startup
+    update check once per session.
     """
     global _startup_check_performed
-    if _startup_check_performed:
-        return
-    _startup_check_performed = True
 
-    settings = load_settings()
     mw = context.get_main_window()
     if not mw:
         return
 
-    # Check if "check_at_startup" is explicitly configured
-    # if "check_at_startup" not in settings:
-    #     # First Run: Ask the user ONCE
-    #     from PyQt6.QtCore import QTimer
-    #     QTimer.singleShot(2000, lambda: ask_user_permission(mw))
-    elif settings.get("check_at_startup"):
-        # Configured True: Run check
-        from PyQt6.QtCore import QTimer
-        QTimer.singleShot(2000, lambda: perform_startup_check(mw))
+
+    # Schedule the startup update check only once per session.
+    if not _startup_check_performed:
+        _startup_check_performed = True
+        settings = load_settings()
+        if settings.get("check_at_startup"):
+            from PyQt6.QtCore import QTimer
+            QTimer.singleShot(2000, lambda: perform_startup_check(mw))
 
 def ask_user_permission(mw):
     """Ask user if they want to enable automatic updates."""
@@ -124,6 +176,10 @@ def perform_startup_check(mw):
         print(f"Plugin Installer Auto-run failed: {e}")
 
 def run(main_window):
+    if hasattr(main_window, 'host'):
+        main_window = main_window.host
+    if hasattr(main_window, 'host'):
+        main_window = main_window.host
     """
     Entry point for the plugin.
     Display the Plugin Installer window.
@@ -264,8 +320,10 @@ class PluginDetailsDialog(QDialog):
             # Close details dialog
             self.accept()
             
-            # Refresh parent table
-            self.parent_installer.main_window.plugin_manager.discover_plugins(self.parent_installer.main_window)
+            # Reload plugins and immediately update Plugin menu + toolbar
+            mw = self.parent_installer.main_window
+            mw.plugin_manager.discover_plugins(mw)
+            _refresh_plugin_menus(mw)
             self.parent_installer.check_updates()
             
         except Exception as e:
@@ -330,7 +388,7 @@ class PluginInstallerWindow(QDialog):
     def get_app_version(self):
         """Robustly detect MoleditPy version."""
         try:
-            from moleditpy.modules.constants import VERSION as APP_VERSION
+            from moleditpy.utils.constants import VERSION as APP_VERSION
             return APP_VERSION
         except ImportError:
             try:
@@ -345,7 +403,7 @@ class PluginInstallerWindow(QDialog):
                     if main_dir not in sys.path:
                         sys.path.append(main_dir)
                     try:
-                        from moleditpy.modules.constants import VERSION as APP_VERSION
+                        from moleditpy.utils.constants import VERSION as APP_VERSION
                     except ImportError:
                         from moleditpy_linux.modules.constants import VERSION as APP_VERSION
                     return APP_VERSION
@@ -725,53 +783,23 @@ class PluginInstallerWindow(QDialog):
         self.accept()
 
     def closeEvent(self, event):
-        # Reload plugins on close (X button or Close button)
+        # Re-discover plugins so any installs/removals that happened this session
+        # are reflected, then immediately rebuild the Plugin menu and toolbar.
         if self.main_window and hasattr(self.main_window, 'plugin_manager'):
-            self.main_window.plugin_manager.discover_plugins(self.main_window)
+            try:
+                self.main_window.plugin_manager.discover_plugins(self.main_window)
+                _refresh_plugin_menus(self.main_window)
+            except Exception as e:
+                print(f"Plugin Installer: failed to refresh menus on close: {e}")
 
-            # Hot Replace: Update Main Window Menu to reflect changes
-            # if hasattr(self.main_window, 'update_plugin_menu'):
-            #     plugin_menu = None
-            #     try:
-            #         if hasattr(self.main_window, 'menuBar'):
-            #             menus = [a.menu() for a in self.main_window.menuBar().actions() if a.menu()]
-            #             
-            #             # Strategy 1: Find by Name "Plugin" (startswith to handle "Plugins")
-            #             for menu in menus:
-            #                 title = menu.title().replace('&', '')
-            #                 if title.lower().startswith('plugin'):
-            #                     plugin_menu = menu
-            #                     break
-            #             
-            #             # Strategy 2: Find by Content (contains "Plugin Manager...")
-            #             if not plugin_menu:
-            #                 for menu in menus:
-            #                     for action in menu.actions():
-            #                         if action.text().replace('&', '') == "Plugin Manager...":
-            #                             plugin_menu = menu
-            #                             break
-            #                     if plugin_menu: break
-            #     except Exception:
-            #         pass
-            #     
-            #     if not plugin_menu:
-            #         # Fallback: Use dummy menu to ensure toolbars/global menus update
-            #         # even if we can't update the specific Plugin menu list.
-            #         plugin_menu = QMenu()
-            #     
-            #     try:
-            #         self.main_window.update_plugin_menu(plugin_menu)
-            #     except Exception as e:
-            #         print(f"Failed to update plugin menu: {e}")
-
-        # Refresh PluginManagerWindow if it is open (Sync with Manager Window logic)
+        # Sync any open PluginManagerWindow
         for widget in QApplication.topLevelWidgets():
             if type(widget).__name__ == 'PluginManagerWindow':
                 if hasattr(widget, 'refresh_plugin_list'):
                     try:
                         widget.refresh_plugin_list()
                     except Exception as e:
-                        print(f"Failed to refresh PluginManagerWindow: {e}")
+                        print(f"Plugin Installer: failed to sync PluginManagerWindow: {e}")
 
         super().closeEvent(event)
 
@@ -1138,8 +1166,9 @@ class PluginInstallerWindow(QDialog):
                             else:
                                 QMessageBox.information(self, "Success", f"Successfully {verb_past} '{plugin_name}'.")
                             
-                            # Reload plugins
+                            # Reload plugins and immediately update Plugin menu + toolbar
                             self.main_window.plugin_manager.discover_plugins(self.main_window)
+                            _refresh_plugin_menus(self.main_window)
                             # Refresh our list
                             self.check_updates()
                             

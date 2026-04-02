@@ -9,7 +9,7 @@ from PyQt6.QtCore import Qt, QTimer
 
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Gaussian FCHK Loader"
-PLUGIN_VERSION = "2026.01.23"
+PLUGIN_VERSION = "2026.04.01"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Dispatches FCHK, FCH, and FCK files to appropriate analyzers (Freq vs MO) with priority handling."
 
@@ -222,3 +222,12 @@ def initialize(context):
         return False
         
     context.register_drop_handler(handle_drop, priority=100)
+
+def run(mw):
+    if not hasattr(mw, 'plugin_manager'):
+        return
+
+    from PyQt6.QtWidgets import QFileDialog
+    path, _ = QFileDialog.getOpenFileName(mw, "Open Gaussian FCHK", "", "Gaussian FCHK (*.fchk *.fck);;All Files (*)")
+    if path:
+        mw.plugin_manager.open_file(path)

@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                              QLabel, QColorDialog, QDockWidget, QMessageBox, 
                              QLineEdit, QListWidget, QAbstractItemView, QGroupBox, QDialog)
 from PyQt6.QtGui import QColor, QCloseEvent
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 import traceback
 import sys
 import os
@@ -12,7 +12,7 @@ import json
 
 # Try importing from the installed package first (pip package structure)
 try:
-    from moleditpy.modules.constants import CPK_COLORS_PV
+    from moleditpy.utils.constants import CPK_COLORS_PV
 except ImportError:
     # Fallback to local 'modules' if running from source or sys.path is set that way
     try:
@@ -21,37 +21,51 @@ except ImportError:
         # Final fallback map
         CPK_COLORS_PV = {}
 
-__version__="2026.02.12"
-__author__="HiroYokoyama"
-
+# Plugin Metadata
 PLUGIN_NAME = "Atom Colorizer"
+PLUGIN_VERSION = "2026.04.01"
+PLUGIN_AUTHOR = "HiroYokoyama"
+PLUGIN_DESCRIPTION = "Applies custom colors to atoms in the 3D viewer. Refactored for V3 API."
 
 class AtomColorizerWindow(QDialog):
-    def __init__(self, main_window):
-        super().__init__(parent=main_window)
-        self.mw = main_window
-        self.plotter = self.mw.plotter
+    """
+    Plugin window for applying custom colors to atoms in the 3D scene.
+    Refactored for MoleditPy V3.0 API.
+    """
+    def __init__(self, context):
+        super().__init__(parent=context.get_main_window())
+        self.context = context
+        self._restore_measurement_mode = False
+        self._restore_edit_mode = False
+        self._forced_measurement_mode = False
         
-        # Set window properties for modeless behavior
+        # Set window properties
         self.setModal(False)
         self.setWindowTitle(PLUGIN_NAME)
-        self.setWindowFlags(Qt.WindowType.Window) # Ensures it has min/max/close buttons
+        self.setWindowFlags(Qt.WindowType.Window) 
         
-        # Initialize current_color as QColor object
         self.current_color = QColor(255, 0, 0) # Default red
-        
         self.init_ui()
         
-        # Auto-enable 3D Selection (Measurement Mode) if not already active
-        try:
-            if hasattr(self.mw, 'measurement_mode') and not self.mw.measurement_mode:
-                if hasattr(self.mw, 'toggle_measurement_mode'):
-                    self.mw.toggle_measurement_mode(True)
-                    # Sync UI button state if possible
-                    if hasattr(self.mw, 'measurement_action'):
-                        self.mw.measurement_action.setChecked(True)
-        except Exception as e:
-            print(f"Failed to auto-enable 3D selection: {e}")
+        # Register window for V3 lifecycle management
+        self.context.register_window("main_panel", self)
+        
+        # Ensure 3D picking is active while this window is open.
+        mw = self.context.get_main_window()
+        if mw:
+            try:
+                if hasattr(mw, "edit_3d_manager"):
+                    self._restore_measurement_mode = bool(getattr(mw.edit_3d_manager, "measurement_mode", False))
+                    self._restore_edit_mode = bool(getattr(mw.edit_3d_manager, "is_3d_edit_mode", False))
+                if hasattr(mw, "edit_3d_manager") and not getattr(mw.edit_3d_manager, "measurement_mode", False):
+                    if hasattr(mw, "init_manager") and hasattr(mw.init_manager, "measurement_action"):
+                        mw.init_manager.measurement_action.setChecked(True)
+                    mw.edit_3d_manager.toggle_measurement_mode(True)
+                    self._forced_measurement_mode = True
+            except Exception:
+                pass
+            
+        self.context.show_status_message("Atom Colorizer: 3D picking enabled.")
 
     def init_ui(self):
         layout = QVBoxLayout()
@@ -70,7 +84,6 @@ class AtomColorizerWindow(QDialog):
         sel_layout.addWidget(self.le_indices)
         
         # Auto-update timer
-        from PyQt6.QtCore import QTimer
         self.sel_timer = QTimer(self)
         self.sel_timer.timeout.connect(self._auto_update_selection)
         self.sel_timer.start(200) # Check every 200ms
@@ -114,29 +127,23 @@ class AtomColorizerWindow(QDialog):
         layout.addWidget(close_btn)
 
         self.setLayout(layout)
-        
-        # Resize window to a reasonable default
         self.resize(300, 400)
 
     def get_selection_from_viewer(self):
-        """
-        Get selected atom indices from the main window.
-        Only checks 3D selection and Measurement selection. 2D selection is ignored per request.
-        """
-        indices = set()
+        """Get selected atom indices from the context (2D) and Edit3DManager (3D)."""
+        # Fetch 2D indices from core API
+        indices = set(self.context.get_selected_atom_indices())
         
-        # 1. Check direct 3D selection (e.g. from 3D Drag or specific 3D select tools)
-        if hasattr(self.mw, 'selected_atoms_3d') and self.mw.selected_atoms_3d:
-            indices.update(self.mw.selected_atoms_3d)
-
-        # 2. Check measurement selection (commonly used for picking atoms in 3D)
-        if hasattr(self.mw, 'selected_atoms_for_measurement') and self.mw.selected_atoms_for_measurement:
-             # selected_atoms_for_measurement might be list of int or objects, typically ints in this internal API
-             for item in self.mw.selected_atoms_for_measurement:
-                 if isinstance(item, int):
-                     indices.add(item)
-
-        # Update the line edit
+        # Fetch 3D indices directly from Edit3DManager due to "JUST PLUGIN" constraint
+        mw = self.context.get_main_window()
+        if mw and hasattr(mw, "edit_3d_manager"):
+            indices_3d = getattr(mw.edit_3d_manager, "selected_atoms_3d", set())
+            if isinstance(indices_3d, (set, list)):
+                indices.update(indices_3d)
+            picked_for_measurement = getattr(mw.edit_3d_manager, "selected_atoms_for_measurement", [])
+            if isinstance(picked_for_measurement, (set, list, tuple)):
+                indices.update(int(i) for i in picked_for_measurement)
+        
         sorted_indices = sorted(list(indices))
         new_text = ",".join(map(str, sorted_indices))
         if self.le_indices.text() != new_text:
@@ -168,104 +175,126 @@ class AtomColorizerWindow(QDialog):
             QMessageBox.warning(self, "Error", "Invalid indices format.")
             return
 
-        if not self.mw.current_mol:
+        mol = self.context.current_molecule
+        if not mol:
             QMessageBox.warning(self, "Error", "No molecule loaded.")
             return
 
         try:
-            # Use the API to set atom colors
+            controller = self.context.get_3d_controller()
             hex_color = self.current_color.name()
             
             for idx in target_indices:
-                if 0 <= idx < self.mw.current_mol.GetNumAtoms():
-                    # Access via main_window_view_3d proxy
-                    if hasattr(self.mw, 'main_window_view_3d'):
-                        self.mw.main_window_view_3d.update_atom_color_override(idx, hex_color)
-                    else:
-                         # Fallback if unproxied (unlikely in this architecture)
-                         pass
+                if 0 <= idx < mol.GetNumAtoms():
+                    controller.set_atom_color(idx, hex_color)
+            
+            self.context.refresh_3d_view()
                     
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to apply color: {e}")
             traceback.print_exc()
 
     def reset_colors(self):
-        if not self.mw.current_mol:
+        mol = self.context.current_molecule
+        if not mol:
             return
 
         try:
-            # Clear all color overrides using the API
-            for i in range(self.mw.current_mol.GetNumAtoms()):
-                if hasattr(self.mw, 'main_window_view_3d'):
-                    self.mw.main_window_view_3d.update_atom_color_override(i, None)
-                
+            controller = self.context.get_3d_controller()
+            for i in range(mol.GetNumAtoms()):
+                controller.set_atom_color(i, None)
+            
+            self.context.refresh_3d_view()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to reset colors: {e}")
 
+    def closeEvent(self, event: QCloseEvent):
+        """Restore previous 3D interaction mode when the panel closes."""
+        try:
+            if self.sel_timer.isActive():
+                self.sel_timer.stop()
+        except Exception:
+            pass
 
-# Global reference to keep window alive
-_atom_colorizer_window = None
+        mw = self.context.get_main_window()
+        if mw and hasattr(mw, "edit_3d_manager"):
+            try:
+                if self._forced_measurement_mode:
+                    mw.edit_3d_manager.clear_measurement_selection()
+                    if hasattr(mw, "init_manager") and hasattr(mw.init_manager, "measurement_action"):
+                        mw.init_manager.measurement_action.setChecked(self._restore_measurement_mode)
+                    mw.edit_3d_manager.toggle_measurement_mode(self._restore_measurement_mode)
+                if hasattr(mw, "ui_manager"):
+                    mw.ui_manager.toggle_3d_edit_mode(self._restore_edit_mode)
+            except Exception:
+                pass
+        super().closeEvent(event)
 
-def run(mw):
-    global _atom_colorizer_window
-    
-    # Check if window already exists
-    if _atom_colorizer_window is None:
-        _atom_colorizer_window = AtomColorizerWindow(mw)
-        # Handle cleanup when window is closed
-        _atom_colorizer_window.finished.connect(lambda: _cleanup_window())
-    
-    _atom_colorizer_window.show()
-    _atom_colorizer_window.raise_()
-    _atom_colorizer_window.activateWindow()
-
-def _cleanup_window():
-    global _atom_colorizer_window
-    _atom_colorizer_window = None
-
+def launch(context):
+    win = context.get_window("main_panel")
+    if win:
+        win.show()
+        win.raise_()
+        win.activateWindow()
+        return
+        
+    win = AtomColorizerWindow(context)
+    win.show()
 
 def initialize(context):
-    """
-    Register plugin save/load handlers for persistence.
-    """
-    mw = context.get_main_window()
+    """MoleditPy Plugin Entry Point (V3.0)"""
     
     def save_handler():
         """Save color overrides to project file."""
-        # _plugin_color_overrides is stored on the MainWindow instance by the API
-        if not hasattr(mw, '_plugin_color_overrides'):
+        mw = context.get_main_window()
+        v3d = getattr(mw, 'view_3d_manager', None)
+        if not v3d or not hasattr(v3d, '_plugin_color_overrides'):
             return {}
         
-        # Convert color overrides to JSON-serializable format
         return {
-            "atom_colors": {str(k): v for k, v in mw._plugin_color_overrides.items()}
+            "atom_colors": {str(k): v for k, v in v3d._plugin_color_overrides.items()}
         }
     
     def load_handler(data):
-        """Load color overrides from project file."""
+        """Restore color overrides from project file."""
         if not data:
             return
         
         atom_colors = data.get("atom_colors", {})
-        
-        # Restore color overrides using the API
-        if hasattr(mw, 'main_window_view_3d'):
-            for atom_idx_str, hex_color in atom_colors.items():
-                try:
-                    atom_idx = int(atom_idx_str)
-                    mw.main_window_view_3d.update_atom_color_override(atom_idx, hex_color)
-                except Exception as e:
-                    print(f"Failed to restore color for atom {atom_idx_str}: {e}")
+        controller = context.get_3d_controller()
+        for atom_idx_str, hex_color in atom_colors.items():
+            try:
+                controller.set_atom_color(int(atom_idx_str), hex_color)
+            except:
+                pass
+        context.refresh_3d_view()
     
     def on_document_reset():
         """Reset colors when a new document is created."""
-        if hasattr(mw, '_plugin_color_overrides'):
-            mw._plugin_color_overrides.clear()
-        global _atom_colorizer_window
-        if _atom_colorizer_window:
-            _atom_colorizer_window.le_indices.clear()
+        mw = context.get_main_window()
+        v3d = getattr(mw, 'view_3d_manager', None)
+        if v3d and hasattr(v3d, '_plugin_color_overrides'):
+            v3d._plugin_color_overrides.clear()
+        
+        win = context.get_window("main_panel")
+        if win:
+            win.le_indices.clear()
 
-    # Register handlers
     context.register_save_handler(save_handler)
-    context.register_document_reset_handler(on_document_reset)
     context.register_load_handler(load_handler)
+    context.register_document_reset_handler(on_document_reset)
+    context.show_status_message(f"{PLUGIN_NAME} Loaded.")
+
+
+def run(mw):
+    """Legacy entry point for older plugin loaders."""
+    if hasattr(mw, "host"):
+        mw = mw.host
+
+    if not hasattr(mw, "plugin_manager"):
+        return
+
+    from moleditpy.plugins.plugin_interface import PluginContext
+
+    context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
+    launch(context)

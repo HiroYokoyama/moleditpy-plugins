@@ -36,9 +36,9 @@ except ImportError:
     vtk = None
 
 PLUGIN_NAME = "Advanced Rendering"
-PLUGIN_VERSION = "2026.02.04"
+PLUGIN_VERSION = "2026.04.01"
 PLUGIN_AUTHOR = "HiroYokoyama"
-PLUGIN_DESCRIPTION = "Fine-grained control over Scene lighting, shadows, and PBR effects. (Stability Fixed)"
+PLUGIN_DESCRIPTION = "Fine-grained control over Scene lighting, shadows, and PBR effects. Refactored for V3 API."
 
 # --- HELPER CLASSES ---
 
@@ -68,15 +68,14 @@ class HideOnCloseDialog(QDialog):
 def get_icon():
     return None
 
-def load_plugin(main_window):
+def load_plugin_from_mw(mw):
     """
     Shows the plugin dialog. Creates it only if necessary.
+    Uses mw directly (for legacy/run calls).
     """
     # 1. Retrieve the persistent dialog instance
-    dialog = getattr(main_window, '_adv_graphics_dialog', None)
+    dialog = getattr(mw, '_adv_graphics_dialog', None)
     
-    # 2. If it doesn't exist or was accidentally destroyed from C++, recreate it
-    # Check if dialog is a disconnected C++ object using sip (if available) or simple try/except later
     is_deleted = False
     try:
         if dialog and sip.isdeleted(dialog):
@@ -85,18 +84,18 @@ def load_plugin(main_window):
 
     if not dialog or not isinstance(dialog, QDialog) or is_deleted:
         # Ensure the viewer widget exists
-        viewer = getattr(main_window, '_adv_rendering_viewer', None)
+        viewer = getattr(mw, '_adv_rendering_viewer', None)
         try:
             if viewer and sip.isdeleted(viewer):
                 viewer = None
         except: pass
         if not viewer:
             # Should have been created in initialize, but fallback just in case
-            viewer = AdvancedGraphicsWidget(main_window)
-            main_window._adv_rendering_viewer = viewer
+            viewer = AdvancedGraphicsWidget(mw)
+            mw._adv_rendering_viewer = viewer
         
         # Create the container dialog
-        dialog = HideOnCloseDialog(main_window)
+        dialog = HideOnCloseDialog(mw)
         dialog.setWindowTitle("Advanced Graphics Settings")
         dialog.setMinimumWidth(400)
         
@@ -106,28 +105,28 @@ def load_plugin(main_window):
         # Reparent viewer to this dialog
         viewer.setParent(dialog)
         dlg_layout.addWidget(viewer)
-        viewer.show()  # Make widget visible within the dialog
+        viewer.show()
         
-        # Link viewer for save on close
         dialog.set_viewer(viewer)
+        mw._adv_graphics_dialog = dialog
         
-        main_window._adv_graphics_dialog = dialog
+        # Keep alive via plugin manager if possible
+        if hasattr(mw, 'plugin_manager'):
+            mw.plugin_manager.register_window(PLUGIN_NAME, "main_panel", dialog)
 
     # 3. Show the dialog
     try:
         dialog.show()
         dialog.raise_()
         dialog.activateWindow()
-    except RuntimeError:
-        # Detected deleted C++ object, force recreate
-        main_window._adv_graphics_dialog = None
-        load_plugin(main_window)
     except Exception as e:
-        logging.error(f"Error showing plugin dialog: {e}")
+        # Detected deleted C++ object or other error, force recreate
+        mw._adv_graphics_dialog = None
+        load_plugin_from_mw(mw)
 
 def initialize(context):
     """
-    Plugin entry point. Initializes backend widget and hooks into menus.
+    Plugin entry point. Initializes backend widget and registers styles.
     """
     mw = context.get_main_window()
     
@@ -145,45 +144,29 @@ def initialize(context):
             mw._adv_graphics_dialog.close()
             mw._adv_graphics_dialog.deleteLater()
         except: pass
-        mw._adv_graphics_dialog = None  # Ensure ID is cleared
+        mw._adv_graphics_dialog = None
     
     # 2. Create Background Widget (State Holder)
     viewer = AdvancedGraphicsWidget(mw)
     mw._adv_rendering_viewer = viewer
-
-    # Ensure settings are loaded to check toolbar preference
     viewer.load_settings()
 
-    # 2. Register Menu Action - DISABLED (causes menu artifacts)
-    context.add_menu_action("Settings/Advanced Graphics Settings", lambda: load_plugin(mw))
-
-
-    # 4. Register PBR Styles & Draw Overrides
+    # 3. Register PBR Styles & Draw Overrides
     def make_style_drawer(base_style_key, force_pbr=False):
         def drawer(mw_obj, mol):
-            # A. Draw standard version using built-in method
-            if hasattr(mw_obj, 'main_window_view_3d'):
-                mw_obj.main_window_view_3d.draw_standard_3d_style(mol, style_override=base_style_key)
+            if hasattr(mw_obj, 'view_3d_manager'):
+                mw_obj.view_3d_manager.draw_standard_3d_style(mol, style_override=base_style_key)
             
-            # B. Apply PBR/Effects
             v = getattr(mw_obj, '_adv_rendering_viewer', None)
             if v:
                 if force_pbr:
-                    # Temporarily force PBR ON for this specific style render
                     v.apply_pbr_forced()
                 else:
-                    # Use current checkbox state
                     v.update_atoms_pbr()
-                
-                # Apply Custom Lighting Override
                 v.update_lights()
-                
-                # Sync UI to match the new style
-                v.sync_style_ui(getattr(mw_obj, 'current_3d_style', ''))
-                    
+                v.sync_style_ui(getattr(mw_obj.view_3d_manager, 'current_3d_style', ''))
         return drawer
 
-    # Register PBR variants
     styles = [
         ("Ball & Stick (Advanced Rendering)", "Ball & Stick (Advanced Rendering)"),
         ("CPK (Advanced Rendering)", "CPK (Advanced Rendering)"),
@@ -194,7 +177,8 @@ def initialize(context):
     for display_name, style_key in styles:
         context.register_3d_style(style_key, make_style_drawer(style_key.split(' (')[0].lower().replace(' & ', '_and_'), force_pbr=True))
 
-    # Styles are now automatically added to the menu by the main application via register_3d_style.
+    # 4. Add Menu Action
+    context.add_menu_action("Settings/Advanced Graphics Settings", lambda: load_plugin_from_mw(mw))
 
 # --- MAIN WIDGET ---
 
@@ -203,6 +187,7 @@ class AdvancedGraphicsWidget(QWidget):
         super().__init__(parent_window)
         self.hide()  # Prevent gray bar from appearing before widget is added to layout
         self.mw = parent_window
+        # # [DIRECT ACCESS] to plotter
         self.plotter = getattr(self.mw, 'plotter', None)
         
         # State Variables
@@ -269,7 +254,7 @@ class AdvancedGraphicsWidget(QWidget):
              self.update_lights()
              self.update_atoms_pbr()
              # Enforce scene effects for persistence
-             self.sync_style_ui(getattr(self.mw, 'current_3d_style', ''))
+             self.sync_style_ui(getattr(self.mw.view_3d_manager, 'current_3d_style', ''))
              
              logging.info("Advanced Rendering: Lighting & Effects Initialized Successfully.")
         else:
@@ -286,7 +271,7 @@ class AdvancedGraphicsWidget(QWidget):
     #     """Loads and applies the last used 3D style from plugin settings."""
     #     try:
     #         saved_style = self.presets.get("last_active_style", "")
-    #         current = getattr(self.mw, 'current_3d_style', '')
+    #         current = getattr(self.mw.view_3d_manager, 'current_3d_style', '')
     #         if saved_style and saved_style != current:
     #             if hasattr(self.mw, 'set_3d_style'):
     #                 self.mw.set_3d_style(saved_style)
@@ -522,7 +507,7 @@ class AdvancedGraphicsWidget(QWidget):
     def _poll_style_change(self):
         """Monitors current_3d_style and updates UI if changed."""
         if not self.mw: return
-        curr = getattr(self.mw, 'current_3d_style', '')
+        curr = getattr(self.mw.view_3d_manager, 'current_3d_style', '')
         if curr != self._last_polled_style:
             self._last_polled_style = curr
             self.sync_style_ui(curr)
@@ -555,7 +540,7 @@ class AdvancedGraphicsWidget(QWidget):
         if not plotter or not hasattr(plotter, 'renderer'): return
 
         try:
-            curr_style = getattr(self.mw, 'current_3d_style', '')
+            curr_style = getattr(self.mw.view_3d_manager, 'current_3d_style', '')
             is_advanced = "(Advanced Rendering)" in curr_style
             
             # --- FIX: Strict Policy for PBR ---
@@ -710,7 +695,7 @@ class AdvancedGraphicsWidget(QWidget):
         if not self.plotter: return
         
         # PBRスタイル以外で強制的にチェックされた場合のガード
-        curr_style = getattr(self.mw, 'current_3d_style', '')
+        curr_style = getattr(self.mw.view_3d_manager, 'current_3d_style', '')
         if checked and "(Advanced Rendering)" not in curr_style and not self.use_atom_pbr:
              self.check_shadows.blockSignals(True)
              self.check_shadows.setChecked(False)
@@ -788,7 +773,7 @@ class AdvancedGraphicsWidget(QWidget):
         # --- FIX: Strict Light Control ---
         # Default styles (SRC) must keep their original lighting.
         # Only override lighting if we are definitely in an Advanced Requesting style.
-        curr_style = getattr(self.mw, 'current_3d_style', '')
+        curr_style = getattr(self.mw.view_3d_manager, 'current_3d_style', '')
         if "(Advanced Rendering)" not in curr_style:
             return
 
@@ -870,7 +855,7 @@ class AdvancedGraphicsWidget(QWidget):
 
     def on_ssao_toggled(self, checked):
         # Strict Policy
-        curr_style = getattr(self.mw, 'current_3d_style', '')
+        curr_style = getattr(self.mw.view_3d_manager, 'current_3d_style', '')
         if checked and "(Advanced Rendering)" not in curr_style:
              self.check_ssao.blockSignals(True)
              self.check_ssao.setChecked(False)
@@ -888,7 +873,7 @@ class AdvancedGraphicsWidget(QWidget):
     
     def on_depth_peeling_toggled(self, checked):
         # Strict Policy
-        curr_style = getattr(self.mw, 'current_3d_style', '')
+        curr_style = getattr(self.mw.view_3d_manager, 'current_3d_style', '')
         if checked and "(Advanced Rendering)" not in curr_style:
              self.check_depth.blockSignals(True)
              self.check_depth.setChecked(False)
@@ -914,7 +899,7 @@ class AdvancedGraphicsWidget(QWidget):
 
     def on_edl_toggled(self, checked):
         # Strict Policy
-        curr_style = getattr(self.mw, 'current_3d_style', '')
+        curr_style = getattr(self.mw.view_3d_manager, 'current_3d_style', '')
         if checked and "(Advanced Rendering)" not in curr_style:
              self.check_edl.blockSignals(True)
              self.check_edl.setChecked(False)

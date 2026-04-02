@@ -1,17 +1,18 @@
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Symmetry Analyzer"
-PLUGIN_VERSION = "2025.12.31"
+PLUGIN_VERSION = "2026.04.01"
 PLUGIN_AUTHOR = "HiroYokoyama"
-PLUGIN_DESCRIPTION = "Analyzes molecular symmetry (point group) and symmetrizes structures."
+PLUGIN_DESCRIPTION = "Analyzes molecular symmetry (point group) and symmetrizes structures. Refactored for MoleditPy V3.0 API."
 
 import sys
 import numpy as np
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, 
     QDoubleSpinBox, QPushButton, QListWidget, 
-    QTextEdit, QGroupBox, QMessageBox, QSplitter
+    QTextEdit, QGroupBox, QMessageBox, QSplitter, QDialog
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from moleditpy.plugins.plugin_interface import PluginContext
 
 # --- RDKit Imports ---
 try:
@@ -67,7 +68,7 @@ class SymmetryAnalysisWorker(QThread):
         
         self.finished.emit(group_data, found_any)
 
-class SymmetryAnalysisPlugin(QWidget):
+class SymmetryAnalysisPlugin(QDialog):
     """
     MoleditPy Plugin: Molecular Symmetry Analyzer & Symmetrizer
     
@@ -78,18 +79,15 @@ class SymmetryAnalysisPlugin(QWidget):
     4. 射影演算子法による構造の対照化 (Symmetrization)
     """
     
-    def __init__(self, interface):
+    def __init__(self, context):
         """
-        :param interface: MoleditPyのメインインターフェースオブジェクト
-                          (get_molecule(), update_view() 等を持つと想定)
+        :param context: MoleditPy PluginContext
         """
-        # 親ウィンドウを設定することで、メインウィンドウの前面に表示され、かつ他のアプリの後ろに行くようになる
-        # interfaceがQWidget継承なら親にする
-        parent = interface if hasattr(interface, 'windowTitle') else None 
-        super().__init__(parent)
-        self.setWindowFlags(Qt.WindowType.Window) # 独立したウィンドウとして振る舞う
+        # Set parent to main window for stability
+        super().__init__(parent=context.get_main_window())
+        self.setWindowFlags(Qt.WindowType.Window) # Independent window
         
-        self.interface = interface
+        self.context = context
         self.analyzer = None     # pymatgen PointGroupAnalyzer instance
         self.symmetry_ops = []   # Detected symmetry operations
         self.worker = None       # QThread instance
@@ -108,10 +106,11 @@ class SymmetryAnalysisPlugin(QWidget):
         
         self.init_ui()
 
-        if hasattr(self.interface, 'update_view'):
-            self.interface.update_view()
-        elif hasattr(self.interface, 'canvas'):
-            self.interface.canvas.update() # 例
+        # Namespaced window registration for V3 lifecycle management
+        self.context.register_window("main_panel", self)
+
+        # Initial view update via context
+        self.context.refresh_3d_view()
 
     def init_ui(self):
         main_layout = QVBoxLayout(self)
@@ -207,12 +206,7 @@ class SymmetryAnalysisPlugin(QWidget):
 
     def get_pymatgen_molecule(self):
         """MoleditPy(RDKit)の分子をpymatgen形式に変換"""
-        # Manual says: mw.current_mol holds the RDKit object
-        rd_mol = getattr(self.interface, 'current_mol', None)
-        # Fallback for Mock or if attribute is missing
-        if rd_mol is None and hasattr(self.interface, 'get_molecule'):
-             rd_mol = self.interface.get_molecule()
-             
+        rd_mol = self.context.current_molecule
         if rd_mol is None:
             return None
 
@@ -490,7 +484,7 @@ class SymmetryAnalysisPlugin(QWidget):
 
     def visualize_ops(self, ops_list):
         """指定された複数の対称操作を3Dビューに描画する"""
-        if not hasattr(self.interface, 'plotter'):
+        if not self.context.plotter:
             return
             
         import numpy as np
@@ -499,7 +493,7 @@ class SymmetryAnalysisPlugin(QWidget):
         except ImportError:
             return
 
-        plotter = self.interface.plotter
+        plotter = self.context.plotter
         
         # 以前の表示をクリア
         if not hasattr(self, 'vis_actors'):
@@ -514,9 +508,7 @@ class SymmetryAnalysisPlugin(QWidget):
             return
 
         # 分子の重心(COM)を計算 (共通)
-        rd_mol = getattr(self.interface, 'current_mol', None)
-        if rd_mol is None and hasattr(self.interface, 'get_molecule'):
-            rd_mol = self.interface.get_molecule()
+        rd_mol = self.context.current_molecule
             
         if rd_mol:
             conf = rd_mol.GetConformer()
@@ -679,32 +671,22 @@ class SymmetryAnalysisPlugin(QWidget):
 
     def update_rdkit_coords(self, new_coords):
         """計算された座標をRDKitオブジェクトに戻し、ビューを更新"""
-        rd_mol = getattr(self.interface, 'current_mol', None)
-        if rd_mol is None and hasattr(self.interface, 'get_molecule'):
-             rd_mol = self.interface.get_molecule()
-
+        rd_mol = self.context.current_molecule
         if rd_mol is None:
             return
             
         # Undo stateを保存 (Manual Section 4)
-        if hasattr(self.interface, 'push_undo_state'):
-            self.interface.push_undo_state()
+        self.context.push_undo_checkpoint()
 
         conf = rd_mol.GetConformer()
         for i in range(rd_mol.GetNumAtoms()):
             # floatキャスト (numpy.float64 は RDKit C++ API で弾かれることがあるため)
             x, y, z = map(float, new_coords[i])
             conf.SetAtomPosition(i, Point3D(x, y, z))
-            
-        # 3Dビューの更新 (Manual Section 4: mw.draw_molecule_3d(mol))
-        if hasattr(self.interface, 'draw_molecule_3d'):
-             self.interface.draw_molecule_3d(rd_mol)
-             
-        # その他の更新シグナル (Legacy support or generic)
-        if hasattr(self.interface, 'update_view'):
-            self.interface.update_view()
-        elif hasattr(self.interface, 'canvas'):
-            self.interface.canvas.update()
+
+        # 3Dビューの全再描画 (conformerを更新したのでdraw_molecule_3dで再描画)
+        self.context.current_mol = rd_mol
+        self.context.refresh_3d_view()
 
     def closeEvent(self, event):
         """ウィンドウが閉じられるときの処理 (クリーンアップ)"""
@@ -715,8 +697,8 @@ class SymmetryAnalysisPlugin(QWidget):
                 self.worker.terminate() # 強制終了
                 
         # 1. 3D可視化の消去
-        if hasattr(self.interface, 'plotter') and hasattr(self, 'vis_actors'):
-            plotter = self.interface.plotter
+        if self.context.plotter and hasattr(self, 'vis_actors'):
+            plotter = self.context.plotter
             for actor in self.vis_actors:
                 plotter.remove_actor(actor)
             self.vis_actors = []
@@ -736,31 +718,22 @@ class SymmetryAnalysisPlugin(QWidget):
 
 def initialize(context):
     """
-    Initialize the plugin.
+    Initialize the Symmetry Analyzer plugin.
     """
-    def show_window():
-        interface = context.get_main_window()
-        run(interface)
+    def toggle_window():
+        win = context.get_window("main_panel")
+        if win:
+            win.show()
+            win.raise_()
+            win.activateWindow()
+            return
 
-    context.add_menu_action("3D Edit/Symmetrize...", show_window)
+        new_win = SymmetryAnalysisPlugin(context)
+        new_win.setWindowTitle("Symmetry Analyzer")
+        new_win.resize(400, 600)
+        new_win.show()
 
-def run(interface):
-    """
-    MoleditPy Plugin Entry Point
-    :param interface: The main application window or interface object
-    """
-    # 既存のウィンドウがあれば閉じるなどの処理が必要かもしれませんが、
-    # ここではシンプルに新しいウィンドウを作成して表示します。
-    
-    # interface (MainWindow) を親として渡すと、メインウィンドウと一緒に最小化/終了されます
-    # ガベージコレクションされないように参照を保持します
-    if not hasattr(interface, 'symmetry_plugin_window'):
-        interface.symmetry_plugin_window = SymmetryAnalysisPlugin(interface)
-        interface.symmetry_plugin_window.setWindowTitle("Symmetry Analyzer")
-        interface.symmetry_plugin_window.resize(400, 600)
-    
-    interface.symmetry_plugin_window.show()
-    interface.symmetry_plugin_window.raise_()
+    context.add_menu_action("3D Edit/Symmetry Analyzer...", toggle_window)
 
 if __name__ == "__main__":
     from PyQt6.QtWidgets import QApplication
@@ -810,3 +783,27 @@ if __name__ == "__main__":
     
     sys.exit(app.exec())
 
+def run(mw):
+    if not hasattr(mw, 'plugin_manager'):
+        return
+
+    # Standard V3 launch pattern
+    plugin_id = "symmetry_analyzer"
+    context = PluginContext(mw.plugin_manager, plugin_id)
+
+    # We need the toggle_window function defined in initialize, 
+    # but since we can't add functions, we'll replicate the core logic here.
+    win = context.get_window("main_panel")
+    if win:
+        win.show()
+        win.raise_()
+        win.activateWindow()
+        return
+
+    from PyQt6.QtWidgets import QDialog
+    new_win = SymmetryAnalysisPlugin(context)
+    new_win.setWindowTitle("Symmetry Analyzer")
+    new_win.resize(400, 600)
+    new_win.show()
+    new_win.raise_()
+    new_win.activateWindow()

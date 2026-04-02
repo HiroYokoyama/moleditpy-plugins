@@ -6,7 +6,7 @@ import sys
 
 # --- Plugin Basic Information ---
 PLUGIN_NAME = "Paste from ChemDraw"
-PLUGIN_VERSION = "2026.01.15"
+PLUGIN_VERSION = "2026.04.01"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Paste chemical structures from ChemDraw clipboard data. Developed on ChemDraw version 25.5."
 
@@ -17,15 +17,27 @@ def initialize(context):
     """
     context.add_menu_action(
         "Edit/Paste from ChemDraw",
-        lambda: run(context.get_main_window()),
+        lambda: run(context),
         shortcut="Ctrl+Shift+V"
     )
 
-def run(main_window):
+def run(context):
     """
-    ChemDrawからコピーされたMDLCTデータ（MOL形式テキスト）を
-    クリップボードから取得し、RDKit経由でキャンバスに挿入します。
+    Main entry point for ChemDraw paste logic.
+    Supports both V3 PluginContext and Legacy MainWindow.
     """
+    # 0. Context/Main Window resolution
+    if not hasattr(context, 'get_main_window'):
+        # Legacy mw passed as context
+        mw = context
+        if hasattr(mw, 'host'): mw = mw.host
+        from moleditpy.plugins.plugin_interface import PluginContext
+        context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
+    else:
+        mw = context.get_main_window()
+        if hasattr(mw, 'host'): mw = mw.host
+
+    main_window = mw
     
     # 1. クリップボード準備
     app = QApplication.instance()
@@ -123,6 +135,17 @@ def run(main_window):
     # 4. Drawing Logic
     if mol is not None:
         try:
+            # Center of the current 2D view
+            view_center = QPointF(0, 0)
+            # # [DIRECT ACCESS] to init_manager.view_2d for centering logic
+            mw = context.get_main_window()
+            view_2d = mw.init_manager.view_2d if mw and hasattr(mw, "init_manager") else None
+            
+            if view_2d:
+                viewport_rect = view_2d.viewport().rect()
+                view_center = view_2d.mapToScene(viewport_rect.center())
+
+            # Prepare molecule
             if mol.GetNumConformers() == 0:
                 AllChem.Compute2DCoords(mol)
             
@@ -133,11 +156,6 @@ def run(main_window):
                 pass
 
             SCALE_FACTOR = 40.0
-            view_center = QPointF(0, 0)
-            if hasattr(main_window, 'view_2d') and main_window.view_2d:
-                 viewport_rect = main_window.view_2d.viewport().rect()
-                 view_center = main_window.view_2d.mapToScene(viewport_rect.center())
-            
             conf = mol.GetConformer()
             positions = [conf.GetAtomPosition(i) for i in range(mol.GetNumAtoms())]
             cx = sum(p.x for p in positions) / len(positions) if positions else 0
@@ -145,7 +163,8 @@ def run(main_window):
 
             rdkit_idx_to_item = {}
 
-            if hasattr(main_window, 'scene') and main_window.scene:
+            # Use undo checkpoint for bulk changes
+            with context.undo_checkpoint("Paste from ChemDraw"):
                 # Create Atoms
                 for i in range(mol.GetNumAtoms()):
                     atom = mol.GetAtomWithIdx(i)
@@ -153,14 +172,12 @@ def run(main_window):
                     sx = (pos.x - cx) * SCALE_FACTOR + view_center.x()
                     sy = -(pos.y - cy) * SCALE_FACTOR + view_center.y() 
                     
-                    if hasattr(main_window.scene, 'create_atom'):
-                        a_id = main_window.scene.create_atom(
-                            atom.GetSymbol(), 
-                            QPointF(sx, sy), 
-                            charge=atom.GetFormalCharge()
-                        )
-                        if hasattr(main_window, 'data') and a_id in main_window.data.atoms:
-                            rdkit_idx_to_item[i] = main_window.data.atoms[a_id]['item']
+                    a_id = context.scene.create_atom(
+                        atom.GetSymbol(), 
+                        QPointF(sx, sy), 
+                        charge=atom.GetFormalCharge()
+                    )
+                    rdkit_idx_to_item[i] = a_id
 
                 # Create Bonds
                 for bond in mol.GetBonds():
@@ -168,8 +185,8 @@ def run(main_window):
                     idx2 = bond.GetEndAtomIdx()
                     
                     if idx1 in rdkit_idx_to_item and idx2 in rdkit_idx_to_item:
-                        item1 = rdkit_idx_to_item[idx1]
-                        item2 = rdkit_idx_to_item[idx2]
+                        id1 = rdkit_idx_to_item[idx1]
+                        id2 = rdkit_idx_to_item[idx2]
                         order = int(bond.GetBondTypeAsDouble())
                         
                         stereo = 0
@@ -177,34 +194,18 @@ def run(main_window):
                         if dir_ == Chem.BondDir.BEGINWEDGE: stereo = 1
                         elif dir_ == Chem.BondDir.BEGINDASH: stereo = 2
                         
-                        if hasattr(main_window.scene, 'create_bond'):
-                            main_window.scene.create_bond(item1, item2, bond_order=order, bond_stereo=stereo)
+                        # Use scene creation directly
+                        context.scene.create_bond(id1, id2, order=order, stereo=stereo)
             
-                if hasattr(main_window, 'has_unsaved_changes'):
-                    main_window.has_unsaved_changes = True
-                if hasattr(main_window, 'update_window_title'):
-                    main_window.update_window_title()
-                
-                # Redraw 2D scene to ensure implicit hydrogens are counted
-                # Use QTimer to defer the update so Qt can process the new items first
-                def update_scene():
-                    if hasattr(main_window, 'scene') and main_window.scene:
-                        # Trigger geometry recalculation (main code handles implicit H)
-                        for atom_item in rdkit_idx_to_item.values():
-                            if hasattr(atom_item, 'update'):
-                                atom_item.update()
-                        main_window.scene.update()
-                        
-                QTimer.singleShot(100, update_scene)  # 100ms delay
+                context.scene.update_all_items()
+                context.show_status_message(f"Pasted structure from ChemDraw.", 5000)
 
         except Exception as e:
             QMessageBox.critical(main_window, PLUGIN_NAME, f"Paste Error: {e}")
             # print(f"[{PLUGIN_NAME}] Error: {e}")
     else:
         # Failure Message
-        msg = "No valid MDLCT data found."
-        # if mol_text:
-        #      msg += f"\n(Data found in {fmt_found} but parsing failed.\nSee chemdraw_paste_debug.txt)"
+        msg = "No valid MDLCT data found in clipboard."
         QMessageBox.warning(main_window, PLUGIN_NAME, msg)
 
 

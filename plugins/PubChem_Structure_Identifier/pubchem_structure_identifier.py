@@ -15,7 +15,7 @@ from PyQt6.QtCore import Qt
 
 # --- Metadata ---
 PLUGIN_NAME = "PubChem Structure Identifier"
-PLUGIN_VERSION = "2025.12.28"
+PLUGIN_VERSION = "2026.04.01"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Resolve chemical names and fetch molecular properties (Name, Formula, Weight) via PubChem."
 PLUGIN_ID = "pubchem_structure_identifier"
@@ -205,9 +205,9 @@ class MoleculeDetailsDialog(QDialog):
         self.btn_copy.setText(text)
         self.btn_copy.setEnabled(True)
 
-def resolve_and_load(plugin_context):
+def resolve_and_load(context):
     """Callback for 'Import from PubChem'"""
-    mw = plugin_context.main_window
+    mw = context.get_main_window()
     
     name, ok = QInputDialog.getText(
         mw, "Import from PubChem", "Enter Chemical Name (e.g., Aspirin, Benzene):"
@@ -232,38 +232,25 @@ def resolve_and_load(plugin_context):
         QMessageBox.warning(mw, "PubChem Error", f"No structure found for '{name}'.")
         return
 
-    if hasattr(mw, 'main_window_string_importers'):
-        try:
-            mw.main_window_string_importers.load_from_smiles(smiles)
-            mw.statusBar().showMessage(f"Loaded '{name}' from PubChem.", 5000)
-            
-            if hasattr(mw, 'plotter_controller'):
-                 mw.plotter_controller.reset_camera()
-                 
-        except Exception as e:
-            QMessageBox.critical(mw, "Import Error", f"Failed to load SMILES:\n{e}")
-    else:
-        QMessageBox.critical(mw, "Error", "String Importer module not found in Main Window.")
+    try:
+        mw = context.get_main_window()
+        # # [DIRECT ACCESS] to string_importer_manager as this is not yet in the PluginContext API
+        if mw and hasattr(mw, "string_importer_manager"):
+            mw.string_importer_manager.load_from_smiles(smiles)
+            context.show_status_message(f"Loaded '{name}' from PubChem.", 5000)
+    except Exception as e:
+        QMessageBox.critical(mw, "Import Error", f"Failed to load SMILES:\n{e}")
 
-
-def identify_current_molecule(plugin_context):
+def identify_current_molecule(context):
     """Callback for 'Identify Molecule' action"""
-    mw = plugin_context.main_window
+    mw = context.get_main_window()
     
     if not Chem:
         QMessageBox.warning(mw, "Error", "RDKit is required for this feature.")
         return
 
     # Get Current Molecule
-    mol = None
-    if hasattr(mw, 'current_mol') and mw.current_mol:
-        mol = mw.current_mol
-    elif hasattr(mw, 'data') and hasattr(mw.data, 'to_rdkit_mol'):
-        try:
-            mol = mw.data.to_rdkit_mol()
-        except:
-            pass
-            
+    mol = context.current_molecule
     if not mol:
         QMessageBox.warning(mw, "Error", "No valid molecule loaded to identify.")
         return
@@ -290,13 +277,9 @@ def identify_current_molecule(plugin_context):
     else:
         QMessageBox.information(mw, "PubChem Result", f"Could not identify molecule.\nError: {error}")
 
-
-# --- Plugin Entry Points ---
-
-def run(main_window):
-    """Entry point for the plugin when launched from the Plugins menu."""
-    class Context:
-        def __init__(self, mw):
-            self.main_window = mw
-            
-    identify_current_molecule(Context(main_window))
+def run(mw):
+    if hasattr(mw, 'host'):
+        mw = mw.host
+    from moleditpy.plugins.plugin_interface import PluginContext
+    context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
+    identify_current_molecule(context)

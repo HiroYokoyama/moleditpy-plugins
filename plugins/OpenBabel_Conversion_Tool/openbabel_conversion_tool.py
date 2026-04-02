@@ -22,7 +22,7 @@ except ImportError:
         OBABEL_AVAILABLE = False
 
 PLUGIN_NAME = "OpenBabel Conversion Tool"
-PLUGIN_VERSION = "2026.01.10"
+PLUGIN_VERSION = "2026.04.01"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Import various chemical file formats using OpenBabel with multi-molecule support."
 PLUGIN_DEPENDENCIES = ["openbabel"]
@@ -200,7 +200,7 @@ def open_file_with_openbabel(file_path, context):
             context.current_molecule = rd_mol
             
             # Push to undo stack
-            mw.push_undo_state()
+            mw.edit_actions_manager.push_undo_state()
             
             # Update View
             # We need to manually reset camera or ensure view is updated
@@ -227,11 +227,11 @@ def open_file_with_openbabel(file_path, context):
 
             # Set current file path so "Save" works and title updates
             if hasattr(mw, 'current_file_path'):
-                 mw.current_file_path = file_path
+                 mw.init_manager.current_file_path = file_path
             if hasattr(mw, 'has_unsaved_changes'):
-                 mw.has_unsaved_changes = False
+                 mw.state_manager.has_unsaved_changes = False
             if hasattr(mw, 'update_window_title'):
-                 mw.update_window_title()
+                 mw.state_manager.update_window_title()
 
         else:
             QMessageBox.critical(mw, "Error", "Failed to create RDKit molecule from converted block.")
@@ -345,3 +345,4 @@ class MoleculeSelectionDialog(QDialog):
         if rows:
             return rows[0].row()
         return None
+

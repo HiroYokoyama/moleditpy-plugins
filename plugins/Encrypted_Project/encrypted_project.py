@@ -20,7 +20,7 @@ except ImportError:
     CRYPTOGRAPHY_AVAILABLE = False
 
 PLUGIN_NAME = "Encrypted Project"
-PLUGIN_VERSION = "2026.02.12"
+PLUGIN_VERSION = "2026.04.01"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Securely saves molecular data using AES-128 encryption with password protection."
 
@@ -185,8 +185,8 @@ class PmeencPlugin:
         if hasattr(self.mw, '_plugin_color_overrides'):
             self.mw._plugin_color_overrides = {}
             # Trigger a redraw if there is a molecule
-            if hasattr(self.mw, 'main_window_view_3d') and self.mw.current_mol:
-                self.mw.main_window_view_3d.draw_molecule_3d(self.mw.current_mol)
+            if hasattr(self.mw, 'view_3d_manager') and self.mw.current_mol:
+                self.mw.view_3d_manager.draw_molecule_3d(self.mw.current_mol)
 
         self._unpatch_all()
 
@@ -201,18 +201,18 @@ class PmeencPlugin:
 
     def on_export(self):
         """Export as .pmeenc file."""
-        if not self.mw.data.atoms and not self.mw.current_mol:
+        if not self.mw.state_manager.data.atoms and not self.mw.current_mol:
             self.mw.statusBar().showMessage("Error: Nothing to save.")
             return
 
         default_name = "untitled"
-        if self.mw.current_file_path:
-            base = os.path.basename(self.mw.current_file_path)
+        if self.mw.init_manager.current_file_path:
+            base = os.path.basename(self.mw.init_manager.current_file_path)
             default_name = os.path.splitext(base)[0]
         
         default_path = default_name
-        if self.mw.current_file_path:
-            default_path = os.path.join(os.path.dirname(self.mw.current_file_path), default_name)
+        if self.mw.init_manager.current_file_path:
+            default_path = os.path.join(os.path.dirname(self.mw.init_manager.current_file_path), default_name)
 
         file_path, _ = QFileDialog.getSaveFileName(
             self.mw, "Export Encrypted", default_path, "Encrypted Files (*.pmeenc);;All Files (*)"
@@ -229,7 +229,7 @@ class PmeencPlugin:
     def export_encrypted(self, file_path: str):
         """The core encryption and saving logic."""
         # Check if we can do a seamless overwrite with cached key/salt
-        if self.current_key and self.current_salt and file_path == self.mw.current_file_path:
+        if self.current_key and self.current_salt and file_path == self.mw.init_manager.current_file_path:
             key = self.current_key
             salt = self.current_salt
         else:
@@ -256,7 +256,7 @@ class PmeencPlugin:
 
         try:
             # Prepare data
-            json_data = self.mw.create_json_data()
+            json_data = self.mw.state_manager.create_json_data()
             raw_data = json.dumps(json_data).encode('utf-8')
 
             # Encrypt
@@ -271,9 +271,9 @@ class PmeencPlugin:
             # Update app state
             self.current_key = key
             self.current_salt = salt
-            self.mw.has_unsaved_changes = False
-            self.mw.current_file_path = file_path
-            self.mw.update_window_title()
+            self.mw.state_manager.has_unsaved_changes = False
+            self.mw.init_manager.current_file_path = file_path
+            self.mw.state_manager.update_window_title()
             
             # Patch only after successful save
             self._apply_patches()
@@ -317,22 +317,22 @@ class PmeencPlugin:
 
                 json_data = json.loads(decrypted_data.decode('utf-8'))
                 
-                self.mw.restore_ui_for_editing()
-                self.mw.load_from_json_data(json_data)
+                self.mw.ui_manager.restore_ui_for_editing()
+                self.mw.state_manager.load_from_json_data(json_data)
                 
                 # Reset app state to loaded file
                 self.current_key = key
                 self.current_salt = salt
-                self.mw.reset_undo_stack()
-                self.mw.has_unsaved_changes = False
-                self.mw.current_file_path = file_path
-                self.mw.update_window_title()
+                self.mw.state_manager.reset_undo_stack()
+                self.mw.state_manager.has_unsaved_changes = False
+                self.mw.init_manager.current_file_path = file_path
+                self.mw.state_manager.update_window_title()
                 
                 # Patch only after successful load
                 self._apply_patches()
 
                 self.mw.statusBar().showMessage(f"Encrypted project loaded from {file_path}")
-                QTimer.singleShot(0, self.mw.fit_to_view)
+                QTimer.singleShot(0, self.mw.view_3d_manager.fit_to_view)
                 
                 # Success: break the retry loop
                 break

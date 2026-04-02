@@ -24,9 +24,10 @@ except ImportError:
     Geometry = None
     rdDetermineBonds = None
     
-__version__="2026.02.04"
-__author__="HiroYokoyama"
+__version__ = "2026.04.01"
+__author__ = "HiroYokoyama"
 PLUGIN_NAME = "Cube File Viewer Advanced"
+PLUGIN_VERSION = "2026.04.01"
 PLUGIN_DESCRIPTION = "Advanced 3D visualization for Gaussian Cube files with PBR, SSAO, and other effects."
 
 def parse_cube_data(filename):
@@ -219,9 +220,11 @@ class FlexibleDoubleSpinBox(QDoubleSpinBox):
         return text
 
 class CubeViewerWidget(QWidget):
-    def __init__(self, parent_window, dock_widget, grid, data_max=1.0):
-        super().__init__(parent_window)
-        self.mw = parent_window
+    def __init__(self, context, dock_widget, grid, data_max=1.0):
+        super().__init__(context.get_main_window())
+        self.context = context
+        # [DIRECT ACCESS] to main window for legacy plotter/view access
+        self.mw = context.get_main_window()
         self.dock = dock_widget 
         self.grid = grid
         # Ensure we have a reasonable positive max value
@@ -1237,7 +1240,7 @@ class CubeViewerWidget(QWidget):
         # Redraw molecule using main window's draw_molecule_3d method
         if hasattr(self.mw, 'current_mol') and self.mw.current_mol:
             try:
-                self.mw.draw_molecule_3d(self.mw.current_mol)
+                self.mw.view_3d_manager.draw_molecule_3d(self.mw.current_mol)
             except Exception as e:
                 print(f"Error redrawing molecule: {e}")
         
@@ -1296,7 +1299,7 @@ class CubeViewerWidget(QWidget):
             # Redraw molecule and orbital before loading preset
             if hasattr(self.mw, 'current_mol') and self.mw.current_mol:
                 try:
-                    self.mw.draw_molecule_3d(self.mw.current_mol)
+                    self.mw.view_3d_manager.draw_molecule_3d(self.mw.current_mol)
                 except Exception:
                     pass
             
@@ -1725,12 +1728,12 @@ class CubeViewerWidget(QWidget):
             # Full cleanup
             self.mw.plotter.clear()
             self.mw.current_mol = None
-            self.mw.current_file_path = None
+            self.mw.init_manager.current_file_path = None
             self.mw.plotter.render()
              
             # Restore UI state
             if hasattr(self.mw, 'restore_ui_for_editing'):
-                self.mw.restore_ui_for_editing()
+                self.mw.ui_manager.restore_ui_for_editing()
         except Exception as e: 
             print(f"Error closing plugin: {e}")
         
@@ -1788,46 +1791,38 @@ class ChargeDialog(QDialog):
         self.result_action = "skip"
         self.accept()
 
-def open_cube_viewer(main_window, fname):
-    """Core logic to open cube viewer with a specific file."""
-    if Chem is None:
-        QMessageBox.critical(main_window, "Error", "RDKit is required for this plugin.")
-        return
-
-    # Close existing docks
-    docks_to_close = []
-    for dock in main_window.findChildren(QDockWidget):
-        if dock.windowTitle() == "Cube Viewer":
-            docks_to_close.append(dock)
-    
-    for dock in docks_to_close:
-        try:
-            widget = dock.widget()
-            if hasattr(widget, 'close_plugin'):
-                widget.close_plugin()
-            else:
-                main_window.removeDockWidget(dock)
-                dock.deleteLater()
-        except:
-             pass
-
+def open_cube_viewer(context, file_path):
+    """
+    Main entry point: opens the cube file and creates the viewer dock.
+    """
+    main_window = context.get_main_window()
     try:
-        if not fname: # Should not happen if called correctly
-            return
-
+        # Load and parse
+        meta, grid = read_cube(file_path)
+        
+        # Create Dock
+        dock = QDockWidget(f"Cube Viewer: {os.path.basename(file_path)}", main_window)
+        dock.setAllowedAreas(Qt.DockWidgetArea.RightDockWidgetArea | Qt.DockWidgetArea.LeftDockWidgetArea)
+        
         try:
-            meta, grid = read_cube(fname)
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            QMessageBox.critical(main_window, "Error", f"Failed to parse Cube file:\n{e}")
-            return
+            # Data is stored in grid.point_data["values"]
+            # "make sure that the data is only in the plot data"
+            flat_data = grid.point_data["values"]
+            if len(flat_data) > 0:
+                data_max = float(np.max(np.abs(flat_data)))
+            else:
+                data_max = 1.0
+        except:
+             data_max = 1.0
+
+        viewer = CubeViewerWidget(context, dock, grid, data_max=data_max)
+        dock.setWidget(viewer)
         
-        if hasattr(main_window, 'plotter'):
-            main_window.plotter.clear()
+        # [DIRECT ACCESS] to main window for dock injection
+        main_window.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
         
-        if hasattr(main_window, 'main_window_ui_manager'):
-            main_window.main_window_ui_manager._enter_3d_viewer_ui_mode()
+        # Register the primary window for management
+        context.register_window("main_panel", dock)
         
         # Create Molecule (XYZ)
         atoms = meta['atoms']
@@ -1878,81 +1873,63 @@ def open_cube_viewer(main_window, fname):
 
         # Set current molecular data in main window for consistency
         main_window.current_mol = mol
-        main_window.current_file_path = fname
+        main_window.init_manager.current_file_path = file_path
 
         # Draw
-        if hasattr(main_window, 'draw_molecule_3d'):
-             main_window.draw_molecule_3d(mol)
-        elif hasattr(main_window, 'main_window_view_3d'):
-             main_window.main_window_view_3d.draw_molecule_3d(mol)
+        if hasattr(main_window, 'view_3d_manager'):
+             main_window.view_3d_manager.draw_molecule_3d(mol)
              
         # Report bonds
         nb = mol.GetNumBonds() if mol else 0
-        if hasattr(main_window, 'statusBar'):
-            main_window.statusBar().showMessage(f"Loaded Cube. Atoms: {len(atoms)}, Bonds: {nb}")
-
-        # Setup Dock
-        dock = QDockWidget("Cube Viewer", main_window)
-        dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea)
+        context.show_status_message(f"Loaded Cube. Atoms: {len(atoms)}, Bonds: {nb}")
         
-        # Calculate max absolute value in data for dynamic scaling
-        try:
-            # Data is stored in grid.point_data["values"]
-            # "make sure that the data is only in the plot data"
-            flat_data = grid.point_data["values"]
-            if len(flat_data) > 0:
-                data_max = float(np.max(np.abs(flat_data)))
-            else:
-                data_max = 1.0
-        except:
-             data_max = 1.0
-
-        viewer = CubeViewerWidget(main_window, dock, grid, data_max=data_max)
-        dock.setWidget(viewer)
-        
-        main_window.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
-        
-        
-        # main_window.plotter.reset_camera() # Handled in initial_update of widget
-
     except Exception as e:
         import traceback
         traceback.print_exc()
-        print(f"Plugin Error: {e}")
+        context.show_status_message(f"Cube Viewer Error: {e}")
 
-def run(mw):
+def run_plugin(context):
+    """Entry point for manual launch via menu."""
+    mw = context.get_main_window()
     if Chem is None:
         QMessageBox.critical(mw, "Error", "RDKit is required for this plugin.")
         return
 
     fname, _ = QFileDialog.getOpenFileName(mw, "Open Gaussian Cube File", "", "Cube Files (*.cube *.cub);;All Files (*)")
     if fname:
-        open_cube_viewer(mw, fname)
+        open_cube_viewer(context, fname)
 
 def initialize(context):
     """
     New Plugin System Entry Point
     """
-    mw = context.get_main_window()
+    # 1. Register Menu Action
+    #context.add_menu_action("File/Import Advanced Cube Viewer...", lambda: run_plugin(context))
 
+    # 2. Register File Opener (Handle File > Import)
     def open_cube_wrapper(fname):
-        open_cube_viewer(mw, fname)
+        open_cube_viewer(context, fname)
 
-    # 1. Register File Opener (Handle File > Import)
     context.register_file_opener('.cube', open_cube_wrapper)
     context.register_file_opener('.cub', open_cube_wrapper)
 
-    # 2. Register Drop Handler (for robustness)
-    # The system iterates drop handlers. Return True if we handled it.
+    # 3. Register Drop Handler (for robustness)
     def drop_handler(file_path):
         if file_path.lower().endswith(('.cube', '.cub')):
-            open_cube_viewer(mw, file_path)
+            open_cube_viewer(context, file_path)
             return True
         return False
 
-    if hasattr(context, 'register_drop_handler'):
-        context.register_drop_handler(drop_handler, priority=10)
+    context.register_drop_handler(drop_handler, priority=10)
 
 
+def run(mw):
+    if not hasattr(mw, 'plugin_manager'):
+        return
 
+    from moleditpy.plugins.plugin_interface import PluginContext
+    context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
+    if not context:
+        context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
 
+    run_plugin(context)
