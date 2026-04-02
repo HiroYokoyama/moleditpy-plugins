@@ -33,7 +33,7 @@ PLUGIN_VERSION = "2026.04.01"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Checks for updates, installs new plugins, and allows manual reinstallation."
 
-REMOTE_JSON_URL = "https://hiroyokoyama.github.io/moleditpy-plugins/explorer/plugins.json"
+REMOTE_JSON_URL = "https://hiroyokoyama.github.io/moleditpy-plugins/REGISTRY/plugins.json"
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "plugin_installer.json")
 
 # Global flag to ensure startup check runs only once per session
