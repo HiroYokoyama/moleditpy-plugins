@@ -90,7 +90,7 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/Conformational_Search/conf_search.py",
-    "lastUpdated": "2026-04-01",
+    "lastUpdated": "2026-04-04",
     "sha256": "af391a6ba9f09fa8e0d95aecedeb7e9f6704b25057d790e53efb834931992c7a",
     "firstAppeared": "2025-12-15"
   },
@@ -306,7 +306,7 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/VDW_Radii_Overlay/vdw_radii_overlay.py",
-    "lastUpdated": "2026-04-02",
+    "lastUpdated": "2026-04-04",
     "sha256": "3d59265de98b228d53bfd09c90d4e1d641d07c6e35eb5708bf78a99652725a1f",
     "firstAppeared": "2025-12-17"
   },
@@ -542,7 +542,7 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo/chat_with_molecule_neo.py",
-    "lastUpdated": "2026-04-01",
+    "lastUpdated": "2026-04-04",
     "sha256": "d88d1f48b6e7191a1f6ee67b98726aef4d31a3555e9875babbda17e60b6bb16b",
     "firstAppeared": "2025-12-28"
   },
@@ -585,7 +585,7 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_ChatGPT/chat_with_molecule_neo_chatGPT.py",
-    "lastUpdated": "2026-04-01",
+    "lastUpdated": "2026-04-04",
     "sha256": "db225965ada10b8abff852ccc61fcaabe0ad5f2623d774f3c3c8476d6761d9bb",
     "firstAppeared": "2025-12-30"
   },
@@ -608,7 +608,7 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_Local/chat_with_molecule_neo_local.py",
-    "lastUpdated": "2026-04-01",
+    "lastUpdated": "2026-04-04",
     "sha256": "2b25a8e13b1795b26f11f05e22e951f5f211deedbeb0e8ac34d5f9710a187381",
     "firstAppeared": "2025-12-30"
   },
@@ -629,7 +629,7 @@
       "pymatgen"
     ],
     "downloadUrl": "../plugins/Symmetry_Analyzer/symmetry_analyzer.py",
-    "lastUpdated": "2026-04-01",
+    "lastUpdated": "2026-04-04",
     "sha256": "151719cb2b96b19ac15415d8089fda2ae7b1346c0d07b3d65c5aed8f1854fdfe",
     "firstAppeared": "2025-12-31"
   },
@@ -799,7 +799,7 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/XYZ_Editor/xyz_editor.py",
-    "lastUpdated": "2026-04-01",
+    "lastUpdated": "2026-04-04",
     "sha256": "722f4159f0f935d35260bf56804f4b4be455095871252e3d2ad4b55a72e1fa94",
     "firstAppeared": "2026-01-03"
   },
