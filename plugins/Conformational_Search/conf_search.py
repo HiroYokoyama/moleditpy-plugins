@@ -9,7 +9,7 @@ from rdkit.Chem import AllChem
 import copy
 
 PLUGIN_NAME = "Conformational Search"
-__version__="2026.04.01"
+__version__="2026.04.04"
 __author__="HiroYokoyama"
 
 class ConformerSearchDialog(QDialog):
@@ -29,6 +29,12 @@ class ConformerSearchDialog(QDialog):
         self.conformer_data = []
         # 全ての計算結果（未フィルタ）
         self.results_raw = []
+        
+        # Original coordinates for restoration on cancel
+        self.original_coords = []
+        if self.target_mol:
+            conf = self.target_mol.GetConformer()
+            self.original_coords = [conf.GetAtomPosition(i) for i in range(self.target_mol.GetNumAtoms())]
         
         self.init_ui()
 
@@ -88,8 +94,18 @@ class ConformerSearchDialog(QDialog):
 
     def accept(self):
         # Push undo state when closing the dialog (confirming the selection)
-        self.context.push_undo_checkpoint()
+        if self.target_mol:
+            self.context.push_undo_checkpoint()
         super().accept()
+
+    def reject(self):
+        # Restore original coordinates if user cancels/closes without 'Accept'
+        if self.target_mol and self.original_coords:
+            conf = self.target_mol.GetConformer()
+            for i, pos in enumerate(self.original_coords):
+                conf.SetAtomPosition(i, pos)
+            self.context.refresh_3d_view()
+        super().reject()
 
     def run_search(self):
         if not self.target_mol:
@@ -220,6 +236,11 @@ class ConformerSearchDialog(QDialog):
         source_conf = self.temp_mol.GetConformer(cid)
         target_conf = self.target_mol.GetConformer() # 現在の表示用Conformer
         
+        # Safety check: Atom count must match
+        if self.temp_mol.GetNumAtoms() != self.target_mol.GetNumAtoms():
+             self.lbl_info.setText("<font color='red'>Error: Molecule changed in main window. Restart search.</font>")
+             return
+
         # 座標のコピー
         for i in range(self.target_mol.GetNumAtoms()):
             pos = source_conf.GetAtomPosition(i)

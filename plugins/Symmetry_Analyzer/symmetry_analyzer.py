@@ -1,6 +1,6 @@
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Symmetry Analyzer"
-PLUGIN_VERSION = "2026.04.01"
+PLUGIN_VERSION = "2026.04.04"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Analyzes molecular symmetry (point group) and symmetrizes structures. Refactored for MoleditPy V3.0 API."
 
@@ -733,7 +733,7 @@ def initialize(context):
         new_win.resize(400, 600)
         new_win.show()
 
-    context.add_menu_action("3D Edit/Symmetry Analyzer...", toggle_window)
+    context.add_menu_action("3D Edit/Symmetrize...", toggle_window)
 
 if __name__ == "__main__":
     from PyQt6.QtWidgets import QApplication

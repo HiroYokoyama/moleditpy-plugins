@@ -10,7 +10,7 @@ from rdkit.Geometry import Point3D
 import pyvista as pv
 
 PLUGIN_NAME = "XYZ Editor"
-PLUGIN_VERSION = "2026.04.01"
+PLUGIN_VERSION = "2026.04.04"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "A table-based editor for atom coordinates and symbols, supporting ghost atoms. Refactored for V3 API."
 
@@ -317,7 +317,7 @@ class XYZEditorWindow(QWidget):
             self.highlight_selected_atoms()
 
     def apply_changes(self):
-        self.context.push_undo_checkpoint()
+        # self.context.push_undo_checkpoint() # MOVED TO END
         mol = self.context.current_molecule
         # Create new editable molecule from scratch or copy
         if mol:
@@ -427,6 +427,7 @@ class XYZEditorWindow(QWidget):
                 new_rw_mol.UpdatePropertyCache(strict=False)
                 Chem.GetSSSR(new_rw_mol)
             self.context.current_molecule = new_rw_mol.GetMol() 
+            self.context.push_undo_checkpoint()
             self.last_seen_signature = self.get_mol_signature(self.context.current_molecule)
             
             # Refresh visualization

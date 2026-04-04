@@ -3,7 +3,7 @@
 
 
 PLUGIN_NAME = "Chat with Molecule Neo (Gemini)"
-PLUGIN_VERSION = "2026.04.01"
+PLUGIN_VERSION = "2026.04.04"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with Google Gemini about the current molecule. Automatically injects SMILES context. (Neo Version)"
 PLUGIN_ID = "chat_with_molecule_neo"
@@ -1549,7 +1549,7 @@ class ChatMoleculeWindow(QDialog):
 
             # --- UNDO MAGIC ---
             # Push current state BEFORE clearing
-            self.context.push_undo_checkpoint()
+            # self.context.push_undo_checkpoint() # Captured at end instead
             
             # Clear editor WITHOUT pushing another undo state
             mw.edit_actions_manager.clear_2d_editor(push_to_undo=False)
@@ -1648,7 +1648,7 @@ class ChatMoleculeWindow(QDialog):
             mw.state_manager.update_window_title()
 
             # Push Final State so Undo works (Current state is now on top of stack)
-            mw.edit_actions_manager.push_undo_state()
+            self.context.push_undo_checkpoint()
             
             # --- Check for Chemistry Problems ---
             try:
@@ -2620,7 +2620,7 @@ class ChatMoleculeWindow(QDialog):
             mw = self.main_window
             
             # Push undo state BEFORE clearing
-            mw.edit_actions_manager.push_undo_state()
+            # self.context.push_undo_checkpoint() # Captured at end instead
             
             # --- Manual Clear 2D Logic ---
             # 1. Clear flags
@@ -2663,7 +2663,7 @@ class ChatMoleculeWindow(QDialog):
             mw.state_manager.update_window_title()
             
             # Push undo state AFTER clearing (Saves the "Empty" state on top of stack)
-            mw.edit_actions_manager.push_undo_state()
+            self.context.push_undo_checkpoint()
             
             # Update context
             self.check_molecule_change()

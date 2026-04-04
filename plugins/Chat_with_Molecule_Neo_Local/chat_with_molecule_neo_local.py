@@ -3,7 +3,7 @@
 
 
 PLUGIN_NAME = "Chat with Molecule Neo (Local)"
-PLUGIN_VERSION = "2026.04.01"
+PLUGIN_VERSION = "2026.04.04"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with Local LLM (OpenAI-Compatible) about the current molecule. Automatically injects SMILES context. (Neo Version) Note: InChIKey is sent to PubChem."
 PLUGIN_ID = "chat_with_molecule_neo_local"
@@ -1710,7 +1710,7 @@ class ChatMoleculeWindow(QDialog):
 
             # --- UNDO MAGIC ---
             # Push current state BEFORE clearing
-            self.context.push_undo_checkpoint()
+            # self.context.push_undo_checkpoint() # Captured at end instead
             
             # Clear editor WITHOUT pushing another undo state
             self.edit_actions_manager.clear_2d_editor(push_to_undo=False)
@@ -1810,7 +1810,7 @@ class ChatMoleculeWindow(QDialog):
             self.state_manager.update_window_title()
 
             # Push Final State so Undo works (Current state is now on top of stack)
-            self.edit_actions_manager.push_undo_state()
+            self.context.push_undo_checkpoint()
             
             # --- Check for Chemistry Problems ---
             try:
