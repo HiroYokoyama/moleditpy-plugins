@@ -131,7 +131,7 @@ The new API allows plugins to:
 *   Add custom **Export Options** and **Optimization Methods**.
 *   Integrate **Analysis Tools** and persist data in **Project Files**.
 
-For full documentation and examples, please refer to the [PLUGIN_DEVELOPMENT_MANUAL.md](PLUGIN_DEVELOPMENT_MANUAL.md).
+For full documentation and examples, please refer to the [PLUGIN_DEVELOPMENT_MANUAL]([PLUGIN_DEVELOPMENT_MANUAL.md](https://hiroyokoyama.github.io/python_molecular_editor/docs/PLUGIN_DEVELOPMENT_MANUAL_V3.html)).
 
 
 
