@@ -9,7 +9,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 
 PLUGIN_NAME = "Structural Updater"
-PLUGIN_VERSION = "2026.04.01"
+PLUGIN_VERSION = "2026.04.06"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Applies 2D structural changes to 3D conformation without full re-embedding. Refactored for V3 API."
 
@@ -396,7 +396,7 @@ class StructuralUpdaterPlugin:
             except Exception as e:
                 # If optimization explodes (e.g. Invariant Violation), fallback is safer
                 # print(f"[{PLUGIN_NAME}] Optimization failed: {e}") # Suppress scary error
-                self.mw.statusBar().showMessage("Notice: Structure optimization unstable. Re-generating full 3D structure...")
+                self.mw.statusBar().showMessage("Notice: Structure optimization unstable. Re-generating full 3D structure...", 5000)
                 self.force_full_conversion()
                 return
 

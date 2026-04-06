@@ -20,7 +20,7 @@ except ImportError:
     CRYPTOGRAPHY_AVAILABLE = False
 
 PLUGIN_NAME = "Encrypted Project"
-PLUGIN_VERSION = "2026.04.01"
+PLUGIN_VERSION = "2026.04.06"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Securely saves molecular data using AES-128 encryption with password protection."
 

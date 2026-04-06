@@ -973,7 +973,7 @@
     "id": "structural_updater",
     "visible": true,
     "name": "Structural Updater",
-    "version": "2026.04.01",
+    "version": "2026.04.06",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Applies 2D structural changes to 3D conformation without full re-embedding.",
@@ -985,8 +985,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Structural_Updater/structural_updater.py",
-    "lastUpdated": "2026-04-01",
-    "sha256": "297f7f3c2749bb7641c5a6fa5f6add867aa50f5cded9777d19d7e5ef265048ce",
+    "lastUpdated": "2026-04-06",
+    "sha256": "9765e12580c0866a79fa42dc4cb153c883780b3d66e659fc690eb29f93e715c9",
     "firstAppeared": "2026-01-28"
   },
   {
@@ -1175,7 +1175,7 @@
     "id": "encrypted_project",
     "visible": true,
     "name": "Encrypted Project",
-    "version": "2026.04.01",
+    "version": "2026.04.06",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Securely saves molecular data using AES-128 encryption with password protection (.pmeenc file).",
@@ -1187,8 +1187,8 @@
       "cryptography"
     ],
     "downloadUrl": "../plugins/Encrypted_Project/encrypted_project.py",
-    "lastUpdated": "2026-04-01",
-    "sha256": "660019c2040176d2d0a5bd2d231d66d169d4f342d123de0f6108117ab0728a06",
+    "lastUpdated": "2026-04-06",
+    "sha256": "170a5f46afc14d7e400744e001f88173e26dc18b3a7312075b7db74ad7b34b71",
     "firstAppeared": "2026-02-12"
   },
   {
