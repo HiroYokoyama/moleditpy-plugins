@@ -3,7 +3,7 @@
     "id": "all-trans_optimizer",
     "visible": true,
     "name": "All-Trans Optimizer",
-    "version": "2026.04.01",
+    "version": "2026.04.06",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A geometric tool for straightening alkyl chains.",
@@ -14,8 +14,8 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/All-Trans_Optimizer/all-trans_optimizer.py",
-    "lastUpdated": "2026-04-01",
-    "sha256": "995e51fa66916ef4444d95a9deb5729eed54bba8536259834127fb71d5a4a00c",
+    "lastUpdated": "2026-04-06",
+    "sha256": "c5333c90f900c28c260ca1e3d7e2e24e03fb115ad8ac8fbaf442231323209b91",
     "firstAppeared": "2025-12-15"
   },
   {
@@ -60,7 +60,7 @@
     "id": "complex_molecule_untangler",
     "visible": true,
     "name": "Complex Molecule Untangler",
-    "version": "2026.04.01",
+    "version": "2026.04.06",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A Monte Carlo-based tool to resolve steric clashes in complex or roughly drawn molecules.",
@@ -71,8 +71,8 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/Complex_Molecule_Untangler/complex_molecule_untangler.py",
-    "lastUpdated": "2026-04-01",
-    "sha256": "967929e8dc405c4df70fe6cc7bc0ea0244c09c19e064a17171e562603bb77a78",
+    "lastUpdated": "2026-04-06",
+    "sha256": "0c32a86d16d9d7d2c2aa5e2d6325d8118e2c0ac069f6c47f097fae9460a5b75f",
     "firstAppeared": "2025-12-15"
   },
   {
@@ -869,7 +869,7 @@
     "id": "paste_from_chemdraw",
     "visible": true,
     "name": "Paste from ChemDraw",
-    "version": "2026.04.01",
+    "version": "2026.04.06",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Paste chemical structures from ChemDraw clipboard data. Developed on ChemDraw version 25.5.",
@@ -881,8 +881,8 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/Paste_from_ChemDraw/paste_chemdraw.py",
-    "lastUpdated": "2026-04-01",
-    "sha256": "35b97cc07aac23d7d80661b759f4f5efc11618a08a830f0d295be14050410380",
+    "lastUpdated": "2026-04-06",
+    "sha256": "8384ad6ab3868061b849f65473f4d25c7ce8cb2e427040ee1b9e67cbb23a1449",
     "firstAppeared": "2026-01-15"
   },
   {

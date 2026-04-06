@@ -11,7 +11,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem, rdMolTransforms
 
 PLUGIN_NAME = "Complex Molecule Untangler"
-__version__="2026.04.01"
+__version__="2026.04.06"
 __author__="HiroYokoyama"
 
 
@@ -271,7 +271,6 @@ _launch_fn = None
 def initialize(context):
     global _launch_fn
     _launch_fn = lambda: run_plugin(context)
-    context.add_plugin_menu("Optimization/Complex Molecule Untangler...", _launch_fn)
 
 def run(mw):
     if hasattr(mw, 'host'):

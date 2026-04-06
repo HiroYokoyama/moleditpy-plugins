@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import QMessageBox
 from rdkit import Chem
 from rdkit.Chem import rdMolTransforms
 
-__version__="2026.04.01"
+__version__="2026.04.06"
 __author__="HiroYokoyama"
 PLUGIN_NAME = "All-Trans Optimizer"
 
@@ -64,7 +64,6 @@ _launch_fn = None
 def initialize(context):
     global _launch_fn
     _launch_fn = lambda: run_plugin(context)
-    context.add_plugin_menu("Optimization/All-Trans Optimizer", _launch_fn)
 
 def run(mw):
     if hasattr(mw, 'host'):

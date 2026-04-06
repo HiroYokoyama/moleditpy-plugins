@@ -6,9 +6,9 @@ import sys
 
 # --- Plugin Basic Information ---
 PLUGIN_NAME = "Paste from ChemDraw"
-PLUGIN_VERSION = "2026.04.01"
+PLUGIN_VERSION = "2026.04.06"
 PLUGIN_AUTHOR = "HiroYokoyama"
-PLUGIN_DESCRIPTION = "Paste chemical structures from ChemDraw clipboard data. Developed on ChemDraw version 25.5."
+PLUGIN_DESCRIPTION = "Paste chemical structures from ChemDraw clipboard data (MDLCT/MDLSK). Optimized for MoleditPy V3."
 
 def initialize(context):
     """
@@ -48,8 +48,11 @@ def run(context):
     mime_data = clipboard.mimeData()
     
     # Check multiple formats
+    # Check multiple formats including raw Windows MIME types
     TARGET_FORMATS = [
+        'MDLCT',  # Direct Windows format
         'application/x-qt-windows-mime;value="MDLCT"',
+        'MDLSK',
         'application/x-qt-windows-mime;value="MDLSK"'
     ]
     
@@ -62,20 +65,25 @@ def run(context):
         if mime_data.hasFormat(fmt):
             try:
                 byte_data = mime_data.data(fmt)
-                # Use cp932 (Shift-JIS) for Windows clipboard compatibility
-                text = byte_data.data().decode('cp932', errors='ignore')
-                
-                # If V2000 exists, it's a strong candidate
-                if text and "V2000" in text:
-                    mol_text = text
-                    fmt_found = fmt
+                if byte_data.isEmpty():
+                    continue
+
+                # Try multiple decodings for Windows clipboard compatibility
+                success = False
+                for encoding in ['cp932', 'utf-8', 'latin-1']:
+                    try:
+                        text = byte_data.data().decode(encoding).strip('\x00')
+                        if text and ("V2000" in text or "M  END" in text or "V3000" in text):
+                            mol_text = text
+                            fmt_found = fmt
+                            success = True
+                            break
+                    except:
+                        continue
+                if success:
                     break
-                elif text and mol_text is None:
-                    # Weak candidate
-                    mol_text = text
-                    fmt_found = fmt
             except Exception as e:
-                print(f"[{PLUGIN_NAME}] Decode Error for {fmt}: {e}")
+                print(f"[{PLUGIN_NAME}] Data retrieval error for {fmt}: {e}")
 
     # Log debug info
     # try:
@@ -95,27 +103,18 @@ def run(context):
             lines = mol_text.splitlines()
             found_v2000 = False
             
-            # Case 1: Flat text (suspicious line count)
-            if len(lines) < 3:
-                 # print(f"[{PLUGIN_NAME}] Suspicious line count ({len(lines)}). Attempting reconstruction...")
-                 mol = reconstruct_from_flat_text(mol_text)
-                 if mol: found_v2000 = True
-            
-            # Case 2: Standard parse if reconstruction didn't run or fail
-            if not found_v2000:
-                for i, line in enumerate(lines):
-                     if "V2000" in line:
-                         found_v2000 = True
-                         start = max(0, i-3)
-                         mol_text_clean = "\n".join(lines[start:])
-                         mol = Chem.MolFromMolBlock(mol_text_clean)
-                         break
+            # Case 1: Standard parse
+            for i, line in enumerate(lines):
+                if "V2000" in line or "V3000" in line:
+                    found_v2000 = True
+                    start = max(0, i-3)
+                    mol_text_clean = "\n".join(lines[start:])
+                    mol = Chem.MolFromMolBlock(mol_text_clean)
+                    break
 
-            # Case 3: Fallback direct parse
-            if not found_v2000 and mol is None:
-                 mol = Chem.MolFromMolBlock(mol_text)
-                 if mol is None:
-                     mol = reconstruct_from_flat_text(mol_text)
+            # Case 2: Flat text or failed block
+            if mol is None:
+                mol = reconstruct_from_flat_text(mol_text)
 
         except Exception as e:
             QMessageBox.critical(main_window, PLUGIN_NAME, f"Paste Error: {e}")
@@ -155,7 +154,7 @@ def run(context):
             except:
                 pass
 
-            SCALE_FACTOR = 40.0
+            SCALE_FACTOR = 50.0  # Normalized to MoleditPy standard bond length
             conf = mol.GetConformer()
             positions = [conf.GetAtomPosition(i) for i in range(mol.GetNumAtoms())]
             cx = sum(p.x for p in positions) / len(positions) if positions else 0
@@ -163,42 +162,40 @@ def run(context):
 
             rdkit_idx_to_item = {}
 
-            # Use undo checkpoint for bulk changes
-            with context.undo_checkpoint("Paste from ChemDraw"):
-                # Create Atoms
-                for i in range(mol.GetNumAtoms()):
-                    atom = mol.GetAtomWithIdx(i)
-                    pos = conf.GetAtomPosition(i)
-                    sx = (pos.x - cx) * SCALE_FACTOR + view_center.x()
-                    sy = -(pos.y - cy) * SCALE_FACTOR + view_center.y() 
-                    
-                    a_id = context.scene.create_atom(
-                        atom.GetSymbol(), 
-                        QPointF(sx, sy), 
-                        charge=atom.GetFormalCharge()
-                    )
-                    rdkit_idx_to_item[i] = a_id
+            # Create Atoms
+            for i in range(mol.GetNumAtoms()):
+                atom = mol.GetAtomWithIdx(i)
+                pos = conf.GetAtomPosition(i)
+                sx = (pos.x - cx) * SCALE_FACTOR + view_center.x()
+                sy = -(pos.y - cy) * SCALE_FACTOR + view_center.y() 
+                
+                a_id = context.scene.create_atom(
+                    atom.GetSymbol(), 
+                    QPointF(sx, sy), 
+                    charge=atom.GetFormalCharge()
+                )
+                rdkit_idx_to_item[i] = context.scene.data.atoms[a_id]["item"]
 
-                # Create Bonds
-                for bond in mol.GetBonds():
-                    idx1 = bond.GetBeginAtomIdx()
-                    idx2 = bond.GetEndAtomIdx()
+            # Create Bonds
+            for bond in mol.GetBonds():
+                idx1 = bond.GetBeginAtomIdx()
+                idx2 = bond.GetEndAtomIdx()
+                
+                if idx1 in rdkit_idx_to_item and idx2 in rdkit_idx_to_item:
+                    atom1 = rdkit_idx_to_item[idx1]
+                    atom2 = rdkit_idx_to_item[idx2]
+                    order = int(bond.GetBondTypeAsDouble())
                     
-                    if idx1 in rdkit_idx_to_item and idx2 in rdkit_idx_to_item:
-                        id1 = rdkit_idx_to_item[idx1]
-                        id2 = rdkit_idx_to_item[idx2]
-                        order = int(bond.GetBondTypeAsDouble())
-                        
-                        stereo = 0
-                        dir_ = bond.GetBondDir()
-                        if dir_ == Chem.BondDir.BEGINWEDGE: stereo = 1
-                        elif dir_ == Chem.BondDir.BEGINDASH: stereo = 2
-                        
-                        # Use scene creation directly
-                        context.scene.create_bond(id1, id2, order=order, stereo=stereo)
-            
-                context.scene.update_all_items()
-                context.show_status_message(f"Pasted structure from ChemDraw.", 5000)
+                    stereo = 0
+                    dir_ = bond.GetBondDir()
+                    if dir_ == Chem.BondDir.BEGINWEDGE: stereo = 1
+                    elif dir_ == Chem.BondDir.BEGINDASH: stereo = 2
+                    
+                    context.scene.create_bond(atom1, atom2, bond_order=order, bond_stereo=stereo)
+        
+            context.scene.update_all_items()
+            context.push_undo_checkpoint() # V3 modern undo checkpoint
+            context.show_status_message(f"Pasted structure from ChemDraw.", 5000)
 
         except Exception as e:
             QMessageBox.critical(main_window, PLUGIN_NAME, f"Paste Error: {e}")
