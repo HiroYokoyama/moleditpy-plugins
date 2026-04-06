@@ -7,7 +7,7 @@ Exports molecular structures as Blender Python scripts
 """
 
 PLUGIN_NAME = "Blender Export"
-PLUGIN_VERSION = "2026.04.01"
+PLUGIN_VERSION = "2026.04.06"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Export molecular structures as Blender Python scripts that create 3D visualizations"
 
@@ -41,7 +41,7 @@ def export_to_blender(context):
     default_dir = ""
     default_name = "molecule_blender"
     try:
-        if hasattr(mw, 'current_file_path') and mw.init_manager.current_file_path:
+        if hasattr(mw, 'init_manager') and hasattr(mw.init_manager, 'current_file_path') and mw.init_manager.current_file_path:
             default_dir = os.path.dirname(mw.init_manager.current_file_path)
             base_name = os.path.splitext(os.path.basename(mw.init_manager.current_file_path))[0]
             default_name = f"{base_name}_blender"
@@ -72,7 +72,7 @@ def export_to_blender(context):
         with open(file_path, 'w', encoding='utf-8') as f:
             f.write(script_content)
         
-        mw.statusBar().showMessage(f"Blender script exported to {file_path}")
+        mw.statusBar().showMessage(f"Blender script exported to {file_path}", 3000)
         
         # Show success message with instructions
         QMessageBox.information(
@@ -88,7 +88,7 @@ def export_to_blender(context):
         
     except Exception as e:
         QMessageBox.critical(mw, "Export Failed", f"Failed to export Blender script:\n{str(e)}")
-        mw.statusBar().showMessage(f"Export failed: {e}")
+        mw.statusBar().showMessage(f"Export failed: {e}", 3000)
 
 
 def _calculate_double_bond_offset(mol, bond, conf):
@@ -153,8 +153,8 @@ def generate_blender_script(mol, mw):
     
     # Extract actual rendering data from the 3D view
     mw = mw # Rename for clarity if needed
-    settings = getattr(mw, 'settings', {})
-    
+    settings = getattr(mw.init_manager, 'settings', {}) if hasattr(mw, 'init_manager') else {}
+
     # Kekulize if enabled in settings to match 3D view indices and bond types
     mol_to_draw = mol
     if settings.get('display_kekule_3d', False):
@@ -168,14 +168,14 @@ def generate_blender_script(mol, mw):
     atoms_data = []
     bonds_data = []
     
-    color_map = getattr(mw, '_3d_color_map', {})
-    raw_style = getattr(mw, 'current_3d_style', 'ball_and_stick')
+    color_map = getattr(mw.view_3d_manager, '_3d_color_map', {}) if hasattr(mw, 'view_3d_manager') else {}
+    raw_style = getattr(mw.view_3d_manager, 'current_3d_style', 'ball_and_stick') if hasattr(mw, 'view_3d_manager') else 'ball_and_stick'
     current_style = str(raw_style).lower().replace(' ', '_').replace('&', '_and_')
-    settings = getattr(mw, 'settings', {})
+    settings = getattr(mw.init_manager, 'settings', {}) if hasattr(mw, 'init_manager') else {}
     
     # Get actual atom radii from the glyph source if available
     actual_radii = None
-    if hasattr(mw, 'glyph_source') and mw.view_3d_manager.glyph_source is not None:
+    if hasattr(mw, 'view_3d_manager') and hasattr(mw.view_3d_manager, 'glyph_source') and mw.view_3d_manager.glyph_source is not None:
         try:
             actual_radii = mw.view_3d_manager.glyph_source['radii']
         except Exception:

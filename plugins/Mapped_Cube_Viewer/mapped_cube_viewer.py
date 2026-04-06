@@ -29,7 +29,7 @@ except ImportError:
 __version__ = "2026.04.01"
 __author__ = "HiroYokoyama"
 PLUGIN_NAME = "Mapped Cube Viewer"
-PLUGIN_VERSION = "2026.04.01"
+PLUGIN_VERSION = "2026.04.06"
 PLUGIN_DESCRIPTION = "Visualizes electrostatic potential or other properties mapped onto an isosurface from Gaussian Cube files."
 
 # --- Core Logic: Robust Parser from cube_viewer.py ---
@@ -537,8 +537,8 @@ def run_plugin(context):
             if hasattr(mw, 'view_3d_manager'):
                 mw.view_3d_manager.draw_molecule_3d(mol)
 
-        if hasattr(mw, 'main_window_ui_manager'):
-            try: mw.main_window_ui_manager._enter_3d_viewer_ui_mode()
+        if hasattr(mw, 'ui_manager') and hasattr(mw.ui_manager, '_enter_3d_viewer_ui_mode'):
+            try: mw.ui_manager._enter_3d_viewer_ui_mode()
             except: pass
 
         for d in mw.findChildren(QDockWidget):

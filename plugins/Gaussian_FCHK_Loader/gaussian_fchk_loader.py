@@ -9,7 +9,7 @@ from PyQt6.QtCore import Qt, QTimer
 
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Gaussian FCHK Loader"
-PLUGIN_VERSION = "2026.04.01"
+PLUGIN_VERSION = "2026.04.06"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Dispatches FCHK, FCH, and FCK files to appropriate analyzers (Freq vs MO) with priority handling."
 
@@ -136,7 +136,7 @@ class FCHKLoaderDialog(QDialog):
                  dock.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
 
                  # Instantiate Analyzer (passing dock for close control)
-                 self.analyzer = mod.GaussianFCHKFreqAnalyzer(self.mw, dock_widget=dock)
+                 self.analyzer = mod.GaussianFCHKFreqAnalyzer(self.context, dock_widget=dock)
                  
                  dock.setWidget(self.analyzer)
                  self.mw.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
@@ -224,10 +224,25 @@ def initialize(context):
     context.register_drop_handler(handle_drop, priority=100)
 
 def run(mw):
-    if not hasattr(mw, 'plugin_manager'):
-        return
-
     from PyQt6.QtWidgets import QFileDialog
     path, _ = QFileDialog.getOpenFileName(mw, "Open Gaussian FCHK", "", "Gaussian FCHK (*.fchk *.fck);;All Files (*)")
-    if path:
-        mw.plugin_manager.open_file(path)
+    if not path:
+        return
+
+    from moleditpy.plugins.plugin_interface import PluginContext
+    context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
+
+    def run_dialog():
+        dlg = FCHKLoaderDialog(mw, context, path)
+        can_freq = dlg.btn_freq.isEnabled()
+        can_mo = dlg.btn_mo.isEnabled()
+        if can_freq and not can_mo:
+            dlg.launch_freq()
+        elif can_mo and not can_freq:
+            dlg.launch_mo()
+        elif not can_freq and not can_mo:
+            QMessageBox.warning(mw, "FCHK Loader", "No compatible analysis plugins found (Freq or MO Analyzer).")
+        else:
+            dlg.exec()
+
+    QTimer.singleShot(0, run_dialog)

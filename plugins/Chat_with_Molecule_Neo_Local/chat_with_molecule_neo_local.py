@@ -3,7 +3,7 @@
 
 
 PLUGIN_NAME = "Chat with Molecule Neo (Local)"
-PLUGIN_VERSION = "2026.04.04"
+PLUGIN_VERSION = "2026.04.06"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with Local LLM (OpenAI-Compatible) about the current molecule. Automatically injects SMILES context. (Neo Version) Note: InChIKey is sent to PubChem."
 PLUGIN_ID = "chat_with_molecule_neo_local"
@@ -2813,14 +2813,14 @@ class ChatMoleculeWindow(QDialog):
             
             # 4. Reset helper flags
             mw.is_xyz_derived = False
-            if hasattr(mw, 'clear_2d_measurement_labels'):
+            if hasattr(mw, 'edit_3d_manager') and hasattr(mw.edit_3d_manager, 'clear_2d_measurement_labels'):
                 mw.edit_3d_manager.clear_2d_measurement_labels()
-            
+
             # --- Manual Clear 3D Logic ---
             mw.plotter.clear()
             mw.current_mol = None
-            if hasattr(mw, '_enable_3d_features'):
-                mw._enable_3d_features(False)
+            if hasattr(mw, 'ui_manager') and hasattr(mw.ui_manager, '_enable_3d_features'):
+                mw.ui_manager._enable_3d_features(False)
             
             # Update UI
             mw.state_manager.has_unsaved_changes = True
@@ -3705,7 +3705,7 @@ class ChatMoleculeWindow(QDialog):
                 target_center = QPointF(avg_x, avg_y)
             else:
                 # 原子がない場合はビューの中心
-                if hasattr(mw, 'view_2d') and mw.init_manager.view_2d:
+                if hasattr(mw, 'init_manager') and hasattr(mw.init_manager, 'view_2d') and mw.init_manager.view_2d:
                      target_center = mw.init_manager.view_2d.mapToScene(mw.init_manager.view_2d.viewport().rect().center())
                 else:
                      target_center = QPointF(0, 0)
@@ -3922,7 +3922,7 @@ class ChatMoleculeWindow(QDialog):
 
             # --- Finalize ---
             mw.state_manager.has_unsaved_changes = True
-            if hasattr(mw, 'update_realtime_info'):
+            if hasattr(mw, 'state_manager') and hasattr(mw.state_manager, 'update_realtime_info'):
                 mw.state_manager.update_realtime_info()
             mw.edit_actions_manager.update_undo_redo_actions()
             

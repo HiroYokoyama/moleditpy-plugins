@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox,
 import pyvista as pv
 
 PLUGIN_NAME = "High Resolution Imager"
-PLUGIN_VERSION = "2026.04.01"
+PLUGIN_VERSION = "2026.04.06"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Take high-resolution screenshots of the 3D view with custom resolution."
 
@@ -156,7 +156,7 @@ def take_screenshot(context):
                 
                 if target_bg:
                     try:
-                        original_bg = mw.settings.get('background_color', '#4f4f4f')
+                        original_bg = mw.init_manager.settings.get('background_color', '#4f4f4f')
                         mw.plotter.set_background(target_bg)
                     except:
                         original_bg = None

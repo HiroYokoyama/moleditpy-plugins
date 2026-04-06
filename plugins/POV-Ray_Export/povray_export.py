@@ -7,7 +7,7 @@ Exports molecular structures as POV-Ray scene files for high-quality ray-traced 
 """
 
 PLUGIN_NAME = "POV-Ray Export"
-PLUGIN_VERSION = "2026.04.01"
+PLUGIN_VERSION = "2026.04.06"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Export molecular structures as POV-Ray scene files for professional ray-traced rendering"
 PLUGIN_DEPENDENCIES = ["rdkit", "numpy", "PyQt6"]
@@ -42,7 +42,7 @@ def export_to_povray(context):
     default_dir = ""
     default_name = "molecule"
     try:
-        if hasattr(mw, 'current_file_path') and mw.init_manager.current_file_path:
+        if hasattr(mw, 'init_manager') and hasattr(mw.init_manager, 'current_file_path') and mw.init_manager.current_file_path:
             default_dir = os.path.dirname(mw.init_manager.current_file_path)
             base_name = os.path.splitext(os.path.basename(mw.init_manager.current_file_path))[0]
             default_name = base_name
@@ -73,7 +73,7 @@ def export_to_povray(context):
         with open(file_path, 'w', encoding='utf-8') as f:
             f.write(scene_content)
         
-        mw.statusBar().showMessage(f"POV-Ray scene exported to {file_path}")
+        mw.statusBar().showMessage(f"POV-Ray scene exported to {file_path}", 3000)
         
         # Show success message with instructions
         QMessageBox.information(
@@ -90,7 +90,7 @@ def export_to_povray(context):
         
     except Exception as e:
         QMessageBox.critical(mw, "Export Failed", f"Failed to export POV-Ray scene:\n{str(e)}")
-        mw.statusBar().showMessage(f"Export failed: {e}")
+        mw.statusBar().showMessage(f"Export failed: {e}", 3000)
 
 
 def _calculate_double_bond_offset(mol, bond, conf):
@@ -155,13 +155,13 @@ def generate_povray_scene(mol, mw):
     conf = mol.GetConformer()
     
     # Extract actual rendering data from the 3D view
-    color_map = getattr(mw, '_3d_color_map', {})
-    current_style = getattr(mw, 'current_3d_style', 'ball_and_stick')
-    settings = getattr(mw, 'settings', {})
+    color_map = getattr(mw.view_3d_manager, '_3d_color_map', {}) if hasattr(mw, 'view_3d_manager') else {}
+    current_style = getattr(mw.view_3d_manager, 'current_3d_style', 'ball_and_stick') if hasattr(mw, 'view_3d_manager') else 'ball_and_stick'
+    settings = getattr(mw.init_manager, 'settings', {}) if hasattr(mw, 'init_manager') else {}
     
     # Get actual atom radii from the glyph source if available
     actual_radii = None
-    if hasattr(mw, 'glyph_source') and mw.view_3d_manager.glyph_source is not None:
+    if hasattr(mw, 'view_3d_manager') and hasattr(mw.view_3d_manager, 'glyph_source') and mw.view_3d_manager.glyph_source is not None:
         try:
             actual_radii = mw.view_3d_manager.glyph_source['radii']
         except Exception:

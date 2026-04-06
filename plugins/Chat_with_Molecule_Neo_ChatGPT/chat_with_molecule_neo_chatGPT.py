@@ -3,7 +3,7 @@
 
 
 PLUGIN_NAME = "Chat with Molecule Neo (ChatGPT)"
-PLUGIN_VERSION = "2026.04.04"
+PLUGIN_VERSION = "2026.04.06"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with OpenAI ChatGPT about the current molecule. Automatically injects SMILES context. (Neo Version)"
 PLUGIN_ID = "chat_with_molecule_neo_chatgpt"
@@ -2622,18 +2622,18 @@ class ChatMoleculeWindow(QDialog):
             
             # 4. Reset helper flags
             mw.is_xyz_derived = False
-            if hasattr(mw, 'clear_2d_measurement_labels'):
+            if hasattr(mw, 'edit_3d_manager') and hasattr(mw.edit_3d_manager, 'clear_2d_measurement_labels'):
                 mw.edit_3d_manager.clear_2d_measurement_labels()
-            
+
             # --- Manual Clear 3D Logic ---
             mw.plotter.clear()
             mw.current_mol = None
-            if hasattr(mw, '_enable_3d_features'):
-                mw._enable_3d_features(False)
+            if hasattr(mw, 'ui_manager') and hasattr(mw.ui_manager, '_enable_3d_features'):
+                mw.ui_manager._enable_3d_features(False)
             
             # Update UI
-            mw.has_unsaved_changes = True
-            mw.update_undo_redo_actions()
+            mw.state_manager.has_unsaved_changes = True
+            mw.edit_actions_manager.update_undo_redo_actions()
             mw.state_manager.update_window_title()
             
             # Push undo state AFTER clearing (Saves the "Empty" state on top of stack)
@@ -3509,8 +3509,8 @@ class ChatMoleculeWindow(QDialog):
                 target_center = QPointF(avg_x, avg_y)
             else:
                 # 原子がない場合はビューの中心
-                if hasattr(mw, 'view_2d') and mw.view_2d:
-                     target_center = mw.view_2d.mapToScene(mw.view_2d.viewport().rect().center())
+                if hasattr(mw, 'init_manager') and mw.init_manager.view_2d:
+                     target_center = mw.init_manager.view_2d.mapToScene(mw.init_manager.view_2d.viewport().rect().center())
                 else:
                      target_center = QPointF(0, 0)
 
@@ -3725,10 +3725,10 @@ class ChatMoleculeWindow(QDialog):
                             mw.scene.delete_items([item])
 
             # --- Finalize ---
-            mw.has_unsaved_changes = True
-            if hasattr(mw, 'update_realtime_info'):
+            mw.state_manager.has_unsaved_changes = True
+            if hasattr(mw.state_manager, 'update_realtime_info'):
                 mw.state_manager.update_realtime_info()
-            mw.update_undo_redo_actions()
+            mw.edit_actions_manager.update_undo_redo_actions()
             
             mw.scene.update()
 

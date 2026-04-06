@@ -15,7 +15,7 @@ except ImportError:
     Chem = None
 
 PLUGIN_NAME = "Gaussian Freq Analyzer"
-PLUGIN_VERSION = "2026.04.01"
+PLUGIN_VERSION = "2026.04.06"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Visualizes vibrational frequencies and normal modes from Gaussian FCHK files."
 
@@ -464,9 +464,9 @@ class GaussianFCHKFreqAnalyzer(QWidget):
             # self.spin_sf.setValue(1.0)
             
             # Update Main Window Context
-            if hasattr(self.mw, 'current_file_path'):
+            if hasattr(self.mw, 'init_manager') and hasattr(self.mw.init_manager, 'current_file_path'):
                 self.mw.init_manager.current_file_path = filename
-                if hasattr(self.mw, 'update_window_title'):
+                if hasattr(self.mw, 'state_manager') and hasattr(self.mw.state_manager, 'update_window_title'):
                     self.mw.state_manager.update_window_title()
                 else:
                     self.mw.setWindowTitle(f"{os.path.basename(filename)} - MoleditPy")
@@ -537,14 +537,19 @@ class GaussianFCHKFreqAnalyzer(QWidget):
             conf.SetAtomPosition(idx, Point3D(x, y, z))
         mol.AddConformer(conf)
         
-        if hasattr(self.mw, 'estimate_bonds_from_distances'):
-            self.mw.io_manager.estimate_bonds_from_distances(mol)
-            
+        try:
+            from rdkit.Chem import rdDetermineBonds
+            rdDetermineBonds.DetermineConnectivity(mol)
+            rdDetermineBonds.DetermineBondOrders(mol, charge=int(self.parser.charge))
+        except Exception:
+            if hasattr(self.mw, 'io_manager') and hasattr(self.mw.io_manager, 'estimate_bonds_from_distances'):
+                self.mw.io_manager.estimate_bonds_from_distances(mol)
+
         self.base_mol = mol.GetMol()
         self.mw.current_mol = self.base_mol
         
-        if hasattr(self.mw, '_enter_3d_viewer_ui_mode'):
-            self.mw._enter_3d_viewer_ui_mode()
+        if hasattr(self.mw, 'ui_manager') and hasattr(self.mw.ui_manager, '_enter_3d_viewer_ui_mode'):
+            self.mw.ui_manager._enter_3d_viewer_ui_mode()
             
         self.mw.view_3d_manager.draw_molecule_3d(self.base_mol)
         if hasattr(self.mw, 'plotter'):
@@ -1166,7 +1171,7 @@ def run_plugin(context):
     """Entry point for manual launch via menu."""
     mw = context.get_main_window()
     # Smart Open Logic
-    if hasattr(mw, 'current_file_path') and mw.init_manager.current_file_path:
+    if hasattr(mw, 'init_manager') and hasattr(mw.init_manager, 'current_file_path') and mw.init_manager.current_file_path:
         fpath = mw.init_manager.current_file_path.lower()
         if fpath.endswith((".fchk", ".fck")):
              load_from_file(context, mw.init_manager.current_file_path)

@@ -14,7 +14,7 @@ except ImportError:
     Chem = None
 
 PLUGIN_NAME = "Paste XYZ"
-PLUGIN_VERSION = "2026.04.01"
+PLUGIN_VERSION = "2026.04.06"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Allows pasting XYZ coordinates directly from the clipboard to create a new molecule."
 
@@ -155,25 +155,25 @@ def run_plugin(context):
                     mol_to_finalize = mol
                 
                 if not used_rd_determine:
-                    if hasattr(mw, 'estimate_bonds_from_distances'):
+                    if hasattr(mw, 'io_manager') and hasattr(mw.io_manager, 'estimate_bonds_from_distances'):
                         mw.io_manager.estimate_bonds_from_distances(mol_to_finalize)
 
                 candidate_mol = mol_to_finalize.GetMol()
                 candidate_mol.SetIntProp("_xyz_charge", int(charge_val))
                 
-                if hasattr(mw, '_apply_chem_check_and_set_flags'):
-                    mw._apply_chem_check_and_set_flags(candidate_mol, source_desc='PasteXYZ')
+                if hasattr(mw, 'edit_actions_manager') and hasattr(mw.edit_actions_manager, '_apply_chem_check_and_set_flags'):
+                    mw.edit_actions_manager._apply_chem_check_and_set_flags(candidate_mol, source_desc='PasteXYZ')
 
                 return candidate_mol
 
             # Main Logic Loop
             final_mol = None
-            settings = getattr(mw, 'settings', {})
+            settings = getattr(mw.init_manager, 'settings', {}) if hasattr(mw, 'init_manager') else {}
             always_ask = bool(settings.get('always_ask_charge', False))
             skip_checks_global = bool(settings.get('skip_chemistry_checks', False))
 
             if skip_checks_global:
-                if hasattr(mw, 'estimate_bonds_from_distances'):
+                if hasattr(mw, 'io_manager') and hasattr(mw.io_manager, 'estimate_bonds_from_distances'):
                     try: mw.io_manager.estimate_bonds_from_distances(mol)
                     except: pass
                 final_mol = mol.GetMol()
@@ -188,7 +188,7 @@ def run_plugin(context):
                                 charge_val, ok, skip_flag = prompt_for_charge()
                                 if not ok: return
                                 if skip_flag:
-                                    if hasattr(mw, 'estimate_bonds_from_distances'):
+                                    if hasattr(mw, 'io_manager') and hasattr(mw.io_manager, 'estimate_bonds_from_distances'):
                                         try: mw.io_manager.estimate_bonds_from_distances(mol)
                                         except: pass
                                     final_mol = mol.GetMol()
@@ -204,7 +204,7 @@ def run_plugin(context):
                             charge_val, ok, skip_flag = prompt_for_charge()
                             if not ok: return
                             if skip_flag:
-                                if hasattr(mw, 'estimate_bonds_from_distances'):
+                                if hasattr(mw, 'io_manager') and hasattr(mw.io_manager, 'estimate_bonds_from_distances'):
                                     try: mw.io_manager.estimate_bonds_from_distances(mol)
                                     except: pass
                                 final_mol = mol.GetMol()
@@ -219,7 +219,7 @@ def run_plugin(context):
                     pass
 
             if final_mol is None:
-                if hasattr(mw, 'estimate_bonds_from_distances'):
+                if hasattr(mw, 'io_manager') and hasattr(mw.io_manager, 'estimate_bonds_from_distances'):
                     try: mw.io_manager.estimate_bonds_from_distances(mol)
                     except: pass
                 final_mol = mol.GetMol()
@@ -230,8 +230,8 @@ def run_plugin(context):
                 context.push_undo_checkpoint()
                 context.show_status_message(f"Pasted {len(atoms_data)} atoms from clipboard.")
                 
-                if hasattr(mw, '_enter_3d_viewer_ui_mode'):
-                    try: mw._enter_3d_viewer_ui_mode()
+                if hasattr(mw, 'ui_manager') and hasattr(mw.ui_manager, '_enter_3d_viewer_ui_mode'):
+                    try: mw.ui_manager._enter_3d_viewer_ui_mode()
                     except: pass
                 # Minimize the 2D editor after loading XYZ into 3D-first workflow.
                 try:

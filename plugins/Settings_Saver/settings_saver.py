@@ -12,7 +12,7 @@ from PyQt6.QtGui import QColor, QAction
 from PyQt6.QtCore import Qt, QTimer
 
 PLUGIN_NAME = "Settings Saver"
-PLUGIN_VERSION = "2026.04.01"
+PLUGIN_VERSION = "2026.04.06"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Save, load, and manage settings presets in a unified dialog. Refactored for V3 API."
 
@@ -209,16 +209,14 @@ def _get_live_settings(mw):
     """Return the authoritative settings dict from the main window."""
     if hasattr(mw, "init_manager") and hasattr(mw.init_manager, "settings"):
         return mw.init_manager.settings
-    if hasattr(mw, "settings"):
-        return mw.settings
     return None
 
 def _sync_legacy_settings_alias(mw, settings):
-    """Mirror settings to legacy mw.settings when present and distinct."""
+    """Mirror settings to init_manager.settings when present and distinct."""
     try:
-        if hasattr(mw, "settings") and mw.settings is not settings and isinstance(mw.settings, dict):
-            mw.settings.clear()
-            mw.settings.update(settings)
+        if hasattr(mw, "init_manager") and hasattr(mw.init_manager, "settings") and mw.init_manager.settings is not settings and isinstance(mw.init_manager.settings, dict):
+            mw.init_manager.settings.clear()
+            mw.init_manager.settings.update(settings)
     except Exception:
         pass
 

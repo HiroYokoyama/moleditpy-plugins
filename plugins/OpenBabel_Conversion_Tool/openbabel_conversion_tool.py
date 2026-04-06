@@ -22,7 +22,7 @@ except ImportError:
         OBABEL_AVAILABLE = False
 
 PLUGIN_NAME = "OpenBabel Conversion Tool"
-PLUGIN_VERSION = "2026.04.01"
+PLUGIN_VERSION = "2026.04.06"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Import various chemical file formats using OpenBabel with multi-molecule support."
 PLUGIN_DEPENDENCIES = ["openbabel"]
@@ -210,27 +210,25 @@ def open_file_with_openbabel(file_path, context):
             
             # Also update 2D view if possible or fit to view
             # Using QTimer to allow UI to settle
-            QTimer.singleShot(100, lambda: getattr(mw, 'fit_to_view', lambda: None)())
+            QTimer.singleShot(100, lambda: getattr(mw.view_3d_manager, 'fit_to_view', lambda: None)() if hasattr(mw, 'view_3d_manager') else None)
 
             # Switch to 3D only mode
             # We access the internal method on MainWindow which proxies to the UI Manager
             # We prioritize the internal name `_enter_3d_viewer_ui_mode` as verified in source.
             try:
-                if hasattr(mw, '_enter_3d_viewer_ui_mode'):
-                     mw._enter_3d_viewer_ui_mode()
-                elif hasattr(mw, 'enter_3d_viewer_ui_mode'):
-                     mw.enter_3d_viewer_ui_mode()
+                if hasattr(mw, 'ui_manager') and hasattr(mw.ui_manager, '_enter_3d_viewer_ui_mode'):
+                    mw.ui_manager._enter_3d_viewer_ui_mode()
             except Exception as e:
                 print(f"[{PLUGIN_NAME}] Failed to switch to 3D mode: {e}")
 
-            mw.statusBar().showMessage(f"Loaded {file_path} via OpenBabel")
+            mw.statusBar().showMessage(f"Loaded {file_path} via OpenBabel", 3000)
 
             # Set current file path so "Save" works and title updates
-            if hasattr(mw, 'current_file_path'):
+            if hasattr(mw, 'init_manager') and hasattr(mw.init_manager, 'current_file_path'):
                  mw.init_manager.current_file_path = file_path
-            if hasattr(mw, 'has_unsaved_changes'):
+            if hasattr(mw, 'state_manager') and hasattr(mw.state_manager, 'has_unsaved_changes'):
                  mw.state_manager.has_unsaved_changes = False
-            if hasattr(mw, 'update_window_title'):
+            if hasattr(mw, 'state_manager') and hasattr(mw.state_manager, 'update_window_title'):
                  mw.state_manager.update_window_title()
 
         else:
@@ -302,7 +300,7 @@ def export_with_openbabel(context):
         # Save
         pybel_mol.write(fmt, path, overwrite=True)
         
-        mw.statusBar().showMessage(f"Exported to {path}")
+        mw.statusBar().showMessage(f"Exported to {path}", 3000)
         
     except Exception as e:
         QMessageBox.critical(mw, "Export Error", f"Failed to export:\n{e}")

@@ -314,7 +314,7 @@
     "id": "mapped_cube_viewer",
     "visible": true,
     "name": "Mapped Cube Viewer",
-    "version": "2026.04.01",
+    "version": "2026.04.06",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes a property (e.g. ESP) mapped onto an isosurface (e.g. electron density) from two Cube files.",
@@ -329,8 +329,8 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/Mapped_Cube_Viewer/mapped_cube_viewer.py",
-    "lastUpdated": "2026-04-01",
-    "sha256": "3d0e017202d773384f9058aad3cabbf15443811ec574851b30e0748c2d06dc5a",
+    "lastUpdated": "2026-04-06",
+    "sha256": "3cacb394c4408100c8d1a651080281e15d268d939f777fec4cec4f0dfd4c81a8",
     "firstAppeared": "2025-12-17"
   },
   {
@@ -401,7 +401,7 @@
     "id": "gaussian_freq_analyzer",
     "visible": true,
     "name": "Gaussian Freq Analyzer",
-    "version": "2026.04.01",
+    "version": "2026.04.06",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Analyzes vibrational frequencies from Gaussian FCHK files. View IR spectrum, animate normal modes, and export GIF animations.",
@@ -417,8 +417,8 @@
       "Pillow"
     ],
     "downloadUrl": "../plugins/Gaussian_Freq_Analyzer/gaussian_fchk_freq_analyzer.py",
-    "lastUpdated": "2026-04-01",
-    "sha256": "656dc92b1ac087c0fb0dbc9fce44a057fd0c399867adf654e405f10db47e8c1d",
+    "lastUpdated": "2026-04-06",
+    "sha256": "f5aa293326b8d440de47495a00924a2f51b696a86e57752a8712242cc89aea55",
     "firstAppeared": "2025-12-20"
   },
   {
@@ -449,7 +449,7 @@
     "id": "paste_xyz",
     "visible": true,
     "name": "Paste XYZ",
-    "version": "2026.04.01",
+    "version": "2026.04.06",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Paste XYZ to view in 3D.",
@@ -458,8 +458,8 @@
     ],
     "dependencies": [],
     "downloadUrl": "../plugins/Paste_XYZ/paste_xyz.py",
-    "lastUpdated": "2026-04-01",
-    "sha256": "09f46423a2a26157cb339c09e2d28a782c32e64249db9c6258aceb67ec1c20d2",
+    "lastUpdated": "2026-04-06",
+    "sha256": "f14cda6c174932fb03cc54e9ebe49032352d7d477852d5897d6cf03761c83d78",
     "firstAppeared": "2025-12-20"
   },
   {
@@ -527,7 +527,7 @@
     "id": "chat_with_molecule_neo",
     "visible": true,
     "name": "Chat with Molecule Neo (Gemini)",
-    "version": "2026.04.04",
+    "version": "2026.04.06",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with Google Gemini about the current molecule. Automatically injects SMILES context. (Neo Version)",
@@ -542,8 +542,8 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo/chat_with_molecule_neo.py",
-    "lastUpdated": "2026-04-04",
-    "sha256": "d88d1f48b6e7191a1f6ee67b98726aef4d31a3555e9875babbda17e60b6bb16b",
+    "lastUpdated": "2026-04-06",
+    "sha256": "307e8fb0af4fc874cf4290f88d6e4458aa64db7eca443515474ad73d5be6ee7f",
     "firstAppeared": "2025-12-28"
   },
   {
@@ -570,7 +570,7 @@
     "id": "chat_with_molecule_neo_chatgpt",
     "visible": true,
     "name": "Chat with Molecule Neo (ChatGPT)",
-    "version": "2026.04.04",
+    "version": "2026.04.06",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with OpenAI ChatGPT about the current molecule. Automatically injects SMILES context. (Neo Version)",
@@ -585,15 +585,15 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_ChatGPT/chat_with_molecule_neo_chatGPT.py",
-    "lastUpdated": "2026-04-04",
-    "sha256": "db225965ada10b8abff852ccc61fcaabe0ad5f2623d774f3c3c8476d6761d9bb",
+    "lastUpdated": "2026-04-06",
+    "sha256": "91f69d9aa233068247c43b57db159287671eede60beeda76edc76bf446ff663e",
     "firstAppeared": "2025-12-30"
   },
   {
     "id": "chat_with_molecule_neo_local",
     "visible": true,
     "name": "Chat with Molecule Neo (Local)",
-    "version": "2026.04.04",
+    "version": "2026.04.06",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with local LLM about the current molecule. Automatically injects SMILES context. (Neo Version)",
@@ -608,8 +608,8 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_Local/chat_with_molecule_neo_local.py",
-    "lastUpdated": "2026-04-04",
-    "sha256": "2b25a8e13b1795b26f11f05e22e951f5f211deedbeb0e8ac34d5f9710a187381",
+    "lastUpdated": "2026-04-06",
+    "sha256": "9ad532c3fb728f98f7f5428fef946146a2bf74c4521a6b791525185c9e954990",
     "firstAppeared": "2025-12-30"
   },
   {
@@ -849,7 +849,7 @@
     "id": "openbabel_conversion_tool",
     "visible": true,
     "name": "OpenBabel Conversion Tool",
-    "version": "2026.04.01",
+    "version": "2026.04.06",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Import various chemical file formats using OpenBabel with multi-molecule support.",
@@ -861,8 +861,8 @@
       "openbabel-wheel"
     ],
     "downloadUrl": "../plugins/OpenBabel_Conversion_Tool/openbabel_conversion_tool.py",
-    "lastUpdated": "2026-04-01",
-    "sha256": "505a94910c704e635d9cb74d20bb0b0653667803f1af87d688f4c8ec8e3ecef3",
+    "lastUpdated": "2026-04-06",
+    "sha256": "cdc57d6c7ea432dc1be4c22c09a8513f8a884acb9bddb3066475debbf97284c2",
     "firstAppeared": "2026-01-10"
   },
   {
@@ -909,7 +909,7 @@
     "id": "gaussian_mo_analyzer",
     "visible": true,
     "name": "Gaussian MO Analyzer",
-    "version": "2026.04.01",
+    "version": "2026.04.06",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes Molecular Orbitals from Gaussian FCHK files by generating Cube files. The current implementation supports S, P, D, and F shells",
@@ -926,15 +926,15 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Gaussian_MO_Analyzer/gaussian_fchk_mo_analyzer.zip",
-    "lastUpdated": "2026-04-01",
-    "sha256": "2268d613deed138e19a47221e2b06821f38c146aa85819fcb8022451c2d60708",
+    "lastUpdated": "2026-04-06",
+    "sha256": "d23aa7dc090d2de53a2f3b3c7bd8d6d81d39ad77ec0aa652e50bcdfa6747995d",
     "firstAppeared": "2026-01-23"
   },
   {
     "id": "gaussian_fchk_loader",
     "visible": true,
     "name": "Gaussian FCHK Loader",
-    "version": "2026.04.01",
+    "version": "2026.04.06",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Smart loader for FCHK, FCH, and FCK files. Dispatches to Frequency or MO Analyzer with priority handling.",
@@ -946,15 +946,15 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Gaussian_FCHK_Loader/gaussian_fchk_loader.py",
-    "lastUpdated": "2026-04-01",
-    "sha256": "9d9df8e1d896f267c52b951fb590c4630d1c022fd5710e9fe0bb6f6636898d5d",
+    "lastUpdated": "2026-04-06",
+    "sha256": "f01423238a5691226589a01f56fa0d67581149ce0848430f01cd9aae35009d74",
     "firstAppeared": "2026-01-23"
   },
   {
     "id": "settings_saver",
     "visible": true,
     "name": "Settings Saver",
-    "version": "2026.04.01",
+    "version": "2026.04.06",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Save, load, and manage settings presets in a unified dialog.",
@@ -965,8 +965,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Settings_Saver/settings_saver.py",
-    "lastUpdated": "2026-04-01",
-    "sha256": "b7fa6aa78664ec87f09f9d2486daadb24450e724ca1121419ebb2aa2174bc03f",
+    "lastUpdated": "2026-04-06",
+    "sha256": "ad1ccf2c35d653b6d9cd564d8efa180c9d3c0603eebc7ace1f25644175d55fb8",
     "firstAppeared": "2026-01-25"
   },
   {
@@ -1087,7 +1087,7 @@
     "id": "high_res_imager",
     "visible": true,
     "name": "High Resolution Imager",
-    "version": "2026.04.01",
+    "version": "2026.04.06",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Take high-resolution screenshots of the 3D view with custom resolution.",
@@ -1100,15 +1100,15 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/High_Resolution_Imager/high_res_imager.py",
-    "lastUpdated": "2026-04-01",
-    "sha256": "5c93a3cc4f05926bb36f1f9c60f9c6a5a9f475e82539d7348193441142c7ce9e",
+    "lastUpdated": "2026-04-06",
+    "sha256": "49d33162762041231d155d1c497b0c89f5fcc5c4ac290dd75986b8830a778c74",
     "firstAppeared": "2026-02-05"
   },
   {
     "id": "blender_export",
     "visible": true,
     "name": "Blender Export",
-    "version": "2026.04.01",
+    "version": "2026.04.06",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Export molecular structures as Blender Python scripts that create 3D visualizations",
@@ -1122,15 +1122,15 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Blender_Export/blender_export.py",
-    "lastUpdated": "2026-04-01",
-    "sha256": "9faa306c055a8d1a362c65c80bdf3d1fa05540558be31dfa239be726df517124",
+    "lastUpdated": "2026-04-06",
+    "sha256": "beeb53623c53831fcb928c41b52409cafa16eaea524f06412f463918d392323f",
     "firstAppeared": "2026-02-05"
   },
   {
     "id": "povray_export",
     "visible": true,
     "name": "POV-Ray Export",
-    "version": "2026.04.01",
+    "version": "2026.04.06",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Export molecular structures as POV-Ray scene files for professional ray-traced rendering",
@@ -1144,8 +1144,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/POV-Ray_Export/povray_export.py",
-    "lastUpdated": "2026-04-01",
-    "sha256": "f6b06ff8a129d2a65e673dac48d2b40ed64c578cccc4b9deba50605068d08386",
+    "lastUpdated": "2026-04-06",
+    "sha256": "9e0e16b33ccb028da8e8977e89b2ba114d2317b83113d1e9d9ecfbd5d42cdbf0",
     "firstAppeared": "2026-02-05"
   },
   {
