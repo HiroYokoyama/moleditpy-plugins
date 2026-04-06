@@ -993,7 +993,7 @@
     "id": "orca_result_analyzer",
     "visible": true,
     "name": "ORCA Result Analyzer",
-    "version": "2.1.0",
+    "version": "2.1.1",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Comprehensive analyzer for ORCA output files (.out, .log). Includes Vibrational, MO, TDDFT, and NMR analysis.",
@@ -1009,10 +1009,10 @@
       "Pillow",
       "nmrsim"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin/releases/download/2.1.0/orca_result_analyzer.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin/releases/download/2.1.1/orca_result_analyzer.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin",
-    "lastUpdated": "2026-04-04",
-    "sha256": "02dd161393a36956184ebc31fb6f8e8f2682b90084f4b7c8513cf818ff92f57e",
+    "lastUpdated": "2026-04-06",
+    "sha256": "18fdb5bba4c089d4bfbd0494466958c3679b3ed1e634cc206b3f7ecd09d4ac4f",
     "firstAppeared": "2026-01-27"
   },
   {
@@ -1195,7 +1195,7 @@
     "id": "3d_molecule_on_2d",
     "visible": true,
     "name": "3D Molecule on 2D",
-    "version": "2.1.0",
+    "version": "2.1.1",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Integrated 3D depth cues, rotation, and 3D-aware Mol export.",
@@ -1208,17 +1208,17 @@
       "PyQt6",
       "numpy"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_3d-molecule-on-2d/releases/download/2.1.0/3d_molecule_on_2d.py",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_3d-molecule-on-2d/releases/download/2.1.1/3d_molecule_on_2d.py",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_3d-molecule-on-2d",
-    "lastUpdated": "2026-04-04",
-    "sha256": "400e3b138dee20ac82cc3180ef632939ea8de53f3047231d6f5269ddb2c4688d",
+    "lastUpdated": "2026-04-06",
+    "sha256": "18678099161609f490f15a261954a1f60b6586249d57fabdfabd3ee33e4f3db2",
     "firstAppeared": "2026-02-17"
   },
   {
     "id": "orca_input_generator_pro",
     "visible": true,
     "name": "ORCA Input Generator Pro",
-    "version": "2.1.0",
+    "version": "2.1.1",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "High-functionality setting dialog for ORCA input creation. Supports Keywords, Block Builder, and Validations.",
@@ -1230,10 +1230,10 @@
       "rdkit",
       "PyQt6"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/releases/download/2.1.0/orca_input_generator_pro.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/releases/download/2.1.1/orca_input_generator_pro.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro",
-    "lastUpdated": "2026-04-04",
-    "sha256": "abcf1a5e62a125970f7b002ea79d860dc20f0c8ac76caf4dd8944465fcb08f14",
+    "lastUpdated": "2026-04-06",
+    "sha256": "22907ed5f72c4fa76393cec3f59196eef112c3f231471857a5944e74e60cb2b6",
     "firstAppeared": "2026-03-21"
   }
 ]
