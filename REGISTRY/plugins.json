@@ -272,7 +272,7 @@
     "id": "gaussian_input_generator_neo",
     "visible": true,
     "name": "Gaussian Input Generator Neo",
-    "version": "2026.04.01",
+    "version": "2026.04.07",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "High-functionality setting dialog for Gaussian input creation. Supports Link 0, Route, Title, Charge/Mult, and appended data.",
@@ -285,8 +285,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Gaussian_Input_Generator_Neo/gaussian_input_generator_neo.py",
-    "lastUpdated": "2026-04-01",
-    "sha256": "6bb492be3eb81e3b8047c48248ef9074b34641690aeabfaa91dc04e9d43a63c5",
+    "lastUpdated": "2026-04-07",
+    "sha256": "d83dbd9b9239a36b194ea09f204c5459a8220f337ed31da109b9c96fdb6349ad",
     "firstAppeared": "2025-12-16"
   },
   {
