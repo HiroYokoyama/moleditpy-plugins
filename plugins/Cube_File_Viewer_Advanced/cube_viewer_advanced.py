@@ -24,10 +24,9 @@ except ImportError:
     Geometry = None
     rdDetermineBonds = None
     
-__version__ = "2026.04.01"
 __author__ = "HiroYokoyama"
 PLUGIN_NAME = "Cube File Viewer Advanced"
-PLUGIN_VERSION = "2026.04.01"
+PLUGIN_VERSION = "2026.04.09"
 PLUGIN_DESCRIPTION = "Advanced 3D visualization for Gaussian Cube files with PBR, SSAO, and other effects."
 
 def parse_cube_data(filename):
@@ -858,42 +857,49 @@ class CubeViewerWidget(QWidget):
         val = self.spin.value()
         # Prefer numeric spinbox value (kept in sync with slider)
         opacity_val = self.opacity_spin.value() if hasattr(self, 'opacity_spin') else self.opacity_slider.value() / 100.0
-        
+
         # Style settings
         style = self.combo_style.currentText() # Keep original case for check
         smooth = self.check_smooth.isChecked()
-        
+
         render_style = style.lower()
         do_geometric_smooth = False
         is_density_mode = False
-        
+
         if style == "Smoothed Surface":
             render_style = "surface"
             do_geometric_smooth = True
         elif render_style in ["wireframe", "points"]:
             is_density_mode = True
-            
+
         # Update Label to reflect usage
         if is_density_mode:
             self.opacity_label.setText("Density:")
         else:
             self.opacity_label.setText("Opacity:")
-        
+
+        # Safely cleanup previous actors BEFORE the main try block.
+        # After plotter.clear() (called by draw_molecule_3d), actor references become
+        # stale and remove_actor() may throw. Isolate each removal so a failure
+        # never prevents the orbital from being (re-)drawn.
+        for actor in [self.iso_actor_p, self.iso_actor_n,
+                      self.iso_actor_p_sil, self.iso_actor_n_sil]:
+            if actor:
+                try:
+                    self.plotter.remove_actor(actor)
+                except Exception:
+                    pass
+        self.iso_actor_p = None
+        self.iso_actor_n = None
+        self.iso_actor_p_sil = None
+        self.iso_actor_n_sil = None
+        for _name in ["cube_iso_p", "cube_iso_n"]:
+            try:
+                self.plotter.remove_actor(_name)
+            except Exception:
+                pass
+
         try:
-            # Cleanup previous
-            if self.iso_actor_p: self.plotter.remove_actor(self.iso_actor_p)
-            if self.iso_actor_n: self.plotter.remove_actor(self.iso_actor_n)
-            
-            # Explicit cleanup of silhouette actors
-            if self.iso_actor_p_sil: self.plotter.remove_actor(self.iso_actor_p_sil)
-            if self.iso_actor_n_sil: self.plotter.remove_actor(self.iso_actor_n_sil)
-            self.iso_actor_p_sil = None
-            self.iso_actor_n_sil = None
-            
-            # Additional safety cleanup by name
-            self.plotter.remove_actor("cube_iso_p")
-            self.plotter.remove_actor("cube_iso_n")
-            
             # Using full grid
             using_grid = self.grid
 
@@ -1731,8 +1737,8 @@ class CubeViewerWidget(QWidget):
             self.mw.init_manager.current_file_path = None
             self.mw.plotter.render()
              
-            # Restore UI state
-            if hasattr(self.mw, 'restore_ui_for_editing'):
+            # Restore UI state (restore_ui_for_editing lives on ui_manager, not mw directly)
+            if hasattr(self.mw, 'ui_manager') and hasattr(self.mw.ui_manager, 'restore_ui_for_editing'):
                 self.mw.ui_manager.restore_ui_for_editing()
         except Exception as e: 
             print(f"Error closing plugin: {e}")
@@ -1875,10 +1881,21 @@ def open_cube_viewer(context, file_path):
         main_window.current_mol = mol
         main_window.init_manager.current_file_path = file_path
 
-        # Draw
+        # Enter full 3D viewer UI mode: minimizes 2D panel and disables editing tools
+        if hasattr(main_window, 'ui_manager') and hasattr(main_window.ui_manager, '_enter_3d_viewer_ui_mode'):
+            try:
+                main_window.ui_manager._enter_3d_viewer_ui_mode()
+            except Exception:
+                pass
+
+        # Draw molecule structure
         if hasattr(main_window, 'view_3d_manager'):
              main_window.view_3d_manager.draw_molecule_3d(mol)
-             
+
+        # Re-draw orbital AFTER draw_molecule_3d (which calls plotter.clear()).
+        # Use a short timer so Qt finishes the molecule render pass first.
+        QTimer.singleShot(150, viewer.update_iso)
+
         # Report bonds
         nb = mol.GetNumBonds() if mol else 0
         context.show_status_message(f"Loaded Cube. Atoms: {len(atoms)}, Bonds: {nb}")

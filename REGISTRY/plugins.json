@@ -314,7 +314,7 @@
     "id": "mapped_cube_viewer",
     "visible": true,
     "name": "Mapped Cube Viewer",
-    "version": "2026.04.06",
+    "version": "2026.04.09",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes a property (e.g. ESP) mapped onto an isosurface (e.g. electron density) from two Cube files.",
@@ -329,8 +329,8 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/Mapped_Cube_Viewer/mapped_cube_viewer.py",
-    "lastUpdated": "2026-04-06",
-    "sha256": "3cacb394c4408100c8d1a651080281e15d268d939f777fec4cec4f0dfd4c81a8",
+    "lastUpdated": "2026-04-09",
+    "sha256": "b3c17887b104473559e1309fc58aed803ec5cc50eecd255455b3898893db7c52",
     "firstAppeared": "2025-12-17"
   },
   {
@@ -401,7 +401,7 @@
     "id": "gaussian_freq_analyzer",
     "visible": true,
     "name": "Gaussian Freq Analyzer",
-    "version": "2026.04.06",
+    "version": "2026.04.09",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Analyzes vibrational frequencies from Gaussian FCHK files. View IR spectrum, animate normal modes, and export GIF animations.",
@@ -417,8 +417,8 @@
       "Pillow"
     ],
     "downloadUrl": "../plugins/Gaussian_Freq_Analyzer/gaussian_fchk_freq_analyzer.py",
-    "lastUpdated": "2026-04-06",
-    "sha256": "f5aa293326b8d440de47495a00924a2f51b696a86e57752a8712242cc89aea55",
+    "lastUpdated": "2026-04-09",
+    "sha256": "2d7f2d6129fe3a0beb26cccc3378a50162111594e93fffe6350070e5c0919975",
     "firstAppeared": "2025-12-20"
   },
   {
@@ -1043,7 +1043,7 @@
     "id": "cube_file_viewer_advanced",
     "visible": true,
     "name": "Cube File Viewer Advanced",
-    "version": "2026.04.01",
+    "version": "2026.04.09",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Advanced 3D visualization for Gaussian Cube files with PBR, SSAO, and other effects.",
@@ -1058,8 +1058,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer_Advanced/cube_viewer_advanced.py",
-    "lastUpdated": "2026-04-01",
-    "sha256": "44b9e6c2c0d6d52af9c30df7978599667ad0f835a538f378b2a0e1d727dc422f",
+    "lastUpdated": "2026-04-09",
+    "sha256": "fd22171215d572f8c3c6d0dfa7f8fae29920e013aae0f038bddbab177c7997d0",
     "firstAppeared": "2026-02-02"
   },
   {

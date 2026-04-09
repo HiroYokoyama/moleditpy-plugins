@@ -25,11 +25,10 @@ except ImportError:
             pt = Chem.GetPeriodicTable()
         except:
             pt = None
-            
-__version__ = "2026.04.01"
+
 __author__ = "HiroYokoyama"
 PLUGIN_NAME = "Mapped Cube Viewer"
-PLUGIN_VERSION = "2026.04.06"
+PLUGIN_VERSION = "2026.04.09"
 PLUGIN_DESCRIPTION = "Visualizes electrostatic potential or other properties mapped onto an isosurface from Gaussian Cube files."
 
 # --- Core Logic: Robust Parser from cube_viewer.py ---
@@ -483,6 +482,11 @@ class MappedWidget(QWidget):
         try:
             self.mw.plotter.remove_actor(self.actor)
             self.mw.plotter.render()
+        except: pass
+        # Restore 2D editing UI when leaving the 3D viewer mode
+        try:
+            if hasattr(self.mw, 'ui_manager') and hasattr(self.mw.ui_manager, 'restore_ui_for_editing'):
+                self.mw.ui_manager.restore_ui_for_editing()
         except: pass
         if self.dock:
             self.dock.close()
