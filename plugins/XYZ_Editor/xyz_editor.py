@@ -1,18 +1,44 @@
 import sys
 import numpy as np
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, 
-    QPushButton, QHBoxLayout, QMessageBox, QHeaderView, QFileDialog
+    QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem,
+    QPushButton, QHBoxLayout, QMessageBox, QHeaderView, QFileDialog,
 )
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, QObject, QEvent
 from rdkit import Chem
 from rdkit.Geometry import Point3D
 import pyvista as pv
+
 
 PLUGIN_NAME = "XYZ Editor"
 PLUGIN_VERSION = "2026.04.10"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "A table-based editor for atom coordinates and symbols, supporting ghost atoms. Refactored for V3 API."
+
+
+class _ClickFilter(QObject):
+    """Qt event filter: detects non-drag left clicks on the 3D plotter widget."""
+
+    def __init__(self, callback, parent=None):
+        super().__init__(parent)
+        self._callback = callback
+        self._press_pos = None
+
+    def eventFilter(self, obj, event):
+        t = event.type()
+        if t == QEvent.Type.MouseButtonPress:
+            if event.button() == Qt.MouseButton.LeftButton:
+                self._press_pos = event.position().toPoint()
+        elif t == QEvent.Type.MouseButtonRelease:
+            if event.button() == Qt.MouseButton.LeftButton and self._press_pos is not None:
+                rel = event.position().toPoint()
+                dx = rel.x() - self._press_pos.x()
+                dy = rel.y() - self._press_pos.y()
+                if dx * dx + dy * dy <= 25:  # ≤5 px → click, not drag
+                    self._callback(rel.x(), rel.y(), obj, event.modifiers())
+                self._press_pos = None
+        return False  # never consume — camera interaction still works
+
 
 class XYZEditorWindow(QWidget):
     """
@@ -25,17 +51,21 @@ class XYZEditorWindow(QWidget):
         self.context = context
         self.setWindowTitle("XYZ Editor")
         self.resize(600, 400)
+        self._click_filter = None
         self.init_ui()
-        
+
         # Register window for V3 lifecycle management
         self.context.register_window("main_panel", self)
         self.last_seen_signature = None
         self.load_molecule()
-        
+
         # Auto-update mechanism
         self.update_timer = QTimer(self)
         self.update_timer.timeout.connect(self.check_molecule_update)
-        self.update_timer.start(500) # Check every 500ms
+        self.update_timer.start(500)  # Check every 500ms
+
+        # Install click-detection filter on 3D plotter
+        self._enable_plotter_picking()
         
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -101,12 +131,104 @@ class XYZEditorWindow(QWidget):
         
         layout.addLayout(edit_layout)
 
+    def _enable_plotter_picking(self):
+        """Install Qt event filter on the 3D plotter widget for atom click detection."""
+        try:
+            plotter = self.context.plotter
+            if plotter is None:
+                return
+            self._click_filter = _ClickFilter(self._on_plotter_click, parent=self)
+            plotter.installEventFilter(self._click_filter)
+        except Exception:
+            pass
+
+    def _disable_plotter_picking(self):
+        """Remove the event filter from the 3D plotter widget."""
+        try:
+            plotter = self.context.plotter
+            if plotter and self._click_filter:
+                plotter.removeEventFilter(self._click_filter)
+        except Exception:
+            pass
+        self._click_filter = None
+
+    def _on_plotter_click(self, x, y, widget, modifiers):
+        """Called when a non-drag left click is detected on the 3D plotter widget."""
+        try:
+            import vtk
+            mw = self.context.get_main_window()
+            v3d = getattr(mw, "view_3d_manager", None) if mw else None
+            plotter = self.context.plotter
+            if not v3d or not plotter:
+                return
+
+            # Convert Qt (top-left origin) → VTK (bottom-left origin)
+            vtk_y = widget.height() - y
+
+            picker = vtk.vtkCellPicker()
+            picker.SetTolerance(0.005)
+            picker.Pick(x, vtk_y, 0, plotter.renderer)
+            picked_actor = picker.GetActor()
+
+            atom_actor = getattr(v3d, "atom_actor", None)
+            if picked_actor is None or picked_actor is not atom_actor:
+                return
+
+            # Find closest atom to pick position
+            pick_pos = picker.GetPickPosition()
+            mol = self.context.current_mol
+            if not mol or not mol.GetNumConformers():
+                return
+
+            conf = mol.GetConformer()
+            best_idx = -1
+            best_dist = float("inf")
+            for atom in mol.GetAtoms():
+                idx = atom.GetIdx()
+                pos = conf.GetAtomPosition(idx)
+                dx = pos.x - pick_pos[0]
+                dy = pos.y - pick_pos[1]
+                dz = pos.z - pick_pos[2]
+                dist = dx * dx + dy * dy + dz * dz
+                if dist < best_dist:
+                    best_dist = dist
+                    best_idx = idx
+
+            if best_idx < 0:
+                return
+
+            # Find the matching table row
+            target_row = -1
+            for row in range(self.table.rowCount()):
+                item = self.table.item(row, 0)
+                if item and item.text() not in ("", "+"):
+                    try:
+                        if int(item.text()) == best_idx:
+                            target_row = row
+                            break
+                    except ValueError:
+                        pass
+
+            if target_row < 0:
+                return
+
+            ctrl_held = bool(modifiers & Qt.KeyboardModifier.ControlModifier)
+            self.table.blockSignals(True)
+            if not ctrl_held:
+                self.table.clearSelection()
+            self.table.selectRow(target_row)
+            self.table.blockSignals(False)
+            self.table.scrollTo(self.table.model().index(target_row, 0))
+            self.highlight_selected_atoms()
+        except Exception:
+            pass
+
     def closeEvent(self, event):
-        # Cleanup highlights when window is closed
+        self._disable_plotter_picking()
         plotter = self.context.plotter
         if plotter:
             plotter.remove_actor("xyz_selection")
-            self.context.refresh_3d_view()
+            plotter.render()
         super().closeEvent(event)
 
     def get_mol_signature(self, mol):
