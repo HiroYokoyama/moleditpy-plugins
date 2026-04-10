@@ -758,17 +758,36 @@ class PluginInstallerWindow(QDialog):
 
 
     def update_all_plugins(self):
-        """Click the Update button for every row that has status 'Update Available'."""
-        updated = 0
+        """Show a single confirmation dialog then update all plugins with 'Update Available'."""
+        rows_to_update = []
         for row in range(self.table.rowCount()):
             status_item = self.table.item(row, 4)
             if status_item and status_item.text() == "Update Available":
                 btn = self.table.cellWidget(row, 5)
                 if btn and isinstance(btn, QPushButton):
-                    btn.click()
-                    updated += 1
-        if updated == 0:
+                    rows_to_update.append(btn)
+
+        if not rows_to_update:
             QMessageBox.information(self, "Update All", "No plugins with available updates found.")
+            return
+
+        names = [btn.property("plugin_name") for btn in rows_to_update]
+        name_list = "\n".join(f"  - {n}" for n in names)
+        ret = QMessageBox.question(
+            self, "Update All",
+            f"Update the following {len(names)} plugin(s)?\n\n{name_list}",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes,
+        )
+        if ret != QMessageBox.StandardButton.Yes:
+            return
+
+        self._batch_updating = True
+        try:
+            for btn in rows_to_update:
+                btn.click()
+        finally:
+            self._batch_updating = False
 
     def show_plugin_details(self, row, col):
         name_item = self.table.item(row, 0)
@@ -922,15 +941,14 @@ class PluginInstallerWindow(QDialog):
              is_installed = True
         
         # If user already confirmed "Install anyway" despite missing deps, skip this generic confirmation
-        if not user_confirmed_intent:
-            action_verb = "Update" if is_installed else "Install"
-            ret = QMessageBox.question(self, f"{action_verb} Plugin", 
+        # Also skip if we're in batch-update mode (single dialog already shown in update_all_plugins)
+        action_verb = "Update" if is_installed else "Install"
+        if not user_confirmed_intent and not getattr(self, '_batch_updating', False):
+            ret = QMessageBox.question(self, f"{action_verb} Plugin",
                                        f"{action_verb} '{plugin_name}'?\nThis will download and install the plugin.",
                                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             if ret != QMessageBox.StandardButton.Yes:
                 return
-        else:
-            action_verb = "Update" if is_installed else "Install" # Need this for logging below
 
         # Resolve URL (handle relative)
         final_url = download_url
