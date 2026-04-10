@@ -2,67 +2,60 @@
 PubChem Structure Identifier Plugin (Cleaned - No SMILES)
 Resolve chemical names and fetch basic molecular properties via PubChem.
 """
+
 import sys
 import json
 import urllib.request
 import urllib.parse
 import ssl
+
+# --- SSL Truststore for Corporate Environments ---
+try:
+    import truststore
+except ImportError:
+    truststore = None
+
 from PyQt6.QtWidgets import (
     QInputDialog, QMessageBox, QProgressDialog, QDialog, 
     QVBoxLayout, QPushButton, QTextBrowser, QApplication, QHBoxLayout
 )
 from PyQt6.QtCore import Qt
 
-# --- 【追加】truststoreのインポート ---
-try:
-    import truststore
-except ImportError:
-    truststore = None
+# --- Metadata ---
+PLUGIN_NAME = "PubChem Structure Identifier (truststore)"
+PLUGIN_VERSION = "2026.04.01"
+PLUGIN_AUTHOR = "HiroYokoyama"
+PLUGIN_DESCRIPTION = "Resolve chemical names and fetch molecular properties (Name, Formula, Weight) via PubChem."
+PLUGIN_ID = "pubchem_structure_identifier_truststore"
 
 try:
     from rdkit import Chem
 except ImportError:
     Chem = None
 
-# --- Metadata ---
-PLUGIN_NAME = "PubChem Structure Identifier (truststore)"
-PLUGIN_VERSION = "2025.12.30"
-PLUGIN_AUTHOR = "HiroYokoyama"
-# ... (中略) ...
-
 class PubChemResolver:
     """Helper class for PubChem API interactions"""
     
     BASE_URL = "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
 
-    # --- 【修正】最強のSSLコンテキスト作成メソッド ---
     @staticmethod
     def _create_ssl_context():
         """
-        Create an SSL context that:
-        1. Uses the system trust store (fixes security software/proxy issues).
-        2. Lowers security level (fixes Basic Constraints errors).
+        Create an SSL context that uses the system trust store if available.
+        Fixes SSL errors in corporate environments with security software/proxy.
         """
         ctx = None
-        
-        # 1. truststoreが使えるなら使い、Windowsの証明書情報を読み込む
         if truststore:
             try:
                 ctx = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
             except Exception:
-                # 念のため失敗したら標準に戻す
                 ctx = ssl.create_default_context()
         else:
-            # インストールされていない場合は標準のものを使う
             ctx = ssl.create_default_context()
-
-        # 2. OpenSSL 3.0対策: セキュリティレベルを1に下げる
-        # これにより "Basic Constraints" エラーを回避する
         try:
             ctx.set_ciphers('DEFAULT@SECLEVEL=1')
         except (ssl.SSLError, AttributeError):
             pass
-            
         return ctx
 
     @staticmethod
@@ -78,7 +71,6 @@ class PubChemResolver:
             encoded_name = urllib.parse.quote(name)
             url = f"{PubChemResolver.BASE_URL}/compound/name/{encoded_name}/property/IsomericSMILES/JSON"
             
-            # 【修正】context引数を追加
             with urllib.request.urlopen(url, context=PubChemResolver._create_ssl_context()) as response:
                 if response.status != 200:
                    return None, f"HTTP Error: {response.status}"
@@ -115,7 +107,6 @@ class PubChemResolver:
             # 1. Get Common Name (Title)
             desc_url = f"{PubChemResolver.BASE_URL}/compound/inchikey/{inchikey}/description/JSON"
             try:
-                # 【修正】context引数を追加
                 with urllib.request.urlopen(desc_url, context=PubChemResolver._create_ssl_context()) as response:
                     if response.status == 200:
                         data = json.loads(response.read().decode('utf-8'))
@@ -132,7 +123,6 @@ class PubChemResolver:
             props_to_fetch = "MolecularFormula,MolecularWeight,IUPACName"
             prop_url = f"{PubChemResolver.BASE_URL}/compound/inchikey/{inchikey}/property/{props_to_fetch}/JSON"
 
-            # 【修正】context引数を追加
             with urllib.request.urlopen(prop_url, context=PubChemResolver._create_ssl_context()) as response:
                 if response.status != 200:
                      return None, f"HTTP Error: {response.status}"
@@ -243,9 +233,9 @@ class MoleculeDetailsDialog(QDialog):
         self.btn_copy.setText(text)
         self.btn_copy.setEnabled(True)
 
-def resolve_and_load(plugin_context):
+def resolve_and_load(context):
     """Callback for 'Import from PubChem'"""
-    mw = plugin_context.main_window
+    mw = context.get_main_window()
     
     name, ok = QInputDialog.getText(
         mw, "Import from PubChem", "Enter Chemical Name (e.g., Aspirin, Benzene):"
@@ -270,38 +260,25 @@ def resolve_and_load(plugin_context):
         QMessageBox.warning(mw, "PubChem Error", f"No structure found for '{name}'.")
         return
 
-    if hasattr(mw, 'main_window_string_importers'):
-        try:
-            mw.main_window_string_importers.load_from_smiles(smiles)
-            mw.statusBar().showMessage(f"Loaded '{name}' from PubChem.", 5000)
-            
-            if hasattr(mw, 'plotter_controller'):
-                 mw.plotter_controller.reset_camera()
-                 
-        except Exception as e:
-            QMessageBox.critical(mw, "Import Error", f"Failed to load SMILES:\n{e}")
-    else:
-        QMessageBox.critical(mw, "Error", "String Importer module not found in Main Window.")
+    try:
+        mw = context.get_main_window()
+        # # [DIRECT ACCESS] to string_importer_manager as this is not yet in the PluginContext API
+        if mw and hasattr(mw, "string_importer_manager"):
+            mw.string_importer_manager.load_from_smiles(smiles)
+            context.show_status_message(f"Loaded '{name}' from PubChem.", 5000)
+    except Exception as e:
+        QMessageBox.critical(mw, "Import Error", f"Failed to load SMILES:\n{e}")
 
-
-def identify_current_molecule(plugin_context):
+def identify_current_molecule(context):
     """Callback for 'Identify Molecule' action"""
-    mw = plugin_context.main_window
+    mw = context.get_main_window()
     
     if not Chem:
         QMessageBox.warning(mw, "Error", "RDKit is required for this feature.")
         return
 
     # Get Current Molecule
-    mol = None
-    if hasattr(mw, 'current_mol') and mw.current_mol:
-        mol = mw.current_mol
-    elif hasattr(mw, 'data') and hasattr(mw.data, 'to_rdkit_mol'):
-        try:
-            mol = mw.data.to_rdkit_mol()
-        except:
-            pass
-            
+    mol = context.current_molecule
     if not mol:
         QMessageBox.warning(mw, "Error", "No valid molecule loaded to identify.")
         return
@@ -328,13 +305,9 @@ def identify_current_molecule(plugin_context):
     else:
         QMessageBox.information(mw, "PubChem Result", f"Could not identify molecule.\nError: {error}")
 
-
-# --- Plugin Entry Points ---
-
-def run(main_window):
-    """Entry point for the plugin when launched from the Plugins menu."""
-    class Context:
-        def __init__(self, mw):
-            self.main_window = mw
-            
-    identify_current_molecule(Context(main_window))
+def run(mw):
+    if hasattr(mw, 'host'):
+        mw = mw.host
+    from moleditpy.plugins.plugin_interface import PluginContext
+    context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
+    identify_current_molecule(context)

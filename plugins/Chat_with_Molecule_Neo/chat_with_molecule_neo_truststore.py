@@ -3,7 +3,7 @@
 
 
 PLUGIN_NAME = "Chat with Molecule Neo (Gemini) (truststore)"
-PLUGIN_VERSION = "2026.04.04"
+PLUGIN_VERSION = "2026.04.11"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with Google Gemini about the current molecule. Automatically injects SMILES context. (Neo Version)"
 PLUGIN_ID = "chat_with_molecule_neo_truststore"
@@ -21,6 +21,7 @@ import urllib.parse
 import time
 import urllib.error
 import unicodedata
+import logging
 
 # Matplotlib for LaTeX rendering (OO interface to avoid thread issues)
 
@@ -49,7 +50,7 @@ try:
     truststore.inject_into_ssl()
 except ImportError:
     # truststore is optional; proceed if not installed
-    pass 
+    pass
 except Exception as e:
     print(f"Warning: Truststore injection failed: {e}")
 
@@ -403,8 +404,8 @@ def load_settings():
         try:
             with open(SETTINGS_FILE, 'r') as f:
                 return json.load(f)
-        except:
-            pass
+        except Exception as _e:
+            logging.warning("[chat_with_molecule_neo.py:390] silenced: %s", _e)
     return {}
 
 def save_settings(settings):
@@ -541,8 +542,8 @@ class NameResolverWorker(QRunnable):
                 name, error = PubChemResolver.resolve_inchikey_to_name(self.inchikey)
                 if name:
                     self.signals.finished.emit(self.inchikey, name)
-        except Exception:
-            pass
+        except Exception as _e:
+            logging.warning("[chat_with_molecule_neo.py:528] silenced: %s", _e)
 
 class GenAIWorker(QThread):
     """Worker thread to handle API calls to avoid freezing UI"""
@@ -648,8 +649,8 @@ class ChatMoleculeWindow(QDialog):
                     item = atom_data.get('item')
                     if item and item.isSelected():
                         selected_ids.append(str(atom_id + 1)) # Use 1-based (Matches MapNum)
-        except Exception:
-            pass
+        except Exception as _e:
+            logging.warning("[chat_with_molecule_neo.py:635] silenced: %s", _e)
         return selected_ids
 
     def check_molecule_change(self):
@@ -691,8 +692,8 @@ class ChatMoleculeWindow(QDialog):
                          mol = Chem.MolFromSmiles(current_smiles)
                          if mol:
                              self.last_inchikey = Chem.MolToInchiKey(mol)
-                     except:
-                         pass
+                     except Exception as _e:
+                         logging.warning("[chat_with_molecule_neo.py:678] silenced: %s", _e)
 
              self.first_check_done = True
              
@@ -769,8 +770,8 @@ class ChatMoleculeWindow(QDialog):
             try:
                 app_icon = QIcon(icon_path)
                 self.setWindowIcon(app_icon)
-            except Exception:
-                pass
+            except Exception as _e:
+                logging.warning("[chat_with_molecule_neo.py:756] silenced: %s", _e)
         
         layout = QVBoxLayout(self)
 
@@ -953,17 +954,22 @@ class ChatMoleculeWindow(QDialog):
             # Disconnect signals from active workers to prevent UI updates after close
             if self.worker and self.worker.isRunning():
                 try: self.worker.chunk_received.disconnect()
-                except: pass
+                except Exception as _e:
+                    logging.warning("[chat_with_molecule_neo.py:940] silenced: %s", _e)
                 try: self.worker.response_received.disconnect()
-                except: pass
+                except Exception as _e:
+                    logging.warning("[chat_with_molecule_neo.py:942] silenced: %s", _e)
                 try: self.worker.finished.disconnect() 
-                except: pass
+                except Exception as _e:
+                    logging.warning("[chat_with_molecule_neo.py:944] silenced: %s", _e)
                 try: self.worker.error_occurred.disconnect() 
-                except: pass
+                except Exception as _e:
+                    logging.warning("[chat_with_molecule_neo.py:946] silenced: %s", _e)
             
             if hasattr(self, 'init_worker') and self.init_worker and self.init_worker.isRunning():
                 try: self.init_worker.finished.disconnect()
-                except: pass
+                except Exception as _e:
+                    logging.warning("[chat_with_molecule_neo.py:950] silenced: %s", _e)
 
         except Exception as e:
             print(f"CloseEvent Error: {e}")
@@ -1009,11 +1015,14 @@ class ChatMoleculeWindow(QDialog):
             
             # --- FIX: Disconnect signals to prevent zombie updates ---
             try: self.worker.chunk_received.disconnect()
-            except: pass
+            except Exception as _e:
+                logging.warning("[chat_with_molecule_neo.py:996] silenced: %s", _e)
             try: self.worker.response_received.disconnect()
-            except: pass
+            except Exception as _e:
+                logging.warning("[chat_with_molecule_neo.py:998] silenced: %s", _e)
             try: self.worker.error_occurred.disconnect()
-            except: pass
+            except Exception as _e:
+                logging.warning("[chat_with_molecule_neo.py:1000] silenced: %s", _e)
             
             self.worker.stop()
             # Worker will emit error "Interrupted by User" which handles UI reset
@@ -1373,8 +1382,8 @@ class ChatMoleculeWindow(QDialog):
                  mol = Chem.MolFromSmiles(smiles)
                  if mol:
                      self.last_inchikey = Chem.MolToInchiKey(mol)
-             except:
-                 pass
+             except Exception as _e:
+                 logging.warning("[chat_with_molecule_neo.py:1360] silenced: %s", _e)
 
         context_msg = ""
         if smiles:
@@ -1509,8 +1518,8 @@ class ChatMoleculeWindow(QDialog):
             try:
                 if hasattr(self.main_window, 'current_mol'):
                     mol = self.main_window.current_mol
-            except Exception:
-                pass
+            except Exception as _e:
+                logging.warning("[chat_with_molecule_neo.py:1496] silenced: %s", _e)
 
         if mol is None:
              if hasattr(self.main_window.state_manager, 'data') and hasattr(self.main_window.state_manager.data, 'atoms') and not self.main_window.state_manager.data.atoms:
@@ -1670,8 +1679,8 @@ class ChatMoleculeWindow(QDialog):
             try:
                 if mw.compute_manager.check_chemistry_problems_fallback():
                      pass
-            except:
-                pass
+            except Exception as _e:
+                logging.warning("[chat_with_molecule_neo.py:1657] silenced: %s", _e)
             
             mw.edit_actions_manager.update_undo_redo_actions()
             mw.state_manager.update_window_title()
@@ -1764,8 +1773,8 @@ class ChatMoleculeWindow(QDialog):
                      try:
                          mol = Chem.AddHs(mol)
                          AllChem.EmbedMolecule(mol, AllChem.ETKDGv3())
-                     except:
-                         pass
+                     except Exception as _e:
+                         logging.warning("[chat_with_molecule_neo.py:1751] silenced: %s", _e)
 
             if not mol: return ""
 
@@ -2209,15 +2218,18 @@ class ChatMoleculeWindow(QDialog):
              
              # ROBUST FIX: Implicit Hydrogens & Valence
              try: new_mol.UpdatePropertyCache(strict=False)
-             except: pass
+             except Exception as _e:
+                 logging.warning("[chat_with_molecule_neo.py:2196] silenced: %s", _e)
              
              # Sanitize
              try: Chem.SanitizeMol(new_mol)
-             except: pass
+             except Exception as _e:
+                 logging.warning("[chat_with_molecule_neo.py:2200] silenced: %s", _e)
              
              # Remove hydrogens
              try: new_mol = Chem.RemoveHs(new_mol, implicitOnly=False, updateExplicitCount=True, sanitize=True)
-             except: pass
+             except Exception as _e:
+                 logging.warning("[chat_with_molecule_neo.py:2204] silenced: %s", _e)
 
              # --- [FIX 2] Assign new IDs to new atoms (MapNum=0) ---
              # Essential for update_structure_diff_based to create bonds
@@ -2228,7 +2240,8 @@ class ChatMoleculeWindow(QDialog):
 
              # Enforce Stereo assignment on product before SMILES generation
              try: Chem.AssignStereochemistry(new_mol, force=True, cleanIt=True)
-             except: pass
+             except Exception as _e:
+                 logging.warning("[chat_with_molecule_neo.py:2215] silenced: %s", _e)
 
              # 4. SMILES Round-Trip
              temp_smiles = Chem.MolToSmiles(new_mol)
@@ -2664,14 +2677,14 @@ class ChatMoleculeWindow(QDialog):
             
             # 4. Reset helper flags
             mw.is_xyz_derived = False
-            if hasattr(mw, 'clear_2d_measurement_labels'):
+            if hasattr(mw, 'edit_3d_manager') and hasattr(mw.edit_3d_manager, 'clear_2d_measurement_labels'):
                 mw.edit_3d_manager.clear_2d_measurement_labels()
-            
+
             # --- Manual Clear 3D Logic ---
             mw.plotter.clear()
             mw.current_mol = None
-            if hasattr(mw, '_enable_3d_features'):
-                mw._enable_3d_features(False)
+            if hasattr(mw, 'ui_manager') and hasattr(mw.ui_manager, '_enable_3d_features'):
+                mw.ui_manager._enable_3d_features(False)
             
             # Update UI
             mw.state_manager.has_unsaved_changes = True
@@ -2713,7 +2726,8 @@ class ChatMoleculeWindow(QDialog):
         if not mol_to_export:
              status_msg = ""
              try: status_msg = self.main_window.statusBar().currentMessage()
-             except: pass
+             except Exception as _e:
+                 logging.warning("[chat_with_molecule_neo.py:2700] silenced: %s", _e)
              self.append_message("System", f"Main Window conversion failed (Status: {status_msg}). Trying local generation...", "orange")
 
              QApplication.processEvents()
@@ -2906,8 +2920,8 @@ class ChatMoleculeWindow(QDialog):
             # Include if we have values (especially useful when name is unknown)
             if charge is not None and mult is not None:
                 state_info = f"State: Charge {charge}, Multiplicity {mult}. "
-        except Exception:
-            pass
+        except Exception as _e:
+            logging.warning("[chat_with_molecule_neo.py:2893] silenced: %s", _e)
 
         # --- Calculated Results Injection ---
         calc_info = ""
@@ -2976,8 +2990,8 @@ class ChatMoleculeWindow(QDialog):
                          # Update context label immediately
                          smiles_preview = f"({current_smiles[:20]}...)" if current_smiles else ""
                          self.lbl_context.setText(f"Context: {mol_name} {smiles_preview}")
-                 except:
-                     pass
+                 except Exception as _e:
+                     logging.warning("[chat_with_molecule_neo.py:2963] silenced: %s", _e)
              
              # Re-build Context (Lazy=False -> Forces Descriptors -> Forces 3D if needed)
              # This might block slightly for 3D generation, but user requested "Only just before sending".
@@ -3233,24 +3247,25 @@ class ChatMoleculeWindow(QDialog):
         """
 
 
-        if not hasattr(self.main_window, 'trigger_conversion'):
+        compute_mgr = getattr(self.main_window, 'compute_manager', None)
+        if compute_mgr is None or not hasattr(compute_mgr, 'trigger_conversion'):
             return
 
         # Check if we really need it? (If current_mol exists and has conformers, maybe skip?)
         # User said "trigger conversion", implying they want it FRESH.
-        
+
         # Trigger it
         try:
              self.append_message("System", "Converting 2D structure to 3D... (Max 60s)", "blue")
              QApplication.processEvents()
 
              import time
-             
+
              # Capture conversion ID state to detect if it actually starts
              prev_conversion_id = getattr(self.main_window, 'next_conversion_id', -1)
-             
+
              try:
-                 self.main_window.trigger_conversion()
+                 compute_mgr.trigger_conversion()
              except Exception as e:
                  self.append_message("Error", f"Exception during trigger_conversion: {e}", "red")
                  return
@@ -3264,8 +3279,8 @@ class ChatMoleculeWindow(QDialog):
                  status_msg = "Unknown Error"
                  try:
                      status_msg = self.main_window.statusBar().currentMessage()
-                 except:
-                     pass
+                 except Exception as _e:
+                     logging.warning("[chat_with_molecule_neo.py:3251] silenced: %s", _e)
                  self.append_message("Error", f"3D Conversion failed to start: {status_msg}", "red")
                  return
              
@@ -3290,8 +3305,9 @@ class ChatMoleculeWindow(QDialog):
                  time.sleep(0.05) # Yield CPU
              
              # Force 3D Update as requested
-             if hasattr(self.main_window, 'draw_molecule_3d'):
-                 self.main_window.view_3d_manager.draw_molecule_3d(self.main_window.current_mol)
+             v3d = getattr(self.main_window, 'view_3d_manager', None)
+             if v3d and hasattr(v3d, 'draw_molecule_3d'):
+                 v3d.draw_molecule_3d(self.main_window.current_mol)
                   
         except Exception as e:
             self.append_message("Error", f"3D Conversion Wait Failed: {e}", "red")
@@ -3358,7 +3374,8 @@ class ChatMoleculeWindow(QDialog):
         self.btn_send.setText("Send")
         self.btn_send.setStyleSheet("")
         try: self.btn_send.clicked.disconnect()
-        except: pass
+        except Exception as _e:
+            logging.warning("[chat_with_molecule_neo.py:3345] silenced: %s", _e)
         self.btn_send.clicked.connect(self.send_message)
         
         self.loading_bar.setVisible(False)
@@ -3392,7 +3409,8 @@ class ChatMoleculeWindow(QDialog):
         self.btn_send.setText("Send")
         self.btn_send.setStyleSheet("")
         try: self.btn_send.clicked.disconnect()
-        except: pass
+        except Exception as _e:
+            logging.warning("[chat_with_molecule_neo.py:3379] silenced: %s", _e)
         self.btn_send.clicked.connect(self.send_message)
         
         # Log to history now that it's complete
@@ -3545,7 +3563,7 @@ class ChatMoleculeWindow(QDialog):
                 target_center = QPointF(avg_x, avg_y)
             else:
                 # 原子がない場合はビューの中心
-                if hasattr(mw, 'view_2d') and mw.init_manager.view_2d:
+                if hasattr(mw, 'init_manager') and hasattr(mw.init_manager, 'view_2d') and mw.init_manager.view_2d:
                      target_center = mw.init_manager.view_2d.mapToScene(mw.init_manager.view_2d.viewport().rect().center())
                 else:
                      target_center = QPointF(0, 0)
@@ -3629,8 +3647,8 @@ class ChatMoleculeWindow(QDialog):
                                        if 'item' in adata and hasattr(adata['item'], 'atom_id'):
                                            adata['item'].atom_id = target_id
                                        # print(f"Remapped New Atom {actual_id} -> {target_id}")
-                                  except:
-                                       pass
+                                  except Exception as _e:
+                                       logging.warning("[chat_with_molecule_neo.py:3616] silenced: %s", _e)
                              else:
                                   # Should not happen (checked in else block above)
                                   pass
@@ -3762,7 +3780,7 @@ class ChatMoleculeWindow(QDialog):
 
             # --- Finalize ---
             mw.state_manager.has_unsaved_changes = True
-            if hasattr(mw, 'update_realtime_info'):
+            if hasattr(mw, 'state_manager') and hasattr(mw.state_manager, 'update_realtime_info'):
                 mw.state_manager.update_realtime_info()
             mw.edit_actions_manager.update_undo_redo_actions()
             
