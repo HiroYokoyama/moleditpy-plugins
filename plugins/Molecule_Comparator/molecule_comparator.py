@@ -189,11 +189,6 @@ class AlignmentWorker(QThread):
             traceback.print_exc()
             self.error_signal.emit(str(e))
 
-PLUGIN_NAME = "Molecule Comparator"
-PLUGIN_VERSION = "2026.04.01"
-PLUGIN_AUTHOR = "HiroYokoyama"
-PLUGIN_DESCRIPTION = "Compare multiple molecules in 3D, calculate RMSD, and align them. Refactored for V3 API."
-
 # Default Palette
 DEFAULT_COLORS = [
     "#FF0000", # Red
