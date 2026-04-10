@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QTimer
 from rdkit import Chem
 from rdkit.Chem import AllChem
+import logging
 
 # Try importing openbabel
 OBABEL_AVAILABLE = False
@@ -22,7 +23,7 @@ except ImportError:
         OBABEL_AVAILABLE = False
 
 PLUGIN_NAME = "OpenBabel Conversion Tool"
-PLUGIN_VERSION = "2026.04.06"
+PLUGIN_VERSION = "2026.04.11"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Import various chemical file formats using OpenBabel with multi-molecule support."
 PLUGIN_DEPENDENCIES = ["openbabel"]
@@ -150,8 +151,8 @@ def open_file_with_openbabel(file_path, context):
             if temp_file_path and os.path.exists(temp_file_path):
                 try:
                     os.remove(temp_file_path)
-                except Exception:
-                   pass
+                except Exception as _e:
+                   logging.warning("[openbabel_conversion_tool.py:153] silenced: %s", _e)
         
         if not mols:
             QMessageBox.warning(mw, "Error", "No molecules found in file.")
@@ -343,4 +344,3 @@ class MoleculeSelectionDialog(QDialog):
         if rows:
             return rows[0].row()
         return None
-

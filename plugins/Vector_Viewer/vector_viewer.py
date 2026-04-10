@@ -9,10 +9,11 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
+import logging
 
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Vector Viewer"
-PLUGIN_VERSION = "2026.04.01"
+PLUGIN_VERSION = "2026.04.11"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Visualizes vectors and exports PNGs using the V3 API."
 
@@ -145,8 +146,8 @@ class VectorViewerPlugin(QWidget):
                 coords = np.array([[p.x, p.y, p.z] for p in positions])
                 if len(coords) > 0:
                     return np.mean(coords, axis=0)
-            except:
-                pass
+            except Exception as _e:
+                logging.warning("[vector_viewer.py:148] silenced: %s", _e)
         return np.array([0., 0., 0.])
 
     def update_visualization(self):
@@ -216,8 +217,8 @@ class VectorViewerPlugin(QWidget):
                 if plotter is not None:
                     plotter.remove_actor(self.vis_actor)
                     self.context.refresh_3d_view()
-            except Exception:
-                pass
+            except Exception as _e:
+                logging.warning("[vector_viewer.py:219] silenced: %s", _e)
             self.vis_actor = None
         super().closeEvent(event)
 

@@ -8,10 +8,11 @@ from PyQt6.QtCore import Qt, QTimer, QObject, QEvent
 from rdkit import Chem
 from rdkit.Geometry import Point3D
 import pyvista as pv
+import logging
 
 
 PLUGIN_NAME = "XYZ Editor"
-PLUGIN_VERSION = "2026.04.10"
+PLUGIN_VERSION = "2026.04.11"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "A table-based editor for atom coordinates and symbols, supporting ghost atoms. Refactored for V3 API."
 
@@ -139,8 +140,8 @@ class XYZEditorWindow(QWidget):
                 return
             self._click_filter = _ClickFilter(self._on_plotter_click, parent=self)
             plotter.installEventFilter(self._click_filter)
-        except Exception:
-            pass
+        except Exception as _e:
+            logging.warning("[xyz_editor.py:142] silenced: %s", _e)
 
     def _disable_plotter_picking(self):
         """Remove the event filter from the 3D plotter widget."""
@@ -148,8 +149,8 @@ class XYZEditorWindow(QWidget):
             plotter = self.context.plotter
             if plotter and self._click_filter:
                 plotter.removeEventFilter(self._click_filter)
-        except Exception:
-            pass
+        except Exception as _e:
+            logging.warning("[xyz_editor.py:151] silenced: %s", _e)
         self._click_filter = None
 
     def _on_plotter_click(self, x, y, widget, modifiers):
@@ -206,8 +207,8 @@ class XYZEditorWindow(QWidget):
                         if int(item.text()) == best_idx:
                             target_row = row
                             break
-                    except ValueError:
-                        pass
+                    except ValueError as _e:
+                        logging.warning("[xyz_editor.py:209] silenced: %s", _e)
 
             if target_row < 0:
                 return
@@ -220,8 +221,8 @@ class XYZEditorWindow(QWidget):
             self.table.blockSignals(False)
             self.table.scrollTo(self.table.model().index(target_row, 0))
             self.highlight_selected_atoms()
-        except Exception:
-            pass
+        except Exception as _e:
+            logging.warning("[xyz_editor.py:223] silenced: %s", _e)
 
     def closeEvent(self, event):
         self._disable_plotter_picking()
@@ -261,8 +262,8 @@ class XYZEditorWindow(QWidget):
             
             if current_sig != self.last_seen_signature:
                 self.load_molecule()
-        except Exception:
-            pass
+        except Exception as _e:
+            logging.warning("[xyz_editor.py:264] silenced: %s", _e)
             
     def load_molecule(self):
         self.table.blockSignals(True)
@@ -481,8 +482,8 @@ class XYZEditorWindow(QWidget):
                         potential_num = pt.GetAtomicNumber(symbol)
                         if pt.GetElementSymbol(potential_num) == symbol:
                             at_num = potential_num
-                    except Exception:
-                        pass
+                    except Exception as _e:
+                        logging.warning("[xyz_editor.py:484] silenced: %s", _e)
 
                     if at_num > 0:
                         atom = Chem.Atom(at_num)
@@ -594,7 +595,8 @@ def initialize(context):
         if mol:
             for idx, lbl in labels.items():
                 try: mol.GetAtomWithIdx(int(idx)).SetProp("custom_symbol", lbl)
-                except: pass
+                except Exception as _e:
+                    logging.warning("[xyz_editor.py:597] silenced: %s", _e)
             context.current_molecule = mol
 
     def on_document_reset():

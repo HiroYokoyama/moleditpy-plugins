@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (
     QMessageBox, QLabel, QLineEdit, QDialogButtonBox, QInputDialog
 )
 from PyQt6.QtCore import Qt
+import logging
 try:
     from rdkit import Chem
     from rdkit.Chem import rdGeometry, AllChem
@@ -14,7 +15,7 @@ except ImportError:
     Chem = None
 
 PLUGIN_NAME = "Paste XYZ"
-PLUGIN_VERSION = "2026.04.06"
+PLUGIN_VERSION = "2026.04.11"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Allows pasting XYZ coordinates directly from the clipboard to create a new molecule."
 
@@ -175,7 +176,8 @@ def run_plugin(context):
             if skip_checks_global:
                 if hasattr(mw, 'io_manager') and hasattr(mw.io_manager, 'estimate_bonds_from_distances'):
                     try: mw.io_manager.estimate_bonds_from_distances(mol)
-                    except: pass
+                    except Exception as _e:
+                        logging.warning("[paste_xyz.py:178] silenced: %s", _e)
                 final_mol = mol.GetMol()
                 final_mol.SetIntProp("_xyz_skip_checks", 1)
             else:
@@ -190,7 +192,8 @@ def run_plugin(context):
                                 if skip_flag:
                                     if hasattr(mw, 'io_manager') and hasattr(mw.io_manager, 'estimate_bonds_from_distances'):
                                         try: mw.io_manager.estimate_bonds_from_distances(mol)
-                                        except: pass
+                                        except Exception as _e:
+                                            logging.warning("[paste_xyz.py:193] silenced: %s", _e)
                                     final_mol = mol.GetMol()
                                     final_mol.SetIntProp("_xyz_skip_checks", 1)
                                     break
@@ -206,7 +209,8 @@ def run_plugin(context):
                             if skip_flag:
                                 if hasattr(mw, 'io_manager') and hasattr(mw.io_manager, 'estimate_bonds_from_distances'):
                                     try: mw.io_manager.estimate_bonds_from_distances(mol)
-                                    except: pass
+                                    except Exception as _e:
+                                        logging.warning("[paste_xyz.py:209] silenced: %s", _e)
                                 final_mol = mol.GetMol()
                                 final_mol.SetIntProp("_xyz_skip_checks", 1)
                                 break
@@ -215,13 +219,14 @@ def run_plugin(context):
                                 break
                             except:
                                 context.show_status_message("Bond determination failed.")
-                except:
-                    pass
+                except Exception as _e:
+                    logging.warning("[paste_xyz.py:218] silenced: %s", _e)
 
             if final_mol is None:
                 if hasattr(mw, 'io_manager') and hasattr(mw.io_manager, 'estimate_bonds_from_distances'):
                     try: mw.io_manager.estimate_bonds_from_distances(mol)
-                    except: pass
+                    except Exception as _e:
+                        logging.warning("[paste_xyz.py:224] silenced: %s", _e)
                 final_mol = mol.GetMol()
 
             if final_mol:
@@ -232,7 +237,8 @@ def run_plugin(context):
                 
                 if hasattr(mw, 'ui_manager') and hasattr(mw.ui_manager, '_enter_3d_viewer_ui_mode'):
                     try: mw.ui_manager._enter_3d_viewer_ui_mode()
-                    except: pass
+                    except Exception as _e:
+                        logging.warning("[paste_xyz.py:235] silenced: %s", _e)
                 # Minimize the 2D editor after loading XYZ into 3D-first workflow.
                 try:
                     if hasattr(mw, "ui_manager") and hasattr(mw.ui_manager, "minimize_2d_panel"):
@@ -241,8 +247,8 @@ def run_plugin(context):
                         splitter = mw.init_manager.splitter
                         if splitter and splitter.count() > 1:
                             splitter.setSizes([0, 1000])
-                except Exception:
-                    pass
+                except Exception as _e:
+                    logging.warning("[paste_xyz.py:244] silenced: %s", _e)
 
         except Exception as e:
             traceback.print_exc()

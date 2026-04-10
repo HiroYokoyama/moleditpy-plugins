@@ -4,6 +4,7 @@ import pyvista as pv
 from PyQt6.QtWidgets import (QFileDialog, QDockWidget, QWidget, QVBoxLayout, 
                              QSlider, QLabel, QHBoxLayout, QPushButton, QMessageBox, QDoubleSpinBox, QProgressBar, QComboBox, QCheckBox, QDialog, QLineEdit, QFormLayout, QDialogButtonBox)
 from PyQt6.QtCore import Qt
+import logging
 
 # --- Dependency Management ---
 try:
@@ -28,7 +29,7 @@ except ImportError:
 
 __author__ = "HiroYokoyama"
 PLUGIN_NAME = "Mapped Cube Viewer"
-PLUGIN_VERSION = "2026.04.09"
+PLUGIN_VERSION = "2026.04.11"
 PLUGIN_DESCRIPTION = "Visualizes electrostatic potential or other properties mapped onto an isosurface from Gaussian Cube files."
 
 # --- Core Logic: Robust Parser from cube_viewer.py ---
@@ -427,7 +428,8 @@ class MappedWidget(QWidget):
                     try:
                         sb = pl.scalar_bar
                         sb.GetLabelTextProperty().SetJustificationToCentered()
-                    except: pass
+                    except Exception as _e:
+                        logging.warning("[mapped_cube_viewer.py:430] silenced: %s", _e)
                 
                 pl.screenshot(f, transparent_background=self.check_transparent.isChecked())
                 pl.close()
@@ -482,17 +484,20 @@ class MappedWidget(QWidget):
         try:
             self.mw.plotter.remove_actor(self.actor)
             self.mw.plotter.render()
-        except: pass
+        except Exception as _e:
+            logging.warning("[mapped_cube_viewer.py:485] silenced: %s", _e)
         # Restore 2D editing UI when leaving the 3D viewer mode
         try:
             if hasattr(self.mw, 'ui_manager') and hasattr(self.mw.ui_manager, 'restore_ui_for_editing'):
                 self.mw.ui_manager.restore_ui_for_editing()
-        except: pass
+        except Exception as _e:
+            logging.warning("[mapped_cube_viewer.py:490] silenced: %s", _e)
         if self.dock:
             self.dock.close()
         try:
             self.mw.edit_actions_manager.clear_all()
-        except: pass
+        except Exception as _e:
+            logging.warning("[mapped_cube_viewer.py:495] silenced: %s", _e)
         self.close()
 
 # --- Entry Point ---
@@ -535,7 +540,8 @@ def run_plugin(context):
             try: 
                     from rdkit.Chem import rdDetermineBonds
                     rdDetermineBonds.DetermineConnectivity(mol)
-            except: pass
+            except Exception as _e:
+                logging.warning("[mapped_cube_viewer.py:538] silenced: %s", _e)
             
             mw.current_mol = mol
             if hasattr(mw, 'view_3d_manager'):
@@ -543,7 +549,8 @@ def run_plugin(context):
 
         if hasattr(mw, 'ui_manager') and hasattr(mw.ui_manager, '_enter_3d_viewer_ui_mode'):
             try: mw.ui_manager._enter_3d_viewer_ui_mode()
-            except: pass
+            except Exception as _e:
+                logging.warning("[mapped_cube_viewer.py:546] silenced: %s", _e)
 
         for d in mw.findChildren(QDockWidget):
             if d.windowTitle() == "Mapped Viewer":

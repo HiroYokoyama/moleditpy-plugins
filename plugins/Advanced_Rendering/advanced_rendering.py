@@ -36,7 +36,7 @@ except ImportError:
     vtk = None
 
 PLUGIN_NAME = "Advanced Rendering"
-PLUGIN_VERSION = "2026.04.01"
+PLUGIN_VERSION = "2026.04.11"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Fine-grained control over Scene lighting, shadows, and PBR effects. Refactored for V3 API."
 
@@ -80,7 +80,8 @@ def load_plugin_from_mw(mw):
     try:
         if dialog and sip.isdeleted(dialog):
             is_deleted = True
-    except: pass
+    except Exception as _e:
+        logging.warning("[advanced_rendering.py:83] silenced: %s", _e)
 
     if not dialog or not isinstance(dialog, QDialog) or is_deleted:
         # Ensure the viewer widget exists
@@ -88,7 +89,8 @@ def load_plugin_from_mw(mw):
         try:
             if viewer and sip.isdeleted(viewer):
                 viewer = None
-        except: pass
+        except Exception as _e:
+            logging.warning("[advanced_rendering.py:91] silenced: %s", _e)
         if not viewer:
             # Should have been created in initialize, but fallback just in case
             viewer = AdvancedGraphicsWidget(mw)
@@ -137,13 +139,15 @@ def initialize(context):
             if hasattr(old_viewer, '_sync_timer'):
                 old_viewer._sync_timer.stop()
             old_viewer.deleteLater()
-        except: pass
+        except Exception as _e:
+            logging.warning("[advanced_rendering.py:140] silenced: %s", _e)
     
     if hasattr(mw, '_adv_graphics_dialog') and mw._adv_graphics_dialog:
         try:
             mw._adv_graphics_dialog.close()
             mw._adv_graphics_dialog.deleteLater()
-        except: pass
+        except Exception as _e:
+            logging.warning("[advanced_rendering.py:146] silenced: %s", _e)
         mw._adv_graphics_dialog = None
     
     # 2. Create Background Widget (State Holder)
@@ -246,8 +250,8 @@ class AdvancedGraphicsWidget(QWidget):
              plotter = self.safe_plotter
              if plotter and hasattr(plotter, 'renderer') and plotter.renderer:
                  ready = True
-        except:
-             pass
+        except Exception as _e:
+             logging.warning("[advanced_rendering.py:249] silenced: %s", _e)
         
         if ready:
              # Apply everything
@@ -741,26 +745,30 @@ class AdvancedGraphicsWidget(QWidget):
                 try: 
                     self.plotter.disable_eye_dome_lighting()
                     self.plotter.render() # Added to clean up EDL resources
-                except: pass
+                except Exception as _e:
+                    logging.warning("[advanced_rendering.py:744] silenced: %s", _e)
             
             if self.use_shadows:
                 self.check_shadows.setChecked(False)
                 self.use_shadows = False
                 try: self.plotter.disable_shadows()
-                except: pass
+                except Exception as _e:
+                    logging.warning("[advanced_rendering.py:750] silenced: %s", _e)
 
             if self.use_ssao:
                 self.check_ssao.setChecked(False)
                 self.use_ssao = False
                 try: self.plotter.disable_ssao()
-                except: pass
+                except Exception as _e:
+                    logging.warning("[advanced_rendering.py:756] silenced: %s", _e)
 
         elif exclude in ["edl", "shadows", "ssao"]:
             if self.use_depth_peeling:
                 self.check_depth.setChecked(False)
                 self.use_depth_peeling = False
                 try: self.plotter.disable_depth_peeling()
-                except: pass
+                except Exception as _e:
+                    logging.warning("[advanced_rendering.py:763] silenced: %s", _e)
         
         self.blockSignals(False)
     
@@ -869,7 +877,8 @@ class AdvancedGraphicsWidget(QWidget):
             if checked: self.plotter.enable_ssao()
             else: self.plotter.disable_ssao()
             self.plotter.render()
-        except Exception: pass
+        except Exception as _e:
+            logging.warning("[advanced_rendering.py:872] silenced: %s", _e)
     
     def on_depth_peeling_toggled(self, checked):
         # Strict Policy
@@ -887,7 +896,8 @@ class AdvancedGraphicsWidget(QWidget):
             if checked: self.plotter.enable_depth_peeling()
             else: self.plotter.disable_depth_peeling()
             self.plotter.render()
-        except Exception: pass
+        except Exception as _e:
+            logging.warning("[advanced_rendering.py:890] silenced: %s", _e)
 
     def on_aa_toggled(self, checked):
         self.use_aa = checked
@@ -895,7 +905,8 @@ class AdvancedGraphicsWidget(QWidget):
             if checked: self.plotter.enable_anti_aliasing()
             else: self.plotter.disable_anti_aliasing()
             self.plotter.render()
-        except: pass
+        except Exception as _e:
+            logging.warning("[advanced_rendering.py:898] silenced: %s", _e)
 
     def on_edl_toggled(self, checked):
         # Strict Policy
@@ -974,8 +985,8 @@ class AdvancedGraphicsWidget(QWidget):
                 self.plotter.disable_eye_dome_lighting()
                 self.plotter.disable_shadows()
                 self.plotter.disable_ssao()
-        except:
-            pass
+        except Exception as _e:
+            logging.warning("[advanced_rendering.py:977] silenced: %s", _e)
         super().closeEvent(event)
 
     # --- PRESETS & PERSISTENCE ---

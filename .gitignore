@@ -16,3 +16,4 @@ htmlcov/
 **/*.pc
 **/*.xyz
 **/*.trj
+tmp/

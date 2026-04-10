@@ -9,9 +9,10 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QFont
 from rdkit import Chem
 from rdkit.Chem import AllChem, rdMolTransforms
+import logging
 
 PLUGIN_NAME = "Complex Molecule Untangler"
-__version__="2026.04.06"
+__version__="2026.04.11"
 __author__="HiroYokoyama"
 
 
@@ -40,13 +41,13 @@ class UntangleWorker(QThread):
                     props = AllChem.MMFFGetMoleculeProperties(work_mol)
                     if props:
                         ff = AllChem.MMFFGetMoleculeForceField(work_mol, props)
-                except:
-                    pass
+                except Exception as _e:
+                    logging.warning("[complex_molecule_untangler.py:43] silenced: %s", _e)
             elif self.force_field == "UFF":
                 try:
                     ff = AllChem.UFFGetMoleculeForceField(work_mol)
-                except:
-                    pass
+                except Exception as _e:
+                    logging.warning("[complex_molecule_untangler.py:48] silenced: %s", _e)
 
             # フォースフィールド構築失敗時のフォールバックなどは今回は厳密にしない（エラー通知）
             if not ff:
@@ -124,13 +125,13 @@ class UntangleWorker(QThread):
             if self.force_field == "MMFF94":
                 try:
                     AllChem.MMFFOptimizeMolecule(work_mol, maxIters=50)
-                except: 
-                    pass
+                except Exception as _e:
+                    logging.warning("[complex_molecule_untangler.py:127] silenced: %s", _e)
             elif self.force_field == "UFF":
                 try:
                     AllChem.UFFOptimizeMolecule(work_mol, maxIters=50)
-                except:
-                    pass
+                except Exception as _e:
+                    logging.warning("[complex_molecule_untangler.py:132] silenced: %s", _e)
 
             self.finished.emit(work_mol, f"Processed {len(matches)} bonds.\nFinal Score ({self.force_field}): {current_energy:.2f}")
 

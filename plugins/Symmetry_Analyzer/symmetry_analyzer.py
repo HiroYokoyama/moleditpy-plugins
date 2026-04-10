@@ -1,6 +1,6 @@
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Symmetry Analyzer"
-PLUGIN_VERSION = "2026.04.04"
+PLUGIN_VERSION = "2026.04.11"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Analyzes molecular symmetry (point group) and symmetrizes structures. Refactored for MoleditPy V3.0 API."
 
@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from moleditpy.plugins.plugin_interface import PluginContext
+import logging
 
 # --- RDKit Imports ---
 try:
@@ -64,7 +65,7 @@ class SymmetryAnalysisWorker(QThread):
                 found_any = True
                 
             except Exception:
-                pass 
+                pass  # tolerance list may be empty for a given symmetry group; skip
         
         self.finished.emit(group_data, found_any)
 

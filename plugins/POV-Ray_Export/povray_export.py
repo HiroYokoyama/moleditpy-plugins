@@ -1,3 +1,4 @@
+import logging
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
@@ -7,7 +8,7 @@ Exports molecular structures as POV-Ray scene files for high-quality ray-traced 
 """
 
 PLUGIN_NAME = "POV-Ray Export"
-PLUGIN_VERSION = "2026.04.06"
+PLUGIN_VERSION = "2026.04.11"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Export molecular structures as POV-Ray scene files for professional ray-traced rendering"
 PLUGIN_DEPENDENCIES = ["rdkit", "numpy", "PyQt6"]
@@ -46,8 +47,8 @@ def export_to_povray(context):
             default_dir = os.path.dirname(mw.init_manager.current_file_path)
             base_name = os.path.splitext(os.path.basename(mw.init_manager.current_file_path))[0]
             default_name = base_name
-    except Exception:
-        pass
+    except Exception as _e:
+        logging.warning("[povray_export.py:49] silenced: %s", _e)
     
     default_path = os.path.join(default_dir, default_name) if default_dir else default_name
     
@@ -164,8 +165,8 @@ def generate_povray_scene(mol, mw):
     if hasattr(mw, 'view_3d_manager') and hasattr(mw.view_3d_manager, 'glyph_source') and mw.view_3d_manager.glyph_source is not None:
         try:
             actual_radii = mw.view_3d_manager.glyph_source['radii']
-        except Exception:
-            pass
+        except Exception as _e:
+            logging.warning("[povray_export.py:167] silenced: %s", _e)
             
     # Bond parameters from settings
     if current_style == 'wireframe':

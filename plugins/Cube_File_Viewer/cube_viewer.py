@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (QFileDialog, QDockWidget, QWidget, QVBoxLayout,
                              QFormLayout, QDialogButtonBox, QSpinBox, QCheckBox, QComboBox)
 from PyQt6.QtGui import QColor
 from PyQt6.QtCore import Qt, QTimer, QCoreApplication
+import logging
 
 # RDKit imports for molecule construction
 try:
@@ -24,7 +25,7 @@ except ImportError:
     Geometry = None
     rdDetermineBonds = None
     
-__version__="2026.04.01"
+__version__="2026.04.11"
 __author__="HiroYokoyama"
 PLUGIN_NAME = "Cube File Viewer"
 
@@ -633,7 +634,8 @@ class CubeViewerWidget(QWidget):
              # Restore UI state
              if hasattr(self.mw, 'restore_ui_for_editing'):
                  self.mw.ui_manager.restore_ui_for_editing()
-        except: pass
+        except Exception as _e:
+            logging.warning("[cube_viewer.py:636] silenced: %s", _e)
         
         if self.dock:
             self.mw.removeDockWidget(self.dock)
@@ -709,8 +711,8 @@ def open_cube_viewer(main_window, fname):
             else:
                 main_window.removeDockWidget(dock)
                 dock.deleteLater()
-        except:
-             pass
+        except Exception as _e:
+             logging.warning("[cube_viewer.py:712] silenced: %s", _e)
 
     try:
         if not fname: # Should not happen if called correctly
@@ -852,7 +854,6 @@ def initialize(context):
 
     if hasattr(context, 'register_drop_handler'):
         context.register_drop_handler(drop_handler, priority=10)
-
 
 
 

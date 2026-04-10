@@ -11,7 +11,7 @@ from rdkit import Chem
 import json
 
 PLUGIN_NAME = "Gaussian Input Generator Neo"
-PLUGIN_VERSION = "2026.04.07"
+PLUGIN_VERSION = "2026.04.01"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Advanced Gaussian Input Generator with Preview and Presets"
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "gaussian_input_generator_neo.json")
@@ -676,12 +676,9 @@ class GaussianSetupDialog(QDialog):
             lines.append(wfn_file)
             lines.append("")
         
-        # Gaussian requires file to end with a blank line (\n\n)
-        while lines and lines[-1] == "":
-            lines.pop()
-        lines.append("")
-        lines.append("")
-
+        # Final blank line if not already
+        if lines[-1] != "": lines.append("")
+        
         return "\n".join(lines)
 
     def update_preview(self):
@@ -963,4 +960,3 @@ def run(mw):
         context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
 
     run_plugin(context)
-

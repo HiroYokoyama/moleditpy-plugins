@@ -12,9 +12,10 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 import copy
 import sys
+import logging
 
 PLUGIN_NAME = "Molecule Comparator"
-PLUGIN_VERSION = "2026.04.01"
+PLUGIN_VERSION = "2026.04.11"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Side-by-side comparison and alignment of multiple molecules."
 
@@ -84,8 +85,8 @@ class AlignmentWorker(QThread):
                                 rms = AllChem.AlignMol(probe_work, self.ref_work, atomMap=atom_map, reflect=False)
                                 best_rms = rms
                                 result_entry['mol'] = probe_work
-                            except RuntimeError:
-                                pass
+                            except RuntimeError as _e:
+                                logging.warning("[molecule_comparator.py:87] silenced: %s", _e)
                     else:
                         if probe_work.GetNumAtoms() == self.ref_work.GetNumAtoms():
                             atom_map = [(k, k) for k in range(probe_work.GetNumAtoms())]
@@ -93,8 +94,8 @@ class AlignmentWorker(QThread):
                                 rms = AllChem.AlignMol(probe_work, self.ref_work, atomMap=atom_map, reflect=False)
                                 best_rms = rms
                                 result_entry['mol'] = probe_work
-                            except RuntimeError:
-                                pass
+                            except RuntimeError as _e:
+                                logging.warning("[molecule_comparator.py:96] silenced: %s", _e)
 
                 # --- Method B: MCS (修正箇所) ---
                 elif self.method == "Substructure (MCS)":
@@ -166,8 +167,8 @@ class AlignmentWorker(QThread):
                                             try:
                                                 AllChem.AlignMol(probe_final, self.ref_work, atomMap=full_map, reflect=False)
                                                 best_transform = probe_final
-                                            except:
-                                                pass
+                                            except Exception as _e:
+                                                logging.warning("[molecule_comparator.py:169] silenced: %s", _e)
                                         else:
                                             best_transform = probe_temp
 
@@ -454,8 +455,8 @@ class MoleculeComparator(QWidget):
                 try:
                     self.mw.plotter.reset_camera()
                     self.mw.plotter.render()
-                except Exception:
-                    pass
+                except Exception as _e:
+                    logging.warning("[molecule_comparator.py:457] silenced: %s", _e)
         
         QTimer.singleShot(100, _do_reset)
 
@@ -486,8 +487,8 @@ class MoleculeComparator(QWidget):
             # Sanitize to ensure proper 3D rendering properties
             try:
                 Chem.SanitizeMol(mol)
-            except:
-                pass
+            except Exception as _e:
+                logging.warning("[molecule_comparator.py:489] silenced: %s", _e)
 
             # Determine name
             name = os.path.basename(file_path)
@@ -904,8 +905,8 @@ class MoleculeComparator(QWidget):
             for btn in self.mw.findChildren(QToolButton):
                 if "3D Style" in btn.text():
                     return btn
-        except Exception:
-            pass
+        except Exception as _e:
+            logging.warning("[molecule_comparator.py:907] silenced: %s", _e)
         return None
 
     def _find_style_actions(self):
@@ -925,8 +926,8 @@ class MoleculeComparator(QWidget):
                 if ("Ball" in txt and "Stick" in txt) or ("CPK" in txt) or ("Wireframe" in txt) or ("Stick" in txt):
                     # Filter out unrelated actions if strictly necessary, but names are usually specific
                     actions.append(action)
-        except Exception:
-            pass
+        except Exception as _e:
+            logging.warning("[molecule_comparator.py:928] silenced: %s", _e)
         return actions
 
     def change_style(self, style_name):
@@ -958,8 +959,8 @@ class MoleculeComparator(QWidget):
                     was_blocked = action.blockSignals(True)
                     action.setChecked(True)
                     action.blockSignals(was_blocked)
-        except Exception:
-            pass
+        except Exception as _e:
+            logging.warning("[molecule_comparator.py:961] silenced: %s", _e)
 
         self.update_visualization()
         
@@ -997,7 +998,7 @@ class MoleculeComparator(QWidget):
                 self.mw.plotter.render()
         except Exception as e:
             # Silently handle if plotter doesn't support lighting control
-            pass
+            logging.warning("[molecule_comparator.py:998] silenced: %s", e)
 
     def reset_view(self):
         # Use a timer to ensure the view is reset AFTER the visualization update is fully rendered/processed.
@@ -1007,8 +1008,8 @@ class MoleculeComparator(QWidget):
                 try:
                     self.mw.plotter.reset_camera()
                     self.mw.plotter.render()
-                except Exception:
-                    pass
+                except Exception as _e:
+                    logging.warning("[molecule_comparator.py:1010] silenced: %s", _e)
         
         QTimer.singleShot(100, _do_reset)
 

@@ -10,9 +10,10 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QColor, QAction
 from PyQt6.QtCore import Qt, QTimer
+import logging
 
 PLUGIN_NAME = "Settings Saver"
-PLUGIN_VERSION = "2026.04.06"
+PLUGIN_VERSION = "2026.04.11"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Save, load, and manage settings presets in a unified dialog. Refactored for V3 API."
 
@@ -110,7 +111,7 @@ def disable_project_mode(mw, restore_content=True):
                 apply_settings_hot(mw)
             except Exception as e:
                 # print(f"[Settings Saver] Error restoring original settings: {e}")
-                pass
+                logging.warning("[settings_saver.py:111] silenced: %s", e)
                 
         ORIGINAL_SETTINGS = None
 
@@ -174,7 +175,7 @@ def on_load_project(data):
                 refresh_loaded_scene(mw)
             except Exception as e:
                 # print(f"Error auto-applying project settings: {e}")
-                pass
+                logging.warning("[settings_saver.py:175] silenced: %s", e)
 
 def on_document_reset():
     """Clear project presets when creating a new file."""
@@ -217,8 +218,8 @@ def _sync_legacy_settings_alias(mw, settings):
         if hasattr(mw, "init_manager") and hasattr(mw.init_manager, "settings") and mw.init_manager.settings is not settings and isinstance(mw.init_manager.settings, dict):
             mw.init_manager.settings.clear()
             mw.init_manager.settings.update(settings)
-    except Exception:
-        pass
+    except Exception as _e:
+        logging.warning("[settings_saver.py:220] silenced: %s", _e)
 
 def get_plugin_data_path():
     """Get path to the storage JSON file in the plugin directory."""
@@ -266,8 +267,8 @@ def apply_settings_hot(mw):
                 mw.init_manager.settings_dirty = False
             else:
                 mw.init_manager.settings_dirty = True
-        except Exception:
-            pass
+        except Exception as _e:
+            logging.warning("[settings_saver.py:269] silenced: %s", _e)
 
         # 1. Apply 3D Settings
         try:
@@ -275,7 +276,7 @@ def apply_settings_hot(mw):
                 mw.view_3d_manager.apply_3d_settings()
         except Exception as e:
             # print(f"Error applying 3D settings: {e}")
-            pass
+            logging.warning("[settings_saver.py:276] silenced: %s", e)
 
         # 2. Update CPK Colors
         try:
@@ -283,15 +284,17 @@ def apply_settings_hot(mw):
                 mw.init_manager.update_cpk_colors_from_settings()
         except Exception as e:
             # print(f"Error updating CPK colors: {e}")
-            pass
+            logging.warning("[settings_saver.py:284] silenced: %s", e)
 
         # 3. Refresh Color Dialogs
         try:
             for w in QApplication.topLevelWidgets():
                 if hasattr(w, 'refresh_ui'):
                     try: w.refresh_ui()
-                    except: pass
-        except: pass
+                    except Exception as _e:
+                        logging.warning("[settings_saver.py:293] silenced: %s", _e)
+        except Exception as _e:
+            logging.warning("[settings_saver.py:294] silenced: %s", _e)
 
         # 4. Redraw 3D Molecule
         try:
@@ -299,7 +302,7 @@ def apply_settings_hot(mw):
                 mw.view_3d_manager.draw_molecule_3d(mw.current_mol)
         except Exception as e:
             # print(f"Error redrawing 3D molecule: {e}")
-            pass
+            logging.warning("[settings_saver.py:300] silenced: %s", e)
 
         # 5. Update 2D SCENE
         try:
@@ -315,7 +318,7 @@ def apply_settings_hot(mw):
                     mw.init_manager.view_2d.viewport().update()
         except Exception as e:
             # print(f"Error updating 2D settings: {e}")
-            pass
+            logging.warning("[settings_saver.py:316] silenced: %s", e)
 
         # 6. Push Undo State (Requirement: "push undo when applied", Manual: "Call after modifying")
         try:
@@ -323,7 +326,7 @@ def apply_settings_hot(mw):
                 mw.edit_actions_manager.push_undo_state()
         except Exception as e:
             # print(f"Error pushing undo state: {e}")
-            pass
+            logging.warning("[settings_saver.py:324] silenced: %s", e)
 
         # 7. Refresh 2D/3D scene state after settings are loaded.
         refresh_loaded_scene(mw, defer=True)
@@ -331,7 +334,7 @@ def apply_settings_hot(mw):
     except Exception as e:
         # print(f"Hot loading failed: {e}")
         # traceback.print_exc()
-        pass
+        logging.warning("[settings_saver.py:331] silenced: %s", e)
 
 def refresh_loaded_scene(mw, defer=False):
     """Refresh both 2D and 3D views after settings are applied."""
@@ -343,29 +346,29 @@ def refresh_loaded_scene(mw, defer=False):
                     views = mw.scene.views()
                     if views:
                         views[0].viewport().update()
-                except Exception:
-                    pass
+                except Exception as _e:
+                    logging.warning("[settings_saver.py:346] silenced: %s", _e)
 
             if hasattr(mw, 'init_manager') and hasattr(mw.init_manager, 'view_2d') and mw.init_manager.view_2d:
                 try:
                     mw.init_manager.view_2d.viewport().update()
-                except Exception:
-                    pass
+                except Exception as _e:
+                    logging.warning("[settings_saver.py:352] silenced: %s", _e)
 
             if hasattr(mw, 'edit_3d_manager') and hasattr(mw.edit_3d_manager, 'update_2d_measurement_labels'):
                 try:
                     mw.edit_3d_manager.update_2d_measurement_labels()
-                except Exception:
-                    pass
+                except Exception as _e:
+                    logging.warning("[settings_saver.py:358] silenced: %s", _e)
 
             if hasattr(mw, 'view_3d_manager') and hasattr(mw.view_3d_manager, 'draw_molecule_3d'):
                 try:
                     if hasattr(mw, 'current_mol') and mw.current_mol:
                         mw.view_3d_manager.draw_molecule_3d(mw.current_mol)
-                except Exception:
-                    pass
-        except Exception:
-            pass
+                except Exception as _e:
+                    logging.warning("[settings_saver.py:365] silenced: %s", _e)
+        except Exception as _e:
+            logging.warning("[settings_saver.py:367] silenced: %s", _e)
 
     if defer:
         QTimer.singleShot(0, _do_refresh)

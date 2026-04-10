@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (QFileDialog, QDockWidget, QWidget, QVBoxLayout,
                              QFormLayout, QDialogButtonBox, QSpinBox, QCheckBox, QComboBox, QLineEdit)
 from PyQt6.QtGui import QColor
 from PyQt6.QtCore import Qt, QTimer, QCoreApplication
+import logging
 
 # RDKit imports for molecule construction
 try:
@@ -26,7 +27,7 @@ except ImportError:
     
 __author__ = "HiroYokoyama"
 PLUGIN_NAME = "Cube File Viewer Advanced"
-PLUGIN_VERSION = "2026.04.09"
+PLUGIN_VERSION = "2026.04.11"
 PLUGIN_DESCRIPTION = "Advanced 3D visualization for Gaussian Cube files with PBR, SSAO, and other effects."
 
 def parse_cube_data(filename):
@@ -694,7 +695,8 @@ class CubeViewerWidget(QWidget):
                                  self.env_texture_path = shared_path
                                  try:
                                      self.load_env_texture(shared_path)
-                                 except: pass
+                                 except Exception as _e:
+                                     logging.warning("[cube_viewer_advanced.py:697] silenced: %s", _e)
                         else:
                              # Check shared global variable fallback
                              shared_path = getattr(self.mw, "current_env_texture_path", "")
@@ -703,7 +705,8 @@ class CubeViewerWidget(QWidget):
                                  self.env_texture_path = shared_path
                                  try:
                                      self.load_env_texture(shared_path)
-                                 except: pass
+                                 except Exception as _e:
+                                     logging.warning("[cube_viewer_advanced.py:706] silenced: %s", _e)
 
                 if "metallic" in settings: 
                     self.metallic = float(settings["metallic"])
@@ -887,8 +890,8 @@ class CubeViewerWidget(QWidget):
             if actor:
                 try:
                     self.plotter.remove_actor(actor)
-                except Exception:
-                    pass
+                except Exception as _e:
+                    logging.warning("[cube_viewer_advanced.py:890] silenced: %s", _e)
         self.iso_actor_p = None
         self.iso_actor_n = None
         self.iso_actor_p_sil = None
@@ -896,8 +899,8 @@ class CubeViewerWidget(QWidget):
         for _name in ["cube_iso_p", "cube_iso_n"]:
             try:
                 self.plotter.remove_actor(_name)
-            except Exception:
-                pass
+            except Exception as _e:
+                logging.warning("[cube_viewer_advanced.py:899] silenced: %s", _e)
 
         try:
             # Using full grid
@@ -1107,8 +1110,8 @@ class CubeViewerWidget(QWidget):
                 self.plotter.enable_shadows()
             else:
                 self.plotter.disable_shadows()
-        except Exception:
-            pass
+        except Exception as _e:
+            logging.warning("[cube_viewer_advanced.py:1110] silenced: %s", _e)
         self.plotter.render()
             
     def on_light_intensity_changed(self, val):
@@ -1158,8 +1161,8 @@ class CubeViewerWidget(QWidget):
                         edl_pass = self.plotter.renderer._edl_pass
                         if edl_pass and hasattr(edl_pass, 'SetEDLStrength'):
                             edl_pass.SetEDLStrength(self.edl_strength)
-                except Exception:
-                    pass
+                except Exception as _e:
+                    logging.warning("[cube_viewer_advanced.py:1161] silenced: %s", _e)
                 
             else:
                 if hasattr(self.plotter, 'disable_eye_dome_lighting'):
@@ -1167,7 +1170,7 @@ class CubeViewerWidget(QWidget):
             self.plotter.render()
         except Exception as e:
             # Plotter might be closed or invalid
-            pass 
+            logging.warning("[cube_viewer_advanced.py:1168] silenced: %s", e)
 
     def _disable_conflicting_effects(self, exclude=""):
         """
@@ -1188,14 +1191,16 @@ class CubeViewerWidget(QWidget):
                 try: 
                     if hasattr(self.plotter, 'disable_eye_dome_lighting'):
                         self.plotter.disable_eye_dome_lighting()
-                except: pass
+                except Exception as _e:
+                    logging.warning("[cube_viewer_advanced.py:1191] silenced: %s", _e)
             
             # Shadows check OFF
             if self.use_shadows:
                 self.check_shadows.setChecked(False)
                 self.use_shadows = False
                 try: self.plotter.disable_shadows()
-                except: pass
+                except Exception as _e:
+                    logging.warning("[cube_viewer_advanced.py:1198] silenced: %s", _e)
 
             # SSAO check OFF
             if self.use_ssao:
@@ -1203,7 +1208,8 @@ class CubeViewerWidget(QWidget):
                 self.use_ssao = False
                 try: 
                     if hasattr(self.plotter, 'disable_ssao'): self.plotter.disable_ssao()
-                except: pass
+                except Exception as _e:
+                    logging.warning("[cube_viewer_advanced.py:1206] silenced: %s", _e)
 
         # 2. エフェクト(EDL/Shadows/SSAO)がONの場合 -> Depth PeelingをOFFにしてDisable
         elif exclude in ["edl", "shadows", "ssao"] and (self.use_edl or self.use_shadows or self.use_ssao):
@@ -1213,7 +1219,8 @@ class CubeViewerWidget(QWidget):
                 try:
                     if hasattr(self.plotter, 'disable_depth_peeling'):
                         self.plotter.disable_depth_peeling()
-                except: pass
+                except Exception as _e:
+                    logging.warning("[cube_viewer_advanced.py:1216] silenced: %s", _e)
         
 
         # 3. 最後に有効/無効状態を更新 (グレーアウト処理) -> REMOVED
@@ -1233,14 +1240,14 @@ class CubeViewerWidget(QWidget):
         if edl_was_enabled:
             try:
                 self.plotter.disable_eye_dome_lighting()
-            except Exception:
-                pass
+            except Exception as _e:
+                logging.warning("[cube_viewer_advanced.py:1236] silenced: %s", _e)
         
         if shadows_were_enabled:
             try:
                 self.plotter.disable_shadows()
-            except Exception:
-                pass
+            except Exception as _e:
+                logging.warning("[cube_viewer_advanced.py:1242] silenced: %s", _e)
         
         # Redraw molecule 3D and orbital
         # Redraw molecule using main window's draw_molecule_3d method
@@ -1272,8 +1279,8 @@ class CubeViewerWidget(QWidget):
         # Final render to apply all effects
         try:
             self.plotter.render()
-        except Exception:
-            pass
+        except Exception as _e:
+            logging.warning("[cube_viewer_advanced.py:1275] silenced: %s", _e)
 
     def on_texture_path_entered(self):
         path = self.line_env_path.text().strip()
@@ -1306,13 +1313,13 @@ class CubeViewerWidget(QWidget):
             if hasattr(self.mw, 'current_mol') and self.mw.current_mol:
                 try:
                     self.mw.view_3d_manager.draw_molecule_3d(self.mw.current_mol)
-                except Exception:
-                    pass
+                except Exception as _e:
+                    logging.warning("[cube_viewer_advanced.py:1309] silenced: %s", _e)
             
             try:
                 self.update_iso()
-            except Exception:
-                pass
+            except Exception as _e:
+                logging.warning("[cube_viewer_advanced.py:1314] silenced: %s", _e)
             
             self.load_preset_settings(self.presets[name])
             print(f"Loaded preset: {name}")
@@ -1643,7 +1650,8 @@ class CubeViewerWidget(QWidget):
             if self.use_ssao:
                 try: 
                     if hasattr(self.plotter, 'disable_ssao'): self.plotter.disable_ssao()
-                except: pass
+                except Exception as _e:
+                    logging.warning("[cube_viewer_advanced.py:1646] silenced: %s", _e)
                 self.use_ssao = False
 
             # Depth Peeling
@@ -1651,7 +1659,8 @@ class CubeViewerWidget(QWidget):
             if self.use_depth_peeling:
                 try:
                     if hasattr(self.plotter, 'disable_depth_peeling'): self.plotter.disable_depth_peeling()
-                except: pass
+                except Exception as _e:
+                    logging.warning("[cube_viewer_advanced.py:1654] silenced: %s", _e)
                 self.use_depth_peeling = False
 
             # Silhouette
@@ -1664,7 +1673,8 @@ class CubeViewerWidget(QWidget):
             if self.use_edl:
                 try:
                     self.plotter.disable_eye_dome_lighting()
-                except: pass
+                except Exception as _e:
+                    logging.warning("[cube_viewer_advanced.py:1667] silenced: %s", _e)
                 self.use_edl = False
 
             # Anti-Aliasing
@@ -1672,7 +1682,8 @@ class CubeViewerWidget(QWidget):
             if self.use_aa:
                 try:
                     self.plotter.disable_anti_aliasing()
-                except: pass
+                except Exception as _e:
+                    logging.warning("[cube_viewer_advanced.py:1675] silenced: %s", _e)
                 self.use_aa = False
 
             # Shadows
@@ -1681,7 +1692,8 @@ class CubeViewerWidget(QWidget):
             if self.use_shadows:
                 try:
                     self.plotter.disable_shadows()
-                except: pass
+                except Exception as _e:
+                    logging.warning("[cube_viewer_advanced.py:1684] silenced: %s", _e)
                 self.use_shadows = False
             
             # --- FIX END ---
@@ -1717,18 +1729,21 @@ class CubeViewerWidget(QWidget):
             if self.use_edl:
                 try:
                     self.plotter.disable_eye_dome_lighting()
-                except: pass
+                except Exception as _e:
+                    logging.warning("[cube_viewer_advanced.py:1720] silenced: %s", _e)
             
             if self.use_shadows:
                 try:
                     self.plotter.disable_shadows()
-                except: pass
+                except Exception as _e:
+                    logging.warning("[cube_viewer_advanced.py:1725] silenced: %s", _e)
             
             if self.use_ssao:
                 try:
                     if hasattr(self.plotter, 'disable_ssao'):
                         self.plotter.disable_ssao()
-                except: pass
+                except Exception as _e:
+                    logging.warning("[cube_viewer_advanced.py:1731] silenced: %s", _e)
             # --- FIX END ---
 
             # Full cleanup
@@ -1885,8 +1900,8 @@ def open_cube_viewer(context, file_path):
         if hasattr(main_window, 'ui_manager') and hasattr(main_window.ui_manager, '_enter_3d_viewer_ui_mode'):
             try:
                 main_window.ui_manager._enter_3d_viewer_ui_mode()
-            except Exception:
-                pass
+            except Exception as _e:
+                logging.warning("[cube_viewer_advanced.py:1888] silenced: %s", _e)
 
         # Draw molecule structure
         if hasattr(main_window, 'view_3d_manager'):

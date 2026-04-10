@@ -3,10 +3,11 @@ from PyQt6.QtCore import QPointF, QTimer
 from rdkit import Chem
 from rdkit.Chem import AllChem
 import sys
+import logging
 
 # --- Plugin Basic Information ---
 PLUGIN_NAME = "Paste from ChemDraw"
-PLUGIN_VERSION = "2026.04.06"
+PLUGIN_VERSION = "2026.04.11"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Paste chemical structures from ChemDraw clipboard data (MDLCT/MDLSK). Optimized for MoleditPy V3."
 
@@ -128,8 +129,8 @@ def run(context):
                 mol = Chem.MolFromMolBlock(text)
                 if mol is None:
                      mol = reconstruct_from_flat_text(text)
-        except:
-            pass
+        except Exception as _e:
+            logging.warning("[paste_chemdraw.py:131] silenced: %s", _e)
 
     # 4. Drawing Logic
     if mol is not None:
@@ -151,8 +152,8 @@ def run(context):
             try:
                 Chem.Kekulize(mol, clearAromaticFlags=True)
                 AllChem.AssignStereochemistry(mol, force=True)
-            except:
-                pass
+            except Exception as _e:
+                logging.warning("[paste_chemdraw.py:154] silenced: %s", _e)
 
             SCALE_FACTOR = 50.0  # Normalized to MoleditPy standard bond length
             conf = mol.GetConformer()

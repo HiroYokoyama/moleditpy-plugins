@@ -9,6 +9,7 @@ import traceback
 import sys
 import os
 import json
+import logging
 
 # Try importing from the installed package first (pip package structure)
 try:
@@ -23,7 +24,7 @@ except ImportError:
 
 # Plugin Metadata
 PLUGIN_NAME = "Atom Colorizer"
-PLUGIN_VERSION = "2026.04.01"
+PLUGIN_VERSION = "2026.04.11"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Applies custom colors to atoms in the 3D viewer. Refactored for V3 API."
 
@@ -62,8 +63,8 @@ class AtomColorizerWindow(QDialog):
                         mw.init_manager.measurement_action.setChecked(True)
                     mw.edit_3d_manager.toggle_measurement_mode(True)
                     self._forced_measurement_mode = True
-            except Exception:
-                pass
+            except Exception as _e:
+                logging.warning("[atom_colorizer.py:65] silenced: %s", _e)
             
         self.context.show_status_message("Atom Colorizer: 3D picking enabled.")
 
@@ -213,8 +214,8 @@ class AtomColorizerWindow(QDialog):
         try:
             if self.sel_timer.isActive():
                 self.sel_timer.stop()
-        except Exception:
-            pass
+        except Exception as _e:
+            logging.warning("[atom_colorizer.py:216] silenced: %s", _e)
 
         mw = self.context.get_main_window()
         if mw and hasattr(mw, "edit_3d_manager"):
@@ -226,8 +227,8 @@ class AtomColorizerWindow(QDialog):
                     mw.edit_3d_manager.toggle_measurement_mode(self._restore_measurement_mode)
                 if hasattr(mw, "ui_manager"):
                     mw.ui_manager.toggle_3d_edit_mode(self._restore_edit_mode)
-            except Exception:
-                pass
+            except Exception as _e:
+                logging.warning("[atom_colorizer.py:229] silenced: %s", _e)
         super().closeEvent(event)
 
 def launch(context):
@@ -265,8 +266,8 @@ def initialize(context):
         for atom_idx_str, hex_color in atom_colors.items():
             try:
                 controller.set_atom_color(int(atom_idx_str), hex_color)
-            except:
-                pass
+            except Exception as _e:
+                logging.warning("[atom_colorizer.py:268] silenced: %s", _e)
         context.refresh_3d_view()
     
     def on_document_reset():

@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QWidget, 
 from PyQt6.QtGui import QPainter, QPen, QBrush, QColor, QFont, QPalette, QLinearGradient, QGradient, QPageSize, QTextDocument, QImage, QPageLayout
 from PyQt6.QtCore import Qt, QRectF, QPointF, QTimer, QByteArray, QBuffer, QIODevice, QSizeF, QMarginsF, QLineF
 from PyQt6.QtPrintSupport import QPrinter
+import logging
 
 try:
     from rdkit import Chem
@@ -14,7 +15,7 @@ except ImportError:
     Descriptors = None
     Draw = None
 
-PLUGIN_VERSION = "2026.04.01"
+PLUGIN_VERSION = "2026.04.11"
 PLUGIN_AUTHOR = "HiroYokoyama"
 
 PLUGIN_NAME = "MS Spectrum Simulation Neo"
@@ -76,8 +77,8 @@ class MSSpectrumDialog(QDialog):
             try:
                 formula = Chem.rdMolDescriptors.CalcMolFormula(self.mol)
                 self.formula_input.setText(str(formula))
-            except:
-                pass
+            except Exception as _e:
+                logging.warning("[ms_spectrum_neo.py:79] silenced: %s", _e)
         settings_layout.addRow("Formula:", self.formula_input)
         
         # 4. Sync & 2D Option
@@ -243,9 +244,9 @@ class MSSpectrumDialog(QDialog):
             # If different from text box, update
             if self.formula_input.text() != current_formula:
                  self.formula_input.setText(current_formula)
-        except Exception:
+        except Exception as _e:
             # Fail silently to avoid spamming errors in timer
-            pass
+            logging.warning("[ms_spectrum_neo.py:246] silenced: %s", _e)
 
     def export_image(self):
         filename, _ = QFileDialog.getSaveFileName(self, "Save Spectrum Image", "spectrum.png", "Images (*.png *.jpg)")
@@ -497,8 +498,8 @@ class MSSpectrumDialog(QDialog):
             self.lbl_ion.setText(f"<b>Monoisotopic m/z:</b> {ion_mz:.4f}")
             self.lbl_mw.setText(f"<b>Neutral Avg Mass:</b> {final_mw:.4f}")
             self.lbl_em.setText(f"<b>Neutral Exact Mass:</b> {neutral_exact_mw:.4f}")
-        except:
-            pass
+        except Exception as _e:
+            logging.warning("[ms_spectrum_neo.py:500] silenced: %s", _e)
 
     def apply_gaussian_broadening(self, peaks, sigma):
         import math
@@ -589,7 +590,8 @@ class MSSpectrumDialog(QDialog):
                             if abundance > 0.00001:
                                 exact_mass = pt.GetMassForIsotope(atomic_num, m)
                                 atom_iso_dist.append((exact_mass, abundance))
-                        except RuntimeError: pass
+                        except RuntimeError as _e:
+                            logging.warning("[ms_spectrum_neo.py:592] silenced: %s", _e)
                     
                     # Normalize
                     total_p = sum(p for m, p in atom_iso_dist)
@@ -642,7 +644,8 @@ class MSSpectrumDialog(QDialog):
                      m_iso = pt.GetMostCommonIsotope(anum)
                      mass_iso = pt.GetMassForIsotope(anum, m_iso)
                      exact_mass_sum += mass_iso * count
-                 except: pass
+                 except Exception as _e:
+                     logging.warning("[ms_spectrum_neo.py:645] silenced: %s", _e)
 
         neutral_exact_mass = exact_mass_sum
 
@@ -1311,4 +1314,3 @@ if __name__ == "__main__":
     dialog = MSSpectrumDialog(mol)
     dialog.show()
     sys.exit(app.exec())
-

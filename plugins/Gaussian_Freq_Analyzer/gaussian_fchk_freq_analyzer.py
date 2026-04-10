@@ -15,7 +15,7 @@ except ImportError:
     Chem = None
 
 PLUGIN_NAME = "Gaussian Freq Analyzer"
-PLUGIN_VERSION = "2026.04.09"
+PLUGIN_VERSION = "2026.04.11"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Visualizes vibrational frequencies and normal modes from Gaussian FCHK files."
 
@@ -262,6 +262,7 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLa
                              QListWidget, QSlider, QCheckBox, QFileDialog, QMessageBox,
                              QDockWidget, QWidget, QSplitter, QFormLayout, QDialogButtonBox, QSpinBox, QDoubleSpinBox)
 from PyQt6.QtGui import QImage, QPainter, QPen, QColor, QFont, QPaintEvent
+import logging
 try:
     from PIL import Image
     HAS_PIL = True
@@ -425,8 +426,8 @@ class GaussianFCHKFreqAnalyzer(QWidget):
                 mw = self.mw if hasattr(self, 'mw') else self.context.get_main_window()
                 if hasattr(mw, 'ui_manager') and hasattr(mw.ui_manager, 'restore_ui_for_editing'):
                     mw.ui_manager.restore_ui_for_editing()
-            except Exception:
-                pass
+            except Exception as _e:
+                logging.warning("[gaussian_fchk_freq_analyzer.py:428] silenced: %s", _e)
             if self.dock:
                 self.dock.close()
             else:
@@ -656,7 +657,8 @@ class GaussianFCHKFreqAnalyzer(QWidget):
         if self.vector_actor and hasattr(self.mw, 'plotter'):
             try:
                 self.mw.plotter.remove_actor(self.vector_actor)
-            except: pass
+            except Exception as _e:
+                logging.warning("[gaussian_fchk_freq_analyzer.py:659] silenced: %s", _e)
         self.vector_actor = None
 
     def update_vectors(self, mode_vecs=None, scale_factor=0.0):

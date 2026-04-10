@@ -12,6 +12,7 @@ import json
 import zipfile
 import urllib.request
 import urllib.error
+import logging
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
     QTableWidget, QTableWidgetItem, QPushButton, 
@@ -29,7 +30,7 @@ import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.04.01"
+PLUGIN_VERSION = "2026.04.11"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Checks for updates, installs new plugins, and allows manual reinstallation."
 
@@ -69,7 +70,7 @@ def _refresh_plugin_menus(mw):
             if top_menu is not None:
                 _clean_menu(top_menu)
     except Exception as e:
-        print(f"Plugin Installer: menu cleanup error: {e}")
+        logging.warning("Plugin Installer: menu cleanup error: %s", e)
 
     if not hasattr(mw, 'init_manager'):
         return
@@ -80,28 +81,28 @@ def _refresh_plugin_menus(mw):
     # not for the existing Plugin menu, so it is safe to reset).
     try:
         im._plugin_menubar_separator_added = False
-    except Exception:
-        pass
+    except Exception as e:
+        logging.warning("Plugin Installer: could not reset _plugin_menubar_separator_added: %s", e)
 
     try:
         if hasattr(im, '_add_registered_plugin_actions'):
             im._add_registered_plugin_actions()
     except Exception as e:
-        print(f"Plugin Installer: menu rebuild error: {e}")
+        logging.warning("Plugin Installer: menu rebuild error: %s", e)
 
     try:
         if hasattr(im, '_add_plugin_toolbar_actions'):
             im._add_plugin_toolbar_actions()
     except Exception as e:
-        print(f"Plugin Installer: toolbar rebuild error: {e}")
+        logging.warning("Plugin Installer: toolbar rebuild error: %s", e)
 
 def load_settings():
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE, 'r') as f:
                 return json.load(f)
-        except:
-            pass
+        except Exception as e:
+            logging.warning("Plugin Installer: failed to load settings: %s", e)
     # Default to empty so we can detect "first run" (missing config)
     return {}
 
@@ -110,7 +111,7 @@ def save_settings(settings):
         with open(SETTINGS_FILE, 'w') as f:
             json.dump(settings, f)
     except Exception as e:
-        print(f"Error saving plugin installer settings: {e}")
+        logging.warning("Plugin Installer: failed to save settings: %s", e)
 
 def initialize(context):
     """
@@ -173,7 +174,7 @@ def perform_startup_check(mw):
         else:
             checker.deleteLater()
     except Exception as e:
-        print(f"Plugin Installer Auto-run failed: {e}")
+        logging.warning("Plugin Installer: auto-run failed: %s", e)
 
 def run(main_window):
     if hasattr(main_window, 'host'):
@@ -224,7 +225,7 @@ class PluginDetailsDialog(QDialog):
                 try:
                     importlib.metadata.distribution(dep)
                     installed_deps.append(dep)
-                except:
+                except Exception:
                     missing_deps.append(dep)
             
             # Construct display text
@@ -341,11 +342,8 @@ class PluginInstallerWindow(QDialog):
         self.updates_found = False
         
         self.init_ui()
-        
-        if self.auto_check_mode:
-            self.check_updates_silent()
-        else:
-            self.check_updates()
+
+        self.check_updates_silent()
 
     def calculate_sha256(self, filepath):
         sha256_hash = hashlib.sha256()
@@ -376,7 +374,8 @@ class PluginInstallerWindow(QDialog):
             if p1 > p2: return 1
             if p1 < p2: return -1
             return 0
-        except:
+        except Exception as e:
+            logging.warning("Plugin Installer: version comparison failed (%r vs %r): %s", v1, v2, e)
             # Fallback to string comparison
             if v1 > v2: return 1
             if v1 < v2: return -1
@@ -384,6 +383,20 @@ class PluginInstallerWindow(QDialog):
 
     def init_ui(self):
         layout = QVBoxLayout(self)
+
+    def _get_package_name(self):
+        """Return the running PyPI package name: 'moleditpy' or 'moleditpy-linux'."""
+        try:
+            from moleditpy.utils.constants import VERSION  # noqa: F401
+            return "moleditpy"
+        except ImportError:
+            pass
+        try:
+            from moleditpy_linux.modules.constants import VERSION  # noqa: F401
+            return "moleditpy-linux"
+        except ImportError:
+            pass
+        return "moleditpy"
 
     def get_app_version(self):
         """Robustly detect MoleditPy version."""
@@ -395,10 +408,7 @@ class PluginInstallerWindow(QDialog):
                 from moleditpy_linux.modules.constants import VERSION as APP_VERSION
                 return APP_VERSION
             except ImportError:
-                # Fallback: Try adding main script dir to sys.path
                 try:
-                    import sys
-                    import os
                     main_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
                     if main_dir not in sys.path:
                         sys.path.append(main_dir)
@@ -416,16 +426,17 @@ class PluginInstallerWindow(QDialog):
 
         # Header Info
         app_ver = self.get_app_version()
-        
+        pkg_name = self._get_package_name()
+
         info_layout = QHBoxLayout()
-        
-        self.lbl_current_version = QLabel(f"<b>MoleditPy Version:</b> {app_ver}")
+
+        self.lbl_current_version = QLabel(f"<b>{pkg_name} Version:</b> {app_ver}")
         self.lbl_current_version.setStyleSheet("font-size: 14px;")
         info_layout.addWidget(self.lbl_current_version)
         
         info_layout.addSpacing(20)
         
-        self.lbl_latest_version = QLabel(f"<b>Latest (PyPI):</b> {self.latest_app_version}")
+        self.lbl_latest_version = QLabel(f"<b>Latest ({pkg_name} on PyPI):</b> {self.latest_app_version}")
         self.lbl_latest_version.setStyleSheet("font-size: 14px; color: gray;")
         info_layout.addWidget(self.lbl_latest_version)
         
@@ -483,9 +494,14 @@ class PluginInstallerWindow(QDialog):
         refresh_btn = QPushButton("Refresh")
         refresh_btn.clicked.connect(self.check_updates)
         btn_layout.addWidget(refresh_btn)
-        
+
+        self.btn_update_all = QPushButton("Update All")
+        self.btn_update_all.clicked.connect(self.update_all_plugins)
+        self.btn_update_all.setEnabled(False)
+        btn_layout.addWidget(self.btn_update_all)
+
         btn_layout.addStretch()
-        
+
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(self.on_close_clicked) # Changed connection
         btn_layout.addWidget(close_btn)
@@ -497,14 +513,15 @@ class PluginInstallerWindow(QDialog):
         save_settings(self.settings)
 
     def fetch_pypi_version(self):
+        package_name = self._get_package_name()
         try:
-            url = "https://pypi.org/pypi/moleditpy/json"
+            url = f"https://pypi.org/pypi/{package_name}/json"
             with urllib.request.urlopen(url, timeout=5) as response:
                 if response.status == 200:
                     data = json.loads(response.read().decode('utf-8'))
                     return data['info']['version']
         except Exception as e:
-            print(f"Error fetching PyPI version: {e}")
+            logging.warning("Plugin Installer: failed to fetch PyPI version for %s: %s", package_name, e)
         return "Unknown"
 
     def fetch_remote_data(self):
@@ -538,7 +555,8 @@ class PluginInstallerWindow(QDialog):
 
     def check_updates(self):
         # Update App Version
-        self.lbl_latest_version.setText("<b>Latest (PyPI):</b> Checking...")
+        pkg_name = self._get_package_name()
+        self.lbl_latest_version.setText(f"<b>Latest ({pkg_name} on PyPI):</b> Checking...")
         QApplication.processEvents() 
         
         latest = self.fetch_pypi_version()
@@ -561,7 +579,7 @@ class PluginInstallerWindow(QDialog):
         else:
              status_text = "Unknown"
 
-        self.lbl_latest_version.setText(f"<b>Latest (PyPI):</b> <span style='color:{color}'>{status_text}</span>")
+        self.lbl_latest_version.setText(f"<b>Latest ({pkg_name} on PyPI):</b> <span style='color:{color}'>{status_text}</span>")
 
         self.remote_data = self.fetch_remote_data()
         self.populate_table()
@@ -569,7 +587,8 @@ class PluginInstallerWindow(QDialog):
     def populate_table(self, silent=False):
         self.table.setRowCount(0)
         self.updates_found = False
-        
+        plugin_updates_found = False
+
         # Check app version upgrade button visibility once per populate
         app_ver = self.get_app_version()
         if self.latest_app_version != "Checking..." and self.latest_app_version != "Unknown":
@@ -580,7 +599,8 @@ class PluginInstallerWindow(QDialog):
                     self.btn_upgrade_app.setText(f"Copy upgrade command (v{self.latest_app_version})")
                 else:
                     self.btn_upgrade_app.setVisible(False)
-            except:
+            except Exception as e:
+                logging.warning("Plugin Installer: upgrade button version check failed: %s", e)
                 self.btn_upgrade_app.setVisible(False)
         
         # Create map of remote data
@@ -643,6 +663,7 @@ class PluginInstallerWindow(QDialog):
                             color = QColor("#f8d7da")
                             can_update = True
                             self.updates_found = True
+                            plugin_updates_found = True
                         elif comp == 0:
                             status = "Up to date"
                             color = QColor("#d4edda")
@@ -713,6 +734,10 @@ class PluginInstallerWindow(QDialog):
             else:
                 self.table.setItem(row, 5, QTableWidgetItem(""))
 
+        # Enable/disable Update All button — only for plugin updates, not app updates
+        if hasattr(self, 'btn_update_all'):
+            self.btn_update_all.setEnabled(plugin_updates_found)
+
         # Re-apply filter if needed
         if hasattr(self, 'search_input'):
             self.filter_plugins()
@@ -731,6 +756,19 @@ class PluginInstallerWindow(QDialog):
             self.table.setRowHidden(r, not should_show)
 
 
+
+    def update_all_plugins(self):
+        """Click the Update button for every row that has status 'Update Available'."""
+        updated = 0
+        for row in range(self.table.rowCount()):
+            status_item = self.table.item(row, 4)
+            if status_item and status_item.text() == "Update Available":
+                btn = self.table.cellWidget(row, 5)
+                if btn and isinstance(btn, QPushButton):
+                    btn.click()
+                    updated += 1
+        if updated == 0:
+            QMessageBox.information(self, "Update All", "No plugins with available updates found.")
 
     def show_plugin_details(self, row, col):
         name_item = self.table.item(row, 0)
@@ -790,7 +828,7 @@ class PluginInstallerWindow(QDialog):
                 self.main_window.plugin_manager.discover_plugins(self.main_window)
                 _refresh_plugin_menus(self.main_window)
             except Exception as e:
-                print(f"Plugin Installer: failed to refresh menus on close: {e}")
+                logging.warning("Plugin Installer: failed to refresh menus on close: %s", e)
 
         # Sync any open PluginManagerWindow
         for widget in QApplication.topLevelWidgets():
@@ -799,42 +837,12 @@ class PluginInstallerWindow(QDialog):
                     try:
                         widget.refresh_plugin_list()
                     except Exception as e:
-                        print(f"Plugin Installer: failed to sync PluginManagerWindow: {e}")
+                        logging.warning("Plugin Installer: failed to sync PluginManagerWindow: %s", e)
 
         super().closeEvent(event)
 
     def copy_upgrade_command(self):
-        package_name = "moleditpy"
-        try:
-            # Attempt to find the distribution name (PyPI package name) 
-            # that provides the 'moleditpy' module.
-            # 'packages_distributions' is new in Python 3.10
-            try:
-                from importlib.metadata import packages_distributions
-                dists = packages_distributions()
-                if "moleditpy" in dists:
-                    # returns a list of dist names, pick the first one
-                    package_name = dists["moleditpy"][0]
-            except ImportError:
-                # Fallback for Python < 3.10
-                for dist in importlib.metadata.distributions():
-                    try:
-                        toplevels = (dist.read_text('top_level.txt') or '').split()
-                        if "moleditpy" in toplevels:
-                            package_name = dist.metadata['Name']
-                            break
-                    except Exception:
-                        pass
-        except Exception as e:
-            print(f"Error detecting package name: {e}")
-            # Even if detection fails, show the button but maybe default to 'moleditpy'
-            pass
-        
-        # Always show button if we are here? Wait, the visibility is controlled in check_updates.
-        # But if the button is clicked, we just copy. The issue is "button not appearing".
-        # This is likely in check_updates where it checks for upgrade.
-        pass
-
+        package_name = self._get_package_name()
         cmd = f"pip install --upgrade {package_name}"
         QApplication.clipboard().setText(cmd)
         QMessageBox.information(self, "Upgrade Command", 
@@ -859,7 +867,7 @@ class PluginInstallerWindow(QDialog):
             for dep in dependencies:
                 try:
                     importlib.metadata.distribution(dep)
-                except:
+                except Exception:
                     missing_deps.append(dep)
             
             if missing_deps:
@@ -932,7 +940,7 @@ class PluginInstallerWindow(QDialog):
             from urllib.parse import urljoin
             final_url = urljoin(base_url + "/", download_url)
 
-        print(f"{action_verb}ing from: {final_url}")
+        logging.info("Plugin Installer: %sing %s from: %s", action_verb, plugin_name, final_url)
         
         # Download to Temp File
         try:
@@ -1031,11 +1039,11 @@ class PluginInstallerWindow(QDialog):
                                     not final_url.lower().endswith(".zip")):
                                     
                                     try:
-                                        print(f"Overwriting existing plugin file: {target_file}")
+                                        logging.info("Plugin Installer: overwriting existing plugin file: %s", target_file)
                                         shutil.copy2(download_path, target_file)
                                         did_manual_overwrite = True
                                     except Exception as e:
-                                        print(f"Manual overwrite failed: {e}. Falling back to manager.")
+                                        logging.warning("Plugin Installer: manual overwrite failed: %s — falling back to manager", e)
                                 
                                 # Check: Folder Plugin Overwrite (Target is __init__.py, Source is ZIP)
                                 elif (file_name_existing == "__init__.py" and 
@@ -1043,7 +1051,7 @@ class PluginInstallerWindow(QDialog):
                                       
                                       try:
                                           target_dir = os.path.dirname(target_file)
-                                          print(f"Overwriting existing folder plugin: {target_dir}")
+                                          logging.info("Plugin Installer: overwriting existing folder plugin: %s", target_dir)
                                           
                                           # Extract and validate (Security Fix)
                                           extract_temp = os.path.join(temp_dir, "extracted")
@@ -1053,7 +1061,7 @@ class PluginInstallerWindow(QDialog):
                                                   # Security check for directory traversal
                                                   target_path = os.path.join(extract_temp, member.filename)
                                                   if not os.path.abspath(target_path).startswith(os.path.abspath(extract_temp)):
-                                                      print(f"Skipping suspicious file: {member.filename}")
+                                                      logging.warning("Plugin Installer: skipping suspicious zip entry (path traversal): %s", member.filename)
                                                       continue
                                                   z.extract(member, extract_temp)
                                           
@@ -1072,7 +1080,8 @@ class PluginInstallerWindow(QDialog):
                                                try:
                                                    with open(settings_path, 'r', encoding='utf-8') as f:
                                                        settings_backup = f.read()
-                                               except: pass
+                                               except Exception as e:
+                                                   logging.warning("Plugin Installer: failed to backup settings.json (folder): %s", e)
 
                                           # Overwrite using copytree with dirs_exist_ok=True
                                           # This overwrites existing files and adds new ones
@@ -1083,13 +1092,14 @@ class PluginInstallerWindow(QDialog):
                                                try:
                                                    with open(settings_path, 'w', encoding='utf-8') as f:
                                                        f.write(settings_backup)
-                                                   print("Plugin Installer: Successfully restored settings.json")
-                                               except: pass
+                                                   logging.info("Plugin Installer: restored settings.json (folder)")
+                                               except Exception as e:
+                                                   logging.warning("Plugin Installer: failed to restore settings.json (folder): %s", e)
                                           
                                           did_manual_overwrite = True
 
                                       except Exception as e:
-                                          print(f"Manual folder overwrite failed: {e}. Falling back to manager.")
+                                          logging.warning("Plugin Installer: manual folder overwrite failed: %s — falling back to manager", e)
                             
                             if did_manual_overwrite:
                                 # Manual overwrite success
@@ -1113,7 +1123,7 @@ class PluginInstallerWindow(QDialog):
                                                     saved_settings_content = f.read()
                                                 target_dir_for_restore = folder_dir
                                             except Exception as e:
-                                                print(f"Plugin Installer: Failed to backup settings.json: {e}")
+                                                logging.warning("Plugin Installer: failed to backup settings.json: %s", e)
 
                                 self.main_window.plugin_manager.install_plugin(download_path)
                                 
@@ -1126,9 +1136,9 @@ class PluginInstallerWindow(QDialog):
                                         try:
                                             with open(settings_json, 'w', encoding='utf-8') as f:
                                                 f.write(saved_settings_content)
-                                            print("Plugin Installer: Successfully restored settings.json")
+                                            logging.info("Plugin Installer: restored settings.json")
                                         except Exception as e:
-                                            print(f"Plugin Installer: Failed to restore settings.json: {e}")
+                                            logging.warning("Plugin Installer: failed to restore settings.json: %s", e)
                                 
                                 # Post-Install Cleanup (Transitions)
                                 if target_file and os.path.exists(target_file):
@@ -1141,17 +1151,16 @@ class PluginInstallerWindow(QDialog):
                                     if new_is_zip and old_is_py and not old_is_init:
                                         try:
                                             os.remove(target_file)
-                                        except: pass
-                                            
+                                        except Exception as e:
+                                            logging.warning("Plugin Installer: failed to remove old .py during transition: %s", e)
+
                                     # Case 2: Transition from Package (Folder) to Single File (.py)
                                     elif not new_is_zip and old_is_init:
                                         try:
-                                            extracted_py = os.path.join(os.path.dirname(os.path.dirname(target_file)), filename)
-                                            # If install_plugin extracted a single file, it's likely at root/plugins/filename
-                                            # We need to be careful not to delete if things are messy, but standard logic applies:
                                             parent_dir = os.path.dirname(target_file)
                                             shutil.rmtree(parent_dir)
-                                        except: pass
+                                        except Exception as e:
+                                            logging.warning("Plugin Installer: failed to remove old folder during transition: %s", e)
                             
                             # Success Message
                             # Success Message & Dependency Check
@@ -1169,8 +1178,8 @@ class PluginInstallerWindow(QDialog):
                             # Reload plugins and immediately update Plugin menu + toolbar
                             self.main_window.plugin_manager.discover_plugins(self.main_window)
                             _refresh_plugin_menus(self.main_window)
-                            # Refresh our list
-                            self.check_updates()
+                            # Refresh our list (reuse already-fetched remote_data — no extra network call)
+                            self.populate_table()
                             
                         except Exception as e:
                             QMessageBox.warning(self, "Installation Error", f"Failed to install plugin:\n{e}")

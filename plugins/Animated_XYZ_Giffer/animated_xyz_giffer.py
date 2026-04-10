@@ -20,12 +20,13 @@ except ImportError:
 from PyQt6.QtCore import Qt, QTimer, QSize
 from rdkit import Chem
 from rdkit.Chem import AllChem, rdGeometry
+import logging
 try:
     from rdkit.Chem import rdDetermineBonds
 except ImportError:
     rdDetermineBonds = None
 
-__version__ = "2026.04.01"
+__version__ = "2026.04.11"
 __author__ = "HiroYokoyama"
 PLUGIN_NAME = "Animated XYZ Giffer"
 PLUGIN_VERSION = "2026.04.01"
@@ -237,8 +238,8 @@ class AnimatedXYZPlayer(QDialog):
                         z = float(parts[3])
                         frame_atoms.append(sym)
                         frame_coords.append((x, y, z))
-                    except ValueError:
-                        pass
+                    except ValueError as _e:
+                        logging.warning("[animated_xyz_giffer.py:240] silenced: %s", _e)
             
             frames.append({
                 'symbols': frame_atoms,
@@ -370,7 +371,8 @@ class AnimatedXYZPlayer(QDialog):
                             rdDetermineBonds.DetermineConnectivity(new_mol)
                             try:
                                 rdDetermineBonds.DetermineBondOrders(new_mol)
-                            except: pass
+                            except Exception as _e:
+                                logging.warning("[animated_xyz_giffer.py:373] silenced: %s", _e)
                             
                             # Use this new mol for display
                             display_mol = new_mol
@@ -650,8 +652,8 @@ class AnimatedXYZPlayer(QDialog):
                 self.mw.current_mol = self.base_mol
             
             self.context.push_undo_checkpoint()
-        except Exception:
-            pass
+        except Exception as _e:
+            logging.warning("[animated_xyz_giffer.py:653] silenced: %s", _e)
 
         '''
         
@@ -659,13 +661,13 @@ class AnimatedXYZPlayer(QDialog):
         try:
             if hasattr(self.mw, 'plotter'):
                 self.mw.plotter.clear()
-        except:
-            pass
+        except Exception as _e:
+            logging.warning("[animated_xyz_giffer.py:662] silenced: %s", _e)
 
         try:
             self.mw.current_mol = None
-        except:
-            pass
+        except Exception as _e:
+            logging.warning("[animated_xyz_giffer.py:667] silenced: %s", _e)
             
         # Exit 3D mode and restore 2D editor UI
         # We try calling it directly.
@@ -677,8 +679,8 @@ class AnimatedXYZPlayer(QDialog):
         # Force a re-render/clear of the generic 3D draw function
         try:
              self.mw.view_3d_manager.draw_molecule_3d(None)
-        except:
-             pass
+        except Exception as _e:
+             logging.warning("[animated_xyz_giffer.py:680] silenced: %s", _e)
 
              
         # Remove reference from main window so next run starts fresh check

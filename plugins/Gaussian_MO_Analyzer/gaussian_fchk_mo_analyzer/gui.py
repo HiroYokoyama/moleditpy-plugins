@@ -11,6 +11,7 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from .analyzer import FCHKReader, BasisSetEngine
 from .vis import CubeVisualizer
 from .worker import CalcWorker
+import logging
 
 class OrbitalWidget(QWidget):
     def __init__(self, parent, context, fchk_path):
@@ -45,8 +46,8 @@ class OrbitalWidget(QWidget):
                         c_arr = self.reader.get("Charge")
                         if c_arr is not None:
                             charge = int(c_arr[0])
-                    except:
-                        pass
+                    except Exception as _e:
+                        logging.warning("[gui.py:48] silenced: %s", _e)
                         
                     # Connectivity and Bond Order
                     try:

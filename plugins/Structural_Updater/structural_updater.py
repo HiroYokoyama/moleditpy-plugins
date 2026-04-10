@@ -9,7 +9,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 
 PLUGIN_NAME = "Structural Updater"
-PLUGIN_VERSION = "2026.04.06"
+PLUGIN_VERSION = "2026.04.11"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Applies 2D structural changes to 3D conformation without full re-embedding. Refactored for V3 API."
 
@@ -150,8 +150,8 @@ class StructuralUpdaterPlugin:
         try:
             # # [DIRECT ACCESS] to button signals
             self.mw.init_manager.convert_button.clicked.disconnect()
-        except Exception:
-            pass 
+        except Exception as _e:
+            logging.warning("[structural_updater.py:153] silenced: %s", _e)
         self.mw.init_manager.convert_button.clicked.connect(self.new_trigger_conversion)
 
     def new_trigger_conversion(self):
@@ -178,8 +178,8 @@ class StructuralUpdaterPlugin:
         # ensuring it points to our wrapper
         try:
             self.mw.init_manager.convert_button.clicked.disconnect()
-        except Exception:
-            pass
+        except Exception as _e:
+            logging.warning("[structural_updater.py:181] silenced: %s", _e)
         self.mw.init_manager.convert_button.clicked.connect(self.new_trigger_conversion)
         
         # 2. If plugin is enabled and conversion was successful, switch to "Apply Mode"
@@ -243,8 +243,8 @@ class StructuralUpdaterPlugin:
             try:
                 if at.HasProp("_original_atom_id"):
                     return at.GetIntProp("_original_atom_id")
-            except Exception:
-                pass
+            except Exception as _e:
+                logging.warning("[structural_updater.py:246] silenced: %s", _e)
             return None
 
         # Build map of Old Mol: Original ID -> Atom Idx

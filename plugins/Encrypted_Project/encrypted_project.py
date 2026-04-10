@@ -9,6 +9,7 @@ import traceback
 from PyQt6.QtWidgets import QInputDialog, QLineEdit, QMessageBox, QFileDialog
 from PyQt6.QtGui import QAction
 from PyQt6.QtCore import QTimer
+import logging
 
 # Cryptography imports
 try:
@@ -20,7 +21,7 @@ except ImportError:
     CRYPTOGRAPHY_AVAILABLE = False
 
 PLUGIN_NAME = "Encrypted Project"
-PLUGIN_VERSION = "2026.04.06"
+PLUGIN_VERSION = "2026.04.11"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Securely saves molecular data using AES-128 encryption with password protection."
 
@@ -57,9 +58,9 @@ class PmeencPlugin:
             def safe_import():
                 try:
                     self.on_import(file_path)
-                except ValueError:
+                except ValueError as _e:
                     # Silently handle cancelled or failed authentication from UI
-                    pass
+                    logging.warning("[encrypted_project.py:60] silenced: %s", _e)
                 except Exception as e:
                     QMessageBox.critical(self.mw, "Import Error", f"Unexpected error: {e}")
                     traceback.print_exc()
@@ -112,9 +113,9 @@ class PmeencPlugin:
                 try:
                     # Surgical disconnect: only disconnect the original method
                     action.triggered.disconnect(original_method)
-                except (TypeError, RuntimeError):
+                except (TypeError, RuntimeError) as _e:
                     # Fallback for complex connections or if already disconnected
-                    pass
+                    logging.warning("[encrypted_project.py:115] silenced: %s", _e)
                 action.triggered.connect(new_method)
 
     def _unpatch_all(self):
@@ -147,8 +148,8 @@ class PmeencPlugin:
                     try:
                         # Surgical disconnect: only disconnect our patch
                         action.triggered.disconnect(current_method)
-                    except (TypeError, RuntimeError):
-                        pass
+                    except (TypeError, RuntimeError) as _e:
+                        logging.warning("[encrypted_project.py:150] silenced: %s", _e)
                     action.triggered.connect(original_method)
 
     def _patched_save_project(self, mw_instance, *args, **kwargs):

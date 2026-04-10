@@ -1,5 +1,5 @@
 PLUGIN_NAME = "Compound Info Report"
-PLUGIN_VERSION = "2026.04.01"
+PLUGIN_VERSION = "2026.04.11"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Generate a compound info report with properties, adducts, and structure. Refactored for V3 API."
 PLUGIN_ID = "compound_info_report"
@@ -22,6 +22,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QPixmap, QImage, QPainter, QTextDocument
 from PyQt6.QtPrintSupport import QPrinter, QPrintDialog
 from PyQt6.QtCore import Qt, QSize, QRectF, QCoreApplication, QByteArray, QBuffer, QIODevice
+import logging
 
 try:
     from rdkit import Chem
@@ -49,8 +50,8 @@ class PubChemFetcher:
                     information = data.get("InformationList", {}).get("Information", [])
                     if information:
                         return information[0].get("Synonym", [])
-        except Exception:
-            pass
+        except Exception as _e:
+            logging.warning("[compound_info_report.py:52] silenced: %s", _e)
         return []
 
 
@@ -66,8 +67,8 @@ class PubChemFetcher:
                     cids = data.get("IdentifierList", {}).get("CID", [])
                     if cids:
                         return cids[0]
-        except:
-            pass
+        except Exception as _e:
+            logging.warning("[compound_info_report.py:69] silenced: %s", _e)
         return None
 
     @staticmethod
@@ -132,8 +133,8 @@ class PubChemFetcher:
                                 if density and phys_desc: break
                         if density and phys_desc: break
 
-        except:
-            pass
+        except Exception as _e:
+            logging.warning("[compound_info_report.py:135] silenced: %s", _e)
             
         return density, phys_desc
 
@@ -299,8 +300,8 @@ class ReportDialog(QDialog):
                  img.save(buffered, format="PNG")
                  mol_b64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
                  img_w, img_h = 400, 300
-            except:
-                 pass
+            except Exception as _e:
+                 logging.warning("[compound_info_report.py:302] silenced: %s", _e)
                  
         return mol_b64, img_w, img_h
 
@@ -336,8 +337,8 @@ class ReportDialog(QDialog):
                 data["density"] = density
                 data["phys_desc"] = phys_desc
             
-        except Exception:
-            pass
+        except Exception as _e:
+            logging.warning("[compound_info_report.py:339] silenced: %s", _e)
             
         return data
 
@@ -611,8 +612,8 @@ def show_report(context):
     try:
         if mol.GetNumConformers() == 0:
             AllChem.Compute2DCoords(mol)
-    except:
-        pass
+    except Exception as _e:
+        logging.warning("[compound_info_report.py:614] silenced: %s", _e)
 
     dialog = ReportDialog(mol, mw)
     dialog.exec()
