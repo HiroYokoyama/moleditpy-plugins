@@ -10,7 +10,7 @@ from rdkit.Geometry import Point3D
 import pyvista as pv
 
 PLUGIN_NAME = "XYZ Editor"
-PLUGIN_VERSION = "2026.04.04"
+PLUGIN_VERSION = "2026.04.10"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "A table-based editor for atom coordinates and symbols, supporting ghost atoms. Refactored for V3 API."
 
@@ -255,7 +255,7 @@ class XYZEditorWindow(QWidget):
             plotter = self.context.plotter
             if plotter:
                 plotter.remove_actor("xyz_selection")
-                self.context.refresh_3d_view()
+                plotter.render()
             return
 
         points = []
@@ -289,7 +289,7 @@ class XYZEditorWindow(QWidget):
             plotter = self.context.plotter
             if plotter:
                 plotter.remove_actor("xyz_selection")
-                self.context.refresh_3d_view()
+                plotter.render()
             return
             
         # Create polydata for points
@@ -303,13 +303,13 @@ class XYZEditorWindow(QWidget):
         plotter = self.context.plotter
         if plotter:
             plotter.add_mesh(
-                spheres, 
-                name="xyz_selection", 
-                color="yellow", 
+                spheres,
+                name="xyz_selection",
+                color="yellow",
                 opacity=0.5,
                 pickable=False
             )
-            self.context.refresh_3d_view()
+            plotter.render()
 
     def on_item_changed(self, item):
         # Update highlight if the row is selected to show live movement

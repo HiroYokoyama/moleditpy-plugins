@@ -16,7 +16,8 @@
     "downloadUrl": "../plugins/All-Trans_Optimizer/all-trans_optimizer.py",
     "lastUpdated": "2026-04-06",
     "sha256": "c5333c90f900c28c260ca1e3d7e2e24e03fb115ad8ac8fbaf442231323209b91",
-    "firstAppeared": "2025-12-15"
+    "firstAppeared": "2025-12-15",
+    "last_update_date": "2026.04.06"
   },
   {
     "id": "animated_xyz_giffer",
@@ -36,7 +37,8 @@
     "downloadUrl": "../plugins/Animated_XYZ_Giffer/animated_xyz_giffer.py",
     "lastUpdated": "2026-04-01",
     "sha256": "a37fe942f73bc9e76a6450ca4d24628500fa9c03e56967950894be4ecf339d0f",
-    "firstAppeared": "2025-12-15"
+    "firstAppeared": "2025-12-15",
+    "last_update_date": "2026.04.01"
   },
   {
     "id": "animated_xyz_player",
@@ -73,7 +75,8 @@
     "downloadUrl": "../plugins/Complex_Molecule_Untangler/complex_molecule_untangler.py",
     "lastUpdated": "2026-04-06",
     "sha256": "0c32a86d16d9d7d2c2aa5e2d6325d8118e2c0ac069f6c47f097fae9460a5b75f",
-    "firstAppeared": "2025-12-15"
+    "firstAppeared": "2025-12-15",
+    "last_update_date": "2026.04.06"
   },
   {
     "id": "conformational_search",
@@ -92,7 +95,8 @@
     "downloadUrl": "../plugins/Conformational_Search/conf_search.py",
     "lastUpdated": "2026-04-04",
     "sha256": "af391a6ba9f09fa8e0d95aecedeb7e9f6704b25057d790e53efb834931992c7a",
-    "firstAppeared": "2025-12-15"
+    "firstAppeared": "2025-12-15",
+    "last_update_date": "2026.04.04"
   },
   {
     "id": "cube_file_viewer",
@@ -113,7 +117,8 @@
     "downloadUrl": "../plugins/Cube_File_Viewer/cube_viewer.py",
     "lastUpdated": "2026-04-01",
     "sha256": "79012398277d939530df170460123fca7581a7e345d3359e70d217441133c48b",
-    "firstAppeared": "2025-12-15"
+    "firstAppeared": "2025-12-15",
+    "last_update_date": "2026.04.01"
   },
   {
     "id": "gaussian_input_generator",
@@ -205,7 +210,8 @@
     "downloadUrl": "../plugins/PubChem_Name_Ressolver/pubchem_ressolver.py",
     "lastUpdated": "2026-04-01",
     "sha256": "67f2cabb50f0a77d87acbc51cfc71129622b9d1d0c2c2d284d6284746abb2969",
-    "firstAppeared": "2025-12-15"
+    "firstAppeared": "2025-12-15",
+    "last_update_date": "2026.04.01"
   },
   {
     "id": "console",
@@ -225,7 +231,8 @@
     "downloadUrl": "../plugins/Python_Console/console.py",
     "lastUpdated": "2026-04-01",
     "sha256": "9767dabe7a8e5b22b6e8bf1ba94ea03da32cde8df01c22031c606ed4ad2d8a8b",
-    "firstAppeared": "2025-12-16"
+    "firstAppeared": "2025-12-16",
+    "last_update_date": "2026.04.01"
   },
   {
     "id": "atom_colorizer",
@@ -247,7 +254,8 @@
     "downloadUrl": "../plugins/Atom_Colorizer/atom_colorizer.py",
     "lastUpdated": "2026-04-01",
     "sha256": "ec3f4ffdb8c8d2d04ddd7f03448b229f75afae976164cafac3087c7c5bcc9720",
-    "firstAppeared": "2025-12-16"
+    "firstAppeared": "2025-12-16",
+    "last_update_date": "2026.04.01"
   },
   {
     "id": "dark_mode_theme",
@@ -266,7 +274,8 @@
     "downloadUrl": "../plugins/Dark_Mode_Theme/dark_mode_plugin.py",
     "lastUpdated": "2026-04-01",
     "sha256": "a7bc80959084172aaad67a12196b94e365a048b99c1f19067ba2a0cbec5e9113",
-    "firstAppeared": "2025-12-16"
+    "firstAppeared": "2025-12-16",
+    "last_update_date": "2025.12.16"
   },
   {
     "id": "gaussian_input_generator_neo",
@@ -287,7 +296,8 @@
     "downloadUrl": "../plugins/Gaussian_Input_Generator_Neo/gaussian_input_generator_neo.py",
     "lastUpdated": "2026-04-07",
     "sha256": "d83dbd9b9239a36b194ea09f204c5459a8220f337ed31da109b9c96fdb6349ad",
-    "firstAppeared": "2025-12-16"
+    "firstAppeared": "2025-12-16",
+    "last_update_date": "2026.04.07"
   },
   {
     "id": "vdw_radii_overlay",
@@ -308,7 +318,8 @@
     "downloadUrl": "../plugins/VDW_Radii_Overlay/vdw_radii_overlay.py",
     "lastUpdated": "2026-04-04",
     "sha256": "3d59265de98b228d53bfd09c90d4e1d641d07c6e35eb5708bf78a99652725a1f",
-    "firstAppeared": "2025-12-17"
+    "firstAppeared": "2025-12-17",
+    "last_update_date": "2026.04.04"
   },
   {
     "id": "mapped_cube_viewer",
@@ -331,7 +342,8 @@
     "downloadUrl": "../plugins/Mapped_Cube_Viewer/mapped_cube_viewer.py",
     "lastUpdated": "2026-04-09",
     "sha256": "b3c17887b104473559e1309fc58aed803ec5cc50eecd255455b3898893db7c52",
-    "firstAppeared": "2025-12-17"
+    "firstAppeared": "2025-12-17",
+    "last_update_date": "2026.04.09"
   },
   {
     "id": "orca_input_generator_neo",
@@ -352,7 +364,8 @@
     "downloadUrl": "../plugins/Orca_Input_Generator_Neo/orca_input_generator_neo.py",
     "lastUpdated": "2026-01-04",
     "sha256": "b2ff42bd7938706702ad9730b8aa0eb85f33b01a7de50982b347b8c229f27423",
-    "firstAppeared": "2026-01-03"
+    "firstAppeared": "2026-01-03",
+    "last_update_date": "2026.01.04"
   },
   {
     "id": "orca_xyz2inp_gui",
@@ -395,7 +408,8 @@
     "downloadUrl": "../plugins/MS_Spectrum_Simulation_Neo/ms_spectrum_neo.py",
     "lastUpdated": "2026-04-01",
     "sha256": "c191cbed1ffed0c9b0f1d55fdcb8bab294ac192511165356fdaeec9b713a2543",
-    "firstAppeared": "2025-12-18"
+    "firstAppeared": "2025-12-18",
+    "last_update_date": "2026.04.01"
   },
   {
     "id": "gaussian_freq_analyzer",
@@ -419,7 +433,8 @@
     "downloadUrl": "../plugins/Gaussian_Freq_Analyzer/gaussian_fchk_freq_analyzer.py",
     "lastUpdated": "2026-04-09",
     "sha256": "2d7f2d6129fe3a0beb26cccc3378a50162111594e93fffe6350070e5c0919975",
-    "firstAppeared": "2025-12-20"
+    "firstAppeared": "2025-12-20",
+    "last_update_date": "2026.04.09"
   },
   {
     "id": "orca_freq_analyzer",
@@ -443,7 +458,8 @@
     "downloadUrl": "../plugins/ORCA_Freq_Analyzer/orca_out_freq_analyzer.py",
     "lastUpdated": "2026-04-01",
     "sha256": "c36fc4b9c812b450e160f3da6b0ad87eb0202b0dd508e2f653b1f0a11a3d72b1",
-    "firstAppeared": "2025-12-20"
+    "firstAppeared": "2025-12-20",
+    "last_update_date": "2026.01.07"
   },
   {
     "id": "paste_xyz",
@@ -460,7 +476,8 @@
     "downloadUrl": "../plugins/Paste_XYZ/paste_xyz.py",
     "lastUpdated": "2026-04-06",
     "sha256": "f14cda6c174932fb03cc54e9ebe49032352d7d477852d5897d6cf03761c83d78",
-    "firstAppeared": "2025-12-20"
+    "firstAppeared": "2025-12-20",
+    "last_update_date": "2026.04.06"
   },
   {
     "id": "version_checker",
@@ -479,7 +496,8 @@
     "downloadUrl": "../plugins/Version_Checker/version_checker.py",
     "lastUpdated": "2025-12-26",
     "sha256": "f302273f471d3992084df94affa8fb5c6ac8d71f3a986e651f355722470e05ae",
-    "firstAppeared": "2025-12-26"
+    "firstAppeared": "2025-12-26",
+    "last_update_date": "2025.12.26"
   },
   {
     "id": "plugin_installer",
@@ -498,7 +516,8 @@
     "downloadUrl": "../plugins/Plugin_Installer/plugin_installer.py",
     "lastUpdated": "2026-04-01",
     "sha256": "c76022698614163b75de5d9068a38f0371f0f5c884c0bc2fc624ef9c03bf89e0",
-    "firstAppeared": "2026-01-04"
+    "firstAppeared": "2026-01-04",
+    "last_update_date": "2026.04.01"
   },
   {
     "id": "chat_with_molecule",
@@ -521,7 +540,8 @@
     "downloadUrl": "../plugins/Chat_with_Molecule/chat_with_molecule.py",
     "lastUpdated": "2025-12-27",
     "sha256": "b147bcd281f37281d0a204dbf5451513860e70ecd8b0727c656f31f498d04d8f",
-    "firstAppeared": "2025-12-26"
+    "firstAppeared": "2025-12-26",
+    "last_update_date": "2025.12.27"
   },
   {
     "id": "chat_with_molecule_neo",
@@ -544,7 +564,8 @@
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo/chat_with_molecule_neo.py",
     "lastUpdated": "2026-04-06",
     "sha256": "307e8fb0af4fc874cf4290f88d6e4458aa64db7eca443515474ad73d5be6ee7f",
-    "firstAppeared": "2025-12-28"
+    "firstAppeared": "2025-12-28",
+    "last_update_date": "2026.04.06"
   },
   {
     "id": "pubchem_structure_identifier",
@@ -564,7 +585,8 @@
     "downloadUrl": "../plugins/PubChem_Structure_Identifier/pubchem_structure_identifier.py",
     "lastUpdated": "2026-04-01",
     "sha256": "ad8949e3534ea93c0e7593d90ea1aec93e083cee52682f5e2fc735f3c907d167",
-    "firstAppeared": "2025-12-28"
+    "firstAppeared": "2025-12-28",
+    "last_update_date": "2026.04.01"
   },
   {
     "id": "chat_with_molecule_neo_chatgpt",
@@ -587,7 +609,8 @@
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_ChatGPT/chat_with_molecule_neo_chatGPT.py",
     "lastUpdated": "2026-04-06",
     "sha256": "91f69d9aa233068247c43b57db159287671eede60beeda76edc76bf446ff663e",
-    "firstAppeared": "2025-12-30"
+    "firstAppeared": "2025-12-30",
+    "last_update_date": "2026.04.06"
   },
   {
     "id": "chat_with_molecule_neo_local",
@@ -610,7 +633,8 @@
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_Local/chat_with_molecule_neo_local.py",
     "lastUpdated": "2026-04-06",
     "sha256": "9ad532c3fb728f98f7f5428fef946146a2bf74c4521a6b791525185c9e954990",
-    "firstAppeared": "2025-12-30"
+    "firstAppeared": "2025-12-30",
+    "last_update_date": "2026.04.06"
   },
   {
     "id": "symmetry_analyzer",
@@ -631,7 +655,8 @@
     "downloadUrl": "../plugins/Symmetry_Analyzer/symmetry_analyzer.py",
     "lastUpdated": "2026-04-04",
     "sha256": "151719cb2b96b19ac15415d8089fda2ae7b1346c0d07b3d65c5aed8f1854fdfe",
-    "firstAppeared": "2025-12-31"
+    "firstAppeared": "2025-12-31",
+    "last_update_date": "2026.04.04"
   },
   {
     "id": "vector_viewer",
@@ -653,7 +678,8 @@
     "downloadUrl": "../plugins/Vector_Viewer/vector_viewer.py",
     "lastUpdated": "2026-04-01",
     "sha256": "a15fc1eaa6b0f48f28eeba5cb2898b7cf7ce4e180590026dfece29d294048f74",
-    "firstAppeared": "2025-12-31"
+    "firstAppeared": "2025-12-31",
+    "last_update_date": "2026.04.01"
   },
   {
     "id": "mopac_input_generator",
@@ -674,7 +700,8 @@
     "downloadUrl": "../plugins/Mopac_Input_Generator/mopac_input_generator.py",
     "lastUpdated": "2026-01-03",
     "sha256": "d16ff15b78e8cf53288ef2f5ca39a95b2e18ee95eba368ebf8b4ed13690d2f90",
-    "firstAppeared": "2026-01-03"
+    "firstAppeared": "2026-01-03",
+    "last_update_date": "2026.01.03"
   },
   {
     "id": "gamess_input_generator",
@@ -695,7 +722,8 @@
     "downloadUrl": "../plugins/Gamess_Input_Generator/gamess_input_generator.py",
     "lastUpdated": "2026-01-03",
     "sha256": "5d7f0a579b9ffa4344db81c9bcdb057b7e048826a3ba3d682b8a0151557d464b",
-    "firstAppeared": "2026-01-03"
+    "firstAppeared": "2026-01-03",
+    "last_update_date": "2026.01.03"
   },
   {
     "id": "pyscf_input_generator",
@@ -717,7 +745,8 @@
     "downloadUrl": "../plugins/PySCF_Input_Generator/pyscf_input_generator.py",
     "lastUpdated": "2026-01-03",
     "sha256": "91c4df1e193297f2926344a87986908405a8a40e04e1e0ebc0b65b2d834f7030",
-    "firstAppeared": "2026-01-03"
+    "firstAppeared": "2026-01-03",
+    "last_update_date": "2026.01.03"
   },
   {
     "id": "psi4_input_generator",
@@ -738,7 +767,8 @@
     "downloadUrl": "../plugins/Psi4_Input_Generator/psi4_input_generator.py",
     "lastUpdated": "2026-01-03",
     "sha256": "e838a19658aae86d8efa30d5754e76a91ad88f129ee623329bf9a9136c48274a",
-    "firstAppeared": "2026-01-03"
+    "firstAppeared": "2026-01-03",
+    "last_update_date": "2026.01.03"
   },
   {
     "id": "molecule_comparator",
@@ -759,7 +789,8 @@
     "downloadUrl": "../plugins/Molecule_Comparator/molecule_comparator.py",
     "lastUpdated": "2026-04-01",
     "sha256": "e541a94189b1b18f29f6c0624384ffff82a587b2bdd597023beefe9c836f596f",
-    "firstAppeared": "2026-01-03"
+    "firstAppeared": "2026-01-03",
+    "last_update_date": "2026.04.01"
   },
   {
     "id": "nwchem_input_generator",
@@ -780,13 +811,14 @@
     "downloadUrl": "../plugins/NWChem_Input_Generator/nwchem_input_generator.py",
     "lastUpdated": "2026-01-03",
     "sha256": "90955c56ab9969669d64e9799d97a158803777871e0d7ec9e3e4d704d2ac7df9",
-    "firstAppeared": "2026-01-03"
+    "firstAppeared": "2026-01-03",
+    "last_update_date": "2026.01.03"
   },
   {
     "id": "xyz_editor",
     "visible": true,
     "name": "XYZ Editor",
-    "version": "2026.04.04",
+    "version": "2026.04.10",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A table-based editor for atom coordinates and symbols, supporting ghost atoms, adding and deleting atoms.",
@@ -799,8 +831,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/XYZ_Editor/xyz_editor.py",
-    "lastUpdated": "2026-04-04",
-    "sha256": "722f4159f0f935d35260bf56804f4b4be455095871252e3d2ad4b55a72e1fa94",
+    "lastUpdated": "2026-04-10",
+    "sha256": "44679654e995c20edc9e0a319c704d9bf83b15421026a97965a1aaad5e16c967",
     "firstAppeared": "2026-01-03"
   },
   {
@@ -863,7 +895,8 @@
     "downloadUrl": "../plugins/OpenBabel_Conversion_Tool/openbabel_conversion_tool.py",
     "lastUpdated": "2026-04-06",
     "sha256": "cdc57d6c7ea432dc1be4c22c09a8513f8a884acb9bddb3066475debbf97284c2",
-    "firstAppeared": "2026-01-10"
+    "firstAppeared": "2026-01-10",
+    "last_update_date": "2026.04.06"
   },
   {
     "id": "paste_from_chemdraw",
@@ -883,7 +916,8 @@
     "downloadUrl": "../plugins/Paste_from_ChemDraw/paste_chemdraw.py",
     "lastUpdated": "2026-04-06",
     "sha256": "8384ad6ab3868061b849f65473f4d25c7ce8cb2e427040ee1b9e67cbb23a1449",
-    "firstAppeared": "2026-01-15"
+    "firstAppeared": "2026-01-15",
+    "last_update_date": "2026.04.06"
   },
   {
     "id": "compound_info_report",
@@ -903,7 +937,8 @@
     "downloadUrl": "../plugins/Compound_Info_Report/compound_info_report.py",
     "lastUpdated": "2026-04-01",
     "sha256": "fa497543a36d1a40bf2abc7a8b515c4b82acdee443c47ff9f77ac2e7c489e85b",
-    "firstAppeared": "2026-01-21"
+    "firstAppeared": "2026-01-21",
+    "last_update_date": "2026.04.01"
   },
   {
     "id": "gaussian_mo_analyzer",
@@ -928,7 +963,8 @@
     "downloadUrl": "../plugins/Gaussian_MO_Analyzer/gaussian_fchk_mo_analyzer.zip",
     "lastUpdated": "2026-04-06",
     "sha256": "d23aa7dc090d2de53a2f3b3c7bd8d6d81d39ad77ec0aa652e50bcdfa6747995d",
-    "firstAppeared": "2026-01-23"
+    "firstAppeared": "2026-01-23",
+    "last_update_date": "2026.04.06"
   },
   {
     "id": "gaussian_fchk_loader",
@@ -948,7 +984,8 @@
     "downloadUrl": "../plugins/Gaussian_FCHK_Loader/gaussian_fchk_loader.py",
     "lastUpdated": "2026-04-06",
     "sha256": "f01423238a5691226589a01f56fa0d67581149ce0848430f01cd9aae35009d74",
-    "firstAppeared": "2026-01-23"
+    "firstAppeared": "2026-01-23",
+    "last_update_date": "2026.04.06"
   },
   {
     "id": "settings_saver",
@@ -967,7 +1004,8 @@
     "downloadUrl": "../plugins/Settings_Saver/settings_saver.py",
     "lastUpdated": "2026-04-06",
     "sha256": "ad1ccf2c35d653b6d9cd564d8efa180c9d3c0603eebc7ace1f25644175d55fb8",
-    "firstAppeared": "2026-01-25"
+    "firstAppeared": "2026-01-25",
+    "last_update_date": "2026.04.06"
   },
   {
     "id": "structural_updater",
@@ -987,7 +1025,8 @@
     "downloadUrl": "../plugins/Structural_Updater/structural_updater.py",
     "lastUpdated": "2026-04-06",
     "sha256": "9765e12580c0866a79fa42dc4cb153c883780b3d66e659fc690eb29f93e715c9",
-    "firstAppeared": "2026-01-28"
+    "firstAppeared": "2026-01-28",
+    "last_update_date": "2026.04.06"
   },
   {
     "id": "orca_result_analyzer",
@@ -1060,7 +1099,8 @@
     "downloadUrl": "../plugins/Cube_File_Viewer_Advanced/cube_viewer_advanced.py",
     "lastUpdated": "2026-04-09",
     "sha256": "fd22171215d572f8c3c6d0dfa7f8fae29920e013aae0f038bddbab177c7997d0",
-    "firstAppeared": "2026-02-02"
+    "firstAppeared": "2026-02-02",
+    "last_update_date": "2026.04.09"
   },
   {
     "id": "advanced_rendering",
@@ -1081,7 +1121,8 @@
     "downloadUrl": "../plugins/Advanced_Rendering/advanced_rendering.py",
     "lastUpdated": "2026-04-01",
     "sha256": "7bc0432f6899421761bd8431de57dd57039080cf05dea45932d3e8126ef672a0",
-    "firstAppeared": "2026-02-03"
+    "firstAppeared": "2026-02-03",
+    "last_update_date": "2026.04.01"
   },
   {
     "id": "high_res_imager",
@@ -1102,7 +1143,8 @@
     "downloadUrl": "../plugins/High_Resolution_Imager/high_res_imager.py",
     "lastUpdated": "2026-04-06",
     "sha256": "49d33162762041231d155d1c497b0c89f5fcc5c4ac290dd75986b8830a778c74",
-    "firstAppeared": "2026-02-05"
+    "firstAppeared": "2026-02-05",
+    "last_update_date": "2026.04.06"
   },
   {
     "id": "blender_export",
@@ -1124,7 +1166,8 @@
     "downloadUrl": "../plugins/Blender_Export/blender_export.py",
     "lastUpdated": "2026-04-06",
     "sha256": "beeb53623c53831fcb928c41b52409cafa16eaea524f06412f463918d392323f",
-    "firstAppeared": "2026-02-05"
+    "firstAppeared": "2026-02-05",
+    "last_update_date": "2026.04.06"
   },
   {
     "id": "povray_export",
@@ -1146,7 +1189,8 @@
     "downloadUrl": "../plugins/POV-Ray_Export/povray_export.py",
     "lastUpdated": "2026-04-06",
     "sha256": "9e0e16b33ccb028da8e8977e89b2ba114d2317b83113d1e9d9ecfbd5d42cdbf0",
-    "firstAppeared": "2026-02-05"
+    "firstAppeared": "2026-02-05",
+    "last_update_date": "2026.04.06"
   },
   {
     "id": "reaction_sketcher",
@@ -1189,7 +1233,8 @@
     "downloadUrl": "../plugins/Encrypted_Project/encrypted_project.py",
     "lastUpdated": "2026-04-06",
     "sha256": "170a5f46afc14d7e400744e001f88173e26dc18b3a7312075b7db74ad7b34b71",
-    "firstAppeared": "2026-02-12"
+    "firstAppeared": "2026-02-12",
+    "last_update_date": "2026.04.06"
   },
   {
     "id": "3d_molecule_on_2d",
