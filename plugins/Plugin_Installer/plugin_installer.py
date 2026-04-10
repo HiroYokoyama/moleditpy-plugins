@@ -783,11 +783,25 @@ class PluginInstallerWindow(QDialog):
             return
 
         self._batch_updating = True
+        succeeded = []
+        failed = []
         try:
             for btn in rows_to_update:
-                btn.click()
+                name = btn.property("plugin_name")
+                try:
+                    btn.click()
+                    succeeded.append(name)
+                except Exception as e:
+                    failed.append(f"{name}: {e}")
         finally:
             self._batch_updating = False
+
+        lines = [f"Updated {len(succeeded)} of {len(names)} plugin(s)."]
+        if succeeded:
+            lines.append("\nSucceeded:\n" + "\n".join(f"  - {n}" for n in succeeded))
+        if failed:
+            lines.append("\nFailed:\n" + "\n".join(f"  - {n}" for n in failed))
+        QMessageBox.information(self, "Update All Complete", "\n".join(lines))
 
     def show_plugin_details(self, row, col):
         name_item = self.table.item(row, 0)
@@ -1190,7 +1204,7 @@ class PluginInstallerWindow(QDialog):
                                                     f"Successfully {verb_past} '{plugin_name}'.\n\nHowever, you must install the missing dependencies for it to work.\n\nOpening details window...")
                                 dialog = PluginDetailsDialog(self, plugin_name, author, version, description, dependencies, local_info, target_file)
                                 dialog.exec()
-                            else:
+                            elif not getattr(self, '_batch_updating', False):
                                 QMessageBox.information(self, "Success", f"Successfully {verb_past} '{plugin_name}'.")
                             
                             # Reload plugins and immediately update Plugin menu + toolbar
