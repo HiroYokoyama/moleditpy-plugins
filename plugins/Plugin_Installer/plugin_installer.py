@@ -129,8 +129,11 @@ def initialize(context):
     if not _startup_check_performed:
         _startup_check_performed = True
         settings = load_settings()
-        if settings.get("check_at_startup", None):
-            from PyQt6.QtCore import QTimer
+        from PyQt6.QtCore import QTimer
+        if settings.get("check_at_startup") is None:
+            # First launch — ask the user whether to enable startup checks.
+            QTimer.singleShot(2000, lambda: ask_user_permission(mw))
+        elif settings.get("check_at_startup"):
             QTimer.singleShot(2000, lambda: perform_startup_check(mw))
 
 def ask_user_permission(mw):
