@@ -22,7 +22,7 @@
     "id": "animated_xyz_giffer",
     "visible": true,
     "name": "Animated XYZ Giffer",
-    "version": "2026.04.01",
+    "version": "2026.04.12",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A player for viewing multi-frame XYZ files and recording GIF animations using PIL.",
@@ -34,8 +34,8 @@
       "Pillow"
     ],
     "downloadUrl": "../plugins/Animated_XYZ_Giffer/animated_xyz_giffer.py",
-    "lastUpdated": "2026-04-01",
-    "sha256": "40aaafe7a309111ccd207eab73fe1e7722aaffdd1c31ba9c6b38995cc0b390ec",
+    "lastUpdated": "2026-04-12",
+    "sha256": "4a89fa63224e21e721fe4b7b091b175e0516f3db8cefe94fdfdf4e6a958f960d",
     "firstAppeared": "2025-12-15"
   },
   {
@@ -72,7 +72,7 @@
     ],
     "downloadUrl": "../plugins/Complex_Molecule_Untangler/complex_molecule_untangler.py",
     "lastUpdated": "2026-04-11",
-    "sha256": "46312a7265869ccb5b0521840eab444dceb1c5a86ed564f482fa6674b1742a5c",
+    "sha256": "375e4b4fabde44f25f14073b55cfcc81e28592beece4691297f8f26b55cb6efe",
     "firstAppeared": "2025-12-15"
   },
   {
@@ -91,7 +91,7 @@
     ],
     "downloadUrl": "../plugins/Conformational_Search/conf_search.py",
     "lastUpdated": "2026-04-04",
-    "sha256": "af391a6ba9f09fa8e0d95aecedeb7e9f6704b25057d790e53efb834931992c7a",
+    "sha256": "b40181fde999e7543e48b2dd07e8516c27ec9260f26dd09c77a410d4d10b8392",
     "firstAppeared": "2025-12-15"
   },
   {
@@ -112,7 +112,7 @@
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer/cube_viewer.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "3eeba0ab5aa980801e20cdf86fe8b770e19c745e0291564b4847444cc6a02abe",
+    "sha256": "c73483b07f116b54fb04274a26aaf62b9acb44bfc122a76d728811b60c5742c0",
     "firstAppeared": "2025-12-15"
   },
   {
@@ -204,7 +204,7 @@
     ],
     "downloadUrl": "../plugins/PubChem_Name_Ressolver/pubchem_ressolver.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "edaa1ee382a4ef62e10b3d597c0366190fef95a730aef62686af2ed3896dc0d3",
+    "sha256": "bbbd23a016dcd57f6d126addbf8de4721532f2f378c994a2961627c9ce2be38f",
     "firstAppeared": "2025-12-15"
   },
   {
@@ -224,14 +224,14 @@
     ],
     "downloadUrl": "../plugins/Python_Console/console.py",
     "lastUpdated": "2026-04-01",
-    "sha256": "9767dabe7a8e5b22b6e8bf1ba94ea03da32cde8df01c22031c606ed4ad2d8a8b",
+    "sha256": "3433e378f240b6b3a084fac422d6a03c835d4c5b62d186138028820d68b6e696",
     "firstAppeared": "2025-12-16"
   },
   {
     "id": "atom_colorizer",
     "visible": true,
     "name": "Atom Colorizer",
-    "version": "2026.04.11",
+    "version": "2026.04.12",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Select atoms in the 3D viewer and apply color.",
@@ -245,8 +245,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Atom_Colorizer/atom_colorizer.py",
-    "lastUpdated": "2026-04-11",
-    "sha256": "432658099656a286b2af5bebfc26101f4a4b4c640c437cddddfacead6c8eef0d",
+    "lastUpdated": "2026-04-12",
+    "sha256": "f5ac363df2cb87038bc50f11d8d2cbf22668a8c0d04e53daed4df22457b0272a",
     "firstAppeared": "2025-12-16"
   },
   {
@@ -265,14 +265,14 @@
     ],
     "downloadUrl": "../plugins/Dark_Mode_Theme/dark_mode_plugin.py",
     "lastUpdated": "2025-12-16",
-    "sha256": "a7bc80959084172aaad67a12196b94e365a048b99c1f19067ba2a0cbec5e9113",
+    "sha256": "1d910ddc0a145d4ecd7486aef702b205fe714ab5a7e29b5f7e7c604dc87277ab",
     "firstAppeared": "2025-12-16"
   },
   {
     "id": "gaussian_input_generator_neo",
     "visible": true,
     "name": "Gaussian Input Generator Neo",
-    "version": "2026.04.07",
+    "version": "2026.04.12",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "High-functionality setting dialog for Gaussian input creation. Supports Link 0, Route, Title, Charge/Mult, and appended data.",
@@ -285,15 +285,15 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Gaussian_Input_Generator_Neo/gaussian_input_generator_neo.py",
-    "lastUpdated": "2026-04-07",
-    "sha256": "d83dbd9b9239a36b194ea09f204c5459a8220f337ed31da109b9c96fdb6349ad",
+    "lastUpdated": "2026-04-12",
+    "sha256": "d173d89ccdfa69af371f7def365458099bf72c2e30a05460fe90fd8e124c94ab",
     "firstAppeared": "2025-12-16"
   },
   {
     "id": "vdw_radii_overlay",
     "visible": true,
     "name": "VDW Radii Overlay",
-    "version": "2026.04.04",
+    "version": "2026.04.12",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes Van der Waals radii as a merged surface overlay using PyVista.",
@@ -306,8 +306,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/VDW_Radii_Overlay/vdw_radii_overlay.py",
-    "lastUpdated": "2026-04-04",
-    "sha256": "8091cb592863f56000d72ff0121555b59611d94d2d1cd0ba2ac4ce4deeed7fd6",
+    "lastUpdated": "2026-04-12",
+    "sha256": "a6efaed009526e608e00ac686aa666760841ce394ebab07677215bea403e7558",
     "firstAppeared": "2025-12-17"
   },
   {
@@ -330,7 +330,7 @@
     ],
     "downloadUrl": "../plugins/Mapped_Cube_Viewer/mapped_cube_viewer.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "a747a162a152d401c6f40928d885b3ff483995006f597482c9db4eb061be19f9",
+    "sha256": "0b363ba9e116352666fe662f3dd322908537868f02bb43aa820c81b6031663b4",
     "firstAppeared": "2025-12-17"
   },
   {
@@ -394,7 +394,7 @@
     ],
     "downloadUrl": "../plugins/MS_Spectrum_Simulation_Neo/ms_spectrum_neo.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "b1e0d53bbc48bdbd5813899227d4a40915d8c7df09b25607198d78ded933e78d",
+    "sha256": "61389477c4d1e02c363b65f89e8b0d8b802238a6090fa52288064c6d646b4ac7",
     "firstAppeared": "2025-12-18"
   },
   {
@@ -418,7 +418,7 @@
     ],
     "downloadUrl": "../plugins/Gaussian_Freq_Analyzer/gaussian_fchk_freq_analyzer.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "5a5426238995229472650a82958ce328fb6e283b3516f439b7608cda63604e3c",
+    "sha256": "94c519a3082804ccb633f9c3f922ad608ec457fe12c000722387c50c8cfa3b34",
     "firstAppeared": "2025-12-20"
   },
   {
@@ -442,14 +442,14 @@
     ],
     "downloadUrl": "../plugins/ORCA_Freq_Analyzer/orca_out_freq_analyzer.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "f212eff118a395beb885da68b394db5ad044e381287cb7ac20077a353a0b2f4a",
+    "sha256": "275d3b458619eb90efb26134c84cbe18f062097402c21cb2f0fcd84c31438ed1",
     "firstAppeared": "2025-12-20"
   },
   {
     "id": "paste_xyz",
     "visible": true,
     "name": "Paste XYZ",
-    "version": "2026.04.11",
+    "version": "2026.04.12",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Paste XYZ to view in 3D.",
@@ -458,8 +458,8 @@
     ],
     "dependencies": [],
     "downloadUrl": "../plugins/Paste_XYZ/paste_xyz.py",
-    "lastUpdated": "2026-04-11",
-    "sha256": "49d4c91b540f05ea9787e3b46836af00f6c83bcc5a935274faec2541339eed24",
+    "lastUpdated": "2026-04-12",
+    "sha256": "f477cd38b4c8a64cc6e269f20607f305b4e6bc56c5c3e3b91e639119b37dd559",
     "firstAppeared": "2025-12-20"
   },
   {
@@ -497,7 +497,7 @@
     ],
     "downloadUrl": "../plugins/Plugin_Installer/plugin_installer.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "d4e91ea764831bd4b2cd7636eb7fb1ac6879b40318cd97ecc7594206226e5da8",
+    "sha256": "c62669c811b92568e44711c17b0edb7cca8d864066858c6dc1841e00f283a041",
     "firstAppeared": "2026-01-04"
   },
   {
@@ -543,7 +543,7 @@
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo/chat_with_molecule_neo.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "de93d832e450dd622a70442a08bf71a935a6aaa1de7f931e72d1d85ec6e6d684",
+    "sha256": "4bbb1cea1544ed9b6adf3feb8440197cc8a0059c39b2935d1120adb81eed4ca5",
     "firstAppeared": "2025-12-28"
   },
   {
@@ -563,7 +563,7 @@
     ],
     "downloadUrl": "../plugins/PubChem_Structure_Identifier/pubchem_structure_identifier.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "4f8e1b0d7b0ef57af2c1c5f491bf8e44cf91450e5d2a2e906a1d7e5dfb1fe5a3",
+    "sha256": "1462eb7642c4255ac4607bb1182112116402961ea8198742c02eb1e02f7bf2eb",
     "firstAppeared": "2025-12-28"
   },
   {
@@ -586,7 +586,7 @@
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_ChatGPT/chat_with_molecule_neo_chatGPT.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "9eeb22ae1301e97e9d611c16cb31f99311632495e8bec49b6d2599a90caac51f",
+    "sha256": "f16a53779677f4612bd96fe334f873c53cbf4315dbdc09f4a4dba1acce184480",
     "firstAppeared": "2025-12-30"
   },
   {
@@ -609,7 +609,7 @@
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_Local/chat_with_molecule_neo_local.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "e974df39ea4ce98f1c044657344ab013675f7bac99085a743dce68cc90d69a88",
+    "sha256": "c963461443cba11807c49760becee77dad0019fc5dd9e4b8a010e5b200ed476f",
     "firstAppeared": "2025-12-30"
   },
   {
@@ -630,14 +630,14 @@
     ],
     "downloadUrl": "../plugins/Symmetry_Analyzer/symmetry_analyzer.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "47340fecafa67a8a91ab52efc944def78e50bb8abf8de9371e1e0eb2865cbbcc",
+    "sha256": "b03d9e16b5011e2c9dc58411bc6ec49710ca0030817e270316362937232786e4",
     "firstAppeared": "2025-12-31"
   },
   {
     "id": "vector_viewer",
     "visible": true,
     "name": "Vector Viewer",
-    "version": "2026.04.11",
+    "version": "2026.04.12",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes vectors (e.g. dipole moment) and exports PNGs.",
@@ -651,8 +651,8 @@
       "pyvista"
     ],
     "downloadUrl": "../plugins/Vector_Viewer/vector_viewer.py",
-    "lastUpdated": "2026-04-11",
-    "sha256": "4d996c72c987c3d1aadb4d9f9af1fe4e39c3928047e2678633fdfe9e5eebf0e0",
+    "lastUpdated": "2026-04-12",
+    "sha256": "5d09bd632ffa27e8c188dd3c6cdc7a42e24d6d4c62f58ea3f43a6a8a73b468b7",
     "firstAppeared": "2025-12-31"
   },
   {
@@ -673,7 +673,7 @@
     ],
     "downloadUrl": "../plugins/Mopac_Input_Generator/mopac_input_generator.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "a76a55562e482cb774788388d522cbfe6b23159532cad38768a0bdf39193f443",
+    "sha256": "df3dac939f12e1c4e92cb3fe8635581bd42c80bc9438e65efdee62f8601f6f3d",
     "firstAppeared": "2026-01-03"
   },
   {
@@ -694,7 +694,7 @@
     ],
     "downloadUrl": "../plugins/Gamess_Input_Generator/gamess_input_generator.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "ceff3b926a53ef787dbe7a77ae2346869abf1186d30cc1b63a1a6189443bac4f",
+    "sha256": "d7bbf8012cd02abc244106f15b73ae9b82d16096d0659faded2cb267936a4ba9",
     "firstAppeared": "2026-01-03"
   },
   {
@@ -716,7 +716,7 @@
     ],
     "downloadUrl": "../plugins/PySCF_Input_Generator/pyscf_input_generator.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "ce116a3c94c0269479def81d1ec3c883440adc6a4c4fc57a617d0dfe52b8f140",
+    "sha256": "3f54f9b12cbf53d58df1d8ebb6cfe36abaeb27c36be9247f7d3348c287426671",
     "firstAppeared": "2026-01-03"
   },
   {
@@ -737,7 +737,7 @@
     ],
     "downloadUrl": "../plugins/Psi4_Input_Generator/psi4_input_generator.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "1aa2e15db8361c83a3a43bd7f45d5678c1defc2ee7745862337f40aba132dc8d",
+    "sha256": "9cb2590d199ca80cad3ef36f8a9123f344e5c4811e95cd86396ab3f6985693e3",
     "firstAppeared": "2026-01-03"
   },
   {
@@ -758,7 +758,7 @@
     ],
     "downloadUrl": "../plugins/Molecule_Comparator/molecule_comparator.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "28fe53c9fc2d02d8ee77c0601956d4a5fe0a901ab8901b4a9753e08be5f4c5cb",
+    "sha256": "b2df869ccc54a89d2608c99c5b6a8d8e555275685fd0bc5383a12336ae47069d",
     "firstAppeared": "2026-01-03"
   },
   {
@@ -779,14 +779,14 @@
     ],
     "downloadUrl": "../plugins/NWChem_Input_Generator/nwchem_input_generator.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "0ecc8ceccfb1fc96b4b82d53c19ff2ac69dd9fb814afcebe9212994af86f77c6",
+    "sha256": "1ba629e1949b235730178374ff8c298ac2daa9009234b26d5586c8e9bcbd8e8a",
     "firstAppeared": "2026-01-03"
   },
   {
     "id": "xyz_editor",
     "visible": true,
     "name": "XYZ Editor",
-    "version": "2026.04.11",
+    "version": "2026.04.12",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A table-based editor for atom coordinates and symbols, supporting ghost atoms, adding and deleting atoms.",
@@ -799,8 +799,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/XYZ_Editor/xyz_editor.py",
-    "lastUpdated": "2026-04-11",
-    "sha256": "b527444681743066f331b8d94e6a2dde6e18564a3ed84f450d70bb3f1fdd7ccf",
+    "lastUpdated": "2026-04-12",
+    "sha256": "8456e8e7c5ffd45eb652f4e5a7ef805058737b51b48a0daa60d1feab0a94d9f2",
     "firstAppeared": "2026-01-03"
   },
   {
@@ -849,7 +849,7 @@
     "id": "openbabel_conversion_tool",
     "visible": true,
     "name": "OpenBabel Conversion Tool",
-    "version": "2026.04.11",
+    "version": "2026.04.12",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Import various chemical file formats using OpenBabel with multi-molecule support.",
@@ -861,15 +861,15 @@
       "openbabel-wheel"
     ],
     "downloadUrl": "../plugins/OpenBabel_Conversion_Tool/openbabel_conversion_tool.py",
-    "lastUpdated": "2026-04-11",
-    "sha256": "c342d164e7fbf590e2a35836ac88b4d0ffa3c4292313d53ec33868b74765248d",
+    "lastUpdated": "2026-04-12",
+    "sha256": "150ca166bfb0222fed07b8f026cd284f47e3af19318647d49e311b50851fe135",
     "firstAppeared": "2026-01-10"
   },
   {
     "id": "paste_from_chemdraw",
     "visible": true,
     "name": "Paste from ChemDraw",
-    "version": "2026.04.11",
+    "version": "2026.04.12",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Paste chemical structures from ChemDraw clipboard data. Developed on ChemDraw version 25.5.",
@@ -881,8 +881,8 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/Paste_from_ChemDraw/paste_chemdraw.py",
-    "lastUpdated": "2026-04-11",
-    "sha256": "2810b22eed448855ccc2c37dd5b60f00bc745f429473abaed109baaced888772",
+    "lastUpdated": "2026-04-12",
+    "sha256": "7360566b99a99986e0dae784bc0ce4d47295caea0df3b7db0c8bf40325c6e0dd",
     "firstAppeared": "2026-01-15"
   },
   {
@@ -902,7 +902,7 @@
     ],
     "downloadUrl": "../plugins/Compound_Info_Report/compound_info_report.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "be738ae2c354226c42c960755703bf6887145509b0f38324d144649b9b383064",
+    "sha256": "a95acbf446a668d75a3e067881a8dd5bcb13e4b1d127c7731c5b8260ebf9d235",
     "firstAppeared": "2026-01-21"
   },
   {
@@ -927,14 +927,14 @@
     ],
     "downloadUrl": "../plugins/Gaussian_MO_Analyzer/gaussian_fchk_mo_analyzer.zip",
     "lastUpdated": "2026-04-12",
-    "sha256": "d1c9344c436b340d9880468dc405aa2fc7e0b2e7361a0547e12a7cc3c426dda6",
+    "sha256": "11669a4d37ddb1b24d106b886cc2dd849ce78efffef48b20f3431b05ba59d76d",
     "firstAppeared": "2026-01-23"
   },
   {
     "id": "gaussian_fchk_loader",
     "visible": true,
     "name": "Gaussian FCHK Loader",
-    "version": "2026.04.06",
+    "version": "2026.04.12",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Smart loader for FCHK, FCH, and FCK files. Dispatches to Frequency or MO Analyzer with priority handling.",
@@ -946,8 +946,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Gaussian_FCHK_Loader/gaussian_fchk_loader.py",
-    "lastUpdated": "2026-04-06",
-    "sha256": "f01423238a5691226589a01f56fa0d67581149ce0848430f01cd9aae35009d74",
+    "lastUpdated": "2026-04-12",
+    "sha256": "b35d37356422baeaaa7c24474d4574d3f7b77f328c361e02c0a13795e783e2ff",
     "firstAppeared": "2026-01-23"
   },
   {
@@ -966,14 +966,14 @@
     ],
     "downloadUrl": "../plugins/Settings_Saver/settings_saver.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "66bdcff76a33f54e60ddcad6d6afb5fea7c3cd33665f815603e9b367c54ca5d5",
+    "sha256": "340d88abbaa9d17d9bee7fdc55b77159235f6c693930f3b34b852ae656d0350f",
     "firstAppeared": "2026-01-25"
   },
   {
     "id": "structural_updater",
     "visible": true,
     "name": "Structural Updater",
-    "version": "2026.04.11",
+    "version": "2026.04.12",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Applies 2D structural changes to 3D conformation without full re-embedding.",
@@ -985,8 +985,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Structural_Updater/structural_updater.py",
-    "lastUpdated": "2026-04-11",
-    "sha256": "65d28fb1da15fe40a1d07a4462a5a8ec0b8cd2de377017aa6bd157bea9ca1115",
+    "lastUpdated": "2026-04-12",
+    "sha256": "5cdfc1ea2119023f048c0a7f22f5231bb6a74c16f1e60d9bd958d80207ea9263",
     "firstAppeared": "2026-01-28"
   },
   {
@@ -1059,7 +1059,7 @@
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer_Advanced/cube_viewer_advanced.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "8731db79c87132acf90831baa4dce26ddc5ec9dc025e06d8f3cdfcaef3945c29",
+    "sha256": "7cf4b61ad8d370e89a2903a357dd798acbac86ac0c9f61195e16b28f6780e017",
     "firstAppeared": "2026-02-02"
   },
   {
@@ -1080,14 +1080,14 @@
     ],
     "downloadUrl": "../plugins/Advanced_Rendering/advanced_rendering.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "908ae3a53ecb4b1b232b75daba3d0e1d872a0d2d466bc2af2e8d9257ad7bbc82",
+    "sha256": "a54b0bbb78de61faf92fdbae039ddd0f570c9e632ca6cf4010b0ca7856da0b48",
     "firstAppeared": "2026-02-03"
   },
   {
     "id": "high_res_imager",
     "visible": true,
     "name": "High Resolution Imager",
-    "version": "2026.04.06",
+    "version": "2026.04.12",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Take high-resolution screenshots of the 3D view with custom resolution.",
@@ -1100,8 +1100,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/High_Resolution_Imager/high_res_imager.py",
-    "lastUpdated": "2026-04-06",
-    "sha256": "49d33162762041231d155d1c497b0c89f5fcc5c4ac290dd75986b8830a778c74",
+    "lastUpdated": "2026-04-12",
+    "sha256": "b9b391a28a2757f63c0d5d1c1385d5478161b9af2c62397316f0ac15d9c17421",
     "firstAppeared": "2026-02-05"
   },
   {
