@@ -20,5 +20,8 @@ jobs:
       - name: Install pytest
         run: pip install pytest
 
+      - name: Validate plugins.json
+        run: python scripts/validate_json.py
+
       - name: Run plugin tests
         run: pytest tests/ -v --tb=short
