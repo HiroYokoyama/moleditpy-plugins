@@ -2,7 +2,7 @@
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, QPushButton, QFileDialog, QMessageBox
 
 PLUGIN_NAME = "High Resolution Imager"
-PLUGIN_VERSION = "2026.04.06"
+PLUGIN_VERSION = "2026.04.12"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Take high-resolution screenshots of the 3D view with custom resolution."
 
