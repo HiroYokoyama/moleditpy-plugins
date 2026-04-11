@@ -15,7 +15,7 @@ import sys
 import logging
 
 PLUGIN_NAME = "Molecule Comparator"
-PLUGIN_VERSION = "2026.04.11"
+PLUGIN_VERSION = "2026.04.12"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Side-by-side comparison and alignment of multiple molecules."
 
@@ -1036,7 +1036,7 @@ class MoleculeComparator(QWidget):
 
     def exit_3d_only_mode(self):
         # Restore splitter state if saved
-        if hasattr(self, 'saved_splitter_sizes') and self.saved_splitter_sizes:
+        if getattr(self, 'saved_splitter_sizes', None) is not None and self.saved_splitter_sizes:
             if hasattr(self.mw, 'splitter'):
                 self.mw.init_manager.splitter.setSizes(self.saved_splitter_sizes)
             self.saved_splitter_sizes = None

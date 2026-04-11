@@ -13,7 +13,7 @@ from PyQt6.QtCore import Qt, QTimer
 import logging
 
 PLUGIN_NAME = "Settings Saver"
-PLUGIN_VERSION = "2026.04.11"
+PLUGIN_VERSION = "2026.04.12"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Save, load, and manage settings presets in a unified dialog. Refactored for V3 API."
 
@@ -540,9 +540,9 @@ class SettingsSaverDialog(QDialog):
         
         settings_data = None
         if self.is_project_preset(item):
-            settings_data = PROJECT_PRESETS.get(name)
+            settings_data = PROJECT_PRESETS.get(name, None)
         else:
-            settings_data = self.library.get(name)
+            settings_data = self.library.get(name, None)
 
         if settings_data and hasattr(self.main_window.init_manager, 'settings'):
             self.main_window.init_manager.settings.update(settings_data)
@@ -651,9 +651,9 @@ class SettingsSaverDialog(QDialog):
         name = item.text()
         
         if self.is_project_preset(item):
-            data = PROJECT_PRESETS.get(name)
+            data = PROJECT_PRESETS.get(name, None)
         else:
-            data = self.library.get(name)
+            data = self.library.get(name, None)
 
         path, _ = QFileDialog.getSaveFileName(self, "Export Preset", f"{name}.json", "JSON Files (*.json)")
         if path:

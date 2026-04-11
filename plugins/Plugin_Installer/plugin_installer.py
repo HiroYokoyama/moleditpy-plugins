@@ -30,7 +30,7 @@ import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.04.11"
+PLUGIN_VERSION = "2026.04.12"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Checks for updates, installs new plugins, and allows manual reinstallation."
 
@@ -130,7 +130,7 @@ def initialize(context):
     if not _startup_check_performed:
         _startup_check_performed = True
         settings = load_settings()
-        if settings.get("check_at_startup"):
+        if settings.get("check_at_startup", None):
             from PyQt6.QtCore import QTimer
             QTimer.singleShot(2000, lambda: perform_startup_check(mw))
 
@@ -274,7 +274,7 @@ class PluginDetailsDialog(QDialog):
         layout.addLayout(btn_layout)
 
     def copy_install_all_command(self):
-        if not hasattr(self, 'missing_deps') or not self.missing_deps:
+        if not getattr(self, 'missing_deps', None):
             return
             
         # Security: sanitize dependency names (allow alphanumeric, underscore, hyphen, period)
@@ -618,8 +618,8 @@ class PluginInstallerWindow(QDialog):
         all_names = sorted(list(set(remote_map.keys()) | set(installed_map.keys())))
         
         for name in all_names:
-            remote_info = remote_map.get(name)
-            local_info = installed_map.get(name)
+            remote_info = remote_map.get(name, None)
+            local_info = installed_map.get(name, None)
             
             local_ver = "-"
             remote_ver = "Unknown"
@@ -642,7 +642,7 @@ class PluginInstallerWindow(QDialog):
             
             if is_installed:
                 local_ver = local_info.get('version', 'Unknown')
-                target_file = local_info.get('filepath')
+                target_file = local_info.get('filepath', None)
 
             if remote_info:
                 remote_ver = remote_info.get('version', 'Unknown')
@@ -735,11 +735,11 @@ class PluginInstallerWindow(QDialog):
                 self.table.setItem(row, 5, QTableWidgetItem(""))
 
         # Enable/disable Update All button — only for plugin updates, not app updates
-        if hasattr(self, 'btn_update_all'):
+        if getattr(self, 'btn_update_all', None) is not None:
             self.btn_update_all.setEnabled(plugin_updates_found)
 
         # Re-apply filter if needed
-        if hasattr(self, 'search_input'):
+        if getattr(self, 'search_input', None) is not None:
             self.filter_plugins()
 
     def filter_plugins(self):
@@ -811,14 +811,14 @@ class PluginInstallerWindow(QDialog):
         # Find info
         remote_info = None
         for entry in self.remote_data:
-            if entry.get('name') == name:
+            if entry.get('name', None) == name:
                 remote_info = entry
                 break
         
         # Also check local
         local_info = None
         for p in self.main_window.plugin_manager.plugins:
-            if p.get('name') == name:
+            if p.get('name', None) == name:
                 local_info = p
                 break
         
@@ -840,7 +840,7 @@ class PluginInstallerWindow(QDialog):
             if author == "Unknown":
                 author = local_info.get('author', author)
             local_ver = local_info.get('version', 'Unknown')
-            target_file = local_info.get('filepath')
+            target_file = local_info.get('filepath', None)
             
             if remote_info:
                 version = f"Installed: {local_ver}\nLatest: {version}"
@@ -912,14 +912,14 @@ class PluginInstallerWindow(QDialog):
                 # Fetch full info to pass to dialog
                 remote_info = None
                 for entry in self.remote_data:
-                    if entry.get('name') == plugin_name:
+                    if entry.get('name', None) == plugin_name:
                         remote_info = entry
                         break
                 
                 # Local info
                 local_info = None
                 for p in self.main_window.plugin_manager.plugins:
-                    if p.get('name') == plugin_name:
+                    if p.get('name', None) == plugin_name:
                         local_info = p
                         break
                 
@@ -1019,7 +1019,7 @@ class PluginInstallerWindow(QDialog):
                         # Find remote_info for this plugin to get SHA256
                         remote_info = None
                         for entry in self.remote_data:
-                            if entry.get('name') == plugin_name:
+                            if entry.get('name', None) == plugin_name:
                                 remote_info = entry
                                 break
                         

@@ -6,9 +6,10 @@ from PyQt6.QtWidgets import (QMessageBox, QDialog, QVBoxLayout, QLabel,
                              QHBoxLayout, QComboBox, QTextEdit, QFileDialog, QFormLayout, QInputDialog, QSizePolicy, QCheckBox)
 from PyQt6.QtCore import Qt
 from rdkit import Chem
+import logging
 
 PLUGIN_NAME = "Psi4 Input Generator"
-PLUGIN_VERSION = "2026.01.03"
+PLUGIN_VERSION = "2026.04.12"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Generate Psi4 input files for quantum chemistry calculations."
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "psi4_input_generator.json")
@@ -166,8 +167,8 @@ class Psi4SetupDialog(QDialog):
             
             # Auto update reference triggered by signals or explicit call
             self.update_auto_reference()
-        except:
-            pass
+        except Exception as _e:
+            logging.warning("[psi4_input_generator.py:169] silenced: %s", _e)
 
     def update_auto_reference(self):
         method = self.method_combo.currentText().lower()

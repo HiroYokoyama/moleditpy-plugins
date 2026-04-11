@@ -21,7 +21,7 @@ except ImportError:
     CRYPTOGRAPHY_AVAILABLE = False
 
 PLUGIN_NAME = "Encrypted Project"
-PLUGIN_VERSION = "2026.04.11"
+PLUGIN_VERSION = "2026.04.12"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Securely saves molecular data using AES-128 encryption with password protection."
 
@@ -85,7 +85,7 @@ class PmeencPlugin:
 
         # Store original for the plugin instance if not already stored
         attr_name = f"_original_{method_name}"
-        if not hasattr(self, attr_name) or getattr(self, attr_name) is None:
+        if getattr(self, attr_name, None) is None:
             setattr(self, attr_name, original_method)
         
         # Create a wrapper function that allows attributes and forwards args

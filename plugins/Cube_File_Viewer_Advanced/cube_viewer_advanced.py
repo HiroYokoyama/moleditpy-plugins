@@ -27,7 +27,7 @@ except ImportError:
     
 __author__ = "HiroYokoyama"
 PLUGIN_NAME = "Cube File Viewer Advanced"
-PLUGIN_VERSION = "2026.04.11"
+PLUGIN_VERSION = "2026.04.12"
 PLUGIN_DESCRIPTION = "Advanced 3D visualization for Gaussian Cube files with PBR, SSAO, and other effects."
 
 def parse_cube_data(filename):
@@ -859,7 +859,7 @@ class CubeViewerWidget(QWidget):
     def update_iso(self):
         val = self.spin.value()
         # Prefer numeric spinbox value (kept in sync with slider)
-        opacity_val = self.opacity_spin.value() if hasattr(self, 'opacity_spin') else self.opacity_slider.value() / 100.0
+        opacity_val = self.opacity_spin.value() if getattr(self, 'opacity_spin', None) is not None else self.opacity_slider.value() / 100.0
 
         # Style settings
         style = self.combo_style.currentText() # Keep original case for check
@@ -988,7 +988,7 @@ class CubeViewerWidget(QWidget):
     def on_opacity_changed(self, val):
         opacity = val / 100.0
         # Sync numeric spinbox without re-triggering signals
-        if hasattr(self, 'opacity_spin'):
+        if getattr(self, 'opacity_spin', None) is not None:
             self.opacity_spin.blockSignals(True)
             self.opacity_spin.setValue(opacity)
             self.opacity_spin.blockSignals(False)
@@ -997,7 +997,7 @@ class CubeViewerWidget(QWidget):
     def on_opacity_spin_changed(self, val):
         # val is between 0.0 and 1.0
         # Sync slider (0-100)
-        if hasattr(self, 'opacity_slider'):
+        if getattr(self, 'opacity_slider', None) is not None:
             int_val = int(round(val * 100))
             self.opacity_slider.blockSignals(True)
             self.opacity_slider.setValue(int_val)

@@ -76,8 +76,8 @@ class FCHKReader:
         """
         Reconstructs an XYZ block string (in Angstroms) for RDKit.
         """
-        atoms = self.get("Atomic numbers")
-        coords = self.get("Current cartesian coordinates")
+        atoms = self.get("Atomic numbers", None)
+        coords = self.get("Current cartesian coordinates", None)
         
         if atoms is None or coords is None:
             return None
@@ -126,22 +126,22 @@ class BasisSetEngine:
         return ((2 * alpha / np.pi)**0.75) * np.sqrt(num / den)
 
     def _prepare_basis_set(self):
-        shell_types = self.fchk.get("Shell types")
-        prim_per_shell = self.fchk.get("Number of primitives per shell")
-        shell_to_atom = self.fchk.get("Shell to atom map")
-        prim_exps = self.fchk.get("Primitive exponents")
-        cont_coeffs = self.fchk.get("Contraction coefficients")
+        shell_types = self.fchk.get("Shell types", None)
+        prim_per_shell = self.fchk.get("Number of primitives per shell", None)
+        shell_to_atom = self.fchk.get("Shell to atom map", None)
+        prim_exps = self.fchk.get("Primitive exponents", None)
+        cont_coeffs = self.fchk.get("Contraction coefficients", None)
         
         # Pure/Cartesian Flags (0=Pure/Spherical, 1=Cartesian)
         # Default to 1 (Cartesian) if not found, to match old behavior
         d_is_cart = True
         f_is_cart = True
         
-        flag_d = self.fchk.get("Pure/Cartesian d shells")
+        flag_d = self.fchk.get("Pure/Cartesian d shells", None)
         if flag_d is not None and len(flag_d) > 0 and flag_d[0] == 0:
             d_is_cart = False
             
-        flag_f = self.fchk.get("Pure/Cartesian f shells")
+        flag_f = self.fchk.get("Pure/Cartesian f shells", None)
         if flag_f is not None and len(flag_f) > 0 and flag_f[0] == 0:
             f_is_cart = False
 
@@ -241,9 +241,9 @@ class BasisSetEngine:
 
         # Check for P-modifiers (used for SP shells P-component)
         # Try both tag variations
-        p_modifiers = self.fchk.get("P(S=P) Contraction coefficients")
+        p_modifiers = self.fchk.get("P(S=P) Contraction coefficients", None)
         if p_modifiers is None:
-            p_modifiers = self.fchk.get("P(S=P) modifiers")
+            p_modifiers = self.fchk.get("P(S=P) modifiers", None)
         
         coords = self.fchk.get("Current cartesian coordinates").reshape(-1, 3) # Bohr
         
@@ -284,7 +284,7 @@ class BasisSetEngine:
                 if effective_type < -1:
                     effective_type = abs(effective_type)
                 
-                defs_list = self.basis_definitions.get(effective_type)
+                defs_list = self.basis_definitions.get(effective_type, None)
                 if defs_list is None:
                     print(f"Warning: Shell type {stype} (Effective {effective_type}) not supported. Skipping.")
                     exp_ptr += n_prim
@@ -373,9 +373,9 @@ class BasisSetEngine:
         Returns a list of labels for the basis functions.
         """
         labels = []
-        atom_list = self.fchk.get("Atomic numbers")
-        shell_to_atom = self.fchk.get("Shell to atom map")
-        shell_types = self.fchk.get("Shell types")
+        atom_list = self.fchk.get("Atomic numbers", None)
+        shell_to_atom = self.fchk.get("Shell to atom map", None)
+        shell_types = self.fchk.get("Shell types", None)
         
         try:
             from rdkit import Chem

@@ -15,7 +15,7 @@ except ImportError:
     Chem = None
 
 PLUGIN_NAME = "Gaussian Freq Analyzer"
-PLUGIN_VERSION = "2026.04.11"
+PLUGIN_VERSION = "2026.04.12"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Visualizes vibrational frequencies and normal modes from Gaussian FCHK files."
 
@@ -423,7 +423,7 @@ class GaussianFCHKFreqAnalyzer(QWidget):
             self.remove_vectors()
             # Restore 2D editing UI when leaving the 3D viewer mode
             try:
-                mw = self.mw if hasattr(self, 'mw') else self.context.get_main_window()
+                mw = self.mw if getattr(self, 'mw', None) is not None else self.context.get_main_window()
                 if hasattr(mw, 'ui_manager') and hasattr(mw.ui_manager, 'restore_ui_for_editing'):
                     mw.ui_manager.restore_ui_for_editing()
             except Exception as _e:

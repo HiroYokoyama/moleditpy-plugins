@@ -6,9 +6,10 @@ from PyQt6.QtWidgets import (QMessageBox, QDialog, QVBoxLayout, QLabel,
                              QHBoxLayout, QComboBox, QTextEdit, QFileDialog, QFormLayout, QInputDialog, QSizePolicy, QCheckBox)
 from PyQt6.QtCore import Qt
 from rdkit import Chem
+import logging
 
 PLUGIN_NAME = "GAMESS Input Generator"
-PLUGIN_VERSION = "2026.01.03"
+PLUGIN_VERSION = "2026.04.12"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Generate GAMESS input files for ab initio quantum chemistry."
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "gamess_input_generator.json")
@@ -198,8 +199,8 @@ class GamessSetupDialog(QDialog):
                 self.scf_type.setCurrentText("RHF")
             else:
                 self.scf_type.setCurrentText("ROHF") # Safer default for open shell
-        except:
-            pass
+        except Exception as _e:
+            logging.warning("[gamess_input_generator.py:201] silenced: %s", _e)
 
     def generate_content(self):
         lines = []

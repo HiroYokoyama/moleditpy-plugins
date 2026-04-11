@@ -6,9 +6,10 @@ from PyQt6.QtWidgets import (QMessageBox, QDialog, QVBoxLayout, QLabel,
                              QHBoxLayout, QComboBox, QTextEdit, QFileDialog, QFormLayout, QInputDialog, QSizePolicy, QCheckBox)
 from PyQt6.QtCore import Qt
 from rdkit import Chem
+import logging
 
 PLUGIN_NAME = "NWChem Input Generator"
-PLUGIN_VERSION = "2026.01.03"
+PLUGIN_VERSION = "2026.04.12"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Generate NWChem input files for quantum chemistry calculations."
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "nwchem_input_generator.json")
@@ -166,8 +167,8 @@ class NwchemSetupDialog(QDialog):
             
             mult = 1 if total_electrons % 2 == 0 else 2
             self.mult_spin.setValue(mult)
-        except:
-            pass
+        except Exception as _e:
+            logging.warning("[nwchem_input_generator.py:169] silenced: %s", _e)
 
     def check_heavy_atoms(self):
         # ECP warning if Z > 36 (Kr) or typical transition metals if basis suggests problem

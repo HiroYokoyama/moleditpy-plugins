@@ -36,7 +36,7 @@ except ImportError:
     vtk = None
 
 PLUGIN_NAME = "Advanced Rendering"
-PLUGIN_VERSION = "2026.04.11"
+PLUGIN_VERSION = "2026.04.12"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Fine-grained control over Scene lighting, shadows, and PBR effects. Refactored for V3 API."
 
@@ -556,7 +556,7 @@ class AdvancedGraphicsWidget(QWidget):
                  should_use_pbr = self.use_atom_pbr or force_pbr
             
             # --- FIX 1: シグナルループ防止 ---
-            if hasattr(self, 'check_atom_pbr'):
+            if getattr(self, 'check_atom_pbr', None) is not None:
                 self.check_atom_pbr.blockSignals(True) # シグナルを遮断
                 self.check_atom_pbr.blockSignals(False) # 解除
 
@@ -1092,7 +1092,7 @@ class AdvancedGraphicsWidget(QWidget):
         
         # --- FIX: Strictly enforce PBR Checkbox/State based on Style ---
         # This prevents PBR from "leaking" into Standard styles
-        if hasattr(self, 'check_atom_pbr'):
+        if getattr(self, 'check_atom_pbr', None) is not None:
             self.check_atom_pbr.blockSignals(True)
             if is_active_pbr:
                 self.check_atom_pbr.setChecked(True)

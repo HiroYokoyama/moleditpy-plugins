@@ -3,7 +3,7 @@
 
 
 PLUGIN_NAME = "Chat with Molecule Neo (ChatGPT)"
-PLUGIN_VERSION = "2026.04.11"
+PLUGIN_VERSION = "2026.04.12"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with OpenAI ChatGPT about the current molecule. Automatically injects SMILES context. (Neo Version)"
 PLUGIN_ID = "chat_with_molecule_neo_chatgpt"
@@ -92,7 +92,7 @@ class PubChemResolver:
                 
                 # Prioritize entries with 'Title'
                 for info in info_list:
-                    title = info.get("Title")
+                    title = info.get("Title", None)
                     if title:
                         return title, None
                 
@@ -634,7 +634,7 @@ class ChatMoleculeWindow(QDialog):
         try:
             if hasattr(self.main_window, 'data') and hasattr(self.main_window.data, 'atoms'):
                 for atom_id, atom_data in self.main_window.data.atoms.items():
-                    item = atom_data.get('item')
+                    item = atom_data.get('item', None)
                     if item and item.isSelected():
                         selected_ids.append(str(atom_id + 1)) # Use 1-based (Matches MapNum)
         except Exception as _e:
@@ -653,7 +653,7 @@ class ChatMoleculeWindow(QDialog):
         current_selection.sort(key=int) 
 
         # Initialize last_selection if not exists
-        if not hasattr(self, 'last_selection'):
+        if getattr(self, 'last_selection', None) is None:
             self.last_selection = []
 
         is_first_check = not self.first_check_done
@@ -936,7 +936,7 @@ class ChatMoleculeWindow(QDialog):
         """Handle window closure to clean up workers"""
         try:
             # Clean up ThreadPool
-            if hasattr(self, 'thread_pool'):
+            if getattr(self, 'thread_pool', None) is not None:
                 self.thread_pool.clear() 
 
             # Disconnect signals from active workers to prevent UI updates after close
@@ -954,7 +954,7 @@ class ChatMoleculeWindow(QDialog):
                 except Exception as _e:
                     logging.warning("[chat_with_molecule_neo_chatGPT.py:950] silenced: %s", _e)
             
-            if hasattr(self, 'init_worker') and self.init_worker and self.init_worker.isRunning():
+            if getattr(self, 'init_worker', None) is not None and self.init_worker and self.init_worker.isRunning():
                 try: self.init_worker.finished.disconnect()
                 except Exception as _e:
                     logging.warning("[chat_with_molecule_neo_chatGPT.py:954] silenced: %s", _e)
@@ -1244,7 +1244,7 @@ class ChatMoleculeWindow(QDialog):
             self.btn_send.setEnabled(False)
             return
 
-        api_key = self.settings.get("api_key")
+        api_key = self.settings.get("api_key", None)
         if not api_key:
             self.append_message("System", "Please enter your OpenAI API Key above.", "orange")
             QMessageBox.warning(self, "Welcome", "Please enter your OpenAI API Key in the settings above to start chatting.")
@@ -1315,7 +1315,7 @@ class ChatMoleculeWindow(QDialog):
         append_log("INFO", f"Target Model: {target_model_name}")
         
         try:
-            api_key = self.settings.get("api_key")
+            api_key = self.settings.get("api_key", None)
             self.client = openai.OpenAI(api_key=api_key)
             self.chat_history_state = [{"role": "system", "content": SYSTEM_PROMPT}]
         except Exception as e:
@@ -1412,8 +1412,8 @@ class ChatMoleculeWindow(QDialog):
                                 bond_data = self.main_window.data.bonds[bid]
                                 
                                 # PRIORITIZE bond_data values (Source->Target) to preserve direction for stereo
-                                id1 = bond_data.get('atom1')
-                                id2 = bond_data.get('atom2')
+                                id1 = bond_data.get('atom1', None)
+                                id2 = bond_data.get('atom2', None)
                                 
                                 # Fallback to key if data is missing (legacy compat)
                                 if id1 is None or id2 is None:
@@ -1654,7 +1654,7 @@ class ChatMoleculeWindow(QDialog):
             return None
         
         # Check Cache first
-        if not hasattr(self, '_name_cache'):
+        if getattr(self, '_name_cache', None) is None:
             self._name_cache = {}
             
         if self.last_inchikey in self._name_cache:
@@ -1662,7 +1662,7 @@ class ChatMoleculeWindow(QDialog):
             
         # Optimization: Start Async Worker if not already fetching
         if allow_fetch:
-            if not hasattr(self, '_fetching_inchikeys'):
+            if getattr(self, '_fetching_inchikeys', None) is None:
                 self._fetching_inchikeys = set()
                 
             if self.last_inchikey not in self._fetching_inchikeys:
@@ -1675,10 +1675,10 @@ class ChatMoleculeWindow(QDialog):
 
     def on_name_resolved(self, inchikey, name):
         """Callback when name is resolved successfully"""
-        if hasattr(self, '_fetching_inchikeys'):
+        if getattr(self, '_fetching_inchikeys', None) is not None:
             self._fetching_inchikeys.discard(inchikey)
             
-        if not hasattr(self, '_name_cache'):
+        if getattr(self, '_name_cache', None) is None:
             self._name_cache = {}
             
         self._name_cache[inchikey] = name
@@ -1758,7 +1758,7 @@ class ChatMoleculeWindow(QDialog):
             tool_names = [t.get("tool", "?") for t in tools_list]
             desc = f"<b>{len(tools_list)} Operations</b>: " + " → ".join(tool_names)
         else:
-            tool_name = payload.get("tool")
+            tool_name = payload.get("tool", None)
             params = payload.get("params", {})
             
             # Update UI label
@@ -1827,7 +1827,7 @@ class ChatMoleculeWindow(QDialog):
         current_tool = tools_list.pop(0)
         
         # 2. Execute it
-        tool_name = current_tool.get("tool")
+        tool_name = current_tool.get("tool", None)
         params = current_tool.get("params", {})
         
         self.append_message("System", f"Step Executing: {tool_name}...", "blue")
@@ -1882,7 +1882,7 @@ class ChatMoleculeWindow(QDialog):
             
             # Execute each tool in order
             for i, tool_item in enumerate(tools_list):
-                tool_name = tool_item.get("tool")
+                tool_name = tool_item.get("tool", None)
                 params = tool_item.get("params", {})
                 
                 self.append_message("System", f"[{i+1}/{len(tools_list)}] {tool_name}...", "gray")
@@ -1894,7 +1894,7 @@ class ChatMoleculeWindow(QDialog):
                     break
         else:
             # Single tool
-            tool_name = payload.get("tool")
+            tool_name = payload.get("tool", None)
             params = payload.get("params", {})
             
             self.append_message("System", f"Executing tool: {tool_name}...", "blue")
@@ -1999,7 +1999,7 @@ class ChatMoleculeWindow(QDialog):
     def execute_apply_transformation(self, params):
         """Execute chemical transformation using Reaction SMARTS"""
         try:
-             reaction_smarts = params.get("reaction_smarts")
+             reaction_smarts = params.get("reaction_smarts", None)
              if not reaction_smarts:
                  self.append_message("System", "Error: No reaction SMARTS provided.", "red")
                  return
@@ -2055,10 +2055,10 @@ class ChatMoleculeWindow(QDialog):
 
         
              # --- FILTER PRODUCTS BY ATOM INDEX ---
-             target_index = params.get("atom_index")
+             target_index = params.get("atom_index", None)
              # Fallback for old param
-             if target_index is None and params.get("atom_indices"):
-                  val = params.get("atom_indices")
+             if target_index is None and params.get("atom_indices", None):
+                  val = params.get("atom_indices", None)
                   if isinstance(val, list) and len(val) > 0: target_index = val[0]
 
              selected_product_idx = 0
@@ -2235,8 +2235,8 @@ class ChatMoleculeWindow(QDialog):
     def execute_highlight_substructure(self, params):
         """Highlight atoms matching SMARTS or explicit indices"""
         try:
-            smarts = params.get("smarts")
-            atom_indices_param = params.get("atom_indices")
+            smarts = params.get("smarts", None)
+            atom_indices_param = params.get("atom_indices", None)
             
             if not smarts and not atom_indices_param:
                 return
@@ -2264,7 +2264,7 @@ class ChatMoleculeWindow(QDialog):
                          atom_indices_set.add(atom.GetIdx())
             
             # Fallback: Check if atom_index was passed (legacy/hallucination compat)
-            elif params.get("atom_index") is not None:
+            elif params.get("atom_index", None) is not None:
                   needed_map = int(params.get("atom_index"))
                   for atom in mol.GetAtoms():
                      if atom.GetAtomMapNum() == needed_map:
@@ -2315,7 +2315,7 @@ class ChatMoleculeWindow(QDialog):
                     # Try to find aid in atoms.keys() (int or str mismatch check)
                     # dict keys might be int, aid is int.
                     if aid in self.main_window.state_manager.data.atoms:
-                        item = self.main_window.state_manager.data.atoms[aid].get('item')
+                        item = self.main_window.state_manager.data.atoms[aid].get('item', None)
                         if item:
                             item.setSelected(True)
                             count += 1
@@ -2340,10 +2340,10 @@ class ChatMoleculeWindow(QDialog):
 
             # Params
             # Params
-            target_smarts = params.get("target_smarts")
-            atom_indices_param = params.get("atom_indices")
-            new_charge = params.get("charge")
-            new_mult = params.get("multiplicity")
+            target_smarts = params.get("target_smarts", None)
+            atom_indices_param = params.get("atom_indices", None)
+            new_charge = params.get("charge", None)
+            new_mult = params.get("multiplicity", None)
             mode = params.get("mode", "atom") # 'atom' or 'global'
             
             # 1. Atom-Specific Changes (Robust RDKit modification)
@@ -2353,10 +2353,10 @@ class ChatMoleculeWindow(QDialog):
             target_indices = set()
             
             # A) Explicit Index provided (Map Number)
-            atom_index_param = params.get("atom_index")
+            atom_index_param = params.get("atom_index", None)
             # Fallback
-            if atom_index_param is None and params.get("atom_indices"):
-                 val = params.get("atom_indices")
+            if atom_index_param is None and params.get("atom_indices", None):
+                 val = params.get("atom_indices", None)
                  if isinstance(val, list) and len(val) > 0: atom_index_param = val[0]
 
             if atom_index_param is not None:
@@ -2379,7 +2379,7 @@ class ChatMoleculeWindow(QDialog):
                  # This requires map numbers again
                  selected_map_nums = []
                  for aid, adata in self.main_window.state_manager.data.atoms.items():
-                      item = adata.get('item')
+                      item = adata.get('item', None)
                       if item and item.isSelected():
                           selected_map_nums.append(aid) # MapNum is ID + 1
                  
@@ -2518,7 +2518,7 @@ class ChatMoleculeWindow(QDialog):
     def execute_load_molecule(self, params):
         """Load a new molecule from SMILES"""
         try:
-            smiles = params.get("smiles")
+            smiles = params.get("smiles", None)
             name = params.get("name", "")
             
             # User Request: "Optimize 2D" after conversion
@@ -2549,7 +2549,7 @@ class ChatMoleculeWindow(QDialog):
     def execute_load_molecule_by_name(self, params):
         """Search PubChem by name and load the molecule"""
         try:
-            name = params.get("name")
+            name = params.get("name", None)
             if not name:
                 self.append_message("System", "Error: No name provided for search.", "red")
                 return "No name provided"
@@ -2615,13 +2615,13 @@ class ChatMoleculeWindow(QDialog):
             # Note: We must remove from scene before clearing data refs
             for atom_id in list(mw.state_manager.data.atoms.keys()):
                 atom_data = mw.state_manager.data.atoms[atom_id]
-                if atom_data.get('item'):
+                if atom_data.get('item', None):
                     if atom_data['item'].scene() == mw.scene:
                         mw.scene.removeItem(atom_data['item'])
             
             for (id1, id2) in list(mw.state_manager.data.bonds.keys()):
-                bond_data = mw.state_manager.data.bonds.get((id1, id2))
-                if bond_data and bond_data.get('item'):
+                bond_data = mw.state_manager.data.bonds.get((id1, id2), None)
+                if bond_data and bond_data.get('item', None):
                    if bond_data['item'].scene() == mw.scene:
                         mw.scene.removeItem(bond_data['item'])
 
@@ -2835,7 +2835,7 @@ class ChatMoleculeWindow(QDialog):
         indices = []
         if hasattr(self.main_window, 'data') and hasattr(self.main_window.data, 'atoms'):
              for aid, adata in self.main_window.data.atoms.items():
-                 item = adata.get('item')
+                 item = adata.get('item', None)
                  if item and item.isSelected():
                      # Match the new MapNum logic: MapNum = ID + 1
                      indices.append(str(aid + 1))
@@ -2998,7 +2998,7 @@ class ChatMoleculeWindow(QDialog):
                  try:
                      name_res, _ = PubChemResolver.resolve_inchikey_to_name(self.last_inchikey)
                      if name_res:
-                         if not hasattr(self, '_name_cache'): self._name_cache = {}
+                         if getattr(self, '_name_cache', None) is None: self._name_cache = {}
                          self._name_cache[self.last_inchikey] = name_res
                          mol_name = name_res
                          # Update context label immediately
@@ -3518,7 +3518,7 @@ class ChatMoleculeWindow(QDialog):
             current_points = []
             if mw.state_manager.data.atoms:
                 for ad in mw.state_manager.data.atoms.values():
-                    if ad.get('item'):
+                    if ad.get('item', None):
                         current_points.append(ad['item'].scenePos())
             
             if current_points:
@@ -3582,7 +3582,7 @@ class ChatMoleculeWindow(QDialog):
                     if target_id in mw.state_manager.data.atoms:
                         # === UPDATE (既存原子の変更) ===
                         atom_data = mw.state_manager.data.atoms[target_id]
-                        item = atom_data.get('item')
+                        item = atom_data.get('item', None)
                         
                         # 属性更新
                         atom_data['symbol'] = atom.GetSymbol()
@@ -3635,7 +3635,7 @@ class ChatMoleculeWindow(QDialog):
                 if aid not in processed_ids:
                     # 削除処理
                     if aid in mw.state_manager.data.atoms:
-                        item = mw.state_manager.data.atoms[aid].get('item')
+                        item = mw.state_manager.data.atoms[aid].get('item', None)
                         if item:
                             mw.scene.delete_items([item])
 
@@ -3693,11 +3693,11 @@ class ChatMoleculeWindow(QDialog):
                             b_data = mw.state_manager.data.bonds[found_key]
                             
                             # Only update if changed (Minimize drawing)
-                            if b_data.get('order') != order or b_data.get('stereo', 0) != stereo:
+                            if b_data.get('order', None) != order or b_data.get('stereo', 0) != stereo:
                                 b_data['order'] = order
                                 b_data['stereo'] = stereo
                                 # Force redraw
-                                item = b_data.get('item')
+                                item = b_data.get('item', None)
                                 if item:
                                      # Assuming create_bond updates if called again? 
                                      # Or strictly manually update?
@@ -3738,7 +3738,7 @@ class ChatMoleculeWindow(QDialog):
             for b_key in existing_bond_keys:
                 if b_key not in current_step_bond_keys:
                     if b_key in mw.state_manager.data.bonds:
-                        item = mw.state_manager.data.bonds[b_key].get('item')
+                        item = mw.state_manager.data.bonds[b_key].get('item', None)
                         if item:
                             mw.scene.delete_items([item])
 

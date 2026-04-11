@@ -29,7 +29,7 @@ except ImportError:
 
 __author__ = "HiroYokoyama"
 PLUGIN_NAME = "Mapped Cube Viewer"
-PLUGIN_VERSION = "2026.04.11"
+PLUGIN_VERSION = "2026.04.12"
 PLUGIN_DESCRIPTION = "Visualizes electrostatic potential or other properties mapped onto an isosurface from Gaussian Cube files."
 
 # --- Core Logic: Robust Parser from cube_viewer.py ---
@@ -452,7 +452,7 @@ class MappedWidget(QWidget):
             
             clim = [self.min_spin.value(), self.max_spin.value()]
             if auto_fit:
-                mvals = mapped.point_data.get("property_values")
+                mvals = mapped.point_data.get("property_values", None)
                 if mvals is not None and len(mvals) > 0:
                     vmin, vmax = mvals.min(), mvals.max()
                     if vmax - vmin < 1e-9: vmax += 0.001

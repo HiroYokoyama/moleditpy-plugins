@@ -1,6 +1,6 @@
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Symmetry Analyzer"
-PLUGIN_VERSION = "2026.04.11"
+PLUGIN_VERSION = "2026.04.12"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Analyzes molecular symmetry (point group) and symmetrizes structures. Refactored for MoleditPy V3.0 API."
 
@@ -497,7 +497,7 @@ class SymmetryAnalysisPlugin(QDialog):
         plotter = self.context.plotter
         
         # 以前の表示をクリア
-        if not hasattr(self, 'vis_actors'):
+        if getattr(self, 'vis_actors', None) is None:
             self.vis_actors = []
             
         for actor in self.vis_actors:
@@ -698,7 +698,7 @@ class SymmetryAnalysisPlugin(QDialog):
                 self.worker.terminate() # 強制終了
                 
         # 1. 3D可視化の消去
-        if self.context.plotter and hasattr(self, 'vis_actors'):
+        if self.context.plotter and getattr(self, 'vis_actors', None) is not None:
             plotter = self.context.plotter
             for actor in self.vis_actors:
                 plotter.remove_actor(actor)

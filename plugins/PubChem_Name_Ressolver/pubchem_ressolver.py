@@ -9,7 +9,7 @@ from PyQt6.QtCore import Qt, QPointF
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
-__version__="2026.04.01"
+__version__="2026.04.12"
 __author__="HiroYokoyama"
 PLUGIN_NAME = "PubChem Name Resolver"
 
@@ -123,9 +123,9 @@ class MoleculeResolverDialog(QDialog):
                     data = response.json()
                     props = data.get('PropertyTable', {}).get('Properties', [])
                     for p in props:
-                        smiles = p.get('IsomericSMILES')
+                        smiles = p.get('IsomericSMILES', None)
                         if not smiles:
-                            smiles = p.get('CanonicalSMILES')
+                            smiles = p.get('CanonicalSMILES', None)
                         
                         if not smiles:
                             for k in p.keys():

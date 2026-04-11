@@ -1,5 +1,5 @@
 PLUGIN_NAME = "Compound Info Report"
-PLUGIN_VERSION = "2026.04.11"
+PLUGIN_VERSION = "2026.04.12"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Generate a compound info report with properties, adducts, and structure. Refactored for V3 API."
 PLUGIN_ID = "compound_info_report"
@@ -95,9 +95,9 @@ class PubChemFetcher:
                     
                     # Since we filtered by heading, the top sections should be relevant or the one we asked for
                     for sec in sections:
-                        if sec.get("TOCHeading") == "Chemical and Physical Properties":
+                        if sec.get("TOCHeading", None) == "Chemical and Physical Properties":
                             for sub in sec.get("Section", []):
-                                if sub.get("TOCHeading") == "Experimental Properties":
+                                if sub.get("TOCHeading", None) == "Experimental Properties":
                                     for prop in sub.get("Section", []):
                                         heading = prop.get("TOCHeading", "")
                                         
@@ -107,7 +107,7 @@ class PubChemFetcher:
                                             if info:
                                                 val = info[0].get("Value", {})
                                                 if "StringWithMarkup" in val:
-                                                    density = val["StringWithMarkup"][0].get("String")
+                                                    density = val["StringWithMarkup"][0].get("String", None)
                                                 elif "Number" in val:
                                                     density = str(val["Number"][0])
                                         
@@ -118,7 +118,7 @@ class PubChemFetcher:
                                                 val = info_item.get("Value", {})
                                                 text = ""
                                                 if "StringWithMarkup" in val:
-                                                    text = val["StringWithMarkup"][0].get("String")
+                                                    text = val["StringWithMarkup"][0].get("String", None)
                                                 elif "Number" in val:
                                                     text = str(val["Number"][0])
                                                 
@@ -386,12 +386,12 @@ class ReportDialog(QDialog):
         # 3. PubChem Table
         pubchem_html = ""
         pd = pubchem_data
-        if pd["common_name"] or pd["density"] or pd.get("cas_numbers") or pd["phys_desc"]:
+        if pd["common_name"] or pd["density"] or pd.get("cas_numbers", None) or pd["phys_desc"]:
             rows = []
             if pd["common_name"]: rows.append(f'<tr><td>Common Name</td><td>{pd["common_name"]}</td></tr>')
             if pd["phys_desc"]: rows.append(f'<tr><td>Physical State/Color</td><td>{pd["phys_desc"]}</td></tr>')
             if pd["density"]: rows.append(f'<tr><td>Density</td><td>{pd["density"]}</td></tr>')
-            if pd.get("cas_numbers"): rows.append(f'<tr><td>CAS Numbers</td><td>{", ".join(pd["cas_numbers"])}</td></tr>')
+            if pd.get("cas_numbers", None): rows.append(f'<tr><td>CAS Numbers</td><td>{", ".join(pd["cas_numbers"])}</td></tr>')
             
             pubchem_html = f"""
             <h3>Online Data (PubChem)</h3>
@@ -547,7 +547,7 @@ class ReportDialog(QDialog):
             try:
                 # 1. Capture Image
                 # Use cached image if available, else capture
-                if hasattr(self, 'last_img') and self.last_img[0]:
+                if getattr(self, 'last_img', None) is not None and self.last_img[0]:
                      img_b64, w, h = self.last_img
                 else:
                      progress.setLabelText("Capturing Molecule Image...")
@@ -557,7 +557,7 @@ class ReportDialog(QDialog):
                 QApplication.processEvents()
 
                 # 2. Build HTML
-                if not hasattr(self, 'last_pubchem_data'):
+                if getattr(self, 'last_pubchem_data', None) is None:
                      self.last_pubchem_data = self.fetch_pubchem_data()
                 
                 # Check for cancel

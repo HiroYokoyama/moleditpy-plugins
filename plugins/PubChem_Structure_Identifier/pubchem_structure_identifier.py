@@ -15,7 +15,7 @@ from PyQt6.QtCore import Qt
 
 # --- Metadata ---
 PLUGIN_NAME = "PubChem Structure Identifier"
-PLUGIN_VERSION = "2026.04.01"
+PLUGIN_VERSION = "2026.04.12"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Resolve chemical names and fetch molecular properties (Name, Formula, Weight) via PubChem."
 PLUGIN_ID = "pubchem_structure_identifier"
@@ -50,7 +50,7 @@ class PubChemResolver:
                 data = json.loads(response.read().decode('utf-8'))
                 properties = data.get("PropertyTable", {}).get("Properties", [])
                 if properties:
-                    smiles = properties[0].get("IsomericSMILES")
+                    smiles = properties[0].get("IsomericSMILES", None)
                     if smiles:
                         return smiles, None
                 
@@ -84,7 +84,7 @@ class PubChemResolver:
                         data = json.loads(response.read().decode('utf-8'))
                         info_list = data.get("InformationList", {}).get("Information", [])
                         for info in info_list:
-                            title = info.get("Title")
+                            title = info.get("Title", None)
                             if title:
                                 details["Common Name"] = title
                                 break
@@ -104,9 +104,9 @@ class PubChemResolver:
                 
                 if props:
                     p = props[0]
-                    if p.get("MolecularFormula"): details["Formula"] = p.get("MolecularFormula")
-                    if p.get("MolecularWeight"): details["Mol. Weight"] = p.get("MolecularWeight")
-                    if p.get("IUPACName"): details["IUPAC Name"] = p.get("IUPACName")
+                    if p.get("MolecularFormula", None): details["Formula"] = p.get("MolecularFormula", None)
+                    if p.get("MolecularWeight", None): details["Mol. Weight"] = p.get("MolecularWeight", None)
+                    if p.get("IUPACName", None): details["IUPAC Name"] = p.get("IUPACName", None)
                     
                     return details, None
                 

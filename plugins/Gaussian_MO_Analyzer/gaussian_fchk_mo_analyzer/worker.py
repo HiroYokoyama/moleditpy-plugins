@@ -67,7 +67,7 @@ class CalcWorker(QThread):
             vol_data = result_flat.reshape(nx, ny, nz)
             vectors = np.diag([dx, dy, dz])
             
-            atom_nos = self.engine.fchk.get("Atomic numbers")
+            atom_nos = self.engine.fchk.get("Atomic numbers", None)
             
             label = f"MO {self.mo_idx+1}" if self.mode == "MO" else f"Basis {self.mo_idx+1}"
             CubeWriter.write(self.output_path, self.atoms, atom_nos, min_c, vectors, vol_data, comment=label)

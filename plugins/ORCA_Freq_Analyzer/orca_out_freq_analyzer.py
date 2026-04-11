@@ -11,6 +11,7 @@ try:
 except ImportError:
     HAS_PIL = False
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+import logging
 
 # Try to import RDKit
 try:
@@ -20,7 +21,7 @@ except ImportError:
     Chem = None
 
 PLUGIN_NAME = "ORCA Freq Analyzer"
-PLUGIN_VERSION = "2026.01.07"
+PLUGIN_VERSION = "2026.04.12"
 PLUGIN_AUTHOR = "HiroYokoyama"
 
 class OrcaParser:
@@ -73,12 +74,14 @@ class OrcaParser:
                  parts = line.split()
                  try:
                      self.charge = int(parts[-1])
-                 except: pass
+                 except Exception as _e:
+                     logging.warning("[orca_out_freq_analyzer.py:76] silenced: %s", _e)
             elif "Multiplicity" in line and "Mult" in line:
                  parts = line.split()
                  try:
                      self.multiplicity = int(parts[-1])
-                 except: pass
+                 except Exception as _e:
+                     logging.warning("[orca_out_freq_analyzer.py:81] silenced: %s", _e)
         
         # Parse Geometry (Last one)
         if coord_start_lines:
@@ -159,7 +162,8 @@ class OrcaParser:
                              # ORCA Normal Modes output block usually includes all 3*N modes.
                              pass
                         self.frequencies.append(val)
-                    except: pass
+                    except Exception as _e:
+                        logging.warning("[orca_out_freq_analyzer.py:162] silenced: %s", _e)
                 elif "NORMAL MODES" in l or "-----" in l:
                     if len(self.frequencies) > 0: # If we parsed some, stop
                          break
@@ -205,8 +209,8 @@ class OrcaParser:
                          if len(parts) >= 4:
                              inten = float(parts[3])
                              intensity_map[mode_id] = inten
-                    except: 
-                        pass
+                    except Exception as _e:
+                        logging.warning("[orca_out_freq_analyzer.py:208] silenced: %s", _e)
                 curr += 1
 
         # Parse Normal Modes
@@ -307,7 +311,8 @@ class OrcaParser:
                             mid = int(parts[0].strip())
                             freq_val = float(parts[1].split()[0])
                             freq_map[mid] = freq_val
-                        except: pass
+                        except Exception as _e:
+                            logging.warning("[orca_out_freq_analyzer.py:310] silenced: %s", _e)
                     if "NORMAL MODES" in l: break
                     curr += 1
             
@@ -560,7 +565,7 @@ class OrcaOutFreqAnalyzer(QWidget):
                 item.setText(1, f"{freq:.2f}")
                 
                 # Get intensity from the mode dictionary
-                inten = mode.get('intensity')
+                inten = mode.get('intensity', None)
                 if inten is not None:
                      item.setText(2, f"{inten:.2f}")
                 else:
@@ -844,7 +849,8 @@ class OrcaOutFreqAnalyzer(QWidget):
         if self.vector_actor and hasattr(self.mw, 'plotter'):
             try:
                 self.mw.plotter.remove_actor(self.vector_actor)
-            except: pass
+            except Exception as _e:
+                logging.warning("[orca_out_freq_analyzer.py:847] silenced: %s", _e)
         self.vector_actor = None
 
     def update_vectors(self, mode_vecs=None, scale_factor=0.0):

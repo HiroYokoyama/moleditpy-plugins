@@ -26,7 +26,7 @@ try:
 except ImportError:
     rdDetermineBonds = None
 
-__version__ = "2026.04.11"
+__version__ = "2026.04.12"
 __author__ = "HiroYokoyama"
 PLUGIN_NAME = "Animated XYZ Giffer"
 PLUGIN_VERSION = "2026.04.01"
@@ -406,7 +406,7 @@ class AnimatedXYZPlayer(QDialog):
                 self.last_display_mol = display_mol
                 
                 # Push to current molecule every time the frame changes
-                if hasattr(self, 'mw') and self.mw:
+                if getattr(self, 'mw', None) is not None and self.mw:
                     self.mw.current_mol = display_mol
 
                 # Redraw
@@ -461,7 +461,7 @@ class AnimatedXYZPlayer(QDialog):
             self.timer.stop()
             # Ensure the main window knows this is the generic current molecule 
             # so the user can use File->Save As... to export the current frame.
-            if hasattr(self, 'last_display_mol'):
+            if getattr(self, 'last_display_mol', None) is not None:
                 self.mw.current_mol = self.last_display_mol
             else:
                 self.mw.current_mol = self.base_mol
@@ -646,9 +646,9 @@ class AnimatedXYZPlayer(QDialog):
 
         # Push to current_molecule
         try:
-            if hasattr(self, 'last_display_mol') and self.last_display_mol:
+            if getattr(self, 'last_display_mol', None) is not None and self.last_display_mol:
                 self.mw.current_mol = self.last_display_mol
-            elif hasattr(self, 'base_mol') and self.base_mol:
+            elif getattr(self, 'base_mol', None) is not None and self.base_mol:
                 self.mw.current_mol = self.base_mol
             
             self.context.push_undo_checkpoint()

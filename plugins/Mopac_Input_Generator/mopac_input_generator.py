@@ -7,9 +7,10 @@ from PyQt6.QtWidgets import (QMessageBox, QDialog, QVBoxLayout, QLabel,
 from PyQt6.QtGui import QPalette, QColor
 from PyQt6.QtCore import Qt
 from rdkit import Chem
+import logging
 
 PLUGIN_NAME = "MOPAC Input Generator"
-PLUGIN_VERSION = "2026.01.03"
+PLUGIN_VERSION = "2026.04.12"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Generate MOPAC input files for semi-empirical calculations."
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "mopac_input_generator.json")
@@ -186,8 +187,8 @@ class MopacSetupDialog(QDialog):
             
             self.charge_spin.setValue(charge)
             self.mult_spin.setValue(mult)
-        except:
-            pass
+        except Exception as _e:
+            logging.warning("[mopac_input_generator.py:189] silenced: %s", _e)
 
     def validate_charge_mult(self):
         self.update_keywords_charge_mult()

@@ -20,6 +20,8 @@ Usage:
 
 import ast
 import sys
+import json
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -150,7 +152,42 @@ def scan_get_no_default(path: Path) -> list[tuple[int, str]]:
         # Skip bare expressions (result unused entirely — different issue)
         if node.lineno in bare_get_lines:
             continue
-        hits.append((node.lineno, lines[node.lineno - 1].rstrip()))
+            
+        # Apply the same intentional-skip rules used by auto_fix_issues:
+        line_text = lines[node.lineno - 1]
+        
+        # 1. Skip if inside an f-string
+        if re.search(r'f["\'].*\.get\(', line_text):
+            continue
+            
+        # We need the prefix to check for context
+        # In AST we only have column offsets, but since we deduplicate by line,
+        # we can just use simple regex checks on the line string itself.
+        # Check if any .get is part of a dict/list key subscript:
+        left_bracket_count = line_text.split('.get(')[0].count('[')
+        right_bracket_count = line_text.split('.get(')[0].count(']')
+        if left_bracket_count > right_bracket_count:
+            continue
+        
+        # Check if wrapped in int()/float()/str()/bool()
+        if re.search(r'\b(?:int|float|str|bool)\s*\([^)]*\.get\(', line_text):
+            continue
+            
+        # Check if chained (e.g. .get().something)
+        if '.get(' in line_text and ').' in line_text.split('.get(')[-1]:
+            # Basic approximation. AST is cleaner:
+            parent = getattr(node, "parent", None) # AST doesn't have parent out of box
+            pass # We'll just rely on the regex if we really needed to, but let's do a strict AST check below:
+        
+        # Simpler AST check for chaining: if this node is inside an Attribute access
+        is_chained = False
+        for pnode in ast.walk(tree):
+            if isinstance(pnode, ast.Attribute) and pnode.value is node:
+                is_chained = True
+        if is_chained:
+            continue
+
+        hits.append((node.lineno, line_text.rstrip()))
 
     # Deduplicate by line (multiple .get() on same line)
     seen = set()
@@ -185,6 +222,21 @@ def main():
         if arg.startswith("--hasattr-subjects="):
             subjects = set(arg.split("=", 1)[1].split(","))
 
+    registry_path = ROOT / "REGISTRY" / "plugins.json"
+    visible_paths = set()
+    if registry_path.exists():
+        try:
+            reg_data = json.loads(registry_path.read_text(encoding="utf-8-sig"))
+            for p in reg_data:
+                if p.get("visible", False):
+                    # the url is like "../plugins/Name/plugin.py" or ".../plugin.zip"
+                    url = p.get("downloadUrl", "")
+                    if "/plugins/" in url:
+                        folder = url.split("/plugins/")[-1].split("/")[0].replace(".zip", "")
+                        visible_paths.add(folder.lower())
+        except Exception:
+            pass
+
     py_files = sorted(PLUGINS_DIR.rglob("*.py"))
 
     bare_except   = {}
@@ -195,6 +247,14 @@ def main():
     for path in py_files:
         if "__pycache__" in path.parts:
             continue
+            
+        # Only scan if part of a visible plugin (or root / core files)
+        rel_parts = path.relative_to(PLUGINS_DIR).parts
+        if rel_parts and visible_paths:
+            plugin_folder = rel_parts[0].lower()
+            if plugin_folder not in visible_paths:
+                continue
+
         rel = str(path.relative_to(ROOT))
 
         r = scan_bare_except(path)

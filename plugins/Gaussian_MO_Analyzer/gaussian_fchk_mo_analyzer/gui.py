@@ -43,7 +43,7 @@ class OrbitalWidget(QWidget):
                     # Get charge from FCHK for better bond order guess
                     charge = 0
                     try:
-                        c_arr = self.reader.get("Charge")
+                        c_arr = self.reader.get("Charge", None)
                         if c_arr is not None:
                             charge = int(c_arr[0])
                     except Exception as _e:
@@ -167,18 +167,18 @@ class OrbitalWidget(QWidget):
         if mode == 0:
             # MO Mode
             n_basis = self.engine.n_basis
-            coeffs = self.reader.get("Alpha MO coefficients")
+            coeffs = self.reader.get("Alpha MO coefficients", None)
             if not n_basis or not len(coeffs):
                 self.list_widget.addItem("Error reading MOs")
                 return
                 
             n_mos = len(coeffs) // n_basis
-            energies = self.reader.get("Alpha Orbital Energies")
-            n_alpha = self.reader.get("Number of alpha electrons")
+            energies = self.reader.get("Alpha Orbital Energies", None)
+            n_alpha = self.reader.get("Number of alpha electrons", None)
             if n_alpha is not None and len(n_alpha) > 0:
                 n_occ = n_alpha[0]
             else:
-                n_el_list = self.reader.get("Number of electrons")
+                n_el_list = self.reader.get("Number of electrons", None)
                 n_el = n_el_list[0] if n_el_list is not None else 0
                 n_occ = int(np.ceil(n_el / 2))
             
@@ -294,7 +294,7 @@ class OrbitalWidget(QWidget):
         row_idx = self.current_gen_mo_idx - 1 # 0-based for engine
         
         atoms = self.reader.get("Current cartesian coordinates").reshape(-1, 3)
-        coeffs = self.reader.get("Alpha MO coefficients")
+        coeffs = self.reader.get("Alpha MO coefficients", None)
         
         self.pbar.setValue(0)
         

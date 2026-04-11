@@ -15,7 +15,7 @@ except ImportError:
     Descriptors = None
     Draw = None
 
-PLUGIN_VERSION = "2026.04.11"
+PLUGIN_VERSION = "2026.04.12"
 PLUGIN_AUTHOR = "HiroYokoyama"
 
 PLUGIN_NAME = "MS Spectrum Simulation Neo"
@@ -200,12 +200,12 @@ class MSSpectrumDialog(QDialog):
         self.recalc_peaks(reset=True)
 
     def closeEvent(self, event):
-        if hasattr(self, 'timer') and self.timer.isActive():
+        if getattr(self, 'timer', None) is not None and self.timer.isActive():
             self.timer.stop()
         event.accept()
 
     def toggle_sync(self, state):
-        if not hasattr(self, 'timer'): return
+        if getattr(self, 'timer', None) is None: return
         
         if state == 2: # Checked
             self.timer.start(500)

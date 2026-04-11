@@ -6,9 +6,10 @@ from PyQt6.QtWidgets import (QMessageBox, QDialog, QVBoxLayout, QLabel,
                              QHBoxLayout, QComboBox, QTextEdit, QFileDialog, QFormLayout, QCheckBox, QInputDialog, QSizePolicy)
 from PyQt6.QtCore import Qt
 from rdkit import Chem
+import logging
 
 PLUGIN_NAME = "PySCF Input Generator"
-PLUGIN_VERSION = "2026.01.03"
+PLUGIN_VERSION = "2026.04.12"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Generate Python scripts for PySCF quantum chemistry calculations."
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "pyscf_input_generator.json")
@@ -154,8 +155,8 @@ class PyscfSetupDialog(QDialog):
             
             mult = 1 if total_electrons % 2 == 0 else 2
             self.mult_spin.setValue(mult)
-        except:
-            pass
+        except Exception as _e:
+            logging.warning("[pyscf_input_generator.py:157] silenced: %s", _e)
 
     def update_method_options(self):
         cat = self.category_combo.currentText()
