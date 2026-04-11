@@ -19,6 +19,7 @@ PLUGIN_VERSION = "2026.04.12"
 PLUGIN_AUTHOR = "HiroYokoyama"
 
 PLUGIN_NAME = "MS Spectrum Simulation Neo"
+PLUGIN_DESCRIPTION = "Simulate and visualize mass spectra from molecular formula."
 
 class MSSpectrumDialog(QDialog):
     def __init__(self, context):

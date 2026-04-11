@@ -7,8 +7,9 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 from rdkit import Chem
 
-__version__="2026.04.12"
-__author__="HiroYokoyama"
+PLUGIN_VERSION = "2026.04.12"
+PLUGIN_AUTHOR = "HiroYokoyama"
+PLUGIN_DESCRIPTION = "Resolve chemical names to structures via PubChem REST API."
 PLUGIN_NAME = "PubChem Name Resolver"
 
 class MoleculeResolverDialog(QDialog):

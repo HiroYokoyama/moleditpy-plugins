@@ -25,6 +25,7 @@ except ImportError:
     rdDetermineBonds = None
     
 __author__ = "HiroYokoyama"
+PLUGIN_AUTHOR = __author__
 PLUGIN_NAME = "Cube File Viewer Advanced"
 PLUGIN_VERSION = "2026.04.12"
 PLUGIN_DESCRIPTION = "Advanced 3D visualization for Gaussian Cube files with PBR, SSAO, and other effects."

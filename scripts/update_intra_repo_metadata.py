@@ -1,3 +1,13 @@
+"""
+Update sha256, version, and lastUpdated fields in REGISTRY/plugins.json.
+
+Reads PLUGIN_VERSION (or __version__) from each plugin's source file,
+computes sha256 of the download target (.py or .zip), and writes back
+to the registry. Run after modifying any plugin file.
+
+Usage:
+  python scripts/update_intra_repo_metadata.py
+"""
 import hashlib
 import json
 import re

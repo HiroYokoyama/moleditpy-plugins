@@ -28,6 +28,7 @@ except ImportError:
             pt = None
 
 __author__ = "HiroYokoyama"
+PLUGIN_AUTHOR = __author__
 PLUGIN_NAME = "Mapped Cube Viewer"
 PLUGIN_VERSION = "2026.04.12"
 PLUGIN_DESCRIPTION = "Visualizes electrostatic potential or other properties mapped onto an isosurface from Gaussian Cube files."

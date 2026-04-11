@@ -1,3 +1,10 @@
+"""
+Validate JSON files for syntax correctness.
+
+Usage:
+  python scripts/validate_json.py <file_path> [file_path ...]
+  python scripts/validate_json.py REGISTRY/plugins.json
+"""
 import json
 import sys
 import os

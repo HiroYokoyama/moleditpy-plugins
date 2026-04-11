@@ -1,3 +1,9 @@
+"""
+Calculate SHA-256 hash of a file.
+
+Usage:
+  python scripts/calc_sha256.py <file_path>
+"""
 import hashlib
 import sys
 

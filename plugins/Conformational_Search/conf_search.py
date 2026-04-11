@@ -8,8 +8,9 @@ from rdkit.Chem import AllChem
 import copy
 
 PLUGIN_NAME = "Conformational Search"
-__version__="2026.04.04"
-__author__="HiroYokoyama"
+PLUGIN_VERSION = "2026.04.12"
+PLUGIN_AUTHOR = "HiroYokoyama"
+PLUGIN_DESCRIPTION = "Perform conformational search using RDKit ETKDG."
 
 class ConformerSearchDialog(QDialog):
     def __init__(self, context, parent=None):

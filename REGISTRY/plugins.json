@@ -3,7 +3,7 @@
     "id": "all-trans_optimizer",
     "visible": true,
     "name": "All-Trans Optimizer",
-    "version": "2026.04.06",
+    "version": "2026.04.12",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A geometric tool for straightening alkyl chains.",
@@ -14,8 +14,8 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/All-Trans_Optimizer/all-trans_optimizer.py",
-    "lastUpdated": "2026-04-06",
-    "sha256": "c5333c90f900c28c260ca1e3d7e2e24e03fb115ad8ac8fbaf442231323209b91",
+    "lastUpdated": "2026-04-12",
+    "sha256": "74e3ed8218c5f657e93a3abf6bb2882a8e731325b31584d078a6081930ee5e79",
     "firstAppeared": "2025-12-15"
   },
   {
@@ -35,7 +35,7 @@
     ],
     "downloadUrl": "../plugins/Animated_XYZ_Giffer/animated_xyz_giffer.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "4a89fa63224e21e721fe4b7b091b175e0516f3db8cefe94fdfdf4e6a958f960d",
+    "sha256": "f1879fa3da27a8ec839abdadd2ecb49e19cd81fcc9a90893240408802de450df",
     "firstAppeared": "2025-12-15"
   },
   {
@@ -60,7 +60,7 @@
     "id": "complex_molecule_untangler",
     "visible": true,
     "name": "Complex Molecule Untangler",
-    "version": "2026.04.11",
+    "version": "2026.04.12",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A Monte Carlo-based tool to resolve steric clashes in complex or roughly drawn molecules.",
@@ -71,15 +71,15 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/Complex_Molecule_Untangler/complex_molecule_untangler.py",
-    "lastUpdated": "2026-04-11",
-    "sha256": "375e4b4fabde44f25f14073b55cfcc81e28592beece4691297f8f26b55cb6efe",
+    "lastUpdated": "2026-04-12",
+    "sha256": "37e59c1e55fe9ad8cdae8532a400db8092210f77a6673bb2d9ba4043517f288e",
     "firstAppeared": "2025-12-15"
   },
   {
     "id": "conformational_search",
     "visible": true,
     "name": "Conformational Search",
-    "version": "2026.04.04",
+    "version": "2026.04.12",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Performs conformational sampling and energy minimization.",
@@ -90,8 +90,8 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/Conformational_Search/conf_search.py",
-    "lastUpdated": "2026-04-04",
-    "sha256": "b40181fde999e7543e48b2dd07e8516c27ec9260f26dd09c77a410d4d10b8392",
+    "lastUpdated": "2026-04-12",
+    "sha256": "98e618d76b47a5e4515a5fffa3cefe86a10dcaa6c7a6eb5d473670e8a4e104b8",
     "firstAppeared": "2025-12-15"
   },
   {
@@ -112,7 +112,7 @@
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer/cube_viewer.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "c73483b07f116b54fb04274a26aaf62b9acb44bfc122a76d728811b60c5742c0",
+    "sha256": "d10d81c9277d9c77e4ef0c366c1ab3e65245d47b7713a0af99e8f73f8cd454f3",
     "firstAppeared": "2025-12-15"
   },
   {
@@ -204,14 +204,14 @@
     ],
     "downloadUrl": "../plugins/PubChem_Name_Ressolver/pubchem_ressolver.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "bbbd23a016dcd57f6d126addbf8de4721532f2f378c994a2961627c9ce2be38f",
+    "sha256": "73c7c61fb22d72da8c4579b93a45dedc6a1a958ea17f00021c7d1bfbda6142f2",
     "firstAppeared": "2025-12-15"
   },
   {
     "id": "console",
     "visible": true,
     "name": "Python Console",
-    "version": "2026.04.01",
+    "version": "2026.04.12",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "An interactive Python interpreter embedded in the application. Allows runtime script execution with access to the MainWindow (mw) and current molecule (mol).",
@@ -223,8 +223,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Python_Console/console.py",
-    "lastUpdated": "2026-04-01",
-    "sha256": "3433e378f240b6b3a084fac422d6a03c835d4c5b62d186138028820d68b6e696",
+    "lastUpdated": "2026-04-12",
+    "sha256": "2dc4eff85f20b39b9d6675fcc9c5aa0cc855bfd563f4f09c0e86ed216d03611e",
     "firstAppeared": "2025-12-16"
   },
   {
@@ -253,7 +253,7 @@
     "id": "dark_mode_theme",
     "visible": true,
     "name": "Dark Mode Theme",
-    "version": "2025.12.16",
+    "version": "2026.04.12",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A plugin that automatically applies a dark mode stylesheet to MoleditPy upon loading.",
@@ -264,8 +264,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Dark_Mode_Theme/dark_mode_plugin.py",
-    "lastUpdated": "2025-12-16",
-    "sha256": "1d910ddc0a145d4ecd7486aef702b205fe714ab5a7e29b5f7e7c604dc87277ab",
+    "lastUpdated": "2026-04-12",
+    "sha256": "783effca5e0e5c0d83c798749241dfc8bf2fc0220581cd66d93ced5b5ed98934",
     "firstAppeared": "2025-12-16"
   },
   {
@@ -330,7 +330,7 @@
     ],
     "downloadUrl": "../plugins/Mapped_Cube_Viewer/mapped_cube_viewer.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "0b363ba9e116352666fe662f3dd322908537868f02bb43aa820c81b6031663b4",
+    "sha256": "4d469b6c96c9bf7a52f88dbd1b4e22f53e8aa208e561d269ccb26e2401c9e776",
     "firstAppeared": "2025-12-17"
   },
   {
@@ -394,7 +394,7 @@
     ],
     "downloadUrl": "../plugins/MS_Spectrum_Simulation_Neo/ms_spectrum_neo.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "61389477c4d1e02c363b65f89e8b0d8b802238a6090fa52288064c6d646b4ac7",
+    "sha256": "30c4b72ae721ee4e145e98fd0ffe0408f931b8046bade5db7e0a0cd3fd1aef7d",
     "firstAppeared": "2025-12-18"
   },
   {
@@ -442,7 +442,7 @@
     ],
     "downloadUrl": "../plugins/ORCA_Freq_Analyzer/orca_out_freq_analyzer.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "275d3b458619eb90efb26134c84cbe18f062097402c21cb2f0fcd84c31438ed1",
+    "sha256": "3d8e2e65b0663af0e41dc78aff94df360227e65ec5a1e9ede980ea99c7ae1671",
     "firstAppeared": "2025-12-20"
   },
   {
@@ -1059,7 +1059,7 @@
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer_Advanced/cube_viewer_advanced.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "7cf4b61ad8d370e89a2903a357dd798acbac86ac0c9f61195e16b28f6780e017",
+    "sha256": "4e25d2d48f85e584648fff9a382ddbf870ec0fb2f44c6584ee4ddc4e466b43e7",
     "firstAppeared": "2026-02-02"
   },
   {

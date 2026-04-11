@@ -14,8 +14,9 @@ from PyQt6.QtGui import (
 from PyQt6.QtCore import Qt, QRegularExpression, pyqtSignal
 import rdkit.Chem as Chem
 
-__version__ = "2026.04.01"
-__author__ = "HiroYokoyama"
+PLUGIN_VERSION = "2026.04.12"
+PLUGIN_AUTHOR = "HiroYokoyama"
+PLUGIN_DESCRIPTION = "Embedded Python console for interactive scripting."
 PLUGIN_NAME = "Python Console"
 
 class PythonHighlighter(QSyntaxHighlighter):

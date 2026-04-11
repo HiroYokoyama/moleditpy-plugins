@@ -21,6 +21,7 @@ except ImportError:
     Chem = None
 
 PLUGIN_NAME = "ORCA Freq Analyzer"
+PLUGIN_DESCRIPTION = "Parse ORCA output files and visualize vibrational frequencies."
 PLUGIN_VERSION = "2026.04.12"
 PLUGIN_AUTHOR = "HiroYokoyama"
 

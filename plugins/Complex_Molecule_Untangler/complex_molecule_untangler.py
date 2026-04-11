@@ -11,8 +11,9 @@ from rdkit.Chem import AllChem, rdMolTransforms
 import logging
 
 PLUGIN_NAME = "Complex Molecule Untangler"
-__version__="2026.04.11"
-__author__="HiroYokoyama"
+PLUGIN_VERSION = "2026.04.12"
+PLUGIN_AUTHOR = "HiroYokoyama"
+PLUGIN_DESCRIPTION = "Untangle overlapping fragments in complex molecules."
 
 
 class UntangleWorker(QThread):

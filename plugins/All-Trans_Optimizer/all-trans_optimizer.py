@@ -2,8 +2,9 @@ from PyQt6.QtWidgets import QMessageBox
 from rdkit import Chem
 from rdkit.Chem import rdMolTransforms
 
-__version__="2026.04.06"
-__author__="HiroYokoyama"
+PLUGIN_VERSION = "2026.04.12"
+PLUGIN_AUTHOR = "HiroYokoyama"
+PLUGIN_DESCRIPTION = "Convert alkyl chain torsions to all-trans conformation."
 PLUGIN_NAME = "All-Trans Optimizer"
 
 def run_plugin(context):

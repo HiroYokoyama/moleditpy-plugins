@@ -24,8 +24,9 @@ except ImportError:
     Geometry = None
     rdDetermineBonds = None
     
-__version__="2026.04.12"
-__author__="HiroYokoyama"
+PLUGIN_VERSION = "2026.04.12"
+PLUGIN_AUTHOR = "HiroYokoyama"
+PLUGIN_DESCRIPTION = "Visualize Gaussian cube files (electron density, MOs)."
 PLUGIN_NAME = "Cube File Viewer"
 
 def parse_cube_data(filename):
