@@ -581,36 +581,6 @@ class OrcaOutFreqAnalyzer(QWidget):
         if len(self.parser.atoms) > 0 and Chem:
             self.create_base_molecule()
 
-    def show_spectrum(self):
-        if not self.parser or not hasattr(self.parser, 'final_modes'):
-             return
-
-        freqs = []
-        intensities = []
-        
-        sf = self.spin_sf.value()
-
-        for mode in self.parser.final_modes:
-             f = mode['freq']
-             inten = mode['intensity']
-             if inten is None: inten = 0.0
-             
-             if abs(f) > 10.0:
-                 freqs.append(f * sf) # Apply Scale
-                 intensities.append(inten)
-        
-        if not freqs:
-             QMessageBox.information(self, "Info", "No valid frequencies found.")
-             return
-             
-        # Reuse existing SpectrumDialog class if possible, or define here too
-        # To avoid duplicating code, we could move SpectrumDialog to a separate file later.
-        # For now, let's paste the same class or assume it's available?
-        # It's better to implement it here to be self-contained as requested.
-        
-        dlg = SpectrumDialog(freqs, intensities, title=f"IR Spectrum - {os.path.basename(self.parser.filename)}", parent=self)
-        dlg.exec()
-
     class SpectrumWidget(QWidget):
         def __init__(self, freqs, intensities):
             super().__init__()

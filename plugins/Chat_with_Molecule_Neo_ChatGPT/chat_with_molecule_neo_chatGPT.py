@@ -628,19 +628,6 @@ class ChatMoleculeWindow(QDialog):
         # self.poll_timer.timeout.connect(self.check_molecule_change)
         # self.poll_timer.start(2000)
 
-    def get_selected_atom_indices(self):
-        """Helper: Get selected atom indices (1-based for MapNum)"""
-        selected_ids = []
-        try:
-            if hasattr(self.main_window, 'data') and hasattr(self.main_window.data, 'atoms'):
-                for atom_id, atom_data in self.main_window.data.atoms.items():
-                    item = atom_data.get('item', None)
-                    if item and item.isSelected():
-                        selected_ids.append(str(atom_id + 1)) # Use 1-based (Matches MapNum)
-        except Exception as _e:
-            logging.warning("[chat_with_molecule_neo_chatGPT.py:639] silenced: %s", _e)
-        return selected_ids
-
     def check_molecule_change(self):
         """Check if the main window's molecule OR selection has changed"""
         

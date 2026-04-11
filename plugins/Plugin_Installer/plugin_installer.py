@@ -381,18 +381,15 @@ class PluginInstallerWindow(QDialog):
             if v1 < v2: return -1
             return 0
 
-    def init_ui(self):
-        layout = QVBoxLayout(self)
-
     def _get_package_name(self):
         """Return the running PyPI package name: 'moleditpy' or 'moleditpy-linux'."""
         try:
-            from moleditpy.utils.constants import VERSION  # noqa: F401
+            from moleditpy.utils.constants import VERSION as _ver  # noqa: F401
             return "moleditpy"
         except ImportError:
             pass
         try:
-            from moleditpy_linux.modules.constants import VERSION  # noqa: F401
+            from moleditpy_linux.modules.constants import VERSION as _ver2  # noqa: F401
             return "moleditpy-linux"
         except ImportError:
             pass

@@ -33,12 +33,6 @@ class MopacSetupDialog(QDialog):
 
         # --- Preset Management ---
         preset_group = QGroupBox("User Presets")
-
-    def setup_ui(self):
-        layout = QVBoxLayout()
-
-        # --- Preset Management ---
-        preset_group = QGroupBox("User Presets")
         preset_layout = QHBoxLayout()
         
         self.preset_combo = QComboBox()

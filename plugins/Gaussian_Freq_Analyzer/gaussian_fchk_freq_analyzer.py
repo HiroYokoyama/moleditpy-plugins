@@ -2,9 +2,10 @@ import os
 import re
 import numpy as np
 import traceback
-from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, 
+from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
                              QListWidget, QSlider, QCheckBox, QFileDialog, QMessageBox,
-                             QDockWidget, QWidget, QSplitter, QApplication, QTreeWidget, QTreeWidgetItem, QHeaderView)
+                             QDockWidget, QWidget, QSplitter, QApplication, QTreeWidget, QTreeWidgetItem, QHeaderView,
+                             QFormLayout, QDialogButtonBox, QSpinBox, QDoubleSpinBox)
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 
 # Try to import RDKit
@@ -258,9 +259,6 @@ class FCHKParser:
             self.multiplicity = data["Multiplicity"][0]
 
 
-from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, 
-                             QListWidget, QSlider, QCheckBox, QFileDialog, QMessageBox,
-                             QDockWidget, QWidget, QSplitter, QFormLayout, QDialogButtonBox, QSpinBox, QDoubleSpinBox)
 from PyQt6.QtGui import QImage, QPainter, QPen, QColor, QFont, QPaintEvent
 import logging
 try:

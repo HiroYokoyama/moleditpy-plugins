@@ -341,7 +341,6 @@ class MoleculeComparator(QWidget):
         if row < 0 or row >= len(self.molecules):
             return
 
-        from PyQt6.QtWidgets import QMenu
         menu = QMenu(self)
         
         action_mol = QAction("Export Coordinates as MOL...", self)
@@ -404,10 +403,6 @@ class MoleculeComparator(QWidget):
             
         self.exit_3d_only_mode()
 
-    def exit_3d_only_mode(self):
-         # Placeholder if not defined in snippet, but cleanup calls it
-         pass
-
     def add_current_molecule(self):
         mol = self.context.current_molecule
         if not mol:
@@ -441,19 +436,6 @@ class MoleculeComparator(QWidget):
         self.update_visualization()
         self.update_wireframe_lighting()
         self.reset_view()
-
-    def reset_view(self):
-        # Use a timer to ensure the view is reset AFTER the visualization update is fully rendered/processed.
-        # NOTE: mw.view_3d_manager.fit_to_view() is for 2D. We must use plotter methods for 3D.
-        def _do_reset():
-            if hasattr(self.mw, 'plotter'):
-                try:
-                    self.mw.plotter.reset_camera()
-                    self.mw.plotter.render()
-                except Exception as _e:
-                    logging.warning("[molecule_comparator.py:457] silenced: %s", _e)
-        
-        QTimer.singleShot(100, _do_reset)
 
     def load_from_file(self):
         file_path, _ = QFileDialog.getOpenFileName(

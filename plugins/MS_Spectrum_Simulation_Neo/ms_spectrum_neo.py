@@ -502,7 +502,6 @@ class MSSpectrumDialog(QDialog):
             logging.warning("[ms_spectrum_neo.py:500] silenced: %s", _e)
 
     def apply_gaussian_broadening(self, peaks, sigma):
-        import math
         if not peaks: return []
         
         # Dynamic margin to avoid clipping wide peaks
@@ -1126,7 +1125,6 @@ class HistogramWidget(QWidget):
         # X-Axis Ticks
         n_ticks = 5
         tick_step = mass_range / n_ticks
-        import math
         mag = 10**math.floor(math.log10(tick_step)) if tick_step > 0 else 1
         nice_step = round(tick_step / mag) * mag
         if nice_step == 0: nice_step = tick_step

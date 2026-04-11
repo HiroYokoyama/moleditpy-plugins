@@ -748,7 +748,6 @@ if __name__ == "__main__":
         def _create_sample_molecule(self):
             try:
                 # Create Methane (CH4) with 3D coordinates
-                from rdkit import Chem
                 from rdkit.Chem import AllChem
                 
                 m = Chem.MolFromSmiles('C')

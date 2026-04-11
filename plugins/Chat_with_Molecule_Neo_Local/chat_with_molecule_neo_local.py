@@ -652,19 +652,6 @@ class ChatMoleculeWindow(QDialog):
         # self.poll_timer.timeout.connect(self.check_molecule_change)
         # self.poll_timer.start(2000)
 
-    def get_selected_atom_indices(self):
-        """Helper: Get selected atom indices (1-based for MapNum)"""
-        selected_ids = []
-        try:
-            if hasattr(self.main_window, 'data') and hasattr(self.main_window.data, 'atoms'):
-                for atom_id, atom_data in self.main_window.data.atoms.items():
-                    item = atom_data.get('item', None)
-                    if item and item.isSelected():
-                        selected_ids.append(str(atom_id + 1)) # Use 1-based (Matches MapNum)
-        except Exception as _e:
-            logging.warning("[chat_with_molecule_neo_local.py:662] silenced: %s", _e)
-        return selected_ids
-
     def check_molecule_change(self):
         """Check if the main window's molecule OR selection has changed"""
         
@@ -3185,6 +3172,13 @@ class ChatMoleculeWindow(QDialog):
         # Actually shortcuts mock the stream, so they should probably respect the UI flow too or handle their own reset.
         # But for safety, I'll let them run. Interrupting them isn't prioritized since they are fast/fake.
 
+        def reset_ui_demo(response):
+            self.on_final_response(response)
+            self.btn_send.setText("Send")
+            self.btn_send.setStyleSheet("")
+            self.loading_bar.setVisible(False)
+            self.lbl_thinking.setVisible(False)
+
         # SHORTCUT: "br" triggers bromination demo sequence for SELECTED atoms
         if DEMO_MODE and text.lower().startswith("br"):
              # Get selected atom IDs (strings)
@@ -3220,14 +3214,6 @@ class ChatMoleculeWindow(QDialog):
                  "```"
              )
              
-             # UI Reset Wrapper for Demo
-             def reset_ui_demo(response):
-                 self.on_final_response(response)
-                 self.btn_send.setText("Send")
-                 self.btn_send.setStyleSheet("")
-                 self.loading_bar.setVisible(False)
-                 self.lbl_thinking.setVisible(False)
-                 
              QTimer.singleShot(500, lambda: self.on_chunk_received(response_text))
              QTimer.singleShot(600, lambda: reset_ui_demo(None))
              return
@@ -3252,14 +3238,6 @@ class ChatMoleculeWindow(QDialog):
                 "```"
             )
             
-            # UI Reset Wrapper
-            def reset_ui_demo(response):
-                 self.on_final_response(response)
-                 self.btn_send.setText("Send")
-                 self.btn_send.setStyleSheet("")
-                 self.loading_bar.setVisible(False)
-                 self.lbl_thinking.setVisible(False)
-
             QTimer.singleShot(500, lambda: self.on_chunk_received(response_text))
             QTimer.singleShot(600, lambda: reset_ui_demo(None))
             return
@@ -3378,14 +3356,6 @@ class ChatMoleculeWindow(QDialog):
                      "- Canvas clearing\n\n"
                      "Feel free to try your own prompts now!"
                  )
-
-            # UI Reset Wrapper
-            def reset_ui_demo(response):
-                 self.on_final_response(response)
-                 self.btn_send.setText("Send")
-                 self.btn_send.setStyleSheet("")
-                 self.loading_bar.setVisible(False)
-                 self.lbl_thinking.setVisible(False)
 
             QTimer.singleShot(500, lambda: self.on_chunk_received(response_text))
             QTimer.singleShot(600, lambda: reset_ui_demo(None))

@@ -573,7 +573,6 @@ class ReportDialog(QDialog):
                 printer.setOutputFormat(QPrinter.OutputFormat.PdfFormat)
                 printer.setOutputFileName(filename)
                 
-                from PyQt6.QtGui import QTextDocument
                 doc = QTextDocument()
                 doc.setHtml(html)
                 doc.print(printer)

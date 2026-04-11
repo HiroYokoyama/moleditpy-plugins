@@ -446,7 +446,7 @@ class CubeViewerWidget(QWidget):
         self.load_settings()
 
     def init_advanced_ui(self, layout):
-        from PyQt6.QtWidgets import QGroupBox, QGridLayout, QTabWidget, QWidget, QVBoxLayout, QComboBox, QMessageBox, QInputDialog
+        from PyQt6.QtWidgets import QGroupBox, QGridLayout, QTabWidget, QComboBox
 
         group = QGroupBox("Advanced Rendering")
         # Main Layout of Group is just a VBox holding the TabWidget
@@ -1326,7 +1326,6 @@ class CubeViewerWidget(QWidget):
 
     def save_preset(self):
         # Show dialog to ask for preset name
-        from PyQt6.QtWidgets import QInputDialog
         name, ok = QInputDialog.getText(
             self, 
             "Save Preset", 
