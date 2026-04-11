@@ -129,11 +129,8 @@ def initialize(context):
     if not _startup_check_performed:
         _startup_check_performed = True
         settings = load_settings()
-        from PyQt6.QtCore import QTimer
-        if settings.get("check_at_startup") is None:
-            # First launch — ask the user whether to enable startup checks.
-            QTimer.singleShot(2000, lambda: ask_user_permission(mw))
-        elif settings.get("check_at_startup"):
+        if settings.get("check_at_startup"):
+            from PyQt6.QtCore import QTimer
             QTimer.singleShot(2000, lambda: perform_startup_check(mw))
 
 def ask_user_permission(mw):
@@ -345,7 +342,10 @@ class PluginInstallerWindow(QDialog):
         
         self.init_ui()
 
-        self.check_updates_silent()
+        if auto_check:
+            self.check_updates_silent()
+        else:
+            self.check_updates()
 
     def calculate_sha256(self, filepath):
         sha256_hash = hashlib.sha256()
