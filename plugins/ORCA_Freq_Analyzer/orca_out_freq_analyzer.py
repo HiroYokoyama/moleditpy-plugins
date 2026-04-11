@@ -2,15 +2,15 @@ import os
 import numpy as np
 import traceback
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, 
-                             QListWidget, QSlider, QCheckBox, QFileDialog, QMessageBox,
-                             QDockWidget, QWidget, QFormLayout, QDialogButtonBox, QSpinBox, QApplication, QTreeWidget, QTreeWidgetItem, QHeaderView, QDoubleSpinBox)
-from PyQt6.QtGui import QImage, QPainter, QPen, QColor, QFont, QPaintEvent, QPalette
+                             QSlider, QCheckBox, QFileDialog, QMessageBox, QDockWidget,
+                             QWidget, QFormLayout, QDialogButtonBox, QSpinBox, QApplication, QTreeWidget, QTreeWidgetItem, QHeaderView, QDoubleSpinBox)
+from PyQt6.QtGui import QPainter, QPen, QColor, QPalette
 try:
     from PIL import Image
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QPointF
+from PyQt6.QtCore import Qt, QTimer, QPointF
 import logging
 
 # Try to import RDKit
@@ -60,7 +60,7 @@ class OrcaParser:
         modes_start_line = -1
         
         for i, line in enumerate(lines):
-            line_s = line.strip()
+            line.strip()
             if "CARTESIAN COORDINATES (ANGSTROEM)" in line:
                 coord_start_lines.append(i)
             elif "CARTESIAN COORDINATES (A.U.)" in line:
@@ -628,7 +628,6 @@ class OrcaOutFreqAnalyzer(QWidget):
                  painter.setPen(QColor("#ddd"))
 
             # Compute Profile
-            import math
             x_vals = np.linspace(min_f, max_f, w // 2)
             y_vals = np.zeros_like(x_vals)
             
@@ -1279,7 +1278,7 @@ class SpectrumPlotWidget(QWidget):
 
 
 def load_from_file(main_window, fname):
-    driver = None
+    pass
     
     # FIRST: Close conflicting plugin (Gaussian)
     for d in main_window.findChildren(QDockWidget):

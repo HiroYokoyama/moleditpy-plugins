@@ -1,13 +1,12 @@
 
 import os
 import json
-import tempfile
 import numpy as np
 import pyvista as pv
 from PyQt6.QtWidgets import (QFileDialog, QDockWidget, QWidget, QVBoxLayout, 
                              QSlider, QLabel, QHBoxLayout, QPushButton, QMessageBox, 
                              QDoubleSpinBox, QColorDialog, QInputDialog, QDialog, 
-                             QFormLayout, QDialogButtonBox, QSpinBox, QCheckBox, QComboBox, QLineEdit)
+                             QFormLayout, QSpinBox, QCheckBox, QComboBox, QLineEdit)
 from PyQt6.QtGui import QColor
 from PyQt6.QtCore import Qt, QTimer, QCoreApplication
 import logging
@@ -446,7 +445,7 @@ class CubeViewerWidget(QWidget):
         self.load_settings()
 
     def init_advanced_ui(self, layout):
-        from PyQt6.QtWidgets import QGroupBox, QGridLayout, QTabWidget, QComboBox
+        from PyQt6.QtWidgets import QGroupBox, QGridLayout, QTabWidget
 
         group = QGroupBox("Advanced Rendering")
         # Main Layout of Group is just a VBox holding the TabWidget

@@ -3,7 +3,6 @@ PubChem Structure Identifier Plugin (Cleaned - No SMILES)
 Resolve chemical names and fetch basic molecular properties via PubChem.
 """
 
-import sys
 import json
 import urllib.request
 import urllib.parse

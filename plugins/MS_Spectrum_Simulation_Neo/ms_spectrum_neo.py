@@ -2,7 +2,7 @@
 import sys
 import math
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QWidget, QMessageBox, QPushButton, QFileDialog, QCheckBox, QDoubleSpinBox, QApplication
-from PyQt6.QtGui import QPainter, QPen, QBrush, QColor, QFont, QPalette, QLinearGradient, QGradient, QPageSize, QTextDocument, QImage, QPageLayout
+from PyQt6.QtGui import QPainter, QPen, QColor, QFont, QPalette, QPageSize, QTextDocument, QImage, QPageLayout
 from PyQt6.QtCore import Qt, QRectF, QPointF, QTimer, QByteArray, QBuffer, QIODevice, QSizeF, QMarginsF, QLineF
 from PyQt6.QtPrintSupport import QPrinter
 import logging
@@ -1266,7 +1266,7 @@ class HistogramWidget(QWidget):
              rect_info = QRectF(w - (250 * scale) - mr, mt, 250 * scale, 60 * scale)
              painter.drawText(rect_info, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop, self.info_text)
         
-        save_state = painter.save()
+        painter.save()
         painter.translate(20 * scale, h / 2)
         painter.rotate(-90)
         painter.drawText(QRectF(-100 * scale, -100 * scale, 200 * scale, 20 * scale), Qt.AlignmentFlag.AlignCenter, "Relative Intensity (%)")

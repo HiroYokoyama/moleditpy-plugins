@@ -3,10 +3,10 @@ import re
 import numpy as np
 import traceback
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
-                             QListWidget, QSlider, QCheckBox, QFileDialog, QMessageBox,
-                             QDockWidget, QWidget, QSplitter, QApplication, QTreeWidget, QTreeWidgetItem, QHeaderView,
-                             QFormLayout, QDialogButtonBox, QSpinBox, QDoubleSpinBox)
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+                             QSlider, QCheckBox, QFileDialog, QMessageBox, QDockWidget,
+                             QWidget, QApplication, QTreeWidget, QTreeWidgetItem, QHeaderView, QFormLayout, QDialogButtonBox,
+                             QSpinBox, QDoubleSpinBox)
+from PyQt6.QtCore import Qt, QTimer
 
 # Try to import RDKit
 try:
@@ -259,7 +259,7 @@ class FCHKParser:
             self.multiplicity = data["Multiplicity"][0]
 
 
-from PyQt6.QtGui import QImage, QPainter, QPen, QColor, QFont, QPaintEvent
+from PyQt6.QtGui import QPainter, QPen, QColor
 import logging
 try:
     from PIL import Image
@@ -767,7 +767,6 @@ class GaussianFCHKFreqAnalyzer(QWidget):
         images = []
         mode_vecs = self.parser.vib_modes[row]
         
-        import copy
         # Store current geometry to restore later
         self.reset_geometry() # align to base
         

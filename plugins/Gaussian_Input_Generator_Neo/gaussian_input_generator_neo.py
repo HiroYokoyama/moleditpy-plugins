@@ -3,8 +3,7 @@ import os
 from PyQt6.QtWidgets import (QMessageBox, QDialog, QVBoxLayout, QLabel, 
                              QLineEdit, QSpinBox, QPushButton, QFileDialog, 
                              QFormLayout, QGroupBox, QHBoxLayout, QComboBox, QTextEdit, 
-                             QInputDialog, QTabWidget, QCheckBox, QRadioButton, QButtonGroup,
-                             QWidget, QScrollArea, QSizePolicy)
+                             QInputDialog, QTabWidget, QCheckBox, QWidget, QSizePolicy)
 from PyQt6.QtGui import QPalette, QColor, QFont
 from PyQt6.QtCore import Qt
 from rdkit import Chem
@@ -197,7 +196,7 @@ class RouteBuilderDialog(QDialog):
 
     def update_job_options_visibility(self):
         job_idx = self.job_type.currentIndex()
-        txt = self.job_type.currentText()
+        self.job_type.currentText()
         
         # Opt options: Show for Opt, Opt+Freq, Scan, IRC, Stable, Volume (some imply optimization)
         # Strictly speaking: Opt tasks. 

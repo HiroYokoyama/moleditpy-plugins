@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QApplication, QMessageBox
-from PyQt6.QtCore import QPointF, QTimer
+from PyQt6.QtCore import QPointF
 from rdkit import Chem
 from rdkit.Chem import AllChem
 import sys
@@ -59,7 +59,6 @@ def run(context):
     
     mol = None
     mol_text = None
-    fmt_found = None
 
     # 2. データの取得
     for fmt in TARGET_FORMATS:
@@ -76,7 +75,6 @@ def run(context):
                         text = byte_data.data().decode(encoding).strip('\x00')
                         if text and ("V2000" in text or "M  END" in text or "V3000" in text):
                             mol_text = text
-                            fmt_found = fmt
                             success = True
                             break
                     except:
@@ -102,12 +100,10 @@ def run(context):
     if mol_text:
         try:
             lines = mol_text.splitlines()
-            found_v2000 = False
             
             # Case 1: Standard parse
             for i, line in enumerate(lines):
                 if "V2000" in line or "V3000" in line:
-                    found_v2000 = True
                     start = max(0, i-3)
                     mol_text_clean = "\n".join(lines[start:])
                     mol = Chem.MolFromMolBlock(mol_text_clean)
@@ -218,7 +214,7 @@ def reconstruct_from_flat_text(text):
     
     # Sanitize: Remove non-printable characters (control chars like \x01, \x16 etc.)
     # Keep only standard printable ASCII (0x20-0x7E) and whitespace (\r, \n, \t)
-    original_len = len(text)
+    len(text)
     text = re.sub(r'[^\x20-\x7E\s]', '', text)
     # if len(text) != original_len:
     #      debug_log.append(f"Sanitized input: removed {original_len - len(text)} non-printable characters.")
@@ -245,7 +241,7 @@ def reconstruct_from_flat_text(text):
             n_atoms = int(header_tokens[-10])
             n_bonds = int(header_tokens[-9])
             # debug_log.append(f"Atoms: {n_atoms}, Bonds: {n_bonds}")
-        except ValueError as e:
+        except ValueError:
             # debug_log.append(f"Failed to parse counts: {e}")
             # _write_debug_log(debug_log)
             return None
@@ -338,9 +334,9 @@ def reconstruct_from_flat_text(text):
         # _write_debug_log(debug_log)
         return Chem.MolFromMolBlock(full_block)
         
-    except Exception as e:
+    except Exception:
         # debug_log.append(f"Reconstruction Exception: {e}")
-        import traceback
+        pass
         # debug_log.append(traceback.format_exc())
         # _write_debug_log(debug_log)
         return None

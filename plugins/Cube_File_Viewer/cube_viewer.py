@@ -1,13 +1,12 @@
 
 import os
 import json
-import tempfile
 import numpy as np
 import pyvista as pv
 from PyQt6.QtWidgets import (QFileDialog, QDockWidget, QWidget, QVBoxLayout, 
                              QSlider, QLabel, QHBoxLayout, QPushButton, QMessageBox, 
-                             QDoubleSpinBox, QColorDialog, QInputDialog, QDialog, 
-                             QFormLayout, QDialogButtonBox, QSpinBox, QCheckBox, QComboBox)
+                             QDoubleSpinBox, QColorDialog, QDialog, QFormLayout, 
+                             QSpinBox, QCheckBox, QComboBox)
 from PyQt6.QtGui import QColor
 from PyQt6.QtCore import Qt, QTimer, QCoreApplication
 import logging

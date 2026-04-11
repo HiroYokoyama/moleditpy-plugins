@@ -6,20 +6,19 @@ Allows loading and playing multi-frame XYZ files (e.g., MD trajectories).
 """
 
 import os
-import time
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QPushButton,
-    QSlider, QLabel, QSpinBox, QFileDialog, QWidget,
-    QMessageBox, QDockWidget, QCheckBox, QFormLayout, QDialogButtonBox
+    QSlider, QLabel, QSpinBox, QFileDialog, QMessageBox,
+    QCheckBox, QFormLayout, QDialogButtonBox
 )
 try:
     from PIL import Image
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False
-from PyQt6.QtCore import Qt, QTimer, QSize
+from PyQt6.QtCore import Qt, QTimer
 from rdkit import Chem
-from rdkit.Chem import AllChem, rdGeometry
+from rdkit.Chem import rdGeometry
 import logging
 try:
     from rdkit.Chem import rdDetermineBonds

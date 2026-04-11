@@ -4,12 +4,10 @@ import json
 import traceback
 import pyvista as pv
 import numpy as np
-import functools
-import types
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QLabel, 
                              QSlider, QHBoxLayout, QPushButton, QDoubleSpinBox)
-from PyQt6.QtGui import QAction, QColor
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtGui import QColor
+from PyQt6.QtCore import Qt
 
 # Try to import VDW radii from constants, fallback if needed
 try:

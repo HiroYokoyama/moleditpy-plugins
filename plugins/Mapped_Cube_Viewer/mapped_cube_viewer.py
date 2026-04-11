@@ -2,7 +2,7 @@ import os
 import numpy as np
 import pyvista as pv
 from PyQt6.QtWidgets import (QFileDialog, QDockWidget, QWidget, QVBoxLayout, 
-                             QSlider, QLabel, QHBoxLayout, QPushButton, QMessageBox, QDoubleSpinBox, QProgressBar, QComboBox, QCheckBox, QDialog, QLineEdit, QFormLayout, QDialogButtonBox)
+                             QLabel, QHBoxLayout, QPushButton, QMessageBox, QDoubleSpinBox, QComboBox, QCheckBox, QDialog, QLineEdit, QFormLayout, QDialogButtonBox)
 from PyQt6.QtCore import Qt
 import logging
 

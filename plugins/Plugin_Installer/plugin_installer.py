@@ -17,10 +17,9 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
     QTableWidget, QTableWidgetItem, QPushButton, 
     QHeaderView, QMessageBox, QAbstractItemView, QApplication, QCheckBox,
-    QLineEdit, QMenu
+    QLineEdit
 )
-from PyQt6.QtCore import Qt, QUrl
-from PyQt6.QtGui import QDesktopServices, QColor, QIcon
+from PyQt6.QtGui import QColor
 import importlib.metadata
 import hashlib
 import re

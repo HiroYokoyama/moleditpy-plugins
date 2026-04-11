@@ -4,8 +4,6 @@ dark_mode_plugin.py
 A plugin that automatically applies a dark mode stylesheet to MoleditPy upon loading.
 """
 
-from PyQt6.QtWidgets import QApplication, QMainWindow
-from PyQt6.QtGui import QColor
 
 __version__="2025.12.16"
 __author__="HiroYokoyama"

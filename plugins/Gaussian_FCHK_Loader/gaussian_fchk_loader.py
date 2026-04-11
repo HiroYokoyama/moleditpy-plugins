@@ -4,7 +4,7 @@ import importlib
 import importlib.util
 import fnmatch
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QPushButton, QLabel, 
-                             QMessageBox, QHBoxLayout, QWidget, QDockWidget)
+                             QMessageBox, QDockWidget)
 from PyQt6.QtCore import Qt, QTimer
 
 # --- Plugin Metadata ---

@@ -1,6 +1,5 @@
 import numpy as np
 import re
-import math
 
 class FCHKReader:
     """

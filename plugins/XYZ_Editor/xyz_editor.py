@@ -1,4 +1,3 @@
-import sys
 import numpy as np
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem,
@@ -444,9 +443,9 @@ class XYZEditorWindow(QWidget):
         mol = self.context.current_molecule
         # Create new editable molecule from scratch or copy
         if mol:
-            rw_mol = Chem.RWMol(mol)
+            Chem.RWMol(mol)
         else:
-            rw_mol = Chem.RWMol()
+            Chem.RWMol()
 
         # We need to rebuild the molecule based on the table content
         # Because rows might have been deleted or added/reordered

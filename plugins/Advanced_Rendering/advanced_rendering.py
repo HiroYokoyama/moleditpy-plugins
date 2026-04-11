@@ -25,7 +25,7 @@ except ImportError:
     except ImportError:
         sip = None
 from PyQt6.QtCore import Qt, QTimer, QCoreApplication
-from PyQt6.QtGui import QColor, QCloseEvent, QAction
+from PyQt6.QtGui import QColor, QCloseEvent
 
 # PyVista / VTK Import Check
 try:

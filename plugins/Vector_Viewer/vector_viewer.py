@@ -1,11 +1,9 @@
 
-import sys
 import numpy as np
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, 
-    QLineEdit, QSpinBox, QDoubleSpinBox, QCheckBox, 
-    QComboBox, QPushButton, QFileDialog, QMessageBox, QGroupBox,
-    QColorDialog
+    QWidget, QVBoxLayout, QGridLayout, QLabel, QLineEdit, 
+    QSpinBox, QDoubleSpinBox, QCheckBox, QPushButton, 
+    QFileDialog, QMessageBox, QGroupBox, QColorDialog
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor

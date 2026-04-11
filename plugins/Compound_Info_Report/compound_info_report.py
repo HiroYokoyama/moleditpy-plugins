@@ -4,7 +4,6 @@ PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Generate a compound info report with properties, adducts, and structure. Refactored for V3 API."
 PLUGIN_ID = "compound_info_report"
 
-import sys
 import json
 
 try:
@@ -17,11 +16,11 @@ except ImportError:
 
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QTextBrowser, 
-    QCheckBox, QLabel, QMessageBox, QProgressDialog, QApplication, QFileDialog
+    QCheckBox, QMessageBox, QProgressDialog, QApplication, QFileDialog
 )
-from PyQt6.QtGui import QPixmap, QImage, QPainter, QTextDocument
+from PyQt6.QtGui import QImage, QPainter, QTextDocument
 from PyQt6.QtPrintSupport import QPrinter, QPrintDialog
-from PyQt6.QtCore import Qt, QSize, QRectF, QCoreApplication, QByteArray, QBuffer, QIODevice
+from PyQt6.QtCore import Qt, QRectF, QByteArray, QBuffer, QIODevice
 import logging
 
 try:

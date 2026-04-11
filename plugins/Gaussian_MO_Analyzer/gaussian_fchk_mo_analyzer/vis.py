@@ -1,6 +1,5 @@
 import numpy as np
 import pyvista as pv
-from PyQt6.QtGui import QColor
 
 # --- Constants ---
 BOHR_TO_ANG = 0.529177249

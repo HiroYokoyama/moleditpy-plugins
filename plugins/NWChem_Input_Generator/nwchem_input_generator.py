@@ -3,7 +3,7 @@ import os
 import json
 from PyQt6.QtWidgets import (QMessageBox, QDialog, QVBoxLayout, QLabel, 
                              QLineEdit, QSpinBox, QPushButton, QGroupBox, 
-                             QHBoxLayout, QComboBox, QTextEdit, QFileDialog, QFormLayout, QInputDialog, QSizePolicy, QCheckBox)
+                             QHBoxLayout, QComboBox, QTextEdit, QFileDialog, QFormLayout, QInputDialog, QSizePolicy)
 from PyQt6.QtCore import Qt
 from rdkit import Chem
 import logging

@@ -4,7 +4,6 @@ from PyQt6.QtWidgets import (
     QApplication, QComboBox, QCheckBox
 )
 from PyQt6.QtCore import Qt
-from rdkit import Chem
 from rdkit.Chem import AllChem
 import copy
 

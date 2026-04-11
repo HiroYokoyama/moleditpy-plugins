@@ -1,14 +1,8 @@
-import numpy as np
-import pyvista as pv
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
-                             QLabel, QColorDialog, QDockWidget, QMessageBox, 
-                             QLineEdit, QListWidget, QAbstractItemView, QGroupBox, QDialog)
+from PyQt6.QtWidgets import (QVBoxLayout, QPushButton, QLabel, QColorDialog, 
+                             QMessageBox, QLineEdit, QGroupBox, QDialog)
 from PyQt6.QtGui import QColor, QCloseEvent
 from PyQt6.QtCore import Qt, QTimer
 import traceback
-import sys
-import os
-import json
 import logging
 
 # Try importing from the installed package first (pip package structure)

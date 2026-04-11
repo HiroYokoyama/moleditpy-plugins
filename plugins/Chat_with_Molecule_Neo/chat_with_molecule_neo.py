@@ -10,7 +10,6 @@ PLUGIN_ID = "chat_with_molecule_neo"
 
 
 
-import sys
 import os
 import json
 import io
@@ -40,18 +39,16 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 
 from PyQt6.QtCore import (
-    Qt, QThread, pyqtSignal, QTimer, QSize, QEvent, 
-    QPointF, QRunnable, QThreadPool, QObject
+    Qt, QThread, pyqtSignal, QTimer, QPointF, QRunnable, 
+    QThreadPool, QObject
 )
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLineEdit,
-    QPushButton, QLabel, QFrame, QScrollArea, QSizePolicy,
-    QProgressBar, QMessageBox, QApplication, QMainWindow, QMenu,
-    QFileDialog, QTextBrowser, QPlainTextEdit, QComboBox, QDialog
+    QVBoxLayout, QHBoxLayout, QTextEdit, QLineEdit, QPushButton,
+    QLabel, QFrame, QProgressBar, QMessageBox, QApplication,
+    QFileDialog, QTextBrowser, QComboBox, QDialog
 )
 from PyQt6.QtGui import (
-    QTextCursor, QColor, QDesktopServices, QAction, QIcon,
-    QFont, QTextBlockFormat, QTextCharFormat, QPainter, QGuiApplication
+    QTextCursor, QDesktopServices, QIcon
 )
 
 
@@ -1811,7 +1808,7 @@ class ChatMoleculeWindow(QDialog):
         
         # Show Step button only if multiple tools are queued
         if is_multiple:
-            next_tool_name = payload["tools"][0].get("tool", "Next Step")
+            payload["tools"][0].get("tool", "Next Step")
             self.btn_tool_step.setText("Accept")
             self.btn_tool_step.setStyleSheet(f"background-color: {BTN_COLOR_ACCEPT_SINGLE}")
             self.btn_tool_step.setVisible(True)

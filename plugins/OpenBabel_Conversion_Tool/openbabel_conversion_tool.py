@@ -1,10 +1,9 @@
 import os
-import sys
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QListWidget, QDialogButtonBox, 
     QLabel, QMessageBox, QFileDialog, QAbstractItemView
 )
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import QTimer
 from rdkit import Chem
 from rdkit.Chem import AllChem
 import logging

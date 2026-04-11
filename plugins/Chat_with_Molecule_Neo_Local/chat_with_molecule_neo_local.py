@@ -10,7 +10,6 @@ PLUGIN_ID = "chat_with_molecule_neo_local"
 
 
 
-import sys
 import os
 import json
 import io
@@ -39,19 +38,16 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 
 from PyQt6.QtCore import (
-    Qt, QThread, pyqtSignal, QTimer, QSize, QEvent, 
-    QPointF, QRunnable, QThreadPool, QObject
+    Qt, QThread, pyqtSignal, QTimer, QPointF, QRunnable, 
+    QThreadPool, QObject
 )
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLineEdit,
-    QPushButton, QLabel, QFrame, QScrollArea, QSizePolicy,
-    QProgressBar, QMessageBox, QApplication, QMainWindow, QMenu,
-    QFileDialog, QTextBrowser, QPlainTextEdit, QComboBox, QDialog,
-    QCheckBox
+    QVBoxLayout, QHBoxLayout, QTextEdit, QLineEdit, QPushButton,
+    QLabel, QFrame, QProgressBar, QMessageBox, QApplication,
+    QFileDialog, QTextBrowser, QComboBox, QDialog, QCheckBox
 )
 from PyQt6.QtGui import (
-    QTextCursor, QColor, QDesktopServices, QAction, QIcon,
-    QFont, QTextBlockFormat, QTextCharFormat, QPainter, QGuiApplication
+    QTextCursor, QDesktopServices, QIcon
 )
 import logging
 
@@ -1680,7 +1676,7 @@ class ChatMoleculeWindow(QDialog):
         Load SMILES into MainWindow but preserve Undo Stack (Push state instead of Reset).
         Replicates logic from MainWindowStringImporters.load_from_smiles but without reset_undo_stack().
         """
-        mw = self.main_window
+        self.main_window
         try:
             cleaned_smiles = smiles_string.strip()
             mol = Chem.MolFromSmiles(cleaned_smiles)
@@ -1977,7 +1973,7 @@ class ChatMoleculeWindow(QDialog):
         
         # Show Step button only if multiple tools are queued
         if is_multiple:
-            next_tool_name = payload["tools"][0].get("tool", "Next Step")
+            payload["tools"][0].get("tool", "Next Step")
             self.btn_tool_step.setText("Accept")
             self.btn_tool_step.setStyleSheet(f"background-color: {BTN_COLOR_ACCEPT_SINGLE}")
             self.btn_tool_step.setVisible(True)
@@ -3504,7 +3500,6 @@ class ChatMoleculeWindow(QDialog):
             # User said "loading icon while model responding".
             # Usually spinners stop when text starts arriving, OR they persist until done.
             # I will persist it until final_response.
-            pass
 
     def on_error(self, error_msg):
         """Handle worker errors"""

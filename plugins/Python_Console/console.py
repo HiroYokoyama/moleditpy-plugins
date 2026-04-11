@@ -1,4 +1,3 @@
-import sys
 import io
 import code
 import traceback
@@ -6,7 +5,7 @@ import keyword
 from contextlib import redirect_stdout, redirect_stderr
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QTextEdit, QPlainTextEdit,
-    QPushButton, QLabel, QWidget, QSplitter
+    QLabel, QSplitter
 )
 from PyQt6.QtGui import (
     QFont, QColor, QSyntaxHighlighter, QTextCharFormat,

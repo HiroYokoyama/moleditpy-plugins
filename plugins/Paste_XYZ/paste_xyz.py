@@ -1,16 +1,13 @@
 
 import traceback
-import io
-import contextlib
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QTextEdit, QPushButton, QHBoxLayout, 
-    QMessageBox, QLabel, QLineEdit, QDialogButtonBox, QInputDialog
+    QMessageBox, QLabel, QLineEdit, QDialogButtonBox
 )
-from PyQt6.QtCore import Qt
 import logging
 try:
     from rdkit import Chem
-    from rdkit.Chem import rdGeometry, AllChem
+    from rdkit.Chem import AllChem
 except ImportError:
     Chem = None
 

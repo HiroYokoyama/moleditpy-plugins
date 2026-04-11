@@ -4,7 +4,6 @@ import json
 from PyQt6.QtWidgets import (QMessageBox, QDialog, QVBoxLayout, QLabel, 
                              QLineEdit, QSpinBox, QPushButton, QGroupBox, 
                              QHBoxLayout, QComboBox, QTextEdit, QFileDialog, QInputDialog, QSizePolicy, QCheckBox)
-from PyQt6.QtGui import QPalette, QColor
 from PyQt6.QtCore import Qt
 from rdkit import Chem
 import logging

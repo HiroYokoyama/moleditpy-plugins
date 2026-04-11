@@ -1,14 +1,12 @@
 # Global state
 import os
 import json
-import traceback
 from PyQt6.QtWidgets import (
-    QMessageBox, QInputDialog, QFileDialog, QApplication, QColorDialog,
-    QDialog, QVBoxLayout, QHBoxLayout, QListWidget, QPushButton, QLabel,
-    QWidget, QAbstractItemView, QMenu, QGroupBox, QCheckBox, QLineEdit,
-    QListWidgetItem
+    QMessageBox, QInputDialog, QFileDialog, QApplication, QDialog,
+    QVBoxLayout, QHBoxLayout, QListWidget, QPushButton, QLabel, QAbstractItemView,
+    QMenu, QGroupBox, QCheckBox, QListWidgetItem
 )
-from PyQt6.QtGui import QColor, QAction
+from PyQt6.QtGui import QColor
 from PyQt6.QtCore import Qt, QTimer
 import logging
 

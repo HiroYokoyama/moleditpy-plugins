@@ -1,17 +1,16 @@
 
 import os
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QListWidget, QListWidgetItem,
-    QLabel, QComboBox, QGroupBox, QRadioButton, QDockWidget, QMessageBox,
-    QColorDialog, QFormLayout, QTableWidget, QTableWidgetItem, QHeaderView,
-    QFileDialog, QMenuBar, QCheckBox, QToolButton, QMenu, QProgressDialog
+    QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QListWidget, QLabel,
+    QComboBox, QGroupBox, QMessageBox, QColorDialog, QFormLayout, QTableWidget,
+    QTableWidgetItem, QHeaderView, QFileDialog, QCheckBox, QToolButton,
+    QMenu, QProgressDialog
 )
 from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
-from PyQt6.QtGui import QColor, QIcon, QAction
+from PyQt6.QtGui import QColor, QAction
 from rdkit import Chem
 from rdkit.Chem import AllChem
 import copy
-import sys
 import logging
 
 PLUGIN_NAME = "Molecule Comparator"

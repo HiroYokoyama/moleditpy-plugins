@@ -2,8 +2,8 @@
 import os
 import json
 from PyQt6.QtWidgets import (QMessageBox, QDialog, QVBoxLayout, QLabel, 
-                             QLineEdit, QSpinBox, QPushButton, QGroupBox, 
-                             QHBoxLayout, QComboBox, QTextEdit, QFileDialog, QFormLayout, QInputDialog, QSizePolicy, QCheckBox)
+                             QSpinBox, QPushButton, QGroupBox, QHBoxLayout, 
+                             QComboBox, QTextEdit, QFileDialog, QFormLayout, QInputDialog, QSizePolicy, QCheckBox)
 from PyQt6.QtCore import Qt
 from rdkit import Chem
 import logging
@@ -177,7 +177,6 @@ class GamessSetupDialog(QDialog):
             self.basis_ngauss.setEnabled(True)
         elif gbasis == "TZV":
             self.basis_ngauss.setValue(1) 
-            pass
         self.update_preview()
 
     def calc_initial_charge_mult(self):

@@ -1,7 +1,5 @@
 
-import os
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, QPushButton, QFileDialog, QMessageBox, QApplication
-import pyvista as pv
+from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, QPushButton, QFileDialog, QMessageBox
 
 PLUGIN_NAME = "High Resolution Imager"
 PLUGIN_VERSION = "2026.04.06"
@@ -60,7 +58,7 @@ def take_screenshot(context):
     btn_8k.clicked.connect(lambda: set_res(7680, 4320))
 
     # Transparent Background
-    from PyQt6.QtWidgets import QCheckBox, QColorDialog
+    from PyQt6.QtWidgets import QColorDialog
     from PyQt6.QtGui import QColor
     
     # Background Options using Radio Buttons for clarity

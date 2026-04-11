@@ -7,13 +7,12 @@ PLUGIN_DESCRIPTION = "Analyzes molecular symmetry (point group) and symmetrizes 
 import sys
 import numpy as np
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, 
-    QDoubleSpinBox, QPushButton, QListWidget, 
-    QTextEdit, QGroupBox, QMessageBox, QSplitter, QDialog
+    QVBoxLayout, QGridLayout, QLabel, QDoubleSpinBox, QPushButton, 
+    QListWidget, QTextEdit, QGroupBox, 
+    QMessageBox, QSplitter, QDialog
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from moleditpy.plugins.plugin_interface import PluginContext
-import logging
 
 # --- RDKit Imports ---
 try:
@@ -769,8 +768,6 @@ if __name__ == "__main__":
     
     # Check if dependencies are met for the mock
     try:
-        import rdkit
-        import pymatgen
         print("Dependencies found.")
     except ImportError as e:
         print(f"Warning: Missing dependencies for full functionality: {e}")
@@ -800,7 +797,6 @@ def run(mw):
         win.activateWindow()
         return
 
-    from PyQt6.QtWidgets import QDialog
     new_win = SymmetryAnalysisPlugin(context)
     new_win.setWindowTitle("Symmetry Analyzer")
     new_win.resize(400, 600)

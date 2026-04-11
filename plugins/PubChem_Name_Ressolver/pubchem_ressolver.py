@@ -1,13 +1,11 @@
-import sys
 import requests # API通信に必要 (pip install requests)
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QTableWidget, 
     QTableWidgetItem, QPushButton, QMessageBox, QLabel, QHeaderView, 
     QAbstractItemView, QApplication, QLineEdit, QComboBox
 )
-from PyQt6.QtCore import Qt, QPointF
+from PyQt6.QtCore import Qt
 from rdkit import Chem
-from rdkit.Chem import AllChem
 
 __version__="2026.04.12"
 __author__="HiroYokoyama"

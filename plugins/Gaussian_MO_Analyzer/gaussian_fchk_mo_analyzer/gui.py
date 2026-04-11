@@ -1,11 +1,10 @@
 import os
 import numpy as np
-import pyvista as pv
-from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton,
-                             QListWidget, QLabel, QDoubleSpinBox, QProgressBar, QSpinBox, 
-                             QGroupBox, QMessageBox, QWidget, QAbstractItemView, QListWidgetItem, QFormLayout, QCheckBox)
+from PyQt6.QtWidgets import (QVBoxLayout, QHBoxLayout, QPushButton, QListWidget,
+                             QLabel, QDoubleSpinBox, QProgressBar, QSpinBox, QGroupBox, 
+                             QMessageBox, QWidget, QAbstractItemView, QListWidgetItem, QFormLayout, QCheckBox)
 from PyQt6.QtGui import QColor, QBrush
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtCore import Qt
 
 # Relative imports
 from .analyzer import FCHKReader, BasisSetEngine

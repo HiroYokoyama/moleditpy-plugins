@@ -1,9 +1,7 @@
 import os
 import json
 import logging
-from functools import partial
-from PyQt6.QtWidgets import QMenu, QDialog, QVBoxLayout, QCheckBox, QDialogButtonBox, QLabel, QApplication
-from PyQt6.QtGui import QAction
+from PyQt6.QtWidgets import QDialog, QVBoxLayout, QCheckBox, QDialogButtonBox, QApplication
 from PyQt6.QtCore import QTimer
 from rdkit import Chem
 from rdkit.Chem import AllChem
@@ -393,7 +391,7 @@ class StructuralUpdaterPlugin:
                     
                     # Minimize with iteration limit to prevent hanging on complex/strained systems
                     ff.Minimize(maxIts=200)
-            except Exception as e:
+            except Exception:
                 # If optimization explodes (e.g. Invariant Violation), fallback is safer
                 # print(f"[{PLUGIN_NAME}] Optimization failed: {e}") # Suppress scary error
                 self.mw.statusBar().showMessage("Notice: Structure optimization unstable. Re-generating full 3D structure...", 5000)
