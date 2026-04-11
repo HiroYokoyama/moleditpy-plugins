@@ -4,13 +4,13 @@ import traceback
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, 
                              QListWidget, QSlider, QCheckBox, QFileDialog, QMessageBox,
                              QDockWidget, QWidget, QFormLayout, QDialogButtonBox, QSpinBox, QApplication, QTreeWidget, QTreeWidgetItem, QHeaderView, QDoubleSpinBox)
-from PyQt6.QtGui import QImage, QPainter, QPen, QColor, QFont, QPaintEvent
+from PyQt6.QtGui import QImage, QPainter, QPen, QColor, QFont, QPaintEvent, QPalette
 try:
     from PIL import Image
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QPointF
 import logging
 
 # Try to import RDKit
@@ -611,23 +611,6 @@ class OrcaOutFreqAnalyzer(QWidget):
         dlg = SpectrumDialog(freqs, intensities, title=f"IR Spectrum - {os.path.basename(self.parser.filename)}", parent=self)
         dlg.exec()
 
-    class SpectrumDialog(QDialog):
-        def __init__(self, freqs, intensities, title="Spectrum", parent=None):
-            super().__init__(parent)
-            self.setWindowTitle(title)
-            self.resize(600, 400)
-            
-            layout = QVBoxLayout(self)
-            
-            # Simple Matplotlib Plot? Or custom painter?
-            # Trying custom widget for speed/deps
-            self.plot = SpectrumWidget(freqs, intensities)
-            layout.addWidget(self.plot)
-            
-            btn_close = QPushButton("Close")
-            btn_close.clicked.connect(self.accept)
-            layout.addWidget(btn_close)
-
     class SpectrumWidget(QWidget):
         def __init__(self, freqs, intensities):
             super().__init__()
@@ -704,6 +687,25 @@ class OrcaOutFreqAnalyzer(QWidget):
             # X Label
             painter.setPen(QColor("black"))
             painter.drawText(w//2, h-5, "Wavenumber (cm⁻¹)")
+
+    class SpectrumDialog(QDialog):
+        def __init__(self, freqs, intensities, title="Spectrum", parent=None):
+            super().__init__(parent)
+            self.setWindowTitle(title)
+            self.resize(600, 400)
+            
+            layout = QVBoxLayout(self)
+            
+            # Simple Matplotlib Plot? Or custom painter?
+            # Trying custom widget for speed/deps
+            self.plot = SpectrumWidget(freqs, intensities)  # noqa: F821
+            layout.addWidget(self.plot)
+            
+            btn_close = QPushButton("Close")
+            btn_close.clicked.connect(self.accept)
+            layout.addWidget(btn_close)
+
+
     def update_list_and_spectrum_values(self):
         if not self.parser or not self.parser.final_modes: return
         

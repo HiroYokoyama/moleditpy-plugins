@@ -139,7 +139,6 @@ class MoleculeResolverDialog(QDialog):
 
                         # Fetch structure
                         self.context.show_status_message(f"PubChem: Identifying structure...")
-                        identifier = PubChemIdentifier(smiles)
                         results.append({
                             'name': p.get('Title', query),
                             'smiles': smiles,
@@ -150,7 +149,6 @@ class MoleculeResolverDialog(QDialog):
 
                 # Get Result
                 self.context.show_status_message(f"PubChem: Resolving '{query}'...")
-                resolver = PubChemResolver(query)
 
         except requests.exceptions.RequestException:
             network_error = True

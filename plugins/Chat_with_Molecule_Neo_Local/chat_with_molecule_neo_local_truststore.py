@@ -4021,9 +4021,10 @@ def run(main_window):
 
     # Use existing context if available, otherwise create one
     plugin_id = "chat_with_molecule_neo_local"
-    context = PluginContext(main_window.plugin_manager, plugin_id)
-    if not context:
+    try:
         from moleditpy.plugins.plugin_interface import PluginContext
         context = PluginContext(main_window.plugin_manager, plugin_id)
+    except ImportError:
+        return
 
     run_plugin(context)

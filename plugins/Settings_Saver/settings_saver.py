@@ -31,7 +31,7 @@ def initialize(context):
     Initialize the Settings Saver plugin at startup.
     Registers persistence handlers and menu actions.
     """
-    global PLUGIN_CONTEXT, PLUGIN_CONFIG
+    global PLUGIN_CONTEXT
     PLUGIN_CONTEXT = context
     
     # Load configuration on launch
@@ -57,7 +57,6 @@ def initialize(context):
 
 def enable_project_mode(mw):
     """Enable strict Project Mode protection."""
-    global EMBED_SETTINGS
     EMBED_SETTINGS["enabled"] = True
     
     # 1. Reset Global Dirty Flag
@@ -88,7 +87,7 @@ def enable_project_mode(mw):
 
 def disable_project_mode(mw, restore_content=True):
     """Disable Project Mode and restore global save functionality."""
-    global EMBED_SETTINGS, ORIGINAL_SETTINGS
+    global ORIGINAL_SETTINGS
     EMBED_SETTINGS["enabled"] = False
     
     # 1. Restore Original Save Function
@@ -141,7 +140,6 @@ def on_save_project():
 
 def on_load_project(data):
     """Restore data from .pmeprj."""
-    global PROJECT_PRESETS, EMBED_SETTINGS, ORIGINAL_SETTINGS
     
     if not isinstance(data, dict) or "settings" not in data:
         return
@@ -159,6 +157,7 @@ def on_load_project(data):
         if isinstance(settings, dict):
             try:
                 # BACKUP ORIGINAL SETTINGS if not already backed up
+                global ORIGINAL_SETTINGS
                 if ORIGINAL_SETTINGS is None:
                     ORIGINAL_SETTINGS = settings.copy()
 
@@ -179,7 +178,6 @@ def on_load_project(data):
 
 def on_document_reset():
     """Clear project presets when creating a new file."""
-    global PROJECT_PRESETS, EMBED_SETTINGS, ORIGINAL_SETTINGS
 
     if PLUGIN_CONTEXT:
         mw = PLUGIN_CONTEXT.get_main_window()

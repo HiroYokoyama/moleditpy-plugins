@@ -33,28 +33,6 @@ class MopacSetupDialog(QDialog):
 
         # --- Preset Management ---
         preset_group = QGroupBox("User Presets")
-        # ... (rest of early setup is fine, handled by context)
-
-    # Note: I need to target the setup_ui layout.addWidget(preview_group) specifically.
-    # The REPLACE block above only handles __init__.
-    # I will do two replacements to be safe or one large block? 
-    # The file content is large. Two replacements is better.
-    # First: __init__ updates.
-    
-    # Actually, I will just update __init__ here.
-    # Then I will update the layout line separately.
-    
-    # Wait, I can't leave comments in replacement.
-    
-    # REPLACEMENT 1: __init__
-        self.resize(500, 600)
-        self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowMinMaxButtonsHint)
-        self.setSizeGripEnabled(True)
-        self.mol = mol
-        self.filename = filename
-        self.setup_ui()
-        self.load_presets_from_file()
-        self.calc_initial_charge_mult()
 
     def setup_ui(self):
         layout = QVBoxLayout()

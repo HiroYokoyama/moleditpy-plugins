@@ -204,7 +204,7 @@
     ],
     "downloadUrl": "../plugins/PubChem_Name_Ressolver/pubchem_ressolver.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "987efa0ce7ce4cca8efceba04eb31c5589817d3b452d598722c88c521c8b8d1e",
+    "sha256": "edaa1ee382a4ef62e10b3d597c0366190fef95a730aef62686af2ed3896dc0d3",
     "firstAppeared": "2025-12-15"
   },
   {
@@ -307,7 +307,7 @@
     ],
     "downloadUrl": "../plugins/VDW_Radii_Overlay/vdw_radii_overlay.py",
     "lastUpdated": "2026-04-04",
-    "sha256": "3d59265de98b228d53bfd09c90d4e1d641d07c6e35eb5708bf78a99652725a1f",
+    "sha256": "8091cb592863f56000d72ff0121555b59611d94d2d1cd0ba2ac4ce4deeed7fd6",
     "firstAppeared": "2025-12-17"
   },
   {
@@ -351,7 +351,7 @@
     ],
     "downloadUrl": "../plugins/Orca_Input_Generator_Neo/orca_input_generator_neo.py",
     "lastUpdated": "2026-01-04",
-    "sha256": "b2ff42bd7938706702ad9730b8aa0eb85f33b01a7de50982b347b8c229f27423",
+    "sha256": "f11baf0593803312ae64a1f1d1935e0863817a9f58a085ea1fe0b5b60e13c481",
     "firstAppeared": "2026-01-03"
   },
   {
@@ -442,7 +442,7 @@
     ],
     "downloadUrl": "../plugins/ORCA_Freq_Analyzer/orca_out_freq_analyzer.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "775ca2ecefa60550ad12c501eb6c6e49a8b8b99d99b65bf0b78f885e39789d1b",
+    "sha256": "f212eff118a395beb885da68b394db5ad044e381287cb7ac20077a353a0b2f4a",
     "firstAppeared": "2025-12-20"
   },
   {
@@ -586,7 +586,7 @@
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_ChatGPT/chat_with_molecule_neo_chatGPT.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "1ed212f633be05a48943874d8f7b7433d23b10c19b84305afa3521dc0ca18684",
+    "sha256": "9eeb22ae1301e97e9d611c16cb31f99311632495e8bec49b6d2599a90caac51f",
     "firstAppeared": "2025-12-30"
   },
   {
@@ -609,7 +609,7 @@
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_Local/chat_with_molecule_neo_local.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "df0fb77e64dcb7dea4b294f6b6fae9070ce79e437c07d737845186fc26d07e65",
+    "sha256": "e974df39ea4ce98f1c044657344ab013675f7bac99085a743dce68cc90d69a88",
     "firstAppeared": "2025-12-30"
   },
   {
@@ -673,7 +673,7 @@
     ],
     "downloadUrl": "../plugins/Mopac_Input_Generator/mopac_input_generator.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "1a9c805aafb4a1a81d7880ee8864ef01a60b6c1b46b4080730f62a5d9355e31e",
+    "sha256": "a76a55562e482cb774788388d522cbfe6b23159532cad38768a0bdf39193f443",
     "firstAppeared": "2026-01-03"
   },
   {
@@ -966,7 +966,7 @@
     ],
     "downloadUrl": "../plugins/Settings_Saver/settings_saver.py",
     "lastUpdated": "2026-04-12",
-    "sha256": "fa39aa64ae2c649292fcc8b930536064f35e52b9a47a7e4412927c7d74fac172",
+    "sha256": "66bdcff76a33f54e60ddcad6d6afb5fea7c3cd33665f815603e9b367c54ca5d5",
     "firstAppeared": "2026-01-25"
   },
   {

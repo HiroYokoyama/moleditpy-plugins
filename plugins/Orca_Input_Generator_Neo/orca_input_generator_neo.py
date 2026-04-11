@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
 from PyQt6.QtWidgets import (QMessageBox, QDialog, QVBoxLayout, QLabel, 
-                             QLineEdit, QSpinBox, QPushButton, QFileDialog, 
+                             QLineEdit, QSpinBox, QPushButton, QFileDialog, QInputDialog,
                              QFormLayout, QGroupBox, QHBoxLayout, QComboBox, QTextEdit, 
                              QTabWidget, QCheckBox, QWidget, QScrollArea, QMenu, QSizePolicy)
 from PyQt6.QtGui import QPalette, QColor, QAction, QFont

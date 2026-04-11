@@ -3448,14 +3448,12 @@ class ChatMoleculeWindow(QDialog):
     def log_usage(self, response):
         """Helper to log usage metadata"""
         try:
-            if hasattr(response, 'usage_metadata'):
-                usage = response.usage_metadata
-                append_log("usage", str(usage))
+            if hasattr(response, 'usage'):
+                append_log("usage", str(response.usage))
                 
-            # User Request: "History Management" - Check token/turn count
-            # Simple heuristic: If history > N turns, prone.
-            if self.chat_session and hasattr(self.chat_session, 'history'):
-                history_len = len(self.chat_session.history)
+            # History Management
+            if hasattr(self, 'chat_history_state'):
+                history_len = len(self.chat_history_state)
                 if history_len > MAX_HISTORY:
                     self._prune_history()
                     
@@ -3463,22 +3461,11 @@ class ChatMoleculeWindow(QDialog):
             print(f"Failed to log usage / manage history: {e}")
 
     def _prune_history(self):
-        """Rolling history: Keep last N turns + System prompt context (handled by restart)"""
+        """Rolling history: Keep last N turns"""
         try:
-            old_history = self.chat_session.history
-            # Keep last 10 messages (5 turns)
-            new_history = old_history[-10:]
-            
-            # Restart session with trimmed history
-            # Note: start_chat history argument takes list of Content objects.
-            model_name = self.settings.get("model", "gpt-4o")
-            
-            model = genai.GenerativeModel(
-                model_name,
-                system_instruction=SYSTEM_PROMPT,
-                generation_config=GENERATION_CONFIG
-            )
-            self.chat_session = model.start_chat(history=new_history)
+            old_history = self.chat_history_state
+            # Keep last 10 messages
+            self.chat_history_state = old_history[-10:]
             
             self.append_message("System", "History pruned to save tokens (Rolling update).", "gray")
             append_log("System", "History pruned.")

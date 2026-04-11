@@ -38,7 +38,6 @@ _vdw_settings = {
 }
 
 def load_settings():
-    global _vdw_settings
     try:
         if os.path.exists(SETTINGS_FILE):
             with open(SETTINGS_FILE, 'r') as f:
