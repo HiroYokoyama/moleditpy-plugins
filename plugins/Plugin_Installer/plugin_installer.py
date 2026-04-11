@@ -791,6 +791,9 @@ class PluginInstallerWindow(QDialog):
                     failed.append(f"{name}: {e}")
         finally:
             self._batch_updating = False
+            self.main_window.plugin_manager.discover_plugins(self.main_window)
+            _refresh_plugin_menus(self.main_window)
+            self.populate_table()
 
         lines = [f"Updated {len(succeeded)} of {len(names)} plugin(s)."]
         if succeeded:
@@ -1204,10 +1207,11 @@ class PluginInstallerWindow(QDialog):
                                 QMessageBox.information(self, "Success", f"Successfully {verb_past} '{plugin_name}'.")
                             
                             # Reload plugins and immediately update Plugin menu + toolbar
-                            self.main_window.plugin_manager.discover_plugins(self.main_window)
-                            _refresh_plugin_menus(self.main_window)
-                            # Refresh our list (reuse already-fetched remote_data — no extra network call)
-                            self.populate_table()
+                            if not getattr(self, '_batch_updating', False):
+                                self.main_window.plugin_manager.discover_plugins(self.main_window)
+                                _refresh_plugin_menus(self.main_window)
+                                # Refresh our list (reuse already-fetched remote_data — no extra network call)
+                                self.populate_table()
                             
                         except Exception as e:
                             QMessageBox.warning(self, "Installation Error", f"Failed to install plugin:\n{e}")
