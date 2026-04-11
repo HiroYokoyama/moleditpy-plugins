@@ -78,7 +78,7 @@ def test_plugin_no_stdlib_import_errors(name, path):
                     "google", "openai", "anthropic", "truststore", "pymatgen",
                     "openbabel", "pyscf", "ase", "moleditpy", "sip", "modules",
                     "moleditpy_linux", "pybel", "matplotlib", "markdown",
-                    "vtk", "cryptography"}
+                    "vtk", "cryptography", "requests"}
         if isinstance(node, ast.ImportFrom):
             top = (node.module or "").split(".")[0]
         else:
