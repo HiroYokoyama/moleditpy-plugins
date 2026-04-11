@@ -358,7 +358,7 @@
     "id": "orca_xyz2inp_gui",
     "visible": true,
     "name": "ORCA xyz2inp GUI",
-    "version": "2026.04.01",
+    "version": "2026.04.11",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "GUI for generating ORCA input files from XYZ data with templates.",
@@ -371,10 +371,10 @@
       "rdkit",
       "PyQt6"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/orca_xyz2inp/releases/download/2/orca_xyz2inp_gui.py",
+    "downloadUrl": "https://github.com/HiroYokoyama/orca_xyz2inp/releases/download/3/orca_xyz2inp_gui.py",
     "projectUrl": "https://github.com/HiroYokoyama/orca_xyz2inp",
-    "lastUpdated": "2026-04-01",
-    "sha256": "28676d750d4d16e54fa0e0bd01b060d2bbde8cb696d2c5832baa0d590f4059d0",
+    "lastUpdated": "2026-04-11",
+    "sha256": "8fd5a971dbc0701248a836a514acf5163e1fd3b4cacaa4b35a3f6a48a3d75143",
     "firstAppeared": "2025-12-13"
   },
   {
@@ -824,7 +824,7 @@
     "id": "pyscf_calculator",
     "visible": true,
     "name": "PySCF Calculator",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Perform PySCF quantum chemistry calculations directly in MoleditPy. Features: Single Point Energy (RHF/UHF/DFT), Geometry Optimization (GeomeTRIC/Berny), Frequency Analysis, and interactive 3D visualization of Molecular Orbitals (HOMO/LUMO) and Electrostatic Potential (ESP) mapped on Density surfaces.",
@@ -839,10 +839,10 @@
       "NumPy",
       "Matplotlib"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_pyscf-calculator/releases/download/2.0.0/pyscf_calculator.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_pyscf-calculator/releases/download/2.1.0/pyscf_calculator.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_pyscf-calculator",
-    "lastUpdated": "2026-04-01",
-    "sha256": "29568048e04392f1d8cc49b09b27ad1b78182c9add4b03f7e987546805e8f010",
+    "lastUpdated": "2026-04-11",
+    "sha256": "ee6587b813cd9d75a65873aba7c53b9311bcd9076f4116d79e9addaf3db8969e",
     "firstAppeared": "2026-01-09"
   },
   {
@@ -993,7 +993,7 @@
     "id": "orca_result_analyzer",
     "visible": true,
     "name": "ORCA Result Analyzer",
-    "version": "2.2.0",
+    "version": "2.3.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Comprehensive analyzer for ORCA output files (.out, .log). Includes Vibrational, MO, TDDFT, and NMR analysis.",
@@ -1009,17 +1009,17 @@
       "Pillow",
       "nmrsim"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin/releases/download/2.2.0/orca_result_analyzer.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin/releases/download/2.3.0/orca_result_analyzer.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin",
-    "lastUpdated": "2026-04-10",
-    "sha256": "d936bf40098911ac08ca314905a745fac23e57c50a748ff01a1230779c4601e1",
+    "lastUpdated": "2026-04-11",
+    "sha256": "f9e3f7ca7d7e9c70c22a60ca047001edd561af7a80e7926188c974701a0b7b2a",
     "firstAppeared": "2026-01-27"
   },
   {
     "id": "nmr_predictor_nmrshiftdb2",
     "visible": true,
     "name": "NMR Predictor (nmrshiftdb2)",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Predict 1H and 13C NMR shifts using nmrshiftdb2. Requires Java Runtime (JRE).",
@@ -1033,10 +1033,10 @@
       "matplotlib",
       "PyQt6"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_nmr_predicator_nmrshiftdb2/releases/download/2.0.0/nmr_predicator_nmrshiftdb2.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_nmr_predicator_nmrshiftdb2/releases/download/2.1.0/nmr_predicator_nmrshiftdb2.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_nmr_predicator_nmrshiftdb2",
-    "lastUpdated": "2026-04-01",
-    "sha256": "a247c23398cc7695bbf2532f0e96e5cdbbc378cdcac891de1b5b0d31af0ac3ce",
+    "lastUpdated": "2026-04-11",
+    "sha256": "30d4f203eda609fc8455265a8faea52658dea3bf4d68665cc49ceb550989a368",
     "firstAppeared": "2026-01-29"
   },
   {
@@ -1152,7 +1152,7 @@
     "id": "reaction_sketcher",
     "visible": true,
     "name": "Reaction Sketcher",
-    "version": "2.1.0",
+    "version": "2.2.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Adds 2D reaction drawing tools (Arrows, Plus, Text) with a dedicated toolbar.",
@@ -1165,10 +1165,10 @@
       "rdkit",
       "PyQt6"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_reaction_sketcher_plugin/releases/download/2.1.0/reaction_sketcher.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_reaction_sketcher_plugin/releases/download/2.2.0/reaction_sketcher.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_reaction_sketcher_plugin",
-    "lastUpdated": "2026-04-04",
-    "sha256": "559ccf433f58827ef949a31a4c5677009a797fc67f33f5e099fc22e34e1d9d17",
+    "lastUpdated": "2026-04-11",
+    "sha256": "f8dc9218e61c937b04edec2cc3754515048d86639d200947496e56899258195e",
     "firstAppeared": "2026-02-08"
   },
   {
@@ -1195,7 +1195,7 @@
     "id": "3d_molecule_on_2d",
     "visible": true,
     "name": "3D Molecule on 2D",
-    "version": "2.1.1",
+    "version": "2.2.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Integrated 3D depth cues, rotation, and 3D-aware Mol export.",
@@ -1208,17 +1208,17 @@
       "PyQt6",
       "numpy"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_3d-molecule-on-2d/releases/download/2.1.1/3d_molecule_on_2d.py",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_3d-molecule-on-2d/releases/download/2.2.0/3d_molecule_on_2d.py",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_3d-molecule-on-2d",
-    "lastUpdated": "2026-04-06",
-    "sha256": "18678099161609f490f15a261954a1f60b6586249d57fabdfabd3ee33e4f3db2",
+    "lastUpdated": "2026-04-11",
+    "sha256": "f8dc9218e61c937b04edec2cc3754515048d86639d200947496e56899258195e",
     "firstAppeared": "2026-02-17"
   },
   {
     "id": "orca_input_generator_pro",
     "visible": true,
     "name": "ORCA Input Generator Pro",
-    "version": "2.1.1",
+    "version": "2.2.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "High-functionality setting dialog for ORCA input creation. Supports Keywords, Block Builder, and Validations.",
@@ -1230,10 +1230,10 @@
       "rdkit",
       "PyQt6"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/releases/download/2.1.1/orca_input_generator_pro.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/releases/download/2.2.0/orca_input_generator_pro.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro",
-    "lastUpdated": "2026-04-06",
-    "sha256": "22907ed5f72c4fa76393cec3f59196eef112c3f231471857a5944e74e60cb2b6",
+    "lastUpdated": "2026-04-11",
+    "sha256": "68eff996301047345ad39806e8b4766e2d8b088b7b4987497896230b36146d45",
     "firstAppeared": "2026-03-21"
   }
 ]
