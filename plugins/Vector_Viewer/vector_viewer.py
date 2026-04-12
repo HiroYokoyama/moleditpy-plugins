@@ -9,9 +9,11 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
 import logging
 
+import pyvista as pv
+
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Vector Viewer"
-PLUGIN_VERSION = "2026.04.12"
+PLUGIN_VERSION = "2026.04.13"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Visualizes vectors and exports PNGs using the V3 API."
 
@@ -137,15 +139,14 @@ class VectorViewerPlugin(QWidget):
     def get_com(self):
         """Calculate Center of Mass (COM) of the current molecule."""
         rd_mol = self.context.current_molecule
-        if rd_mol:
+        if rd_mol and rd_mol.GetNumAtoms() > 0:
             try:
                 conf = rd_mol.GetConformer()
                 positions = [conf.GetAtomPosition(i) for i in range(rd_mol.GetNumAtoms())]
                 coords = np.array([[p.x, p.y, p.z] for p in positions])
-                if len(coords) > 0:
-                    return np.mean(coords, axis=0)
+                return np.mean(coords, axis=0)
             except Exception as _e:
-                logging.warning("[vector_viewer.py:148] silenced: %s", _e)
+                logging.debug("Could not get COM from conformer: %s", _e)
         return np.array([0., 0., 0.])
 
     def update_visualization(self):
@@ -191,12 +192,14 @@ class VectorViewerPlugin(QWidget):
         # Start = COM - (Vector / 2)
         start = com - (scaled_vec / 2.0)
         
-        import pyvista as pv
         plotter = self.context.plotter
         
-        # Remove old actor
+        # Remove old actor safely
         if self.vis_actor:
-            plotter.remove_actor(self.vis_actor)
+            try:
+                plotter.remove_actor(self.vis_actor)
+            except Exception:
+                pass
             self.vis_actor = None
             
         arrow = pv.Arrow(start=start, direction=scaled_vec, scale=mag, 
@@ -205,19 +208,18 @@ class VectorViewerPlugin(QWidget):
         
         # Add to plotter
         self.vis_actor = plotter.add_mesh(arrow, color=color, opacity=opacity, name="vector_viewer_arrow")
-        self.context.refresh_3d_view()
+        plotter.render()
 
     def closeEvent(self, event):
         """Remove the vector actor from the 3D scene when the panel is closed."""
-        if self.vis_actor is not None:
-            try:
-                plotter = self.context.plotter
-                if plotter is not None:
-                    plotter.remove_actor(self.vis_actor)
-                    self.context.refresh_3d_view()
-            except Exception as _e:
-                logging.warning("[vector_viewer.py:219] silenced: %s", _e)
-            self.vis_actor = None
+        try:
+            plotter = self.context.plotter
+            if plotter is not None:
+                plotter.remove_actor(self.vis_actor)
+                plotter.render()
+        except Exception:
+            pass
+        self.vis_actor = None
         super().closeEvent(event)
 
     def export_image(self):

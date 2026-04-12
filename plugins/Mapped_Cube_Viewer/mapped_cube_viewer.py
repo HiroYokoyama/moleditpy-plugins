@@ -30,7 +30,7 @@ except ImportError:
 __author__ = "HiroYokoyama"
 PLUGIN_AUTHOR = __author__
 PLUGIN_NAME = "Mapped Cube Viewer"
-PLUGIN_VERSION = "2026.04.12"
+PLUGIN_VERSION = "2026.04.13"
 PLUGIN_DESCRIPTION = "Visualizes electrostatic potential or other properties mapped onto an isosurface from Gaussian Cube files."
 
 # --- Core Logic: Robust Parser from cube_viewer.py ---
@@ -553,9 +553,17 @@ def run_plugin(context):
             except Exception as _e:
                 logging.warning("[mapped_cube_viewer.py:546] silenced: %s", _e)
 
-        for d in mw.findChildren(QDockWidget):
-            if d.windowTitle() == "Mapped Viewer":
-                d.close()
+        # Close existing dock via context
+        old_dock = context.get_window("main_panel")
+        if old_dock:
+            try:
+                widget = old_dock.widget()
+                if hasattr(widget, 'close_plugin'):
+                    widget.close_plugin()
+                else:
+                    old_dock.close()
+            except Exception as _e:
+                 logging.warning("[mapped_cube_viewer.py:559] silenced: %s", _e)
 
         dock = QDockWidget("Mapped Viewer", mw)
         dock.setAllowedAreas(Qt.DockWidgetArea.RightDockWidgetArea)

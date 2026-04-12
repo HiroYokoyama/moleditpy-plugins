@@ -98,7 +98,7 @@
     "id": "cube_file_viewer",
     "visible": true,
     "name": "Cube File Viewer",
-    "version": "2026.04.12",
+    "version": "2026.04.13",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes Gaussian Cube files (.cube) containing volumetric data (e.g., orbitals, densities).",
@@ -111,8 +111,8 @@
       "numpy"
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer/cube_viewer.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "d10d81c9277d9c77e4ef0c366c1ab3e65245d47b7713a0af99e8f73f8cd454f3",
+    "lastUpdated": "2026-04-13",
+    "sha256": "4b3a687832499261a2769cdaf2ed388c68891132828861a17769a17d8e3c67cb",
     "firstAppeared": "2025-12-15"
   },
   {
@@ -272,7 +272,7 @@
     "id": "gaussian_input_generator_neo",
     "visible": true,
     "name": "Gaussian Input Generator Neo",
-    "version": "2026.04.12",
+    "version": "2026.04.13",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "High-functionality setting dialog for Gaussian input creation. Supports Link 0, Route, Title, Charge/Mult, and appended data.",
@@ -285,8 +285,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Gaussian_Input_Generator_Neo/gaussian_input_generator_neo.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "d173d89ccdfa69af371f7def365458099bf72c2e30a05460fe90fd8e124c94ab",
+    "lastUpdated": "2026-04-13",
+    "sha256": "07d436f27a10f1136a306e5de26349c77beefc4192b053b1b1a3dcd60894b09d",
     "firstAppeared": "2025-12-16"
   },
   {
@@ -314,7 +314,7 @@
     "id": "mapped_cube_viewer",
     "visible": true,
     "name": "Mapped Cube Viewer",
-    "version": "2026.04.12",
+    "version": "2026.04.13",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes a property (e.g. ESP) mapped onto an isosurface (e.g. electron density) from two Cube files.",
@@ -329,8 +329,8 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/Mapped_Cube_Viewer/mapped_cube_viewer.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "4d469b6c96c9bf7a52f88dbd1b4e22f53e8aa208e561d269ccb26e2401c9e776",
+    "lastUpdated": "2026-04-13",
+    "sha256": "d6b8e4e03e38c1c4d6b185cf60e28de489e777d3dd28f6da3b1811729ee82ae9",
     "firstAppeared": "2025-12-17"
   },
   {
@@ -637,7 +637,7 @@
     "id": "vector_viewer",
     "visible": true,
     "name": "Vector Viewer",
-    "version": "2026.04.12",
+    "version": "2026.04.13",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes vectors (e.g. dipole moment) and exports PNGs.",
@@ -651,8 +651,8 @@
       "pyvista"
     ],
     "downloadUrl": "../plugins/Vector_Viewer/vector_viewer.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "5d09bd632ffa27e8c188dd3c6cdc7a42e24d6d4c62f58ea3f43a6a8a73b468b7",
+    "lastUpdated": "2026-04-13",
+    "sha256": "caa587f535617518a80df3b3aa5699aca13bd08dc93bc8f7d86f93a0d712b568",
     "firstAppeared": "2025-12-31"
   },
   {
@@ -1043,7 +1043,7 @@
     "id": "cube_file_viewer_advanced",
     "visible": true,
     "name": "Cube File Viewer Advanced",
-    "version": "2026.04.12",
+    "version": "2026.04.13",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Advanced 3D visualization for Gaussian Cube files with PBR, SSAO, and other effects.",
@@ -1058,8 +1058,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer_Advanced/cube_viewer_advanced.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "4e25d2d48f85e584648fff9a382ddbf870ec0fb2f44c6584ee4ddc4e466b43e7",
+    "lastUpdated": "2026-04-13",
+    "sha256": "9ea75781ce48443c0783f547e0d5d98b32c660c9fd147861a7b317a085f0d722",
     "firstAppeared": "2026-02-02"
   },
   {

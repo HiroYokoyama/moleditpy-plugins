@@ -10,7 +10,7 @@ from rdkit import Chem
 import json
 
 PLUGIN_NAME = "Gaussian Input Generator Neo"
-PLUGIN_VERSION = "2026.04.12"
+PLUGIN_VERSION = "2026.04.13"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Advanced Gaussian Input Generator with Preview and Presets"
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "gaussian_input_generator_neo.json")
@@ -556,10 +556,28 @@ class GaussianSetupDialog(QDialog):
         help_label.setStyleSheet("color: gray; font-size: 10px;")
         tail_layout.addWidget(help_label)
 
+        # Template Selector
+        template_layout = QHBoxLayout()
+        self.tail_template_combo = QComboBox()
+        self.tail_template_combo.addItems([
+            "Select Example Template...",
+            "ModRedundant (Freeze/Scan)",
+            "Basis Set (Gen/GenECP)",
+            "Effective Core Potential (ECP)",
+            "NBO Analysis ($NBO)",
+            "Link1 (Multiple Jobs)",
+            "Connectivity (Geom=Connect)"
+        ])
+        template_layout.addWidget(self.tail_template_combo, 1)
+        self.btn_insert_tail = QPushButton("Insert")
+        self.btn_insert_tail.clicked.connect(self.insert_tail_template)
+        template_layout.addWidget(self.btn_insert_tail)
+        tail_layout.addLayout(template_layout)
+
         self.tail_edit = QTextEdit()
         self.tail_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.tail_edit.setFixedHeight(100)
-        self.tail_edit.setPlaceholderText("Example:\nD 1 2 3 4 S 10 10.0\n\nOr basis set data for Gen/GenECP...")
+        self.tail_edit.setPlaceholderText("Type custom input here or use the template drop-down above...")
         self.tail_edit.textChanged.connect(self.update_preview)
         tail_layout.addWidget(self.tail_edit)
 
@@ -599,6 +617,69 @@ class GaussianSetupDialog(QDialog):
         self.ui_ready = True # [FIXED]
         self.update_preview()
 
+    def insert_tail_template(self):
+        """Insert a template into the post-coordinate field."""
+        txt = self.tail_template_combo.currentText()
+        if "Select" in txt: return
+
+        template = ""
+        if "ModRedundant" in txt:
+            template = (
+                "! Format: [Action] [Indices/Atoms] [Options]\n"
+                "! B i j F           : Freeze bond between atom i and j\n"
+                "! A i j k S 10 1.0  : Scan angle i-j-k, 10 steps, 1.0 deg each\n"
+                "! D i j k l R       : Release dihedral constraint\n"
+                "B 1 2 F\n"
+            )
+        elif "Basis Set" in txt:
+            template = (
+                "! Format for Gen/GenECP:\n"
+                "! [Atoms] 0\n"
+                "! [Basis Set Name]\n"
+                "! ****\n"
+                "C H O 0\n"
+                "6-31G(d)\n"
+                "****\n"
+                "Fe 0\n"
+                "LanL2DZ\n"
+                "****\n\n"
+            )
+        elif "ECP" in txt:
+            template = (
+                "! Appended at the very end after basis sets if GenECP used\n"
+                "Fe 0\n"
+                "LanL2DZ\n"
+            )
+        elif "NBO" in txt:
+            template = (
+                "! Require Pop=NBORead in route\n"
+                "$NBO\n"
+                "  BNDIDX NBOSUM\n"
+                "$END\n\n"
+            )
+        elif "Link1" in txt:
+            template = (
+                "\n--Link1--\n"
+                "%Chk=filename.chk\n"
+                "#P Freq Geom=Check Guess=Read\n"
+                "\n"
+                "Frequency calculation\n"
+                "\n"
+                "0 1\n"
+            )
+        elif "Connectivity" in txt:
+            template = (
+                "! Required if Geom=Connectivity is in route line\n"
+                "1 2 1.0 3 1.0\n"
+                "2 1 1.0\n"
+                "3 1 1.0\n"
+            )
+        
+        if template:
+            cursor = self.tail_edit.textCursor()
+            cursor.insertText(template)
+            self.tail_edit.setFocus()
+
     def get_coords_string(self):
         """
         分子オブジェクトから原子座標文字列を生成する
@@ -613,7 +694,8 @@ class GaussianSetupDialog(QDialog):
             for i in range(self.mol.GetNumAtoms()):
                 pos = conf.GetAtomPosition(i)
                 atom = self.mol.GetAtomWithIdx(i)
-                symbol = atom.GetSymbol()
+                # Use custom symbol from XYZ Editor if present, otherwise element symbol
+                symbol = atom.GetProp("custom_symbol") if atom.HasProp("custom_symbol") else atom.GetSymbol()
                 # Symbol X Y Z formatted
                 lines.append(f"{symbol: <4} {pos.x: >12.6f} {pos.y: >12.6f} {pos.z: >12.6f}")
         except Exception as e:

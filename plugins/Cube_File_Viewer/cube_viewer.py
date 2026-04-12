@@ -24,7 +24,7 @@ except ImportError:
     Geometry = None
     rdDetermineBonds = None
     
-PLUGIN_VERSION = "2026.04.12"
+PLUGIN_VERSION = "2026.04.13"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Visualize Gaussian cube files (electron density, MOs)."
 PLUGIN_NAME = "Cube File Viewer"
@@ -691,28 +691,24 @@ class ChargeDialog(QDialog):
         self.result_action = "skip"
         self.accept()
 
-def open_cube_viewer(main_window, fname):
+def open_cube_viewer(context, fname):
     """Core logic to open cube viewer with a specific file."""
+    main_window = context.get_main_window()
     if Chem is None:
         QMessageBox.critical(main_window, "Error", "RDKit is required for this plugin.")
         return
 
-    # Close existing docks
-    docks_to_close = []
-    for dock in main_window.findChildren(QDockWidget):
-        if dock.windowTitle() == "Cube Viewer":
-            docks_to_close.append(dock)
-    
-    for dock in docks_to_close:
+    # Close existing dock via context
+    old_dock = context.get_window("main_panel")
+    if old_dock:
         try:
-            widget = dock.widget()
+            widget = old_dock.widget()
             if hasattr(widget, 'close_plugin'):
                 widget.close_plugin()
             else:
-                main_window.removeDockWidget(dock)
-                dock.deleteLater()
+                old_dock.close()
         except Exception as _e:
-             logging.warning("[cube_viewer.py:712] silenced: %s", _e)
+             logging.warning("[cube_viewer.py:716] silenced: %s", _e)
 
     try:
         if not fname: # Should not happen if called correctly
@@ -779,13 +775,17 @@ def open_cube_viewer(main_window, fname):
                 conf.SetAtomPosition(idx, Geometry.Point3D(pos[0], pos[1], pos[2]))
             mol.AddConformer(conf)
 
-        # Set current molecular data in main window for consistency
-        main_window.current_mol = mol
+        # Set current molecular data using V3 context
+        # This properly updates the state, enabling PNG export, XYZ tables, etc.
+        context.current_molecule = mol
         main_window.init_manager.current_file_path = fname
 
-        # Draw
-        if hasattr(main_window.view_3d_manager, 'draw_molecule_3d'):
-            main_window.view_3d_manager.draw_molecule_3d(mol)
+        # Enter full 3D viewer UI mode: minimizes 2D panel and disables editing tools (enables Export 3D)
+        if hasattr(main_window, 'ui_manager') and hasattr(main_window.ui_manager, '_enter_3d_viewer_ui_mode'):
+            try:
+                main_window.ui_manager._enter_3d_viewer_ui_mode()
+            except Exception as _e:
+                logging.warning("[cube_viewer.py] silenced: %s", _e)
 
              
         # Report bonds
@@ -793,26 +793,25 @@ def open_cube_viewer(main_window, fname):
         if hasattr(main_window, 'statusBar'):
             main_window.statusBar().showMessage(f"Loaded Cube. Atoms: {len(atoms)}, Bonds: {nb}")
 
-        # Setup Dock
         dock = QDockWidget("Cube Viewer", main_window)
         dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea)
-        
+
         # Calculate max absolute value in data for dynamic scaling
         try:
             # Data is stored in grid.point_data["values"]
-            # "make sure that the data is only in the plot data"
             flat_data = grid.point_data["values"]
             if len(flat_data) > 0:
                 data_max = float(np.max(np.abs(flat_data)))
             else:
                 data_max = 1.0
-        except:
+        except Exception:
              data_max = 1.0
 
         viewer = CubeViewerWidget(main_window, dock, grid, data_max=data_max)
         dock.setWidget(viewer)
         
         main_window.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
+        context.register_window("main_panel", dock)
         
         
         # main_window.plotter.reset_camera() # Handled in initial_update of widget
@@ -827,9 +826,12 @@ def run(mw):
         QMessageBox.critical(mw, "Error", "RDKit is required for this plugin.")
         return
 
+    from moleditpy.plugins.plugin_interface import PluginContext
+    context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
+
     fname, _ = QFileDialog.getOpenFileName(mw, "Open Gaussian Cube File", "", "Cube Files (*.cube *.cub);;All Files (*)")
     if fname:
-        open_cube_viewer(mw, fname)
+        open_cube_viewer(context, fname)
 
 def initialize(context):
     """
@@ -838,7 +840,7 @@ def initialize(context):
     mw = context.get_main_window()
 
     def open_cube_wrapper(fname):
-        open_cube_viewer(mw, fname)
+        open_cube_viewer(context, fname)
 
     # 1. Register File Opener (Handle File > Import)
     context.register_file_opener('.cube', open_cube_wrapper)
@@ -848,7 +850,7 @@ def initialize(context):
     # The system iterates drop handlers. Return True if we handled it.
     def drop_handler(file_path):
         if file_path.lower().endswith(('.cube', '.cub')):
-            open_cube_viewer(mw, file_path)
+            open_cube_viewer(context, file_path)
             return True
         return False
 

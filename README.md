@@ -99,7 +99,7 @@ To install a plugin:
     *   **Single File Plugin**: Copy the `.py` file (e.g., `ms_spectrum.py`) into the `plugins` folder.
     *   **Folder Plugin**: Copy the entire plugin folder (containing `__init__.py`) into the `plugins` folder.
 
-3.  Restart MoleditPy or use **"Reload Plugins"** feature. The new plugin will be automatically loaded.
+3.  Restart MoleditPy. The new plugin will be automatically loaded.
 
 ## Development
 

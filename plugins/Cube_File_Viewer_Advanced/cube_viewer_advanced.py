@@ -27,7 +27,7 @@ except ImportError:
 __author__ = "HiroYokoyama"
 PLUGIN_AUTHOR = __author__
 PLUGIN_NAME = "Cube File Viewer Advanced"
-PLUGIN_VERSION = "2026.04.12"
+PLUGIN_VERSION = "2026.04.13"
 PLUGIN_DESCRIPTION = "Advanced 3D visualization for Gaussian Cube files with PBR, SSAO, and other effects."
 
 def parse_cube_data(filename):
@@ -1816,6 +1816,19 @@ def open_cube_viewer(context, file_path):
     Main entry point: opens the cube file and creates the viewer dock.
     """
     main_window = context.get_main_window()
+
+    # Close existing dock via context
+    old_dock = context.get_window("main_panel")
+    if old_dock:
+        try:
+            widget = old_dock.widget()
+            if hasattr(widget, 'close_plugin'):
+                widget.close_plugin()
+            else:
+                old_dock.close()
+        except Exception as _e:
+             logging.warning("[cube_viewer_advanced.py:1821] silenced: %s", _e)
+
     try:
         # Load and parse
         meta, grid = read_cube(file_path)
@@ -1891,8 +1904,9 @@ def open_cube_viewer(context, file_path):
                 conf.SetAtomPosition(idx, Geometry.Point3D(pos[0], pos[1], pos[2]))
             mol.AddConformer(conf)
 
-        # Set current molecular data in main window for consistency
-        main_window.current_mol = mol
+        # Set current molecular data using V3 context
+        # This properly updates the state, enabling PNG export, XYZ tables, etc.
+        context.current_molecule = mol
         main_window.init_manager.current_file_path = file_path
 
         # Enter full 3D viewer UI mode: minimizes 2D panel and disables editing tools
