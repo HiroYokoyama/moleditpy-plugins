@@ -29,7 +29,7 @@ import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.04.12"
+PLUGIN_VERSION = "2026.04.13"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Checks for updates, installs new plugins, and allows manual reinstallation."
 
@@ -391,7 +391,7 @@ class PluginInstallerWindow(QDialog):
         except ImportError:
             pass
         try:
-            from moleditpy_linux.modules.constants import VERSION as _ver2  # noqa: F401
+            from moleditpy_linux.utils.constants import VERSION as _ver2  # noqa: F401
             return "moleditpy-linux"
         except ImportError:
             pass
@@ -404,7 +404,7 @@ class PluginInstallerWindow(QDialog):
             return APP_VERSION
         except ImportError:
             try:
-                from moleditpy_linux.modules.constants import VERSION as APP_VERSION
+                from moleditpy_linux.utils.constants import VERSION as APP_VERSION
                 return APP_VERSION
             except ImportError:
                 try:
@@ -414,9 +414,10 @@ class PluginInstallerWindow(QDialog):
                     try:
                         from moleditpy.utils.constants import VERSION as APP_VERSION
                     except ImportError:
-                        from moleditpy_linux.modules.constants import VERSION as APP_VERSION
+                        from moleditpy_linux.utils.constants import VERSION as APP_VERSION
                     return APP_VERSION
-                except:
+                except Exception as e:
+                    logging.warning("Plugin Installer: failed to detect version gracefully: %s", e)
                     return "0.0.0"
 
     def init_ui(self):

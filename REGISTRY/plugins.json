@@ -485,7 +485,7 @@
     "id": "plugin_installer",
     "visible": true,
     "name": "Plugin Installer",
-    "version": "2026.04.12",
+    "version": "2026.04.13",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Checks for updates, installs new plugins, and allows manual reinstallation.",
@@ -496,8 +496,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Plugin_Installer/plugin_installer.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "8e754936f35a80b46311f4479b6ab1b9d2198194a40cf94d4e71d875e27f172e",
+    "lastUpdated": "2026-04-13",
+    "sha256": "e6d96ab2d632a4215493078d380027335fbc56c131cc01988f13495eac136cb3",
     "firstAppeared": "2026-01-04"
   },
   {
