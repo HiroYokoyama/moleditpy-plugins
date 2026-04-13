@@ -8,7 +8,7 @@ from rdkit.Chem import AllChem
 import copy
 
 PLUGIN_NAME = "Conformational Search"
-PLUGIN_VERSION = "2026.04.12"
+PLUGIN_VERSION = "2026.04.13"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Perform conformational search using RDKit ETKDG."
 
@@ -93,10 +93,12 @@ class ConformerSearchDialog(QDialog):
         layout.addLayout(btn_layout)
 
     def accept(self):
-        # Push undo state when closing the dialog (confirming the selection)
+        # Commit current conformer state to the main window
         if self.target_mol:
             self.context.push_undo_checkpoint()
         super().accept()
+        # Unregister so next open creates a fresh dialog with clean state
+        self.context.register_window("main_panel", None)
 
     def reject(self):
         # Restore original coordinates if user cancels/closes without 'Accept'
@@ -106,10 +108,25 @@ class ConformerSearchDialog(QDialog):
                 conf.SetAtomPosition(i, pos)
             self.context.refresh_3d_view()
         super().reject()
+        # Unregister so next open creates a fresh dialog with clean state
+        self.context.register_window("main_panel", None)
+
+    def closeEvent(self, event):
+        # X button: behave like the Close button (accept), not cancel
+        self.accept()
+        event.ignore()
 
     def run_search(self):
-        if not self.target_mol:
+        # Always pick up the molecule currently loaded in the main window
+        current_mol = self.context.current_mol
+        if not current_mol:
+            QMessageBox.warning(self, PLUGIN_NAME, "No molecule loaded.")
             return
+        # If the molecule changed since last run, refresh target and original_coords
+        if current_mol is not self.target_mol:
+            self.target_mol = current_mol
+            conf = self.target_mol.GetConformer()
+            self.original_coords = [conf.GetAtomPosition(i) for i in range(self.target_mol.GetNumAtoms())]
 
         self.btn_run.setEnabled(False)
         self.lbl_info.setText("Running conformational search... please wait.")

@@ -79,7 +79,7 @@
     "id": "conformational_search",
     "visible": true,
     "name": "Conformational Search",
-    "version": "2026.04.12",
+    "version": "2026.04.13",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Performs conformational sampling and energy minimization.",
@@ -90,8 +90,8 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/Conformational_Search/conf_search.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "98e618d76b47a5e4515a5fffa3cefe86a10dcaa6c7a6eb5d473670e8a4e104b8",
+    "lastUpdated": "2026-04-13",
+    "sha256": "b8a035fe8a70a03677a184aa76413c96cd1d0a8c3bc8a8d366aa4e30b9da65cf",
     "firstAppeared": "2025-12-15"
   },
   {
