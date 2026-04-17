@@ -1007,7 +1007,8 @@
       "PyQt6",
       "matplotlib",
       "Pillow",
-      "nmrsim"
+      "nmrsim",
+      "scipy"
     ],
     "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin/releases/download/2.4.1/orca_result_analyzer.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin",
