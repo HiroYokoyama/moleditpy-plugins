@@ -11,7 +11,7 @@ import logging
 
 
 PLUGIN_NAME = "XYZ Editor"
-PLUGIN_VERSION = "2026.04.12"
+PLUGIN_VERSION = "2026.04.18"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "A table-based editor for atom coordinates and symbols, supporting ghost atoms. Refactored for V3 API."
 
@@ -132,28 +132,32 @@ class XYZEditorWindow(QWidget):
         layout.addLayout(edit_layout)
 
     def _enable_plotter_picking(self):
-        """Install Qt event filter on the 3D plotter widget for atom click detection."""
+        """Install Qt event filter on the 3D plotter interactor widget for atom click detection."""
         try:
             plotter = self.context.plotter
             if plotter is None:
                 return
+            interactor = getattr(plotter, "interactor", None)
+            if interactor is None:
+                return
             self._click_filter = _ClickFilter(self._on_plotter_click, parent=self)
-            plotter.installEventFilter(self._click_filter)
+            interactor.installEventFilter(self._click_filter)
         except Exception as _e:
-            logging.warning("[xyz_editor.py:142] silenced: %s", _e)
+            logging.warning("[xyz_editor.py:_enable_plotter_picking] silenced: %s", _e)
 
     def _disable_plotter_picking(self):
-        """Remove the event filter from the 3D plotter widget."""
+        """Remove the event filter from the 3D plotter interactor widget."""
         try:
             plotter = self.context.plotter
-            if plotter and self._click_filter:
-                plotter.removeEventFilter(self._click_filter)
+            interactor = getattr(plotter, "interactor", None) if plotter else None
+            if interactor and self._click_filter:
+                interactor.removeEventFilter(self._click_filter)
         except Exception as _e:
-            logging.warning("[xyz_editor.py:151] silenced: %s", _e)
+            logging.warning("[xyz_editor.py:_disable_plotter_picking] silenced: %s", _e)
         self._click_filter = None
 
     def _on_plotter_click(self, x, y, widget, modifiers):
-        """Called when a non-drag left click is detected on the 3D plotter widget."""
+        """Called when a non-drag left click is detected on the 3D plotter interactor widget."""
         try:
             import vtk
             mw = self.context.get_main_window()
@@ -163,6 +167,7 @@ class XYZEditorWindow(QWidget):
                 return
 
             # Convert Qt (top-left origin) → VTK (bottom-left origin)
+            # widget here is the interactor (QVTKRenderWindowInteractor)
             vtk_y = widget.height() - y
 
             picker = vtk.vtkCellPicker()
@@ -373,10 +378,18 @@ class XYZEditorWindow(QWidget):
         rows = set(index.row() for index in self.table.selectedIndexes())
         
         if not rows:
-            # Clear highlights
             plotter = self.context.plotter
             if plotter:
+                try:
+                    cam = plotter.camera_position
+                except (AttributeError, RuntimeError, TypeError):
+                    cam = None
                 plotter.remove_actor("xyz_selection")
+                if cam is not None:
+                    try:
+                        plotter.camera_position = cam
+                    except (AttributeError, RuntimeError, TypeError):
+                        pass
                 plotter.render()
             return
 
@@ -410,7 +423,16 @@ class XYZEditorWindow(QWidget):
         if not points:
             plotter = self.context.plotter
             if plotter:
+                try:
+                    cam = plotter.camera_position
+                except (AttributeError, RuntimeError, TypeError):
+                    cam = None
                 plotter.remove_actor("xyz_selection")
+                if cam is not None:
+                    try:
+                        plotter.camera_position = cam
+                    except (AttributeError, RuntimeError, TypeError):
+                        pass
                 plotter.render()
             return
             
@@ -424,6 +446,10 @@ class XYZEditorWindow(QWidget):
         
         plotter = self.context.plotter
         if plotter:
+            try:
+                cam = plotter.camera_position
+            except (AttributeError, RuntimeError, TypeError):
+                cam = None
             plotter.add_mesh(
                 spheres,
                 name="xyz_selection",
@@ -431,6 +457,11 @@ class XYZEditorWindow(QWidget):
                 opacity=0.5,
                 pickable=False
             )
+            if cam is not None:
+                try:
+                    plotter.camera_position = cam
+                except (AttributeError, RuntimeError, TypeError):
+                    pass
             plotter.render()
 
     def on_item_changed(self, item):

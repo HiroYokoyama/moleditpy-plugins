@@ -786,7 +786,7 @@
     "id": "xyz_editor",
     "visible": true,
     "name": "XYZ Editor",
-    "version": "2026.04.12",
+    "version": "2026.04.18",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A table-based editor for atom coordinates and symbols, supporting ghost atoms, adding and deleting atoms.",
@@ -799,8 +799,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/XYZ_Editor/xyz_editor.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "8456e8e7c5ffd45eb652f4e5a7ef805058737b51b48a0daa60d1feab0a94d9f2",
+    "lastUpdated": "2026-04-18",
+    "sha256": "7b4c508e8a270ccede427a33f9def8037f7c96fcf053fd1030820bbe643acc1a",
     "firstAppeared": "2026-01-03"
   },
   {
@@ -1219,7 +1219,7 @@
     "id": "orca_input_generator_pro",
     "visible": true,
     "name": "ORCA Input Generator Pro",
-    "version": "2.3.1",
+    "version": "2.4.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "High-functionality setting dialog for ORCA input creation. Supports Keywords, Block Builder, and Validations.",
@@ -1231,10 +1231,32 @@
       "rdkit",
       "PyQt6"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/releases/download/2.3.1/orca_input_generator_pro.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/releases/download/2.4.0/orca_input_generator_pro.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro",
-    "lastUpdated": "2026-04-15",
-    "sha256": "c31fdd6a32c0d4ca832de783ab8b80b1c45583fa764cfb8d5790804d6ad9d30b",
+    "lastUpdated": "2026-04-18",
+    "sha256": "5c1120e6783e4a8d68217f9f8d668a0a518106bdff9946f368912039bd1896eb",
     "firstAppeared": "2026-03-21"
+  },
+  {
+    "id": "nics_placer",
+    "visible": true,
+    "name": "NICS Placer",
+    "version": "1.0.0",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Detect rings and place Bq ghost atoms at NICS(0)/NICS(1) probe positions. Compatible with ORCA Input Generator Pro via the custom_symbol property.",
+    "tags": [
+      "Analysis",
+      "DFT"
+    ],
+    "dependencies": [
+      "rdkit",
+      "PyQt6"
+    ],
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_nics_placer/releases/download/1.0.0/nics_placer.zip",
+    "projectUrl": "https://github.com/HiroYokoyama/moleditpy_nics_placer",
+    "lastUpdated": "2026-04-18",
+    "sha256": "d9e4954960203f1010900a51780721f07cfa1aede243e0864b7822ad73204b4e",
+    "firstAppeared": "2026-04-18"
   }
 ]
