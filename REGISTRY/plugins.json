@@ -1241,7 +1241,7 @@
     "id": "nics_placer",
     "visible": true,
     "name": "NICS Placer",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Detect rings and place Bq ghost atoms at NICS(0)/NICS(1) probe positions. Compatible with ORCA Input Generator Pro via the custom_symbol property.",
@@ -1253,10 +1253,10 @@
       "rdkit",
       "PyQt6"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_nics_placer/releases/download/1.0.0/nics_placer.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_nics_placer/releases/download/1.0.1/nics_placer.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_nics_placer",
     "lastUpdated": "2026-04-18",
-    "sha256": "d9e4954960203f1010900a51780721f07cfa1aede243e0864b7822ad73204b4e",
+    "sha256": "a1534fe16beb3e9e1d85a2f756f414aac397ab82d0df833be986fff4e97528da",
     "firstAppeared": "2026-04-18"
   }
 ]
