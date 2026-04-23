@@ -993,7 +993,7 @@
     "id": "orca_result_analyzer",
     "visible": true,
     "name": "ORCA Result Analyzer",
-    "version": "2.5.0",
+    "version": "2.5.1",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Comprehensive analyzer for ORCA output files (.out). Includes Vibrational, MO, TDDFT, and NMR analysis.",
@@ -1010,10 +1010,10 @@
       "nmrsim",
       "scipy"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin/releases/download/2.5.0/orca_result_analyzer.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin/releases/download/2.5.1/orca_result_analyzer.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin",
     "lastUpdated": "2026-04-23",
-    "sha256": "96f13bd96bd21b2d033158f44457d1539a881a0df0572d93741e29555fa21937",
+    "sha256": "aca88a9ed82e26a3ccd8f2ecc58e460fc50e3cc683a7c4be0ee30272d42e3842",
     "firstAppeared": "2026-01-27"
   },
   {
@@ -1219,7 +1219,7 @@
     "id": "orca_input_generator_pro",
     "visible": true,
     "name": "ORCA Input Generator Pro",
-    "version": "2.4.1",
+    "version": "2.4.2",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "High-functionality setting dialog for ORCA input creation. Supports Keywords, Block Builder, and Validations.",
@@ -1231,10 +1231,10 @@
       "rdkit",
       "PyQt6"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/releases/download/2.4.1/orca_input_generator_pro.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/releases/download/2.4.2/orca_input_generator_pro.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro",
     "lastUpdated": "2026-04-23",
-    "sha256": "1934af20a58f29abc26a1783de2bbdffc327c35e110f1d4aa3d0cc986e744d56",
+    "sha256": "139e9bc2c06a0bbcc8c010211e5bcebb99882e5355f5f0ce6128bec840f6b958",
     "firstAppeared": "2026-03-21"
   },
   {
