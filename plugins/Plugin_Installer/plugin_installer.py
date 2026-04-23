@@ -29,7 +29,7 @@ import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.04.13"
+PLUGIN_VERSION = "2026.04.23"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Checks for updates, installs new plugins, and allows manual reinstallation."
 
@@ -129,7 +129,11 @@ def initialize(context):
     if not _startup_check_performed:
         _startup_check_performed = True
         settings = load_settings()
-        if settings.get("check_at_startup"):
+        if "check_at_startup" not in settings:
+            # First run: ask the user whether to enable startup checks
+            from PyQt6.QtCore import QTimer
+            QTimer.singleShot(3000, lambda: ask_user_permission(mw))
+        elif settings.get("check_at_startup"):
             from PyQt6.QtCore import QTimer
             QTimer.singleShot(2000, lambda: perform_startup_check(mw))
 
