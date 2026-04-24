@@ -103,7 +103,7 @@ _QT_INHERITED = frozenset({
     "show", "hide", "close", "resize", "move", "setWindowTitle", "windowTitle", "setWindowIcon",
     "setMinimumSize", "setMaximumSize", "setFixedSize", "setSizePolicy",
     "update", "repaint", "raise_", "lower", "activateWindow",
-    "setEnabled", "setDisabled", "isEnabled", "isVisible",
+    "setEnabled", "setDisabled", "isEnabled", "isVisible", "setVisible",
     "width", "height", "size", "pos", "geometry", "setGeometry",
     "parentWidget", "parent", "children", "findChild", "findChildren",
     "setAttribute", "testAttribute", "setStyleSheet",
@@ -371,6 +371,7 @@ _DEFAULT_ALLOWLIST: dict[str, dict | set] = {
             "edit_3d_action",      # QAction       -- set in _build_toolbar()
             "convert_button",      # QPushButton   -- set in _build_toolbar()
             "optimize_3d_button",  # QPushButton   -- set in _build_toolbar()
+            "mode_actions",
         },
         "view_3d_manager": {
             "plotter",             # CustomQtInteractor -- set via self.host.view_3d_manager.plotter = ... in main_window_init.py
@@ -381,6 +382,9 @@ _DEFAULT_ALLOWLIST: dict[str, dict | set] = {
     "mw": {
         "host", "view3d", "string_importers", "apply_3d_settings",
         "main_window_ui_manager", "main_window_string_importers",
+        "toggle_atom_info_display", "halt_all_calculations", "close_all_3d_edit_dialogs",
+        "create_json_data", "load_from_json_data", "get_current_state", "set_state_from_data",
+        "clear_2d_editor",
     },
 }
 
