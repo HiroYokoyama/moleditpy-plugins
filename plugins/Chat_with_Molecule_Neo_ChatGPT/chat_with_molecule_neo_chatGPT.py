@@ -3,7 +3,7 @@
 
 
 PLUGIN_NAME = "Chat with Molecule Neo (ChatGPT)"
-PLUGIN_VERSION = "2026.04.12"
+PLUGIN_VERSION = "2026.04.24"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with OpenAI ChatGPT about the current molecule. Automatically injects SMILES context. (Neo Version)"
 PLUGIN_ID = "chat_with_molecule_neo_chatgpt"
@@ -1018,9 +1018,9 @@ class ChatMoleculeWindow(QDialog):
             self.append_message("System", f"Loading molecule from SMILES: {smiles} ...", "blue")
 
             # Use MainWindow's importer if available
-            if hasattr(self.main_window, 'main_window_string_importers'):
+            if hasattr(self.main_window, 'string_importer_manager'):
                 try:
-                    self.main_window.main_window_string_importers.load_from_smiles(smiles)
+                    self.main_window.string_importer_manager.load_from_smiles(smiles)
                     # self.append_message("System", "Molecule loaded successfully.", "green")
                     
                     # Force immediate context update
@@ -2199,6 +2199,8 @@ class ChatMoleculeWindow(QDialog):
                  # Fallback if matching fails (e.g. significant structural change)
                  AllChem.Compute2DCoords(clean_mol)
              
+             if hasattr(self.main_window, 'edit_actions_manager') and hasattr(self.main_window.edit_actions_manager, 'clean_up_2d_structure'):
+                self.main_window.edit_actions_manager.clean_up_2d_structure() 
              # Load back
              final_smiles = Chem.MolToSmiles(clean_mol)
              
@@ -2206,8 +2208,8 @@ class ChatMoleculeWindow(QDialog):
              self.update_structure_diff_based(final_smiles)
              
              # User Request: "Optimize 2D" after conversion
-             if hasattr(self.main_window, 'clean_up_2d_structure'):
-                 self.main_window.clean_up_2d_structure()
+             if hasattr(self.main_window, 'edit_actions_manager') and hasattr(self.main_window.edit_actions_manager, 'clean_up_2d_structure'):
+                 self.main_window.edit_actions_manager.clean_up_2d_structure()
                  
              self.append_message("System", f"Transformation Applied.\nRule: `{reaction_smarts}`", "green")
                  

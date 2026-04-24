@@ -98,7 +98,7 @@
     "id": "cube_file_viewer",
     "visible": true,
     "name": "Cube File Viewer",
-    "version": "2026.04.13",
+    "version": "2026.04.24",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes Gaussian Cube files (.cube) containing volumetric data (e.g., orbitals, densities).",
@@ -111,8 +111,8 @@
       "numpy"
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer/cube_viewer.py",
-    "lastUpdated": "2026-04-13",
-    "sha256": "4b3a687832499261a2769cdaf2ed388c68891132828861a17769a17d8e3c67cb",
+    "lastUpdated": "2026-04-24",
+    "sha256": "0aa5d3638b460de2f73d69c38dc102619d17156c6c53b8e954fbf9dd35f2d80b",
     "firstAppeared": "2025-12-15"
   },
   {
@@ -253,7 +253,7 @@
     "id": "dark_mode_theme",
     "visible": true,
     "name": "Dark Mode Theme",
-    "version": "2026.04.12",
+    "version": "2026.04.24",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A plugin that automatically applies a dark mode stylesheet to MoleditPy upon loading.",
@@ -264,8 +264,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Dark_Mode_Theme/dark_mode_plugin.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "783effca5e0e5c0d83c798749241dfc8bf2fc0220581cd66d93ced5b5ed98934",
+    "lastUpdated": "2026-04-24",
+    "sha256": "3bb6f16f47555cee862dadb26de7582bbeabb1b10ad86a6aefc96d2e8b4a6e6e",
     "firstAppeared": "2025-12-16"
   },
   {
@@ -425,7 +425,7 @@
     "id": "orca_freq_analyzer",
     "visible": true,
     "name": "ORCA Freq Analyzer",
-    "version": "2026.04.12",
+    "version": "2026.04.24",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Analyzes vibrational frequencies from ORCA output files. View IR spectrum, animate normal modes, and export GIF animations.",
@@ -441,8 +441,8 @@
       "Pillow"
     ],
     "downloadUrl": "../plugins/ORCA_Freq_Analyzer/orca_out_freq_analyzer.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "3d8e2e65b0663af0e41dc78aff94df360227e65ec5a1e9ede980ea99c7ae1671",
+    "lastUpdated": "2026-04-24",
+    "sha256": "afc1828a2682b084f736d9f336dff47a2c9e9b80b960d98494a7129d43791dcd",
     "firstAppeared": "2025-12-20"
   },
   {
@@ -570,7 +570,7 @@
     "id": "chat_with_molecule_neo_chatgpt",
     "visible": true,
     "name": "Chat with Molecule Neo (ChatGPT)",
-    "version": "2026.04.12",
+    "version": "2026.04.24",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with OpenAI ChatGPT about the current molecule. Automatically injects SMILES context. (Neo Version)",
@@ -585,15 +585,15 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_ChatGPT/chat_with_molecule_neo_chatGPT.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "f16a53779677f4612bd96fe334f873c53cbf4315dbdc09f4a4dba1acce184480",
+    "lastUpdated": "2026-04-24",
+    "sha256": "9bcbf80c287718e45e8a348b5b9455bdc300339cf6f733551772755ae5476ab6",
     "firstAppeared": "2025-12-30"
   },
   {
     "id": "chat_with_molecule_neo_local",
     "visible": true,
     "name": "Chat with Molecule Neo (Local)",
-    "version": "2026.04.12",
+    "version": "2026.04.24",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with local LLM about the current molecule. Automatically injects SMILES context. (Neo Version)",
@@ -608,8 +608,8 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_Local/chat_with_molecule_neo_local.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "c963461443cba11807c49760becee77dad0019fc5dd9e4b8a010e5b200ed476f",
+    "lastUpdated": "2026-04-24",
+    "sha256": "fdc8e41e84a785cb434f68c4a7d1f77746f42e5e78c7037d1068e7eb0181308e",
     "firstAppeared": "2025-12-30"
   },
   {

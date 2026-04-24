@@ -22,7 +22,7 @@ except ImportError:
 
 PLUGIN_NAME = "ORCA Freq Analyzer"
 PLUGIN_DESCRIPTION = "Parse ORCA output files and visualize vibrational frequencies."
-PLUGIN_VERSION = "2026.04.12"
+PLUGIN_VERSION = "2026.04.24"
 PLUGIN_AUTHOR = "HiroYokoyama"
 
 class OrcaParser:
@@ -547,8 +547,8 @@ class OrcaOutFreqAnalyzer(QWidget):
             # Update Main Window Context
             if hasattr(self.mw, 'current_file_path'):
                 self.mw.current_file_path = filename
-                if hasattr(self.mw, 'update_window_title'):
-                    self.mw.update_window_title()
+                if hasattr(self.mw, 'state_manager') and hasattr(self.mw.state_manager, 'update_window_title'):
+                    self.mw.state_manager.update_window_title()
                 else:
                     self.mw.setWindowTitle(f"{os.path.basename(filename)} - MoleditPy")
                 
@@ -707,8 +707,8 @@ class OrcaOutFreqAnalyzer(QWidget):
             conf.SetAtomPosition(idx, Point3D(x, y, z))
         mol.AddConformer(conf)
         
-        if hasattr(self.mw, 'estimate_bonds_from_distances'):
-            self.mw.estimate_bonds_from_distances(mol)
+        if hasattr(self.mw, 'io_manager') and hasattr(self.mw.io_manager, 'estimate_bonds_from_distances'):
+            self.mw.io_manager.estimate_bonds_from_distances(mol)
             
         self.base_mol = mol.GetMol()
         self.mw.current_mol = self.base_mol

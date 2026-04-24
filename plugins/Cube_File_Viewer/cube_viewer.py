@@ -24,7 +24,7 @@ except ImportError:
     Geometry = None
     rdDetermineBonds = None
     
-PLUGIN_VERSION = "2026.04.13"
+PLUGIN_VERSION = "2026.04.24"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Visualize Gaussian cube files (electron density, MOs)."
 PLUGIN_NAME = "Cube File Viewer"
@@ -725,8 +725,8 @@ def open_cube_viewer(context, fname):
         if hasattr(main_window, 'plotter'):
             main_window.plotter.clear()
         
-        if hasattr(main_window, 'main_window_ui_manager'):
-            main_window.main_window_ui_manager._enter_3d_viewer_ui_mode()
+        if hasattr(main_window, 'ui_manager'):
+            main_window.ui_manager._enter_3d_viewer_ui_mode()
         
         # Create Molecule (XYZ)
         atoms = meta['atoms']

@@ -5,7 +5,7 @@ A plugin that automatically applies a dark mode stylesheet to MoleditPy upon loa
 """
 
 
-PLUGIN_VERSION = "2026.04.12"
+PLUGIN_VERSION = "2026.04.24"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Apply dark mode theme to the MoleditPy UI."
 
@@ -304,17 +304,17 @@ def autorun(main_window):
         new_bg_color = "#2b2b2b" # Dark grey
         
         # Check if settings exist and update
-        if hasattr(main_window, 'settings'):
-            main_window.settings['background_color'] = new_bg_color
+        if hasattr(main_window, 'init_manager') and hasattr(main_window.init_manager, 'settings'):
+            main_window.init_manager.settings['background_color'] = new_bg_color
             
             # Since we modify the settings directly, we should try to trigger an update
             # The 'apply_3d_settings' method in main_window usually handles this.
-            if hasattr(main_window, 'apply_3d_settings') and hasattr(main_window, 'plotter'):
-                main_window.apply_3d_settings()
-            
-            # Also update icon foregrounds if possible (custom logic in main_window)
-            # Setting 'icon_foreground' to white makes sure icons are visible on dark bg
-            main_window.settings['icon_foreground'] = '#FFFFFF'
+            if hasattr(main_window, 'view_3d_manager') and hasattr(main_window.view_3d_manager, 'apply_3d_settings') and hasattr(main_window, 'plotter'):
+                main_window.view_3d_manager.apply_3d_settings()
+
+            # Note: We don't try to change the toolbar icon color here as the main window handles it 
+            # if it observes settings changes.
+            main_window.init_manager.settings['icon_foreground'] = '#FFFFFF'
             
             # Helper: Force update icons if main_window has the method (it's in init_ui usually)
             # Re-calling init_menu_bar might be too destructive, but we can try to refresh toolbars

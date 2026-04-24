@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 check_api.py -- moleditpy-plugins repo-specific API checker.
+Version: 2026.04.24
 
 Pre-configured for the DEV_MAIN workspace layout:
 
@@ -19,6 +20,11 @@ Usage (run from repo root or anywhere):
   python scripts/check_api.py --registry --default-allowlist
   python scripts/check_api.py --plugin plugins/Atom_Colorizer/atom_colorizer.py
   python scripts/check_api.py --check-context --show-api
+
+Features:
+- Validates plugin API calls against the main MoleditPy architecture.
+- Supports scoped scanning of visible plugins via --registry.
+- Uses AST parsing to dynamically discover and allowlist UI components injected at runtime to suppress false positives.
 
 All flags from the generic plugin_api_checker.py are supported.
 Override defaults with --app / --plugin as needed.
@@ -160,9 +166,15 @@ _DEFAULT_ALLOWLIST: dict[str, dict | set] = {
             "current_file_path",
             "measurement_action",
             "analysis_action",
+            "splitter",
+            "edit_3d_action",
+            "convert_button",
         },
     },
-    "mw": set(),
+    "mw": {
+        "host", "view3d", "string_importers", "apply_3d_settings",
+        "main_window_ui_manager", "main_window_string_importers",
+    },
 }
 
 
@@ -390,7 +402,10 @@ class PluginFileChecker:
         return self.issues
 
     def _pass1_5_collect_dynamic_attrs(self, tree: ast.Module):
-        """Collect attributes that the plugin dynamically assigns to MainWindow or its managers."""
+        """
+        AST Pass 1.5: Collect attributes dynamically assigned by the plugin to MainWindow 
+        or its managers to suppress them as false positives (e.g. self.mw.my_custom_var = 1).
+        """
         for node in ast.walk(tree):
             if isinstance(node, ast.Assign):
                 for target in node.targets:
