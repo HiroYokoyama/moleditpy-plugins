@@ -373,6 +373,8 @@ class PluginFileChecker:
         self._mw_refs: set[str] = set()
         self._ctx_refs: set[str] = set()
         self._seen: set[tuple] = set()
+        self._dynamic_mw_attrs: set[str] = set()
+        self._dynamic_manager_attrs: dict[str, set[str]] = {}
 
     def check(self) -> list[Issue]:
         try:
@@ -383,8 +385,45 @@ class PluginFileChecker:
             return self.issues
         self._try_body_lines = _collect_try_body_lines(tree)
         self._pass1_collect_aliases(tree)
+        self._pass1_5_collect_dynamic_attrs(tree)
         self._pass2_check_accesses(tree)
         return self.issues
+
+    def _pass1_5_collect_dynamic_attrs(self, tree: ast.Module):
+        """Collect attributes that the plugin dynamically assigns to MainWindow or its managers."""
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Attribute):
+                        if self._is_mw_ref(target.value):
+                            self._dynamic_mw_attrs.add(target.attr)
+                        else:
+                            mgr = self._is_mw_manager_ref(target.value)
+                            if mgr:
+                                self._dynamic_manager_attrs.setdefault(mgr, set()).add(target.attr)
+            elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Attribute):
+                if self._is_mw_ref(node.target.value):
+                    self._dynamic_mw_attrs.add(node.target.attr)
+                else:
+                    mgr = self._is_mw_manager_ref(node.target.value)
+                    if mgr:
+                        self._dynamic_manager_attrs.setdefault(mgr, set()).add(node.target.attr)
+            elif isinstance(node, ast.Call):
+                if isinstance(node.func, ast.Name) and node.func.id == "setattr":
+                    if len(node.args) >= 2:
+                        arg0 = node.args[0]
+                        arg1 = node.args[1]
+                        attr_name = None
+                        if isinstance(arg1, ast.Constant) and isinstance(arg1.value, str):
+                            attr_name = arg1.value
+                            
+                        if attr_name:
+                            if self._is_mw_ref(arg0):
+                                self._dynamic_mw_attrs.add(attr_name)
+                            else:
+                                mgr = self._is_mw_manager_ref(arg0)
+                                if mgr:
+                                    self._dynamic_manager_attrs.setdefault(mgr, set()).add(attr_name)
 
     def _pass1_collect_aliases(self, tree: ast.Module):
         for node in ast.walk(tree):
@@ -449,7 +488,7 @@ class PluginFileChecker:
 
             if self._is_mw_ref(obj):
                 mw_allow = self._allowlist.get("mw", set())
-                if attr not in self.api.mw_members and attr not in mw_allow:
+                if attr not in self.api.mw_members and attr not in mw_allow and attr not in self._dynamic_mw_attrs:
                     self._add_issue(node.lineno, "UNKNOWN_MW_ATTR",
                         f"`{_repr(obj)}.{attr}` -- '{attr}' not found on MainWindow",
                         in_try)
@@ -458,7 +497,8 @@ class PluginFileChecker:
                 mgr_attr = obj.attr
                 if mgr_attr in self.api.manager_members:
                     mgr_allow = self._allowlist.get("manager", {}).get(mgr_attr, set())
-                    if attr not in self.api.manager_members[mgr_attr] and attr not in mgr_allow:
+                    dyn_mgr_allow = self._dynamic_manager_attrs.get(mgr_attr, set())
+                    if attr not in self.api.manager_members[mgr_attr] and attr not in mgr_allow and attr not in dyn_mgr_allow:
                         cls = self.api.manager_class_names.get(mgr_attr, mgr_attr)
                         self._add_issue(node.lineno, "UNKNOWN_MANAGER_ATTR",
                             f"`{_repr(obj.value)}.{mgr_attr}.{attr}` -- "
@@ -480,6 +520,11 @@ class PluginFileChecker:
             if node.func.attr in _MW_GETTER_ATTRS:
                 return True
         return False
+
+    def _is_mw_manager_ref(self, node: ast.expr) -> Optional[str]:
+        if isinstance(node, ast.Attribute) and self._is_mw_ref(node.value):
+            return node.attr
+        return None
 
     def _is_ctx_ref(self, node: ast.expr) -> bool:
         if isinstance(node, ast.Name):
