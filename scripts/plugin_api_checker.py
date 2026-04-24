@@ -6,6 +6,11 @@ plugin_api_checker.py -- AST-based MoleditPy plugin/main-app API disconnection f
 Detects AttributeError-prone accesses like `mw.nonexistent_method()` or
 `mw.view_3d_manager.bad_method()` in plugin code -- without running anything.
 
+Required arguments
+------------------
+  --app PATH    Path to the main app root (REQUIRED).
+  --plugin PATH Plugin .py file or directory to scan (REQUIRED).
+
 Usage
 -----
   # Check all plugins in a directory against the main app:
@@ -16,6 +21,10 @@ Usage
   python scripts/plugin_api_checker.py --app ../python_molecular_editor/ \\
                                         --plugin plugins/Atom_Colorizer/atom_colorizer.py
 
+  # Suppress known false positives (runtime-assigned attrs invisible to AST):
+  python scripts/plugin_api_checker.py --app ../python_molecular_editor/ \\
+                                        --plugin plugins/ --default-allowlist
+
   # Also check context.xxx accesses against the PluginContext API:
   python scripts/plugin_api_checker.py --app ../python_molecular_editor/ \\
                                         --plugin plugins/ --check-context
@@ -23,6 +32,16 @@ Usage
   # Show the full API surface that was detected:
   python scripts/plugin_api_checker.py --app ../python_molecular_editor/ \\
                                         --plugin plugins/ --show-api
+
+  # Hide issues inside try: blocks (shown as [try] by default):
+  python scripts/plugin_api_checker.py --app ../python_molecular_editor/ \\
+                                        --plugin plugins/ --skip-try
+
+Notes
+-----
+  - Uses two-pass AST analysis: alias collection then attribute access checking.
+  - Scans all app .py files for self.host.X = ... to detect dynamically-set MW attrs.
+  - For the moleditpy-plugins repo, prefer check_api.py which has repo-specific defaults.
 """
 
 import ast
@@ -49,9 +68,11 @@ class Issue:
     line: int
     code: str
     message: str
+    in_try: bool = False   # True if the access is inside a try: body
 
     def __str__(self) -> str:
-        return f"  [{self.code}] line {self.line}: {self.message}"
+        tag = "[try]" if self.in_try else "     "
+        return f"  {tag}[{self.code}] line {self.line}: {self.message}"
 
     def key(self) -> tuple:
         return (self.file, self.line, self.code, self.message)
@@ -346,12 +367,17 @@ _DEFAULT_ALLOWLIST: dict[str, dict | set] = {
             "current_file_path",   # str|None      -- set in io_logic + edit_actions
             "measurement_action",  # QAction       -- set in _build_toolbar()
             "analysis_action",     # QAction       -- set in _build_menus()
+            "splitter",            # QSplitter     -- set in _build_layout()
+            "edit_3d_action",      # QAction       -- set in _build_toolbar()
+            "convert_button",      # QPushButton   -- set in _build_toolbar()
         },
     },
-    # No confirmed-valid MW-level dynamic attrs yet.
-    # (mw.plugin_manager, mw.host, etc. are real bugs -- plugins should not
-    #  access these directly; use context.get_main_window() + managers instead.)
-    "mw": set(),
+    # MW-level attrs that plugins assign dynamically (monkey-patching) --
+    # these should ideally be refactored but are not scan bugs.
+    "mw": {
+        "host", "view3d", "string_importers", "apply_3d_settings",
+        "main_window_ui_manager", "main_window_string_importers",
+    },
 }
 
 
@@ -429,6 +455,7 @@ class PluginFileChecker:
             self.issues.append(Issue(str(self.filepath), 0, "SYNTAX_ERROR", str(exc)))
             return self.issues
 
+        self._try_body_lines = _collect_try_body_lines(tree)
         self._pass1_collect_aliases(tree)
         self._pass1_5_collect_dynamic_attrs(tree)
         self._pass2_check_accesses(tree)
@@ -553,13 +580,16 @@ class PluginFileChecker:
             if attr in _QT_INHERITED:
                 continue
 
+            in_try = node.lineno in self._try_body_lines
+
             # ---- mw.something ------------------------------------------
             if self._is_mw_ref(obj):
                 mw_allow = self._allowlist.get("mw", set())
                 if attr not in self.api.mw_members and attr not in mw_allow and attr not in self._dynamic_mw_attrs:
                     self._add_issue(
                         node.lineno, "UNKNOWN_MW_ATTR",
-                        f"`{_repr(obj)}.{attr}` -- '{attr}' not found on MainWindow"
+                        f"`{_repr(obj)}.{attr}` -- '{attr}' not found on MainWindow",
+                        in_try,
                     )
 
             # ---- mw.manager_attr.something -----------------------------
@@ -576,7 +606,8 @@ class PluginFileChecker:
                         self._add_issue(
                             node.lineno, "UNKNOWN_MANAGER_ATTR",
                             f"`{_repr(obj.value)}.{mgr_attr}.{attr}` -- "
-                            f"'{attr}' not found in {cls}"
+                            f"'{attr}' not found in {cls}",
+                            in_try,
                         )
 
             # ---- context.something ------------------------------------
@@ -584,7 +615,8 @@ class PluginFileChecker:
                 if self.api.context_members and attr not in self.api.context_members:
                     self._add_issue(
                         node.lineno, "UNKNOWN_CONTEXT_ATTR",
-                        f"`{_repr(obj)}.{attr}` -- '{attr}' not found on PluginContext"
+                        f"`{_repr(obj)}.{attr}` -- '{attr}' not found on PluginContext",
+                        in_try,
                     )
 
     # ------------------------------------------------------------------ #
@@ -618,8 +650,8 @@ class PluginFileChecker:
     # Issue recording (de-duplicated)
     # ------------------------------------------------------------------ #
 
-    def _add_issue(self, line: int, code: str, message: str):
-        issue = Issue(str(self.filepath), line, code, message)
+    def _add_issue(self, line: int, code: str, message: str, in_try: bool = False):
+        issue = Issue(str(self.filepath), line, code, message, in_try)
         key = issue.key()
         if key not in self._seen:
             self._seen.add(key)
@@ -658,6 +690,21 @@ def _call_class_name(call: ast.Call) -> Optional[str]:
     if isinstance(func, ast.Attribute):
         return func.attr
     return None
+
+
+def _collect_try_body_lines(tree: ast.Module) -> set[int]:
+    """
+    Return the set of line numbers that fall inside a try: body (not except/finally).
+    Issues on these lines may be caught at runtime.
+    """
+    lines: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Try):
+            for stmt in node.body:
+                for child in ast.walk(stmt):
+                    if hasattr(child, "lineno"):
+                        lines.add(child.lineno)
+    return lines
 
 
 def _collect_safe_positions(tree: ast.Module) -> set[int]:
@@ -749,6 +796,8 @@ def run(args) -> int:
     for pf in plugin_files:
         checker = PluginFileChecker(pf, api, check_context=args.check_context, allowlist=allowlist)
         issues = checker.check()
+        if args.skip_try:
+            issues = [i for i in issues if not i.in_try]
         if issues:
             all_issues.append((pf, issues))
 
@@ -758,7 +807,9 @@ def run(args) -> int:
         return 0
 
     total = sum(len(iss) for _, iss in all_issues)
-    print(f"Found {total} issue(s) in {len(all_issues)} file(s):")
+    n_try = sum(1 for _, iss in all_issues for i in iss if i.in_try)
+    suffix = f"  ({n_try} inside try blocks, shown with [try])" if n_try and not args.skip_try else ""
+    print(f"Found {total} issue(s) in {len(all_issues)} file(s){suffix}:")
     print("=" * 72)
 
     display_root = plugin_path.parent if plugin_path.is_file() else plugin_path
@@ -826,6 +877,13 @@ def main():
             "Suppress known false positives: runtime attributes that are valid but "
             "assigned via self.host.manager.X patterns invisible to static analysis "
             "(e.g. init_manager.scene, init_manager.view_2d, state_manager.data, etc.)"
+        ),
+    )
+    parser.add_argument(
+        "--skip-try", action="store_true",
+        help=(
+            "Hide issues whose access is inside a try: block. "
+            "By default all issues are shown; those inside try blocks are tagged [try]."
         ),
     )
     args = parser.parse_args()
