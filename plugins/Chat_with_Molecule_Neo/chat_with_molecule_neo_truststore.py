@@ -42,6 +42,7 @@ from rdkit.Chem import AllChem
 # This must be executed as early as possible to patch SSLContext
 try:
     import truststore
+    import ssl
     # Inject truststore into the system SSL defaults
     # This forces Python (urllib, requests, pip, openai) to use the Windows System Certificate Store
     # Solution for: "SSL: CERTIFICATE_VERIFY_FAILED" in corporate networks

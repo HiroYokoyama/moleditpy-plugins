@@ -136,7 +136,7 @@ class APIInfo:
 _QT_INHERITED = frozenset({
     "statusBar", "menuBar", "toolBar", "centralWidget", "setCentralWidget",
     "addToolBar", "addDockWidget", "removeDockWidget",
-    "show", "hide", "close", "resize", "move", "setWindowTitle", "setWindowIcon",
+    "show", "hide", "close", "resize", "move", "setWindowTitle", "windowTitle", "setWindowIcon",
     "setMinimumSize", "setMaximumSize", "setFixedSize", "setSizePolicy",
     "update", "repaint", "raise_", "lower", "activateWindow",
     "setEnabled", "setDisabled", "isEnabled", "isVisible",
@@ -169,6 +169,10 @@ _DEFAULT_ALLOWLIST: dict[str, dict | set] = {
             "splitter",
             "edit_3d_action",
             "convert_button",
+            "optimize_3d_button",
+        },
+        "view_3d_manager": {
+            "plotter",   # CustomQtInteractor -- set via self.host.view_3d_manager.plotter = ... in main_window_init.py
         },
     },
     "mw": {

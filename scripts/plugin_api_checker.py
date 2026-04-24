@@ -100,7 +100,7 @@ _QT_INHERITED = frozenset({
     "statusBar", "menuBar", "toolBar", "centralWidget", "setCentralWidget",
     "addToolBar", "addDockWidget", "removeDockWidget",
     # QWidget
-    "show", "hide", "close", "resize", "move", "setWindowTitle", "setWindowIcon",
+    "show", "hide", "close", "resize", "move", "setWindowTitle", "windowTitle", "setWindowIcon",
     "setMinimumSize", "setMaximumSize", "setFixedSize", "setSizePolicy",
     "update", "repaint", "raise_", "lower", "activateWindow",
     "setEnabled", "setDisabled", "isEnabled", "isVisible",
@@ -370,6 +370,10 @@ _DEFAULT_ALLOWLIST: dict[str, dict | set] = {
             "splitter",            # QSplitter     -- set in _build_layout()
             "edit_3d_action",      # QAction       -- set in _build_toolbar()
             "convert_button",      # QPushButton   -- set in _build_toolbar()
+            "optimize_3d_button",  # QPushButton   -- set in _build_toolbar()
+        },
+        "view_3d_manager": {
+            "plotter",             # CustomQtInteractor -- set via self.host.view_3d_manager.plotter = ... in main_window_init.py
         },
     },
     # MW-level attrs that plugins assign dynamically (monkey-patching) --

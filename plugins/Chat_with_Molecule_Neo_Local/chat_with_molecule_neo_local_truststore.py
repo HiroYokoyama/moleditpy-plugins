@@ -3,7 +3,7 @@
 
 
 PLUGIN_NAME = "Chat with Molecule Neo (Local) (truststore)"
-PLUGIN_VERSION = "2026.04.12"
+PLUGIN_VERSION = "2026.04.24"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with Local LLM (OpenAI-Compatible) about the current molecule. Automatically injects SMILES context. (Neo Version) Note: InChIKey is sent to PubChem."
 PLUGIN_ID = "chat_with_molecule_neo_local_truststore"
@@ -71,6 +71,7 @@ from rdkit.Chem import AllChem
 # This must be executed as early as possible to patch SSLContext
 try:
     import truststore
+    import ssl
     # Inject truststore into the system SSL defaults
     # This forces Python (urllib, requests, pip, openai) to use the Windows System Certificate Store
     # Solution for: "SSL: CERTIFICATE_VERIFY_FAILED" in corporate networks
@@ -2449,8 +2450,8 @@ class ChatMoleculeWindow(QDialog):
              self.update_structure_diff_based(final_smiles)
              
              # User Request: "Optimize 2D" after conversion
-             if hasattr(self.main_window, 'clean_up_2d_structure'):
-                 self.main_window.clean_up_2d_structure()
+             if hasattr(self.main_window, 'edit_actions_manager') and hasattr(self.main_window.edit_actions_manager, 'clean_up_2d_structure'):
+                 self.main_window.edit_actions_manager.clean_up_2d_structure()
                  
              self.append_message("System", f"Transformation Applied.\nRule: `{reaction_smarts}`", "green")
                  
@@ -2756,8 +2757,8 @@ class ChatMoleculeWindow(QDialog):
             self.load_smiles_undo_safe(smiles)
             
             # Optimize 2D layout
-            if hasattr(self.main_window, 'clean_up_2d_structure'):
-                self.main_window.clean_up_2d_structure()
+            if hasattr(self.main_window, 'edit_actions_manager') and hasattr(self.main_window.edit_actions_manager, 'clean_up_2d_structure'):
+                self.main_window.edit_actions_manager.clean_up_2d_structure()
             
             # Success message
             if name:
@@ -2797,8 +2798,8 @@ class ChatMoleculeWindow(QDialog):
             self.load_smiles_undo_safe(smiles)
             
             # 2D構造の整形
-            if hasattr(self.main_window, 'clean_up_2d_structure'):
-                self.main_window.clean_up_2d_structure()
+            if hasattr(self.main_window, 'edit_actions_manager') and hasattr(self.main_window.edit_actions_manager, 'clean_up_2d_structure'):
+                self.main_window.edit_actions_manager.clean_up_2d_structure()
 
             self.append_message("System", f"Loaded '{name}' successfully.", "green")
 
