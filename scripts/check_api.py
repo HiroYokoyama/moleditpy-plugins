@@ -15,16 +15,18 @@ Pre-configured for the DEV_MAIN workspace layout:
         check_api.py           <-- this script
 
 Usage (run from repo root or anywhere):
-  python scripts/check_api.py                          # all plugins
-  python scripts/check_api.py --registry               # visible plugins only
-  python scripts/check_api.py --registry --default-allowlist
+  python scripts/check_api.py                                    # all plugins, strict
+  python scripts/check_api.py --registry                         # visible plugins only
+  python scripts/check_api.py --registry --default-allowlist     # suppress manager false positives
+  python scripts/check_api.py --registry --default-allowlist --mw-allowlist  # also suppress mw.X compat bridges
   python scripts/check_api.py --plugin plugins/Atom_Colorizer/atom_colorizer.py
   python scripts/check_api.py --check-context --show-api
 
-Features:
-- Validates plugin API calls against the main MoleditPy architecture.
-- Supports scoped scanning of visible plugins via --registry.
-- Uses AST parsing to dynamically discover and allowlist UI components injected at runtime to suppress false positives.
+Allowlist flags:
+  --default-allowlist   Suppress manager attrs set via self.host.manager.X = ... (AST-invisible).
+                        Safe to use routinely; these are confirmed false positives.
+  --mw-allowlist        Also suppress direct mw.X legacy compat bridge attrs (mw.host, mw.view3d …).
+                        Off by default — enabling it hides real V3 migration bugs.
 
 All flags from the generic plugin_api_checker.py are supported.
 Override defaults with --app / --plugin as needed.
@@ -155,9 +157,20 @@ _QT_INHERITED = frozenset({
 
 
 # ---------------------------------------------------------------------------
-# Default allowlist -- confirmed-valid runtime attributes invisible to AST.
 # ---------------------------------------------------------------------------
-_DEFAULT_ALLOWLIST: dict[str, dict | set] = {
+# Allowlists
+# ---------------------------------------------------------------------------
+# _MANAGER_ALLOWLIST  -- safe, confirmed false positives: attrs assigned via
+#   self.host.manager.X = ... patterns that the AST scanner cannot see.
+#   Activated by --default-allowlist.
+#
+# _MW_ALLOWLIST       -- opt-in suppression for direct mw.X accesses that are
+#   known legacy compat bridges (mw.host, mw.view3d, …).  NOT included in
+#   --default-allowlist because hiding mw.X accesses masks real V3 migration
+#   bugs.  Activated by --mw-allowlist.
+# ---------------------------------------------------------------------------
+
+_MANAGER_ALLOWLIST: dict[str, dict | set] = {
     "manager": {
         "state_manager": {"data"},
         "init_manager": {
@@ -173,9 +186,12 @@ _DEFAULT_ALLOWLIST: dict[str, dict | set] = {
             "mode_actions",
         },
         "view_3d_manager": {
-            "plotter",   # CustomQtInteractor -- set via self.host.view_3d_manager.plotter = ... in main_window_init.py
+            "plotter",   # CustomQtInteractor -- set via self.host.view_3d_manager.plotter = ...
         },
     },
+}
+
+_MW_ALLOWLIST: dict[str, dict | set] = {
     "mw": {
         "host", "view3d", "string_importers", "apply_3d_settings",
         "main_window_ui_manager", "main_window_string_importers",
@@ -184,6 +200,19 @@ _DEFAULT_ALLOWLIST: dict[str, dict | set] = {
         "clear_2d_editor",
     },
 }
+
+# Keep a combined alias for callers that want both (e.g. --default-allowlist + --mw-allowlist)
+def _merge_allowlists(*lists) -> dict:
+    merged: dict = {}
+    for al in lists:
+        for key, val in al.items():
+            if key == "manager":
+                mgr = merged.setdefault("manager", {})
+                for mgr_name, members in val.items():
+                    mgr.setdefault(mgr_name, set()).update(members)
+            elif key == "mw":
+                merged.setdefault("mw", set()).update(val)
+    return merged
 
 
 # ---------------------------------------------------------------------------
@@ -692,10 +721,19 @@ def run(args) -> int:
         plugin_files = collect_plugin_files(plugin_path)
         print(f"Scanning {len(plugin_files)} plugin file(s)...\n")
 
-    allowlist = _DEFAULT_ALLOWLIST if args.default_allowlist else {}
+    parts = []
+    if args.default_allowlist:
+        parts.append(_MANAGER_ALLOWLIST)
+    if args.mw_allowlist:
+        parts.append(_MW_ALLOWLIST)
+    allowlist = _merge_allowlists(*parts) if parts else {}
     if allowlist:
         n_mgr = sum(len(v) for v in allowlist.get("manager", {}).values())
-        print(f"Default allowlist active: {n_mgr} manager attr(s) suppressed\n")
+        n_mw  = len(allowlist.get("mw", set()))
+        suppressed = []
+        if n_mgr: suppressed.append(f"{n_mgr} manager attr(s)")
+        if n_mw:  suppressed.append(f"{n_mw} mw attr(s)")
+        print(f"Allowlist active: {', '.join(suppressed)} suppressed\n")
 
     all_issues: list[tuple[Path, list[Issue]]] = []
     for pf in plugin_files:
@@ -785,8 +823,16 @@ def main():
     parser.add_argument(
         "--default-allowlist", action="store_true",
         help=(
-            "Suppress known false positives: runtime attrs assigned via "
-            "self.host.manager.X patterns (init_manager.scene, state_manager.data, etc.)"
+            "Suppress known manager false positives: runtime attrs assigned via "
+            "self.host.manager.X patterns invisible to AST "
+            "(init_manager.scene, state_manager.data, etc.)"
+        ),
+    )
+    parser.add_argument(
+        "--mw-allowlist", action="store_true",
+        help=(
+            "Also suppress known direct mw.X legacy compat attrs "
+            "(mw.host, mw.view3d, etc.).  Off by default so mw.X issues remain visible."
         ),
     )
     parser.add_argument(

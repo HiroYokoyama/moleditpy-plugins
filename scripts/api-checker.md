@@ -21,7 +21,7 @@ A repository-specific variant of the checker script. It contains the same core e
 Before checking any plugins, the tool builds a "truth map" of the application API:
 
 1.  **MainWindow Analysis**: It parses `main_window.py` to index all methods, class attributes, and signals.
-2.  **Manager Discovery**: It identifies attributes on the `MainWindow` that are assigned instances of known Manager classes (e.g., `View3DManager`, `StateManager`). 
+2.  **Manager Discovery**: It identifies attributes on the `MainWindow` that are assigned instances of known Manager classes (e.g., `View3DManager`, `StateManager`).
 3.  **Cross-File Parsing**: For every discovered Manager, it locates the source file, parses the class definition, and indexes:
     *   Public methods and `@property` getters.
     *   Attributes explicitly assigned to `self` in `__init__` and setup methods.
@@ -46,16 +46,33 @@ Static analysis cannot see everything that happens at runtime. The tool uses sev
 
 -   **Inherited Methods**: It has a built-in list (`_QT_INHERITED`) of standard `QWidget`/`QMainWindow` methods (like `setVisible`, `show`, `resize`) that are always permitted.
 -   **Try-Block Heuristic**: Accesses inside a `try: ... except:` block are flagged with a `[try]` tag and are often ignored in CI, as they imply the developer has provided a fallback.
--   **The Allowlist**: Confirmed-valid dynamic attributes (like `splitter`, `edit_3d_action`) are maintained in the `_DEFAULT_ALLOWLIST` in `check_api.py`.
+-   **The Manager Allowlist** (`--default-allowlist`): Suppresses confirmed-valid dynamic attributes on manager objects — those assigned via `self.host.init_manager.X = ...` patterns invisible to AST (e.g. `init_manager.scene`, `state_manager.data`). Safe to enable in all scans.
+-   **The MW Allowlist** (`--mw-allowlist`): Suppresses known legacy compat bridge attrs accessed directly on the MainWindow (e.g. `mw.host`, `mw.view3d`). **Off by default** — enabling it will hide real V3 migration bugs where plugins still call methods that have moved to managers.
 
 ---
 
 ## Usage Guide
 
-### Basic Scan
-Check a specific plugin against the local app repository:
+### Basic Scan (strictest — recommended for CI)
+Check a specific plugin against the local app repository. Direct `mw.X` accesses are all reported.
 ```powershell
 python scripts/check_api.py --app ../python_molecular_editor --plugin plugins/MyPlugin --default-allowlist
+```
+
+### Suppress manager false positives only (recommended for routine use)
+```powershell
+python scripts/check_api.py --app ../python_molecular_editor --plugin plugins/MyPlugin --default-allowlist
+```
+
+### Also suppress legacy mw.X compat bridges (opt-in)
+Use this when you know the `mw.host` / `mw.view3d` patterns are intentional and don't want noise from them:
+```powershell
+python scripts/check_api.py --app ../python_molecular_editor --plugin plugins/MyPlugin --default-allowlist --mw-allowlist
+```
+
+### Suppress try-block issues
+```powershell
+python scripts/check_api.py --app ../python_molecular_editor --plugin plugins/MyPlugin --default-allowlist --skip-try
 ```
 
 ### Registry Scan
@@ -78,6 +95,19 @@ python scripts/check_api.py --app ../python_molecular_editor --show-api
 
 ---
 
+## Allowlist Design
+
+There are two separate allowlists with different risk profiles:
+
+| Flag | Allowlist | What it suppresses | Risk |
+|---|---|---|---|
+| `--default-allowlist` | `_MANAGER_ALLOWLIST` | Manager attrs set via `self.host.manager.X = ...` (AST-invisible) | **Low** — confirmed false positives |
+| `--mw-allowlist` | `_MW_ALLOWLIST` | Direct `mw.X` legacy compat bridge attrs | **High** — can hide real V3 migration bugs |
+
+**Rule of thumb**: always pass `--default-allowlist`. Only pass `--mw-allowlist` when auditing a plugin that you know intentionally uses legacy compat patterns.
+
+---
+
 ## Maintenance & Troubleshooting
 
 ### Scanned Attribute "Not Found"
@@ -87,7 +117,7 @@ If a valid attribute is being flagged as missing, follow these steps:
     *   *Bad*: `self.data = ...` (assigned in a hidden helper).
     *   *Better*: Add `self.data: Optional[MoleculeData] = None` to `__init__`.
 2.  **Check for Host-Delegation**: If the attribute is set via `self.host.attr = ...`, ensure the script is scanning the file where that assignment happens.
-3.  **Update the Allowlist**: If the attribute is injected by external tools (like a `.ui` file or `QtDesigner`), add it to the `_DEFAULT_ALLOWLIST` in `check_api.py`.
+3.  **Update the Manager Allowlist**: If the attribute is genuinely runtime-injected and confirmed valid, add it to `_MANAGER_ALLOWLIST` in `check_api.py`. Do **not** put it in `_MW_ALLOWLIST` unless it is a direct `mw.X` legacy bridge.
 
 ### Error Codes
 - `[UNKNOWN_MW_ATTR]`: The attribute was called directly on the `MainWindow`.
