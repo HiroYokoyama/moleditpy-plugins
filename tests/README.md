@@ -126,7 +126,7 @@ Deep unit tests for the `Plugin_Installer` plugin specifically.
 
 ### `test_api.py` — Static API compatibility check (1 test)
 
-Uses `scripts/check_api.py` to perform a two-phase AST scan:
+Uses `api-checker/check_api.py` to perform a two-phase AST scan:
 
 1. **Phase 1** — Extract the `MainWindow` API surface from the main app source
    (methods, manager classes, `self.host.X = ...` assignments).

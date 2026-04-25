@@ -83,43 +83,43 @@ Example: `moleditpy_reaction_sketcher_plugin/.moleditpy-api-allowlist` suppresse
 
 ## Usage Guide
 
-### Plugin scan — recommended for routine use
-Suppress manager false positives; direct `mw.X` accesses are still all reported.
+### For External Developers (Recommended)
+Use `plugin_api_checker.py` for standalone plugin development. It is portable and requires explicit paths.
+
+**Routine scan** (suppress manager false positives):
 ```powershell
-python scripts/check_api.py --app ../python_molecular_editor --plugin plugins/MyPlugin --default-allowlist
+python api-checker/plugin_api_checker.py --app path/to/python_molecular_editor --plugin path/to/MyPlugin --default-allowlist
 ```
 
-### Plugin scan — also suppress legacy mw.X compat bridges
-Use when `mw.host` / `mw.view3d` patterns are intentional and you don't want noise from them.
+**Full audit** (also suppress legacy `mw.X` compat bridges):
 ```powershell
-python scripts/check_api.py --app ../python_molecular_editor --plugin plugins/MyPlugin --default-allowlist --mw-allowlist
+python api-checker/plugin_api_checker.py --app path/to/python_molecular_editor --plugin path/to/MyPlugin --default-allowlist --mw-allowlist
 ```
 
-### Plugin scan — hide try-block issues
+---
+
+### For `moleditpy-plugins` Contributors (Internal)
+Use `check_api.py` which uses pre-configured repo-relative paths for the main app and registry.
+
+**Scan a specific plugin in this repo:**
 ```powershell
-python scripts/check_api.py --app ../python_molecular_editor --plugin plugins/MyPlugin --default-allowlist --skip-try
+python api-checker/check_api.py --plugin plugins/MyPlugin --default-allowlist
 ```
 
-### Registry scan — all visible plugins
+**Registry scan** (all visible plugins in this repo):
 ```powershell
-python scripts/check_api.py --app ../python_molecular_editor --registry --default-allowlist
+python api-checker/check_api.py --registry --default-allowlist
 ```
 
-### Main app source scan — intra-app consistency check
-Verify that the core application's own internal logic correctly uses the V3 manager API.
+**Main app source/test scan** (intra-app consistency):
 ```powershell
-python scripts/check_api.py --app ../python_molecular_editor --plugin ../python_molecular_editor/moleditpy/src --default-allowlist
-```
-
-### Main app test scan — catch outdated test helpers
-Scan the main app's test suite for API disconnections. See [Scanning Test Code](#scanning-test-code) for known false positives.
-```powershell
-python scripts/check_api.py --app ../python_molecular_editor --plugin ../python_molecular_editor/tests --default-allowlist
+python api-checker/check_api.py --plugin ../python_molecular_editor/moleditpy/src --default-allowlist
+python api-checker/check_api.py --plugin ../python_molecular_editor/tests --default-allowlist
 ```
 
 ### Show the detected API surface
 ```powershell
-python scripts/check_api.py --app ../python_molecular_editor --show-api
+python api-checker/plugin_api_checker.py --app path/to/python_molecular_editor --show-api
 ```
 
 ---

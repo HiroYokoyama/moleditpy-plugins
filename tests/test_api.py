@@ -1,7 +1,7 @@
 """
 Static API-compatibility check for all visible plugins.
 
-Uses ``scripts/check_api.py`` to verify that every visible plugin only accesses
+Uses ``api-checker/check_api.py`` to verify that every visible plugin only accesses
 MainWindow / manager attributes that actually exist in the main app.
 
 Both allowlists are active:
@@ -30,12 +30,12 @@ import pytest
 # Paths
 # ---------------------------------------------------------------------------
 
-_SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "scripts"
+_SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "api-checker"
 _REGISTRY_PATH = Path(__file__).resolve().parents[1] / "REGISTRY" / "plugins.json"
 _DEFAULT_APP = Path(__file__).resolve().parents[2] / "python_molecular_editor"
 
 # ---------------------------------------------------------------------------
-# Load check_api as a module (it lives in scripts/, not a package)
+# Load check_api as a module (it lives in api-checker/, not a package)
 # ---------------------------------------------------------------------------
 
 
