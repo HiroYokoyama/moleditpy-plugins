@@ -116,7 +116,11 @@ python api-checker/check_api.py --app ../python_molecular_editor --plugin plugin
 **Main app source/test scan**:
 Verify that the core application's own internal logic correctly uses the V3 manager API.
 ```powershell
-python api-checker/check_api.py --app ../python_molecular_editor --plugin ../python_molecular_editor/moleditpy/src --default-allowlist
+# Using the generic engine for intra-app audit:
+python api-checker/plugin_api_checker.py --app ../python_molecular_editor --plugin ../python_molecular_editor/moleditpy/src --default-allowlist
+
+# Scan the main app's test suite:
+python api-checker/plugin_api_checker.py --app ../python_molecular_editor --plugin ../python_molecular_editor/tests --default-allowlist
 ```
 
 ### Show the detected API surface
