@@ -238,7 +238,8 @@ def _load_site_allowlist(plugin_path: Path) -> dict:
                     for k, v in data["manager"].items()
                 }
             return result
-        if directory == directory.parent:
+        # Stop at repo root or filesystem root — don't leak into parent repos.
+        if (directory / ".git").exists() or directory == directory.parent:
             break
     return {}
 
