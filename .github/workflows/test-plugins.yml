@@ -7,21 +7,59 @@ on:
     branches: [ main ]
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # Standard tests — registry integrity, syntax, smoke tests.
+  # No main app required.
+  # ---------------------------------------------------------------------------
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: pip install pytest pytest-mock
+
+      - name: Validate plugins.json
+        run: python scripts/validate_json.py
+
+      - name: Run plugin tests
+        run: pytest tests/ -v --tb=short
+
+  # ---------------------------------------------------------------------------
+  # API compatibility check — requires the main app.
+  # Clones python_molecular_editor at --depth 1 so test_api.py is not skipped.
+  # ---------------------------------------------------------------------------
+  test-api:
+    runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
-      - name: Install pytest
-        run: pip install pytest
+      - name: Install dependencies
+        run: pip install pytest pytest-mock
+
+      - name: Clone main MoleditPy application
+        run: |
+          git clone --depth 1 \
+            https://github.com/HiroYokoyama/python_molecular_editor.git \
+            ../python_molecular_editor
 
       - name: Validate plugins.json
         run: python scripts/validate_json.py
 
-      - name: Run plugin tests
+      - name: Run plugin tests (with API check)
         run: pytest tests/ -v --tb=short
