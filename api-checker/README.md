@@ -99,22 +99,24 @@ python api-checker/plugin_api_checker.py --app path/to/python_molecular_editor -
 ---
 
 ### For `moleditpy-plugins` Contributors (Internal)
-Use `check_api.py` which is tailored for this repository. It automatically handles registry-based scanning and uses repo-relative defaults.
+The primary way to verify the repository is to scan all **visible** plugins listed in the registry.
 
-**Scan a specific plugin in this repo:**
+**Full Registry Scan** (Recommended for maintenance):
+This command parses `REGISTRY/plugins.json` and scans only the plugins where `"visible": true`.
+```powershell
+python api-checker/check_api.py --app ../python_molecular_editor --registry --default-allowlist --mw-allowlist
+```
+
+**Individual Plugin Scan**:
+Use this while developing a specific plugin before adding it to the registry.
 ```powershell
 python api-checker/check_api.py --app ../python_molecular_editor --plugin plugins/MyPlugin --default-allowlist
 ```
 
-**Registry scan** (all visible plugins in this repo):
-```powershell
-python api-checker/check_api.py --app ../python_molecular_editor --registry --default-allowlist
-```
-
-**Main app source/test scan** (intra-app consistency):
+**Main app source/test scan**:
+Verify that the core application's own internal logic correctly uses the V3 manager API.
 ```powershell
 python api-checker/check_api.py --app ../python_molecular_editor --plugin ../python_molecular_editor/moleditpy/src --default-allowlist
-python api-checker/check_api.py --app ../python_molecular_editor --plugin ../python_molecular_editor/tests --default-allowlist
 ```
 
 ### Show the detected API surface
