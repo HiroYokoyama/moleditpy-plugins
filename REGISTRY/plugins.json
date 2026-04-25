@@ -1153,7 +1153,7 @@
     "id": "reaction_sketcher",
     "visible": true,
     "name": "Reaction Sketcher",
-    "version": "2.3.2",
+    "version": "2.3.3",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Adds 2D reaction drawing tools (Arrows, Plus, Text) with a dedicated toolbar.",
@@ -1168,8 +1168,8 @@
     ],
     "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_reaction_sketcher_plugin/releases/download/2.3.2/reaction_sketcher.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_reaction_sketcher_plugin",
-    "lastUpdated": "2026-04-24",
-    "sha256": "5d5a87d27b65c3e6381d4bd0c9190822c7052848bf3b78415b01c7e9e0f3fce3",
+    "lastUpdated": "2026-04-25",
+    "sha256": "4c17fce22ac4d1f86e110e8a1a0d539a90a8c280e527a4464285c8b8ed7d6b59",
     "firstAppeared": "2026-02-08"
   },
   {
