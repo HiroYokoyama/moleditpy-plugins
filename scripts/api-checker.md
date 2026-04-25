@@ -39,14 +39,45 @@ Plugin files are scanned in two passes:
 
 ## Allowlist Design
 
-There are two separate allowlists with different risk profiles:
+There are three allowlist mechanisms with different scopes and risk profiles:
 
-| Flag | Allowlist | What it suppresses | Risk |
+| Source | What it suppresses | Activated by | Risk |
 |---|---|---|---|
-| `--default-allowlist` | `_MANAGER_ALLOWLIST` | Manager attrs set via `self.host.manager.X = ...` (AST-invisible) | **Low** — confirmed false positives |
-| `--mw-allowlist` | `_MW_ALLOWLIST` | Direct `mw.X` legacy compat bridge attrs (`mw.host`, `mw.view3d`, …) | **High** — can hide real V3 migration bugs |
+| `_MANAGER_ALLOWLIST` | Manager attrs set via `self.host.manager.X = ...` (AST-invisible) | `--default-allowlist` | **Low** — confirmed false positives |
+| `_MW_ALLOWLIST` | Direct `mw.X` legacy compat bridge attrs (`mw.host`, `mw.view3d`, …) | `--mw-allowlist` | **High** — can hide real V3 migration bugs |
+| `.moleditpy-api-allowlist` | Per-repo site-specific attrs (e.g. `hasattr`-guarded V2 compat patterns) | Auto-discovered | **Low** — opt-in per plugin repo |
 
-**Rule of thumb**: always pass `--default-allowlist`. Only pass `--mw-allowlist` when you know the plugin intentionally uses V2 compat patterns.
+**Rule of thumb**: always pass `--default-allowlist`. Only pass `--mw-allowlist` when you know the plugin intentionally uses V2 compat patterns. Use `.moleditpy-api-allowlist` in the plugin repo for per-repo suppressions.
+
+### `.moleditpy-api-allowlist` — per-repo site allowlist
+
+Place this JSON file in the plugin repo root. Both `plugin_api_checker.py` and `check_api.py` auto-discover it by walking up from the `--plugin` path — no flag required.
+
+Each value accepts a **list** (attrs only) or an **object** (`attr → reason`). The reason strings are ignored by the checker and serve as inline comments explaining why each attr is safe to skip:
+
+```json
+{
+  "mw": {
+    "select_all": "hasattr-guarded V2 compat — interaction.py:702",
+    "last_open_path": "hasattr-guarded V2 compat — mode_manager.py:817"
+  },
+  "manager": {
+    "state_manager": {
+      "data": "runtime-injected by molecule loader, not in __init__"
+    }
+  }
+}
+```
+
+List form also accepted (no comments):
+
+```json
+{ "mw": ["attr1", "attr2"] }
+```
+
+Use this for attrs that are accessed via `hasattr()` guards in the plugin — the scanner cannot see through `hasattr` at the static level, so these are safe false positives specific to that repo.
+
+Example: `moleditpy_reaction_sketcher_plugin/.moleditpy-api-allowlist` suppresses 6 V2 compat attrs that are all guarded by `hasattr(mw, ...)` in `interaction.py`, `mode_manager.py`, and `patcher.py`.
 
 ---
 

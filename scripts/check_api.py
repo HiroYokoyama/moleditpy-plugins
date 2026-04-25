@@ -201,6 +201,48 @@ _MW_ALLOWLIST: dict[str, dict | set] = {
     },
 }
 
+def _load_site_allowlist(plugin_path: Path) -> dict:
+    """
+    Walk up from plugin_path looking for .moleditpy-api-allowlist.
+
+    Each value can be a list (attrs only) or an object (attr -> reason string).
+    The reason strings are ignored by the checker — they serve as inline comments.
+
+      List form (no comments):
+        { "mw": ["attr1", "attr2"] }
+
+      Object form (with per-attr reasons):
+        { "mw": { "attr1": "why it is safe to skip", "attr2": "..." } }
+
+      Manager attrs follow the same pattern per manager:
+        { "manager": { "state_manager": { "data": "injected by loader" } } }
+
+    Returns a merged allowlist dict, or {} if no file is found.
+    """
+    search = plugin_path if plugin_path.is_dir() else plugin_path.parent
+    for directory in [search, *search.parents]:
+        candidate = directory / ".moleditpy-api-allowlist"
+        if candidate.exists():
+            try:
+                data = json.loads(candidate.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError) as exc:
+                print(f"Warning: could not parse {candidate}: {exc}", file=sys.stderr)
+                return {}
+            result: dict = {}
+            if "mw" in data:
+                mw_val = data["mw"]
+                result["mw"] = set(mw_val.keys() if isinstance(mw_val, dict) else mw_val)
+            if "manager" in data:
+                result["manager"] = {
+                    k: set(v.keys() if isinstance(v, dict) else v)
+                    for k, v in data["manager"].items()
+                }
+            return result
+        if directory == directory.parent:
+            break
+    return {}
+
+
 # Keep a combined alias for callers that want both (e.g. --default-allowlist + --mw-allowlist)
 def _merge_allowlists(*lists) -> dict:
     merged: dict = {}
@@ -726,6 +768,17 @@ def run(args) -> int:
         parts.append(_MANAGER_ALLOWLIST)
     if args.mw_allowlist:
         parts.append(_MW_ALLOWLIST)
+
+    site_allowlist = _load_site_allowlist(plugin_path)
+    if site_allowlist:
+        n_s_mw  = len(site_allowlist.get("mw", set()))
+        n_s_mgr = sum(len(v) for v in site_allowlist.get("manager", {}).values())
+        site_desc = []
+        if n_s_mw:  site_desc.append(f"{n_s_mw} mw attr(s)")
+        if n_s_mgr: site_desc.append(f"{n_s_mgr} manager attr(s)")
+        print(f"Site allowlist (.moleditpy-api-allowlist): {', '.join(site_desc)}\n")
+        parts.append(site_allowlist)
+
     allowlist = _merge_allowlists(*parts) if parts else {}
     if allowlist:
         n_mgr = sum(len(v) for v in allowlist.get("manager", {}).values())
