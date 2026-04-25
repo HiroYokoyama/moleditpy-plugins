@@ -7,13 +7,13 @@ This directory contains the tools used to maintain API compatibility between the
 ## Core Scripts
 
 ### `plugin_api_checker.py` (The Engine)
-The fundamental scanning logic. It implements a two-pass visitor pattern to map the application's API and then verify plugin usage against that map.
+The core scanning logic. It is a **standalone, portable tool** that requires explicit paths for both the application and the plugin. Use this for general-purpose auditing or when working on a single plugin outside of this repository.
 
-### `check_api.py`
-A repository-specific variant pre-configured for the `moleditpy-plugins` repository with:
-- Pre-defined paths for the main app and plugins.
-- Support for registry-based scanning (via `REGISTRY/plugins.json`).
-- Allowlists for confirmed-valid dynamic runtime attributes.
+### `check_api.py` (The Repo Runner)
+A **repository-specific wrapper** pre-configured for the `moleditpy-plugins` environment. Its primary advantages are:
+- **Registry Support**: Can scan all plugins listed in `REGISTRY/plugins.json` in one pass.
+- **Pre-configured Paths**: Defaults to the standard relative paths for this workspace layout.
+- **CI Integration**: Used by the automated test suite to ensure the entire collection remains compatible.
 
 ---
 
@@ -99,22 +99,22 @@ python api-checker/plugin_api_checker.py --app path/to/python_molecular_editor -
 ---
 
 ### For `moleditpy-plugins` Contributors (Internal)
-Use `check_api.py` which uses pre-configured repo-relative paths for the main app and registry.
+Use `check_api.py` which is tailored for this repository. It automatically handles registry-based scanning and uses repo-relative defaults.
 
 **Scan a specific plugin in this repo:**
 ```powershell
-python api-checker/check_api.py --plugin plugins/MyPlugin --default-allowlist
+python api-checker/check_api.py --app ../python_molecular_editor --plugin plugins/MyPlugin --default-allowlist
 ```
 
 **Registry scan** (all visible plugins in this repo):
 ```powershell
-python api-checker/check_api.py --registry --default-allowlist
+python api-checker/check_api.py --app ../python_molecular_editor --registry --default-allowlist
 ```
 
 **Main app source/test scan** (intra-app consistency):
 ```powershell
-python api-checker/check_api.py --plugin ../python_molecular_editor/moleditpy/src --default-allowlist
-python api-checker/check_api.py --plugin ../python_molecular_editor/tests --default-allowlist
+python api-checker/check_api.py --app ../python_molecular_editor --plugin ../python_molecular_editor/moleditpy/src --default-allowlist
+python api-checker/check_api.py --app ../python_molecular_editor --plugin ../python_molecular_editor/tests --default-allowlist
 ```
 
 ### Show the detected API surface
