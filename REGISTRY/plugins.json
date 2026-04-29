@@ -1258,5 +1258,26 @@
     "lastUpdated": "2026-04-18",
     "sha256": "a1534fe16beb3e9e1d85a2f756f414aac397ab82d0df833be986fff4e97528da",
     "firstAppeared": "2026-04-18"
+  },
+  {
+    "id": "molibrary",
+    "visible": true,
+    "name": "Molibrary Browser",
+    "version": "1.0.0",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "projectUrl": "https://github.com/HiroYokoyama/chem_db_web",
+    "description": "Standalone intranet chemistry structure and protocol database. Connects MoleditPy to a local Molibrary server for structure searching and importing.",
+    "tags": [
+      "Database"
+    ],
+    "dependencies": [
+      "rdkit",
+      "PyQt6"
+    ],
+    "downloadUrl": "https://github.com/HiroYokoyama/chem_db_web/releases/download/1.0.0/molibrary_plugin.py",
+    "lastUpdated": "2026-04-29",
+    "sha256": "9f2ee1bd5a0f63c0ac8f45a057a28e26397e9d7938a0ad3e7604b4983e3bb47f",
+    "firstAppeared": "2026-04-29"
   }
 ]
