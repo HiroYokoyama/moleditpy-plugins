@@ -993,7 +993,7 @@
     "id": "orca_result_analyzer",
     "visible": true,
     "name": "ORCA Result Analyzer",
-    "version": "2.5.2",
+    "version": "2.5.3",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Comprehensive analyzer for ORCA output files (.out). Includes Vibrational, MO, TDDFT, and NMR analysis.",
@@ -1010,10 +1010,10 @@
       "nmrsim",
       "scipy"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin/releases/download/2.5.2/orca_result_analyzer.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin/releases/download/2.5.3/orca_result_analyzer.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin",
-    "lastUpdated": "2026-04-24",
-    "sha256": "7794519b261efc55a8500ad777844a0cfd6e3cb22a04439e9ce69cc8eaa705f8",
+    "lastUpdated": "2026-04-30",
+    "sha256": "b8b623f253c1e9d6c39a8a6e12049d4ecb98fd838191cbe3ccc833f223041830",
     "firstAppeared": "2026-01-27"
   },
   {
@@ -1263,7 +1263,7 @@
     "id": "molibrary",
     "visible": true,
     "name": "Molibrary Browser",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/chem_db_web",
@@ -1275,9 +1275,9 @@
       "rdkit",
       "PyQt6"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/chem_db_web/releases/download/1.0.0/molibrary_plugin.py",
+    "downloadUrl": "https://github.com/HiroYokoyama/chem_db_web/releases/download/1.1.0/molibrary_plugin.py",
     "lastUpdated": "2026-04-29",
-    "sha256": "9f2ee1bd5a0f63c0ac8f45a057a28e26397e9d7938a0ad3e7604b4983e3bb47f",
+    "sha256": "5fa3f58ba0395cf0997e7918c95f901e9710fcc5d48a34bf0d56f356a7fa5120",
     "firstAppeared": "2026-04-29"
   }
 ]
