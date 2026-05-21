@@ -1279,5 +1279,28 @@
     "lastUpdated": "2026-04-29",
     "sha256": "5fa3f58ba0395cf0997e7918c95f901e9710fcc5d48a34bf0d56f356a7fa5120",
     "firstAppeared": "2026-04-29"
+  },
+    {
+    "id": "cif_viewer",
+    "visible": true,
+    "name": "CIF Viewer",
+    "version": "0.2.0",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "projectUrl": "https://github.com/HiroYokoyama/moleditpy_cif_viewer",
+    "description": "Visualization-only CIF crystal structure viewer with unit-cell and supercell rendering for MoleditPy.",
+    "tags": [
+      "File IO"
+    ],
+    "dependencies": [
+      "rdkit",
+      "PyQt6",
+      "pymatgen",
+      "numpy"
+    ],
+    "downloadUrl": "https://github.com/HiroYokoyama/chem_db_web/releases/download/1.1.0/molibrary_plugin.py",
+    "lastUpdated": "2026-04-29",
+    "sha256": "5fa3f58ba0395cf0997e7918c95f901e9710fcc5d48a34bf0d56f356a7fa5120",
+    "firstAppeared": "2026-04-29"
   }
 ]
