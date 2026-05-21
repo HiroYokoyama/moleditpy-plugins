@@ -1298,9 +1298,9 @@
       "pymatgen",
       "numpy"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/chem_db_web/releases/download/1.1.0/molibrary_plugin.py",
-    "lastUpdated": "2026-04-29",
-    "sha256": "5fa3f58ba0395cf0997e7918c95f901e9710fcc5d48a34bf0d56f356a7fa5120",
-    "firstAppeared": "2026-04-29"
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_cif_viewer/releases/download/0.2.0/cif_viewer.zip",
+    "lastUpdated": "2026-05-21",
+    "sha256": "57e20370ea967764ddcaad15f30a5246298c167fc72e5b8d7484a33acfcdf06b",
+    "firstAppeared": "2026-05-21"
   }
 ]
