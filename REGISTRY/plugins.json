@@ -1284,7 +1284,7 @@
     "id": "cif_viewer",
     "visible": true,
     "name": "CIF Viewer",
-    "version": "0.3.0",
+    "version": "0.4.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_cif_viewer",
@@ -1298,9 +1298,9 @@
       "pymatgen",
       "numpy"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_cif_viewer/releases/download/0.3.0/cif_viewer.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_cif_viewer/releases/download/0.4.0/cif_viewer.zip",
     "lastUpdated": "2026-05-22",
-    "sha256": "ba58f38731cec7acd49bcb9a724922c014afd4ea77b7af49d4e7437c61068c2e",
+    "sha256": "8365790c8cd0390140477afd9509bfb4c3aece5809ff853f568318eb34331e37",
     "firstAppeared": "2026-05-21"
   }
 ]
