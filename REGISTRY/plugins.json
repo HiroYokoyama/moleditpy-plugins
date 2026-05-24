@@ -1307,7 +1307,7 @@
     "id": "rotation_giffer",
     "visible": true,
     "name": "Rotation Giffer",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_rotation_giffer",
@@ -1321,9 +1321,9 @@
       "pymatgen",
       "Pillow"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_rotation_giffer/releases/download/1.0.0/rotation_giffer.py",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_rotation_giffer/releases/download/1.1.0/rotation_giffer.py",
     "lastUpdated": "2026-05-24",
-    "sha256": "8f38bf42c93338b8fe81e78183e79f6f4dfa0846c4e5ae23f04d8fa55b1b5549",
+    "sha256": "6c0f74d320ed7f7c06fbf16bf4e1a684ea8cdce682b0ad0c6f2e3db89e8a169f",
     "firstAppeared": "2026-05-24"
   }
 ]
