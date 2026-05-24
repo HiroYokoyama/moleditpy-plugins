@@ -1302,5 +1302,28 @@
     "lastUpdated": "2026-05-24",
     "sha256": "e27e139ef501640ce8615f019b46e00940eda93b252fec7a3c91e3e3af3e6d91",
     "firstAppeared": "2026-05-21"
+  },
+      {
+    "id": "rotation_giffer",
+    "visible": true,
+    "name": "Rotation Giffer",
+    "version": "1.0.0",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "projectUrl": "https://github.com/HiroYokoyama/moleditpy_rotation_giffer",
+    "description": "Creates a rotating GIF around global or view axes by orbiting the camera.",
+    "tags": [
+      "Export"
+    ],
+    "dependencies": [
+      "pyvista",
+      "PyQt6",
+      "pymatgen",
+      "Pillow"
+    ],
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_rotation_giffer/releases/download/1.0.0/rotation_giffer.py",
+    "lastUpdated": "2026-05-24",
+    "sha256": "8f38bf42c93338b8fe81e78183e79f6f4dfa0846c4e5ae23f04d8fa55b1b5549",
+    "firstAppeared": "2026-05-24"
   }
 ]
