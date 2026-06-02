@@ -432,5 +432,79 @@ def test_date_override_invalid(mock_file, mock_extract, mock_urlopen, mock_exit)
         
     mock_exit.assert_called_with(1)
 
+@patch('sys.exit')
+@patch('urllib.request.urlopen')
+@patch('register_remote_plugin.extract_metadata_from_file')
+@patch('builtins.open', new_callable=mock_open, read_data='[{"id": "some_plugin", "visible": true, "supported_moleditpy_version": "3.5", "name": "Some Plugin", "version": "1.0.0", "downloadUrl": "https://github.com/HiroYokoyama/some_plugin/releases/download/v1.0.0/some_plugin.py", "projectUrl": "https://github.com/HiroYokoyama/some_plugin"}]')
+def test_update_preserves_previous_supported_version(mock_file, mock_extract, mock_urlopen, mock_exit):
+    # Setup mocks
+    mock_response = MagicMock()
+    mock_response.read.return_value = b"mock content"
+    mock_urlopen.return_value.__enter__.return_value = mock_response
+    
+    mock_extract.return_value = {
+        "name": "Some Plugin",
+        "version": "1.1.0",
+        "author": "HiroYokoyama",
+        "description": "Some description"
+    }
+    
+    # Configure command-line args for update without passing --supported-version
+    test_args = [
+        "scripts/register_remote_plugin.py",
+        "https://github.com/HiroYokoyama/some_plugin/releases/download/v1.1.0/some_plugin.py",
+        "--dry-run"
+    ]
+    
+    with patch('sys.argv', test_args), patch('builtins.print') as mock_print:
+        register_remote_plugin.main()
+        
+    # Verify that the output JSON still contains `"supported_moleditpy_version": "3.5"`
+    printed_calls = [c[0][0] for c in mock_print.call_args_list if c[0]]
+    found_preserved = False
+    for p in printed_calls:
+        if isinstance(p, str) and '"supported_moleditpy_version": "3.5"' in p:
+            found_preserved = True
+            break
+    assert found_preserved, "Expected the update output to preserve the existing supported version"
+
+@patch('sys.exit')
+@patch('urllib.request.urlopen')
+@patch('register_remote_plugin.extract_metadata_from_file')
+@patch('builtins.open', new_callable=mock_open, read_data='[{"id": "some_plugin", "visible": true, "supported_moleditpy_version": "3.5", "name": "Some Plugin", "version": "1.0.0", "downloadUrl": "https://github.com/HiroYokoyama/some_plugin/releases/download/v1.0.0/some_plugin.py", "projectUrl": "https://github.com/HiroYokoyama/some_plugin"}]')
+def test_update_overwrites_supported_version(mock_file, mock_extract, mock_urlopen, mock_exit):
+    # Setup mocks
+    mock_response = MagicMock()
+    mock_response.read.return_value = b"mock content"
+    mock_urlopen.return_value.__enter__.return_value = mock_response
+    
+    mock_extract.return_value = {
+        "name": "Some Plugin",
+        "version": "1.1.0",
+        "author": "HiroYokoyama",
+        "description": "Some description"
+    }
+    
+    # Configure command-line args for update passing a new --supported-version
+    test_args = [
+        "scripts/register_remote_plugin.py",
+        "https://github.com/HiroYokoyama/some_plugin/releases/download/v1.1.0/some_plugin.py",
+        "--supported-version", "3.6",
+        "--dry-run"
+    ]
+    
+    with patch('sys.argv', test_args), patch('builtins.print') as mock_print:
+        register_remote_plugin.main()
+        
+    # Verify that the output JSON contains the new `"supported_moleditpy_version": "3.6"`
+    printed_calls = [c[0][0] for c in mock_print.call_args_list if c[0]]
+    found_overwritten = False
+    for p in printed_calls:
+        if isinstance(p, str) and '"supported_moleditpy_version": "3.6"' in p:
+            found_overwritten = True
+            break
+    assert found_overwritten, "Expected the update output to contain the overwritten supported version"
+
+
 
 
