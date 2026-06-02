@@ -888,7 +888,10 @@ class PluginInstallerWindow(QDialog):
                 name = btn.property("plugin_name")
                 try:
                     btn.click()
-                    succeeded.append(name)
+                    if getattr(self, '_last_install_succeeded', False):
+                        succeeded.append(name)
+                    else:
+                        failed.append(f"{name} (Skipped/Cancelled)")
                 except Exception as e:
                     failed.append(f"{name}: {e}")
         finally:
@@ -901,7 +904,7 @@ class PluginInstallerWindow(QDialog):
         if succeeded:
             lines.append("\nSucceeded:\n" + "\n".join(f"  - {n}" for n in succeeded))
         if failed:
-            lines.append("\nFailed:\n" + "\n".join(f"  - {n}" for n in failed))
+            lines.append("\nFailed / Skipped:\n" + "\n".join(f"  - {n}" for n in failed))
         QMessageBox.information(self, "Update All Complete", "\n".join(lines))
 
     def show_plugin_details(self, row, col):
@@ -997,6 +1000,7 @@ class PluginInstallerWindow(QDialog):
         dependencies = btn.property("dependencies") or []
         missing_deps = []
         user_confirmed_intent = False
+        self._last_install_succeeded = False
 
         # Check if installed
         is_installed = False
@@ -1338,6 +1342,8 @@ class PluginInstallerWindow(QDialog):
                             # Success Message
                             # Success Message & Dependency Check
                             verb_past = "updated" if is_installed else "installed"
+                            
+                            self._last_install_succeeded = True
                             
                             if missing_deps:
                                 # Reduce dialogs: Combine Success + Warning
