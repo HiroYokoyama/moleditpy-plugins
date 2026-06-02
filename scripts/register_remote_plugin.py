@@ -74,8 +74,8 @@ def parse_version(v_str: str) -> tuple:
             parts.append(part)
     return tuple(parts)
 
-def extract_metadata_from_code(code_text: str) -> dict:
-    """Extracts plugin metadata constants from python code."""
+def extract_metadata_from_code_regex(code_text: str) -> dict:
+    """Extracts plugin metadata constants from python code using regular expressions."""
     meta = {}
     for key, regex in [
         ("name", PLUGIN_NAME_RE),
@@ -97,6 +97,54 @@ def extract_metadata_from_code(code_text: str) -> dict:
             meta[key] = parse_python_list_or_string(match.group("val"))
             
     return meta
+
+def extract_metadata_from_code(code_text: str) -> dict:
+    """Extracts plugin metadata constants from python code using AST (falling back to regex)."""
+    meta = {}
+    try:
+        import ast
+        import textwrap
+        dedented_code = textwrap.dedent(code_text)
+        tree = ast.parse(dedented_code)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Name) and target.id in [
+                        "PLUGIN_NAME", "PLUGIN_VERSION", "PLUGIN_AUTHOR", "PLUGIN_DESCRIPTION", "PLUGIN_TAGS", "PLUGIN_DEPENDENCIES"
+                    ]:
+                        try:
+                            val = ast.literal_eval(node.value)
+                            if target.id == "PLUGIN_NAME":
+                                meta["name"] = str(val).strip()
+                            elif target.id == "PLUGIN_VERSION":
+                                meta["version"] = str(val).strip()
+                            elif target.id == "PLUGIN_AUTHOR":
+                                meta["author"] = str(val).strip()
+                            elif target.id == "PLUGIN_DESCRIPTION":
+                                meta["description"] = str(val).strip()
+                            elif target.id == "PLUGIN_TAGS":
+                                if isinstance(val, (list, tuple)):
+                                    meta["tags"] = [str(x).strip() for x in val if x]
+                                elif isinstance(val, str):
+                                    meta["tags"] = [x.strip() for x in val.split(",") if x.strip()]
+                                else:
+                                    meta["tags"] = [str(val).strip()]
+                            elif target.id == "PLUGIN_DEPENDENCIES":
+                                if isinstance(val, (list, tuple)):
+                                    meta["dependencies"] = [str(x).strip() for x in val if x]
+                                elif isinstance(val, str):
+                                    meta["dependencies"] = [x.strip() for x in val.split(",") if x.strip()]
+                                else:
+                                    meta["dependencies"] = [str(val).strip()]
+                        except Exception as e:
+                            print(f"Warning: Failed to evaluate constant {target.id}: {e}")
+        # Validate we got at least some fields before returning, otherwise fallback
+        if "name" in meta or "version" in meta:
+            return meta
+    except Exception as e:
+        print(f"Warning: AST parse failed, falling back to regex: {e}")
+        
+    return extract_metadata_from_code_regex(code_text)
 
 def extract_metadata_from_file(file_path: Path) -> dict:
     """Extracts metadata from a .py or .zip file."""

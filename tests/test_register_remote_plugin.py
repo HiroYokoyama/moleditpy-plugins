@@ -306,3 +306,21 @@ def test_author_mismatch_fails(mock_file, mock_extract, mock_urlopen, mock_exit)
     # Expecting sys.exit(1) to be called due to mismatched author
     mock_exit.assert_called_with(1)
 
+def test_extract_metadata_multiline_parenthesized():
+    code = """
+    PLUGIN_NAME = "PySCF Calculator"
+    PLUGIN_VERSION = "2.3.0"
+    PLUGIN_AUTHOR = "HiroYokoyama"
+    PLUGIN_DESCRIPTION = (
+        "Perform PySCF quantum chemistry calculations directly in MoleditPy. "
+        "Features: Single Point Energy (RHF/UHF/DFT), Geometry Optimization (Geometric/Berny), "
+        "Frequency Analysis, and interactive 3D visualization."
+    )
+    """
+    meta = register_remote_plugin.extract_metadata_from_code(code)
+    assert meta["name"] == "PySCF Calculator"
+    assert meta["version"] == "2.3.0"
+    assert meta["author"] == "HiroYokoyama"
+    assert "Perform PySCF quantum chemistry" in meta["description"]
+    assert "interactive 3D visualization" in meta["description"]
+
