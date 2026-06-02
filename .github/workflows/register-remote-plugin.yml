@@ -90,6 +90,14 @@ jobs:
           # Execute the python script with the safely built arguments list
           eval "python scripts/register_remote_plugin.py \"$RELEASE_URL\" $ARGS"
 
+      - name: Install test dependencies
+        run: pip install pytest
+
+      - name: Validate and test modified registry
+        run: |
+          python scripts/validate_json.py
+          pytest tests/test_registry.py -v
+
       - name: Commit and Push changes
         run: |
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
