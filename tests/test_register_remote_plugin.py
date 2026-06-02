@@ -1,8 +1,9 @@
+import hashlib
 import json
 import re
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 
@@ -121,3 +122,136 @@ def test_find_existing_plugin():
         plugins, "OtherOwner", "other_repo", "other_file.py"
     )
     assert p_none is None
+
+# ---------------------------------------------------------------------------
+# Unit tests for Security SHA-256 Checks
+# ---------------------------------------------------------------------------
+
+@patch('sys.exit')
+@patch('urllib.request.urlopen')
+@patch('register_remote_plugin.extract_metadata_from_file')
+@patch('builtins.open', new_callable=mock_open, read_data="[]")
+def test_security_check_non_hiro_missing_sha(mock_file, mock_extract, mock_urlopen, mock_exit):
+    # Setup mocks
+    mock_response = MagicMock()
+    mock_response.read.return_value = b"mock content"
+    mock_urlopen.return_value.__enter__.return_value = mock_response
+    
+    mock_extract.return_value = {
+        "name": "Third Party Plugin",
+        "version": "1.0.0",
+        "author": "ThirdParty",
+        "description": "Some description"
+    }
+    
+    # Configure command-line args for non-HiroYokoyama repo, missing expected SHA
+    test_args = [
+        "scripts/register_remote_plugin.py",
+        "https://github.com/ThirdParty/some_plugin/releases/download/v1.0.0/plugin.py",
+        "--dry-run"
+    ]
+    
+    with patch('sys.argv', test_args):
+        register_remote_plugin.main()
+        
+    # Expecting sys.exit(1) to be called due to missing SHA
+    mock_exit.assert_called_with(1)
+
+@patch('sys.exit')
+@patch('urllib.request.urlopen')
+@patch('register_remote_plugin.extract_metadata_from_file')
+@patch('builtins.open', new_callable=mock_open, read_data="[]")
+def test_security_check_non_hiro_mismatched_sha(mock_file, mock_extract, mock_urlopen, mock_exit):
+    # Setup mocks
+    mock_response = MagicMock()
+    mock_response.read.return_value = b"mock content"
+    mock_urlopen.return_value.__enter__.return_value = mock_response
+    
+    mock_extract.return_value = {
+        "name": "Third Party Plugin",
+        "version": "1.0.0",
+        "author": "ThirdParty",
+        "description": "Some description"
+    }
+    
+    # Configure command-line args for non-HiroYokoyama repo, mismatched expected SHA
+    test_args = [
+        "scripts/register_remote_plugin.py",
+        "https://github.com/ThirdParty/some_plugin/releases/download/v1.0.0/plugin.py",
+        "--expected-sha256", "wrongsha1234567890",
+        "--dry-run"
+    ]
+    
+    with patch('sys.argv', test_args):
+        register_remote_plugin.main()
+        
+    # Expecting sys.exit(1) to be called due to mismatched SHA
+    mock_exit.assert_called_with(1)
+
+@patch('sys.exit')
+@patch('urllib.request.urlopen')
+@patch('register_remote_plugin.extract_metadata_from_file')
+@patch('builtins.open', new_callable=mock_open, read_data="[]")
+def test_security_check_non_hiro_matching_sha(mock_file, mock_extract, mock_urlopen, mock_exit):
+    # Setup mocks
+    mock_response = MagicMock()
+    mock_content = b"mock content"
+    mock_response.read.return_value = mock_content
+    mock_urlopen.return_value.__enter__.return_value = mock_response
+    
+    actual_sha = hashlib.sha256(mock_content).hexdigest()
+    
+    mock_extract.return_value = {
+        "name": "Third Party Plugin",
+        "version": "1.0.0",
+        "author": "ThirdParty",
+        "description": "Some description"
+    }
+    
+    # Configure command-line args for non-HiroYokoyama repo, matching expected SHA
+    test_args = [
+        "scripts/register_remote_plugin.py",
+        "https://github.com/ThirdParty/some_plugin/releases/download/v1.0.0/plugin.py",
+        "--expected-sha256", actual_sha,
+        "--dry-run"
+    ]
+    
+    # We expect sys.exit to NOT be called since verification succeeds
+    with patch('sys.argv', test_args):
+        register_remote_plugin.main()
+        
+    # Expecting sys.exit to NOT be called with 1 (success)
+    calls = [c[0][0] for c in mock_exit.call_args_list if c[0]]
+    assert 1 not in calls
+
+@patch('sys.exit')
+@patch('urllib.request.urlopen')
+@patch('register_remote_plugin.extract_metadata_from_file')
+@patch('builtins.open', new_callable=mock_open, read_data='[{"id": "rotation_giffer", "name": "Rotation Giffer", "version": "1.2.0", "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_rotation_giffer/releases/download/1.2.0/rotation_giffer.py", "projectUrl": "https://github.com/HiroYokoyama/moleditpy_rotation_giffer"}]')
+def test_same_version_dry_run_warning(mock_file, mock_extract, mock_urlopen, mock_exit):
+    # Setup mocks
+    mock_response = MagicMock()
+    mock_response.read.return_value = b"mock content"
+    mock_urlopen.return_value.__enter__.return_value = mock_response
+    
+    mock_extract.return_value = {
+        "name": "Rotation Giffer",
+        "version": "1.2.0",
+        "author": "HiroYokoyama",
+        "description": "Creates a rotating GIF around global or view axes by orbiting the camera."
+    }
+    
+    # Configure command-line args for hiroyokoyama repo, same version, with dry-run
+    test_args = [
+        "scripts/register_remote_plugin.py",
+        "https://github.com/HiroYokoyama/moleditpy_rotation_giffer/releases/download/1.2.0/rotation_giffer.py",
+        "--dry-run"
+    ]
+    
+    with patch('sys.argv', test_args):
+        register_remote_plugin.main()
+        
+    # Check that sys.exit was NOT called with 1
+    calls = [c[0][0] for c in mock_exit.call_args_list if c[0]]
+    assert 1 not in calls
+

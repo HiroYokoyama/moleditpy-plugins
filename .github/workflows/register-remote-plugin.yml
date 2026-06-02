@@ -27,6 +27,10 @@ on:
           - 'true'
           - 'false'
         default: 'true'
+      expected_sha256:
+        description: 'Expected SHA-256 hash (Required for non-HiroYokoyama plugins)'
+        required: false
+        type: string
       dry_run:
         description: 'Dry run (validate but do not commit/push changes)'
         required: true
@@ -60,6 +64,7 @@ jobs:
           TAGS: ${{ github.event.inputs.tags }}
           DEPS: ${{ github.event.inputs.dependencies }}
           VISIBLE: ${{ github.event.inputs.visible }}
+          EXPECTED_SHA: ${{ github.event.inputs.expected_sha256 }}
           DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |
           ARGS=""
@@ -74,6 +79,9 @@ jobs:
           fi
           if [ -n "$VISIBLE" ]; then
             ARGS="$ARGS --visible \"$VISIBLE\""
+          fi
+          if [ -n "$EXPECTED_SHA" ]; then
+            ARGS="$ARGS --expected-sha256 \"$EXPECTED_SHA\""
           fi
           if [ "$DRY_RUN" = "true" ]; then
             ARGS="$ARGS --dry-run"

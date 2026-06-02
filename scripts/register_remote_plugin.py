@@ -133,6 +133,7 @@ def main():
     parser.add_argument("--dependencies", help="Comma-separated dependencies for new plugins")
     parser.add_argument("--visible", default="true", help="Set visibility of the plugin (default: true)")
     parser.add_argument("--dry-run", action="store_true", help="Perform checks and downloads but do not write to the registry")
+    parser.add_argument("--expected-sha256", dest="expected_sha256", help="Expected SHA-256 hash (Required for non-HiroYokoyama plugins)")
     
     args = parser.parse_args()
     
@@ -208,6 +209,30 @@ def main():
     sha256_hash = hashlib.sha256(asset_data).hexdigest()
     print(f"Downloaded successfully. SHA-256: {sha256_hash}")
     
+    # Security Validation for non-HiroYokoyama repositories
+    is_hiroyokoyama = owner.lower() == "hiroyokoyama"
+    if not is_hiroyokoyama:
+        if not args.expected_sha256:
+            print(
+                "Error: Security Violation: A manual --expected-sha256 hash is required for "
+                f"plugins registered from non-HiroYokoyama repositories ('{owner}').",
+                file=sys.stderr
+            )
+            sys.exit(1)
+            
+    if args.expected_sha256:
+        clean_expected = args.expected_sha256.strip().lower()
+        if clean_expected != sha256_hash:
+            print(
+                f"Error: Security Verification Failed: The provided expected SHA-256 ('{clean_expected}') "
+                f"does not match the actual calculated SHA-256 of the downloaded asset ('{sha256_hash}').",
+                file=sys.stderr
+            )
+            sys.exit(1)
+        print("  Security Verification Passed: Manual SHA-256 match confirmed.")
+    elif is_hiroyokoyama:
+        print("  Bypassing manual SHA-256 confirmation for owner HiroYokoyama.")
+    
     # Save to temp file to read metadata
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_file_path = Path(temp_dir) / filename
@@ -248,13 +273,27 @@ def main():
         # Check that version increases
         old_version = existing_entry.get("version", "0.0.0")
         try:
-            if parse_version(normalized_code_version) <= parse_version(old_version):
+            new_v = parse_version(normalized_code_version)
+            old_v = parse_version(old_version)
+            if new_v < old_v:
                 print(
                     f"Error: Version Check Failed: New version '{code_version}' "
-                    f"is not greater than existing version '{old_version}' in registry.",
+                    f"is less than existing version '{old_version}' in registry.",
                     file=sys.stderr
                 )
                 sys.exit(1)
+            elif new_v == old_v:
+                if args.dry_run:
+                    print(
+                        f"Warning: [Dry Run] New version '{code_version}' is equal to existing version '{old_version}' in registry."
+                    )
+                else:
+                    print(
+                        f"Error: Version Check Failed: New version '{code_version}' "
+                        f"is not greater than existing version '{old_version}' in registry.",
+                        file=sys.stderr
+                    )
+                    sys.exit(1)
         except SystemExit:
             raise
         except Exception as e:
