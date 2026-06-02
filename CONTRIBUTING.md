@@ -32,7 +32,7 @@ Contributions are handled differently depending on whether the plugin's source c
 All new registrations and updates to external plugins **must be requested by opening a GitHub Issue**. Direct Pull Requests modifying the registry file (`REGISTRY/plugins.json`) for external URLs will be closed.
 
 #### Standard Flow for External Developers:
-1.  **Host your plugin**: Upload your plugin file (`.py`) or package (`.zip`) to a public repository. We recommend using GitHub Releases to host stable tag versions (e.g. `v1.2.0` or `1.2.0`).
+1.  **Host your plugin**: Upload your plugin file (`.py`) or package (`.zip`) to a public repository. **The plugin must be hosted in your own GitHub repository** (the repository owner must match your GitHub username and the `PLUGIN_AUTHOR` metadata constant). We recommend using GitHub Releases to host stable tag versions (e.g. `v1.2.0` or `1.2.0`).
 2.  **Ensure Metadata Consistency**: Your plugin code **must** define the required metadata constants (`PLUGIN_NAME`, `PLUGIN_VERSION`, etc.) at the top of your python file. The version constant must match the release tag version.
 3.  **Calculate SHA-256**: Calculate the SHA-256 hash of your release file.
 4.  **Open a Registration Issue**: Open a new issue on GitHub using the **Request Plugin Registration / Update** template.
@@ -119,4 +119,6 @@ To ensure the safety and integrity of the MoleditPy ecosystem, the following pol
 2.  **No Autonomous AI Submissions**: Direct pushes or automated registry updates by autonomous AI agents (e.g., **OpenClaw**) are strictly prohibited.
 3.  **Mandatory Registration Request**: All contributions must be submitted via a **GitHub Issue** using the registration template. Direct Pull Requests to edit the registry file bypass our security validations and will be closed.
 4.  **Registry Access**: The application's **Plugin Installer** will only provide access to plugins that have passed this verification process.
+5.  **Repository Ownership**: All registered remote plugins must be hosted in the contributor's own GitHub repository. The repository owner name parsed from the release URL must match the `PLUGIN_AUTHOR` constant declared in the plugin's source code.
+
 
