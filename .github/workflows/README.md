@@ -19,6 +19,28 @@ A manual workflow (`workflow_dispatch`) used to automatically register new third
 | `visible` | **Yes** | Visibility flag in the registry (`true` or `false`). Defaults to `true`. |
 | `expected_sha256` | *Conditional* | The expected SHA-256 hash. **Mandatory** for security verification if the repository owner is not `HiroYokoyama`. |
 | `dry_run` | **Yes** | If set to `true`, the workflow performs all downloads and verification checks but **does not** commit or push changes back to the registry. |
+---
+
+## Registry Metadata Mappings
+
+When registering or updating a plugin, the entry in `REGISTRY/plugins.json` is generated and mapped as follows:
+
+| Field in `plugins.json` | Source | How it is Derived / Formatted |
+| :--- | :--- | :--- |
+| `id` | **Input / Derived** | Used directly if `plugin_id` is supplied as a workflow input. If left blank, it is derived from the release file name (stem) converted to lowercase with dashes replaced by underscores. |
+| `visible` | **Input** | Directly from the `visible` selection input in the workflow (defaults to `true`). |
+| `name` | **Code Constant** | Extracted from `PLUGIN_NAME` defined at the top of the downloaded `.py` or `__init__.py` file. |
+| `version` | **Code Constant** | Extracted from `PLUGIN_VERSION` in the code. Normalised to remove leading `v/V`. Checked for tag consistency. |
+| `author` | **Code Constant** | Extracted from `PLUGIN_AUTHOR` in the code. Must match the GitHub owner of the repository. |
+| `authorUrl` | **Derived** | Generated automatically as `https://github.com/{owner}` where `{owner}` is parsed from the `release_url`. |
+| `projectUrl` | **Derived** | Generated automatically as `https://github.com/{owner}/{repo}` where `{owner}/{repo}` is parsed from the `release_url`. |
+| `description` | **Code Constant** | Extracted from `PLUGIN_DESCRIPTION` defined in the downloaded code. |
+| `tags` | **Code Constant / Input** | Extracted from `PLUGIN_TAGS` list/string in the code. If missing in code, falls back to the `tags` input list from the workflow. |
+| `dependencies` | **Code Constant / Input** | Extracted from `PLUGIN_DEPENDENCIES` list/string in the code. If missing in code, falls back to the `dependencies` input list from the workflow. |
+| `downloadUrl` | **Input** | Set to the exact provided `release_url`. |
+| `sha256` | **Computed** | Calculated as the SHA-256 hash of the downloaded asset file. (Must match `expected_sha256` for external plugins). |
+| `lastUpdated` | **System Date** | Set to the current UTC date in `YYYY-MM-DD` format. |
+| `firstAppeared` | **System Date** | Set to the current UTC date in `YYYY-MM-DD` format (only populated when registering a new plugin). |
 
 ---
 
