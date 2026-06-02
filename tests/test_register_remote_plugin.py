@@ -324,3 +324,41 @@ def test_extract_metadata_multiline_parenthesized():
     assert "Perform PySCF quantum chemistry" in meta["description"]
     assert "interactive 3D visualization" in meta["description"]
 
+@patch('sys.exit')
+@patch('urllib.request.urlopen')
+@patch('register_remote_plugin.extract_metadata_from_file')
+@patch('builtins.open', new_callable=mock_open, read_data="[]")
+@patch('builtins.print')
+def test_dry_run_prints_new_entry(mock_print, mock_file, mock_extract, mock_urlopen, mock_exit):
+    # Setup mocks
+    mock_response = MagicMock()
+    mock_response.read.return_value = b"mock content"
+    mock_urlopen.return_value.__enter__.return_value = mock_response
+    
+    mock_extract.return_value = {
+        "name": "Dry Run Test Plugin",
+        "version": "1.0.0",
+        "author": "HiroYokoyama",
+        "description": "Prints entry in dry run mode"
+    }
+    
+    test_args = [
+        "scripts/register_remote_plugin.py",
+        "https://github.com/HiroYokoyama/dry_run_test_plugin/releases/download/v1.0.0/dry_run_test_plugin.py",
+        "--dry-run"
+    ]
+    
+    with patch('sys.argv', test_args):
+        register_remote_plugin.main()
+        
+    # Verify that mock_print was called to output the JSON structure of the new entry
+    printed_calls = [c[0][0] for c in mock_print.call_args_list if c[0]]
+    # Find if any call has the JSON content we expect
+    found_json = False
+    for p in printed_calls:
+        if isinstance(p, str) and '"id": "dry_run_test_plugin"' in p:
+            found_json = True
+            break
+    assert found_json, "Expected the dry run output to contain the proposed plugin entry JSON"
+
+

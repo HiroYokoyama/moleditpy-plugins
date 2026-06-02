@@ -397,6 +397,7 @@ def main():
         existing_entry["sha256"] = sha256_hash
         existing_entry["lastUpdated"] = today_str
         plugin_name = existing_entry["name"]
+        target_entry = existing_entry
         
     else: # mode == "ADD"
         # Validate other required fields are present in the code metadata
@@ -438,9 +439,12 @@ def main():
         }
         plugins.append(new_entry)
         plugin_name = meta["name"]
+        target_entry = new_entry
         
     if args.dry_run:
         print("[Dry Run] Verification complete. Skipping writing modifications to registry.")
+        print("[Dry Run] Proposed registry entry changes:")
+        print(json.dumps(target_entry, indent=2, ensure_ascii=False))
     else:
         # Write back to JSON
         with open(registry_path, "w", encoding="utf-8") as f:
