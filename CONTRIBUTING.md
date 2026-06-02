@@ -42,14 +42,14 @@ All new registrations and updates to external plugins **must be requested by ope
 *Plugins whose source code lives directly inside the `plugins/` directory of this repository.*
 
 > [!IMPORTANT]
-> **Core Maintainers Only**: Internal (intra-repo) plugins are reserved exclusively for the core maintainer (`HiroYokoyama`). All external/third-party developers must host their plugins in their own GitHub repositories and register them using the **External (Inter-Repo) Plugins** flow above. Pull Requests from third-party developers attempting to add files to the `plugins/` directory will be rejected.
+> **No New Internal Plugins by Third Parties**: Third-party developers are **not allowed to add new plugins** to the `plugins/` directory. Any new third-party plugins must be hosted in your own GitHub repository and registered as **External (Inter-Repo) Plugins** (see the flow above).
+> 
+> However, Pull Requests from any contributor to update, bugfix, or improve **existing** internal plugins in the `plugins/` folder are highly welcome.
 
-Updates to internal plugins by the maintainer are welcome via Pull Request.
-
-#### Standard Flow for Core Maintainers:
-1.  **Clone** the repository: `git clone https://github.com/HiroYokoyama/moleditpy-plugins.git`
+#### Standard Flow for Updating Internal Plugins:
+1.  **Clone / Fork** the repository: `git clone https://github.com/HiroYokoyama/moleditpy-plugins.git`
 2.  **Create a branch**: `git checkout -b update/plugin-name`
-3.  **Update Source**: Modify the plugin file or folder located in the `plugins/` directory.
+3.  **Update Source**: Modify the existing plugin file or folder located in the `plugins/` directory.
 4.  **Update Registry**: Run `python scripts/update_intra_repo_metadata.py` to automatically update the version, SHA-256, and timestamps in `REGISTRY/plugins.json` based on your source code.
 5.  **Submit PR**: Commit and push your changes to your branch and open a Pull Request for review.
 
