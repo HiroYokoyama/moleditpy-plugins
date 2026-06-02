@@ -263,10 +263,10 @@ def is_app_version_compatible(app_version: str, specifier: str) -> bool:
     return True
 
 class PluginDetailsDialog(QDialog):
-    def __init__(self, parent, name, author, version, description, dependencies, local_info, target_file):
+    def __init__(self, parent, name, author, version, description, dependencies, local_info, target_file, supported_version="Unknown"):
         super().__init__(parent)
         self.setWindowTitle(f"{name} - Details")
-        self.resize(400, 350)
+        self.resize(400, 370)
         self.parent_installer = parent # Reference to PluginInstallerWindow
         self.plugin_name = name
         self.target_file = target_file
@@ -277,6 +277,7 @@ class PluginDetailsDialog(QDialog):
         lbl_name = QLabel(f"<h2>{name}</h2>")
         lbl_author = QLabel(f"<b>Author:</b> {author}")
         lbl_ver = QLabel(f"<b>Version:</b> {version}")
+        lbl_supported = QLabel(f"<b>Supported MoleditPy:</b> {supported_version}")
         
         lbl_desc = QLabel(f"<b>Description:</b><br>{description}")
         lbl_desc.setWordWrap(True)
@@ -284,6 +285,7 @@ class PluginDetailsDialog(QDialog):
         layout.addWidget(lbl_name)
         layout.addWidget(lbl_author)
         layout.addWidget(lbl_ver)
+        layout.addWidget(lbl_supported)
         layout.addSpacing(10)
         layout.addWidget(lbl_desc)
         
@@ -946,7 +948,11 @@ class PluginInstallerWindow(QDialog):
             else:
                 version = f"Installed: {local_ver}"
 
-        dialog = PluginDetailsDialog(self, name, author, version, description, dependencies, local_info, target_file)
+        supported_version = "Unknown"
+        if remote_info:
+            supported_version = remote_info.get('supported_moleditpy_version', 'Unknown')
+
+        dialog = PluginDetailsDialog(self, name, author, version, description, dependencies, local_info, target_file, supported_version)
         dialog.exec()
 
     def on_close_clicked(self):
@@ -1072,7 +1078,8 @@ class PluginInstallerWindow(QDialog):
                 
                 if ret == QMessageBox.StandardButton.No:
                     # User chose NO, so show details to let them fix it
-                    dialog = PluginDetailsDialog(self, plugin_name, author, version, description, dependencies, local_info, target_file)
+                    supported_version = remote_info.get('supported_moleditpy_version', 'Unknown') if remote_info else 'Unknown'
+                    dialog = PluginDetailsDialog(self, plugin_name, author, version, description, dependencies, local_info, target_file, supported_version)
                     dialog.exec()
                     return
                 # If Yes, proceed to standard install confirmation below
@@ -1336,7 +1343,8 @@ class PluginInstallerWindow(QDialog):
                                 # Reduce dialogs: Combine Success + Warning
                                 QMessageBox.warning(self, "Installation Complete (Dependencies Missing)", 
                                                     f"Successfully {verb_past} '{plugin_name}'.\n\nHowever, you must install the missing dependencies for it to work.\n\nOpening details window...")
-                                dialog = PluginDetailsDialog(self, plugin_name, author, version, description, dependencies, local_info, target_file)
+                                supported_version = remote_info.get('supported_moleditpy_version', 'Unknown') if remote_info else 'Unknown'
+                                dialog = PluginDetailsDialog(self, plugin_name, author, version, description, dependencies, local_info, target_file, supported_version)
                                 dialog.exec()
                             elif not getattr(self, '_batch_updating', False):
                                 QMessageBox.information(self, "Success", f"Successfully {verb_past} '{plugin_name}'.")
