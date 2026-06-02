@@ -123,5 +123,6 @@ To ensure the safety and integrity of the MoleditPy ecosystem, the following pol
 3.  **Mandatory Registration Request**: All contributions must be submitted via a **GitHub Issue** using the registration template. Direct Pull Requests to edit the registry file bypass our security validations and will be closed.
 4.  **Registry Access**: The application's **Plugin Installer** will only provide access to plugins that have passed this verification process.
 5.  **Repository Ownership**: All registered remote plugins must be hosted in the contributor's own GitHub repository. The repository owner name parsed from the release URL must match the `PLUGIN_AUTHOR` constant declared in the plugin's source code.
+6.  **Maintainer Plugin Deprecation**: If a new, more powerful external plugin is contributed by the community, the maintainer (`HiroYokoyama`) will deprecate and hide their own corresponding official plugin (by setting its `"visible"` flag to `false` in the registry) in favor of the superior community alternative.
 
 
