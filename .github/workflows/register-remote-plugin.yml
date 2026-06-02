@@ -1,0 +1,109 @@
+name: Register or Update Remote Plugin
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_url:
+        description: 'GitHub Release Asset URL (e.g., https://github.com/owner/repo/releases/download/v1.0.0/plugin.zip)'
+        required: true
+        type: string
+      plugin_id:
+        description: 'Plugin ID (optional, derived from repository name if adding a new plugin)'
+        required: false
+        type: string
+      tags:
+        description: 'Comma-separated tags (only used for new plugins, e.g., Visualization, Analysis)'
+        required: false
+        type: string
+      dependencies:
+        description: 'Comma-separated Python dependencies (only used for new plugins, e.g., numpy, rdkit)'
+        required: false
+        type: string
+      visible:
+        description: 'Visibility of the plugin in the registry'
+        required: true
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+        default: 'true'
+      dry_run:
+        description: 'Dry run (validate but do not commit/push changes)'
+        required: true
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+        default: 'false'
+
+permissions:
+  contents: write
+
+jobs:
+  register-plugin:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run Register Script
+        id: run_script
+        env:
+          RELEASE_URL: ${{ github.event.inputs.release_url }}
+          PLUGIN_ID: ${{ github.event.inputs.plugin_id }}
+          TAGS: ${{ github.event.inputs.tags }}
+          DEPS: ${{ github.event.inputs.dependencies }}
+          VISIBLE: ${{ github.event.inputs.visible }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+        run: |
+          ARGS=""
+          if [ -n "$PLUGIN_ID" ]; then
+            ARGS="$ARGS --id \"$PLUGIN_ID\""
+          fi
+          if [ -n "$TAGS" ]; then
+            ARGS="$ARGS --tags \"$TAGS\""
+          fi
+          if [ -n "$DEPS" ]; then
+            ARGS="$ARGS --dependencies \"$DEPS\""
+          fi
+          if [ -n "$VISIBLE" ]; then
+            ARGS="$ARGS --visible \"$VISIBLE\""
+          fi
+          if [ "$DRY_RUN" = "true" ]; then
+            ARGS="$ARGS --dry-run"
+          fi
+          
+          # Execute the python script with the safely built arguments list
+          eval "python scripts/register_remote_plugin.py \"$RELEASE_URL\" $ARGS"
+
+      - name: Commit and Push changes
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            echo "Dry run enabled. Skipping commit and push."
+            exit 0
+          fi
+          
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add REGISTRY/plugins.json
+          
+          if ! git diff --cached --quiet; then
+            MODE="${{ steps.run_script.outputs.mode }}"
+            NAME="${{ steps.run_script.outputs.plugin_name }}"
+            VER="${{ steps.run_script.outputs.version }}"
+            
+            if [ "$MODE" = "UPDATE" ]; then
+              git commit -m "Update plugin '$NAME' to v$VER"
+            else
+              git commit -m "Register new plugin '$NAME' (v$VER)"
+            fi
+            git push origin main
+          else
+            echo "No changes to commit."
+          fi
