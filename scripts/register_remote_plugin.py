@@ -29,6 +29,8 @@ PLUGIN_AUTHOR_RE = re.compile(r"^\s*PLUGIN_AUTHOR\s*=\s*(['\"])(?P<val>.*?)\1", 
 PLUGIN_DESCRIPTION_RE = re.compile(r"^\s*PLUGIN_DESCRIPTION\s*=\s*(['\"])(?P<val>.*?)\1", re.MULTILINE)
 PLUGIN_TAGS_RE = re.compile(r"^\s*PLUGIN_TAGS\s*=\s*(?P<val>.*?)\s*$", re.MULTILINE)
 PLUGIN_DEPENDENCIES_RE = re.compile(r"^\s*PLUGIN_DEPENDENCIES\s*=\s*(?P<val>.*?)\s*$", re.MULTILINE)
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION_RE = re.compile(r"^\s*PLUGIN_SUPPORTED_MOLEDITPY_VERSION\s*=\s*(['\"])(?P<val>.*?)\1", re.MULTILINE)
+
 
 def parse_python_list_or_string(raw_val: str) -> list:
     """Parses a Python representation of a list, tuple, or string into a list of strings."""
@@ -96,6 +98,10 @@ def extract_metadata_from_code_regex(code_text: str) -> dict:
         if match:
             meta[key] = parse_python_list_or_string(match.group("val"))
             
+    match_supported = PLUGIN_SUPPORTED_MOLEDITPY_VERSION_RE.search(code_text)
+    if match_supported:
+        meta["supported_moleditpy_version"] = match_supported.group("val").strip()
+            
     return meta
 
 def extract_metadata_from_code(code_text: str) -> dict:
@@ -110,7 +116,7 @@ def extract_metadata_from_code(code_text: str) -> dict:
             if isinstance(node, ast.Assign):
                 for target in node.targets:
                     if isinstance(target, ast.Name) and target.id in [
-                        "PLUGIN_NAME", "PLUGIN_VERSION", "PLUGIN_AUTHOR", "PLUGIN_DESCRIPTION", "PLUGIN_TAGS", "PLUGIN_DEPENDENCIES"
+                        "PLUGIN_NAME", "PLUGIN_VERSION", "PLUGIN_AUTHOR", "PLUGIN_DESCRIPTION", "PLUGIN_TAGS", "PLUGIN_DEPENDENCIES", "PLUGIN_SUPPORTED_MOLEDITPY_VERSION"
                     ]:
                         try:
                             val = ast.literal_eval(node.value)
@@ -122,6 +128,8 @@ def extract_metadata_from_code(code_text: str) -> dict:
                                 meta["author"] = str(val).strip()
                             elif target.id == "PLUGIN_DESCRIPTION":
                                 meta["description"] = str(val).strip()
+                            elif target.id == "PLUGIN_SUPPORTED_MOLEDITPY_VERSION":
+                                meta["supported_moleditpy_version"] = str(val).strip()
                             elif target.id == "PLUGIN_TAGS":
                                 if isinstance(val, (list, tuple)):
                                     meta["tags"] = [str(x).strip() for x in val if x]
@@ -359,6 +367,8 @@ def main():
     print(f"  Version:     {code_version}")
     print(f"  Author:      {meta.get('author')}")
     print(f"  Description: {meta.get('description')}")
+    if meta.get("supported_moleditpy_version"):
+        print(f"  Supported MoleditPy: {meta.get('supported_moleditpy_version')}")
     
     # 6. Apply Registry updates
     if args.date:
@@ -403,21 +413,24 @@ def main():
             print(f"Warning: Error comparing versions ({e}), defaulting current version to 0.0.0 for safety.")
             old_version = "0.0.0"
             
-        existing_entry["version"] = normalized_code_version
-        existing_entry["downloadUrl"] = args.release_url
-        existing_entry["sha256"] = sha256_hash
-        existing_entry["lastUpdated"] = today_str
-        if args.supported_version:
+        # Determine supported MoleditPy version (prefer CLI argument, then code constant, then existing entry)
+        supported_ver = args.supported_version or meta.get("supported_moleditpy_version") or existing_entry.get("supported_moleditpy_version")
+            
+        if supported_ver:
             if "supported_moleditpy_version" in existing_entry:
-                existing_entry["supported_moleditpy_version"] = args.supported_version
+                existing_entry["supported_moleditpy_version"] = supported_ver
             else:
                 rebuilt_entry = {}
                 for k, v in existing_entry.items():
                     rebuilt_entry[k] = v
                     if k == "visible":
-                        rebuilt_entry["supported_moleditpy_version"] = args.supported_version
+                        rebuilt_entry["supported_moleditpy_version"] = supported_ver
                 existing_entry.clear()
                 existing_entry.update(rebuilt_entry)
+        existing_entry["version"] = normalized_code_version
+        existing_entry["downloadUrl"] = args.release_url
+        existing_entry["sha256"] = sha256_hash
+        existing_entry["lastUpdated"] = today_str
         plugin_name = existing_entry["name"]
         target_entry = existing_entry
         
@@ -442,10 +455,11 @@ def main():
             deps_list = []
             
         visible_flag = args.visible.lower() == "true"
-        supported_ver = args.supported_version
+        # Determine supported MoleditPy version (prefer CLI argument, then code constant)
+        supported_ver = args.supported_version or meta.get("supported_moleditpy_version")
         
         if visible_flag and not supported_ver:
-            print("Error: Strict Validation Failed: --supported-version is required for visible plugins.", file=sys.stderr)
+            print("Error: Strict Validation Failed: --supported-version or PLUGIN_SUPPORTED_MOLEDITPY_VERSION in code is required for visible plugins.", file=sys.stderr)
             sys.exit(1)
             return
             

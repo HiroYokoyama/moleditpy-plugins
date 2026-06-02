@@ -506,5 +506,148 @@ def test_update_overwrites_supported_version(mock_file, mock_extract, mock_urlop
     assert found_overwritten, "Expected the update output to contain the overwritten supported version"
 
 
+def test_extract_metadata_with_supported_version():
+    code = """
+    PLUGIN_NAME = "Supported Plugin"
+    PLUGIN_VERSION = "1.0.0"
+    PLUGIN_AUTHOR = "Author Name"
+    PLUGIN_DESCRIPTION = "Some desc"
+    PLUGIN_SUPPORTED_MOLEDITPY_VERSION = "3.2"
+    """
+    meta = register_remote_plugin.extract_metadata_from_code(code)
+    assert meta["supported_moleditpy_version"] == "3.2"
+
+
+@patch('sys.exit')
+@patch('urllib.request.urlopen')
+@patch('register_remote_plugin.extract_metadata_from_file')
+@patch('builtins.open', new_callable=mock_open, read_data="[]")
+def test_add_prioritizes_cli_version_over_code(mock_file, mock_extract, mock_urlopen, mock_exit):
+    mock_response = MagicMock()
+    mock_response.read.return_value = b"mock content"
+    mock_urlopen.return_value.__enter__.return_value = mock_response
+    
+    mock_extract.return_value = {
+        "name": "CLI Priority Plugin",
+        "version": "1.0.0",
+        "author": "HiroYokoyama",
+        "description": "Desc",
+        "supported_moleditpy_version": "3.1"
+    }
+    
+    # Passing --supported-version "3.5" (CLI)
+    test_args = [
+        "scripts/register_remote_plugin.py",
+        "https://github.com/HiroYokoyama/cli_priority/releases/download/v1.0.0/plugin.py",
+        "--supported-version", "3.5",
+        "--dry-run"
+    ]
+    
+    with patch('sys.argv', test_args), patch('builtins.print') as mock_print:
+        register_remote_plugin.main()
+        
+    # Verify that the printed output JSON contains `"supported_moleditpy_version": "3.5"` (CLI wins)
+    printed_calls = [c[0][0] for c in mock_print.call_args_list if c[0]]
+    found_cli = False
+    for p in printed_calls:
+        if isinstance(p, str) and '"supported_moleditpy_version": "3.5"' in p:
+            found_cli = True
+            break
+    assert found_cli, "Expected CLI version to override code constant"
+
+
+@patch('sys.exit')
+@patch('urllib.request.urlopen')
+@patch('register_remote_plugin.extract_metadata_from_file')
+@patch('builtins.open', new_callable=mock_open, read_data="[]")
+def test_add_uses_code_constant_if_cli_omitted(mock_file, mock_extract, mock_urlopen, mock_exit):
+    mock_response = MagicMock()
+    mock_response.read.return_value = b"mock content"
+    mock_urlopen.return_value.__enter__.return_value = mock_response
+    
+    mock_extract.return_value = {
+        "name": "Code Priority Plugin",
+        "version": "1.0.0",
+        "author": "HiroYokoyama",
+        "description": "Desc",
+        "supported_moleditpy_version": "3.1"
+    }
+    
+    # Omit --supported-version
+    test_args = [
+        "scripts/register_remote_plugin.py",
+        "https://github.com/HiroYokoyama/code_priority/releases/download/v1.0.0/plugin.py",
+        "--dry-run"
+    ]
+    
+    with patch('sys.argv', test_args), patch('builtins.print') as mock_print:
+        register_remote_plugin.main()
+        
+    # Verify that the printed output JSON contains `"supported_moleditpy_version": "3.1"` (Code wins)
+    printed_calls = [c[0][0] for c in mock_print.call_args_list if c[0]]
+    found_code = False
+    for p in printed_calls:
+        if isinstance(p, str) and '"supported_moleditpy_version": "3.1"' in p:
+            found_code = True
+            break
+    assert found_code, "Expected code constant to be used when CLI is omitted"
+
+
+@patch('sys.exit')
+@patch('urllib.request.urlopen')
+@patch('register_remote_plugin.extract_metadata_from_file')
+@patch('builtins.open', new_callable=mock_open, read_data='[{"id": "some_plugin", "visible": true, "supported_moleditpy_version": "3.0", "name": "Some Plugin", "version": "1.0.0", "downloadUrl": "https://github.com/HiroYokoyama/some_plugin/releases/download/v1.0.0/some_plugin.py", "projectUrl": "https://github.com/HiroYokoyama/some_plugin"}]')
+def test_update_prioritizes_cli_then_code_then_registry(mock_file, mock_extract, mock_urlopen, mock_exit):
+    mock_response = MagicMock()
+    mock_response.read.return_value = b"mock content"
+    mock_urlopen.return_value.__enter__.return_value = mock_response
+    
+    # Case A: CLI provided, code constant provided, registry has value. CLI should win (3.5)
+    mock_extract.return_value = {
+        "name": "Some Plugin",
+        "version": "1.1.0",
+        "author": "HiroYokoyama",
+        "description": "Some description",
+        "supported_moleditpy_version": "3.2"
+    }
+    
+    test_args_cli = [
+        "scripts/register_remote_plugin.py",
+        "https://github.com/HiroYokoyama/some_plugin/releases/download/v1.1.0/some_plugin.py",
+        "--supported-version", "3.5",
+        "--dry-run"
+    ]
+    
+    with patch('sys.argv', test_args_cli), patch('builtins.print') as mock_print_cli:
+        register_remote_plugin.main()
+        
+    printed_calls = [c[0][0] for c in mock_print_cli.call_args_list if c[0]]
+    found_cli = False
+    for p in printed_calls:
+        if isinstance(p, str) and '"supported_moleditpy_version": "3.5"' in p:
+            found_cli = True
+            break
+    assert found_cli, "Expected CLI version to win in UPDATE"
+
+    # Case B: CLI omitted, code constant provided, registry has value. Code constant should win (3.2)
+    test_args_code = [
+        "scripts/register_remote_plugin.py",
+        "https://github.com/HiroYokoyama/some_plugin/releases/download/v1.1.0/some_plugin.py",
+        "--dry-run"
+    ]
+    
+    with patch('sys.argv', test_args_code), patch('builtins.print') as mock_print_code:
+        register_remote_plugin.main()
+        
+    printed_calls = [c[0][0] for c in mock_print_code.call_args_list if c[0]]
+    found_code = False
+    for p in printed_calls:
+        if isinstance(p, str) and '"supported_moleditpy_version": "3.2"' in p:
+            found_code = True
+            break
+    assert found_code, "Expected code constant to win when CLI omitted in UPDATE"
+
+
+
 
 

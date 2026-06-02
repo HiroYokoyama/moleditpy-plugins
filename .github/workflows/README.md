@@ -19,6 +19,7 @@ A manual workflow (`workflow_dispatch`) used to automatically register new third
 | `visible` | **Yes** | Visibility flag in the registry (`true` or `false`). Defaults to `true`. |
 | `expected_sha256` | *Conditional* | The expected SHA-256 hash. **Mandatory** for security verification if the repository owner is not `HiroYokoyama`. |
 | `date` | No | Override registration/update date (`YYYY-MM-DD`). If omitted or empty, automatically falls back to the current system date. |
+| `supported_version` | No | Supported MoleditPy version (e.g., `3.*`). If omitted, falls back to `PLUGIN_SUPPORTED_MOLEDITPY_VERSION` in the plugin code or the existing registry entry value. |
 | `dry_run` | **Yes** | If set to `true`, the workflow performs all downloads and verification checks but **does not** commit or push changes back to the registry. |
 ---
 
@@ -30,7 +31,7 @@ When registering or updating a plugin, the entry in `REGISTRY/plugins.json` is g
 | :--- | :--- | :--- |
 | `id` | **Input / Derived** | Used directly if `plugin_id` is supplied as a workflow input. If left blank, it is derived from the release file name (stem) converted to lowercase with dashes replaced by underscores. |
 | `visible` | **Input** | Directly from the `visible` selection input in the workflow (defaults to `true`). |
-| `supported_moleditpy_version` | **Input** | Directly from the `supported_version` selection input in the workflow (mandatory for visible plugins). |
+| `supported_moleditpy_version` | **Input / Code Constant / Registry** | Prioritizes: 1. `supported_version` input from the workflow/CLI (if provided), 2. `PLUGIN_SUPPORTED_MOLEDITPY_VERSION` defined at the top of the downloaded python file, 3. The existing registry value (when updating). Mandatory for visible plugins. |
 | `name` | **Code Constant** | Extracted from `PLUGIN_NAME` defined at the top of the downloaded `.py` or `__init__.py` file. |
 | `version` | **Code Constant** | Extracted from `PLUGIN_VERSION` in the code. Normalised to remove leading `v/V`. Checked for tag consistency. |
 | `author` | **Code Constant** | Extracted from `PLUGIN_AUTHOR` in the code. Must match the GitHub owner of the repository. |

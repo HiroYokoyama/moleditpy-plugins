@@ -14,6 +14,7 @@ PLUGIN_NAME = "My Plugin"
 PLUGIN_VERSION = "1.0.0"
 PLUGIN_AUTHOR = "YourGitHubUsername"                  # Must match your GitHub username
 PLUGIN_DESCRIPTION = "Brief description of what the plugin does."
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = "3.*"             # Supported version of MoleditPy (e.g. 3.*, required for visible plugins)
 PLUGIN_TAGS = ["Visualization", "Utility"]             # Optional: parsed automatically by script
 PLUGIN_DEPENDENCIES = ["numpy", "rdkit"]                 # Optional: parsed automatically by script
 
