@@ -4,7 +4,7 @@ Thank you for your interest in contributing to the MoleditPy plugin collection! 
 
 ## Plugin Development Requirements
 
-All plugins must follow the standard MoleditPy plugin structure. For detailed API documentation, please refer to the [Plugin Development Manual](PLUGIN_DEVELOPMENT_MANUAL.md).
+All plugins must follow the standard MoleditPy plugin structure. For detailed API documentation, please refer to the [Plugin Development Manual](https://github.com/HiroYokoyama/python_molecular_editor/blob/main/docs/PLUGIN_DEVELOPMENT_MANUAL_V3.md).
 
 ### Basic Structure
 A plugin should define its metadata constants and an `initialize` function:
