@@ -35,6 +35,10 @@ on:
         description: 'Override date (YYYY-MM-DD, optional, defaults to current date)'
         required: false
         type: string
+      supported_version:
+        description: 'Supported MoleditPy version (e.g. 3.*, required if visible)'
+        required: false
+        type: string
       dry_run:
         description: 'Dry run (validate but do not commit/push changes)'
         required: true
@@ -71,6 +75,7 @@ jobs:
           EXPECTED_SHA: ${{ github.event.inputs.expected_sha256 }}
           DRY_RUN: ${{ github.event.inputs.dry_run }}
           DATE: ${{ github.event.inputs.date }}
+          SUPPORTED_VERSION: ${{ github.event.inputs.supported_version }}
         run: |
           ARGS=""
           if [ -n "$PLUGIN_ID" ]; then
@@ -93,6 +98,9 @@ jobs:
           fi
           if [ -n "$DATE" ]; then
             ARGS="$ARGS --date \"$DATE\""
+          fi
+          if [ -n "$SUPPORTED_VERSION" ]; then
+            ARGS="$ARGS --supported-version \"$SUPPORTED_VERSION\""
           fi
           
           # Execute the python script with the safely built arguments list

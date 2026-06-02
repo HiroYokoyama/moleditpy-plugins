@@ -214,6 +214,7 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="Perform checks and downloads but do not write to the registry")
     parser.add_argument("--expected-sha256", dest="expected_sha256", help="Expected SHA-256 hash (Required for non-HiroYokoyama plugins)")
     parser.add_argument("--date", help="Override registration date (YYYY-MM-DD, optional)")
+    parser.add_argument("--supported-version", dest="supported_version", help="Supported MoleditPy version (e.g., 3.*). Required for visible plugins.")
     
     args = parser.parse_args()
     
@@ -406,6 +407,17 @@ def main():
         existing_entry["downloadUrl"] = args.release_url
         existing_entry["sha256"] = sha256_hash
         existing_entry["lastUpdated"] = today_str
+        if args.supported_version:
+            if "supported_moleditpy_version" in existing_entry:
+                existing_entry["supported_moleditpy_version"] = args.supported_version
+            else:
+                rebuilt_entry = {}
+                for k, v in existing_entry.items():
+                    rebuilt_entry[k] = v
+                    if k == "visible":
+                        rebuilt_entry["supported_moleditpy_version"] = args.supported_version
+                existing_entry.clear()
+                existing_entry.update(rebuilt_entry)
         plugin_name = existing_entry["name"]
         target_entry = existing_entry
         
@@ -430,10 +442,21 @@ def main():
             deps_list = []
             
         visible_flag = args.visible.lower() == "true"
+        supported_ver = args.supported_version
         
+        if visible_flag and not supported_ver:
+            print("Error: Strict Validation Failed: --supported-version is required for visible plugins.", file=sys.stderr)
+            sys.exit(1)
+            return
+            
         new_entry = {
             "id": plugin_id,
             "visible": visible_flag,
+        }
+        if supported_ver:
+            new_entry["supported_moleditpy_version"] = supported_ver
+            
+        new_entry.update({
             "name": meta["name"],
             "version": normalized_code_version,
             "author": meta["author"],
@@ -446,7 +469,7 @@ def main():
             "lastUpdated": today_str,
             "sha256": sha256_hash,
             "firstAppeared": today_str
-        }
+        })
         plugins.append(new_entry)
         plugin_name = meta["name"]
         target_entry = new_entry

@@ -45,6 +45,9 @@ def validate_json(file_path):
             if not plugin_sha:
                 print(f"Error at index {index} ({plugin_id}): Missing 'sha256'")
                 errors += 1
+            if plugin.get("visible") is True and not plugin.get("supported_moleditpy_version"):
+                print(f"Error at index {index} ({plugin_id}): Visible plugin is missing 'supported_moleditpy_version'")
+                errors += 1
 
             # Conflict checks
             if plugin_id:

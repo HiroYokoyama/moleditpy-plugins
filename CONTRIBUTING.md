@@ -59,6 +59,8 @@ The `REGISTRY/plugins.json` file is the registry that the application uses to di
 
 ### Field Descriptions
 - `id`: A unique string identifier (e.g., `my_plugin_id`).
+- `visible`: Whether the plugin is shown in the registry interface (`true` or `false`).
+- `supported_moleditpy_version`: The supported version of MoleditPy (e.g., `3.*`). Required for visible plugins.
 - `name`: **Critical Identifier**. This must be unique across all plugins. It is used as the primary identifier by the application for indexing, updates, and UI display.
 - `version`: Version string (e.g., `2026.02.18` or `1.0.0`).
 - `author`: Your GitHub username (must match your release repository owner).
@@ -81,6 +83,7 @@ When adding or updating a plugin, use the following structure:
 {
   "id": "my_awesome_plugin",
   "visible": true,
+  "supported_moleditpy_version": "3.*",
   "name": "My Awesome Plugin",
   "version": "1.0.0",
   "author": "Your Name",

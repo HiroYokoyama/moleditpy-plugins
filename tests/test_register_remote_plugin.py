@@ -213,6 +213,7 @@ def test_security_check_non_hiro_matching_sha(mock_file, mock_extract, mock_urlo
         "scripts/register_remote_plugin.py",
         "https://github.com/ThirdParty/some_plugin/releases/download/v1.0.0/plugin.py",
         "--expected-sha256", actual_sha,
+        "--supported-version", "3.*",
         "--dry-run"
     ]
     
@@ -345,6 +346,7 @@ def test_dry_run_prints_new_entry(mock_print, mock_file, mock_extract, mock_urlo
     test_args = [
         "scripts/register_remote_plugin.py",
         "https://github.com/HiroYokoyama/dry_run_test_plugin/releases/download/v1.0.0/dry_run_test_plugin.py",
+        "--supported-version", "3.*",
         "--dry-run"
     ]
     
@@ -356,10 +358,10 @@ def test_dry_run_prints_new_entry(mock_print, mock_file, mock_extract, mock_urlo
     # Find if any call has the JSON content we expect
     found_json = False
     for p in printed_calls:
-        if isinstance(p, str) and '"id": "dry_run_test_plugin"' in p:
+        if isinstance(p, str) and '"id": "dry_run_test_plugin"' in p and '"supported_moleditpy_version": "3.*"' in p:
             found_json = True
             break
-    assert found_json, "Expected the dry run output to contain the proposed plugin entry JSON"
+    assert found_json, "Expected the dry run output to contain the proposed plugin entry JSON with supported_moleditpy_version"
 
 @patch('sys.exit')
 @patch('urllib.request.urlopen')
@@ -383,6 +385,7 @@ def test_date_override_valid(mock_file, mock_extract, mock_urlopen, mock_exit):
         "scripts/register_remote_plugin.py",
         "https://github.com/HiroYokoyama/some_plugin/releases/download/v1.0.0/some_plugin.py",
         "--date", "2026-05-20",
+        "--supported-version", "3.*",
         "--dry-run"
     ]
     
@@ -420,6 +423,7 @@ def test_date_override_invalid(mock_file, mock_extract, mock_urlopen, mock_exit)
         "scripts/register_remote_plugin.py",
         "https://github.com/HiroYokoyama/some_plugin/releases/download/v1.0.0/some_plugin.py",
         "--date", "2026/05/20",
+        "--supported-version", "3.*",
         "--dry-run"
     ]
     

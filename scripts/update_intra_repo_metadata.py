@@ -113,6 +113,7 @@ def update_single_json(json_path: Path) -> tuple[int, int, int, list[str]]:
             if plugin.get("lastUpdated") != last_updated:
                 plugin["lastUpdated"] = last_updated
                 updated_date += 1
+                
 
     json_path.write_text(
         json.dumps(data, indent=2, ensure_ascii=False) + "\n",

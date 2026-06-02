@@ -30,6 +30,7 @@ When registering or updating a plugin, the entry in `REGISTRY/plugins.json` is g
 | :--- | :--- | :--- |
 | `id` | **Input / Derived** | Used directly if `plugin_id` is supplied as a workflow input. If left blank, it is derived from the release file name (stem) converted to lowercase with dashes replaced by underscores. |
 | `visible` | **Input** | Directly from the `visible` selection input in the workflow (defaults to `true`). |
+| `supported_moleditpy_version` | **Generated** | Automatically set to `"3.*"` for all visible plugins in the registry. |
 | `name` | **Code Constant** | Extracted from `PLUGIN_NAME` defined at the top of the downloaded `.py` or `__init__.py` file. |
 | `version` | **Code Constant** | Extracted from `PLUGIN_VERSION` in the code. Normalised to remove leading `v/V`. Checked for tag consistency. |
 | `author` | **Code Constant** | Extracted from `PLUGIN_AUTHOR` in the code. Must match the GitHub owner of the repository. |
