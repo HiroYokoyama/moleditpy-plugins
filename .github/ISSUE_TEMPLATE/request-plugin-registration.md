@@ -39,6 +39,11 @@ Comma-separated list of required Python packages (e.g., `numpy, rdkit, PyQt6`).
 * [ ] Yes, make this plugin visible in the registry manager.
 * [ ] No, keep it hidden for now.
 
+### 8. Supported MoleditPy Version
+Provide the supported version of MoleditPy (e.g., `3.*`).
+*Note: This is strictly required if the plugin is visible.*
+**Supported MoleditPy Version:** 
+
 ---
 
 ### Verification Instructions for Developers
