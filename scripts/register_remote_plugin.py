@@ -213,6 +213,7 @@ def main():
     parser.add_argument("--visible", default="true", help="Set visibility of the plugin (default: true)")
     parser.add_argument("--dry-run", action="store_true", help="Perform checks and downloads but do not write to the registry")
     parser.add_argument("--expected-sha256", dest="expected_sha256", help="Expected SHA-256 hash (Required for non-HiroYokoyama plugins)")
+    parser.add_argument("--date", help="Override registration date (YYYY-MM-DD, optional)")
     
     args = parser.parse_args()
     
@@ -359,7 +360,16 @@ def main():
     print(f"  Description: {meta.get('description')}")
     
     # 6. Apply Registry updates
-    today_str = datetime.date.today().isoformat()
+    if args.date:
+        try:
+            datetime.date.fromisoformat(args.date)
+            today_str = args.date
+        except ValueError:
+            print(f"Error: Invalid date format '{args.date}'. Expected YYYY-MM-DD.", file=sys.stderr)
+            sys.exit(1)
+            return
+    else:
+        today_str = datetime.date.today().isoformat()
     
     if mode == "UPDATE":
         # Check that version increases

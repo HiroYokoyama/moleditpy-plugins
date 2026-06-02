@@ -18,6 +18,7 @@ A manual workflow (`workflow_dispatch`) used to automatically register new third
 | `dependencies` | No | A comma-separated list of required Python packages (only used when registering a new plugin, e.g., `numpy, rdkit`). |
 | `visible` | **Yes** | Visibility flag in the registry (`true` or `false`). Defaults to `true`. |
 | `expected_sha256` | *Conditional* | The expected SHA-256 hash. **Mandatory** for security verification if the repository owner is not `HiroYokoyama`. |
+| `date` | No | Override registration/update date (`YYYY-MM-DD`). If omitted or empty, automatically falls back to the current system date. |
 | `dry_run` | **Yes** | If set to `true`, the workflow performs all downloads and verification checks but **does not** commit or push changes back to the registry. |
 ---
 
@@ -39,8 +40,8 @@ When registering or updating a plugin, the entry in `REGISTRY/plugins.json` is g
 | `dependencies` | **Code Constant / Input** | Extracted from `PLUGIN_DEPENDENCIES` list/string in the code. If missing in code, falls back to the `dependencies` input list from the workflow. |
 | `downloadUrl` | **Input** | Set to the exact provided `release_url`. |
 | `sha256` | **Computed** | Calculated as the SHA-256 hash of the downloaded asset file. (Must match `expected_sha256` for external plugins). |
-| `lastUpdated` | **System Date** | Set to the current UTC date in `YYYY-MM-DD` format. |
-| `firstAppeared` | **System Date** | Set to the current UTC date in `YYYY-MM-DD` format (only populated when registering a new plugin). |
+| `lastUpdated` | **System Date / Input** | Set to the provided `date` input (if valid `YYYY-MM-DD`), otherwise defaults to the current system date. |
+| `firstAppeared` | **System Date / Input** | Set to the provided `date` input (if valid `YYYY-MM-DD`), otherwise defaults to the current system date (only populated when registering a new plugin). |
 
 ---
 

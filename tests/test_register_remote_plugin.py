@@ -361,4 +361,72 @@ def test_dry_run_prints_new_entry(mock_print, mock_file, mock_extract, mock_urlo
             break
     assert found_json, "Expected the dry run output to contain the proposed plugin entry JSON"
 
+@patch('sys.exit')
+@patch('urllib.request.urlopen')
+@patch('register_remote_plugin.extract_metadata_from_file')
+@patch('builtins.open', new_callable=mock_open, read_data='[]')
+def test_date_override_valid(mock_file, mock_extract, mock_urlopen, mock_exit):
+    # Setup mocks
+    mock_response = MagicMock()
+    mock_response.read.return_value = b"mock content"
+    mock_urlopen.return_value.__enter__.return_value = mock_response
+    
+    mock_extract.return_value = {
+        "name": "Date Override Plugin",
+        "version": "1.0.0",
+        "author": "HiroYokoyama",
+        "description": "Some description"
+    }
+    
+    # Configure command-line args with valid date override
+    test_args = [
+        "scripts/register_remote_plugin.py",
+        "https://github.com/HiroYokoyama/some_plugin/releases/download/v1.0.0/some_plugin.py",
+        "--date", "2026-05-20",
+        "--dry-run"
+    ]
+    
+    with patch('sys.argv', test_args), patch('builtins.print') as mock_print:
+        register_remote_plugin.main()
+        
+    # Verify that the printed output JSON contains the overriden date in lastUpdated/firstAppeared
+    printed_calls = [c[0][0] for c in mock_print.call_args_list if c[0]]
+    found_date = False
+    for p in printed_calls:
+        if isinstance(p, str) and '"lastUpdated": "2026-05-20"' in p and '"firstAppeared": "2026-05-20"' in p:
+            found_date = True
+            break
+    assert found_date, "Expected the dry run output to contain the overridden date"
+
+@patch('sys.exit')
+@patch('urllib.request.urlopen')
+@patch('register_remote_plugin.extract_metadata_from_file')
+@patch('builtins.open', new_callable=mock_open, read_data='[]')
+def test_date_override_invalid(mock_file, mock_extract, mock_urlopen, mock_exit):
+    # Setup mocks
+    mock_response = MagicMock()
+    mock_response.read.return_value = b"mock content"
+    mock_urlopen.return_value.__enter__.return_value = mock_response
+    
+    mock_extract.return_value = {
+        "name": "Date Override Plugin",
+        "version": "1.0.0",
+        "author": "HiroYokoyama",
+        "description": "Some description"
+    }
+    
+    # Configure command-line args with invalid date override
+    test_args = [
+        "scripts/register_remote_plugin.py",
+        "https://github.com/HiroYokoyama/some_plugin/releases/download/v1.0.0/some_plugin.py",
+        "--date", "2026/05/20",
+        "--dry-run"
+    ]
+    
+    with patch('sys.argv', test_args):
+        register_remote_plugin.main()
+        
+    mock_exit.assert_called_with(1)
+
+
 

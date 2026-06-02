@@ -31,6 +31,10 @@ on:
         description: 'Expected SHA-256 hash (Required for non-HiroYokoyama plugins)'
         required: false
         type: string
+      date:
+        description: 'Override date (YYYY-MM-DD, optional, defaults to current date)'
+        required: false
+        type: string
       dry_run:
         description: 'Dry run (validate but do not commit/push changes)'
         required: true
@@ -66,6 +70,7 @@ jobs:
           VISIBLE: ${{ github.event.inputs.visible }}
           EXPECTED_SHA: ${{ github.event.inputs.expected_sha256 }}
           DRY_RUN: ${{ github.event.inputs.dry_run }}
+          DATE: ${{ github.event.inputs.date }}
         run: |
           ARGS=""
           if [ -n "$PLUGIN_ID" ]; then
@@ -85,6 +90,9 @@ jobs:
           fi
           if [ "$DRY_RUN" = "true" ]; then
             ARGS="$ARGS --dry-run"
+          fi
+          if [ -n "$DATE" ]; then
+            ARGS="$ARGS --date \"$DATE\""
           fi
           
           # Execute the python script with the safely built arguments list
