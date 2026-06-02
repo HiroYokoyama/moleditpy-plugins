@@ -184,9 +184,9 @@ def main():
     plugin_id = args.plugin_id
     if mode == "ADD":
         if not plugin_id:
-            # Derive ID from repo name (strip prefix/suffix)
-            plugin_id = repo.lower().replace("moleditpy_", "").replace("_plugin", "").replace("-", "_")
-            print(f"Derived plugin ID: '{plugin_id}'")
+            # Derive ID from filename (excluding extension, converted to lowercase, dashes to underscores)
+            plugin_id = Path(filename).stem.lower().replace("-", "_")
+            print(f"Derived plugin ID from filename: '{plugin_id}'")
             
         # Ensure unique ID
         for p in plugins:

@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       plugin_id:
-        description: 'Plugin ID (optional, derived from repository name if adding a new plugin)'
+        description: 'Plugin ID (optional, derived from the file name if adding a new plugin)'
         required: false
         type: string
       tags:

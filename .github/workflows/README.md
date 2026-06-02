@@ -13,7 +13,7 @@ A manual workflow (`workflow_dispatch`) used to automatically register new third
 | Input Field | Required? | Description |
 | :--- | :--- | :--- |
 | `release_url` | **Yes** | The direct download URL of the GitHub Release asset (must be a `.py` file or a `.zip` file). Format: `https://github.com/{owner}/{repo}/releases/download/{tag}/{filename}`. |
-| `plugin_id` | No | The unique ID for the plugin. For new plugins, if omitted, it will be automatically derived from the repository name. |
+| `plugin_id` | No | The unique ID for the plugin. For new plugins, if omitted, it will be automatically derived from the release file name (stem). |
 | `tags` | No | A comma-separated list of tags (only used when registering a new plugin, e.g., `Analysis, Visualization`). |
 | `dependencies` | No | A comma-separated list of required Python packages (only used when registering a new plugin, e.g., `numpy, rdkit`). |
 | `visible` | **Yes** | Visibility flag in the registry (`true` or `false`). Defaults to `true`. |
