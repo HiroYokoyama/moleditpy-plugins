@@ -238,3 +238,29 @@ def test_plugin_version_matches_registry():
     assert PI.PLUGIN_VERSION == entry["version"], (
         f"Source version {PI.PLUGIN_VERSION!r} != registry {entry['version']!r}"
     )
+
+
+class TestVersionCompatibility:
+    def test_empty_or_wildcard_specifier(self):
+        assert PI.is_app_version_compatible("3.5.1", "") is True
+        assert PI.is_app_version_compatible("3.5.1", "*") is True
+
+    def test_wildcard_matches(self):
+        assert PI.is_app_version_compatible("3.5.1", "3.*") is True
+        assert PI.is_app_version_compatible("3.5.1", "3.5.*") is True
+        assert PI.is_app_version_compatible("3.5.1", "3.6.*") is False
+        assert PI.is_app_version_compatible("4.0.0", "3.*") is False
+
+    def test_simple_comparison(self):
+        assert PI.is_app_version_compatible("3.5.1", ">=3.5") is True
+        assert PI.is_app_version_compatible("3.5.1", "<=3.6") is True
+        assert PI.is_app_version_compatible("3.5.1", "==3.5.1") is True
+        assert PI.is_app_version_compatible("3.5.1", ">3.5.1") is False
+        assert PI.is_app_version_compatible("3.5.1", "<3.5") is False
+
+    def test_compound_ranges(self):
+        assert PI.is_app_version_compatible("3.5.1", ">=3.5, <4") is True
+        assert PI.is_app_version_compatible("4.0.0", ">=3.5, <4") is False
+        assert PI.is_app_version_compatible("3.4.9", ">=3.5, <4") is False
+        assert PI.is_app_version_compatible("3.5.1", ">=3.5, <4, !=3.6") is True
+

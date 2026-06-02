@@ -29,7 +29,7 @@ import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.04.23"
+PLUGIN_VERSION = "2026.06.02"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Checks for updates, installs new plugins, and allows manual reinstallation."
 
@@ -190,6 +190,77 @@ def run(main_window):
     """
     dialog = PluginInstallerWindow(main_window)
     dialog.exec()
+
+def is_app_version_compatible(app_version: str, specifier: str) -> bool:
+    """
+    Check if app_version satisfies the version specifier (e.g. '>=3.5, <4' or '3.*').
+    """
+    if not specifier or specifier.strip() in ("*", ""):
+        return True
+
+    def parse_ver(v_str):
+        parts = [int(x) for x in re.findall(r'\d+', v_str)]
+        while len(parts) < 3:
+            parts.append(0)
+        return tuple(parts[:3])
+
+    try:
+        app_v = parse_ver(app_version)
+    except Exception:
+        return True
+
+    # Split comma-separated conditions
+    specs = [s.strip() for s in specifier.split(",")]
+
+    for spec in specs:
+        if not spec:
+            continue
+
+        # Wildcard checking (e.g. "3.*" or "== 3.*")
+        if "*" in spec:
+            clean_spec = spec.replace("==", "").strip()
+            prefix = clean_spec.split("*")[0].rstrip(".")
+            try:
+                prefix_parts = [int(x) for x in re.findall(r'\d+', prefix)]
+                if app_v[:len(prefix_parts)] != tuple(prefix_parts):
+                    return False
+            except Exception:
+                pass
+            continue
+
+        # Standard comparison checks
+        match = re.match(r"^(?P<op>>=|<=|>|<|==|!=)?\s*(?P<ver>[\d\.]+)", spec)
+        if not match:
+            continue
+
+        op = match.group("op") or "=="
+        spec_v_str = match.group("ver")
+        try:
+            spec_v = parse_ver(spec_v_str)
+            if op == "==":
+                spec_parts = [int(x) for x in re.findall(r'\d+', spec_v_str)]
+                if app_v[:len(spec_parts)] != tuple(spec_parts):
+                    return False
+            elif op == "!=":
+                spec_parts = [int(x) for x in re.findall(r'\d+', spec_v_str)]
+                if app_v[:len(spec_parts)] == tuple(spec_parts):
+                    return False
+            elif op == ">=":
+                if app_v < spec_v:
+                    return False
+            elif op == "<=":
+                if app_v > spec_v:
+                    return False
+            elif op == ">":
+                if app_v <= spec_v:
+                    return False
+            elif op == "<":
+                if app_v >= spec_v:
+                    return False
+        except Exception:
+            pass
+
+    return True
 
 class PluginDetailsDialog(QDialog):
     def __init__(self, parent, name, author, version, description, dependencies, local_info, target_file):
@@ -633,6 +704,13 @@ class PluginInstallerWindow(QDialog):
             
             is_installed = (local_info is not None)
             
+            is_compatible = True
+            supported_ver_str = ""
+            if remote_info:
+                supported_ver_str = remote_info.get("supported_moleditpy_version", "")
+                if supported_ver_str:
+                    is_compatible = is_app_version_compatible(app_ver, supported_ver_str)
+            
             # Visibility Check: 
             # If NOT installed and remote says strictly invisible, skip it.
             # If installed, show it regardless of remote visibility.
@@ -683,7 +761,11 @@ class PluginInstallerWindow(QDialog):
                     status = "Not in Registry"
                     color = QColor("#e2e3e5")
             else:
-                status = "Not Installed"
+                if not is_compatible:
+                    status = "Incompatible"
+                    color = QColor("#fff3cd")
+                else:
+                    status = "Not Installed"
                 can_download = True
                 # Determine target file for new download
                 if remote_info and 'downloadUrl' in remote_info:
@@ -706,9 +788,14 @@ class PluginInstallerWindow(QDialog):
             self.table.setItem(row, 2, QTableWidgetItem(str(local_ver)))
             self.table.setItem(row, 3, QTableWidgetItem(str(remote_ver)))
             
+            if not is_compatible:
+                color = QColor("#fff3cd")
+
             status_item = QTableWidgetItem(status)
             if color:
                 status_item.setBackground(color)
+            if not is_compatible and supported_ver_str:
+                status_item.setToolTip(f"Requires MoleditPy {supported_ver_str} (Current: {app_ver})")
             self.table.setItem(row, 4, status_item)
             
             # Action Button
@@ -731,6 +818,11 @@ class PluginInstallerWindow(QDialog):
                     if remote_info:
                         dependencies = remote_info.get('dependencies', [])
                         btn_action.setProperty("dependencies", dependencies)
+                    
+                    # Disable install button if not installed and incompatible
+                    if not is_installed and not is_compatible:
+                        btn_action.setEnabled(False)
+                        btn_action.setToolTip(f"Incompatible with MoleditPy (Requires: {supported_ver_str})")
                     
                     # Store data for double click lookups if needed, or we just look up in map
                     btn_action.clicked.connect(self.on_update_clicked)
@@ -899,6 +991,41 @@ class PluginInstallerWindow(QDialog):
         dependencies = btn.property("dependencies") or []
         missing_deps = []
         user_confirmed_intent = False
+
+        # Check if installed
+        is_installed = False
+        if target_file and os.path.exists(target_file):
+            is_installed = True
+
+        # Check MoleditPy app version compatibility
+        remote_info = None
+        for entry in self.remote_data:
+            if entry.get('name', None) == plugin_name:
+                remote_info = entry
+                break
+        
+        if remote_info:
+            supported_ver_str = remote_info.get("supported_moleditpy_version", "")
+            app_ver = self.get_app_version()
+            if not is_app_version_compatible(app_ver, supported_ver_str):
+                if not is_installed:
+                    QMessageBox.critical(
+                        self, "Installation Blocked",
+                        f"Error: '{plugin_name}' requires MoleditPy version '{supported_ver_str}', "
+                        f"but you are running version '{app_ver}'.\n\nInstallation is blocked because this plugin is incompatible."
+                    )
+                    return
+                else:
+                    ret = QMessageBox.warning(
+                        self, "Incompatible Version Warning",
+                        f"Warning: '{plugin_name}' requires MoleditPy version '{supported_ver_str}', "
+                        f"but you are running version '{app_ver}'.\n\nSince this plugin is already installed, you can update it, but it may fail to function correctly.\n\nDo you want to proceed with the update anyway?",
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                        QMessageBox.StandardButton.No
+                    )
+                    if ret != QMessageBox.StandardButton.Yes:
+                        return
+                    user_confirmed_intent = True
         
         # Check dependencies first
         if dependencies:
