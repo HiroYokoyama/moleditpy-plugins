@@ -281,6 +281,19 @@ def main():
         print("Error: Strict Validation Failed: PLUGIN_VERSION constant is missing from the plugin source code.", file=sys.stderr)
         sys.exit(1)
         
+    code_author = meta.get("author")
+    if not code_author:
+        print("Error: Strict Validation Failed: PLUGIN_AUTHOR constant is missing from the plugin source code.", file=sys.stderr)
+        sys.exit(1)
+        
+    if code_author.strip().lower() != owner.lower():
+        print(
+            f"Error: Strict Consistency Failed: PLUGIN_AUTHOR ('{code_author}') "
+            f"must match the GitHub username from the Release URL ('{owner}').",
+            file=sys.stderr
+        )
+        sys.exit(1)
+        
     # Verify version matches tag
     normalized_code_version = code_version.strip().lstrip('vV')
     if normalized_code_version != tag_version:

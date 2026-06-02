@@ -275,3 +275,34 @@ def test_extract_metadata_with_tags_and_dependencies():
     assert meta["tags"] == ["Visualization", "Utility"]
     assert meta["dependencies"] == ["numpy", "rdkit"]
 
+@patch('sys.exit')
+@patch('urllib.request.urlopen')
+@patch('register_remote_plugin.extract_metadata_from_file')
+@patch('builtins.open', new_callable=mock_open, read_data="[]")
+def test_author_mismatch_fails(mock_file, mock_extract, mock_urlopen, mock_exit):
+    # Setup mocks
+    mock_response = MagicMock()
+    mock_response.read.return_value = b"mock content"
+    mock_urlopen.return_value.__enter__.return_value = mock_response
+    
+    mock_extract.return_value = {
+        "name": "Third Party Plugin",
+        "version": "1.0.0",
+        "author": "Real Name Instead of GitHub Username",
+        "description": "Some description"
+    }
+    
+    # Configure command-line args for non-HiroYokoyama repo, mismatched author
+    test_args = [
+        "scripts/register_remote_plugin.py",
+        "https://github.com/ThirdParty/some_plugin/releases/download/v1.0.0/plugin.py",
+        "--expected-sha256", hashlib.sha256(b"mock content").hexdigest(),
+        "--dry-run"
+    ]
+    
+    with patch('sys.argv', test_args):
+        register_remote_plugin.main()
+        
+    # Expecting sys.exit(1) to be called due to mismatched author
+    mock_exit.assert_called_with(1)
+

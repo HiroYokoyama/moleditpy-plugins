@@ -12,7 +12,7 @@ A plugin should define its metadata constants and an `initialize` function:
 ```python
 PLUGIN_NAME = "My Plugin"
 PLUGIN_VERSION = "1.0.0"
-PLUGIN_AUTHOR = "Your Name"
+PLUGIN_AUTHOR = "YourGitHubUsername"                  # Must match your GitHub username
 PLUGIN_DESCRIPTION = "Brief description of what the plugin does."
 PLUGIN_TAGS = ["Visualization", "Utility"]             # Optional: parsed automatically by script
 PLUGIN_DEPENDENCIES = ["numpy", "rdkit"]                 # Optional: parsed automatically by script
@@ -58,7 +58,7 @@ The `REGISTRY/plugins.json` file is the registry that the application uses to di
 - `id`: A unique string identifier (e.g., `my_plugin_id`).
 - `name`: **Critical Identifier**. This must be unique across all plugins. It is used as the primary identifier by the application for indexing, updates, and UI display.
 - `version`: Version string (e.g., `2026.02.18` or `1.0.0`).
-- `author`: Your name.
+- `author`: Your GitHub username (must match your release repository owner).
 - `authorUrl`: URL to your GitHub profile.
 - `projectUrl`: URL to the plugin's source code repository.
 - `description`: A clear, concise description.
