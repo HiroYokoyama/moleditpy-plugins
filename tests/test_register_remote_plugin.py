@@ -255,3 +255,23 @@ def test_same_version_dry_run_warning(mock_file, mock_extract, mock_urlopen, moc
     calls = [c[0][0] for c in mock_exit.call_args_list if c[0]]
     assert 1 not in calls
 
+def test_parse_python_list_or_string():
+    assert register_remote_plugin.parse_python_list_or_string('["A", "B"]') == ["A", "B"]
+    assert register_remote_plugin.parse_python_list_or_string("('C', 'D')") == ["C", "D"]
+    assert register_remote_plugin.parse_python_list_or_string('"E, F"') == ["E", "F"]
+    assert register_remote_plugin.parse_python_list_or_string('"G"') == ["G"]
+    assert register_remote_plugin.parse_python_list_or_string("G, H") == ["G", "H"]
+
+def test_extract_metadata_with_tags_and_dependencies():
+    code = """
+    PLUGIN_NAME = "Advanced Tool"
+    PLUGIN_VERSION = "1.0.0"
+    PLUGIN_AUTHOR = "Author Name"
+    PLUGIN_DESCRIPTION = "Some desc"
+    PLUGIN_TAGS = ["Visualization", "Utility"]
+    PLUGIN_DEPENDENCIES = "numpy, rdkit"
+    """
+    meta = register_remote_plugin.extract_metadata_from_code(code)
+    assert meta["tags"] == ["Visualization", "Utility"]
+    assert meta["dependencies"] == ["numpy", "rdkit"]
+

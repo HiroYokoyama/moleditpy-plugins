@@ -27,6 +27,27 @@ PLUGIN_NAME_RE = re.compile(r"^\s*PLUGIN_NAME\s*=\s*(['\"])(?P<val>.*?)\1", re.M
 PLUGIN_VERSION_RE = re.compile(r"^\s*PLUGIN_VERSION\s*=\s*(['\"])(?P<val>.*?)\1", re.MULTILINE)
 PLUGIN_AUTHOR_RE = re.compile(r"^\s*PLUGIN_AUTHOR\s*=\s*(['\"])(?P<val>.*?)\1", re.MULTILINE)
 PLUGIN_DESCRIPTION_RE = re.compile(r"^\s*PLUGIN_DESCRIPTION\s*=\s*(['\"])(?P<val>.*?)\1", re.MULTILINE)
+PLUGIN_TAGS_RE = re.compile(r"^\s*PLUGIN_TAGS\s*=\s*(?P<val>.*?)\s*$", re.MULTILINE)
+PLUGIN_DEPENDENCIES_RE = re.compile(r"^\s*PLUGIN_DEPENDENCIES\s*=\s*(?P<val>.*?)\s*$", re.MULTILINE)
+
+def parse_python_list_or_string(raw_val: str) -> list:
+    """Parses a Python representation of a list, tuple, or string into a list of strings."""
+    raw_val = raw_val.strip()
+    # List or tuple format, e.g. ["a", "b"] or ('a', 'b')
+    if (raw_val.startswith("[") and raw_val.endswith("]")) or (raw_val.startswith("(") and raw_val.endswith(")")):
+        strings = re.findall(r"['\"](.*?)['\"]", raw_val)
+        return [s.strip() for s in strings if s.strip()]
+    # Quoted string literal, e.g. "a, b" or 'a, b'
+    match = re.match(r"^(['\"])(?P<val>.*?)\1$", raw_val)
+    if match:
+        val = match.group("val")
+        if "," in val:
+            return [s.strip() for s in val.split(",") if s.strip()]
+        return [val.strip()] if val.strip() else []
+    # Raw unquoted comma-separated fallback
+    if "," in raw_val:
+        return [s.strip() for s in raw_val.split(",") if s.strip()]
+    return [raw_val] if raw_val else []
 
 def parse_github_release_url(url: str) -> dict:
     """
@@ -65,6 +86,16 @@ def extract_metadata_from_code(code_text: str) -> dict:
         match = regex.search(code_text)
         if match:
             meta[key] = match.group("val").strip()
+            
+    # Parse tags and dependencies lists/tuples/strings
+    for key, regex in [
+        ("tags", PLUGIN_TAGS_RE),
+        ("dependencies", PLUGIN_DEPENDENCIES_RE),
+    ]:
+        match = regex.search(code_text)
+        if match:
+            meta[key] = parse_python_list_or_string(match.group("val"))
+            
     return meta
 
 def extract_metadata_from_file(file_path: Path) -> dict:
@@ -313,9 +344,19 @@ def main():
             print(f"Error: Strict Validation Failed: Missing required metadata constants: {', '.join([f'PLUGIN_{k.upper()}' for k in missing])}", file=sys.stderr)
             sys.exit(1)
             
-        # Parse inputs
-        tags_list = [t.strip() for t in args.tags.split(",")] if args.tags else []
-        deps_list = [d.strip() for d in args.dependencies.split(",")] if args.dependencies else []
+        # Parse inputs, falling back to parsed metadata constants if defined in the script
+        tags_list = meta.get("tags")
+        if not tags_list and args.tags:
+            tags_list = [t.strip() for t in args.tags.split(",")]
+        elif not tags_list:
+            tags_list = []
+            
+        deps_list = meta.get("dependencies")
+        if not deps_list and args.dependencies:
+            deps_list = [d.strip() for d in args.dependencies.split(",")]
+        elif not deps_list:
+            deps_list = []
+            
         visible_flag = args.visible.lower() == "true"
         
         new_entry = {

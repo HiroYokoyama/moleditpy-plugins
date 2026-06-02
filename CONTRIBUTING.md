@@ -7,13 +7,15 @@ Thank you for your interest in contributing to the MoleditPy plugin collection! 
 All plugins must follow the standard MoleditPy plugin structure. For detailed API documentation, please refer to the [Plugin Development Manual](PLUGIN_DEVELOPMENT_MANUAL.md).
 
 ### Basic Structure
-A plugin should define at least the following metadata and an `initialize` function:
+A plugin should define its metadata constants and an `initialize` function:
 
 ```python
 PLUGIN_NAME = "My Plugin"
 PLUGIN_VERSION = "1.0.0"
 PLUGIN_AUTHOR = "Your Name"
 PLUGIN_DESCRIPTION = "Brief description of what the plugin does."
+PLUGIN_TAGS = ["Visualization", "Utility"]             # Optional: parsed automatically by script
+PLUGIN_DEPENDENCIES = ["numpy", "rdkit"]                 # Optional: parsed automatically by script
 
 def initialize(context):
     # Register hooks, menus, and tools using the context API
@@ -22,29 +24,31 @@ def initialize(context):
 
 ## Contribution Workflow
 
-All contributions—whether they are new plugin registrations or updates to existing ones—must be submitted via **Pull Request**.
+Contributions are handled differently depending on whether the plugin's source code is hosted inside this repository (intra-repo) or externally (inter-repo).
 
-### Standard Git Flow
-1.  **Clone** the repository: `git clone https://github.com/HiroYokoyama/moleditpy-plugins.git`
-2.  **Pull** the latest changes: `git pull origin main`
-3.  **Create a branch** for your changes: `git checkout -b feature/my-new-plugin`
-4.  **Implement** changes and **Commit**: `git commit -am "Add my new plugin"`
-5.  **Push** and create a **Pull Request** on GitHub.
+### 1. External (Inter-Repo) Plugins
+*Plugins hosted in external repositories, typically distributed via GitHub Releases.*
 
-### 1. New Plugins
-**Rule: New plugins must be hosted in external repositories.** 
-To add a new plugin to the collection:
-1.  **Host your plugin**: Upload your plugin file (`.py`) or package (`.zip`) to a public repository (e.g., GitHub). We recommend using GitHub Releases to host stable versions.
-2.  **Register the plugin**: Add a new entry to [REGISTRY/plugins.json](REGISTRY/plugins.json) via a Pull Request.
-3.  **Download URL**: The `downloadUrl` in `plugins.json` should point to the direct download link (e.g., a GitHub Release asset or a raw file URL).
+All new registrations and updates to external plugins **must be requested by opening a GitHub Issue**. Direct Pull Requests modifying the registry file (`REGISTRY/plugins.json`) for external URLs will be closed.
 
-### 2. Updates to Existing Plugins
-**Rule: Updates to existing plugins already in this repository are welcome via Pull Request.**
-If you are updating a plugin that is already located in the `plugins/` directory:
-1.  **Update the source**: Replace the `.py` file or folder content in the `plugins/` directory.
-2.  **Update Metadata**: Increment the version number and update the metadata in the script.
-3.  **Update plugins.json**: Update the corresponding entry in `REGISTRY/plugins.json` with the new version, `lastUpdated` timestamp, and a fresh `sha256` hash.
-4.  **Submit PR**: Push your changes to a branch and open a Pull Request.
+#### Standard Flow for External Developers:
+1.  **Host your plugin**: Upload your plugin file (`.py`) or package (`.zip`) to a public repository. We recommend using GitHub Releases to host stable tag versions (e.g. `v1.2.0` or `1.2.0`).
+2.  **Ensure Metadata Consistency**: Your plugin code **must** define the required metadata constants (`PLUGIN_NAME`, `PLUGIN_VERSION`, etc.) at the top of your python file. The version constant must match the release tag version.
+3.  **Calculate SHA-256**: Calculate the SHA-256 hash of your release file.
+4.  **Open a Registration Issue**: Open a new issue on GitHub using the **Request Plugin Registration / Update** template.
+5.  **Review**: A repository maintainer will trigger the automated workflow with your inputs, which downloads, strictly validates (version tag alignment and SHA-256 match), and commits the update to `plugins.json`.
+
+### 2. Internal (Intra-Repo) Plugins
+*Plugins whose source code lives directly inside the `plugins/` directory of this repository.*
+
+Updates to internal plugins are **welcome via Pull Request**.
+
+#### Standard Flow for Internal Developers:
+1.  **Clone / Fork** the repository: `git clone https://github.com/HiroYokoyama/moleditpy-plugins.git`
+2.  **Create a branch**: `git checkout -b update/my-plugin-name`
+3.  **Update Source**: Modify the plugin file or folder located in the `plugins/` directory.
+4.  **Update Registry**: Run `python scripts/update_intra_repo_metadata.py` to automatically update the version, SHA-256, and timestamps in `REGISTRY/plugins.json` based on your source code.
+5.  **Submit PR**: Commit and push your changes to your branch and open a Pull Request for human review.
 
 ## Registering in `plugins.json`
 
@@ -113,6 +117,6 @@ To ensure the safety and integrity of the MoleditPy ecosystem, the following pol
 
 1.  **Human Verification Required**: Only plugins that have been manually reviewed and verified by a human maintainer are acceptable for inclusion in the official registry (`plugins.json`).
 2.  **No Autonomous AI Submissions**: Direct pushes or automated registry updates by autonomous AI agents (e.g., **OpenClaw**) are strictly prohibited.
-3.  **Mandatory Pull Requests**: All contributions, whether human-authored or AI-assisted, must be submitted via a **Pull Request** for human review. Autonomous agent activity bypasses our security model and will be rejected or reverted.
+3.  **Mandatory Registration Request**: All contributions must be submitted via a **GitHub Issue** using the registration template. Direct Pull Requests to edit the registry file bypass our security validations and will be closed.
 4.  **Registry Access**: The application's **Plugin Installer** will only provide access to plugins that have passed this verification process.
 
