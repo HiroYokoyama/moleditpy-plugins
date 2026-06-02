@@ -39,6 +39,7 @@ on:
         description: 'Supported MoleditPy version (e.g. 3.*, required if visible)'
         required: false
         type: string
+        default: '3.*'
       dry_run:
         description: 'Dry run (validate but do not commit/push changes)'
         required: true
