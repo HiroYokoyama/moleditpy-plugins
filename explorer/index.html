@@ -719,6 +719,7 @@
                 <div style="font-size: 0.8em; color: #94a3b8; margin-bottom: 8px;">
                      <span>Updated: ${plugin.lastUpdated}</span>
                      ${plugin.firstAppeared ? `<span style="margin-left: 12px;">First appeared: ${plugin.firstAppeared}</span>` : ''}
+                     ${plugin.supported_moleditpy_version ? `<span style="margin-left: 12px;">Supported: MoleditPy ${plugin.supported_moleditpy_version}</span>` : ''}
                      ${plugin.sha256 ? `
                         <div style="margin-top:2px; display: flex; align-items: center;">
                             <span title="${plugin.sha256}">SHA256: ${plugin.sha256.substring(0, 8)}...</span>
