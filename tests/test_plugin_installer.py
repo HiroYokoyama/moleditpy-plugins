@@ -264,3 +264,82 @@ class TestVersionCompatibility:
         assert PI.is_app_version_compatible("3.4.9", ">=3.5, <4") is False
         assert PI.is_app_version_compatible("3.5.1", ">=3.5, <4, !=3.6") is True
 
+    def test_compatible_release_tilde_equal(self):
+        assert PI.is_app_version_compatible("1.2.3", "~=1.2.3") is True
+        assert PI.is_app_version_compatible("1.2.5", "~=1.2.3") is True
+        # ~=1.2.3 means >=1.2.3 and <1.3
+        assert PI.is_app_version_compatible("1.3.0", "~=1.2.3") is False
+        assert PI.is_app_version_compatible("1.2.2", "~=1.2.3") is False
+        
+        # ~=1.2 means >=1.2 and <2.0
+        assert PI.is_app_version_compatible("1.2.0", "~=1.2") is True
+        assert PI.is_app_version_compatible("1.5.0", "~=1.2") is True
+        assert PI.is_app_version_compatible("2.0.0", "~=1.2") is False
+
+
+class TestDependencyParsing:
+    def test_simple_package(self):
+        assert PI.parse_dependency("numpy") == ("numpy", "")
+        
+    def test_simple_version(self):
+        assert PI.parse_dependency("numpy>=1.20") == ("numpy", ">=1.20")
+        
+    def test_compound_versions(self):
+        assert PI.parse_dependency("rdkit>=2022.03,<2023.0") == ("rdkit", ">=2022.03,<2023.0")
+        
+    def test_with_spaces(self):
+        assert PI.parse_dependency("numpy >= 1.20, < 2.0") == ("numpy", ">= 1.20, < 2.0")
+        
+    def test_with_extras(self):
+        assert PI.parse_dependency("requests[security]>=2.0") == ("requests", ">=2.0")
+        assert PI.parse_dependency("requests[security,other]") == ("requests", "")
+        
+    def test_with_markers(self):
+        assert PI.parse_dependency("numpy>=1.20; python_version < '3.8'") == ("numpy", ">=1.20")
+        
+    def test_reject_colon_separated(self):
+        assert PI.parse_dependency("numpy:>=1.20") == ("", "")
+
+
+class TestCheckDependencySatisfied:
+    def test_missing_package(self):
+        with patch("importlib.metadata.distribution", side_effect=importlib.metadata.PackageNotFoundError):
+            assert PI.check_dependency_satisfied("nonexistent_package") is False
+
+    def test_installed_no_constraint(self):
+        mock_dist = MagicMock()
+        mock_dist.version = "1.20.0"
+        with patch("importlib.metadata.distribution", return_value=mock_dist):
+            assert PI.check_dependency_satisfied("numpy") is True
+
+    def test_installed_satisfied(self):
+        mock_dist = MagicMock()
+        mock_dist.version = "1.20.5"
+        with patch("importlib.metadata.distribution", return_value=mock_dist):
+            assert PI.check_dependency_satisfied("numpy>=1.20") is True
+
+    def test_installed_unsatisfied(self):
+        mock_dist = MagicMock()
+        mock_dist.version = "1.19.0"
+        with patch("importlib.metadata.distribution", return_value=mock_dist):
+            assert PI.check_dependency_satisfied("numpy>=1.20") is False
+
+    def test_invalid_colon_separated(self):
+        assert PI.check_dependency_satisfied("numpy:>=1.20") is False
+
+
+class TestSanitizeAndQuoteDependency:
+    def test_valid_no_specifier(self):
+        assert PI.sanitize_and_quote_dependency("numpy") == "numpy"
+
+    def test_valid_with_specifier(self):
+        assert PI.sanitize_and_quote_dependency("numpy>=1.20") == '"numpy>=1.20"'
+        assert PI.sanitize_and_quote_dependency("rdkit>=2022.03,<2023.0") == '"rdkit>=2022.03,<2023.0"'
+
+    def test_invalid_characters_in_name(self):
+        assert PI.sanitize_and_quote_dependency("numpy;pkg") == ""
+        assert PI.sanitize_and_quote_dependency("numpy&foo") == ""
+
+    def test_invalid_characters_in_specifier(self):
+        assert PI.sanitize_and_quote_dependency("numpy>=1.20;echo") == ""
+

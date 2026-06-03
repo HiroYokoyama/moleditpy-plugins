@@ -29,7 +29,7 @@ import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.06.02"
+PLUGIN_VERSION = "2026.06.03"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Checks for updates, installs new plugins, and allows manual reinstallation."
 
@@ -229,7 +229,7 @@ def is_app_version_compatible(app_version: str, specifier: str) -> bool:
             continue
 
         # Standard comparison checks
-        match = re.match(r"^(?P<op>>=|<=|>|<|==|!=)?\s*(?P<ver>[\d\.]+)", spec)
+        match = re.match(r"^(?P<op>>=|<=|~=|>=|>|<|==|!=)?\s*(?P<ver>[\d\.]+)", spec)
         if not match:
             continue
 
@@ -257,10 +257,100 @@ def is_app_version_compatible(app_version: str, specifier: str) -> bool:
             elif op == "<":
                 if app_v >= spec_v:
                     return False
+            elif op == "~=":
+                spec_parts = [int(x) for x in re.findall(r'\d+', spec_v_str)]
+                if not spec_parts:
+                    return False
+                if app_v < spec_v:
+                    return False
+                n_prefix = len(spec_parts) - 1
+                if n_prefix > 0:
+                    if app_v[:n_prefix] != tuple(spec_parts[:n_prefix]):
+                        return False
+                else:
+                    if app_v[0] != spec_parts[0]:
+                        return False
         except Exception:
             pass
 
     return True
+
+
+def parse_dependency(dep_str: str) -> tuple[str, str]:
+    """
+    Parse a PEP-508 dependency string into (package_name, specifier).
+    Reject colon-separated format (e.g. 'numpy:>=1.20').
+    """
+    if ":" in dep_str:
+        return "", ""
+    dep_str = dep_str.strip()
+    if not dep_str:
+        return "", ""
+    
+    # Extract package name (and optional extras)
+    match = re.match(r"^([a-zA-Z0-9_\-\.]+)(.*)$", dep_str)
+    if not match:
+        return dep_str, ""
+        
+    name = match.group(1)
+    rest = match.group(2).strip()
+    
+    # If the rest starts with extras, e.g. [extra1,extra2]
+    if rest.startswith("["):
+        bracket_count = 0
+        end_idx = -1
+        for idx, char in enumerate(rest):
+            if char == "[":
+                bracket_count += 1
+            elif char == "]":
+                bracket_count -= 1
+                if bracket_count == 0:
+                    end_idx = idx
+                    break
+        if end_idx != -1:
+            rest = rest[end_idx+1:].strip()
+            
+    if ";" in rest:
+        rest = rest.split(";", 1)[0].strip()
+        
+    return name, rest
+
+
+def check_dependency_satisfied(dep_str: str) -> bool:
+    """
+    Check if a PEP-508 dependency string is satisfied by installed packages.
+    """
+    name, specifier = parse_dependency(dep_str)
+    if not name:
+        return False
+    try:
+        dist = importlib.metadata.distribution(name)
+        installed_ver = dist.version
+    except importlib.metadata.PackageNotFoundError:
+        return False
+        
+    if not specifier:
+        return True
+        
+    return is_app_version_compatible(installed_ver, specifier)
+
+
+def sanitize_and_quote_dependency(dep_str: str) -> str:
+    """
+    Sanitize and quote a PEP-508 dependency for safe CLI execution.
+    """
+    if ";" in dep_str:
+        return ""
+    name, specifier = parse_dependency(dep_str)
+    if not name:
+        return ""
+    if not re.match(r'^[a-zA-Z0-9_\-\.]+$', name):
+        return ""
+    if specifier:
+        if not re.match(r'^[a-zA-Z0-9_\-\.\*>=<!~,\s]+$', specifier):
+            return ""
+        return f'"{name}{specifier}"'
+    return name
 
 class PluginDetailsDialog(QDialog):
     def __init__(self, parent, name, author, version, description, dependencies, local_info, target_file, supported_version="Unknown"):
@@ -298,10 +388,9 @@ class PluginDetailsDialog(QDialog):
             missing_deps = []
             
             for dep in dependencies:
-                try:
-                    importlib.metadata.distribution(dep)
+                if check_dependency_satisfied(dep):
                     installed_deps.append(dep)
-                except Exception:
+                else:
                     missing_deps.append(dep)
             
             # Construct display text
@@ -353,8 +442,12 @@ class PluginDetailsDialog(QDialog):
         if not getattr(self, 'missing_deps', None):
             return
             
-        # Security: sanitize dependency names (allow alphanumeric, underscore, hyphen, period)
-        safe_deps = [d for d in self.missing_deps if re.match(r'^[a-zA-Z0-9_\-\.]+$', d)]
+        # Security & Formatting: sanitize and quote each dependency
+        safe_deps = []
+        for d in self.missing_deps:
+            sanitized = sanitize_and_quote_dependency(d)
+            if sanitized:
+                safe_deps.append(sanitized)
         
         if len(safe_deps) != len(self.missing_deps):
             QMessageBox.warning(self, "Security Warning", 
@@ -821,10 +914,9 @@ class PluginInstallerWindow(QDialog):
                         dependencies = remote_info.get('dependencies', [])
                         btn_action.setProperty("dependencies", dependencies)
                     
-                    # Disable install button if not installed and incompatible
+                    # Do NOT disable install button if not installed and incompatible (just warn on click)
                     if not is_installed and not is_compatible:
-                        btn_action.setEnabled(False)
-                        btn_action.setToolTip(f"Incompatible with MoleditPy (Requires: {supported_ver_str})")
+                        btn_action.setToolTip(f"Warning: Incompatible with MoleditPy (Requires: {supported_ver_str})")
                     
                     # Store data for double click lookups if needed, or we just look up in map
                     btn_action.clicked.connect(self.on_update_clicked)
@@ -1018,33 +1110,24 @@ class PluginInstallerWindow(QDialog):
             supported_ver_str = remote_info.get("supported_moleditpy_version", "")
             app_ver = self.get_app_version()
             if not is_app_version_compatible(app_ver, supported_ver_str):
-                if not is_installed:
-                    QMessageBox.critical(
-                        self, "Installation Blocked",
-                        f"Error: '{plugin_name}' requires MoleditPy version '{supported_ver_str}', "
-                        f"but you are running version '{app_ver}'.\n\nInstallation is blocked because this plugin is incompatible."
-                    )
+                action_word = "update" if is_installed else "install"
+                ret = QMessageBox.warning(
+                    self, "Incompatible Version Warning",
+                    f"Warning: '{plugin_name}' requires MoleditPy version '{supported_ver_str}', "
+                    f"but you are running version '{app_ver}'.\n\nThis plugin may fail to function correctly.\n\nDo you want to proceed with the {action_word} anyway?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No
+                )
+                if ret != QMessageBox.StandardButton.Yes:
                     return
-                else:
-                    ret = QMessageBox.warning(
-                        self, "Incompatible Version Warning",
-                        f"Warning: '{plugin_name}' requires MoleditPy version '{supported_ver_str}', "
-                        f"but you are running version '{app_ver}'.\n\nSince this plugin is already installed, you can update it, but it may fail to function correctly.\n\nDo you want to proceed with the update anyway?",
-                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                        QMessageBox.StandardButton.No
-                    )
-                    if ret != QMessageBox.StandardButton.Yes:
-                        return
-                    user_confirmed_intent = True
+                user_confirmed_intent = True
         
         # Check dependencies first
         if dependencies:
             
             missing_deps = []
             for dep in dependencies:
-                try:
-                    importlib.metadata.distribution(dep)
-                except Exception:
+                if not check_dependency_satisfied(dep):
                     missing_deps.append(dep)
             
             if missing_deps:

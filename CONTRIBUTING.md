@@ -16,7 +16,7 @@ PLUGIN_AUTHOR = "YourGitHubUsername"                  # Must match your GitHub u
 PLUGIN_DESCRIPTION = "Brief description of what the plugin does."
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = "3.*"             # Optional: parsed automatically by script
 PLUGIN_TAGS = ["Visualization", "Utility"]             # Optional: parsed automatically by script
-PLUGIN_DEPENDENCIES = ["numpy", "rdkit"]                 # Optional: parsed automatically by script
+PLUGIN_DEPENDENCIES = ["numpy>=1.20", "rdkit>=2022.03"] # Optional: parsed automatically by script (supports PEP-508 constraints)
 
 def initialize(context):
     # Register hooks, menus, and tools using the context API
@@ -72,7 +72,7 @@ The `REGISTRY/plugins.json` file is the registry that the application uses to di
 - `projectUrl`: URL to the plugin's source code repository.
 - `description`: A clear, concise description.
 - `tags`: Array of categories (e.g., `["Analysis", "Visualization"]`).
-- `dependencies`: Array of required Python packages.
+- `dependencies`: Array of required Python packages. Supports standard PEP-508 version constraints (e.g. `numpy>=1.20`, `rdkit>=2022.03,<2023.0`, or `rdkit~=2022.03.1`). Listing a library without any version constraint (e.g. just `numpy` or `rdkit`) is also fully supported.
 - `downloadUrl`: 
     - For external: `https://github.com/.../my_plugin.zip`
     - For internal: `../plugins/My_Plugin/my_plugin.py`
@@ -95,7 +95,7 @@ When adding or updating a plugin, use the following structure:
   "projectUrl": "https://github.com/YourUsername/my-awesome-plugin",
   "description": "A brief description of what your plugin does.",
   "tags": ["Utility", "Visualization"],
-  "dependencies": ["rdkit", "numpy"],
+  "dependencies": ["numpy>=1.20", "rdkit>=2022.03,<2023.0"],
   "downloadUrl": "https://github.com/YourUsername/my-awesome-plugin/releases/download/v1.0.0/my_plugin.py",
   "sha256": "YOUR_SHA256_HASH_HERE",
   "lastUpdated": "2026-02-18",
