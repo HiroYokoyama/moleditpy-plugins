@@ -1372,7 +1372,6 @@
     "dependencies": [
       "pyvista",
       "PyQt6",
-      "pymatgen",
       "Pillow"
     ],
     "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_rotation_giffer/releases/download/1.2.0/rotation_giffer.py",
