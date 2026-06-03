@@ -1,6 +1,6 @@
 # Plugin Installer
 
-A built-in utility plugin for MoleditPy to manage, install, and update plugins directly from the registry.
+A utility plugin for MoleditPy to manage, install, and update plugins directly from the registry.
 
 ## Features
 
