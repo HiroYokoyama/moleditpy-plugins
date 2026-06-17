@@ -1,5 +1,8 @@
 #  MoleditPy Plugin Collection
 
+[![Plugin Tests](https://github.com/HiroYokoyama/moleditpy-plugins/actions/workflows/test-plugins.yml/badge.svg)](https://github.com/HiroYokoyama/moleditpy-plugins/actions/workflows/test-plugins.yml)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18140902.svg)](https://doi.org/10.5281/zenodo.18140902)
+
 Repo: [https://github.com/HiroYokoyama/moleditpy-plugins/](https://github.com/HiroYokoyama/moleditpy-plugins/)  
 Explorer: [https://hiroyokoyama.github.io/moleditpy-plugins/explorer/](https://hiroyokoyama.github.io/moleditpy-plugins/explorer/)
 
