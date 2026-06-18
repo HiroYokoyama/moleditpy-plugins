@@ -439,9 +439,9 @@
   {
     "id": "orca_freq_analyzer",
     "visible": true,
-    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "ORCA Freq Analyzer",
-    "version": "2026.06.19.1",
+    "version": "2026.06.19",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Analyzes vibrational frequencies from ORCA output files. View IR spectrum, animate normal modes, and export GIF animations.",
@@ -458,7 +458,7 @@
     ],
     "downloadUrl": "../plugins/ORCA_Freq_Analyzer/orca_out_freq_analyzer.py",
     "lastUpdated": "2026-06-19",
-    "sha256": "c2654e611d237fdb3f5e595a04baebce2c61b2262a0728ea6046a67581c8502a",
+    "sha256": "6c5f4fc468ade939c834ec15270fadb598eca1d2a9c77411f6d78c0b8c2edcae",
     "firstAppeared": "2025-12-20"
   },
   {
