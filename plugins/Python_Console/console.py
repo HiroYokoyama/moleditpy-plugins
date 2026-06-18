@@ -2,6 +2,7 @@ import io
 import code
 import traceback
 import keyword
+import pydoc
 from contextlib import redirect_stdout, redirect_stderr
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QTextEdit, QPlainTextEdit,
@@ -14,7 +15,7 @@ from PyQt6.QtGui import (
 from PyQt6.QtCore import Qt, QRegularExpression, pyqtSignal
 import rdkit.Chem as Chem
 
-PLUGIN_VERSION = "2026.04.12"
+PLUGIN_VERSION = "2026.06.18"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Embedded Python console for interactive scripting."
 PLUGIN_NAME = "Python Console"
@@ -142,6 +143,34 @@ class ConsoleInput(QPlainTextEdit):
             super().keyPressEvent(event)
 
 
+class GUIHelp:
+    """Custom help utility for the GUI Python Console to prevent freezing."""
+    def __init__(self):
+        pass
+
+    def __repr__(self):
+        return (
+            "Type help(object) to get help on an object.\n"
+            "Interactive help is disabled in this console to prevent freezing."
+        )
+
+    def __call__(self, *args, **kwargs):
+        if not args and not kwargs:
+            print(self)
+            return
+
+        import sys
+        old_pager = getattr(pydoc, "pager", None)
+        pydoc.pager = pydoc.plainpager
+        try:
+            pydoc.help(*args, **kwargs)
+        except Exception as e:
+            print(f"Error retrieving help: {e}", file=sys.stderr)
+        finally:
+            if old_pager is not None:
+                pydoc.pager = old_pager
+
+
 class PythonConsoleDialog(QDialog):
     def __init__(self, context):
         super().__init__(context.get_main_window())
@@ -195,6 +224,7 @@ class PythonConsoleDialog(QDialog):
             'mw': self.context.get_main_window(),
             'Chem': Chem,
             'mol': self._get_best_mol(),
+            'help': GUIHelp(),
         }
 
         # Initialize Interpreter
@@ -272,6 +302,7 @@ def initialize(context):
             win.raise_()
             win.activateWindow()
             
+    context.add_menu_action("Tools/Python Console", run_console)
 
 def run(mw):
     if hasattr(mw, 'host'):
