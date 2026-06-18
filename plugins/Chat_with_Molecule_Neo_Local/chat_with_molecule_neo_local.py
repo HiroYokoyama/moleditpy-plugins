@@ -4,7 +4,7 @@
 
 PLUGIN_NAME = "Chat with Molecule Neo (Local)"
 PLUGIN_VERSION = "2026.06.19"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=3.0.0, <5.0.0"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with Local LLM (OpenAI-Compatible) about the current molecule. Automatically injects SMILES context. (Neo Version) Note: InChIKey is sent to PubChem."
 PLUGIN_ID = "chat_with_molecule_neo_local"

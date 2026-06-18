@@ -26,7 +26,7 @@ except ImportError:
     rdDetermineBonds = None
 
 PLUGIN_VERSION = "2026.06.19"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=3.0.0, <5.0.0"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_NAME = "Animated XYZ Giffer"
 PLUGIN_DESCRIPTION = "Allows loading and playing multi-frame XYZ files (e.g., MD trajectories)."

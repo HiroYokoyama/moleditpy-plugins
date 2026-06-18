@@ -943,7 +943,7 @@
   {
     "id": "gaussian_mo_analyzer",
     "visible": true,
-    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Gaussian MO Analyzer",
     "version": "2026.06.19",
     "author": "HiroYokoyama",
@@ -963,7 +963,7 @@
     ],
     "downloadUrl": "../plugins/Gaussian_MO_Analyzer/gaussian_fchk_mo_analyzer.zip",
     "lastUpdated": "2026-06-19",
-    "sha256": "11669a4d37ddb1b24d106b886cc2dd849ce78efffef48b20f3431b05ba59d76d",
+    "sha256": "e535210775c66c477a28674c8d25b95f6ce7b9febaf85c2522bc63b3b386ee5b",
     "firstAppeared": "2026-01-23"
   },
   {
@@ -1084,7 +1084,7 @@
   {
     "id": "cube_file_viewer_advanced",
     "visible": true,
-    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Cube File Viewer Advanced",
     "version": "2026.06.19",
     "author": "HiroYokoyama",
@@ -1102,7 +1102,7 @@
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer_Advanced/cube_viewer_advanced.py",
     "lastUpdated": "2026-06-19",
-    "sha256": "e5dff6d9d491a5f588b07b300ca5ebc63e5452558dc639266c7b74bae5478e5a",
+    "sha256": "d7e5409137b1be361b142819a6485dfdeb2b0f1a2675091a40a25972564537fa",
     "firstAppeared": "2026-02-02"
   },
   {
