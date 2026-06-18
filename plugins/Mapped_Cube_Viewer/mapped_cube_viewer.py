@@ -31,6 +31,7 @@ __author__ = "HiroYokoyama"
 PLUGIN_AUTHOR = __author__
 PLUGIN_NAME = "Mapped Cube Viewer"
 PLUGIN_VERSION = "2026.06.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=3.0.0, <5.0.0"
 PLUGIN_DESCRIPTION = "Visualizes electrostatic potential or other properties mapped onto an isosurface from Gaussian Cube files."
 
 # --- Core Logic: Robust Parser from cube_viewer.py ---
@@ -552,8 +553,8 @@ def run_plugin(context):
             try: context.enter_3d_viewer_mode()
             except Exception as _e:
                 logging.warning("[mapped_cube_viewer.py] silenced: %s", _e)
-        elif hasattr(mw, 'ui_manager') and hasattr(mw.ui_manager, '_enter_3d_viewer_ui_mode'):
-            try: mw.ui_manager._enter_3d_viewer_ui_mode()
+        elif hasattr(mw, 'ui_manager') and hasattr(mw.ui_manager, 'enter_3d_viewer_ui_mode'):
+            try: mw.ui_manager.enter_3d_viewer_ui_mode()
             except Exception as _e:
                 logging.warning("[mapped_cube_viewer.py:546] silenced: %s", _e)
 

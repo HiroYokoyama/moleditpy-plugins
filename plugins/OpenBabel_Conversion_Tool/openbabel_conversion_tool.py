@@ -23,6 +23,7 @@ except ImportError:
 
 PLUGIN_NAME = "OpenBabel Conversion Tool"
 PLUGIN_VERSION = "2026.06.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=3.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Import various chemical file formats using OpenBabel with multi-molecule support."
 PLUGIN_DEPENDENCIES = ["openbabel"]
@@ -214,12 +215,12 @@ def open_file_with_openbabel(file_path, context):
 
             # Switch to 3D only mode
             # We access the internal method on MainWindow which proxies to the UI Manager
-            # We prioritize the internal name `_enter_3d_viewer_ui_mode` as verified in source.
+            # We prioritize the internal name `enter_3d_viewer_ui_mode` as verified in source.
             try:
                 if hasattr(context, 'enter_3d_viewer_mode'):
                     context.enter_3d_viewer_mode()
-                elif hasattr(mw, 'ui_manager') and hasattr(mw.ui_manager, '_enter_3d_viewer_ui_mode'):
-                    mw.ui_manager._enter_3d_viewer_ui_mode()
+                elif hasattr(mw, 'ui_manager') and hasattr(mw.ui_manager, 'enter_3d_viewer_ui_mode'):
+                    mw.ui_manager.enter_3d_viewer_ui_mode()
             except Exception as e:
                 print(f"[{PLUGIN_NAME}] Failed to switch to 3D mode: {e}")
 

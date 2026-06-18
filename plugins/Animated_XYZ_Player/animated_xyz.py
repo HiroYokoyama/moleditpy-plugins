@@ -244,8 +244,8 @@ class AnimatedXYZPlayer(QDialog):
         # Ensure 3D capabilities are on
         if hasattr(self.mw, 'ui_manager') and hasattr(self.mw.ui_manager, 'enter_3d_viewer_mode'):
             self.mw.ui_manager.enter_3d_viewer_mode()
-        elif hasattr(self.mw, '_enter_3d_viewer_ui_mode'):
-            self.mw._enter_3d_viewer_ui_mode()
+        elif hasattr(self.mw, 'enter_3d_viewer_ui_mode'):
+            self.mw.enter_3d_viewer_ui_mode()
         
         # Reset camera on first load
         if hasattr(self.mw, 'plotter'):

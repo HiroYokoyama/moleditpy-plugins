@@ -3,7 +3,8 @@
 
 
 PLUGIN_NAME = "Chat with Molecule Neo (Local)"
-PLUGIN_VERSION = "2026.04.24"
+PLUGIN_VERSION = "2026.06.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=3.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with Local LLM (OpenAI-Compatible) about the current molecule. Automatically injects SMILES context. (Neo Version) Note: InChIKey is sent to PubChem."
 PLUGIN_ID = "chat_with_molecule_neo_local"
@@ -1768,8 +1769,8 @@ class ChatMoleculeWindow(QDialog):
                 
                 # Update next_atom_id to avoid future collisions
                 if hasattr(self.state_manager.data, 'next_atom_id'):
-                     if atom_id >= self.state_manager.data._next_atom_id:
-                          self.state_manager.data._next_atom_id = atom_id + 1
+                     if atom_id >= self.state_manager.data.next_atom_id:
+                          self.state_manager.data.next_atom_id = atom_id + 1
 
             for bond in mol.GetBonds():
                 b_idx, e_idx = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
@@ -2816,8 +2817,8 @@ class ChatMoleculeWindow(QDialog):
             # --- Manual Clear 3D Logic ---
             mw.plotter.clear()
             mw.current_mol = None
-            if hasattr(mw, 'ui_manager') and hasattr(mw.ui_manager, '_enable_3d_features'):
-                mw.ui_manager._enable_3d_features(False)
+            if hasattr(mw, 'ui_manager') and hasattr(mw.ui_manager, 'enable_3d_features'):
+                mw.ui_manager.enable_3d_features(False)
             
             # Update UI
             mw.state_manager.has_unsaved_changes = True

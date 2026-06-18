@@ -25,6 +25,7 @@ except ImportError:
     rdDetermineBonds = None
     
 PLUGIN_VERSION = "2026.06.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=3.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Visualize Gaussian cube files (electron density, MOs)."
 PLUGIN_NAME = "Cube File Viewer"
@@ -727,8 +728,8 @@ def open_cube_viewer(context, fname):
         
         if hasattr(context, 'enter_3d_viewer_mode'):
             context.enter_3d_viewer_mode()
-        elif hasattr(main_window, 'ui_manager') and hasattr(main_window.ui_manager, '_enter_3d_viewer_ui_mode'):
-            main_window.ui_manager._enter_3d_viewer_ui_mode()
+        elif hasattr(main_window, 'ui_manager') and hasattr(main_window.ui_manager, 'enter_3d_viewer_ui_mode'):
+            main_window.ui_manager.enter_3d_viewer_ui_mode()
         
         # Create Molecule (XYZ)
         atoms = meta['atoms']
@@ -788,9 +789,9 @@ def open_cube_viewer(context, fname):
                 context.enter_3d_viewer_mode()
             except Exception as _e:
                 logging.warning("[cube_viewer.py] silenced: %s", _e)
-        elif hasattr(main_window, 'ui_manager') and hasattr(main_window.ui_manager, '_enter_3d_viewer_ui_mode'):
+        elif hasattr(main_window, 'ui_manager') and hasattr(main_window.ui_manager, 'enter_3d_viewer_ui_mode'):
             try:
-                main_window.ui_manager._enter_3d_viewer_ui_mode()
+                main_window.ui_manager.enter_3d_viewer_ui_mode()
             except Exception as _e:
                 logging.warning("[cube_viewer.py] silenced: %s", _e)
 

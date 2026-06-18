@@ -61,8 +61,8 @@ class OrbitalWidget(QWidget):
                     
                     if hasattr(context, 'enter_3d_viewer_mode'):
                         context.enter_3d_viewer_mode()
-                    elif hasattr(mw, 'ui_manager') and hasattr(mw.ui_manager, '_enter_3d_viewer_ui_mode'):
-                        mw.ui_manager._enter_3d_viewer_ui_mode()
+                    elif hasattr(mw, 'ui_manager') and hasattr(mw.ui_manager, 'enter_3d_viewer_ui_mode'):
+                        mw.ui_manager.enter_3d_viewer_ui_mode()
                         
                     mw.plotter.reset_camera()
         except Exception as e:

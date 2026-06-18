@@ -30,6 +30,7 @@ import tempfile
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
 PLUGIN_VERSION = "2026.06.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=3.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Checks for updates, installs new plugins, and allows manual reinstallation."
 
@@ -81,23 +82,23 @@ def _refresh_plugin_menus(mw):
         return
 
     im = mw.init_manager
-    # Allow _add_registered_plugin_actions to re-add a separator before any new
+    # Allow add_registered_plugin_actions to re-add a separator before any new
     # top-level plugin menus (the flag is only used for first-time top-level menus,
     # not for the existing Plugin menu, so it is safe to reset).
     try:
-        im._plugin_menubar_separator_added = False
+        im.plugin_menubar_separator_added = False
     except Exception as e:
-        logging.warning("Plugin Installer: could not reset _plugin_menubar_separator_added: %s", e)
+        logging.warning("Plugin Installer: could not reset plugin_menubar_separator_added: %s", e)
 
     try:
-        if hasattr(im, '_add_registered_plugin_actions'):
-            im._add_registered_plugin_actions()
+        if hasattr(im, 'add_registered_plugin_actions'):
+            im.add_registered_plugin_actions()
     except Exception as e:
         logging.warning("Plugin Installer: menu rebuild error: %s", e)
 
     try:
-        if hasattr(im, '_add_plugin_toolbar_actions'):
-            im._add_plugin_toolbar_actions()
+        if hasattr(im, 'add_plugin_toolbar_actions'):
+            im.add_plugin_toolbar_actions()
     except Exception as e:
         logging.warning("Plugin Installer: toolbar rebuild error: %s", e)
 

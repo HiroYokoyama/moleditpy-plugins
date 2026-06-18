@@ -13,6 +13,7 @@ except ImportError:
 
 PLUGIN_NAME = "Paste XYZ"
 PLUGIN_VERSION = "2026.06.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=3.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Allows pasting XYZ coordinates directly from the clipboard to create a new molecule."
 
@@ -159,8 +160,8 @@ def run_plugin(context):
                 candidate_mol = mol_to_finalize.GetMol()
                 candidate_mol.SetIntProp("_xyz_charge", int(charge_val))
                 
-                if hasattr(mw, 'edit_actions_manager') and hasattr(mw.edit_actions_manager, '_apply_chem_check_and_set_flags'):
-                    mw.edit_actions_manager._apply_chem_check_and_set_flags(candidate_mol, source_desc='PasteXYZ')
+                if hasattr(mw, 'edit_actions_manager') and hasattr(mw.edit_actions_manager, 'apply_chem_check_and_set_flags'):
+                    mw.edit_actions_manager.apply_chem_check_and_set_flags(candidate_mol, source_desc='PasteXYZ')
 
                 return candidate_mol
 
@@ -236,8 +237,8 @@ def run_plugin(context):
                     try: context.enter_3d_viewer_mode()
                     except Exception as _e:
                         logging.warning("[paste_xyz.py] silenced: %s", _e)
-                elif hasattr(mw, 'ui_manager') and hasattr(mw.ui_manager, '_enter_3d_viewer_ui_mode'):
-                    try: mw.ui_manager._enter_3d_viewer_ui_mode()
+                elif hasattr(mw, 'ui_manager') and hasattr(mw.ui_manager, 'enter_3d_viewer_ui_mode'):
+                    try: mw.ui_manager.enter_3d_viewer_ui_mode()
                     except Exception as _e:
                         logging.warning("[paste_xyz.py:235] silenced: %s", _e)
                 # Minimize the 2D editor after loading XYZ into 3D-first workflow.

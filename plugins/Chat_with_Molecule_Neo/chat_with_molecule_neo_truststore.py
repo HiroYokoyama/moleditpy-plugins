@@ -3,7 +3,8 @@
 
 
 PLUGIN_NAME = "Chat with Molecule Neo (Gemini) (truststore)"
-PLUGIN_VERSION = "2026.04.12"
+PLUGIN_VERSION = "2026.06.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=3.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with Google Gemini about the current molecule. Automatically injects SMILES context. (Neo Version)"
 PLUGIN_ID = "chat_with_molecule_neo_truststore"
@@ -2667,8 +2668,8 @@ class ChatMoleculeWindow(QDialog):
             # --- Manual Clear 3D Logic ---
             mw.plotter.clear()
             mw.current_mol = None
-            if hasattr(mw, 'ui_manager') and hasattr(mw.ui_manager, '_enable_3d_features'):
-                mw.ui_manager._enable_3d_features(False)
+            if hasattr(mw, 'ui_manager') and hasattr(mw.ui_manager, 'enable_3d_features'):
+                mw.ui_manager.enable_3d_features(False)
             
             # Update UI
             mw.state_manager.has_unsaved_changes = True
