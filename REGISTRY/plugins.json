@@ -2,7 +2,7 @@
   {
     "id": "all-trans_optimizer",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "All-Trans Optimizer",
     "version": "2026.04.12",
     "author": "HiroYokoyama",
@@ -22,7 +22,7 @@
   {
     "id": "animated_xyz_giffer",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Animated XYZ Giffer",
     "version": "2026.04.12",
     "author": "HiroYokoyama",
@@ -61,7 +61,7 @@
   {
     "id": "complex_molecule_untangler",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Complex Molecule Untangler",
     "version": "2026.04.12",
     "author": "HiroYokoyama",
@@ -81,7 +81,7 @@
   {
     "id": "conformational_search",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Conformational Search",
     "version": "2026.04.13",
     "author": "HiroYokoyama",
@@ -101,7 +101,7 @@
   {
     "id": "cube_file_viewer",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Cube File Viewer",
     "version": "2026.04.24",
     "author": "HiroYokoyama",
@@ -195,7 +195,7 @@
   {
     "id": "pubchem_name_ressolver",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "PubChem Name Resolver",
     "version": "2026.04.12",
     "author": "HiroYokoyama",
@@ -216,7 +216,7 @@
   {
     "id": "console",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Python Console",
     "version": "2026.06.18",
     "author": "HiroYokoyama",
@@ -237,7 +237,7 @@
   {
     "id": "atom_colorizer",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Atom Colorizer",
     "version": "2026.04.12",
     "author": "HiroYokoyama",
@@ -260,7 +260,7 @@
   {
     "id": "dark_mode_theme",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Dark Mode Theme",
     "version": "2026.04.24",
     "author": "HiroYokoyama",
@@ -280,7 +280,7 @@
   {
     "id": "gaussian_input_generator_neo",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Gaussian Input Generator Neo",
     "version": "2026.04.13",
     "author": "HiroYokoyama",
@@ -302,7 +302,7 @@
   {
     "id": "vdw_radii_overlay",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "VDW Radii Overlay",
     "version": "2026.04.12",
     "author": "HiroYokoyama",
@@ -324,7 +324,7 @@
   {
     "id": "mapped_cube_viewer",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Mapped Cube Viewer",
     "version": "2026.04.13",
     "author": "HiroYokoyama",
@@ -369,7 +369,7 @@
   {
     "id": "orca_xyz2inp_gui",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "ORCA xyz2inp GUI",
     "version": "2026.04.11",
     "author": "HiroYokoyama",
@@ -393,7 +393,7 @@
   {
     "id": "ms_spectrum_simulation_neo",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "MS Spectrum Simulation Neo",
     "version": "2026.04.12",
     "author": "HiroYokoyama",
@@ -414,7 +414,7 @@
   {
     "id": "gaussian_freq_analyzer",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Gaussian Freq Analyzer",
     "version": "2026.04.12",
     "author": "HiroYokoyama",
@@ -439,7 +439,7 @@
   {
     "id": "orca_freq_analyzer",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "ORCA Freq Analyzer",
     "version": "2026.04.24",
     "author": "HiroYokoyama",
@@ -464,7 +464,7 @@
   {
     "id": "paste_xyz",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Paste XYZ",
     "version": "2026.04.12",
     "author": "HiroYokoyama",
@@ -501,7 +501,7 @@
   {
     "id": "plugin_installer",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Plugin Installer",
     "version": "2026.06.03",
     "author": "HiroYokoyama",
@@ -544,7 +544,7 @@
   {
     "id": "chat_with_molecule_neo",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Chat with Molecule Neo (Gemini)",
     "version": "2026.04.12",
     "author": "HiroYokoyama",
@@ -568,7 +568,7 @@
   {
     "id": "pubchem_structure_identifier",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "PubChem Structure Identifier",
     "version": "2026.04.12",
     "author": "HiroYokoyama",
@@ -589,7 +589,7 @@
   {
     "id": "chat_with_molecule_neo_chatgpt",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Chat with Molecule Neo (ChatGPT)",
     "version": "2026.04.24",
     "author": "HiroYokoyama",
@@ -613,7 +613,7 @@
   {
     "id": "chat_with_molecule_neo_local",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Chat with Molecule Neo (Local)",
     "version": "2026.04.24",
     "author": "HiroYokoyama",
@@ -637,7 +637,7 @@
   {
     "id": "symmetry_analyzer",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Symmetry Analyzer",
     "version": "2026.04.12",
     "author": "HiroYokoyama",
@@ -659,7 +659,7 @@
   {
     "id": "vector_viewer",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Vector Viewer",
     "version": "2026.04.13",
     "author": "HiroYokoyama",
@@ -682,7 +682,7 @@
   {
     "id": "mopac_input_generator",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "MOPAC Input Generator",
     "version": "2026.04.12",
     "author": "HiroYokoyama",
@@ -704,7 +704,7 @@
   {
     "id": "gamess_input_generator",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "GAMESS Input Generator",
     "version": "2026.04.12",
     "author": "HiroYokoyama",
@@ -726,7 +726,7 @@
   {
     "id": "pyscf_input_generator",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "PySCF Input Generator",
     "version": "2026.04.12",
     "author": "HiroYokoyama",
@@ -749,7 +749,7 @@
   {
     "id": "psi4_input_generator",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Psi4 Input Generator",
     "version": "2026.04.12",
     "author": "HiroYokoyama",
@@ -771,7 +771,7 @@
   {
     "id": "molecule_comparator",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Molecule Comparator",
     "version": "2026.04.12",
     "author": "HiroYokoyama",
@@ -793,7 +793,7 @@
   {
     "id": "nwchem_input_generator",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "NWChem Input Generator",
     "version": "2026.04.12",
     "author": "HiroYokoyama",
@@ -815,7 +815,7 @@
   {
     "id": "xyz_editor",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "XYZ Editor",
     "version": "2026.04.18",
     "author": "HiroYokoyama",
@@ -854,7 +854,7 @@
   {
     "id": "pyscf_calculator",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "PySCF Calculator",
     "version": "2.3.0",
     "author": "HiroYokoyama",
@@ -880,7 +880,7 @@
   {
     "id": "openbabel_conversion_tool",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "OpenBabel Conversion Tool",
     "version": "2026.04.12",
     "author": "HiroYokoyama",
@@ -901,7 +901,7 @@
   {
     "id": "paste_from_chemdraw",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Paste from ChemDraw",
     "version": "2026.04.12",
     "author": "HiroYokoyama",
@@ -922,7 +922,7 @@
   {
     "id": "compound_info_report",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Compound Info Report",
     "version": "2026.04.12",
     "author": "HiroYokoyama",
@@ -943,7 +943,7 @@
   {
     "id": "gaussian_mo_analyzer",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Gaussian MO Analyzer",
     "version": "2026.04.12",
     "author": "HiroYokoyama",
@@ -969,7 +969,7 @@
   {
     "id": "gaussian_fchk_loader",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Gaussian FCHK Loader",
     "version": "2026.04.12",
     "author": "HiroYokoyama",
@@ -990,7 +990,7 @@
   {
     "id": "settings_saver",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Settings Saver",
     "version": "2026.04.12",
     "author": "HiroYokoyama",
@@ -1010,7 +1010,7 @@
   {
     "id": "structural_updater",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Structural Updater",
     "version": "2026.04.12",
     "author": "HiroYokoyama",
@@ -1031,7 +1031,7 @@
   {
     "id": "orca_result_analyzer",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "ORCA Result Analyzer",
     "version": "2.6.0",
     "author": "HiroYokoyama",
@@ -1059,7 +1059,7 @@
   {
     "id": "nmr_predictor_nmrshiftdb2",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "NMR Predictor (nmrshiftdb2)",
     "version": "2.1.0",
     "author": "HiroYokoyama",
@@ -1084,7 +1084,7 @@
   {
     "id": "cube_file_viewer_advanced",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Cube File Viewer Advanced",
     "version": "2026.04.13",
     "author": "HiroYokoyama",
@@ -1108,7 +1108,7 @@
   {
     "id": "advanced_rendering",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Advanced Rendering",
     "version": "2026.04.12",
     "author": "HiroYokoyama",
@@ -1130,7 +1130,7 @@
   {
     "id": "high_res_imager",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "High Resolution Imager",
     "version": "2026.04.12",
     "author": "HiroYokoyama",
@@ -1152,7 +1152,7 @@
   {
     "id": "blender_export",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Blender Export",
     "version": "2026.04.11",
     "author": "HiroYokoyama",
@@ -1175,7 +1175,7 @@
   {
     "id": "povray_export",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "POV-Ray Export",
     "version": "2026.04.11",
     "author": "HiroYokoyama",
@@ -1198,7 +1198,7 @@
   {
     "id": "reaction_sketcher",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Reaction Sketcher",
     "version": "2.4.0",
     "author": "HiroYokoyama",
@@ -1222,7 +1222,7 @@
   {
     "id": "encrypted_project",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Encrypted Project",
     "version": "2026.04.12",
     "author": "HiroYokoyama",
@@ -1243,7 +1243,7 @@
   {
     "id": "3d_molecule_on_2d",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "3D Molecule on 2D",
     "version": "2.4.0",
     "author": "HiroYokoyama",
@@ -1267,7 +1267,7 @@
   {
     "id": "orca_input_generator_pro",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "ORCA Input Generator Pro",
     "version": "2.4.5",
     "author": "HiroYokoyama",
@@ -1290,7 +1290,7 @@
   {
     "id": "nics_placer",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "NICS Placer",
     "version": "1.0.1",
     "author": "HiroYokoyama",
@@ -1313,7 +1313,7 @@
   {
     "id": "molibrary",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Molibrary Browser",
     "version": "1.1.0",
     "author": "HiroYokoyama",
@@ -1335,7 +1335,7 @@
   {
     "id": "cif_viewer",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "CIF Viewer",
     "version": "0.10.0",
     "author": "HiroYokoyama",
@@ -1359,7 +1359,7 @@
   {
     "id": "rotation_giffer",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Rotation Giffer",
     "version": "1.2.0",
     "author": "HiroYokoyama",
@@ -1382,7 +1382,7 @@
   {
     "id": "strain_homodesmotic_reaction_generator",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Strain Homodesmotic Reaction Generator",
     "version": "0.4.2",
     "author": "HiroYokoyama",
