@@ -409,6 +409,8 @@ def _merge_allowlists(*lists) -> dict:
                     mgr.setdefault(mgr_name, set()).update(members)
             elif key == "mw":
                 merged.setdefault("mw", set()).update(val)
+            elif key == "context":
+                merged.setdefault("context", set()).update(val)
     return merged
 
 
@@ -448,6 +450,9 @@ def _load_site_allowlist(plugin_path: Path) -> dict:
                     k: set(v.keys() if isinstance(v, dict) else v)
                     for k, v in data["manager"].items()
                 }
+            if "context" in data:
+                ctx_val = data["context"]
+                result["context"] = set(ctx_val.keys() if isinstance(ctx_val, dict) else ctx_val)
             return result
         # Stop at repo root or filesystem root — don't leak into parent repos.
         if (directory / ".git").exists() or directory == directory.parent:
@@ -686,7 +691,8 @@ class PluginFileChecker:
 
             # ---- context.something ------------------------------------
             elif self.check_context and self._is_ctx_ref(obj):
-                if self.api.context_members and attr not in self.api.context_members:
+                ctx_allow = self._allowlist.get("context", set())
+                if self.api.context_members and attr not in self.api.context_members and attr not in ctx_allow:
                     self._add_issue(
                         node.lineno, "UNKNOWN_CONTEXT_ATTR",
                         f"`{_repr(obj)}.{attr}` -- '{attr}' not found on PluginContext",
