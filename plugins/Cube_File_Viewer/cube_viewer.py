@@ -24,7 +24,7 @@ except ImportError:
     Geometry = None
     rdDetermineBonds = None
     
-PLUGIN_VERSION = "2026.04.24"
+PLUGIN_VERSION = "2026.06.19"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Visualize Gaussian cube files (electron density, MOs)."
 PLUGIN_NAME = "Cube File Viewer"
@@ -725,7 +725,9 @@ def open_cube_viewer(context, fname):
         if hasattr(main_window, 'plotter'):
             main_window.plotter.clear()
         
-        if hasattr(main_window, 'ui_manager'):
+        if hasattr(context, 'enter_3d_viewer_mode'):
+            context.enter_3d_viewer_mode()
+        elif hasattr(main_window, 'ui_manager') and hasattr(main_window.ui_manager, '_enter_3d_viewer_ui_mode'):
             main_window.ui_manager._enter_3d_viewer_ui_mode()
         
         # Create Molecule (XYZ)
@@ -781,7 +783,12 @@ def open_cube_viewer(context, fname):
         main_window.init_manager.current_file_path = fname
 
         # Enter full 3D viewer UI mode: minimizes 2D panel and disables editing tools (enables Export 3D)
-        if hasattr(main_window, 'ui_manager') and hasattr(main_window.ui_manager, '_enter_3d_viewer_ui_mode'):
+        if hasattr(context, 'enter_3d_viewer_mode'):
+            try:
+                context.enter_3d_viewer_mode()
+            except Exception as _e:
+                logging.warning("[cube_viewer.py] silenced: %s", _e)
+        elif hasattr(main_window, 'ui_manager') and hasattr(main_window.ui_manager, '_enter_3d_viewer_ui_mode'):
             try:
                 main_window.ui_manager._enter_3d_viewer_ui_mode()
             except Exception as _e:

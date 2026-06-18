@@ -24,7 +24,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Animated XYZ Giffer",
-    "version": "2026.04.12",
+    "version": "2026.06.19",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A player for viewing multi-frame XYZ files and recording GIF animations using PIL.",
@@ -36,8 +36,8 @@
       "Pillow"
     ],
     "downloadUrl": "../plugins/Animated_XYZ_Giffer/animated_xyz_giffer.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "f1879fa3da27a8ec839abdadd2ecb49e19cd81fcc9a90893240408802de450df",
+    "lastUpdated": "2026-06-19",
+    "sha256": "60c1a090779ee92362637d4235fc573a7c7c5bec889d8a77beabf54fca025044",
     "firstAppeared": "2025-12-15"
   },
   {
@@ -55,7 +55,7 @@
     "dependencies": [],
     "downloadUrl": "../plugins/Animated_XYZ_Player/animated_xyz.py",
     "lastUpdated": "2025-12-15",
-    "sha256": "a5b19a226f0b48da0fbd68cc30fa0b0aae19bedbf845d43cf0a20152cdbacf85",
+    "sha256": "a70904a59b8513f62510289aab6d90acc02601c7d787db9b285b17ff3c8c2a5f",
     "firstAppeared": "2025-12-15"
   },
   {
@@ -103,7 +103,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Cube File Viewer",
-    "version": "2026.04.24",
+    "version": "2026.06.19",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes Gaussian Cube files (.cube) containing volumetric data (e.g., orbitals, densities).",
@@ -116,8 +116,8 @@
       "numpy"
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer/cube_viewer.py",
-    "lastUpdated": "2026-04-24",
-    "sha256": "0aa5d3638b460de2f73d69c38dc102619d17156c6c53b8e954fbf9dd35f2d80b",
+    "lastUpdated": "2026-06-19",
+    "sha256": "1224ac178646670e56ea35c6d93c14250ef0938ca8e8da705957161af11adfc8",
     "firstAppeared": "2025-12-15"
   },
   {
@@ -326,7 +326,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Mapped Cube Viewer",
-    "version": "2026.04.13",
+    "version": "2026.06.19",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes a property (e.g. ESP) mapped onto an isosurface (e.g. electron density) from two Cube files.",
@@ -341,8 +341,8 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/Mapped_Cube_Viewer/mapped_cube_viewer.py",
-    "lastUpdated": "2026-04-13",
-    "sha256": "d6b8e4e03e38c1c4d6b185cf60e28de489e777d3dd28f6da3b1811729ee82ae9",
+    "lastUpdated": "2026-06-19",
+    "sha256": "28b8f4e2d91f43bb6dd0d6c031fc1b8fce726d30a8874c8a72647a79ac4938ae",
     "firstAppeared": "2025-12-17"
   },
   {
@@ -416,7 +416,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Gaussian Freq Analyzer",
-    "version": "2026.04.12",
+    "version": "2026.06.19",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Analyzes vibrational frequencies from Gaussian FCHK files. View IR spectrum, animate normal modes, and export GIF animations.",
@@ -432,8 +432,8 @@
       "Pillow"
     ],
     "downloadUrl": "../plugins/Gaussian_Freq_Analyzer/gaussian_fchk_freq_analyzer.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "94c519a3082804ccb633f9c3f922ad608ec457fe12c000722387c50c8cfa3b34",
+    "lastUpdated": "2026-06-19",
+    "sha256": "f1e1b3543dc8851310b8e1e48607c48424da7d64f1b5f8664ee8c607bc87936c",
     "firstAppeared": "2025-12-20"
   },
   {
@@ -441,7 +441,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "ORCA Freq Analyzer",
-    "version": "2026.04.24",
+    "version": "2026.06.19",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Analyzes vibrational frequencies from ORCA output files. View IR spectrum, animate normal modes, and export GIF animations.",
@@ -457,8 +457,8 @@
       "Pillow"
     ],
     "downloadUrl": "../plugins/ORCA_Freq_Analyzer/orca_out_freq_analyzer.py",
-    "lastUpdated": "2026-04-24",
-    "sha256": "afc1828a2682b084f736d9f336dff47a2c9e9b80b960d98494a7129d43791dcd",
+    "lastUpdated": "2026-06-19",
+    "sha256": "8d882e95b10dfeb478e1a169a9f4e3264594bb169682f61782900bda27e7fc74",
     "firstAppeared": "2025-12-20"
   },
   {
@@ -466,7 +466,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Paste XYZ",
-    "version": "2026.04.12",
+    "version": "2026.06.19",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Paste XYZ to view in 3D.",
@@ -475,8 +475,8 @@
     ],
     "dependencies": [],
     "downloadUrl": "../plugins/Paste_XYZ/paste_xyz.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "f477cd38b4c8a64cc6e269f20607f305b4e6bc56c5c3e3b91e639119b37dd559",
+    "lastUpdated": "2026-06-19",
+    "sha256": "6fae8acbe33e762f13fd13616c605426bfd186d097ae9b02115fa94bd8cb5b13",
     "firstAppeared": "2025-12-20"
   },
   {
@@ -503,7 +503,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Plugin Installer",
-    "version": "2026.06.03",
+    "version": "2026.06.19",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Checks for updates, installs new plugins, and allows manual reinstallation.",
@@ -514,8 +514,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Plugin_Installer/plugin_installer.py",
-    "lastUpdated": "2026-06-03",
-    "sha256": "8a3539ca060ce45863f7fe8001953eb80a28cb1d8e644884d08c5db05a0a2940",
+    "lastUpdated": "2026-06-19",
+    "sha256": "e4744507128f2f649b7fe3af727cb2b1144459f85b5a25615ad3b7d9edec7a17",
     "firstAppeared": "2026-01-04"
   },
   {
@@ -882,7 +882,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "OpenBabel Conversion Tool",
-    "version": "2026.04.12",
+    "version": "2026.06.19",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Import various chemical file formats using OpenBabel with multi-molecule support.",
@@ -894,8 +894,8 @@
       "openbabel-wheel"
     ],
     "downloadUrl": "../plugins/OpenBabel_Conversion_Tool/openbabel_conversion_tool.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "150ca166bfb0222fed07b8f026cd284f47e3af19318647d49e311b50851fe135",
+    "lastUpdated": "2026-06-19",
+    "sha256": "331e1268bf5ca79c76ddd9ca03ff1c0200692d4912a160c0c2e261dfcf6315ab",
     "firstAppeared": "2026-01-10"
   },
   {
@@ -945,7 +945,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Gaussian MO Analyzer",
-    "version": "2026.04.12",
+    "version": "2026.06.19",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes Molecular Orbitals from Gaussian FCHK files by generating Cube files. The current implementation supports S, P, D, and F shells",
@@ -962,7 +962,7 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Gaussian_MO_Analyzer/gaussian_fchk_mo_analyzer.zip",
-    "lastUpdated": "2026-04-12",
+    "lastUpdated": "2026-06-19",
     "sha256": "11669a4d37ddb1b24d106b886cc2dd849ce78efffef48b20f3431b05ba59d76d",
     "firstAppeared": "2026-01-23"
   },
@@ -1031,9 +1031,9 @@
   {
     "id": "orca_result_analyzer",
     "visible": true,
-    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
+    "supported_moleditpy_version": "4.*",
     "name": "ORCA Result Analyzer",
-    "version": "2.6.0",
+    "version": "3.0.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Comprehensive analyzer for ORCA output files (.out). Includes Vibrational, MO, TDDFT, and NMR analysis.",
@@ -1050,9 +1050,9 @@
       "nmrsim",
       "scipy"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin/releases/download/2.6.0/orca_result_analyzer.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin/releases/download/3.0.0/orca_result_analyzer.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin",
-    "lastUpdated": "2026-06-16",
+    "lastUpdated": "2026-06-19",
     "sha256": "85cd03fa60a82a29ef2f1b8d5098ac362a743ede2f5b73e7090b30a99677c408",
     "firstAppeared": "2026-01-27"
   },
@@ -1086,7 +1086,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Cube File Viewer Advanced",
-    "version": "2026.04.13",
+    "version": "2026.06.19",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Advanced 3D visualization for Gaussian Cube files with PBR, SSAO, and other effects.",
@@ -1101,8 +1101,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer_Advanced/cube_viewer_advanced.py",
-    "lastUpdated": "2026-04-13",
-    "sha256": "9ea75781ce48443c0783f547e0d5d98b32c660c9fd147861a7b317a085f0d722",
+    "lastUpdated": "2026-06-19",
+    "sha256": "e80a0746c52e92baeb9c8200cb20efdedf140e099608a60d2a58077d6b9422e1",
     "firstAppeared": "2026-02-02"
   },
   {

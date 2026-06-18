@@ -27,7 +27,7 @@ except ImportError:
 __author__ = "HiroYokoyama"
 PLUGIN_AUTHOR = __author__
 PLUGIN_NAME = "Cube File Viewer Advanced"
-PLUGIN_VERSION = "2026.04.13"
+PLUGIN_VERSION = "2026.06.19"
 PLUGIN_DESCRIPTION = "Advanced 3D visualization for Gaussian Cube files with PBR, SSAO, and other effects."
 
 def parse_cube_data(filename):
@@ -1910,7 +1910,12 @@ def open_cube_viewer(context, file_path):
         main_window.init_manager.current_file_path = file_path
 
         # Enter full 3D viewer UI mode: minimizes 2D panel and disables editing tools
-        if hasattr(main_window, 'ui_manager') and hasattr(main_window.ui_manager, '_enter_3d_viewer_ui_mode'):
+        if hasattr(context, 'enter_3d_viewer_mode'):
+            try:
+                context.enter_3d_viewer_mode()
+            except Exception as _e:
+                logging.warning("[cube_viewer_advanced.py] silenced: %s", _e)
+        elif hasattr(main_window, 'ui_manager') and hasattr(main_window.ui_manager, '_enter_3d_viewer_ui_mode'):
             try:
                 main_window.ui_manager._enter_3d_viewer_ui_mode()
             except Exception as _e:

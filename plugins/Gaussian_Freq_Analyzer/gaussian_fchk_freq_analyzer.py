@@ -16,7 +16,7 @@ except ImportError:
     Chem = None
 
 PLUGIN_NAME = "Gaussian Freq Analyzer"
-PLUGIN_VERSION = "2026.04.12"
+PLUGIN_VERSION = "2026.06.19"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Visualizes vibrational frequencies and normal modes from Gaussian FCHK files."
 
@@ -554,7 +554,9 @@ class GaussianFCHKFreqAnalyzer(QWidget):
         self.base_mol = mol.GetMol()
         self.mw.current_mol = self.base_mol
         
-        if hasattr(self.mw, 'ui_manager') and hasattr(self.mw.ui_manager, '_enter_3d_viewer_ui_mode'):
+        if hasattr(self.context, 'enter_3d_viewer_mode'):
+            self.context.enter_3d_viewer_mode()
+        elif hasattr(self.mw, 'ui_manager') and hasattr(self.mw.ui_manager, '_enter_3d_viewer_ui_mode'):
             self.mw.ui_manager._enter_3d_viewer_ui_mode()
             
         self.mw.view_3d_manager.draw_molecule_3d(self.base_mol)

@@ -12,7 +12,7 @@ except ImportError:
     Chem = None
 
 PLUGIN_NAME = "Paste XYZ"
-PLUGIN_VERSION = "2026.04.12"
+PLUGIN_VERSION = "2026.06.19"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Allows pasting XYZ coordinates directly from the clipboard to create a new molecule."
 
@@ -232,7 +232,11 @@ def run_plugin(context):
                 context.push_undo_checkpoint()
                 context.show_status_message(f"Pasted {len(atoms_data)} atoms from clipboard.")
                 
-                if hasattr(mw, 'ui_manager') and hasattr(mw.ui_manager, '_enter_3d_viewer_ui_mode'):
+                if hasattr(context, 'enter_3d_viewer_mode'):
+                    try: context.enter_3d_viewer_mode()
+                    except Exception as _e:
+                        logging.warning("[paste_xyz.py] silenced: %s", _e)
+                elif hasattr(mw, 'ui_manager') and hasattr(mw.ui_manager, '_enter_3d_viewer_ui_mode'):
                     try: mw.ui_manager._enter_3d_viewer_ui_mode()
                     except Exception as _e:
                         logging.warning("[paste_xyz.py:235] silenced: %s", _e)
