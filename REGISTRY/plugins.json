@@ -37,7 +37,7 @@
     ],
     "downloadUrl": "../plugins/Animated_XYZ_Giffer/animated_xyz_giffer.py",
     "lastUpdated": "2026-06-19",
-    "sha256": "60c1a090779ee92362637d4235fc573a7c7c5bec889d8a77beabf54fca025044",
+    "sha256": "c04a5a6adbb9fc12e501f217c362ab055bbe1152732f76b802b3895fcb974851",
     "firstAppeared": "2025-12-15"
   },
   {
@@ -55,7 +55,7 @@
     "dependencies": [],
     "downloadUrl": "../plugins/Animated_XYZ_Player/animated_xyz.py",
     "lastUpdated": "2025-12-15",
-    "sha256": "a70904a59b8513f62510289aab6d90acc02601c7d787db9b285b17ff3c8c2a5f",
+    "sha256": "4fd6ef16eecddb36a62cc14db44a35cdc7fd01db2021d21394ec30e019261a87",
     "firstAppeared": "2025-12-15"
   },
   {
@@ -117,7 +117,7 @@
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer/cube_viewer.py",
     "lastUpdated": "2026-06-19",
-    "sha256": "1224ac178646670e56ea35c6d93c14250ef0938ca8e8da705957161af11adfc8",
+    "sha256": "d24a586a8a4dbab2189e0d891d47ebdd72b6994a519b4fd19c8b4f36193bd1e1",
     "firstAppeared": "2025-12-15"
   },
   {
@@ -342,7 +342,7 @@
     ],
     "downloadUrl": "../plugins/Mapped_Cube_Viewer/mapped_cube_viewer.py",
     "lastUpdated": "2026-06-19",
-    "sha256": "28b8f4e2d91f43bb6dd0d6c031fc1b8fce726d30a8874c8a72647a79ac4938ae",
+    "sha256": "e582ba90fbc8971bb3d24db4b988de95ca1a828906693e1bcdeaf89493ab2f90",
     "firstAppeared": "2025-12-17"
   },
   {
@@ -433,7 +433,7 @@
     ],
     "downloadUrl": "../plugins/Gaussian_Freq_Analyzer/gaussian_fchk_freq_analyzer.py",
     "lastUpdated": "2026-06-19",
-    "sha256": "f1e1b3543dc8851310b8e1e48607c48424da7d64f1b5f8664ee8c607bc87936c",
+    "sha256": "2b6e2249b92c54c38d0a13a9c9832ba64fe1bbad018af7e9359c4026edb85a5e",
     "firstAppeared": "2025-12-20"
   },
   {
@@ -441,7 +441,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "ORCA Freq Analyzer",
-    "version": "2026.06.19",
+    "version": "2026.06.19.1",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Analyzes vibrational frequencies from ORCA output files. View IR spectrum, animate normal modes, and export GIF animations.",
@@ -458,7 +458,7 @@
     ],
     "downloadUrl": "../plugins/ORCA_Freq_Analyzer/orca_out_freq_analyzer.py",
     "lastUpdated": "2026-06-19",
-    "sha256": "8d882e95b10dfeb478e1a169a9f4e3264594bb169682f61782900bda27e7fc74",
+    "sha256": "c2654e611d237fdb3f5e595a04baebce2c61b2262a0728ea6046a67581c8502a",
     "firstAppeared": "2025-12-20"
   },
   {
@@ -476,7 +476,7 @@
     "dependencies": [],
     "downloadUrl": "../plugins/Paste_XYZ/paste_xyz.py",
     "lastUpdated": "2026-06-19",
-    "sha256": "6fae8acbe33e762f13fd13616c605426bfd186d097ae9b02115fa94bd8cb5b13",
+    "sha256": "ef7b8a1af30f3bc7dce30451118fb74b2eb976967e054fae8434e11d5dde8f34",
     "firstAppeared": "2025-12-20"
   },
   {
@@ -515,7 +515,7 @@
     ],
     "downloadUrl": "../plugins/Plugin_Installer/plugin_installer.py",
     "lastUpdated": "2026-06-19",
-    "sha256": "e4744507128f2f649b7fe3af727cb2b1144459f85b5a25615ad3b7d9edec7a17",
+    "sha256": "09aef18e6ad217bd25ad01d925f2ddcb714c4059b87b6697f5340a8bf9eba5ed",
     "firstAppeared": "2026-01-04"
   },
   {
@@ -546,7 +546,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Chat with Molecule Neo (Gemini)",
-    "version": "2026.04.12",
+    "version": "2026.06.19",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with Google Gemini about the current molecule. Automatically injects SMILES context. (Neo Version)",
@@ -561,8 +561,8 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo/chat_with_molecule_neo.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "4bbb1cea1544ed9b6adf3feb8440197cc8a0059c39b2935d1120adb81eed4ca5",
+    "lastUpdated": "2026-06-19",
+    "sha256": "55c6dbdcfbebcb105c6fdcff18660760bb8c733f464c38761f3d1435b8179da2",
     "firstAppeared": "2025-12-28"
   },
   {
@@ -591,7 +591,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Chat with Molecule Neo (ChatGPT)",
-    "version": "2026.04.24",
+    "version": "2026.06.19",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with OpenAI ChatGPT about the current molecule. Automatically injects SMILES context. (Neo Version)",
@@ -606,8 +606,8 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_ChatGPT/chat_with_molecule_neo_chatGPT.py",
-    "lastUpdated": "2026-04-24",
-    "sha256": "9bcbf80c287718e45e8a348b5b9455bdc300339cf6f733551772755ae5476ab6",
+    "lastUpdated": "2026-06-19",
+    "sha256": "e7850421577f87060f48e9a7c0c9d935a96995c6eeb684ea7c8f75f7bf3f1498",
     "firstAppeared": "2025-12-30"
   },
   {
@@ -615,7 +615,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Chat with Molecule Neo (Local)",
-    "version": "2026.04.24",
+    "version": "2026.06.19",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with local LLM about the current molecule. Automatically injects SMILES context. (Neo Version)",
@@ -630,8 +630,8 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_Local/chat_with_molecule_neo_local.py",
-    "lastUpdated": "2026-04-24",
-    "sha256": "fdc8e41e84a785cb434f68c4a7d1f77746f42e5e78c7037d1068e7eb0181308e",
+    "lastUpdated": "2026-06-19",
+    "sha256": "c7d70d3bd49406c99e8fd495fd25cddca08912475fa94822e881d7e39d55b1c8",
     "firstAppeared": "2025-12-30"
   },
   {
@@ -895,7 +895,7 @@
     ],
     "downloadUrl": "../plugins/OpenBabel_Conversion_Tool/openbabel_conversion_tool.py",
     "lastUpdated": "2026-06-19",
-    "sha256": "331e1268bf5ca79c76ddd9ca03ff1c0200692d4912a160c0c2e261dfcf6315ab",
+    "sha256": "3aae4973cee2f28a22f158647853ec2fe46ae7792dc8582a463cb2b1232aac7d",
     "firstAppeared": "2026-01-10"
   },
   {
@@ -1102,7 +1102,7 @@
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer_Advanced/cube_viewer_advanced.py",
     "lastUpdated": "2026-06-19",
-    "sha256": "e80a0746c52e92baeb9c8200cb20efdedf140e099608a60d2a58077d6b9422e1",
+    "sha256": "e5dff6d9d491a5f588b07b300ca5ebc63e5452558dc639266c7b74bae5478e5a",
     "firstAppeared": "2026-02-02"
   },
   {

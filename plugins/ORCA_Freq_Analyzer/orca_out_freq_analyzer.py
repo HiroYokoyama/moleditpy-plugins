@@ -22,7 +22,8 @@ except ImportError:
 
 PLUGIN_NAME = "ORCA Freq Analyzer"
 PLUGIN_DESCRIPTION = "Parse ORCA output files and visualize vibrational frequencies."
-PLUGIN_VERSION = "2026.06.19"
+PLUGIN_VERSION = "2026.06.19.1"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=3.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 
 class OrcaParser:
@@ -715,8 +716,6 @@ class OrcaOutFreqAnalyzer(QWidget):
         
         if hasattr(self.mw, 'ui_manager') and hasattr(self.mw.ui_manager, 'enter_3d_viewer_mode'):
             self.mw.ui_manager.enter_3d_viewer_mode()
-        elif hasattr(self.mw, '_enter_3d_viewer_ui_mode'):
-            self.mw._enter_3d_viewer_ui_mode()
             
         self.mw.draw_molecule_3d(self.base_mol)
         if hasattr(self.mw, 'plotter'):
