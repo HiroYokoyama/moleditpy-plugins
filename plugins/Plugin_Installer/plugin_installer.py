@@ -29,7 +29,7 @@ import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.06.03"
+PLUGIN_VERSION = "2026.06.19"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Checks for updates, installs new plugins, and allows manual reinstallation."
 
@@ -38,9 +38,15 @@ SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "plugin_installer.json")
 
 # Global flag to ensure startup check runs only once per session
 _startup_check_performed = False
+_context = None
 
 
 def _refresh_plugin_menus(mw):
+    global _context
+    if _context is not None and hasattr(_context, "rebuild_menus"):
+        _context.rebuild_menus()
+        return
+
     """
     After discover_plugins(), strip stale plugin-managed menu/toolbar entries and
     rebuild them from the newly populated plugin_manager registries.
@@ -118,7 +124,8 @@ def initialize(context):
     Registers the Plugin menu entry every time, and schedules the startup
     update check once per session.
     """
-    global _startup_check_performed
+    global _startup_check_performed, _context
+    _context = context
 
     mw = context.get_main_window()
     if not mw:
