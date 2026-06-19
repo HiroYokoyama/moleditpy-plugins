@@ -43,64 +43,16 @@ _context = None
 
 
 def _refresh_plugin_menus(mw):
+    """Rebuild all plugin-managed UI after a plugin install/update/remove."""
     global _context
     if _context is not None and hasattr(_context, "rebuild_menus"):
         _context.rebuild_menus()
         return
-
-    """
-    After discover_plugins(), strip stale plugin-managed menu/toolbar entries and
-    rebuild them from the newly populated plugin_manager registries.
-
-    This allows installs, updates, and removals to take effect immediately without
-    requiring an application restart.
-    """
-    PLUGIN_ACTION_TAG = "plugin_managed"
-
-    def _clean_menu(menu):
-        """Recursively remove plugin-managed leaf actions and now-empty submenus."""
-        for action in list(menu.actions()):
-            submenu = action.menu()
-            if submenu is not None:
-                _clean_menu(submenu)
-                # Remove the submenu entry itself if it has no visible items left
-                has_content = any(not a.isSeparator() for a in submenu.actions())
-                if not has_content:
-                    menu.removeAction(action)
-            elif action.data() == PLUGIN_ACTION_TAG:
-                menu.removeAction(action)
-
-    try:
-        for top_action in list(mw.menuBar().actions()):
-            top_menu = top_action.menu()
-            if top_menu is not None:
-                _clean_menu(top_menu)
-    except Exception as e:
-        logging.warning("Plugin Installer: menu cleanup error: %s", e)
-
-    if not hasattr(mw, 'init_manager'):
-        return
-
-    im = mw.init_manager
-    # Allow add_registered_plugin_actions to re-add a separator before any new
-    # top-level plugin menus (the flag is only used for first-time top-level menus,
-    # not for the existing Plugin menu, so it is safe to reset).
-    try:
-        im.plugin_menubar_separator_added = False
-    except Exception as e:
-        logging.warning("Plugin Installer: could not reset plugin_menubar_separator_added: %s", e)
-
-    try:
-        if hasattr(im, 'add_registered_plugin_actions'):
-            im.add_registered_plugin_actions()
-    except Exception as e:
-        logging.warning("Plugin Installer: menu rebuild error: %s", e)
-
-    try:
-        if hasattr(im, 'add_plugin_toolbar_actions'):
-            im.add_plugin_toolbar_actions()
-    except Exception as e:
-        logging.warning("Plugin Installer: toolbar rebuild error: %s", e)
+    if hasattr(mw, "plugin_menu_manager"):
+        try:
+            mw.plugin_menu_manager.rebuild_plugin_menus()
+        except Exception as e:
+            logging.warning("Plugin Installer: menu rebuild error: %s", e)
 
 def load_settings():
     if os.path.exists(SETTINGS_FILE):
