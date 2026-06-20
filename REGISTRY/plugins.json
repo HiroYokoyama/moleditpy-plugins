@@ -1031,7 +1031,7 @@
   {
     "id": "orca_result_analyzer",
     "visible": true,
-    "supported_moleditpy_version": "4.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "ORCA Result Analyzer",
     "version": "3.0.0",
     "author": "HiroYokoyama",
@@ -1050,10 +1050,10 @@
       "nmrsim",
       "scipy"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin/releases/download/3.0.0/orca_result_analyzer.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin/releases/download/3.0.0/orca_result_analyzer_3.0.0.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin",
-    "lastUpdated": "2026-06-19",
-    "sha256": "85cd03fa60a82a29ef2f1b8d5098ac362a743ede2f5b73e7090b30a99677c408",
+    "lastUpdated": "2026-06-20",
+    "sha256": "0ca08c6876f4d6c92459a9a9f70d0d9fde8239ff69d79b1dbb82ebd2e502adfd",
     "firstAppeared": "2026-01-27"
   },
   {
