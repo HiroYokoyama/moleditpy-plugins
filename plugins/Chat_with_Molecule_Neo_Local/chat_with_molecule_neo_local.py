@@ -1789,19 +1789,18 @@ class ChatMoleculeWindow(QDialog):
 
                 if b_idx in rdkit_idx_to_my_id and e_idx in rdkit_idx_to_my_id:
                     a1_id, a2_id = rdkit_idx_to_my_id[b_idx], rdkit_idx_to_my_id[e_idx]
-                    a1_item = self.state_manager.data.atoms[a1_id]['item']
-                    a2_item = self.state_manager.data.atoms[a2_id]['item']
+                    a1_item = scene.atom_items.get(a1_id)
+                    a2_item = scene.atom_items.get(a2_id)
                     scene.create_bond(a1_item, a2_item, bond_order=int(b_type), bond_stereo=stereo)
 
             # --- FINALIZE ---
-            self.state_manager.has_unsaved_changes = True
+            self.context.mark_project_modified()
             
             # Update UI
             if self.state_manager.data.atoms:
                 view_2d.fitInView(scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
             self.state_manager.update_realtime_info()
             self.edit_actions_manager.update_undo_redo_actions()
-            self.state_manager.update_window_title()
 
             # Push Final State so Undo works (Current state is now on top of stack)
             self.context.push_undo_checkpoint()
@@ -1814,7 +1813,6 @@ class ChatMoleculeWindow(QDialog):
                 logging.warning("[chat_with_molecule_neo_local.py:1819] silenced: %s", _e)
             
             self.edit_actions_manager.update_undo_redo_actions()
-            self.state_manager.update_window_title()
             QTimer.singleShot(0, self.view_3d_manager.fit_to_view)
             
             # Force Scene Update
@@ -2498,7 +2496,7 @@ class ChatMoleculeWindow(QDialog):
                     # Try to find aid in atoms.keys() (int or str mismatch check)
                     # dict keys might be int, aid is int.
                     if aid in self.state_manager.data.atoms:
-                        item = self.state_manager.data.atoms[aid].get('item', None)
+                        item = self.init_manager.scene.atom_items.get(aid)
                         if item:
                             item.setSelected(True)
                             count += 1
@@ -2561,8 +2559,8 @@ class ChatMoleculeWindow(QDialog):
                  # We need to map UI Selection -> RDKit Indices
                  # This requires map numbers again
                  selected_map_nums = []
-                 for aid, adata in self.main_window.data.atoms.items():
-                      item = adata.get('item', None)
+                 for aid in self.main_window.data.atoms:
+                      item = self.main_window.scene.atom_items.get(aid)
                       if item and item.isSelected():
                           selected_map_nums.append(aid) # MapNum is ID + 1
                  
@@ -2783,7 +2781,7 @@ class ChatMoleculeWindow(QDialog):
             mw = self.main_window
             
             # Push undo state BEFORE clearing
-            mw.edit_actions_manager.push_undo_state()
+            self.context.push_undo_checkpoint()
             
             # --- Manual Clear 2D Logic ---
             # 1. Clear flags
@@ -2793,16 +2791,14 @@ class ChatMoleculeWindow(QDialog):
             # 2. Remove Items from Scene
             # Note: We must remove from scene before clearing data refs
             for atom_id in list(mw.state_manager.data.atoms.keys()):
-                atom_data = mw.state_manager.data.atoms[atom_id]
-                if atom_data.get('item', None):
-                    if atom_data['item'].scene() == mw.scene:
-                        mw.scene.removeItem(atom_data['item'])
-            
+                item = mw.scene.atom_items.get(atom_id)
+                if item and item.scene() == mw.scene:
+                    mw.scene.removeItem(item)
+
             for (id1, id2) in list(mw.state_manager.data.bonds.keys()):
-                bond_data = mw.state_manager.data.bonds.get((id1, id2), None)
-                if bond_data and bond_data.get('item', None):
-                   if bond_data['item'].scene() == mw.scene:
-                        mw.scene.removeItem(bond_data['item'])
+                item = mw.scene.bond_items.get((id1, id2))
+                if item and item.scene() == mw.scene:
+                    mw.scene.removeItem(item)
 
             # 3. Clear Data
             mw.state_manager.data.atoms.clear()
@@ -2821,12 +2817,11 @@ class ChatMoleculeWindow(QDialog):
                 mw.ui_manager.enable_3d_features(False)
             
             # Update UI
-            mw.state_manager.has_unsaved_changes = True
+            self.context.mark_project_modified()
             mw.edit_actions_manager.update_undo_redo_actions()
-            mw.state_manager.update_window_title()
-            
+
             # Push undo state AFTER clearing (Saves the "Empty" state on top of stack)
-            mw.edit_actions_manager.push_undo_state()
+            self.context.push_undo_checkpoint()
             
             # Update context
             self.check_molecule_change()
@@ -3013,8 +3008,8 @@ class ChatMoleculeWindow(QDialog):
         """Get list of selected atom IDs (as strings) matching SMILES MapNums."""
         indices = []
         if hasattr(self.main_window, 'data') and hasattr(self.main_window.data, 'atoms'):
-             for aid, adata in self.main_window.data.atoms.items():
-                 item = adata.get('item', None)
+             for aid in self.main_window.data.atoms:
+                 item = self.main_window.scene.atom_items.get(aid)
                  if item and item.isSelected():
                      # Match the new MapNum logic: MapNum = ID + 1
                      indices.append(str(aid + 1))
@@ -3680,9 +3675,10 @@ class ChatMoleculeWindow(QDialog):
             # A. 現在のキャンバス上の選択原子（または全原子）の重心を計算
             current_points = []
             if mw.state_manager.data.atoms:
-                for ad in mw.state_manager.data.atoms.values():
-                    if ad.get('item', None):
-                        current_points.append(ad['item'].scenePos())
+                for atom_id in mw.state_manager.data.atoms:
+                    item = mw.scene.atom_items.get(atom_id)
+                    if item:
+                        current_points.append(item.scenePos())
             
             if current_points:
                 avg_x = sum(p.x() for p in current_points) / len(current_points)
@@ -3745,8 +3741,8 @@ class ChatMoleculeWindow(QDialog):
                     if target_id in mw.state_manager.data.atoms:
                         # === UPDATE (既存原子の変更) ===
                         atom_data = mw.state_manager.data.atoms[target_id]
-                        item = atom_data.get('item', None)
-                        
+                        item = mw.scene.atom_items.get(target_id)
+
                         # 属性更新
                         atom_data['symbol'] = atom.GetSymbol()
                         atom_data['charge'] = atom.GetFormalCharge()
@@ -3798,7 +3794,7 @@ class ChatMoleculeWindow(QDialog):
                 if aid not in processed_ids:
                     # 削除処理
                     if aid in mw.state_manager.data.atoms:
-                        item = mw.state_manager.data.atoms[aid].get('item', None)
+                        item = mw.scene.atom_items.get(aid)
                         if item:
                             mw.scene.delete_items([item])
 
@@ -3860,9 +3856,9 @@ class ChatMoleculeWindow(QDialog):
                                 b_data['order'] = order
                                 b_data['stereo'] = stereo
                                 # Force redraw
-                                item = b_data.get('item', None)
+                                item = mw.scene.bond_items.get(found_key)
                                 if item:
-                                     # Assuming create_bond updates if called again? 
+                                     # Assuming create_bond updates if called again?
                                      # Or strictly manually update?
                                      # Safer to delete/recreate ONLY this modified bond if item API is unknown
                                      # But user wants preservation.
@@ -3872,8 +3868,8 @@ class ChatMoleculeWindow(QDialog):
                                      # No, create_bond makes NEW item usually.
                                      
                                      # Update item properties manually
-                                     item1 = mw.state_manager.data.atoms[id1]['item']
-                                     item2 = mw.state_manager.data.atoms[id2]['item']
+                                     item1 = mw.scene.atom_items.get(id1)
+                                     item2 = mw.scene.atom_items.get(id2)
                                      # Re-call create_bond helps?
                                      # If we want to strictly preserve selection, we should check setBondOrder on item.
                                      if hasattr(item, 'set_order'): item.set_order(order)
@@ -3882,8 +3878,8 @@ class ChatMoleculeWindow(QDialog):
 
                         else:
                             # === CREATE ===
-                            item1 = mw.state_manager.data.atoms[id1]['item']
-                            item2 = mw.state_manager.data.atoms[id2]['item']
+                            item1 = mw.scene.atom_items.get(id1)
+                            item2 = mw.scene.atom_items.get(id2)
                             # Note: create_bond returns key usually?
                             new_key = mw.scene.create_bond(item1, item2, bond_order=order, bond_stereo=stereo)
                             if new_key:
@@ -3901,12 +3897,12 @@ class ChatMoleculeWindow(QDialog):
             for b_key in existing_bond_keys:
                 if b_key not in current_step_bond_keys:
                     if b_key in mw.state_manager.data.bonds:
-                        item = mw.state_manager.data.bonds[b_key].get('item', None)
+                        item = mw.scene.bond_items.get(b_key)
                         if item:
                             mw.scene.delete_items([item])
 
             # --- Finalize ---
-            mw.state_manager.has_unsaved_changes = True
+            self.context.mark_project_modified()
             if hasattr(mw, 'state_manager') and hasattr(mw.state_manager, 'update_realtime_info'):
                 mw.state_manager.update_realtime_info()
             mw.edit_actions_manager.update_undo_redo_actions()
