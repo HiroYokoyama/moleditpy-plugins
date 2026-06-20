@@ -7,20 +7,24 @@ import logging
 
 # --- Plugin Basic Information ---
 PLUGIN_NAME = "Paste from ChemDraw"
-PLUGIN_VERSION = "2026.04.12"
+PLUGIN_VERSION = "2026.06.20"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Paste chemical structures from ChemDraw clipboard data (MDLCT/MDLSK). Optimized for MoleditPy V3."
+PLUGIN_CONTEXT = None
+
 
 def initialize(context):
     """
     Modern plugin initialization hook.
     Registers the paste action in the Edit menu with Ctrl+Shift+V shortcut.
     """
+    global PLUGIN_CONTEXT
+    PLUGIN_CONTEXT = context
     context.add_menu_action(
-        "Edit/Paste from ChemDraw",
-        lambda: run(context),
-        shortcut="Ctrl+Shift+V"
+        "Edit/Paste from ChemDraw", lambda: run(context), shortcut="Ctrl+Shift+V"
     )
+
 
 def run(context):
     """
@@ -28,35 +32,33 @@ def run(context):
     Supports both V3 PluginContext and Legacy MainWindow.
     """
     # 0. Context/Main Window resolution
-    if not hasattr(context, 'get_main_window'):
-        # Legacy mw passed as context
-        mw = context
-        if hasattr(mw, 'host'): mw = mw.host
-        from moleditpy.plugins.plugin_interface import PluginContext
-        context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
-    else:
-        mw = context.get_main_window()
-        if hasattr(mw, 'host'): mw = mw.host
+    if not hasattr(context, "get_main_window"):
+        context = PLUGIN_CONTEXT
+        if not context:
+            return
+    mw = context.get_main_window()
+    if hasattr(mw, "host"):
+        mw = mw.host
 
     main_window = mw
-    
+
     # 1. クリップボード準備
     app = QApplication.instance()
     if app is None:
         app = QApplication(sys.argv)
-        
+
     clipboard = app.clipboard()
     mime_data = clipboard.mimeData()
-    
+
     # Check multiple formats
     # Check multiple formats including raw Windows MIME types
     TARGET_FORMATS = [
-        'MDLCT',  # Direct Windows format
+        "MDLCT",  # Direct Windows format
         'application/x-qt-windows-mime;value="MDLCT"',
-        'MDLSK',
-        'application/x-qt-windows-mime;value="MDLSK"'
+        "MDLSK",
+        'application/x-qt-windows-mime;value="MDLSK"',
     ]
-    
+
     mol = None
     mol_text = None
 
@@ -70,10 +72,12 @@ def run(context):
 
                 # Try multiple decodings for Windows clipboard compatibility
                 success = False
-                for encoding in ['cp932', 'utf-8', 'latin-1']:
+                for encoding in ["cp932", "utf-8", "latin-1"]:
                     try:
-                        text = byte_data.data().decode(encoding).strip('\x00')
-                        if text and ("V2000" in text or "M  END" in text or "V3000" in text):
+                        text = byte_data.data().decode(encoding).strip("\x00")
+                        if text and (
+                            "V2000" in text or "M  END" in text or "V3000" in text
+                        ):
                             mol_text = text
                             success = True
                             break
@@ -100,11 +104,11 @@ def run(context):
     if mol_text:
         try:
             lines = mol_text.splitlines()
-            
+
             # Case 1: Standard parse
             for i, line in enumerate(lines):
                 if "V2000" in line or "V3000" in line:
-                    start = max(0, i-3)
+                    start = max(0, i - 3)
                     mol_text_clean = "\n".join(lines[start:])
                     mol = Chem.MolFromMolBlock(mol_text_clean)
                     break
@@ -124,7 +128,7 @@ def run(context):
             if "V2000" in text or "M  END" in text:
                 mol = Chem.MolFromMolBlock(text)
                 if mol is None:
-                     mol = reconstruct_from_flat_text(text)
+                    mol = reconstruct_from_flat_text(text)
         except Exception as _e:
             logging.warning("[paste_chemdraw.py:131] silenced: %s", _e)
 
@@ -135,8 +139,10 @@ def run(context):
             view_center = QPointF(0, 0)
             # # [DIRECT ACCESS] to init_manager.view_2d for centering logic
             mw = context.get_main_window()
-            view_2d = mw.init_manager.view_2d if mw and hasattr(mw, "init_manager") else None
-            
+            view_2d = (
+                mw.init_manager.view_2d if mw and hasattr(mw, "init_manager") else None
+            )
+
             if view_2d:
                 viewport_rect = view_2d.viewport().rect()
                 view_center = view_2d.mapToScene(viewport_rect.center())
@@ -144,7 +150,7 @@ def run(context):
             # Prepare molecule
             if mol.GetNumConformers() == 0:
                 AllChem.Compute2DCoords(mol)
-            
+
             try:
                 Chem.Kekulize(mol, clearAromaticFlags=True)
                 AllChem.AssignStereochemistry(mol, force=True)
@@ -164,12 +170,10 @@ def run(context):
                 atom = mol.GetAtomWithIdx(i)
                 pos = conf.GetAtomPosition(i)
                 sx = (pos.x - cx) * SCALE_FACTOR + view_center.x()
-                sy = -(pos.y - cy) * SCALE_FACTOR + view_center.y() 
-                
+                sy = -(pos.y - cy) * SCALE_FACTOR + view_center.y()
+
                 a_id = context.scene.create_atom(
-                    atom.GetSymbol(), 
-                    QPointF(sx, sy), 
-                    charge=atom.GetFormalCharge()
+                    atom.GetSymbol(), QPointF(sx, sy), charge=atom.GetFormalCharge()
                 )
                 rdkit_idx_to_item[i] = context.scene.data.atoms[a_id]["item"]
 
@@ -177,21 +181,25 @@ def run(context):
             for bond in mol.GetBonds():
                 idx1 = bond.GetBeginAtomIdx()
                 idx2 = bond.GetEndAtomIdx()
-                
+
                 if idx1 in rdkit_idx_to_item and idx2 in rdkit_idx_to_item:
                     atom1 = rdkit_idx_to_item[idx1]
                     atom2 = rdkit_idx_to_item[idx2]
                     order = int(bond.GetBondTypeAsDouble())
-                    
+
                     stereo = 0
                     dir_ = bond.GetBondDir()
-                    if dir_ == Chem.BondDir.BEGINWEDGE: stereo = 1
-                    elif dir_ == Chem.BondDir.BEGINDASH: stereo = 2
-                    
-                    context.scene.create_bond(atom1, atom2, bond_order=order, bond_stereo=stereo)
-        
-            context.scene.update_all_items()
-            context.push_undo_checkpoint() # V3 modern undo checkpoint
+                    if dir_ == Chem.BondDir.BEGINWEDGE:
+                        stereo = 1
+                    elif dir_ == Chem.BondDir.BEGINDASH:
+                        stereo = 2
+
+                    context.scene.create_bond(
+                        atom1, atom2, bond_order=order, bond_stereo=stereo
+                    )
+
+            context.refresh_2d_scene()
+            context.push_undo_checkpoint()  # V3 modern undo checkpoint
             context.show_status_message(f"Pasted structure from ChemDraw.", 5000)
 
         except Exception as e:
@@ -211,32 +219,32 @@ def reconstruct_from_flat_text(text):
     import re
     # debug_log = []
     # debug_log.append(f"[{PLUGIN_NAME}] Attempting reconstruction...")
-    
+
     # Sanitize: Remove non-printable characters (control chars like \x01, \x16 etc.)
     # Keep only standard printable ASCII (0x20-0x7E) and whitespace (\r, \n, \t)
     len(text)
-    text = re.sub(r'[^\x20-\x7E\s]', '', text)
+    text = re.sub(r"[^\x20-\x7E\s]", "", text)
     # if len(text) != original_len:
     #      debug_log.append(f"Sanitized input: removed {original_len - len(text)} non-printable characters.")
 
     try:
         idx_v2000 = text.find("V2000")
-        if idx_v2000 == -1: 
+        if idx_v2000 == -1:
             # debug_log.append("V2000 not found")
             # _write_debug_log(debug_log)
             return None
-        
+
         header_part = text[:idx_v2000]
-        rest_part = text[idx_v2000+5:]
-        
+        rest_part = text[idx_v2000 + 5 :]
+
         header_tokens = header_part.split()
         # debug_log.append(f"Header tokens: {header_tokens}")
-        
-        if len(header_tokens) < 10: 
+
+        if len(header_tokens) < 10:
             # debug_log.append("Not enough header tokens")
             # _write_debug_log(debug_log)
             return None
-            
+
         try:
             n_atoms = int(header_tokens[-10])
             n_bonds = int(header_tokens[-9])
@@ -245,101 +253,118 @@ def reconstruct_from_flat_text(text):
             # debug_log.append(f"Failed to parse counts: {e}")
             # _write_debug_log(debug_log)
             return None
-        
-        new_mol = ["Header", "  ChemDraw", "", f"{n_atoms:3d}{n_bonds:3d}  0  0  0  0  0  0  0  0999 V2000"]
-        
+
+        new_mol = [
+            "Header",
+            "  ChemDraw",
+            "",
+            f"{n_atoms:3d}{n_bonds:3d}  0  0  0  0  0  0  0  0999 V2000",
+        ]
+
         raw_tokens = rest_part.split()
         # debug_log.append(f"Raw tokens (first 20): {raw_tokens[:20]}")
-        
+
         current_idx = 0
-        
+
         for i in range(n_atoms):
-            if current_idx >= len(raw_tokens): 
-                 # debug_log.append(f"Ran out of tokens at atom {i}")
-                 break
-            
+            if current_idx >= len(raw_tokens):
+                # debug_log.append(f"Ran out of tokens at atom {i}")
+                break
+
             # Skip 'F' phantom token logic
-            if raw_tokens[current_idx] == 'F':
+            if raw_tokens[current_idx] == "F":
                 current_idx += 1
             # Try to skip obvious garbage (non-numeric that is not a symbol)?
             # But be careful not to skip symbols like 'C', 'N'.
             # For now, stick to 'F' skip.
-                
-            x = raw_tokens[current_idx]; current_idx += 1
-            y = raw_tokens[current_idx]; current_idx += 1
-            z = raw_tokens[current_idx]; current_idx += 1
-            sym = raw_tokens[current_idx]; current_idx += 1
-            
+
+            x = raw_tokens[current_idx]
+            current_idx += 1
+            y = raw_tokens[current_idx]
+            current_idx += 1
+            z = raw_tokens[current_idx]
+            current_idx += 1
+            sym = raw_tokens[current_idx]
+            current_idx += 1
+
             # Consume 12 zeros (V2000 standard fields)
             rest = []
             for _ in range(12):
                 if current_idx < len(raw_tokens):
                     rest.append(raw_tokens[current_idx])
                     current_idx += 1
-            
-            line = f"{float(x):10.4f}{float(y):10.4f}{float(z):10.4f} {sym:<3}" + \
-                   "".join([f"{int(val):3d}" for val in rest])
+
+            line = (
+                f"{float(x):10.4f}{float(y):10.4f}{float(z):10.4f} {sym:<3}"
+                + "".join([f"{int(val):3d}" for val in rest])
+            )
             new_mol.append(line)
-            
+
         for i in range(n_bonds):
-            if current_idx >= len(raw_tokens): break
-            a1 = raw_tokens[current_idx]; current_idx += 1
-            a2 = raw_tokens[current_idx]; current_idx += 1
-            type = raw_tokens[current_idx]; current_idx += 1
-            stereo = raw_tokens[current_idx]; current_idx += 1
-            
+            if current_idx >= len(raw_tokens):
+                break
+            a1 = raw_tokens[current_idx]
+            current_idx += 1
+            a2 = raw_tokens[current_idx]
+            current_idx += 1
+            type = raw_tokens[current_idx]
+            current_idx += 1
+            stereo = raw_tokens[current_idx]
+            current_idx += 1
+
             line = f"{int(a1):3d}{int(a2):3d}{int(type):3d}{int(stereo):3d}  0  0  0"
             new_mol.append(line)
-            
+
             # Consume remaining zeros until next non-zero or M tag
-            while current_idx < len(raw_tokens) and raw_tokens[current_idx] == '0':
-                 current_idx += 1
-        
+            while current_idx < len(raw_tokens) and raw_tokens[current_idx] == "0":
+                current_idx += 1
+
         # Preserve M lines (M  CHG, M  ISO, M  RAD, etc.) from original text
         # These lines contain formal charges and other properties
         m_lines = []
         while current_idx < len(raw_tokens):
-            if raw_tokens[current_idx] == 'M':
+            if raw_tokens[current_idx] == "M":
                 # Collect tokens until we hit another M or END
                 line_tokens = [raw_tokens[current_idx]]
                 current_idx += 1
-                
+
                 # Special handling for M  END
-                if current_idx < len(raw_tokens) and raw_tokens[current_idx] == 'END':
+                if current_idx < len(raw_tokens) and raw_tokens[current_idx] == "END":
                     break  # Don't add M END to m_lines, we'll add it separately
-                    
+
                 # Collect the rest of this M line
                 while current_idx < len(raw_tokens):
                     token = raw_tokens[current_idx]
-                    if token == 'M':  # Start of next M line
+                    if token == "M":  # Start of next M line
                         break
                     line_tokens.append(token)
                     current_idx += 1
-                    
+
                 # Reconstruct this M line
-                m_lines.append('  '.join(line_tokens))
+                m_lines.append("  ".join(line_tokens))
             else:
                 current_idx += 1
-        
+
         # Add M lines before M  END
         for m_line in m_lines:
             new_mol.append(m_line)
-        
+
         new_mol.append("M  END")
-        
+
         full_block = "\n".join(new_mol)
         # debug_log.append("Reconstruction successful (raw block created).")
         # debug_log.append(f"Block Preview:\n{full_block}")
-        
+
         # _write_debug_log(debug_log)
         return Chem.MolFromMolBlock(full_block)
-        
+
     except Exception:
         # debug_log.append(f"Reconstruction Exception: {e}")
         pass
         # debug_log.append(traceback.format_exc())
         # _write_debug_log(debug_log)
         return None
+
 
 # def _write_debug_log(lines):
 #     try:

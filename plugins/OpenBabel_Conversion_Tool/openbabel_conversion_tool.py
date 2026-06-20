@@ -1,7 +1,13 @@
 import os
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QListWidget, QDialogButtonBox, 
-    QLabel, QMessageBox, QFileDialog, QAbstractItemView
+    QDialog,
+    QVBoxLayout,
+    QListWidget,
+    QDialogButtonBox,
+    QLabel,
+    QMessageBox,
+    QFileDialog,
+    QAbstractItemView,
 )
 from PyQt6.QtCore import QTimer
 from rdkit import Chem
@@ -12,20 +18,26 @@ import logging
 OBABEL_AVAILABLE = False
 try:
     from openbabel import pybel
+
     OBABEL_AVAILABLE = True
 except ImportError:
     try:
         # Fallback for some environments
         import pybel
+
         OBABEL_AVAILABLE = True
     except ImportError:
         OBABEL_AVAILABLE = False
 
 PLUGIN_NAME = "OpenBabel Conversion Tool"
-PLUGIN_VERSION = "2026.04.12"
+PLUGIN_VERSION = "2026.06.20"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
-PLUGIN_DESCRIPTION = "Import various chemical file formats using OpenBabel with multi-molecule support."
+PLUGIN_DESCRIPTION = (
+    "Import various chemical file formats using OpenBabel with multi-molecule support."
+)
 PLUGIN_DEPENDENCIES = ["openbabel"]
+
 
 def initialize(context):
     """
@@ -37,39 +49,39 @@ def initialize(context):
 
     # Native formats to potentially exclude from automatic handling if we don't want to override
     # However, since we offer a dialog for SDF, we might want to handle it.
-    # The user manual implies we can register file openers. 
+    # The user manual implies we can register file openers.
     # If we register .sdf, we might override the native one.
     # Given the user request for an SDF dialog, we WILL register .sdf
-    
+
     # We will prioritize formats that OpenBabel supports.
     # We'll also add a generic "Import via OpenBabel" menu.
-    
+
     # helper for opening files
     def open_file_wrapper(path):
         open_file_with_openbabel(path, context)
 
     # 1. Register File Openers for all Pybel formats
     # pybel.informats is a dict {ext: description}
-    # We exclude common native formats that we DON'T want to override 
+    # We exclude common native formats that we DON'T want to override
     # (e.g. maybe .mol is fine native? But .sdf needs dialog)
     # Let's override .sdf to provide the dialog.
     # We will exclude .mol and .xyz assuming native is good enough for single structures?
-    # Actually, to be safe and "all-encompassing", let's register generic handlers 
+    # Actually, to be safe and "all-encompassing", let's register generic handlers
     # or specific ones.
     # Note: registering too many might clutter if not careful, but moleditpy handles it by extension.
-    
+
     IGNORED_EXTS = {
-        'mol', # Native single mol loader is robust
-        'xyz', # Native loader has chatty dialog we might not want to replace or maybe we do? Native is fine.
+        "mol",  # Native single mol loader is robust
+        "xyz",  # Native loader has chatty dialog we might not want to replace or maybe we do? Native is fine.
         # 'sdf' -> We WANT to handle this for the dialog.
     }
-    
+
     supported_exts = []
     for ext in pybel.informats:
         if ext not in IGNORED_EXTS:
             supported_exts.append(f".{ext}")
             # Register individual file opener
-            # Note: context.register_file_opener replaces existing if any? 
+            # Note: context.register_file_opener replaces existing if any?
             # The manual doesn't say, but usually last registered wins or it's a list.
             # We'll assume we can register.
             context.register_file_opener(f".{ext}", open_file_wrapper, priority=-1)
@@ -77,14 +89,14 @@ def initialize(context):
     # 2. Register Drop Handler
     def drop_handler(path):
         _, ext = os.path.splitext(path)
-        ext = ext.lower().lstrip('.')
+        ext = ext.lower().lstrip(".")
         if ext in pybel.informats and ext not in IGNORED_EXTS:
             open_file_with_openbabel(path, context)
-            return True # Handled
+            return True  # Handled
         # Special case for SDF if we decided to handle it
-        if ext == 'sdf':
-             open_file_with_openbabel(path, context)
-             return True
+        if ext == "sdf":
+            open_file_with_openbabel(path, context)
+            return True
         return False
 
     context.register_drop_handler(drop_handler, priority=-1)
@@ -92,7 +104,7 @@ def initialize(context):
     # 3. Register Export Action
     def export_wrapper():
         export_with_openbabel(context)
-    
+
     context.add_export_action("Export via OpenBabel...", export_wrapper)
 
 
@@ -101,16 +113,18 @@ def open_file_with_openbabel(file_path, context):
     Main logic to read file with Pybel, handle multiple molecules, convert to RDKit, and load.
     """
     mw = context.get_main_window()
-    
+
     try:
         _, ext = os.path.splitext(file_path)
-        file_fmt = ext.lower().lstrip('.')
-        
+        file_fmt = ext.lower().lstrip(".")
+
         # Determine format for Pybel
         if not file_fmt:
-            # try to guess or ask? 
+            # try to guess or ask?
             # Pybel readfile needs format.
-            QMessageBox.warning(mw, "Error", "Cannot determine file format (no extension).")
+            QMessageBox.warning(
+                mw, "Error", "Cannot determine file format (no extension)."
+            )
             return
 
         # Handle non-ASCII paths (Windows/OpenBabel issue workaround)
@@ -118,16 +132,17 @@ def open_file_with_openbabel(file_path, context):
         # We assume safe-ascii workaround by copying to a temp file.
         temp_file_path = None
         path_to_open = file_path
-        
+
         needs_temp = False
         try:
-             file_path.encode('ascii')
+            file_path.encode("ascii")
         except UnicodeEncodeError:
-             needs_temp = True
-             
+            needs_temp = True
+
         if needs_temp:
             import tempfile
             import shutil
+
             try:
                 # Create a temp file with the same extension
                 # handling suffix correctly for Pybel format guessing (though we pass format explicitly)
@@ -136,7 +151,9 @@ def open_file_with_openbabel(file_path, context):
                 shutil.copy2(file_path, temp_file_path)
                 path_to_open = temp_file_path
             except Exception as e:
-                print(f"[{PLUGIN_NAME}] Failed to create temp file for non-ascii path: {e}")
+                print(
+                    f"[{PLUGIN_NAME}] Failed to create temp file for non-ascii path: {e}"
+                )
                 # Fallback to original path
                 path_to_open = file_path
                 temp_file_path = None
@@ -151,8 +168,10 @@ def open_file_with_openbabel(file_path, context):
                 try:
                     os.remove(temp_file_path)
                 except Exception as _e:
-                   logging.warning("[openbabel_conversion_tool.py:153] silenced: %s", _e)
-        
+                    logging.warning(
+                        "[openbabel_conversion_tool.py:153] silenced: %s", _e
+                    )
+
         if not mols:
             QMessageBox.warning(mw, "Error", "No molecules found in file.")
             return
@@ -169,9 +188,9 @@ def open_file_with_openbabel(file_path, context):
                 if selected_index is not None and 0 <= selected_index < len(mols):
                     selected_mol = mols[selected_index]
                 else:
-                    return # User selected nothing valid
+                    return  # User selected nothing valid
             else:
-                return # User cancelled
+                return  # User cancelled
 
         if not selected_mol:
             return
@@ -181,62 +200,75 @@ def open_file_with_openbabel(file_path, context):
         try:
             mol_block = selected_mol.write("mol")
         except Exception as e:
-            QMessageBox.critical(mw, "Conversion Error", f"Failed to convert OpenBabel molecule to MolBlock:\n{e}")
+            QMessageBox.critical(
+                mw,
+                "Conversion Error",
+                f"Failed to convert OpenBabel molecule to MolBlock:\n{e}",
+            )
             return
 
         rd_mol = Chem.MolFromMolBlock(mol_block, removeHs=False, sanitize=True)
-        
+
         if rd_mol:
             # Post-processing similar to native loader
             if rd_mol.GetNumConformers() == 0:
                 AllChem.Compute2DCoords(rd_mol)
-            
+
             # Assign Stereochemistry
             AllChem.AssignStereochemistry(rd_mol, cleanIt=True, force=True)
             if rd_mol.GetNumConformers() > 0:
                 AllChem.WedgeMolBonds(rd_mol, rd_mol.GetConformer())
-            
+
             # Load into Main Window
             context.current_molecule = rd_mol
-            
+
             # Push to undo stack
-            mw.edit_actions_manager.push_undo_state()
-            
+            context.push_undo_checkpoint()
+
             # Update View
             # We need to manually reset camera or ensure view is updated
             # context.current_molecule setter triggers redraw, but maybe not camera reset
-            if hasattr(mw, 'plotter'):
-                mw.plotter.reset_camera()
-            
+            context.reset_3d_camera()
+
             # Also update 2D view if possible or fit to view
             # Using QTimer to allow UI to settle
-            QTimer.singleShot(100, lambda: getattr(mw.view_3d_manager, 'fit_to_view', lambda: None)() if hasattr(mw, 'view_3d_manager') else None)
+            QTimer.singleShot(100, context.fit_3d_view)
 
             # Switch to 3D only mode
             # We access the internal method on MainWindow which proxies to the UI Manager
-            # We prioritize the internal name `_enter_3d_viewer_ui_mode` as verified in source.
+            # We prioritize the internal name `enter_3d_viewer_ui_mode` as verified in source.
             try:
-                if hasattr(mw, 'ui_manager') and hasattr(mw.ui_manager, '_enter_3d_viewer_ui_mode'):
-                    mw.ui_manager._enter_3d_viewer_ui_mode()
+                if hasattr(context, "enter_3d_viewer_mode"):
+                    context.enter_3d_viewer_mode()
+                elif hasattr(mw, "ui_manager") and hasattr(
+                    mw.ui_manager, "enter_3d_viewer_ui_mode"
+                ):
+                    mw.ui_manager.enter_3d_viewer_ui_mode()
             except Exception as e:
                 print(f"[{PLUGIN_NAME}] Failed to switch to 3D mode: {e}")
 
-            mw.statusBar().showMessage(f"Loaded {file_path} via OpenBabel", 3000)
+            context.show_status_message(f"Loaded {file_path} via OpenBabel", 3000)
 
             # Set current file path so "Save" works and title updates
-            if hasattr(mw, 'init_manager') and hasattr(mw.init_manager, 'current_file_path'):
-                 mw.init_manager.current_file_path = file_path
-            if hasattr(mw, 'state_manager') and hasattr(mw.state_manager, 'has_unsaved_changes'):
-                 mw.state_manager.has_unsaved_changes = False
-            if hasattr(mw, 'state_manager') and hasattr(mw.state_manager, 'update_window_title'):
-                 mw.state_manager.update_window_title()
+            if hasattr(mw, "init_manager") and hasattr(
+                mw.init_manager, "current_file_path"
+            ):
+                mw.init_manager.current_file_path = file_path
+            if hasattr(mw, "state_manager") and hasattr(
+                mw.state_manager, "has_unsaved_changes"
+            ):
+                mw.state_manager.has_unsaved_changes = False
+            context.refresh_ui()
 
         else:
-            QMessageBox.critical(mw, "Error", "Failed to create RDKit molecule from converted block.")
+            QMessageBox.critical(
+                mw, "Error", "Failed to create RDKit molecule from converted block."
+            )
 
     except Exception as e:
         QMessageBox.critical(mw, "Import Error", f"An error occurred:\n{e}")
         import traceback
+
         traceback.print_exc()
 
 
@@ -248,7 +280,7 @@ def export_with_openbabel(context):
     if not OBABEL_AVAILABLE:
         QMessageBox.warning(mw, "Error", "OpenBabel is not available.")
         return
-        
+
     mol = context.current_molecule
     if not mol:
         QMessageBox.warning(mw, "Export Error", "No molecule loaded to export.")
@@ -261,50 +293,63 @@ def export_with_openbabel(context):
     for ext, desc in pybel.outformats.items():
         formats.append(f"{desc} (*.{ext})")
     formats.sort()
-    
+
     # Add All Files option
     filter_str = "All Files (*);;" + ";;".join(formats)
 
     # Use QFileDialog to get path
-    path, chosen_filter = QFileDialog.getSaveFileName(mw, "Export via OpenBabel", "", filter_str)
+    path, chosen_filter = QFileDialog.getSaveFileName(
+        mw, "Export via OpenBabel", "", filter_str
+    )
     if not path:
         return
 
     try:
         # Determine format from extension
         _, ext = os.path.splitext(path)
-        fmt = ext.lower().lstrip('.')
-        
+        fmt = ext.lower().lstrip(".")
+
         if not fmt:
-             QMessageBox.warning(mw, "Error", "Please specify a file extension (e.g., .gjf, .xyz, .pdb).")
-             return
-             
+            QMessageBox.warning(
+                mw, "Error", "Please specify a file extension (e.g., .gjf, .xyz, .pdb)."
+            )
+            return
+
         if fmt not in pybel.outformats:
-             QMessageBox.warning(mw, "Error", f"Format '{fmt}' is not supported by OpenBabel.")
-             return
+            QMessageBox.warning(
+                mw, "Error", f"Format '{fmt}' is not supported by OpenBabel."
+            )
+            return
 
         # RDKit -> MolBlock
         try:
             mol_block = Chem.MolToMolBlock(mol)
         except Exception as e:
-            QMessageBox.critical(mw, "Conversion Error", f"Failed to convert RDKit molecule to MolBlock:\n{e}")
+            QMessageBox.critical(
+                mw,
+                "Conversion Error",
+                f"Failed to convert RDKit molecule to MolBlock:\n{e}",
+            )
             return
-        
+
         # MolBlock -> Pybel
         try:
             pybel_mol = pybel.readstring("mol", mol_block)
         except Exception as e:
-            QMessageBox.critical(mw, "Conversion Error", f"Failed to read MolBlock with OpenBabel:\n{e}")
+            QMessageBox.critical(
+                mw, "Conversion Error", f"Failed to read MolBlock with OpenBabel:\n{e}"
+            )
             return
-        
+
         # Save
         pybel_mol.write(fmt, path, overwrite=True)
-        
-        mw.statusBar().showMessage(f"Exported to {path}", 3000)
-        
+
+        PLUGIN_CONTEXT.show_status_message(f"Exported to {path}", 3000)
+
     except Exception as e:
         QMessageBox.critical(mw, "Export Error", f"Failed to export:\n{e}")
         import traceback
+
         traceback.print_exc()
 
 
@@ -313,31 +358,36 @@ class MoleculeSelectionDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Select Molecule")
         self.resize(400, 300)
-        
+
         layout = QVBoxLayout(self)
-        
+
         lbl = QLabel(f"Found {len(mols)} molecules. Please select one:", self)
         layout.addWidget(lbl)
-        
+
         self.list_widget = QListWidget(self)
-        self.list_widget.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        
+        self.list_widget.setSelectionMode(
+            QAbstractItemView.SelectionMode.SingleSelection
+        )
+
         for i, m in enumerate(mols):
             title = m.title.strip()
-            name = title if title else f"Molecule {i+1}"
+            name = title if title else f"Molecule {i + 1}"
             formula = m.formula
-            self.list_widget.addItem(f"{i+1}: {name} ({formula})")
-        
+            self.list_widget.addItem(f"{i + 1}: {name} ({formula})")
+
         layout.addWidget(self.list_widget)
-        
+
         # Select first by default
         self.list_widget.setCurrentRow(0)
-        
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel, self)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
+            self,
+        )
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
-        
+
     def get_selected_index(self):
         rows = self.list_widget.selectedIndexes()
         if rows:

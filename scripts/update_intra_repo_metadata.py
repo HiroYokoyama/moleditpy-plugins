@@ -19,6 +19,7 @@ PLUGIN_VERSION_RE = re.compile(r"^\s*PLUGIN_VERSION\s*=\s*(['\"])(?P<version>.+?
 DUUNDER_VERSION_RE = re.compile(r"^\s*__version__\s*=\s*(['\"])(?P<version>.+?)\1", re.MULTILINE)
 GENERIC_VERSION_RE = re.compile(r"^\s*VERSION\s*=\s*(['\"])(?P<version>.+?)\1", re.MULTILINE)
 DATE_VERSION_RE = re.compile(r"^\d{4}\.\d{2}\.\d{2}$")
+SUPPORTED_VER_RE = re.compile(r"^\s*PLUGIN_SUPPORTED_MOLEDITPY_VERSION\s*=\s*(['\"])(?P<ver>.+?)\1", re.MULTILINE)
 
 
 def sha256_of_file(path: Path) -> str:
@@ -39,6 +40,33 @@ def read_plugin_version(path: Path) -> str | None:
         match = pattern.search(text)
         if match:
             return match.group("version").strip()
+    return None
+
+
+def read_supported_version(path: Path) -> str | None:
+    try:
+        text = path.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return None
+    match = SUPPORTED_VER_RE.search(text)
+    return match.group("ver").strip() if match else None
+
+
+def infer_supported_version_from_target(target: Path) -> str | None:
+    if target.suffix.lower() == ".py":
+        return read_supported_version(target)
+    if target.suffix.lower() == ".zip":
+        package_dir = target.parent / target.stem
+        if package_dir.exists() and package_dir.is_dir():
+            init_py = package_dir / "__init__.py"
+            if init_py.exists():
+                ver = read_supported_version(init_py)
+                if ver:
+                    return ver
+            for py_path in sorted(package_dir.rglob("*.py")):
+                ver = read_supported_version(py_path)
+                if ver:
+                    return ver
     return None
 
 
@@ -79,7 +107,7 @@ def find_target_json_files(repo_root: Path) -> list[Path]:
     return []
 
 
-def update_single_json(json_path: Path) -> tuple[int, int, int, list[str]]:
+def update_single_json(json_path: Path) -> tuple[int, int, int, int, list[str]]:
     data = json.loads(json_path.read_text(encoding="utf-8-sig"))
     if not isinstance(data, list):
         raise ValueError(f"{json_path} root must be a list")
@@ -87,6 +115,7 @@ def update_single_json(json_path: Path) -> tuple[int, int, int, list[str]]:
     updated_sha = 0
     updated_ver = 0
     updated_date = 0
+    updated_supported = 0
     missing = []
 
     for plugin in data:
@@ -113,13 +142,17 @@ def update_single_json(json_path: Path) -> tuple[int, int, int, list[str]]:
             if plugin.get("lastUpdated") != last_updated:
                 plugin["lastUpdated"] = last_updated
                 updated_date += 1
-                
+
+        new_supported = infer_supported_version_from_target(target)
+        if new_supported and plugin.get("supported_moleditpy_version") != new_supported:
+            plugin["supported_moleditpy_version"] = new_supported
+            updated_supported += 1
 
     json_path.write_text(
         json.dumps(data, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
-    return updated_sha, updated_ver, updated_date, missing
+    return updated_sha, updated_ver, updated_date, updated_supported, missing
 
 
 def main() -> int:
@@ -132,18 +165,21 @@ def main() -> int:
     total_sha = 0
     total_ver = 0
     total_date = 0
+    total_supported = 0
     total_missing = 0
 
     for json_path in targets:
-        updated_sha, updated_ver, updated_date, missing = update_single_json(json_path)
+        updated_sha, updated_ver, updated_date, updated_supported, missing = update_single_json(json_path)
         total_sha += updated_sha
         total_ver += updated_ver
         total_date += updated_date
+        total_supported += updated_supported
         total_missing += len(missing)
         rel = json_path.relative_to(repo_root)
         print(f"[{rel}] Updated sha256: {updated_sha}")
         print(f"[{rel}] Updated version: {updated_ver}")
         print(f"[{rel}] Updated lastUpdated: {updated_date}")
+        print(f"[{rel}] Updated supported_moleditpy_version: {updated_supported}")
         print(f"[{rel}] Missing local targets: {len(missing)}")
         for item in missing:
             print(f"  - {item}")
@@ -151,6 +187,7 @@ def main() -> int:
     print(f"Total updated sha256: {total_sha}")
     print(f"Total updated version: {total_ver}")
     print(f"Total updated lastUpdated: {total_date}")
+    print(f"Total updated supported_moleditpy_version: {total_supported}")
     print(f"Total missing local targets: {total_missing}")
     return 0
 

@@ -2,10 +2,12 @@ from PyQt6.QtWidgets import QMessageBox
 from rdkit import Chem
 from rdkit.Chem import rdMolTransforms
 
-PLUGIN_VERSION = "2026.04.12"
+PLUGIN_VERSION = "2026.06.20"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Convert alkyl chain torsions to all-trans conformation."
 PLUGIN_NAME = "All-Trans Optimizer"
+
 
 def run_plugin(context):
     """
@@ -21,9 +23,9 @@ def run_plugin(context):
     try:
         # 3Dコンフォマーの取得 (存在しない場合は作成しない)
         if mol.GetNumConformers() == 0:
-                QMessageBox.warning(mw, PLUGIN_NAME, "Molecule has no 3D coordinates.")
-                return
-        
+            QMessageBox.warning(mw, PLUGIN_NAME, "Molecule has no 3D coordinates.")
+            return
+
         conf = mol.GetConformer()
 
         # SMARTSパターン: 炭素-炭素(非環状)-炭素-炭素
@@ -39,11 +41,11 @@ def run_plugin(context):
             # 単純な適用でも直鎖構造には効果的です。
             for match in matches:
                 idx1, idx2, idx3, idx4 = match
-                
+
                 # 二面角を180度(Trans)に設定
                 rdMolTransforms.SetDihedralDeg(conf, idx1, idx2, idx3, idx4, 180.0)
                 count += 1
-            
+
             # Push updated molecule back so 3D view redraws with new coordinates
             context.current_mol = mol
             context.refresh_3d_view()
@@ -52,7 +54,9 @@ def run_plugin(context):
             context.push_undo_checkpoint()
 
             context.show_status_message(f"Applied All-Trans to {count} torsions.")
-            QMessageBox.information(mw, PLUGIN_NAME, f"Applied All-Trans to {count} torsions.")
+            QMessageBox.information(
+                mw, PLUGIN_NAME, f"Applied All-Trans to {count} torsions."
+            )
         else:
             QMessageBox.information(mw, PLUGIN_NAME, "No alkyl chains found.")
 
@@ -62,12 +66,14 @@ def run_plugin(context):
 
 _launch_fn = None
 
+
 def initialize(context):
     global _launch_fn
     _launch_fn = lambda: run_plugin(context)
 
+
 def run(mw):
-    if hasattr(mw, 'host'):
+    if hasattr(mw, "host"):
         mw = mw.host
     if _launch_fn:
         _launch_fn()

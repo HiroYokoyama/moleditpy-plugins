@@ -2,9 +2,9 @@
   {
     "id": "all-trans_optimizer",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "All-Trans Optimizer",
-    "version": "2026.04.12",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A geometric tool for straightening alkyl chains.",
@@ -15,16 +15,16 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/All-Trans_Optimizer/all-trans_optimizer.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "74e3ed8218c5f657e93a3abf6bb2882a8e731325b31584d078a6081930ee5e79",
+    "lastUpdated": "2026-06-20",
+    "sha256": "2f72c8f49bff6e1d0df0707fd9805494c9aaf3ada36c6f16439ec5955f7b1af3",
     "firstAppeared": "2025-12-15"
   },
   {
     "id": "animated_xyz_giffer",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Animated XYZ Giffer",
-    "version": "2026.04.12",
+    "version": "2026.06.19",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A player for viewing multi-frame XYZ files and recording GIF animations using PIL.",
@@ -36,8 +36,8 @@
       "Pillow"
     ],
     "downloadUrl": "../plugins/Animated_XYZ_Giffer/animated_xyz_giffer.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "f1879fa3da27a8ec839abdadd2ecb49e19cd81fcc9a90893240408802de450df",
+    "lastUpdated": "2026-06-19",
+    "sha256": "8f5ab7efb011705003cacbe9028c3eb0e9a831c93134482a750287dd5b91fde5",
     "firstAppeared": "2025-12-15"
   },
   {
@@ -55,15 +55,15 @@
     "dependencies": [],
     "downloadUrl": "../plugins/Animated_XYZ_Player/animated_xyz.py",
     "lastUpdated": "2025-12-15",
-    "sha256": "a5b19a226f0b48da0fbd68cc30fa0b0aae19bedbf845d43cf0a20152cdbacf85",
+    "sha256": "125d4389cbdb690f423b61fd7a5a7d2588eb46b6c0e8a829d1df8cc7558b0413",
     "firstAppeared": "2025-12-15"
   },
   {
     "id": "complex_molecule_untangler",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Complex Molecule Untangler",
-    "version": "2026.04.12",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A Monte Carlo-based tool to resolve steric clashes in complex or roughly drawn molecules.",
@@ -74,16 +74,16 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/Complex_Molecule_Untangler/complex_molecule_untangler.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "37e59c1e55fe9ad8cdae8532a400db8092210f77a6673bb2d9ba4043517f288e",
+    "lastUpdated": "2026-06-20",
+    "sha256": "a97c7f42839df01be23624fe198853a0035aab414d0f5f49f17760bfb741a21c",
     "firstAppeared": "2025-12-15"
   },
   {
     "id": "conformational_search",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Conformational Search",
-    "version": "2026.04.13",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Performs conformational sampling and energy minimization.",
@@ -94,16 +94,16 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/Conformational_Search/conf_search.py",
-    "lastUpdated": "2026-04-13",
-    "sha256": "b8a035fe8a70a03677a184aa76413c96cd1d0a8c3bc8a8d366aa4e30b9da65cf",
+    "lastUpdated": "2026-06-20",
+    "sha256": "48c9d2ef28e3679e8bb861e5bbcda599cc879a233145b64ac864b600c550c55d",
     "firstAppeared": "2025-12-15"
   },
   {
     "id": "cube_file_viewer",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Cube File Viewer",
-    "version": "2026.04.24",
+    "version": "2026.06.19",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes Gaussian Cube files (.cube) containing volumetric data (e.g., orbitals, densities).",
@@ -116,8 +116,8 @@
       "numpy"
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer/cube_viewer.py",
-    "lastUpdated": "2026-04-24",
-    "sha256": "0aa5d3638b460de2f73d69c38dc102619d17156c6c53b8e954fbf9dd35f2d80b",
+    "lastUpdated": "2026-06-19",
+    "sha256": "f6257ebe7764dcae3141cfa7de5607656041480f332156d9991dde6b88b91df4",
     "firstAppeared": "2025-12-15"
   },
   {
@@ -135,7 +135,7 @@
     "dependencies": [],
     "downloadUrl": "../plugins/Gaussian_Input_Generator/gaussian_input_generator.py",
     "lastUpdated": "2025-12-15",
-    "sha256": "1946d97787c48fe85fba90c196499716bc8f0a91339126498f4bd4ed57bff41d",
+    "sha256": "712452a58769557a05579e74d3c9f7916c8a8e670926dc1720f33d3fb620d669",
     "firstAppeared": "2025-12-15"
   },
   {
@@ -152,7 +152,7 @@
     "dependencies": [],
     "downloadUrl": "../plugins/Hello_World/hello.py",
     "lastUpdated": "2026-12-12",
-    "sha256": "0824670880c3f02439b977963e71418a7dedba13bc4d55b653415dd962ccd56b",
+    "sha256": "393343a34ca8756139430ace93e89082796bce019ffb2072ce320b2b91c3223c",
     "firstAppeared": "2025-12-15"
   },
   {
@@ -171,7 +171,7 @@
     ],
     "downloadUrl": "../plugins/MS_Spectrum_Simulation/ms_spectrum.py",
     "lastUpdated": "2025-12-25",
-    "sha256": "a3f4039d5bfd4c69cdd03085f8490a8c534939b8cd3200703e7a604a130f1b31",
+    "sha256": "73fbf2ba40b33623d7416812cd64b1ee704a5ce52f47f1731e82f36cea69441d",
     "firstAppeared": "2025-12-15"
   },
   {
@@ -189,15 +189,15 @@
     "dependencies": [],
     "downloadUrl": "../plugins/ORCA_Input_Generator/orca_input_generator.py",
     "lastUpdated": "2025-12-15",
-    "sha256": "541ba9a8682adf12b62298f36e76194cd46a1e4449821dd44f4b1f67ad8d5aa6",
+    "sha256": "2fe7bb274dc0c9ee829cc2dd51ec22d4c78013fdc778a7c6d2cafe33b33ee670",
     "firstAppeared": "2025-12-15"
   },
   {
     "id": "pubchem_name_ressolver",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "PubChem Name Resolver",
-    "version": "2026.04.12",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Resolves chemical names and identifiers to structures using the PubChem PUG REST API.",
@@ -209,16 +209,16 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/PubChem_Name_Ressolver/pubchem_ressolver.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "73c7c61fb22d72da8c4579b93a45dedc6a1a958ea17f00021c7d1bfbda6142f2",
+    "lastUpdated": "2026-06-20",
+    "sha256": "9542b3d2e6410dc09faae6fbba56523344478be667cd6bcc18652667d4be0159",
     "firstAppeared": "2025-12-15"
   },
   {
     "id": "console",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Python Console",
-    "version": "2026.06.18",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "An interactive Python interpreter embedded in the application. Allows runtime script execution with access to the MainWindow (mw) and current molecule (mol).",
@@ -230,16 +230,16 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Python_Console/console.py",
-    "lastUpdated": "2026-06-18",
-    "sha256": "cbe3cea43e95bce6444d7fffcfed67a47d2b214d8380e096ebcf7de64c4c2e13",
+    "lastUpdated": "2026-06-20",
+    "sha256": "2a22ee8881e7517bd18ebba396b016241465dbbf67d8b2d409c1c44f47863b23",
     "firstAppeared": "2025-12-16"
   },
   {
     "id": "atom_colorizer",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Atom Colorizer",
-    "version": "2026.04.12",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Select atoms in the 3D viewer and apply color.",
@@ -253,16 +253,16 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Atom_Colorizer/atom_colorizer.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "f5ac363df2cb87038bc50f11d8d2cbf22668a8c0d04e53daed4df22457b0272a",
+    "lastUpdated": "2026-06-20",
+    "sha256": "9e782c195545c58a8208826168ec21f3536208d581001dda6de69fb2bd6919ae",
     "firstAppeared": "2025-12-16"
   },
   {
     "id": "dark_mode_theme",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Dark Mode Theme",
-    "version": "2026.04.24",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A plugin that automatically applies a dark mode stylesheet to MoleditPy upon loading.",
@@ -273,16 +273,16 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Dark_Mode_Theme/dark_mode_plugin.py",
-    "lastUpdated": "2026-04-24",
-    "sha256": "3bb6f16f47555cee862dadb26de7582bbeabb1b10ad86a6aefc96d2e8b4a6e6e",
+    "lastUpdated": "2026-06-20",
+    "sha256": "4242cc7948d8dc545f58b956d3000a764101b29ea6a8a0da6689e3947774ca35",
     "firstAppeared": "2025-12-16"
   },
   {
     "id": "gaussian_input_generator_neo",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Gaussian Input Generator Neo",
-    "version": "2026.04.13",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "High-functionality setting dialog for Gaussian input creation. Supports Link 0, Route, Title, Charge/Mult, and appended data.",
@@ -295,16 +295,16 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Gaussian_Input_Generator_Neo/gaussian_input_generator_neo.py",
-    "lastUpdated": "2026-04-13",
-    "sha256": "07d436f27a10f1136a306e5de26349c77beefc4192b053b1b1a3dcd60894b09d",
+    "lastUpdated": "2026-06-20",
+    "sha256": "80eb07d3bb8b790eb1ee66f9eab60b72e396106f59144f5289897c87831fee62",
     "firstAppeared": "2025-12-16"
   },
   {
     "id": "vdw_radii_overlay",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "VDW Radii Overlay",
-    "version": "2026.04.12",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes Van der Waals radii as a merged surface overlay using PyVista.",
@@ -317,16 +317,16 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/VDW_Radii_Overlay/vdw_radii_overlay.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "a6efaed009526e608e00ac686aa666760841ce394ebab07677215bea403e7558",
+    "lastUpdated": "2026-06-20",
+    "sha256": "ef8ba023071f827bbcecb178bf39524fd097722a4a27c735377c6136649e728e",
     "firstAppeared": "2025-12-17"
   },
   {
     "id": "mapped_cube_viewer",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Mapped Cube Viewer",
-    "version": "2026.04.13",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes a property (e.g. ESP) mapped onto an isosurface (e.g. electron density) from two Cube files.",
@@ -341,8 +341,8 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/Mapped_Cube_Viewer/mapped_cube_viewer.py",
-    "lastUpdated": "2026-04-13",
-    "sha256": "d6b8e4e03e38c1c4d6b185cf60e28de489e777d3dd28f6da3b1811729ee82ae9",
+    "lastUpdated": "2026-06-20",
+    "sha256": "77fd853c1b6cc4cf7325eb04549ab86604c2d5f605aad786eebc7d2c70063b15",
     "firstAppeared": "2025-12-17"
   },
   {
@@ -363,13 +363,13 @@
     ],
     "downloadUrl": "../plugins/Orca_Input_Generator_Neo/orca_input_generator_neo.py",
     "lastUpdated": "2026-01-04",
-    "sha256": "f11baf0593803312ae64a1f1d1935e0863817a9f58a085ea1fe0b5b60e13c481",
+    "sha256": "3c786c12ab3d8881c21f78938affba408b2ee63d386a1e249a3914fab7e18379",
     "firstAppeared": "2026-01-03"
   },
   {
     "id": "orca_xyz2inp_gui",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "ORCA xyz2inp GUI",
     "version": "2026.04.11",
     "author": "HiroYokoyama",
@@ -393,9 +393,9 @@
   {
     "id": "ms_spectrum_simulation_neo",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "MS Spectrum Simulation Neo",
-    "version": "2026.04.12",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Simulates the Mass Spectrum for the currently loaded molecule using RDKit descriptors. Includes Gaussian broadening and interactive zoom/pan.",
@@ -407,16 +407,16 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/MS_Spectrum_Simulation_Neo/ms_spectrum_neo.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "30c4b72ae721ee4e145e98fd0ffe0408f931b8046bade5db7e0a0cd3fd1aef7d",
+    "lastUpdated": "2026-06-20",
+    "sha256": "72d44abc0b8800a0fd72722754b9adcc3dc92a5edce395bdda6db7c59d10819e",
     "firstAppeared": "2025-12-18"
   },
   {
     "id": "gaussian_freq_analyzer",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Gaussian Freq Analyzer",
-    "version": "2026.04.12",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Analyzes vibrational frequencies from Gaussian FCHK files. View IR spectrum, animate normal modes, and export GIF animations.",
@@ -432,16 +432,16 @@
       "Pillow"
     ],
     "downloadUrl": "../plugins/Gaussian_Freq_Analyzer/gaussian_fchk_freq_analyzer.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "94c519a3082804ccb633f9c3f922ad608ec457fe12c000722387c50c8cfa3b34",
+    "lastUpdated": "2026-06-20",
+    "sha256": "7a026ba94a4ea2f42a4fc649dc52d395afab28a6fe71e87d7229cbe342625437",
     "firstAppeared": "2025-12-20"
   },
   {
     "id": "orca_freq_analyzer",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "ORCA Freq Analyzer",
-    "version": "2026.04.24",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Analyzes vibrational frequencies from ORCA output files. View IR spectrum, animate normal modes, and export GIF animations.",
@@ -457,16 +457,16 @@
       "Pillow"
     ],
     "downloadUrl": "../plugins/ORCA_Freq_Analyzer/orca_out_freq_analyzer.py",
-    "lastUpdated": "2026-04-24",
-    "sha256": "afc1828a2682b084f736d9f336dff47a2c9e9b80b960d98494a7129d43791dcd",
+    "lastUpdated": "2026-06-20",
+    "sha256": "880d5ce0cc3e6745c7e870aea8a74e4c0575c65cbf94a6f079dd27d1de2f717e",
     "firstAppeared": "2025-12-20"
   },
   {
     "id": "paste_xyz",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Paste XYZ",
-    "version": "2026.04.12",
+    "version": "2026.06.19",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Paste XYZ to view in 3D.",
@@ -475,8 +475,8 @@
     ],
     "dependencies": [],
     "downloadUrl": "../plugins/Paste_XYZ/paste_xyz.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "f477cd38b4c8a64cc6e269f20607f305b4e6bc56c5c3e3b91e639119b37dd559",
+    "lastUpdated": "2026-06-19",
+    "sha256": "5a760ab9a11015854fea081d3b577d9456d6efd61d8ab9249c1f1d5323783135",
     "firstAppeared": "2025-12-20"
   },
   {
@@ -495,15 +495,15 @@
     ],
     "downloadUrl": "../plugins/Version_Checker/version_checker.py",
     "lastUpdated": "2025-12-26",
-    "sha256": "f302273f471d3992084df94affa8fb5c6ac8d71f3a986e651f355722470e05ae",
+    "sha256": "c658a92b1dcaa0fe7ef90d502174027aecd7a1ef122517c013f6ef9fd01eb950",
     "firstAppeared": "2025-12-26"
   },
   {
     "id": "plugin_installer",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Plugin Installer",
-    "version": "2026.06.03",
+    "version": "2026.06.19",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Checks for updates, installs new plugins, and allows manual reinstallation.",
@@ -514,8 +514,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Plugin_Installer/plugin_installer.py",
-    "lastUpdated": "2026-06-03",
-    "sha256": "8a3539ca060ce45863f7fe8001953eb80a28cb1d8e644884d08c5db05a0a2940",
+    "lastUpdated": "2026-06-19",
+    "sha256": "6ac7ee7660cada7cdb9d5c25d20f61a83dea63a53d321c169a388feb6efcd81d",
     "firstAppeared": "2026-01-04"
   },
   {
@@ -538,15 +538,15 @@
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule/chat_with_molecule.py",
     "lastUpdated": "2025-12-27",
-    "sha256": "b147bcd281f37281d0a204dbf5451513860e70ecd8b0727c656f31f498d04d8f",
+    "sha256": "41bb6109a357fc6961a06bc4e3470b90b135c91a55824ede88e6cb82323867f2",
     "firstAppeared": "2025-12-26"
   },
   {
     "id": "chat_with_molecule_neo",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Chat with Molecule Neo (Gemini)",
-    "version": "2026.04.12",
+    "version": "2026.06.19",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with Google Gemini about the current molecule. Automatically injects SMILES context. (Neo Version)",
@@ -561,16 +561,16 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo/chat_with_molecule_neo.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "4bbb1cea1544ed9b6adf3feb8440197cc8a0059c39b2935d1120adb81eed4ca5",
+    "lastUpdated": "2026-06-19",
+    "sha256": "1df30765441848b0068cbe2a3b5886268ed2ea516d8bf24668d64452d7244b3c",
     "firstAppeared": "2025-12-28"
   },
   {
     "id": "pubchem_structure_identifier",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "PubChem Structure Identifier",
-    "version": "2026.04.12",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Resolve chemical names and fetch molecular properties (Name, Formula, Weight) via PubChem.",
@@ -582,16 +582,16 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/PubChem_Structure_Identifier/pubchem_structure_identifier.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "1462eb7642c4255ac4607bb1182112116402961ea8198742c02eb1e02f7bf2eb",
+    "lastUpdated": "2026-06-20",
+    "sha256": "21b9298fa8acb22a6bb74a393246b3e3bcf2d57a756cdfc50ac364a3935355f6",
     "firstAppeared": "2025-12-28"
   },
   {
     "id": "chat_with_molecule_neo_chatgpt",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Chat with Molecule Neo (ChatGPT)",
-    "version": "2026.04.24",
+    "version": "2026.06.19",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with OpenAI ChatGPT about the current molecule. Automatically injects SMILES context. (Neo Version)",
@@ -606,16 +606,16 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_ChatGPT/chat_with_molecule_neo_chatGPT.py",
-    "lastUpdated": "2026-04-24",
-    "sha256": "9bcbf80c287718e45e8a348b5b9455bdc300339cf6f733551772755ae5476ab6",
+    "lastUpdated": "2026-06-19",
+    "sha256": "9d58ee5f02ad99068589ddee8a4494779e66ee26ae8f3eab74def26eaccf4452",
     "firstAppeared": "2025-12-30"
   },
   {
     "id": "chat_with_molecule_neo_local",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Chat with Molecule Neo (Local)",
-    "version": "2026.04.24",
+    "version": "2026.06.19",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with local LLM about the current molecule. Automatically injects SMILES context. (Neo Version)",
@@ -630,16 +630,16 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_Local/chat_with_molecule_neo_local.py",
-    "lastUpdated": "2026-04-24",
-    "sha256": "fdc8e41e84a785cb434f68c4a7d1f77746f42e5e78c7037d1068e7eb0181308e",
+    "lastUpdated": "2026-06-19",
+    "sha256": "6324cf847ef57ef53db6dcb8f56f0c27b1068c726e1905033d7e3fba64a763da",
     "firstAppeared": "2025-12-30"
   },
   {
     "id": "symmetry_analyzer",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Symmetry Analyzer",
-    "version": "2026.04.12",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Analyzes molecular symmetry (point group) and symmetrizes structures.",
@@ -652,16 +652,16 @@
       "pymatgen"
     ],
     "downloadUrl": "../plugins/Symmetry_Analyzer/symmetry_analyzer.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "b03d9e16b5011e2c9dc58411bc6ec49710ca0030817e270316362937232786e4",
+    "lastUpdated": "2026-06-20",
+    "sha256": "d57afea9275881cf04e71922dd424376a9ecba18701d89f11820a38bcf2fea2e",
     "firstAppeared": "2025-12-31"
   },
   {
     "id": "vector_viewer",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Vector Viewer",
-    "version": "2026.04.13",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes vectors (e.g. dipole moment) and exports PNGs.",
@@ -675,16 +675,16 @@
       "pyvista"
     ],
     "downloadUrl": "../plugins/Vector_Viewer/vector_viewer.py",
-    "lastUpdated": "2026-04-13",
-    "sha256": "caa587f535617518a80df3b3aa5699aca13bd08dc93bc8f7d86f93a0d712b568",
+    "lastUpdated": "2026-06-20",
+    "sha256": "aadd1038de2cf890be7bf0e06b852336b3f847309bee7d866436ca0c69f6add1",
     "firstAppeared": "2025-12-31"
   },
   {
     "id": "mopac_input_generator",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "MOPAC Input Generator",
-    "version": "2026.04.12",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates input files for MOPAC semi-empirical quantum chemistry calculations.",
@@ -697,16 +697,16 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Mopac_Input_Generator/mopac_input_generator.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "df3dac939f12e1c4e92cb3fe8635581bd42c80bc9438e65efdee62f8601f6f3d",
+    "lastUpdated": "2026-06-20",
+    "sha256": "201b36cd4ca51e670fbae35ff84aad65c589c54bf17b10a29c43ada0c17639b1",
     "firstAppeared": "2026-01-03"
   },
   {
     "id": "gamess_input_generator",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "GAMESS Input Generator",
-    "version": "2026.04.12",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates input files for GAMESS (US) quantum chemistry calculations.",
@@ -719,16 +719,16 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Gamess_Input_Generator/gamess_input_generator.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "d7bbf8012cd02abc244106f15b73ae9b82d16096d0659faded2cb267936a4ba9",
+    "lastUpdated": "2026-06-20",
+    "sha256": "d38fcc08e09a5e512c15b12480f6047e1dd4ef0c0def0e0486c5f938918b2f84",
     "firstAppeared": "2026-01-03"
   },
   {
     "id": "pyscf_input_generator",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "PySCF Input Generator",
-    "version": "2026.04.12",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates Python scripts for PySCF quantum chemistry calculations.",
@@ -742,16 +742,16 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/PySCF_Input_Generator/pyscf_input_generator.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "3f54f9b12cbf53d58df1d8ebb6cfe36abaeb27c36be9247f7d3348c287426671",
+    "lastUpdated": "2026-06-20",
+    "sha256": "fcf393e036d4cf9e57bc98d15ff688009f8139feb15328b2da5c27dc38384d2c",
     "firstAppeared": "2026-01-03"
   },
   {
     "id": "psi4_input_generator",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Psi4 Input Generator",
-    "version": "2026.04.12",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates input files for Psi4 quantum chemistry calculations.",
@@ -764,16 +764,16 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Psi4_Input_Generator/psi4_input_generator.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "9cb2590d199ca80cad3ef36f8a9123f344e5c4811e95cd86396ab3f6985693e3",
+    "lastUpdated": "2026-06-20",
+    "sha256": "08fbb820fff436b2cacf4e3d62c672848e5c62619e901dbd81aa2ad4d370fb7f",
     "firstAppeared": "2026-01-03"
   },
   {
     "id": "molecule_comparator",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Molecule Comparator",
-    "version": "2026.04.12",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Compare multiple molecules in 3D, calculate RMSD, and align them.",
@@ -786,16 +786,16 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Molecule_Comparator/molecule_comparator.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "b2df869ccc54a89d2608c99c5b6a8d8e555275685fd0bc5383a12336ae47069d",
+    "lastUpdated": "2026-06-20",
+    "sha256": "6018926e6ae413a7ba86af84deeac16bda03c95e4fbbc0a79376cdcc08a7ea9f",
     "firstAppeared": "2026-01-03"
   },
   {
     "id": "nwchem_input_generator",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "NWChem Input Generator",
-    "version": "2026.04.12",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates input files for NWChem quantum chemistry calculations.",
@@ -808,16 +808,16 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/NWChem_Input_Generator/nwchem_input_generator.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "1ba629e1949b235730178374ff8c298ac2daa9009234b26d5586c8e9bcbd8e8a",
+    "lastUpdated": "2026-06-20",
+    "sha256": "60d5cd0471d15e6aab6181f6854dbe50783ad27eadedb86876fece04638691e9",
     "firstAppeared": "2026-01-03"
   },
   {
     "id": "xyz_editor",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "XYZ Editor",
-    "version": "2026.04.18",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A table-based editor for atom coordinates and symbols, supporting ghost atoms, adding and deleting atoms.",
@@ -830,8 +830,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/XYZ_Editor/xyz_editor.py",
-    "lastUpdated": "2026-04-18",
-    "sha256": "a26dffed044d206606c7c02a7415745d700110ee91a5ebd444f0541fd23f5b13",
+    "lastUpdated": "2026-06-20",
+    "sha256": "720231e2793207f4a7fd91d78fc82952dfa10e21f64ca69ca4bee0f4aac44852",
     "firstAppeared": "2026-01-03"
   },
   {
@@ -854,7 +854,7 @@
   {
     "id": "pyscf_calculator",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "PySCF Calculator",
     "version": "2.3.0",
     "author": "HiroYokoyama",
@@ -880,9 +880,9 @@
   {
     "id": "openbabel_conversion_tool",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "OpenBabel Conversion Tool",
-    "version": "2026.04.12",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Import various chemical file formats using OpenBabel with multi-molecule support.",
@@ -894,16 +894,16 @@
       "openbabel-wheel"
     ],
     "downloadUrl": "../plugins/OpenBabel_Conversion_Tool/openbabel_conversion_tool.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "150ca166bfb0222fed07b8f026cd284f47e3af19318647d49e311b50851fe135",
+    "lastUpdated": "2026-06-20",
+    "sha256": "d10a1188701faa89eaffa4f0885e40847edad34e3ae7a0770b07b91de1198a58",
     "firstAppeared": "2026-01-10"
   },
   {
     "id": "paste_from_chemdraw",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Paste from ChemDraw",
-    "version": "2026.04.12",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Paste chemical structures from ChemDraw clipboard data. Developed on ChemDraw version 25.5.",
@@ -915,16 +915,16 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/Paste_from_ChemDraw/paste_chemdraw.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "7360566b99a99986e0dae784bc0ce4d47295caea0df3b7db0c8bf40325c6e0dd",
+    "lastUpdated": "2026-06-20",
+    "sha256": "22575604eb0b18bc6f7218031863fa087dfe4d51c9a9901a540b1128ff2a8b81",
     "firstAppeared": "2026-01-15"
   },
   {
     "id": "compound_info_report",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Compound Info Report",
-    "version": "2026.04.12",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generate a compound info report with properties, adducts, and structure. Useful for organic synthesis experiments.",
@@ -936,16 +936,16 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Compound_Info_Report/compound_info_report.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "a95acbf446a668d75a3e067881a8dd5bcb13e4b1d127c7731c5b8260ebf9d235",
+    "lastUpdated": "2026-06-20",
+    "sha256": "7fcbc08b837b260fb4d25df245a1ca0ee33d74353f53521e138c654cf0fe75be",
     "firstAppeared": "2026-01-21"
   },
   {
     "id": "gaussian_mo_analyzer",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Gaussian MO Analyzer",
-    "version": "2026.04.12",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes Molecular Orbitals from Gaussian FCHK files by generating Cube files. The current implementation supports S, P, D, and F shells",
@@ -962,16 +962,16 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Gaussian_MO_Analyzer/gaussian_fchk_mo_analyzer.zip",
-    "lastUpdated": "2026-04-12",
-    "sha256": "11669a4d37ddb1b24d106b886cc2dd849ce78efffef48b20f3431b05ba59d76d",
+    "lastUpdated": "2026-06-20",
+    "sha256": "e535210775c66c477a28674c8d25b95f6ce7b9febaf85c2522bc63b3b386ee5b",
     "firstAppeared": "2026-01-23"
   },
   {
     "id": "gaussian_fchk_loader",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Gaussian FCHK Loader",
-    "version": "2026.04.12",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Smart loader for FCHK, FCH, and FCK files. Dispatches to Frequency or MO Analyzer with priority handling.",
@@ -983,16 +983,16 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Gaussian_FCHK_Loader/gaussian_fchk_loader.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "b35d37356422baeaaa7c24474d4574d3f7b77f328c361e02c0a13795e783e2ff",
+    "lastUpdated": "2026-06-20",
+    "sha256": "757d34821641a47a81b81ed1225b3a5562789f7b66170dc7df3cdf417a95c3ec",
     "firstAppeared": "2026-01-23"
   },
   {
     "id": "settings_saver",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": "4.*",
     "name": "Settings Saver",
-    "version": "2026.04.12",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Save, load, and manage settings presets in a unified dialog.",
@@ -1003,16 +1003,16 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Settings_Saver/settings_saver.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "340d88abbaa9d17d9bee7fdc55b77159235f6c693930f3b34b852ae656d0350f",
+    "lastUpdated": "2026-06-20",
+    "sha256": "890a24dc7c5be654715215f42145976a1125cae616e000e5f3c50229dd36fd93",
     "firstAppeared": "2026-01-25"
   },
   {
     "id": "structural_updater",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Structural Updater",
-    "version": "2026.04.12",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Applies 2D structural changes to 3D conformation without full re-embedding.",
@@ -1024,16 +1024,16 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Structural_Updater/structural_updater.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "5cdfc1ea2119023f048c0a7f22f5231bb6a74c16f1e60d9bd958d80207ea9263",
+    "lastUpdated": "2026-06-20",
+    "sha256": "bd0d84756408662f86f25a4651377c2038055f4bd492ffdb58c6abc9a59f756c",
     "firstAppeared": "2026-01-28"
   },
   {
     "id": "orca_result_analyzer",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": "4.*",
     "name": "ORCA Result Analyzer",
-    "version": "2.6.0",
+    "version": "3.0.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Comprehensive analyzer for ORCA output files (.out). Includes Vibrational, MO, TDDFT, and NMR analysis.",
@@ -1050,16 +1050,16 @@
       "nmrsim",
       "scipy"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin/releases/download/2.6.0/orca_result_analyzer.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin/releases/download/3.0.0/orca_result_analyzer.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin",
-    "lastUpdated": "2026-06-16",
+    "lastUpdated": "2026-06-19",
     "sha256": "85cd03fa60a82a29ef2f1b8d5098ac362a743ede2f5b73e7090b30a99677c408",
     "firstAppeared": "2026-01-27"
   },
   {
     "id": "nmr_predictor_nmrshiftdb2",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "NMR Predictor (nmrshiftdb2)",
     "version": "2.1.0",
     "author": "HiroYokoyama",
@@ -1084,9 +1084,9 @@
   {
     "id": "cube_file_viewer_advanced",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Cube File Viewer Advanced",
-    "version": "2026.04.13",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Advanced 3D visualization for Gaussian Cube files with PBR, SSAO, and other effects.",
@@ -1101,16 +1101,16 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer_Advanced/cube_viewer_advanced.py",
-    "lastUpdated": "2026-04-13",
-    "sha256": "9ea75781ce48443c0783f547e0d5d98b32c660c9fd147861a7b317a085f0d722",
+    "lastUpdated": "2026-06-20",
+    "sha256": "40629d3279d97845b78d2621c2566af8a5c8effbb7c1dfdf99bd2ef7e1cb5775",
     "firstAppeared": "2026-02-02"
   },
   {
     "id": "advanced_rendering",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Advanced Rendering",
-    "version": "2026.04.12",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Fine-grained control over Scene lighting, shadows, post-processing effects (SSAO, Depth Peeling, EDL), and Atom/Bond rendering (PBR, Silhouette).",
@@ -1123,16 +1123,16 @@
       "numpy"
     ],
     "downloadUrl": "../plugins/Advanced_Rendering/advanced_rendering.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "a54b0bbb78de61faf92fdbae039ddd0f570c9e632ca6cf4010b0ca7856da0b48",
+    "lastUpdated": "2026-06-20",
+    "sha256": "de33421bd7ddbd57ea06f4e81ca80e39128d3aafe149b72ae138758e806b1079",
     "firstAppeared": "2026-02-03"
   },
   {
     "id": "high_res_imager",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "High Resolution Imager",
-    "version": "2026.04.12",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Take high-resolution screenshots of the 3D view with custom resolution.",
@@ -1145,16 +1145,16 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/High_Resolution_Imager/high_res_imager.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "b9b391a28a2757f63c0d5d1c1385d5478161b9af2c62397316f0ac15d9c17421",
+    "lastUpdated": "2026-06-20",
+    "sha256": "4f3a90f921057cae13e351aa3a3f5b342c2a05c141907344ce2a5f309abfc535",
     "firstAppeared": "2026-02-05"
   },
   {
     "id": "blender_export",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Blender Export",
-    "version": "2026.04.11",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Export molecular structures as Blender Python scripts that create 3D visualizations",
@@ -1168,16 +1168,16 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Blender_Export/blender_export.py",
-    "lastUpdated": "2026-04-11",
-    "sha256": "f40bf9e8605860126c83ffb76b2a9be5cddb3ede56f36ebadc821a1f6faede1f",
+    "lastUpdated": "2026-06-20",
+    "sha256": "4249152474d94fe9755297d7f1bd256c33cc257a5d27fc375dbed2d0f05407be",
     "firstAppeared": "2026-02-05"
   },
   {
     "id": "povray_export",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "POV-Ray Export",
-    "version": "2026.04.11",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Export molecular structures as POV-Ray scene files for professional ray-traced rendering",
@@ -1191,14 +1191,14 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/POV-Ray_Export/povray_export.py",
-    "lastUpdated": "2026-04-11",
-    "sha256": "352af1a283425f0380301f3383c77d80103005933833aaf2967770e0895c40c0",
+    "lastUpdated": "2026-06-20",
+    "sha256": "2bbff29f84452f74956d4327bd5434c80dc372e29c74a6b8fbb66b67c2e62045",
     "firstAppeared": "2026-02-05"
   },
   {
     "id": "reaction_sketcher",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Reaction Sketcher",
     "version": "2.4.0",
     "author": "HiroYokoyama",
@@ -1222,9 +1222,9 @@
   {
     "id": "encrypted_project",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Encrypted Project",
-    "version": "2026.04.12",
+    "version": "2026.06.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Securely saves molecular data using AES-128 encryption with password protection (.pmeenc file).",
@@ -1236,14 +1236,14 @@
       "cryptography"
     ],
     "downloadUrl": "../plugins/Encrypted_Project/encrypted_project.py",
-    "lastUpdated": "2026-04-12",
-    "sha256": "2834af3eb9f788dc665c20a3d07459afb457d410228785679f671f4b32fc65ae",
+    "lastUpdated": "2026-06-20",
+    "sha256": "5d2401b42a76a844b01b0ee1a655a60ba498d1347fe146314df8743c55503a80",
     "firstAppeared": "2026-02-12"
   },
   {
     "id": "3d_molecule_on_2d",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "3D Molecule on 2D",
     "version": "2.4.0",
     "author": "HiroYokoyama",
@@ -1267,7 +1267,7 @@
   {
     "id": "orca_input_generator_pro",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "ORCA Input Generator Pro",
     "version": "2.4.5",
     "author": "HiroYokoyama",
@@ -1290,7 +1290,7 @@
   {
     "id": "nics_placer",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "NICS Placer",
     "version": "1.0.1",
     "author": "HiroYokoyama",
@@ -1313,7 +1313,7 @@
   {
     "id": "molibrary",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Molibrary Browser",
     "version": "1.1.0",
     "author": "HiroYokoyama",
@@ -1335,7 +1335,7 @@
   {
     "id": "cif_viewer",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "CIF Viewer",
     "version": "0.10.0",
     "author": "HiroYokoyama",
@@ -1359,7 +1359,7 @@
   {
     "id": "rotation_giffer",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Rotation Giffer",
     "version": "1.2.0",
     "author": "HiroYokoyama",
@@ -1382,7 +1382,7 @@
   {
     "id": "strain_homodesmotic_reaction_generator",
     "visible": true,
-    "supported_moleditpy_version": "3.*",
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Strain Homodesmotic Reaction Generator",
     "version": "0.4.2",
     "author": "HiroYokoyama",

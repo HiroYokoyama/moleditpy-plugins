@@ -1,19 +1,27 @@
 import os
 import json
 import logging
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QCheckBox, QDialogButtonBox, QApplication
+from PyQt6.QtWidgets import (
+    QDialog,
+    QVBoxLayout,
+    QCheckBox,
+    QDialogButtonBox,
+    QApplication,
+)
 from PyQt6.QtCore import QTimer
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
 PLUGIN_NAME = "Structural Updater"
-PLUGIN_VERSION = "2026.04.12"
+PLUGIN_VERSION = "2026.06.20"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Applies 2D structural changes to 3D conformation without full re-embedding. Refactored for V3 API."
 
 # Global reference to hold the original methods to prevent GC and allow restoration
 _ORIGINAL_METHODS = {}
 _PLUGIN_INSTANCE = None
+
 
 class SettingsDialog(QDialog):
     def __init__(self, parent=None, current_enabled=True):
@@ -24,21 +32,24 @@ class SettingsDialog(QDialog):
 
     def init_ui(self):
         layout = QVBoxLayout()
-        
+
         self.chk_enable = QCheckBox("Enable Plugin")
         self.chk_enable.setChecked(self.enabled)
         layout.addWidget(self.chk_enable)
-        
-        btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+
+        btns = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
         btns.accepted.connect(self.accept)
         btns.rejected.connect(self.reject)
         layout.addWidget(btns)
-        
+
         self.setLayout(layout)
-        
+
     def accept(self):
         self.enabled = self.chk_enable.isChecked()
         super().accept()
+
 
 class StructuralUpdaterPlugin:
     def __init__(self, context):
@@ -48,34 +59,37 @@ class StructuralUpdaterPlugin:
         # self.plugin_dir is not really needed if we just use __file__
         base_path = os.path.splitext(os.path.abspath(__file__))[0]
         self.settings_file = base_path + ".json"
-        
+
         self.enabled = True
-        
+
         # State to track if we are in "Apply Mode" vs "Convert Mode"
         self.apply_mode_active = False
-        
+
         # Load settings
         self.load_settings()
-        
+
         # Monkey patch MainWindow
         self.patch_mainwindow()
-        
+
         # Add Menu Actions
-        self.context.add_menu_action("Settings/Structural Updater...", self.open_settings)
-        
+        self.context.add_menu_action(
+            "Settings/Structural Updater...", self.open_settings
+        )
+
         # Auto-detection timer
         self.timer = QTimer(self.mw)
         self.timer.timeout.connect(self.check_state)
-        self.timer.start(1000) # Check every 1 second
+        self.timer.start(1000)  # Check every 1 second
 
     def check_state(self):
-        if not self.enabled: return
-        
+        if not self.enabled:
+            return
+
         # Do not interfere if calculation is running (Halt button active)
         # # [DIRECT ACCESS] to button text
         if self.mw.init_manager.convert_button.text() == "Halt conversion":
             return
-            
+
         # Check if 3D molecule exists and has original_atom_id props
         # # [DIRECT ACCESS] to current_mol proxy
         has_3d = False
@@ -85,7 +99,7 @@ class StructuralUpdaterPlugin:
                 if atom.HasProp("_original_atom_id"):
                     has_3d = True
                     break
-        
+
         # Update mode logic
         if has_3d:
             if not self.apply_mode_active:
@@ -95,13 +109,13 @@ class StructuralUpdaterPlugin:
             if self.apply_mode_active:
                 self.apply_mode_active = False
                 self.mw.init_manager.convert_button.setText("Convert 2D to 3D")
-        
+
     def load_settings(self):
         try:
             if os.path.exists(self.settings_file):
-                with open(self.settings_file, 'r') as f:
+                with open(self.settings_file, "r") as f:
                     data = json.load(f)
-                    self.enabled = data.get('enabled', True)
+                    self.enabled = data.get("enabled", True)
             else:
                 # Create default settings if file doesn't exist
                 self.save_settings()
@@ -110,8 +124,8 @@ class StructuralUpdaterPlugin:
 
     def save_settings(self):
         try:
-            data = {'enabled': self.enabled}
-            with open(self.settings_file, 'w') as f:
+            data = {"enabled": self.enabled}
+            with open(self.settings_file, "w") as f:
                 json.dump(data, f)
         except Exception as e:
             print(f"[{PLUGIN_NAME}] Error saving settings: {e}")
@@ -121,11 +135,11 @@ class StructuralUpdaterPlugin:
         if dlg.exec():
             self.enabled = dlg.enabled
             self.save_settings()
-            
+
             # If disabled, restore original button text immediately
             if not self.enabled:
                 self.mw.init_manager.convert_button.setText("Convert 2D to 3D")
-                
+
             status = "Enabled" if self.enabled else "Disabled"
             # # [DIRECT ACCESS] via proxy
             self.context.show_status_message(f"Structural Updater: {status}")
@@ -133,16 +147,22 @@ class StructuralUpdaterPlugin:
 
     def patch_mainwindow(self):
         # Store original methods
-        if 'trigger_conversion' not in _ORIGINAL_METHODS:
-            _ORIGINAL_METHODS['trigger_conversion'] = self.mw.compute_manager.trigger_conversion
-        if 'on_calculation_finished' not in _ORIGINAL_METHODS:
-            _ORIGINAL_METHODS['on_calculation_finished'] = self.mw.compute_manager.on_calculation_finished
+        if "trigger_conversion" not in _ORIGINAL_METHODS:
+            _ORIGINAL_METHODS["trigger_conversion"] = (
+                self.mw.compute_manager.trigger_conversion
+            )
+        if "on_calculation_finished" not in _ORIGINAL_METHODS:
+            _ORIGINAL_METHODS["on_calculation_finished"] = (
+                self.mw.compute_manager.on_calculation_finished
+            )
         # Do not override show_convert_menu as per user request
 
         # Replace methods
         self.mw.compute_manager.trigger_conversion = self.new_trigger_conversion
-        self.mw.compute_manager.on_calculation_finished = self.new_on_calculation_finished
-        
+        self.mw.compute_manager.on_calculation_finished = (
+            self.new_on_calculation_finished
+        )
+
         # CRITICAL: Reconnect the button signal!
         # The existing connection points to the OLD trigger_conversion function object.
         try:
@@ -157,7 +177,7 @@ class StructuralUpdaterPlugin:
         # Check if a temporary conversion mode is set (via right-click menu)
         # If so, we must respect it and bypass our "Apply" logic.
         temp_mode = getattr(self.mw, "_temp_conv_mode", None)
-        
+
         # 1. Check if we should use our logic
         # Only use our logic if Plugin is Enabled AND Apply Mode is active AND No temp mode override
         if self.enabled and self.apply_mode_active and not temp_mode:
@@ -165,13 +185,13 @@ class StructuralUpdaterPlugin:
             self.apply_changes_to_3d()
         else:
             # Run original conversion logic
-            _ORIGINAL_METHODS['trigger_conversion']()
+            _ORIGINAL_METHODS["trigger_conversion"]()
 
     def new_on_calculation_finished(self, result):
         """Replacement for MainWindow.on_calculation_finished"""
         # 1. Run original (handles UI reset, loading mol into mw.current_mol, etc.)
-        _ORIGINAL_METHODS['on_calculation_finished'](result)
-        
+        _ORIGINAL_METHODS["on_calculation_finished"](result)
+
         # Force reconnection to our method because original method resets it to self.trigger_conversion
         # ensuring it points to our wrapper
         try:
@@ -179,7 +199,7 @@ class StructuralUpdaterPlugin:
         except Exception as _e:
             logging.warning("[structural_updater.py:181] silenced: %s", _e)
         self.mw.init_manager.convert_button.clicked.connect(self.new_trigger_conversion)
-        
+
         # 2. If plugin is enabled and conversion was successful, switch to "Apply Mode"
         if self.enabled:
             # Check if we have a valid molecule now
@@ -192,15 +212,15 @@ class StructuralUpdaterPlugin:
 
     def force_full_conversion(self):
         """Forces a standard conversion, resetting the Apply Mode."""
-        self.apply_mode_active = False 
-        # Button text will be updated by on_calculation_finished later, 
+        self.apply_mode_active = False
+        # Button text will be updated by on_calculation_finished later,
         # but good to reset it visually now or let the conversion process handle it.
         # Original trigger_conversion clears plotter etc.
-        _ORIGINAL_METHODS['trigger_conversion']()
+        _ORIGINAL_METHODS["trigger_conversion"]()
 
     def apply_changes_to_3d(self):
         """
-        The core logic: 
+        The core logic:
         1. Get current 2D structure (New)
         2. Get current 3D structure (Old)
         3. Match atoms via _original_atom_id
@@ -208,15 +228,15 @@ class StructuralUpdaterPlugin:
         5. Constrained Optimization
         """
         self.context.show_status_message("Applying 2D changes to 3D structure...")
-        QApplication.processEvents() # Ensure message is shown
-        
+        QApplication.processEvents()  # Ensure message is shown
+
         # 1. Get New 2D Mol (Fixed Access Path)
         # # [DIRECT ACCESS] to state_manager.data
         new_mol = None
         if hasattr(self.mw, "state_manager") and hasattr(self.mw.state_manager, "data"):
-             new_mol = self.mw.state_manager.data.to_rdkit_mol()
-        elif hasattr(self.mw, "data"): # Legacy fallback
-             new_mol = self.mw.state_manager.data.to_rdkit_mol()
+            new_mol = self.mw.state_manager.data.to_rdkit_mol()
+        elif hasattr(self.mw, "data"):  # Legacy fallback
+            new_mol = self.mw.state_manager.data.to_rdkit_mol()
 
         if not new_mol:
             # # [DIRECT ACCESS] via proxy
@@ -229,13 +249,13 @@ class StructuralUpdaterPlugin:
             # If no 3D mol exists, fall back to full conversion
             self.force_full_conversion()
             return
-            
+
         # 3. Create Coordinate Map
         # coordMap is {atomIdx: Point3D} for the NEW molecule.
         coord_map = {}
-        
+
         # We need to map New Mol Atom Idx -> Original ID -> Old Mol Atom Idx -> Coordinates
-        
+
         # Helper to safely get original atom ID
         def get_original_id(at):
             try:
@@ -251,7 +271,7 @@ class StructuralUpdaterPlugin:
             oid = get_original_id(atom)
             if oid is not None:
                 old_id_to_idx[oid] = atom.GetIdx()
-        
+
         # Get Conformer from Old Mol
         try:
             old_conf = old_mol.GetConformer()
@@ -260,19 +280,20 @@ class StructuralUpdaterPlugin:
             return
 
         # Prepare New Mol
-        new_mol = Chem.AddHs(new_mol) # Important: Add Hydrogens for 3D embedding
-        
+        new_mol = Chem.AddHs(new_mol)  # Important: Add Hydrogens for 3D embedding
+
         # Helper to get heavy neighbors info: list of (neighbor_id, bond_type, atomic_num)
         def get_env_signature(at):
             sig = []
             for bond in at.GetBonds():
                 nbr = bond.GetOtherAtom(at)
-                if nbr.GetAtomicNum() == 1: continue # Skip H
-                
+                if nbr.GetAtomicNum() == 1:
+                    continue  # Skip H
+
                 nid = -1
                 if nbr.HasProp("_original_atom_id"):
                     nid = nbr.GetIntProp("_original_atom_id")
-                    
+
                 sig.append((nid, bond.GetBondType(), nbr.GetAtomicNum()))
             sig.sort()
             return sig
@@ -284,86 +305,102 @@ class StructuralUpdaterPlugin:
             if oid is not None and oid in old_id_to_idx:
                 old_idx = old_id_to_idx[oid]
                 old_atom = old_mol.GetAtomWithIdx(old_idx)
-                
+
                 # Check if central atom identity changed (e.g. C -> N)
-                atom_conserved = (atom.GetAtomicNum() == old_atom.GetAtomicNum())
-                
+                atom_conserved = atom.GetAtomicNum() == old_atom.GetAtomicNum()
+
                 if atom_conserved:
                     # Heavy Atom: Always try to fix it if it's the same element.
                     # "Minimum matching using atom id" - we prioritize keeping the scaffold matching.
                     pos = old_conf.GetAtomPosition(old_idx)
                     coord_map[atom.GetIdx()] = pos
                     matches_count += 1
-                    
+
                     # Restore Hydrogen Fixation (User Request)
                     # Only fix Hydrogens if the local environment (connectivity/bonds) is conserved.
-                    
+
                     new_env = get_env_signature(atom)
                     old_env = get_env_signature(old_atom)
-                    
+
                     if new_env == old_env:
                         # Environment conserved: Fix Hydrogens as well
-                        new_neighbors = [nbr for nbr in atom.GetNeighbors() if nbr.GetAtomicNum() == 1]
-                        old_neighbors = [nbr for nbr in old_atom.GetNeighbors() if nbr.GetAtomicNum() == 1]
-                        
+                        new_neighbors = [
+                            nbr
+                            for nbr in atom.GetNeighbors()
+                            if nbr.GetAtomicNum() == 1
+                        ]
+                        old_neighbors = [
+                            nbr
+                            for nbr in old_atom.GetNeighbors()
+                            if nbr.GetAtomicNum() == 1
+                        ]
+
                         count_h = min(len(new_neighbors), len(old_neighbors))
-                        # Naive mapping: new[i] -> old[i]. 
+                        # Naive mapping: new[i] -> old[i].
                         # Since Hs are indistinguishable, this preserves the geometric "slots".
                         for i in range(count_h):
                             h_new = new_neighbors[i]
                             h_old = old_neighbors[i]
                             h_pos = old_conf.GetAtomPosition(h_old.GetIdx())
                             coord_map[h_new.GetIdx()] = h_pos
-        
+
         # If no matching data or too few matches to define orientation, generate from scratch
         # We generally need at least 3 points to define 3D orientation.
         min_matches = 3
         if new_mol.GetNumAtoms() < 3:
-            min_matches = 1 # Very small molecule
-            
+            min_matches = 1  # Very small molecule
+
         if matches_count < min_matches:
-            self.context.show_status_message(f"Notice: Too few matching atoms ({matches_count}). Performing full conversion.")
+            self.context.show_status_message(
+                f"Notice: Too few matching atoms ({matches_count}). Performing full conversion."
+            )
             self.force_full_conversion()
             return
-            
+
         try:
             # 4. Constrained Embedding with RDKit
             # We use EmbedMolecule with coordMap to guide the embedding.
             # useRandomCoords=True is critical to avoid O(N^3) freezing on large rings.
-            
+
             # Primary attempt: Strict constraints, good box size, limit attempts to prevent freeze
-            res = AllChem.EmbedMolecule(new_mol, 
-                                      coordMap=coord_map, 
-                                      useRandomCoords=True, 
-                                      randomSeed=0xf00d,
-                                      boxSizeMult=2.0,
-                                      maxAttempts=5)
-            
+            res = AllChem.EmbedMolecule(
+                new_mol,
+                coordMap=coord_map,
+                useRandomCoords=True,
+                randomSeed=0xF00D,
+                boxSizeMult=2.0,
+                maxAttempts=5,
+            )
+
             if res != 0:
-                 # Fallback 1: Less strict (relaxed box size, clear confs)
-                 res = AllChem.EmbedMolecule(new_mol, 
-                                           coordMap=coord_map, 
-                                           useRandomCoords=True, 
-                                           randomSeed=0xf00d,
-                                           clearConfs=True,
-                                           useBasicKnowledge=False,
-                                           boxSizeMult=4.0,
-                                           maxAttempts=5)
-            
+                # Fallback 1: Less strict (relaxed box size, clear confs)
+                res = AllChem.EmbedMolecule(
+                    new_mol,
+                    coordMap=coord_map,
+                    useRandomCoords=True,
+                    randomSeed=0xF00D,
+                    clearConfs=True,
+                    useBasicKnowledge=False,
+                    boxSizeMult=4.0,
+                    maxAttempts=5,
+                )
+
             if res != 0:
-                 # Fallback 2: Free embedding (NO coordMap), then Snap
-                 # Guarantees some structure is generated
-                 res = AllChem.EmbedMolecule(new_mol, 
-                                           useRandomCoords=True, 
-                                           randomSeed=0xf00d,
-                                           boxSizeMult=2.0,
-                                           maxAttempts=5)
-                 
-                 if res == 0:
-                     # Free embedding succeeded. We rely on the Snap step below to fix positions.
-                     pass 
-                 else:
-                     raise ValueError("Failed to generate any 3D conformer.")
+                # Fallback 2: Free embedding (NO coordMap), then Snap
+                # Guarantees some structure is generated
+                res = AllChem.EmbedMolecule(
+                    new_mol,
+                    useRandomCoords=True,
+                    randomSeed=0xF00D,
+                    boxSizeMult=2.0,
+                    maxAttempts=5,
+                )
+
+                if res == 0:
+                    # Free embedding succeeded. We rely on the Snap step below to fix positions.
+                    pass
+                else:
+                    raise ValueError("Failed to generate any 3D conformer.")
 
             # C. Snap Matches to Exact Old Positions (Hard Constraint Enforcement)
             # Embedding with coordMap is a "guide" (soft constraint).
@@ -372,7 +409,7 @@ class StructuralUpdaterPlugin:
                 pass_conf = new_mol.GetConformer()
                 for new_idx, pos in coord_map.items():
                     pass_conf.SetAtomPosition(new_idx, pos)
-                
+
             # D. Optimization (Constrained)
             # Now we run the same constrained optimization as before to clean up the new connections.
             # (Logic continues below...)
@@ -380,44 +417,48 @@ class StructuralUpdaterPlugin:
             try:
                 # Use UFF ForceField to optimize new atoms while keeping old atoms fixed
                 if AllChem.MMFFHasAllMoleculeParams(new_mol):
-                     ff = AllChem.MMFFGetMoleculeForceField(new_mol, AllChem.MMFFGetMoleculeProperties(new_mol))
+                    ff = AllChem.MMFFGetMoleculeForceField(
+                        new_mol, AllChem.MMFFGetMoleculeProperties(new_mol)
+                    )
                 else:
-                     ff = AllChem.UFFGetMoleculeForceField(new_mol)
-                
+                    ff = AllChem.UFFGetMoleculeForceField(new_mol)
+
                 if ff:
                     # Add fixed point constraints for all matched atoms
                     for atom_idx in coord_map.keys():
                         ff.AddFixedPoint(atom_idx)
-                    
+
                     # Minimize with iteration limit to prevent hanging on complex/strained systems
                     ff.Minimize(maxIts=200)
             except Exception:
                 # If optimization explodes (e.g. Invariant Violation), fallback is safer
                 # print(f"[{PLUGIN_NAME}] Optimization failed: {e}") # Suppress scary error
-                self.mw.statusBar().showMessage("Notice: Structure optimization unstable. Re-generating full 3D structure...", 5000)
+                self.context.show_status_message(
+                    "Notice: Structure optimization unstable. Re-generating full 3D structure...",
+                    5000,
+                )
                 self.force_full_conversion()
                 return
 
-        except Exception as e: # Error during embedding
+        except Exception as e:  # Error during embedding
             print(f"[{PLUGIN_NAME}] Embedding failed: {e}")
             self.force_full_conversion()
             return
-            
-
 
         # 5. Success - Update UI
         # # [DIRECT ACCESS] to core handler
         self.mw.compute_manager.on_calculation_finished(new_mol)
-        
+
         self.context.show_status_message("Applied 2D changes to 3D structure.")
+
 
 def initialize(context):
     global _PLUGIN_INSTANCE
     _PLUGIN_INSTANCE = StructuralUpdaterPlugin(context)
+
 
 def finalize():
     # Restore original methods
     mw = _PLUGIN_INSTANCE.mw
     for name, method in _ORIGINAL_METHODS.items():
         setattr(mw, name, method)
-    

@@ -1,21 +1,35 @@
 # -*- coding: utf-8 -*-
 import os
-from PyQt6.QtWidgets import (QMessageBox, QDialog, QVBoxLayout, QLabel, 
-                             QLineEdit, QSpinBox, QPushButton, QFileDialog, 
-                             QFormLayout, QGroupBox, QHBoxLayout, QComboBox, QTextEdit)
+from PyQt6.QtWidgets import (
+    QMessageBox,
+    QDialog,
+    QVBoxLayout,
+    QLabel,
+    QLineEdit,
+    QSpinBox,
+    QPushButton,
+    QFileDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QComboBox,
+    QTextEdit,
+)
 from PyQt6.QtCore import Qt
 
 PLUGIN_NAME = "Gaussian Input Generator"
+
 
 class GaussianSetupDialog(QDialog):
     """
     Gaussianインプット作成のための高機能設定ダイアログ
     Link 0, Route, Title, Charge/Mult, および追記データに対応
     """
+
     def __init__(self, parent=None, mol=None):
         super().__init__(parent)
         self.setWindowTitle("Gaussian Input Setup (Advanced)")
-        self.resize(500, 600) # 少し大きめに設定
+        self.resize(500, 600)  # 少し大きめに設定
         self.mol = mol
         self.setup_ui()
 
@@ -30,7 +44,7 @@ class GaussianSetupDialog(QDialog):
         mem_layout = QHBoxLayout()
         self.mem_spin = QSpinBox()
         self.mem_spin.setRange(1, 999999)
-        self.mem_spin.setValue(4) # Default
+        self.mem_spin.setValue(4)  # Default
         self.mem_unit = QComboBox()
         self.mem_unit.addItems(["GB", "MB", "MW"])
         mem_layout.addWidget(self.mem_spin)
@@ -40,9 +54,9 @@ class GaussianSetupDialog(QDialog):
         # Processors
         self.nproc_spin = QSpinBox()
         self.nproc_spin.setRange(1, 128)
-        self.nproc_spin.setValue(4) # Default
+        self.nproc_spin.setValue(4)  # Default
         link0_layout.addRow("Processors (%nprocshared):", self.nproc_spin)
-        
+
         # Checkpoint (Optional override)
         self.chk_edit = QLineEdit()
         self.chk_edit.setPlaceholderText("Auto-generated from filename if empty")
@@ -69,7 +83,7 @@ class GaussianSetupDialog(QDialog):
         # --- 3. Molecular State ---
         mol_group = QGroupBox("Molecular Specification")
         mol_layout = QHBoxLayout()
-        
+
         # Charge
         self.charge_spin = QSpinBox()
         self.charge_spin.setRange(-10, 10)
@@ -90,13 +104,17 @@ class GaussianSetupDialog(QDialog):
         # --- 4. Additional Input (The "Everything" section) ---
         tail_group = QGroupBox("Additional Input (Post-Coordinates)")
         tail_layout = QVBoxLayout()
-        
-        help_label = QLabel("For ModRedundant, Basis Sets (Gen), or Link1.\nAppended after the molecule specification.")
+
+        help_label = QLabel(
+            "For ModRedundant, Basis Sets (Gen), or Link1.\nAppended after the molecule specification."
+        )
         help_label.setStyleSheet("color: gray; font-size: 10px;")
         tail_layout.addWidget(help_label)
 
         self.tail_edit = QTextEdit()
-        self.tail_edit.setPlaceholderText("Example:\nD 1 2 3 4 S 10 10.0\n\nOr basis set data for Gen/GenECP...")
+        self.tail_edit.setPlaceholderText(
+            "Example:\nD 1 2 3 4 S 10 10.0\n\nOr basis set data for Gen/GenECP..."
+        )
         tail_layout.addWidget(self.tail_edit)
 
         tail_group.setLayout(tail_layout)
@@ -116,7 +134,7 @@ class GaussianSetupDialog(QDialog):
         """
         if not self.mol:
             return ""
-        
+
         lines = []
         try:
             # RDKitの場合の座標取得
@@ -126,10 +144,12 @@ class GaussianSetupDialog(QDialog):
                 atom = self.mol.GetAtomWithIdx(i)
                 symbol = atom.GetSymbol()
                 # Symbol X Y Z formatted
-                lines.append(f"{symbol: <4} {pos.x: >12.6f} {pos.y: >12.6f} {pos.z: >12.6f}")
+                lines.append(
+                    f"{symbol: <4} {pos.x: >12.6f} {pos.y: >12.6f} {pos.z: >12.6f}"
+                )
         except Exception as e:
             return f"Error extracting coordinates: {str(e)}"
-            
+
         return "\n".join(lines)
 
     def save_file(self):
@@ -141,7 +161,10 @@ class GaussianSetupDialog(QDialog):
 
         # ファイル保存ダイアログ
         file_path, _ = QFileDialog.getSaveFileName(
-            self, "Save Gaussian Input", "", "Gaussian Input (*.gjf *.com );;All Files (*)"
+            self,
+            "Save Gaussian Input",
+            "",
+            "Gaussian Input (*.gjf *.com );;All Files (*)",
         )
 
         if file_path:
@@ -155,44 +178,46 @@ class GaussianSetupDialog(QDialog):
                 if not chk_name.endswith(".chk"):
                     chk_name += ".chk"
 
-                with open(file_path, 'w', encoding='utf-8') as f:
+                with open(file_path, "w", encoding="utf-8") as f:
                     # --- Link 0 Section ---
                     f.write(f"%nprocshared={self.nproc_spin.value()}\n")
-                    f.write(f"%mem={self.mem_spin.value()}{self.mem_unit.currentText()}\n")
+                    f.write(
+                        f"%mem={self.mem_spin.value()}{self.mem_unit.currentText()}\n"
+                    )
                     f.write(f"%chk={chk_name}\n")
-                    
+
                     # --- Route Section ---
                     route_line = self.keywords_edit.text().strip()
                     if not route_line.startswith("#"):
                         route_line = "# " + route_line
                     f.write(f"{route_line}\n")
-                    f.write("\n") # Blank line required
-                    
+                    f.write("\n")  # Blank line required
+
                     # --- Title Section ---
                     title_line = self.title_edit.text().strip()
                     if not title_line:
                         title_line = "Gaussian Job"
                     f.write(f"{title_line}\n")
-                    f.write("\n") # Blank line required
-                    
+                    f.write("\n")  # Blank line required
+
                     # --- Charge & Multiplicity ---
                     f.write(f"{self.charge_spin.value()} {self.mult_spin.value()}\n")
-                    
+
                     # --- Molecule Specification ---
                     f.write(coords_block)
-                    f.write("\n") # Must end coord block with newline
-                    
+                    f.write("\n")  # Must end coord block with newline
+
                     # --- Additional Input (Tail) ---
                     # ModRedundant, Basis Set data, etc.
                     tail_content = self.tail_edit.toPlainText()
                     if tail_content.strip():
                         # 前に空行が必要（座標ブロック終了のため）
-                        f.write("\n") 
+                        f.write("\n")
                         f.write(tail_content)
                         # 末尾が改行で終わるように調整
                         if not tail_content.endswith("\n"):
                             f.write("\n")
-                    
+
                     # --- Final Blank Line ---
                     # Gaussian input files generally require empty lines at the end
                     f.write("\n")
@@ -202,16 +227,18 @@ class GaussianSetupDialog(QDialog):
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to save file:\n{str(e)}")
 
+
 def run(main_window):
     """
     Entry point for the plugin.
     """
-    mol = getattr(main_window, 'current_mol', None)
-    
+    mol = getattr(main_window, "current_mol", None)
+
     if not mol or mol.GetNumAtoms() == 0:
-        QMessageBox.warning(main_window, PLUGIN_NAME, "No molecule loaded or molecule is empty.")
+        QMessageBox.warning(
+            main_window, PLUGIN_NAME, "No molecule loaded or molecule is empty."
+        )
         return
 
     dialog = GaussianSetupDialog(parent=main_window, mol=mol)
     dialog.exec()
-    

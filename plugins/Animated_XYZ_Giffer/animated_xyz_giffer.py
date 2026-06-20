@@ -7,12 +7,23 @@ Allows loading and playing multi-frame XYZ files (e.g., MD trajectories).
 
 import os
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QPushButton,
-    QSlider, QLabel, QSpinBox, QFileDialog, QMessageBox,
-    QCheckBox, QFormLayout, QDialogButtonBox
+    QDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+    QPushButton,
+    QSlider,
+    QLabel,
+    QSpinBox,
+    QFileDialog,
+    QMessageBox,
+    QCheckBox,
+    QFormLayout,
+    QDialogButtonBox,
 )
+
 try:
     from PIL import Image
+
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False
@@ -20,16 +31,20 @@ from PyQt6.QtCore import Qt, QTimer
 from rdkit import Chem
 from rdkit.Chem import rdGeometry
 import logging
+
 try:
     from rdkit.Chem import rdDetermineBonds
 except ImportError:
     rdDetermineBonds = None
 
-PLUGIN_VERSION = "2026.04.12"
+PLUGIN_VERSION = "2026.06.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_NAME = "Animated XYZ Giffer"
-PLUGIN_VERSION = "2026.04.12"
-PLUGIN_DESCRIPTION = "Allows loading and playing multi-frame XYZ files (e.g., MD trajectories)."
+PLUGIN_DESCRIPTION = (
+    "Allows loading and playing multi-frame XYZ files (e.g., MD trajectories)."
+)
+
 
 class AnimatedXYZPlayer(QDialog):
     def __init__(self, context):
@@ -38,18 +53,20 @@ class AnimatedXYZPlayer(QDialog):
         # [DIRECT ACCESS] to main window for legacy UI parenting
         self.mw = context.get_main_window()
         self.setWindowTitle("Animated XYZ Player")
-        self.setWindowFlags(Qt.WindowType.Window) # Make it a separate window acting like a tool
+        self.setWindowFlags(
+            Qt.WindowType.Window
+        )  # Make it a separate window acting like a tool
         self.resize(400, 150)
 
         # Data
-        self.frames = [] # List of list of (symbol, x, y, z)
+        self.frames = []  # List of list of (symbol, x, y, z)
         self.current_frame_idx = 0
         self.target_frame_idx = 0
-        self.base_mol = None # RDKit Mol with topology
-        self.original_topology = None # Copy of base_mol with initial bonds
+        self.base_mol = None  # RDKit Mol with topology
+        self.original_topology = None  # Copy of base_mol with initial bonds
         self.is_playing = False
         self.fps = 10
-        
+
         # Update / Threading flags
         self.is_updating_view = False
         self.pending_update = False
@@ -65,7 +82,7 @@ class AnimatedXYZPlayer(QDialog):
         file_layout.addWidget(self.btn_load)
         file_layout.addWidget(self.lbl_file)
         file_layout.addStretch()
-        
+
         layout.addLayout(file_layout)
 
         # Status
@@ -80,15 +97,15 @@ class AnimatedXYZPlayer(QDialog):
 
         # Playback controls
         ctrl_layout = QHBoxLayout()
-        
+
         self.btn_prev = QPushButton("<<")
         self.btn_prev.clicked.connect(self.prev_frame)
         self.btn_prev.setEnabled(False)
-        
+
         self.btn_play = QPushButton("Play")
         self.btn_play.clicked.connect(self.toggle_play)
         self.btn_play.setEnabled(False)
-        
+
         self.btn_next = QPushButton(">>")
         self.btn_next.clicked.connect(self.next_frame)
         self.btn_next.setEnabled(False)
@@ -106,35 +123,37 @@ class AnimatedXYZPlayer(QDialog):
         self.spin_fps.setValue(self.fps)
         self.spin_fps.valueChanged.connect(self.set_fps)
         fps_layout.addWidget(self.spin_fps)
-        
+
         # Dynamic Bonds & Loop
         self.chk_dynamic_bonds = QCheckBox("Dynamic Bonds")
-        self.chk_dynamic_bonds.setToolTip("Recalculate bonds at every frame (useful for reactions)")
+        self.chk_dynamic_bonds.setToolTip(
+            "Recalculate bonds at every frame (useful for reactions)"
+        )
         self.chk_dynamic_bonds.setChecked(True)
         self.chk_dynamic_bonds.toggled.connect(self.schedule_update)
-        
+
         self.chk_loop = QCheckBox("Loop Animation")
         self.chk_loop.setChecked(True)
-        
+
         fps_layout.addStretch()
         fps_layout.addWidget(self.chk_dynamic_bonds)
         fps_layout.addWidget(self.chk_loop)
-        
+
         layout.addLayout(fps_layout)
 
         # Timer
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.on_timer)
-        
+
         # Bottom layout for actions
         bottom_layout = QHBoxLayout()
         bottom_layout.addStretch()
-        
+
         self.btn_save_gif = QPushButton("Save GIF")
         self.btn_save_gif.clicked.connect(self.save_as_gif)
         self.btn_save_gif.setEnabled(False)
         bottom_layout.addWidget(self.btn_save_gif)
-        
+
         layout.addLayout(bottom_layout)
 
         # Try to import existing molecule from main window
@@ -145,10 +164,13 @@ class AnimatedXYZPlayer(QDialog):
         Check if the main window has an opened molecule (especially XYZ) and use it.
         Uses the file path from the main window and reloads it to ensure all frames are captured.
         """
-        if hasattr(self.mw.init_manager, 'current_file_path') and self.mw.init_manager.current_file_path:
+        if (
+            hasattr(self.mw.init_manager, "current_file_path")
+            and self.mw.init_manager.current_file_path
+        ):
             fp = self.mw.init_manager.current_file_path
             # Basic check if it's an XYZ file or similar that we can handle
-            if fp.lower().endswith('.xyz') or fp.lower().endswith('.extxyz'):
+            if fp.lower().endswith(".xyz") or fp.lower().endswith(".extxyz"):
                 self.load_from_path(fp)
 
     def load_from_path(self, file_path):
@@ -160,7 +182,7 @@ class AnimatedXYZPlayer(QDialog):
             if not frames:
                 QMessageBox.warning(self, "Error", "No valid frames found in XYZ file.")
                 return
-            
+
             self.frames = frames
             self.current_frame_idx = 0
             self.target_frame_idx = 0
@@ -173,7 +195,7 @@ class AnimatedXYZPlayer(QDialog):
 
             self.btn_next.setEnabled(True)
             self.btn_save_gif.setEnabled(HAS_PIL)
-            
+
             self.create_base_molecule()
             self.update_view()
             self.update_status()
@@ -196,9 +218,9 @@ class AnimatedXYZPlayer(QDialog):
         Let's store: [ {'symbols': [str], 'coords': [(x,y,z)]}, ... ]
         """
         frames = []
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
-        
+
         i = 0
         n_lines = len(lines)
         while i < n_lines:
@@ -206,26 +228,26 @@ class AnimatedXYZPlayer(QDialog):
             if not line:
                 i += 1
                 continue
-            
+
             try:
                 num_atoms = int(line)
             except ValueError:
                 # Might be a blank line or garbage
                 i += 1
                 continue
-            
+
             # Start of a frame
             # i = atom count
             # i+1 = comment
             # i+2 ... i+2+num_atoms = atoms
-            
+
             if i + 2 + num_atoms > n_lines:
-                break # Incomplete frame
-            
-            comment = lines[i+1].strip()
+                break  # Incomplete frame
+
+            comment = lines[i + 1].strip()
             frame_atoms = []
             frame_coords = []
-            
+
             start_data = i + 2
             for j in range(num_atoms):
                 parts = lines[start_data + j].split()
@@ -239,15 +261,13 @@ class AnimatedXYZPlayer(QDialog):
                         frame_coords.append((x, y, z))
                     except ValueError as _e:
                         logging.warning("[animated_xyz_giffer.py:240] silenced: %s", _e)
-            
-            frames.append({
-                'symbols': frame_atoms,
-                'coords': frame_coords,
-                'comment': comment
-            })
-            
+
+            frames.append(
+                {"symbols": frame_atoms, "coords": frame_coords, "comment": comment}
+            )
+
             i = start_data + num_atoms
-            
+
         return frames
 
     def create_base_molecule(self):
@@ -259,41 +279,42 @@ class AnimatedXYZPlayer(QDialog):
 
         frame0 = self.frames[0]
         mol = Chem.RWMol()
-        
+
         # Add atoms
-        for sym in frame0['symbols']:
+        for sym in frame0["symbols"]:
             # Handle unknown symbols or numbers
             try:
                 atom = Chem.Atom(sym)
             except:
-                atom = Chem.Atom('C') # Fallback
+                atom = Chem.Atom("C")  # Fallback
             mol.AddAtom(atom)
-            
+
         # Add conformer
         conf = Chem.Conformer(mol.GetNumAtoms())
-        for idx, (x, y, z) in enumerate(frame0['coords']):
+        for idx, (x, y, z) in enumerate(frame0["coords"]):
             conf.SetAtomPosition(idx, rdGeometry.Point3D(x, y, z))
         mol.AddConformer(conf)
 
         # Estimate bonds (topology)
-        # We try to use the main window's helper function if available, 
+        # We try to use the main window's helper function if available,
         # otherwise we manually do simple distance check or leave it unconnected
-        if hasattr(self.mw.io_manager, 'estimate_bonds_from_distances'):
+        if hasattr(self.mw.io_manager, "estimate_bonds_from_distances"):
             self.mw.io_manager.estimate_bonds_from_distances(mol)
-        
+
         self.base_mol = mol.GetMol()
-        self.original_topology = Chem.Mol(self.base_mol) # Store a copy
-        
+        self.original_topology = Chem.Mol(self.base_mol)  # Store a copy
+
         # Set as current mol in main window so it can be drawn
         self.mw.current_mol = self.base_mol
 
         # Ensure 3D capabilities are on
-        if hasattr(self.mw.ui_manager, '_enter_3d_viewer_ui_mode'):
-            self.mw.ui_manager._enter_3d_viewer_ui_mode()
-        
+        if hasattr(self.context, "enter_3d_viewer_mode"):
+            self.context.enter_3d_viewer_mode()
+        elif hasattr(self.mw.ui_manager, "enter_3d_viewer_ui_mode"):
+            self.mw.ui_manager.enter_3d_viewer_ui_mode()
+
         # Reset camera on first load
-        if hasattr(self.mw, 'plotter'):
-             self.mw.plotter.reset_camera()
+        self.context.reset_3d_camera()
 
     def update_view(self):
         """
@@ -307,9 +328,9 @@ class AnimatedXYZPlayer(QDialog):
         Prevents recursion/stacking if draw_molecule_3d calls processEvents.
         """
         if self.is_updating_view:
-             self.pending_update = True
-             return
-        
+            self.pending_update = True
+            return
+
         # Start update process
         self.is_updating_view = True
         self.pending_update = False
@@ -324,7 +345,7 @@ class AnimatedXYZPlayer(QDialog):
                 # Update logic
                 if not self.frames or self.base_mol is None:
                     break
-                
+
                 # Check for Dynamic Bonds restoration
                 if not self.chk_dynamic_bonds.isChecked() and self.original_topology:
                     # If currently showing dynamic bonds, but checkbox is now OFF,
@@ -332,37 +353,47 @@ class AnimatedXYZPlayer(QDialog):
                     # Simple way: If we don't calculate dynamic bonds, we just use whatever is there.
                     # But to be "correct", if the user UNCHECKS it, they expect the original bonds.
                     # Let's check if the bond count differs as a proxy, or just always restore if OFF.
-                    if self.base_mol.GetNumBonds() != self.original_topology.GetNumBonds():
+                    if (
+                        self.base_mol.GetNumBonds()
+                        != self.original_topology.GetNumBonds()
+                    ):
                         # Clear and copy bonds from original_topology
                         for i in reversed(range(self.base_mol.GetNumBonds())):
                             b = self.base_mol.GetBondWithIdx(i)
-                            self.base_mol.RemoveBond(b.GetBeginAtomIdx(), b.GetEndAtomIdx())
-                        
+                            self.base_mol.RemoveBond(
+                                b.GetBeginAtomIdx(), b.GetEndAtomIdx()
+                            )
+
                         for b in self.original_topology.GetBonds():
-                            self.base_mol.AddBond(b.GetBeginAtomIdx(), b.GetEndAtomIdx(), b.GetBondType())
-                
+                            self.base_mol.AddBond(
+                                b.GetBeginAtomIdx(), b.GetEndAtomIdx(), b.GetBondType()
+                            )
+
                 # Use target frame
                 self.current_frame_idx = self.target_frame_idx
-                
+
                 if self.current_frame_idx >= len(self.frames):
                     self.current_frame_idx = 0
-                    
+
                 frame = self.frames[self.current_frame_idx]
-                
+
                 # Update conformer positions
                 # Assuming topology (atom count/order) hasn't changed
                 conf = self.base_mol.GetConformer()
-                coords = frame['coords']
-                
+                coords = frame["coords"]
+
                 # Dynamic Bonds: Reconstruct Mol from scratch to ensure topology refresh
                 if self.chk_dynamic_bonds.isChecked() and rdDetermineBonds:
                     try:
                         # Construct XYZ block
-                        xyz_lines = [str(len(frame['symbols'])), frame.get('comment', '')]
-                        for sym, (x, y, z) in zip(frame['symbols'], frame['coords']):
+                        xyz_lines = [
+                            str(len(frame["symbols"])),
+                            frame.get("comment", ""),
+                        ]
+                        for sym, (x, y, z) in zip(frame["symbols"], frame["coords"]):
                             xyz_lines.append(f"{sym} {x} {y} {z}")
                         xyz_block = "\n".join(xyz_lines)
-                        
+
                         # Create fresh mol
                         new_mol = Chem.MolFromXYZBlock(xyz_block)
                         if new_mol:
@@ -371,8 +402,10 @@ class AnimatedXYZPlayer(QDialog):
                             try:
                                 rdDetermineBonds.DetermineBondOrders(new_mol)
                             except Exception as _e:
-                                logging.warning("[animated_xyz_giffer.py:373] silenced: %s", _e)
-                            
+                                logging.warning(
+                                    "[animated_xyz_giffer.py:373] silenced: %s", _e
+                                )
+
                             # Use this new mol for display
                             display_mol = new_mol
                         else:
@@ -387,34 +420,44 @@ class AnimatedXYZPlayer(QDialog):
                     # Static / Pre-calculated topology restoration
                     if self.original_topology:
                         # Ensure base_mol has original bonds if dynamic was previously on
-                        if self.base_mol.GetNumBonds() != self.original_topology.GetNumBonds():
+                        if (
+                            self.base_mol.GetNumBonds()
+                            != self.original_topology.GetNumBonds()
+                        ):
                             # Clear and copy bonds from original_topology
                             for i in reversed(range(self.base_mol.GetNumBonds())):
                                 b = self.base_mol.GetBondWithIdx(i)
-                                self.base_mol.RemoveBond(b.GetBeginAtomIdx(), b.GetEndAtomIdx())
-                            
+                                self.base_mol.RemoveBond(
+                                    b.GetBeginAtomIdx(), b.GetEndAtomIdx()
+                                )
+
                             for b in self.original_topology.GetBonds():
-                                self.base_mol.AddBond(b.GetBeginAtomIdx(), b.GetEndAtomIdx(), b.GetBondType())
-                    
+                                self.base_mol.AddBond(
+                                    b.GetBeginAtomIdx(),
+                                    b.GetEndAtomIdx(),
+                                    b.GetBondType(),
+                                )
+
                     # Update coordinates
                     if len(coords) == self.base_mol.GetNumAtoms():
-                         for idx, (x, y, z) in enumerate(coords):
+                        for idx, (x, y, z) in enumerate(coords):
                             conf.SetAtomPosition(idx, rdGeometry.Point3D(x, y, z))
                     display_mol = self.base_mol
 
                 self.last_display_mol = display_mol
-                
+
                 # Push to current molecule every time the frame changes
-                if getattr(self, 'mw', None) is not None and self.mw:
+                if getattr(self, "mw", None) is not None and self.mw:
                     self.mw.current_mol = display_mol
 
                 # Redraw
                 # This calls main_window.draw_molecule_3d which might call processEvents
-                if hasattr(self.mw.view_3d_manager, 'draw_molecule_3d'):
-                    self.mw.view_3d_manager.draw_molecule_3d(display_mol)
-                    # Update frame comment/title if possible
-                    if 'comment' in frame:
-                        self.mw.statusBar().showMessage(f"Frame {self.current_frame_idx+1}/{len(self.frames)}: {frame['comment']}")
+                self.context.draw_molecule_3d(display_mol)
+                # Update frame comment/title if possible
+                if "comment" in frame:
+                    self.context.show_status_message(
+                        f"Frame {self.current_frame_idx + 1}/{len(self.frames)}: {frame['comment']}"
+                    )
 
                 # Update Status label (without feedback loop)
                 self.update_status_silent()
@@ -422,17 +465,19 @@ class AnimatedXYZPlayer(QDialog):
                 # Check if pending
                 if not self.pending_update:
                     break
-                
-                # If pending is True, it means schedule_update was called AGAIN 
+
+                # If pending is True, it means schedule_update was called AGAIN
                 # (likely via processEvents inside draw_molecule_3d)
                 # so we loop again to draw the LATEST target_frame_idx.
                 self.pending_update = False
-                
+
         finally:
             self.is_updating_view = False
 
     def update_status_silent(self):
-        self.lbl_status.setText(f"Frame: {self.current_frame_idx + 1} / {len(self.frames)}")
+        self.lbl_status.setText(
+            f"Frame: {self.current_frame_idx + 1} / {len(self.frames)}"
+        )
         self.slider.blockSignals(True)
         self.slider.setValue(self.current_frame_idx)
         self.slider.blockSignals(False)
@@ -452,15 +497,15 @@ class AnimatedXYZPlayer(QDialog):
             if self.current_frame_idx >= len(self.frames) - 1:
                 self.target_frame_idx = 0
                 self.schedule_update()
-            
+
             self.btn_play.setText("Pause")
             self.timer.start(int(1000 / self.fps))
         else:
             self.btn_play.setText("Play")
             self.timer.stop()
-            # Ensure the main window knows this is the generic current molecule 
+            # Ensure the main window knows this is the generic current molecule
             # so the user can use File->Save As... to export the current frame.
-            if getattr(self, 'last_display_mol', None) is not None:
+            if getattr(self, "last_display_mol", None) is not None:
                 self.mw.current_mol = self.last_display_mol
             else:
                 self.mw.current_mol = self.base_mol
@@ -475,7 +520,7 @@ class AnimatedXYZPlayer(QDialog):
                 if self.is_playing:
                     self.toggle_play()
                 return
-        
+
         self.target_frame_idx = next_idx
         self.schedule_update()
 
@@ -486,7 +531,7 @@ class AnimatedXYZPlayer(QDialog):
                 prev_idx = len(self.frames) - 1
             else:
                 return
-        
+
         self.target_frame_idx = prev_idx
         self.schedule_update()
 
@@ -497,7 +542,7 @@ class AnimatedXYZPlayer(QDialog):
         self.fps = value
         if self.is_playing:
             self.timer.start(int(1000 / self.fps))
-            
+
     def save_as_gif(self):
         if not self.frames:
             return
@@ -511,14 +556,13 @@ class AnimatedXYZPlayer(QDialog):
         dialog = QDialog(self)
         dialog.setWindowTitle("Export GIF Settings")
         form = QFormLayout(dialog)
-        
+
         spin_fps = QSpinBox()
         spin_fps.setRange(1, 60)
         spin_fps.setValue(self.fps)
-        
+
         chk_transparent = QCheckBox()
         chk_transparent.setChecked(True)
-        
 
         form.addRow("FPS:", spin_fps)
         form.addRow("Transparent Background:", chk_transparent)
@@ -526,12 +570,14 @@ class AnimatedXYZPlayer(QDialog):
         chk_loop = QCheckBox()
         chk_loop.setChecked(True)
         form.addRow("Loop Animation:", chk_loop)
-        
-        btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+
+        btns = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
         btns.accepted.connect(dialog.accept)
         btns.rejected.connect(dialog.reject)
         form.addRow(btns)
-        
+
         if dialog.exec() != QDialog.DialogCode.Accepted:
             if was_playing:
                 self.toggle_play()
@@ -549,65 +595,67 @@ class AnimatedXYZPlayer(QDialog):
             if was_playing:
                 self.toggle_play()
             return
-            
-        if not file_path.lower().endswith('.gif'):
-             file_path += '.gif'
+
+        if not file_path.lower().endswith(".gif"):
+            file_path += ".gif"
 
         # Progress Dialog? Or just blocking cursor
         self.setCursor(Qt.CursorShape.WaitCursor)
-        
+
         try:
             original_frame_idx = self.current_frame_idx
             images = []
-            
+
             for i in range(len(self.frames)):
                 self.target_frame_idx = i
                 self.do_effective_update()
-                
+
                 # Force repaint of the main window view to ensure updated frame is rendered
-                # We need to access the plotter widget 
-                if hasattr(self.mw, 'plotter'):
-                     # This might update the view
-                     self.mw.plotter.update()
-                     
-                     # Check if we can get image
-                     # screenshot(transparent_background=..., return_img=True)
-                     img_array = self.mw.plotter.screenshot(transparent_background=use_transparent, return_img=True)
-                     
-                     if img_array is not None:
-                         img = Image.fromarray(img_array)
-                         images.append(img)
-            
+                # We need to access the plotter widget
+                if hasattr(self.mw, "plotter"):
+                    # This might update the view
+                    self.mw.plotter.update()
+
+                    # Check if we can get image
+                    # screenshot(transparent_background=..., return_img=True)
+                    img_array = self.mw.plotter.screenshot(
+                        transparent_background=use_transparent, return_img=True
+                    )
+
+                    if img_array is not None:
+                        img = Image.fromarray(img_array)
+                        images.append(img)
+
             # Save
             if images:
                 # Prepare images for GIF
                 gif_frames = []
                 duration_ms = int(1000 / target_fps)
-                
+
                 for img in images:
                     if use_transparent:
-                         # Advanced transparency handling for GIF
-                         # 1. Ensure RGBA
-                         img = img.convert("RGBA")
-                         
-                         # 2. Extract Alpha
-                         alpha = img.split()[3]
-                         
-                         # 3. Create a white background for quantization (optional, prevents halos)
-                         # or just convert RGB to P directly.
-                         # We'll stick to standard quantize.
-                         # map alpha to binary mask
-                         mask = Image.eval(alpha, lambda a: 255 if a <= 128 else 0)
-                         
-                         # 4. Quantize to 255 colors (leaving 1 for true transparency)
-                         img_p = img.convert("RGB").quantize(colors=255)
-                         
-                         # 5. Paste the transparent color index (255) into transparent regions
-                         img_p.paste(255, mask)
-                         
-                         gif_frames.append(img_p)
+                        # Advanced transparency handling for GIF
+                        # 1. Ensure RGBA
+                        img = img.convert("RGBA")
+
+                        # 2. Extract Alpha
+                        alpha = img.split()[3]
+
+                        # 3. Create a white background for quantization (optional, prevents halos)
+                        # or just convert RGB to P directly.
+                        # We'll stick to standard quantize.
+                        # map alpha to binary mask
+                        mask = Image.eval(alpha, lambda a: 255 if a <= 128 else 0)
+
+                        # 4. Quantize to 255 colors (leaving 1 for true transparency)
+                        img_p = img.convert("RGB").quantize(colors=255)
+
+                        # 5. Paste the transparent color index (255) into transparent regions
+                        img_p.paste(255, mask)
+
+                        gif_frames.append(img_p)
                     else:
-                         gif_frames.append(img)
+                        gif_frames.append(img)
 
                 # Save
                 save_params = {
@@ -616,45 +664,48 @@ class AnimatedXYZPlayer(QDialog):
                     "duration": duration_ms,
                     "disposal": 2,
                 }
-                
+
                 if use_transparent:
                     save_params["transparency"] = 255
 
                 if use_loop:
                     # Pillow: 0 means infinite. If omitted, no Netscape loop block (plays once).
                     save_params["loop"] = 0
-                
+
                 gif_frames[0].save(file_path, **save_params)
                 QMessageBox.information(self, "Success", f"Saved GIF to:\n{file_path}")
             else:
                 QMessageBox.warning(self, "Error", "Failed to capture frames.")
-                
+
             # Restore
             self.target_frame_idx = original_frame_idx
             self.do_effective_update()
-            
+
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to save GIF:\n{e}")
         finally:
-             self.setCursor(Qt.CursorShape.ArrowCursor)
-             if was_playing:
-                 self.toggle_play()
+            self.setCursor(Qt.CursorShape.ArrowCursor)
+            if was_playing:
+                self.toggle_play()
 
     def closeEvent(self, event):
         self.timer.stop()
 
         # Push to current_molecule
         try:
-            if getattr(self, 'last_display_mol', None) is not None and self.last_display_mol:
+            if (
+                getattr(self, "last_display_mol", None) is not None
+                and self.last_display_mol
+            ):
                 self.mw.current_mol = self.last_display_mol
-            elif getattr(self, 'base_mol', None) is not None and self.base_mol:
+            elif getattr(self, "base_mol", None) is not None and self.base_mol:
                 self.mw.current_mol = self.base_mol
-            
+
             self.context.push_undo_checkpoint()
         except Exception as _e:
             logging.warning("[animated_xyz_giffer.py:653] silenced: %s", _e)
 
-        '''
+        """
         
         # Clear the main window view
         try:
@@ -677,17 +728,18 @@ class AnimatedXYZPlayer(QDialog):
 
         # Force a re-render/clear of the generic 3D draw function
         try:
-             self.mw.view_3d_manager.draw_molecule_3d(None)
+            self.context.draw_molecule_3d(None)
         except Exception as _e:
-             logging.warning("[animated_xyz_giffer.py:680] silenced: %s", _e)
+            logging.warning("[animated_xyz_giffer.py:680] silenced: %s", _e)
 
              
         # Remove reference from main window so next run starts fresh check
         if hasattr(self.mw, '_plugin_animated_xyz_player'):
             del self.mw._plugin_animated_xyz_player
-        '''
+        """
 
         super().closeEvent(event)
+
 
 def run_plugin(context):
     """Run the Animated XYZ Player (singleton)."""
@@ -698,11 +750,13 @@ def run_plugin(context):
     player.raise_()
     player.activateWindow()
 
+
 def run(mw):
-    if not hasattr(mw, 'plugin_manager'):
+    if not hasattr(mw, "plugin_manager"):
         return
 
     from moleditpy.plugins.plugin_interface import PluginContext
+
     context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
     if not context:
         context = PluginContext(mw.plugin_manager, PLUGIN_NAME)

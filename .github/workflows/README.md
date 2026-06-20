@@ -66,9 +66,114 @@ To prevent unauthorized updates or malicious code injection from external reposi
 
 ---
 
-## 2. Plugin Tests (`test-plugins.yml`)
+## 2. Auto-Register Remote Plugin (`auto-register-remote-plugin.yml`)
+
+An automated workflow triggered by a `repository_dispatch` event (`plugin_release`) sent from external plugin repositories when they publish a new GitHub Release. This is the receiving end of the cross-repo release pipeline.
+
+### Trigger
+
+```
+Event type : repository_dispatch
+types      : [plugin_release]
+```
+
+External plugin repos send this event from their own `release.yml` after a successful release (see [Section 4](#4-release-workflow-for-external-plugin-repos-releaseyml) for the sending side).
+
+### Payload
+
+| Field | Description |
+| :--- | :--- |
+| `client_payload.repo` | Full `owner/repo` of the releasing plugin (e.g. `HiroYokoyama/moleditpy_cif_viewer`) |
+| `client_payload.tag` | Release tag without `v` prefix (e.g. `0.11.0`) |
+
+### What It Does
+
+1. Uses `gh api` to look up the GitHub Release for the given `repo` + `tag` and resolves the `.zip` asset download URL automatically.
+2. Calls `scripts/register_remote_plugin.py` with that URL — which downloads the zip, extracts all metadata constants (`PLUGIN_VERSION`, `PLUGIN_SUPPORTED_MOLEDITPY_VERSION`, etc.) via AST, validates version consistency, and updates `REGISTRY/plugins.json`.
+3. Runs `validate_json.py` and `tests/test_registry.py` to verify the updated registry.
+4. Commits and pushes the registry change to `main` if any fields changed.
+
+### No Manual Input Needed
+
+`supported_moleditpy_version` is **read directly from the plugin source** inside the zip — no extra input is required from the caller. The priority order inside `register_remote_plugin.py` is:
+1. `--supported-version` CLI flag (not used by this workflow)
+2. `PLUGIN_SUPPORTED_MOLEDITPY_VERSION` constant in the downloaded code ← this path
+3. Existing registry value (fallback)
+
+### Permissions Required
+
+This workflow uses `GITHUB_TOKEN` (already scoped to `contents: write`) to resolve release assets and push registry changes. No extra secrets needed on the moleditpy-plugins side.
+
+---
+
+## 3. Plugin Tests (`test-plugins.yml`)
 
 An automated CI workflow triggered on every `push` and `pull_request` to `main`. It runs:
 1. Registry JSON validation (`scripts/validate_json.py`) to check formatting and prevent duplicate IDs or SHA-256 hashes.
 2. Full automated pytest execution on `tests/` (including validation of local files, source metadata conventions, and remote registration script unit tests).
 3. API compatibility checks against the main `python_molecular_editor` repository.
+
+---
+
+## 4. Release Workflow for External Plugin Repos (`release.yml`)
+
+Each external plugin repository (e.g. `moleditpy_cif_viewer`, `moleditpy_reaction_sketcher_plugin`) contains its own `.github/workflows/release.yml`. This is the **sending side** of the cross-repo pipeline.
+
+### One-Time Setup: `REGISTRY_PAT` Secret
+
+The release workflow needs permission to dispatch events to this registry repo. Set this up once per external plugin repo:
+
+**Step 1 — Create a Personal Access Token**
+
+1. Go to GitHub → **Settings** → **Developer settings** → **Personal access tokens** → **Fine-grained tokens** (recommended) or **Tokens (classic)**.
+2. **Fine-grained token** (recommended):
+   - Resource owner: `HiroYokoyama`
+   - Repository access: **Only select repositories** → `moleditpy-plugins`
+   - Permissions → Repository permissions → **Contents**: `Read and write`
+3. **Classic token** (alternative):
+   - Scope: `repo` (full control of private repositories)
+4. Copy the generated token value.
+
+**Step 2 — Add the Secret to the Plugin Repo**
+
+1. Open the external plugin repository on GitHub (e.g. `HiroYokoyama/moleditpy_cif_viewer`).
+2. Go to **Settings** → **Secrets and variables** → **Actions** → **New repository secret**.
+3. Name: `REGISTRY_PAT`
+4. Value: paste the token from Step 1.
+5. Click **Add secret**.
+
+Repeat Step 2 for each external plugin repo. The token itself only needs to be created once.
+
+### How to Publish a Release
+
+1. Update `PLUGIN_VERSION` in the plugin source file and commit + push.
+2. Go to the plugin repo on GitHub → **Actions** → **Release** → **Run workflow**.
+3. Enter the version number **without a leading `v`** (e.g. `0.11.0`).
+4. Click **Run workflow**.
+
+The workflow will:
+- Verify the entered version matches `PLUGIN_VERSION` in the source file (fails if mismatched).
+- Build a `.zip` of the plugin package.
+- Create a GitHub Release with that tag and attach the zip.
+- Dispatch a `plugin_release` event to `moleditpy-plugins`, which triggers `auto-register-remote-plugin.yml` to update the registry automatically.
+
+> [!NOTE]
+> The registry update step has `continue-on-error: true` and only fires if `REGISTRY_PAT` is set. A missing secret will not fail the release itself — the zip and GitHub Release are still created. The registry update simply won't happen automatically; you can always trigger `register-remote-plugin.yml` manually as a fallback.
+
+### What Gets Packaged
+
+Each repo's `release.yml` zips its plugin package directory (e.g. `cif_viewer/`) excluding `__pycache__` and `.git`. The zip is named `<prefix>_<version>.zip` (e.g. `cif_viewer_0.11.0.zip`).
+
+### Required Plugin Source Constants
+
+For the release and registry update to succeed, the plugin source must define:
+
+| Constant | Required | Purpose |
+| :--- | :--- | :--- |
+| `PLUGIN_VERSION` | **Yes** | Must match the version entered at release time |
+| `PLUGIN_NAME` | **Yes** | Used as the registry display name |
+| `PLUGIN_AUTHOR` | **Yes** | Must match the GitHub repo owner (`HiroYokoyama`) |
+| `PLUGIN_DESCRIPTION` | **Yes** | Registry description |
+| `PLUGIN_SUPPORTED_MOLEDITPY_VERSION` | **Yes** (visible plugins) | Auto-synced to `supported_moleditpy_version` in registry |
+| `PLUGIN_TAGS` | No | Registry tags (list or comma-separated string) |
+| `PLUGIN_DEPENDENCIES` | No | Required pip packages |
