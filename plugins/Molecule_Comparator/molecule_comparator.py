@@ -1134,14 +1134,13 @@ class MoleculeComparator(QWidget):
 
     def reset_view(self):
         # Use a timer to ensure the view is reset AFTER the visualization update is fully rendered/processed.
-        # NOTE: mw.view_3d_manager.fit_to_view() is for 2D. We must use plotter methods for 3D.
         def _do_reset():
-            if hasattr(self.mw, "plotter"):
-                try:
-                    self.mw.plotter.reset_camera()
+            try:
+                self.context.reset_3d_camera()
+                if hasattr(self.mw, "plotter"):
                     self.mw.plotter.render()
-                except Exception as _e:
-                    logging.warning("[molecule_comparator.py:1010] silenced: %s", _e)
+            except Exception as _e:
+                logging.warning("[molecule_comparator.py:1010] silenced: %s", _e)
 
         QTimer.singleShot(100, _do_reset)
 

@@ -11,6 +11,15 @@ PLUGIN_DESCRIPTION = "Apply dark mode theme to the MoleditPy UI."
 
 PLUGIN_NAME = "Dark Mode Theme"
 
+_CONTEXT = None
+
+
+def initialize(context):
+    global _CONTEXT
+    _CONTEXT = context
+    autorun(context.get_main_window())
+
+
 # Dark Mode QSS
 DARK_STYLESHEET = """
 /* General Widget Defaults */
@@ -332,7 +341,9 @@ def autorun(main_window):
         print(f"[{PLUGIN_NAME}] Warning: Could not auto-set 3D background color: {e}")
 
     # 3. Inform user
-    if hasattr(main_window, "statusBar"):
+    if _CONTEXT:
+        _CONTEXT.show_status_message(f"{PLUGIN_NAME} Active: Dark Mode Applied", 5000)
+    elif hasattr(main_window, "statusBar"):
         main_window.statusBar().showMessage(
             f"{PLUGIN_NAME} Active: Dark Mode Applied", 5000
         )
