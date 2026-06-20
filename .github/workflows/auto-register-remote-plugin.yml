@@ -28,10 +28,10 @@ jobs:
         run: |
           echo "Repo: $REPO  Tag: $TAG"
           ASSET_URL=$(gh api "repos/$REPO/releases/tags/$TAG" \
-            --jq '.assets[] | select(.name | endswith(".zip")) | .browser_download_url' \
+            --jq '.assets[] | select(.name | (endswith(".zip") or endswith(".py"))) | .browser_download_url' \
             | head -1)
           if [ -z "$ASSET_URL" ]; then
-            echo "Error: No .zip asset found for $REPO @ $TAG" >&2
+            echo "Error: No .zip or .py asset found for $REPO @ $TAG" >&2
             exit 1
           fi
           echo "asset_url=$ASSET_URL" >> "$GITHUB_OUTPUT"
