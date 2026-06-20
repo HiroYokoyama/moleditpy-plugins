@@ -9,7 +9,7 @@ Explorer: [https://hiroyokoyama.github.io/moleditpy-plugins/explorer/](https://h
 
 This directory contains the official plugins for **MoleditPy**. 
 
-> **Compatibility Note:** MoleditPy `3.0.0` introduced major refactoring, and the plugins in this repository are updated for that version; users who still need MoleditPy 2 can download plugins from [https://github.com/HiroYokoyama/moleditpy-plugins/tree/2026.03.31-MoleditPy_2](https://github.com/HiroYokoyama/moleditpy-plugins/tree/2026.03.31-MoleditPy_2).
+> **Compatibility Note:** MoleditPy `3.0.0` introduced major refactoring, and MoleditPy `4.0.0` introduced further breaking changes; the plugins in this repository are updated for v4. Users who still need MoleditPy 3 can download plugins from the [2026.06.19-MoleditPy_3 tag](https://github.com/HiroYokoyama/moleditpy-plugins/tree/2026.06.19-MoleditPy_3); users who still need MoleditPy 2 can download plugins from the [2026.03.31-MoleditPy_2 tag](https://github.com/HiroYokoyama/moleditpy-plugins/tree/2026.03.31-MoleditPy_2).
 
 **Contribute Your Plugin**
 We believe in the power of community! If you have created a useful plugin, we would love to index it in our Official Plugin Explorer so the entire community can discover it. Please refer to our [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to submit your work.
