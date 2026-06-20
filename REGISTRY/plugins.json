@@ -1061,7 +1061,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "NMR Predictor (nmrshiftdb2)",
-    "version": "2.1.0",
+    "version": "2.2.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Predict 1H and 13C NMR shifts using nmrshiftdb2. Requires Java Runtime (JRE).",
@@ -1075,10 +1075,10 @@
       "matplotlib",
       "PyQt6"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_nmr_predicator_nmrshiftdb2/releases/download/2.1.0/nmr_predicator_nmrshiftdb2.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_nmr_predicator_nmrshiftdb2/releases/download/2.2.0/nmr_predicator_nmrshiftdb2.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_nmr_predicator_nmrshiftdb2",
-    "lastUpdated": "2026-04-11",
-    "sha256": "30d4f203eda609fc8455265a8faea52658dea3bf4d68665cc49ceb550989a368",
+    "lastUpdated": "2026-06-20",
+    "sha256": "34e66d9be872cb10fae9daf79677544d71a9ec0cdeb43652a129123b2a716739",
     "firstAppeared": "2026-01-29"
   },
   {
