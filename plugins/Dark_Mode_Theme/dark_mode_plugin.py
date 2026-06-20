@@ -4,8 +4,8 @@ dark_mode_plugin.py
 A plugin that automatically applies a dark mode stylesheet to MoleditPy upon loading.
 """
 
-
-PLUGIN_VERSION = "2026.04.24"
+PLUGIN_VERSION = "2026.06.20"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Apply dark mode theme to the MoleditPy UI."
 
@@ -286,44 +286,53 @@ QTableView {
 }
 """
 
+
 def autorun(main_window):
     """
     Executed automatically when the plugin is loaded (and 'autorun' is detected).
     """
     print(f"[{PLUGIN_NAME}] Applying Dark Mode Stylesheet...")
-    
+
     # 1. Apply QSS to the main window (and thus all children)
     # Note: Applying to main_window is safer than QApplication for plugins to avoid
-    # affecting other parts if this were embedded in a larger system, but for a 
+    # affecting other parts if this were embedded in a larger system, but for a
     # value-add plugin for this specific app, it works well.
     main_window.setStyleSheet(DARK_STYLESHEET)
-    
+
     # 2. Update 3D Background Color to match dark theme
     # The default light background (#919191 or #FFFFFF) might be too bright.
     try:
-        new_bg_color = "#2b2b2b" # Dark grey
-        
+        new_bg_color = "#2b2b2b"  # Dark grey
+
         # Check if settings exist and update
-        if hasattr(main_window, 'init_manager') and hasattr(main_window.init_manager, 'settings'):
-            main_window.init_manager.settings['background_color'] = new_bg_color
-            
+        if hasattr(main_window, "init_manager") and hasattr(
+            main_window.init_manager, "settings"
+        ):
+            main_window.init_manager.settings["background_color"] = new_bg_color
+
             # Since we modify the settings directly, we should try to trigger an update
             # The 'apply_3d_settings' method in main_window usually handles this.
-            if hasattr(main_window, 'view_3d_manager') and hasattr(main_window.view_3d_manager, 'apply_3d_settings') and hasattr(main_window, 'plotter'):
+            if (
+                hasattr(main_window, "view_3d_manager")
+                and hasattr(main_window.view_3d_manager, "apply_3d_settings")
+                and hasattr(main_window, "plotter")
+            ):
                 main_window.view_3d_manager.apply_3d_settings()
 
-            # Note: We don't try to change the toolbar icon color here as the main window handles it 
+            # Note: We don't try to change the toolbar icon color here as the main window handles it
             # if it observes settings changes.
-            main_window.init_manager.settings['icon_foreground'] = '#FFFFFF'
-            
+            main_window.init_manager.settings["icon_foreground"] = "#FFFFFF"
+
             # Helper: Force update icons if main_window has the method (it's in init_ui usually)
             # Re-calling init_menu_bar might be too destructive, but we can try to refresh toolbars
             # if there is a specific method. For now, rely on restart or dynamic icon color logic
             # if it observes settings changes.
-            
+
     except Exception as e:
         print(f"[{PLUGIN_NAME}] Warning: Could not auto-set 3D background color: {e}")
 
     # 3. Inform user
-    if hasattr(main_window, 'statusBar'):
-        main_window.statusBar().showMessage(f"{PLUGIN_NAME} Active: Dark Mode Applied", 5000)
+    if hasattr(main_window, "statusBar"):
+        main_window.statusBar().showMessage(
+            f"{PLUGIN_NAME} Active: Dark Mode Applied", 5000
+        )

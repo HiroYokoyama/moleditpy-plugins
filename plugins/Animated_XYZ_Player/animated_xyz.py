@@ -8,9 +8,17 @@ Allows loading and playing multi-frame XYZ files (e.g., MD trajectories).
 import os
 import time
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QPushButton,
-    QSlider, QLabel, QSpinBox, QFileDialog, QWidget,
-    QMessageBox, QDockWidget
+    QDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+    QPushButton,
+    QSlider,
+    QLabel,
+    QSpinBox,
+    QFileDialog,
+    QWidget,
+    QMessageBox,
+    QDockWidget,
 )
 from PyQt6.QtCore import Qt, QTimer, QSize
 from rdkit import Chem
@@ -18,22 +26,25 @@ from rdkit.Chem import AllChem, rdGeometry
 
 PLUGIN_NAME = "Animated XYZ Player"
 
+
 class AnimatedXYZPlayer(QDialog):
     def __init__(self, main_window):
         super().__init__(main_window)
         self.mw = main_window
         self.setWindowTitle("Animated XYZ Player")
-        self.setWindowFlags(Qt.WindowType.Window) # Make it a separate window acting like a tool
+        self.setWindowFlags(
+            Qt.WindowType.Window
+        )  # Make it a separate window acting like a tool
         self.resize(400, 150)
 
         # Data
-        self.frames = [] # List of list of (symbol, x, y, z)
+        self.frames = []  # List of list of (symbol, x, y, z)
         self.current_frame_idx = 0
         self.target_frame_idx = 0
-        self.base_mol = None # RDKit Mol with topology
+        self.base_mol = None  # RDKit Mol with topology
         self.is_playing = False
         self.fps = 10
-        
+
         # Update / Threading flags
         self.is_updating_view = False
         self.pending_update = False
@@ -62,15 +73,15 @@ class AnimatedXYZPlayer(QDialog):
 
         # Playback controls
         ctrl_layout = QHBoxLayout()
-        
+
         self.btn_prev = QPushButton("<<")
         self.btn_prev.clicked.connect(self.prev_frame)
         self.btn_prev.setEnabled(False)
-        
+
         self.btn_play = QPushButton("Play")
         self.btn_play.clicked.connect(self.toggle_play)
         self.btn_play.setEnabled(False)
-        
+
         self.btn_next = QPushButton(">>")
         self.btn_next.clicked.connect(self.next_frame)
         self.btn_next.setEnabled(False)
@@ -93,7 +104,7 @@ class AnimatedXYZPlayer(QDialog):
         # Timer
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.on_timer)
-        
+
         # Try to import existing molecule from main window
         self.try_import_from_mainwindow()
 
@@ -102,10 +113,10 @@ class AnimatedXYZPlayer(QDialog):
         Check if the main window has an opened molecule (especially XYZ) and use it.
         Uses the file path from the main window and reloads it to ensure all frames are captured.
         """
-        if hasattr(self.mw, 'current_file_path') and self.mw.current_file_path:
+        if hasattr(self.mw, "current_file_path") and self.mw.current_file_path:
             fp = self.mw.current_file_path
             # Basic check if it's an XYZ file or similar that we can handle
-            if fp.lower().endswith('.xyz') or fp.lower().endswith('.extxyz'):
+            if fp.lower().endswith(".xyz") or fp.lower().endswith(".extxyz"):
                 self.load_from_path(fp)
 
     def load_from_path(self, file_path):
@@ -117,7 +128,7 @@ class AnimatedXYZPlayer(QDialog):
             if not frames:
                 QMessageBox.warning(self, "Error", "No valid frames found in XYZ file.")
                 return
-            
+
             self.frames = frames
             self.current_frame_idx = 0
             self.target_frame_idx = 0
@@ -128,7 +139,7 @@ class AnimatedXYZPlayer(QDialog):
             self.btn_prev.setEnabled(True)
             self.btn_play.setEnabled(True)
             self.btn_next.setEnabled(True)
-            
+
             self.create_base_molecule()
             self.update_view()
             self.update_status()
@@ -151,9 +162,9 @@ class AnimatedXYZPlayer(QDialog):
         Let's store: [ {'symbols': [str], 'coords': [(x,y,z)]}, ... ]
         """
         frames = []
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
-        
+
         i = 0
         n_lines = len(lines)
         while i < n_lines:
@@ -161,26 +172,26 @@ class AnimatedXYZPlayer(QDialog):
             if not line:
                 i += 1
                 continue
-            
+
             try:
                 num_atoms = int(line)
             except ValueError:
                 # Might be a blank line or garbage
                 i += 1
                 continue
-            
+
             # Start of a frame
             # i = atom count
             # i+1 = comment
             # i+2 ... i+2+num_atoms = atoms
-            
+
             if i + 2 + num_atoms > n_lines:
-                break # Incomplete frame
-            
-            comment = lines[i+1].strip()
+                break  # Incomplete frame
+
+            comment = lines[i + 1].strip()
             frame_atoms = []
             frame_coords = []
-            
+
             start_data = i + 2
             for j in range(num_atoms):
                 parts = lines[start_data + j].split()
@@ -194,15 +205,13 @@ class AnimatedXYZPlayer(QDialog):
                         frame_coords.append((x, y, z))
                     except ValueError:
                         pass
-            
-            frames.append({
-                'symbols': frame_atoms,
-                'coords': frame_coords,
-                'comment': comment
-            })
-            
+
+            frames.append(
+                {"symbols": frame_atoms, "coords": frame_coords, "comment": comment}
+            )
+
             i = start_data + num_atoms
-            
+
         return frames
 
     def create_base_molecule(self):
@@ -214,40 +223,40 @@ class AnimatedXYZPlayer(QDialog):
 
         frame0 = self.frames[0]
         mol = Chem.RWMol()
-        
+
         # Add atoms
-        for sym in frame0['symbols']:
+        for sym in frame0["symbols"]:
             # Handle unknown symbols or numbers
             try:
                 atom = Chem.Atom(sym)
             except:
-                atom = Chem.Atom('C') # Fallback
+                atom = Chem.Atom("C")  # Fallback
             mol.AddAtom(atom)
-            
+
         # Add conformer
         conf = Chem.Conformer(mol.GetNumAtoms())
-        for idx, (x, y, z) in enumerate(frame0['coords']):
+        for idx, (x, y, z) in enumerate(frame0["coords"]):
             conf.SetAtomPosition(idx, rdGeometry.Point3D(x, y, z))
         mol.AddConformer(conf)
 
         # Estimate bonds (topology)
-        # We try to use the main window's helper function if available, 
+        # We try to use the main window's helper function if available,
         # otherwise we manually do simple distance check or leave it unconnected
-        if hasattr(self.mw, 'estimate_bonds_from_distances'):
+        if hasattr(self.mw, "estimate_bonds_from_distances"):
             self.mw.estimate_bonds_from_distances(mol)
-        
+
         self.base_mol = mol.GetMol()
-        
+
         # Set as current mol in main window so it can be drawn
         self.mw.current_mol = self.base_mol
 
         # Ensure 3D capabilities are on
-        if hasattr(self.mw, '_enter_3d_viewer_ui_mode'):
+        if hasattr(self.mw, "_enter_3d_viewer_ui_mode"):
             self.mw._enter_3d_viewer_ui_mode()
-        
+
         # Reset camera on first load
-        if hasattr(self.mw, 'plotter'):
-             self.mw.plotter.reset_camera()
+        if hasattr(self.mw, "plotter"):
+            self.mw.plotter.reset_camera()
 
     def update_view(self):
         """
@@ -261,9 +270,9 @@ class AnimatedXYZPlayer(QDialog):
         Prevents recursion/stacking if draw_molecule_3d calls processEvents.
         """
         if self.is_updating_view:
-             self.pending_update = True
-             return
-        
+            self.pending_update = True
+            return
+
         # Start update process
         self.is_updating_view = True
         self.pending_update = False
@@ -278,32 +287,34 @@ class AnimatedXYZPlayer(QDialog):
                 # Update logic
                 if not self.frames or self.base_mol is None:
                     break
-                
+
                 # Use target frame
                 self.current_frame_idx = self.target_frame_idx
-                
+
                 if self.current_frame_idx >= len(self.frames):
                     self.current_frame_idx = 0
-                    
+
                 frame = self.frames[self.current_frame_idx]
-                
+
                 # Update conformer positions
                 # Assuming topology (atom count/order) hasn't changed
                 conf = self.base_mol.GetConformer()
-                coords = frame['coords']
-                
+                coords = frame["coords"]
+
                 # Safety check for atom count mismatch
                 if len(coords) == self.base_mol.GetNumAtoms():
-                     for idx, (x, y, z) in enumerate(coords):
+                    for idx, (x, y, z) in enumerate(coords):
                         conf.SetAtomPosition(idx, rdGeometry.Point3D(x, y, z))
-                
+
                 # Redraw
                 # This calls main_window.draw_molecule_3d which might call processEvents
-                if hasattr(self.mw, 'draw_molecule_3d'):
+                if hasattr(self.mw, "draw_molecule_3d"):
                     self.mw.draw_molecule_3d(self.base_mol)
                     # Update frame comment/title if possible
-                    if 'comment' in frame:
-                        self.mw.statusBar().showMessage(f"Frame {self.current_frame_idx+1}/{len(self.frames)}: {frame['comment']}")
+                    if "comment" in frame:
+                        self.mw.statusBar().showMessage(
+                            f"Frame {self.current_frame_idx + 1}/{len(self.frames)}: {frame['comment']}"
+                        )
 
                 # Update Status label (without feedback loop)
                 self.update_status_silent()
@@ -311,17 +322,19 @@ class AnimatedXYZPlayer(QDialog):
                 # Check if pending
                 if not self.pending_update:
                     break
-                
-                # If pending is True, it means schedule_update was called AGAIN 
+
+                # If pending is True, it means schedule_update was called AGAIN
                 # (likely via processEvents inside draw_molecule_3d)
                 # so we loop again to draw the LATEST target_frame_idx.
                 self.pending_update = False
-                
+
         finally:
             self.is_updating_view = False
 
     def update_status_silent(self):
-        self.lbl_status.setText(f"Frame: {self.current_frame_idx + 1} / {len(self.frames)}")
+        self.lbl_status.setText(
+            f"Frame: {self.current_frame_idx + 1} / {len(self.frames)}"
+        )
         self.slider.blockSignals(True)
         self.slider.setValue(self.current_frame_idx)
         self.slider.blockSignals(False)
@@ -342,7 +355,7 @@ class AnimatedXYZPlayer(QDialog):
         else:
             self.btn_play.setText("Play")
             self.timer.stop()
-            # Ensure the main window knows this is the generic current molecule 
+            # Ensure the main window knows this is the generic current molecule
             # so the user can use File->Save As... to export the current frame.
             self.mw.current_mol = self.base_mol
 
@@ -361,11 +374,11 @@ class AnimatedXYZPlayer(QDialog):
         self.fps = value
         if self.is_playing:
             self.timer.start(int(1000 / self.fps))
-            
+
     def closeEvent(self, event):
         self.timer.stop()
 
-        '''
+        """
         
         # Clear the main window view
         try:
@@ -396,20 +409,21 @@ class AnimatedXYZPlayer(QDialog):
         # Remove reference from main window so next run starts fresh check
         if hasattr(self.mw, '_plugin_animated_xyz_player'):
             del self.mw._plugin_animated_xyz_player
-        '''
+        """
 
         super().closeEvent(event)
 
+
 def run(main_window):
     # Always close/destroy old instance to reset variables and state
-    if hasattr(main_window, '_plugin_animated_xyz_player'):
+    if hasattr(main_window, "_plugin_animated_xyz_player"):
         try:
             main_window._plugin_animated_xyz_player.close()
         except:
             pass
         # Depending on if closeEvent did its job or not, strictly remove ref
-        if hasattr(main_window, '_plugin_animated_xyz_player'):
-             del main_window._plugin_animated_xyz_player
+        if hasattr(main_window, "_plugin_animated_xyz_player"):
+            del main_window._plugin_animated_xyz_player
 
     # Create fresh instance
     player = AnimatedXYZPlayer(main_window)

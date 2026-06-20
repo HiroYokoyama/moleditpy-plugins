@@ -2,27 +2,43 @@
 import os
 import json
 from PyQt6.QtWidgets import (
-    QMessageBox, QInputDialog, QFileDialog, QApplication, QDialog,
-    QVBoxLayout, QHBoxLayout, QListWidget, QPushButton, QLabel, QAbstractItemView,
-    QMenu, QGroupBox, QCheckBox, QListWidgetItem
+    QMessageBox,
+    QInputDialog,
+    QFileDialog,
+    QApplication,
+    QDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+    QListWidget,
+    QPushButton,
+    QLabel,
+    QAbstractItemView,
+    QMenu,
+    QGroupBox,
+    QCheckBox,
+    QListWidgetItem,
 )
 from PyQt6.QtGui import QColor
 from PyQt6.QtCore import Qt, QTimer
 import logging
 
 PLUGIN_NAME = "Settings Saver"
-PLUGIN_VERSION = "2026.04.12"
+PLUGIN_VERSION = "2026.06.20"
 PLUGIN_AUTHOR = "HiroYokoyama"
-PLUGIN_DESCRIPTION = "Save, load, and manage settings presets in a unified dialog. Refactored for V3 API."
+PLUGIN_DESCRIPTION = "Save, load, and manage settings presets in a unified dialog."
+PLUGIN_CATEGORY = "Utility"
+PLUGIN_TAGS = ["Settings", "Utility"]
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = "4.*"
 
 SETTINGS_FILENAME = "settings_saver.json"
 
 # Global state
 PLUGIN_CONTEXT = None
 PROJECT_PRESETS = {}
-EMBED_SETTINGS = {"enabled": False} 
+EMBED_SETTINGS = {"enabled": False}
 ORIGINAL_SETTINGS = None
 PLUGIN_CONFIG = {"always_save_to_project": False}
+
 
 def initialize(context):
     """
@@ -31,18 +47,18 @@ def initialize(context):
     """
     global PLUGIN_CONTEXT
     PLUGIN_CONTEXT = context
-    
+
     # Load configuration on launch
     library = load_library()
     if "_PLUGIN_CONFIG" in library:
         PLUGIN_CONFIG.update(library["_PLUGIN_CONFIG"])
-    
+
     # Apply "Always Save to Project" preference
     if PLUGIN_CONFIG.get("always_save_to_project", False):
         mw = context.get_main_window()
         if mw:
             enable_project_mode(mw)
-    
+
     # Menu Action under "Settings"
     context.add_menu_action("Settings/Presets...", lambda: open_manager(context))
 
@@ -51,54 +67,57 @@ def initialize(context):
     context.register_load_handler(on_load_project)
     context.register_document_reset_handler(on_document_reset)
 
+
 # --- Project Mode Logic ---
+
 
 def enable_project_mode(mw):
     """Enable strict Project Mode protection."""
     EMBED_SETTINGS["enabled"] = True
-    
+
     # 1. Reset Global Dirty Flag
     # # [DIRECT ACCESS] to settings_dirty flag
-    if hasattr(mw, 'settings_dirty'):
+    if hasattr(mw, "settings_dirty"):
         mw.init_manager.settings_dirty = False
-    
+
     # 2. Alias initial_settings (Clean Exit Check)
     # # [DIRECT ACCESS] to baseline settings
-    if hasattr(mw, 'initial_settings'):
+    if hasattr(mw, "initial_settings"):
         settings = _get_live_settings(mw)
         if isinstance(settings, dict):
             mw.initial_settings = settings.copy()
-        
+
     # 3. Monkey-patch save_settings (Strict Protection)
     # Even if User changes settings manually -> dirty=True.
     # We must BLOCK the actual save to file.
-    if hasattr(mw, 'save_settings') and not hasattr(mw, '_original_save_settings'):
+    if hasattr(mw, "save_settings") and not hasattr(mw, "_original_save_settings"):
         mw._original_save_settings = mw.init_manager.save_settings
-        
+
         # Define proxy
         def proxy_save_settings():
             # print("[Settings Saver] Global save blocked by Project Settings mode.")
-            return # Block it!
-            
+            return  # Block it!
+
         mw.init_manager.save_settings = proxy_save_settings
         # print("[Settings Saver] Enforcing strict Project Mode: Global saving blocked.")
+
 
 def disable_project_mode(mw, restore_content=True):
     """Disable Project Mode and restore global save functionality."""
     global ORIGINAL_SETTINGS
     EMBED_SETTINGS["enabled"] = False
-    
+
     # 1. Restore Original Save Function
-    if hasattr(mw, '_original_save_settings'):
+    if hasattr(mw, "_original_save_settings"):
         mw.init_manager.save_settings = mw._original_save_settings
         del mw._original_save_settings
         # print("[Settings Saver] Project Mode disabled: Global saving restored.")
-        
+
     # 2. Restore Original Settings Content & Alias
     if restore_content and ORIGINAL_SETTINGS is not None:
-        if hasattr(mw, 'initial_settings'):
+        if hasattr(mw, "initial_settings"):
             mw.initial_settings = ORIGINAL_SETTINGS.copy()
-            
+
         settings = _get_live_settings(mw)
         if isinstance(settings, dict):
             try:
@@ -109,15 +128,16 @@ def disable_project_mode(mw, restore_content=True):
             except Exception as e:
                 # print(f"[Settings Saver] Error restoring original settings: {e}")
                 logging.warning("[settings_saver.py:111] silenced: %s", e)
-                
+
         ORIGINAL_SETTINGS = None
+
 
 def on_save_project():
     """Return data to be saved into .pmeprj."""
     # Only save if enabled
     if not EMBED_SETTINGS["enabled"]:
         return None
-    
+
     # Get Main Window to access settings
     mw = None
     if PLUGIN_CONTEXT:
@@ -129,26 +149,27 @@ def on_save_project():
     if mw and isinstance(settings, dict):
         # Re-enforce protections just in case
         enable_project_mode(mw)
-            
+
         return {
-            "preset_name": "Project Settings", # Hardcoded name
-            "settings": settings.copy()
+            "preset_name": "Project Settings",  # Hardcoded name
+            "settings": settings.copy(),
         }
     return None
 
+
 def on_load_project(data):
     """Restore data from .pmeprj."""
-    
+
     if not isinstance(data, dict) or "settings" not in data:
         return
 
     # Helper: Always use "Project Settings" as the key/display name
-    preset_name = "Project Settings" 
+    preset_name = "Project Settings"
     project_settings = data.get("settings", {})
 
     # Store in global project presets
     PROJECT_PRESETS[preset_name] = project_settings
-    
+
     if PLUGIN_CONTEXT:
         mw = PLUGIN_CONTEXT.get_main_window()
         settings = _get_live_settings(mw) if mw else None
@@ -162,7 +183,7 @@ def on_load_project(data):
                 settings.update(project_settings)
                 _sync_legacy_settings_alias(mw, settings)
                 apply_settings_hot(mw)
-                
+
                 # Auto-enable strict mode AND protections
                 enable_project_mode(mw)
 
@@ -174,6 +195,7 @@ def on_load_project(data):
                 # print(f"Error auto-applying project settings: {e}")
                 logging.warning("[settings_saver.py:175] silenced: %s", e)
 
+
 def on_document_reset():
     """Clear project presets when creating a new file."""
 
@@ -184,15 +206,16 @@ def on_document_reset():
             disable_project_mode(mw, restore_content=True)
 
     PROJECT_PRESETS.clear()
-    
+
     # If Default Preference is ON, re-enable for the new document
     if PLUGIN_CONFIG.get("always_save_to_project", False):
         if PLUGIN_CONTEXT:
-             mw = PLUGIN_CONTEXT.get_main_window()
-             if mw:
-                 enable_project_mode(mw)
+            mw = PLUGIN_CONTEXT.get_main_window()
+            if mw:
+                enable_project_mode(mw)
     else:
         EMBED_SETTINGS["enabled"] = False
+
 
 def open_manager(context):
     """Open the SettingsManager dialog."""
@@ -200,7 +223,9 @@ def open_manager(context):
     dialog = SettingsSaverDialog(context, mw)
     dialog.exec()
 
+
 # --- Helper Functions ---
+
 
 def _get_live_settings(mw):
     """Return the authoritative settings dict from the main window."""
@@ -208,19 +233,27 @@ def _get_live_settings(mw):
         return mw.init_manager.settings
     return None
 
+
 def _sync_legacy_settings_alias(mw, settings):
     """Mirror settings to init_manager.settings when present and distinct."""
     try:
-        if hasattr(mw, "init_manager") and hasattr(mw.init_manager, "settings") and mw.init_manager.settings is not settings and isinstance(mw.init_manager.settings, dict):
+        if (
+            hasattr(mw, "init_manager")
+            and hasattr(mw.init_manager, "settings")
+            and mw.init_manager.settings is not settings
+            and isinstance(mw.init_manager.settings, dict)
+        ):
             mw.init_manager.settings.clear()
             mw.init_manager.settings.update(settings)
     except Exception as _e:
         logging.warning("[settings_saver.py:220] silenced: %s", _e)
 
+
 def get_plugin_data_path():
     """Get path to the storage JSON file in the plugin directory."""
     plugin_dir = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(plugin_dir, SETTINGS_FILENAME)
+
 
 def load_library():
     """Load the full library of presets from disk."""
@@ -228,23 +261,28 @@ def load_library():
     if not os.path.exists(path):
         return {}
     try:
-        with open(path, 'r', encoding='utf-8') as f:
+        with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
         # print(f"Error loading settings library: {e}")
         return {}
 
+
 def save_library(data, parent_window=None):
     """Save the full library of presets to disk."""
     path = get_plugin_data_path()
     try:
-        with open(path, 'w', encoding='utf-8') as f:
+        with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4)
     except Exception as e:
         if parent_window:
-            QMessageBox.critical(parent_window, "Error", f"Failed to save settings library:\n{e}")
+            QMessageBox.critical(
+                parent_window, "Error", f"Failed to save settings library:\n{e}"
+            )
+
 
 # --- Logic for Hot Loading (Reused) ---
+
 
 def apply_settings_hot(mw):
     """Apply settings immediately to the active window (Hot Loading)."""
@@ -258,7 +296,7 @@ def apply_settings_hot(mw):
         try:
             # # [DIRECT ACCESS] to settings_dirty
             if EMBED_SETTINGS.get("enabled", False):
-                # If enabled, logic is handled by enable_project_mode elsewhere, 
+                # If enabled, logic is handled by enable_project_mode elsewhere,
                 # but ensure dirty flag is cleared here too just in case
                 mw.init_manager.settings_dirty = False
             else:
@@ -268,7 +306,9 @@ def apply_settings_hot(mw):
 
         # 1. Apply 3D Settings
         try:
-            if hasattr(mw, 'view_3d_manager') and hasattr(mw.view_3d_manager, 'apply_3d_settings'):
+            if hasattr(mw, "view_3d_manager") and hasattr(
+                mw.view_3d_manager, "apply_3d_settings"
+            ):
                 mw.view_3d_manager.apply_3d_settings()
         except Exception as e:
             # print(f"Error applying 3D settings: {e}")
@@ -276,7 +316,9 @@ def apply_settings_hot(mw):
 
         # 2. Update CPK Colors
         try:
-            if hasattr(mw, 'init_manager') and hasattr(mw.init_manager, 'update_cpk_colors_from_settings'):
+            if hasattr(mw, "init_manager") and hasattr(
+                mw.init_manager, "update_cpk_colors_from_settings"
+            ):
                 mw.init_manager.update_cpk_colors_from_settings()
         except Exception as e:
             # print(f"Error updating CPK colors: {e}")
@@ -285,8 +327,9 @@ def apply_settings_hot(mw):
         # 3. Refresh Color Dialogs
         try:
             for w in QApplication.topLevelWidgets():
-                if hasattr(w, 'refresh_ui'):
-                    try: w.refresh_ui()
+                if hasattr(w, "refresh_ui"):
+                    try:
+                        w.refresh_ui()
                     except Exception as _e:
                         logging.warning("[settings_saver.py:293] silenced: %s", _e)
         except Exception as _e:
@@ -294,34 +337,42 @@ def apply_settings_hot(mw):
 
         # 4. Redraw 3D Molecule
         try:
-            if hasattr(mw, 'current_mol') and mw.current_mol:
-                mw.view_3d_manager.draw_molecule_3d(mw.current_mol)
+            if mw.current_mol:
+                PLUGIN_CONTEXT.draw_molecule_3d(mw.current_mol)
         except Exception as e:
             # print(f"Error redrawing 3D molecule: {e}")
             logging.warning("[settings_saver.py:300] silenced: %s", e)
 
         # 5. Update 2D SCENE
         try:
-            if hasattr(mw, 'scene') and mw.scene:
-                bg_col_2d = settings.get('background_color_2d', '#FFFFFF')
+            if hasattr(mw, "scene") and mw.scene:
+                bg_col_2d = settings.get("background_color_2d", "#FFFFFF")
                 mw.scene.setBackgroundBrush(QColor(bg_col_2d))
                 for item in mw.scene.items():
-                    if hasattr(item, 'update_style'):
+                    if hasattr(item, "update_style"):
                         item.update_style()
-                    elif hasattr(item, 'update'):
+                    elif hasattr(item, "update"):
                         item.update()
-                if hasattr(mw, 'init_manager') and hasattr(mw.init_manager, 'view_2d') and mw.init_manager.view_2d and hasattr(mw.init_manager.view_2d, 'viewport'):
+                if (
+                    hasattr(mw, "init_manager")
+                    and hasattr(mw.init_manager, "view_2d")
+                    and mw.init_manager.view_2d
+                    and hasattr(mw.init_manager.view_2d, "viewport")
+                ):
                     mw.init_manager.view_2d.viewport().update()
         except Exception as e:
             # print(f"Error updating 2D settings: {e}")
             logging.warning("[settings_saver.py:316] silenced: %s", e)
 
-        # 6. Push Undo State (Requirement: "push undo when applied", Manual: "Call after modifying")
+        # 6. Push Undo State
         try:
-            if hasattr(mw, 'edit_actions_manager') and hasattr(mw.edit_actions_manager, 'push_undo_state'):
+            if PLUGIN_CONTEXT:
+                PLUGIN_CONTEXT.push_undo_checkpoint()
+            elif hasattr(mw, "edit_actions_manager") and hasattr(
+                mw.edit_actions_manager, "push_undo_state"
+            ):
                 mw.edit_actions_manager.push_undo_state()
         except Exception as e:
-            # print(f"Error pushing undo state: {e}")
             logging.warning("[settings_saver.py:324] silenced: %s", e)
 
         # 7. Refresh 2D/3D scene state after settings are loaded.
@@ -332,11 +383,13 @@ def apply_settings_hot(mw):
         # traceback.print_exc()
         logging.warning("[settings_saver.py:331] silenced: %s", e)
 
+
 def refresh_loaded_scene(mw, defer=False):
     """Refresh both 2D and 3D views after settings are applied."""
+
     def _do_refresh():
         try:
-            if hasattr(mw, 'scene') and mw.scene:
+            if hasattr(mw, "scene") and mw.scene:
                 mw.scene.update()
                 try:
                     views = mw.scene.views()
@@ -345,24 +398,29 @@ def refresh_loaded_scene(mw, defer=False):
                 except Exception as _e:
                     logging.warning("[settings_saver.py:346] silenced: %s", _e)
 
-            if hasattr(mw, 'init_manager') and hasattr(mw.init_manager, 'view_2d') and mw.init_manager.view_2d:
+            if (
+                hasattr(mw, "init_manager")
+                and hasattr(mw.init_manager, "view_2d")
+                and mw.init_manager.view_2d
+            ):
                 try:
                     mw.init_manager.view_2d.viewport().update()
                 except Exception as _e:
                     logging.warning("[settings_saver.py:352] silenced: %s", _e)
 
-            if hasattr(mw, 'edit_3d_manager') and hasattr(mw.edit_3d_manager, 'update_2d_measurement_labels'):
+            if hasattr(mw, "edit_3d_manager") and hasattr(
+                mw.edit_3d_manager, "update_2d_measurement_labels"
+            ):
                 try:
                     mw.edit_3d_manager.update_2d_measurement_labels()
                 except Exception as _e:
                     logging.warning("[settings_saver.py:358] silenced: %s", _e)
 
-            if hasattr(mw, 'view_3d_manager') and hasattr(mw.view_3d_manager, 'draw_molecule_3d'):
-                try:
-                    if hasattr(mw, 'current_mol') and mw.current_mol:
-                        mw.view_3d_manager.draw_molecule_3d(mw.current_mol)
-                except Exception as _e:
-                    logging.warning("[settings_saver.py:365] silenced: %s", _e)
+            try:
+                if mw.current_mol:
+                    PLUGIN_CONTEXT.draw_molecule_3d(mw.current_mol)
+            except Exception as _e:
+                logging.warning("[settings_saver.py:365] silenced: %s", _e)
         except Exception as _e:
             logging.warning("[settings_saver.py:367] silenced: %s", _e)
 
@@ -371,7 +429,9 @@ def refresh_loaded_scene(mw, defer=False):
     else:
         _do_refresh()
 
+
 # --- Main Dialog Class ---
+
 
 class SettingsSaverDialog(QDialog):
     def __init__(self, context, parent=None):
@@ -379,8 +439,8 @@ class SettingsSaverDialog(QDialog):
         self.context = context
         self.main_window = parent
         self.setWindowTitle("Settings Saver Manager")
-        self.resize(600, 500) # Slightly taller
-        
+        self.resize(600, 500)  # Slightly taller
+
         self.library = load_library()
         self.init_ui()
 
@@ -390,17 +450,19 @@ class SettingsSaverDialog(QDialog):
         # --- Left: List of Presets ---
         left_layout = QVBoxLayout()
         left_layout.addWidget(QLabel("Saved Presets:"))
-        
+
         self.preset_list = QListWidget()
-        self.preset_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        self.preset_list.itemDoubleClicked.connect(self.on_load) # Double click to load
+        self.preset_list.setSelectionMode(
+            QAbstractItemView.SelectionMode.SingleSelection
+        )
+        self.preset_list.itemDoubleClicked.connect(self.on_load)  # Double click to load
         left_layout.addWidget(self.preset_list)
-        
+
         layout.addLayout(left_layout, stretch=2)
 
         # --- Right: Buttons & Options ---
         right_layout = QVBoxLayout()
-        
+
         # Action Buttons
         self.btn_load = QPushButton("Load Preset")
         self.btn_load.clicked.connect(self.on_load)
@@ -411,48 +473,58 @@ class SettingsSaverDialog(QDialog):
         self.btn_save.clicked.connect(self.on_save)
         self.btn_save.setToolTip("Save current settings as a new global preset.")
         right_layout.addWidget(self.btn_save)
-        
+
         # New: Overwrite Global Default
         self.btn_set_global = QPushButton("Set as Global Default")
         self.btn_set_global.clicked.connect(self.on_save_as_global_default)
-        self.btn_set_global.setToolTip("Overwrite your main application 'settings.json' with current settings.")
+        self.btn_set_global.setToolTip(
+            "Overwrite your main application 'settings.json' with current settings."
+        )
         right_layout.addWidget(self.btn_set_global)
-        
+
         self.btn_delete = QPushButton("Delete")
         self.btn_delete.clicked.connect(self.on_delete)
         right_layout.addWidget(self.btn_delete)
-        
+
         right_layout.addSpacing(10)
-        
+
         # Project Embedding Section
         project_group = QGroupBox("Project Settings")
         project_layout = QVBoxLayout()
-        
+
         self.chk_embed = QCheckBox("Save Settings to Project (This Project Only)")
         self.chk_embed.setChecked(EMBED_SETTINGS["enabled"])
         self.chk_embed.toggled.connect(self.on_embed_toggled)
         self.btn_set_global.setEnabled(self.chk_embed.isChecked())
         project_layout.addWidget(self.chk_embed)
-        
+
         # Enforce dirty flag logic on open
-        if EMBED_SETTINGS["enabled"] and hasattr(self.main_window.edit_actions_manager, 'settings_dirty'):
+        if EMBED_SETTINGS["enabled"] and hasattr(
+            self.main_window.edit_actions_manager, "settings_dirty"
+        ):
             self.main_window.edit_actions_manager.settings_dirty = False
-            
-            if hasattr(self.main_window.init_manager, 'initial_settings'):
-                self.main_window.init_manager.initial_settings = self.main_window.init_manager.settings.copy()
+
+            if hasattr(self.main_window.init_manager, "initial_settings"):
+                self.main_window.init_manager.initial_settings = (
+                    self.main_window.init_manager.settings.copy()
+                )
 
         # --- Plugin Preference: Always Save ---
         self.chk_always_save = QCheckBox("Default: Always enable for new projects")
-        self.chk_always_save.setToolTip("If checked, 'Save Settings to Project' will be enabled by default upon launch.")
-        self.chk_always_save.setChecked(PLUGIN_CONFIG.get("always_save_to_project", False))
+        self.chk_always_save.setToolTip(
+            "If checked, 'Save Settings to Project' will be enabled by default upon launch."
+        )
+        self.chk_always_save.setChecked(
+            PLUGIN_CONFIG.get("always_save_to_project", False)
+        )
         self.chk_always_save.toggled.connect(self.on_always_save_toggled)
         project_layout.addWidget(self.chk_always_save)
-        
+
         project_group.setLayout(project_layout)
         right_layout.addWidget(project_group)
-        
+
         right_layout.addStretch()
-        
+
         # Export Menu Button
         self.btn_export = QPushButton("Export...")
         self.export_menu = QMenu(self)
@@ -464,27 +536,33 @@ class SettingsSaverDialog(QDialog):
         self.btn_import = QPushButton("Import...")
         self.btn_import.clicked.connect(self.on_import)
         right_layout.addWidget(self.btn_import)
-        
+
         right_layout.addSpacing(20)
-        
+
         self.btn_close = QPushButton("Close")
         self.btn_close.clicked.connect(self.accept)
         right_layout.addWidget(self.btn_close)
 
         layout.addLayout(right_layout, stretch=1)
-        
+
         self.refresh_list()
 
     def refresh_list(self):
         self.preset_list.clear()
-        
+
         # 1. User Library Presets (Standard)
         # Filter out _PLUGIN_CONFIG
-        names = sorted([k for k in self.library.keys() if not k.startswith("_") and k != "PLUGIN_CONFIG"])
+        names = sorted(
+            [
+                k
+                for k in self.library.keys()
+                if not k.startswith("_") and k != "PLUGIN_CONFIG"
+            ]
+        )
         for name in names:
             item = QListWidgetItem(name)
             self.preset_list.addItem(item)
-            
+
         # 2. Project Presets (Blue)
         project_names = sorted(list(PROJECT_PRESETS.keys()))
         for name in project_names:
@@ -492,9 +570,9 @@ class SettingsSaverDialog(QDialog):
             item = QListWidgetItem(display_name)
             item.setForeground(QColor("blue"))
             item.setToolTip("This preset is embedded in the current project file.")
-            item.setData(Qt.ItemDataRole.UserRole, "project") 
+            item.setData(Qt.ItemDataRole.UserRole, "project")
             self.preset_list.addItem(item)
-    
+
     def on_always_save_toggled(self, checked):
         PLUGIN_CONFIG["always_save_to_project"] = checked
         self.library["_PLUGIN_CONFIG"] = PLUGIN_CONFIG
@@ -513,14 +591,14 @@ class SettingsSaverDialog(QDialog):
 
     def on_embed_toggled(self, checked):
         self.btn_set_global.setEnabled(checked)
-        if hasattr(self.main_window.edit_actions_manager, 'settings_dirty'):
+        if hasattr(self.main_window.edit_actions_manager, "settings_dirty"):
             if checked:
                 # ENABLE PROJECT MODE (Strict Protection)
                 enable_project_mode(self.main_window)
             else:
                 # DISABLE PROJECT MODE (Restore)
                 disable_project_mode(self.main_window, restore_content=False)
-                # Note: We don't restore content here because user might just want to 
+                # Note: We don't restore content here because user might just want to
                 # stop saving to project but keep current look.
                 # However, we DO want to restore the save_settings function.
                 self.main_window.edit_actions_manager.settings_dirty = True
@@ -533,14 +611,14 @@ class SettingsSaverDialog(QDialog):
 
         item = items[0]
         name = item.text()
-        
+
         settings_data = None
         if self.is_project_preset(item):
             settings_data = PROJECT_PRESETS.get(name, None)
         else:
             settings_data = self.library.get(name, None)
 
-        if settings_data and hasattr(self.main_window.init_manager, 'settings'):
+        if settings_data and hasattr(self.main_window.init_manager, "settings"):
             self.main_window.init_manager.settings.update(settings_data)
             apply_settings_hot(self.main_window)
             refresh_loaded_scene(self.main_window)
@@ -551,62 +629,75 @@ class SettingsSaverDialog(QDialog):
     def on_save_as_global_default(self):
         """Overwrite the main application's global settings.json."""
         reply = QMessageBox.question(
-            self, "Confirm Overwrite", 
+            self,
+            "Confirm Overwrite",
             "Are you sure you want to update the Global Default settings?\n"
             "This will overwrite 'settings.json' with the current configuration.",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply != QMessageBox.StandardButton.Yes:
             return
-            
+
         try:
             mw = self.main_window
             if not mw:
-                 QMessageBox.warning(self, "Error", "Main window not found.")
-                 return
+                QMessageBox.warning(self, "Error", "Main window not found.")
+                return
 
             # Check if strict mode blocked the normal function
             save_func = None
-            if hasattr(mw, '_original_save_settings'):
+            if hasattr(mw, "_original_save_settings"):
                 save_func = mw._original_save_settings
-            elif hasattr(mw.init_manager, 'save_settings'):
+            elif hasattr(mw.init_manager, "save_settings"):
                 save_func = mw.init_manager.save_settings
-            
+
             if save_func:
-                save_func() # Execute actual save
-                
+                save_func()  # Execute actual save
+
                 # Also update our "Initial Settings" baseline so the app doesn't think we have diffs anymore
-                if hasattr(mw.init_manager, 'settings'):
+                if hasattr(mw.init_manager, "settings"):
                     global ORIGINAL_SETTINGS
-                    if hasattr(mw.init_manager, 'initial_settings'):
-                         mw.initial_settings = mw.init_manager.settings.copy()
+                    if hasattr(mw.init_manager, "initial_settings"):
+                        mw.initial_settings = mw.init_manager.settings.copy()
                     # Update our plugin's backup too so "Reset" goes back to this new default
                     ORIGINAL_SETTINGS = mw.init_manager.settings.copy()
-                
-                QMessageBox.information(self, "Success", "Global settings has been updated.")
+
+                QMessageBox.information(
+                    self, "Success", "Global settings has been updated."
+                )
             else:
-                QMessageBox.warning(self, "Error", "Could not find save_settings function.")
+                QMessageBox.warning(
+                    self, "Error", "Could not find save_settings function."
+                )
 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to save global settings:\n{e}")
 
     def on_save(self):
-        name, ok = QInputDialog.getText(self, "Save Preset", "Enter name for new global preset:")
+        name, ok = QInputDialog.getText(
+            self, "Save Preset", "Enter name for new global preset:"
+        )
         if not ok or not name.strip():
             return
         name = name.strip()
-        
+
         if name.startswith("_"):
-             QMessageBox.warning(self, "Invalid Name", "Preset names cannot start with underscore '_'.")
-             return
-        
+            QMessageBox.warning(
+                self, "Invalid Name", "Preset names cannot start with underscore '_'."
+            )
+            return
+
         if name in self.library:
-            reply = QMessageBox.question(self, "Overwrite?", f"'{name}' already exists. Overwrite?",
-                                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            reply = QMessageBox.question(
+                self,
+                "Overwrite?",
+                f"'{name}' already exists. Overwrite?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
             if reply != QMessageBox.StandardButton.Yes:
                 return
 
-        if hasattr(self.main_window.init_manager, 'settings'):
+        if hasattr(self.main_window.init_manager, "settings"):
             self.library[name] = self.main_window.init_manager.settings.copy()
             save_library(self.library, self)
             self.refresh_list()
@@ -615,7 +706,7 @@ class SettingsSaverDialog(QDialog):
             for it in items:
                 if not self.is_project_preset(it):
                     self.preset_list.setCurrentItem(it)
-                    break 
+                    break
             QMessageBox.information(self, "Saved", f"Global preset '{name}' saved.")
         else:
             QMessageBox.warning(self, "Error", "Main window missing 'settings'.")
@@ -626,13 +717,21 @@ class SettingsSaverDialog(QDialog):
             return
         item = items[0]
         name = item.text()
-        
+
         if self.is_project_preset(item):
-            QMessageBox.information(self, "Info", "Cannot delete project presets here. They are loaded from the .pmeprj file.")
+            QMessageBox.information(
+                self,
+                "Info",
+                "Cannot delete project presets here. They are loaded from the .pmeprj file.",
+            )
             return
 
-        reply = QMessageBox.question(self, "Confirm Delete", f"Are you sure you want to delete '{name}'?",
-                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        reply = QMessageBox.question(
+            self,
+            "Confirm Delete",
+            f"Are you sure you want to delete '{name}'?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
         if reply == QMessageBox.StandardButton.Yes:
             del self.library[name]
             save_library(self.library, self)
@@ -645,47 +744,59 @@ class SettingsSaverDialog(QDialog):
             return
         item = items[0]
         name = item.text()
-        
+
         if self.is_project_preset(item):
             data = PROJECT_PRESETS.get(name, None)
         else:
             data = self.library.get(name, None)
 
-        path, _ = QFileDialog.getSaveFileName(self, "Export Preset", f"{name}.json", "JSON Files (*.json)")
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export Preset", f"{name}.json", "JSON Files (*.json)"
+        )
         if path:
             try:
-                with open(path, 'w', encoding='utf-8') as f:
+                with open(path, "w", encoding="utf-8") as f:
                     json.dump(data, f, indent=4)
-                QMessageBox.information(self, "Exported", f"Exported '{name}' to {os.path.basename(path)}")
+                QMessageBox.information(
+                    self, "Exported", f"Exported '{name}' to {os.path.basename(path)}"
+                )
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Export failed:\n{e}")
 
     def on_export_all(self):
         # Filter out _PLUGIN_CONFIG
         export_data = {k: v for k, v in self.library.items() if not k.startswith("_")}
-        
+
         if not export_data:
             QMessageBox.information(self, "Export", "No presets to export.")
             return
-            
-        path, _ = QFileDialog.getSaveFileName(self, "Export All", "settings_library.json", "JSON Files (*.json)")
+
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export All", "settings_library.json", "JSON Files (*.json)"
+        )
         if path:
             try:
-                with open(path, 'w', encoding='utf-8') as f:
+                with open(path, "w", encoding="utf-8") as f:
                     json.dump(export_data, f, indent=4)
-                QMessageBox.information(self, "Exported", f"All presets exported to {os.path.basename(path)}")
+                QMessageBox.information(
+                    self,
+                    "Exported",
+                    f"All presets exported to {os.path.basename(path)}",
+                )
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Export failed:\n{e}")
 
     def on_import(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Import Presets", "", "JSON Files (*.json)")
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Import Presets", "", "JSON Files (*.json)"
+        )
         if not path:
             return
-            
+
         try:
-            with open(path, 'r', encoding='utf-8') as f:
+            with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            
+
             if not isinstance(data, dict):
                 raise ValueError("Invalid JSON format.")
 
@@ -696,7 +807,8 @@ class SettingsSaverDialog(QDialog):
             if is_library:
                 count = 0
                 for k, v in data.items():
-                    if k.startswith("_"): continue # Skip config
+                    if k.startswith("_"):
+                        continue  # Skip config
                     if isinstance(v, dict):
                         self.library[k] = v
                         count += 1
@@ -706,16 +818,25 @@ class SettingsSaverDialog(QDialog):
             else:
                 # Single preset
                 default_name = os.path.splitext(os.path.basename(path))[0]
-                name, ok = QInputDialog.getText(self, "Import Preset", "Name for imported preset:", text=default_name)
+                name, ok = QInputDialog.getText(
+                    self,
+                    "Import Preset",
+                    "Name for imported preset:",
+                    text=default_name,
+                )
                 if ok and name.strip():
                     name = name.strip()
                     if name.startswith("_"):
-                         QMessageBox.warning(self, "Invalid Name", "Preset names cannot start with underscore '_'.")
-                         return
+                        QMessageBox.warning(
+                            self,
+                            "Invalid Name",
+                            "Preset names cannot start with underscore '_'.",
+                        )
+                        return
                     self.library[name] = data
                     save_library(self.library, self)
                     self.refresh_list()
                     QMessageBox.information(self, "Imported", f"Imported '{name}'.")
 
         except Exception as e:
-             QMessageBox.critical(self, "Error", f"Import failed:\n{e}")
+            QMessageBox.critical(self, "Error", f"Import failed:\n{e}")

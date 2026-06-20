@@ -1,12 +1,27 @@
-
 import os
 import json
 import numpy as np
 import pyvista as pv
-from PyQt6.QtWidgets import (QFileDialog, QDockWidget, QWidget, QVBoxLayout, 
-                             QSlider, QLabel, QHBoxLayout, QPushButton, QMessageBox, 
-                             QDoubleSpinBox, QColorDialog, QInputDialog, QDialog, 
-                             QFormLayout, QSpinBox, QCheckBox, QComboBox, QLineEdit)
+from PyQt6.QtWidgets import (
+    QFileDialog,
+    QDockWidget,
+    QWidget,
+    QVBoxLayout,
+    QSlider,
+    QLabel,
+    QHBoxLayout,
+    QPushButton,
+    QMessageBox,
+    QDoubleSpinBox,
+    QColorDialog,
+    QInputDialog,
+    QDialog,
+    QFormLayout,
+    QSpinBox,
+    QCheckBox,
+    QComboBox,
+    QLineEdit,
+)
 from PyQt6.QtGui import QColor
 from PyQt6.QtCore import Qt, QTimer, QCoreApplication
 import logging
@@ -15,6 +30,7 @@ import logging
 try:
     from rdkit import Chem
     from rdkit import Geometry
+
     try:
         from rdkit.Chem import rdDetermineBonds
     except ImportError:
@@ -23,20 +39,22 @@ except ImportError:
     Chem = None
     Geometry = None
     rdDetermineBonds = None
-    
+
 __author__ = "HiroYokoyama"
 PLUGIN_AUTHOR = __author__
 PLUGIN_NAME = "Cube File Viewer Advanced"
 PLUGIN_VERSION = "2026.06.19"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_DESCRIPTION = "Advanced 3D visualization for Gaussian Cube files with PBR, SSAO, and other effects."
+PLUGIN_CONTEXT = None
+
 
 def parse_cube_data(filename):
     """
     Parses a Gaussian Cube file and returns raw data structures.
     Adapted from test.py with robust header handling.
     """
-    with open(filename, 'r') as f:
+    with open(filename, "r") as f:
         lines = f.readlines()
 
     if len(lines) < 6:
@@ -57,10 +75,10 @@ def parse_cube_data(filename):
     nx, x_vec_raw = parse_vec(lines[3])
     ny, y_vec_raw = parse_vec(lines[4])
     nz, z_vec_raw = parse_vec(lines[5])
-    
+
     # Auto-detect units based on sign of NX/NY/NZ (Gaussian standard)
-    is_angstrom_header = (nx < 0 or ny < 0 or nz < 0)
-    
+    is_angstrom_header = nx < 0 or ny < 0 or nz < 0
+
     nx, ny, nz = abs(nx), abs(ny), abs(nz)
 
     # --- Atoms Parsing ---
@@ -70,10 +88,10 @@ def parse_cube_data(filename):
         # Smart check: if next line does not look like an atom line, skip it.
         try:
             parts = lines[current_line].split()
-            if len(parts) != 5: 
-                 current_line += 1
+            if len(parts) != 5:
+                current_line += 1
         except:
-             current_line += 1
+            current_line += 1
 
     for _ in range(n_atoms):
         line = lines[current_line].split()
@@ -86,42 +104,42 @@ def parse_cube_data(filename):
         atoms.append((atomic_num, np.array([x, y, z])))
 
     # --- Volumetric Data Parsing ---
-    
+
     # Skip metadata lines (e.g. "1 150") before data starts
     while current_line < len(lines):
         line_content = lines[current_line].strip()
         parts = line_content.split()
-        
+
         # Skip empty lines
         if not parts:
             current_line += 1
             continue
-            
+
         # Skip short lines (metadata often has few columns, data usually has 6)
         if len(parts) < 6:
             current_line += 1
             continue
-            
+
         # Check if start is numeric
         try:
             float(parts[0])
         except ValueError:
             current_line += 1
             continue
-            
+
         # If we get here, it's likely data
         break
 
     # Read rest of file
     full_str = " ".join(lines[current_line:])
     try:
-        data_values = np.fromstring(full_str, sep=' ')
+        data_values = np.fromstring(full_str, sep=" ")
     except:
         data_values = np.array([])
-    
+
     expected_size = nx * ny * nz
     actual_size = len(data_values)
-    
+
     # FIX: Trim from START if excess > 0 (The header values are at the start)
     # This logic fixes the shift issue test.py had.
     if actual_size > expected_size:
@@ -130,7 +148,7 @@ def parse_cube_data(filename):
     elif actual_size < expected_size:
         pad = np.zeros(expected_size - actual_size)
         data_values = np.concatenate((data_values, pad))
-    
+
     return {
         "atoms": atoms,
         "origin": origin_raw,
@@ -139,34 +157,35 @@ def parse_cube_data(filename):
         "z_vec": z_vec_raw,
         "dims": (nx, ny, nz),
         "data_flat": data_values,
-        "is_angstrom_header": is_angstrom_header
+        "is_angstrom_header": is_angstrom_header,
     }
+
 
 def build_grid_from_meta(meta):
     """
     Reconstructs the PyVista grid.
     Correctly handles standard Cube (Z-fast) mapping.
     """
-    nx, ny, nz = meta['dims']
-    origin = meta['origin'].copy()
-    x_vec = meta['x_vec'].copy()
-    y_vec = meta['y_vec'].copy()
-    z_vec = meta['z_vec'].copy()
+    nx, ny, nz = meta["dims"]
+    origin = meta["origin"].copy()
+    x_vec = meta["x_vec"].copy()
+    y_vec = meta["y_vec"].copy()
+    z_vec = meta["z_vec"].copy()
     atoms = []
-    
+
     # Units Handling (replicated logic)
     BOHR_TO_ANGSTROM = 0.529177210903
     convert_to_ang = True
-    if meta['is_angstrom_header']:
+    if meta["is_angstrom_header"]:
         convert_to_ang = False
-            
+
     if convert_to_ang:
         origin *= BOHR_TO_ANGSTROM
         x_vec *= BOHR_TO_ANGSTROM
         y_vec *= BOHR_TO_ANGSTROM
         z_vec *= BOHR_TO_ANGSTROM
-        
-    for anum, pos in meta['atoms']:
+
+    for anum, pos in meta["atoms"]:
         p = pos.copy()
         if convert_to_ang:
             p *= BOHR_TO_ANGSTROM
@@ -176,49 +195,54 @@ def build_grid_from_meta(meta):
     x_range = np.arange(nx)
     y_range = np.arange(ny)
     z_range = np.arange(nz)
-    
-    gx, gy, gz = np.meshgrid(x_range, y_range, z_range, indexing='ij')
-    
+
+    gx, gy, gz = np.meshgrid(x_range, y_range, z_range, indexing="ij")
+
     # Flatten using Fortran order (X-fast) for VTK Structure
-    gx_f = gx.flatten(order='F')
-    gy_f = gy.flatten(order='F')
-    gz_f = gz.flatten(order='F')
-    
-    points = (origin + 
-              np.outer(gx_f, x_vec) + 
-              np.outer(gy_f, y_vec) + 
-              np.outer(gz_f, z_vec))
-    
+    gx_f = gx.flatten(order="F")
+    gy_f = gy.flatten(order="F")
+    gz_f = gz.flatten(order="F")
+
+    points = (
+        origin + np.outer(gx_f, x_vec) + np.outer(gy_f, y_vec) + np.outer(gz_f, z_vec)
+    )
+
     grid = pv.StructuredGrid()
     grid.points = points
     grid.dimensions = [nx, ny, nz]
-    
+
     # Data Mapping
-    raw_data = meta['data_flat']
-    
+    raw_data = meta["data_flat"]
+
     # Standard Cube: Z-Fast (C-order reshape)
     # Then flatten F-order to match the X-fast points we just generated
     # This logic matches test.py's implementation which user preferred
-    vol_3d = raw_data.reshape((nx, ny, nz), order='C')
-    grid.point_data["values"] = vol_3d.flatten(order='F')
-        
+    vol_3d = raw_data.reshape((nx, ny, nz), order="C")
+    grid.point_data["values"] = vol_3d.flatten(order="F")
+
     return {"atoms": atoms}, grid
+
 
 def read_cube(filename):
     meta = parse_cube_data(filename)
     return build_grid_from_meta(meta)
 
+
 class FlexibleDoubleSpinBox(QDoubleSpinBox):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setDecimals(10) # Set extremely high to allow typing, but we format display manually
+        self.setDecimals(
+            10
+        )  # Set extremely high to allow typing, but we format display manually
 
     def textFromValue(self, value):
         # Return simplest string representation (stripping 0s)
         # Using string formatting to avoid scientific notation if possible
-        text = f"{value:.10f}".rstrip('0').rstrip('.')
-        if text == "": text = "0"
+        text = f"{value:.10f}".rstrip("0").rstrip(".")
+        if text == "":
+            text = "0"
         return text
+
 
 class CubeViewerWidget(QWidget):
     def __init__(self, context, dock_widget, grid, data_max=1.0):
@@ -226,18 +250,18 @@ class CubeViewerWidget(QWidget):
         self.context = context
         # [DIRECT ACCESS] to main window for legacy plotter/view access
         self.mw = context.get_main_window()
-        self.dock = dock_widget 
+        self.dock = dock_widget
         self.grid = grid
         # Ensure we have a reasonable positive max value
         self.data_max = max(abs(float(data_max)), 1e-6)
-        
+
         self.iso_actor_p = None
         self.iso_actor_n = None
         self.iso_actor_p_sil = None
         self.iso_actor_n_sil = None
-        
+
         self.plotter = self.mw.plotter
-        
+
         # Initial Colors
         self.color_p = (0, 0, 255)  # Default blue
         self.color_n = (255, 0, 0)  # Default orange
@@ -251,33 +275,33 @@ class CubeViewerWidget(QWidget):
         self.use_depth_peeling = False
         self.use_silhouette = False
         self.env_texture_path = ""
-        
+
         # New Graphics Options
         self.use_aa = False
         self.use_edl = False
         self.edl_strength = 0.2
         self.use_shadows = False
         self.light_intensity = 1.0
-        
 
         # Atom PBR specific - REMOVED (Handled by different plugin)
 
-        
         # Presets {name: settings_dict}
         self.presets = {}
-        self.default_preset_names = set()  # Track which presets are defaults (read-only)
+        self.default_preset_names = (
+            set()
+        )  # Track which presets are defaults (read-only)
         self._init_default_presets()
 
         self.init_ui()
-        
+
         # Populate preset dropdown with defaults
         self.update_preset_combo()
-        
-        # DELAY INITIAL UPDATE: 
+
+        # DELAY INITIAL UPDATE:
         # When opening from command line, the window might not be fully ready.
         # A small delay ensures the plotter is ready for actors.
         QTimer.singleShot(100, self.initial_update)
-        
+
         # Ensure settings are saved when application quits (Main Window X button)
         QCoreApplication.instance().aboutToQuit.connect(self.save_settings)
 
@@ -288,86 +312,90 @@ class CubeViewerWidget(QWidget):
 
     def init_ui(self):
         layout = QVBoxLayout()
-        
+
         # --- Isovalue Controls ---
         ctrl_layout = QHBoxLayout()
 
         preset_layout = QHBoxLayout()
         preset_layout.addWidget(QLabel("Preset:"))
-        
+
         self.combo_presets = QComboBox()
-        self.combo_presets.setEditable(False)  # Not editable - use Save dialog to name presets
+        self.combo_presets.setEditable(
+            False
+        )  # Not editable - use Save dialog to name presets
         self.combo_presets.setPlaceholderText("Select preset...")
         self.combo_presets.setMinimumWidth(150)
         self.combo_presets.currentTextChanged.connect(self.on_preset_text_changed)
         self.combo_presets.activated.connect(self.on_preset_activated)
         preset_layout.addWidget(self.combo_presets)
-        
+
         btn_save_preset = QPushButton("Save")
         btn_save_preset.setToolTip("Save current settings")
         btn_save_preset.clicked.connect(self.save_preset)
         preset_layout.addWidget(btn_save_preset)
-        
+
         btn_del_preset = QPushButton("Del")
         btn_del_preset.setToolTip("Delete preset")
         btn_del_preset.clicked.connect(self.delete_preset)
         preset_layout.addWidget(btn_del_preset)
-        
+
         layout.addLayout(preset_layout)
-        
+
         ctrl_layout.addWidget(QLabel("Isovalue:"))
-        
+
         # Spinbox: Fixed max 1.0 as requested
         # Spinbox: Dynamic max based on data
         # We allow going a bit higher than the max found in data, e.g. 1.2x, just in case
         self.max_val = self.data_max * 1.2
-        
+
         self.spin = FlexibleDoubleSpinBox()
-        self.spin.setRange(0.00001, self.max_val) 
-        self.spin.setSingleStep(0.01) # User requested 0.01 step
+        self.spin.setRange(0.00001, self.max_val)
+        self.spin.setSingleStep(0.01)  # User requested 0.01 step
         # self.spin.setDecimals(10) # already set in class __init__
-        
-        # Default value strategy: 
+
+        # Default value strategy:
         # User requested hardcoded 0.05
         default_val = 0.05
-        
+
         # If default is outside the max range, adjust it
         if default_val > self.max_val:
             default_val = self.max_val * 0.1
-            
+
         self.spin.setValue(default_val)
-        
+
         self.spin.valueChanged.connect(self.on_spin_changed)
         ctrl_layout.addWidget(self.spin)
-        
+
         # Slider
         self.slider_max_int = 1000
-        
+
         self.slider = QSlider(Qt.Orientation.Horizontal)
         self.slider.setRange(0, self.slider_max_int)
-        
+
         # Default 0.05
         # Default set from spinbox value
         self.slider.setValue(int((default_val / self.max_val) * self.slider_max_int))
-        
+
         self.slider.valueChanged.connect(self.on_slider_changed)
         ctrl_layout.addWidget(self.slider)
 
         layout.addLayout(ctrl_layout)
-        
+
         # --- Color Controls ---
         # Fixed size for color buttons to align them nicely
         btn_size = (50, 24)
-        
+
         # Positive
         pos_color_layout = QHBoxLayout()
         pos_color_layout.addWidget(QLabel("Pos Color:"))
         self.btn_color_p = QPushButton()
         self.btn_color_p.setFixedSize(*btn_size)
-        self.btn_color_p.setStyleSheet(f"background-color: {self.color_p}; border: 1px solid gray;")
+        self.btn_color_p.setStyleSheet(
+            f"background-color: {self.color_p}; border: 1px solid gray;"
+        )
         self.btn_color_p.clicked.connect(self.choose_color_p)
         pos_color_layout.addWidget(self.btn_color_p)
-        pos_color_layout.addStretch() # Align left
+        pos_color_layout.addStretch()  # Align left
         layout.addLayout(pos_color_layout)
 
         # Negative
@@ -375,10 +403,12 @@ class CubeViewerWidget(QWidget):
         neg_color_layout.addWidget(QLabel("Neg Color:"))
         self.btn_color_n = QPushButton()
         self.btn_color_n.setFixedSize(*btn_size)
-        self.btn_color_n.setStyleSheet(f"background-color: {self.color_n}; border: 1px solid gray;")
+        self.btn_color_n.setStyleSheet(
+            f"background-color: {self.color_n}; border: 1px solid gray;"
+        )
         self.btn_color_n.clicked.connect(self.choose_color_n)
         neg_color_layout.addWidget(self.btn_color_n)
-        neg_color_layout.addStretch() # Align left
+        neg_color_layout.addStretch()  # Align left
         layout.addLayout(neg_color_layout)
 
         # Complementary Checkbox (Next line)
@@ -394,7 +424,7 @@ class CubeViewerWidget(QWidget):
         # Static label (no numeric value displayed)
         self.opacity_label = QLabel("Opacity:")
         opacity_layout.addWidget(self.opacity_label)
-        
+
         # Numeric opacity input: place before the slider to match isovalue controls
         self.opacity_spin = QDoubleSpinBox()
         self.opacity_spin.setRange(0.0, 1.0)
@@ -406,25 +436,27 @@ class CubeViewerWidget(QWidget):
 
         self.opacity_slider = QSlider(Qt.Orientation.Horizontal)
         self.opacity_slider.setRange(0, 100)
-        self.opacity_slider.setValue(40) # Match spinbox
+        self.opacity_slider.setValue(40)  # Match spinbox
         self.opacity_slider.valueChanged.connect(self.on_opacity_changed)
         opacity_layout.addWidget(self.opacity_slider)
-        
+
         layout.addLayout(opacity_layout)
-        
+
         # --- Style Controls ---
         style_layout = QHBoxLayout()
         style_layout.addWidget(QLabel("Style:"))
         self.combo_style = QComboBox()
-        self.combo_style.addItems(["Surface", "Smoothed Surface", "Wireframe", "Points"])
+        self.combo_style.addItems(
+            ["Surface", "Smoothed Surface", "Wireframe", "Points"]
+        )
         self.combo_style.currentIndexChanged.connect(self.update_iso)
         style_layout.addWidget(self.combo_style)
-        
+
         self.check_smooth = QCheckBox("Smooth Shading")
         self.check_smooth.setChecked(True)
         self.check_smooth.toggled.connect(self.update_iso)
         style_layout.addWidget(self.check_smooth)
-        
+
         layout.addLayout(style_layout)
 
         # --- Advanced Rendering ---
@@ -437,12 +469,12 @@ class CubeViewerWidget(QWidget):
         layout.addWidget(btn_reset)
 
         layout.addStretch()
-        
+
         close_btn = QPushButton("Close Plugin")
         close_btn.clicked.connect(self.close_plugin)
         layout.addWidget(close_btn)
         self.setLayout(layout)
-        
+
         # Load settings after UI init
         self.load_settings()
 
@@ -452,13 +484,13 @@ class CubeViewerWidget(QWidget):
         group = QGroupBox("Advanced Rendering")
         # Main Layout of Group is just a VBox holding the TabWidget
         group_layout = QVBoxLayout()
-        
+
         tabs = QTabWidget()
-        
+
         # --- TAB 1: SCENE (Global Effects) ---
         tab_scene = QWidget()
         scene_layout = QGridLayout()
-        
+
         # Texture
         scene_layout.addWidget(QLabel("Env Texture:"), 0, 0)
         tex_layout = QHBoxLayout()
@@ -467,10 +499,12 @@ class CubeViewerWidget(QWidget):
         self.line_env_path.returnPressed.connect(self.on_texture_path_entered)
         tex_layout.addWidget(self.line_env_path)
         btn_browse_tex = QPushButton("...")
-        btn_browse_tex.setFixedWidth(30); btn_browse_tex.clicked.connect(self.on_load_env_texture)
+        btn_browse_tex.setFixedWidth(30)
+        btn_browse_tex.clicked.connect(self.on_load_env_texture)
         tex_layout.addWidget(btn_browse_tex)
         btn_clear_tex = QPushButton("X")
-        btn_clear_tex.setFixedWidth(30); btn_clear_tex.clicked.connect(self.on_remove_env_texture)
+        btn_clear_tex.setFixedWidth(30)
+        btn_clear_tex.clicked.connect(self.on_remove_env_texture)
         tex_layout.addWidget(btn_clear_tex)
         scene_layout.addLayout(tex_layout, 0, 1)
 
@@ -490,7 +524,8 @@ class CubeViewerWidget(QWidget):
 
         # SSAO
         self.check_ssao = QCheckBox("SSAO")
-        if not hasattr(self.plotter, 'enable_ssao'): self.check_ssao.setEnabled(False)
+        if not hasattr(self.plotter, "enable_ssao"):
+            self.check_ssao.setEnabled(False)
         self.check_ssao.toggled.connect(self.on_ssao_toggled)
         scene_layout.addWidget(self.check_ssao, 3, 0)
 
@@ -498,17 +533,17 @@ class CubeViewerWidget(QWidget):
         self.check_aa = QCheckBox("Anti-Aliasing")
         self.check_aa.toggled.connect(self.on_aa_toggled)
         scene_layout.addWidget(self.check_aa, 3, 1)
-        
+
         # EDL
         self.check_edl = QCheckBox("EDL (Depth)")
         self.check_edl.toggled.connect(self.on_edl_toggled)
         scene_layout.addWidget(self.check_edl, 4, 0)
-        
+
         edl_layout = QHBoxLayout()
         edl_layout.addWidget(QLabel("Str:"))
         self.slider_edl = QSlider(Qt.Orientation.Horizontal)
-        self.slider_edl.setRange(1, 100) 
-        self.slider_edl.setValue(int(self.edl_strength * 100)) 
+        self.slider_edl.setRange(1, 100)
+        self.slider_edl.setValue(int(self.edl_strength * 100))
         self.slider_edl.valueChanged.connect(self.on_edl_strength_changed)
         self.slider_edl.setEnabled(False)
         edl_layout.addWidget(self.slider_edl)
@@ -520,12 +555,12 @@ class CubeViewerWidget(QWidget):
         # --- TAB 2: ORBITAL (Isosurface) ---
         tab_orb = QWidget()
         orb_layout = QGridLayout()
-        
+
         # PBR Toggle
         self.check_pbr = QCheckBox("Enable PBR")
         self.check_pbr.toggled.connect(self.on_pbr_toggled)
         orb_layout.addWidget(self.check_pbr, 0, 0, 1, 2)
-        
+
         # Metallic
         orb_layout.addWidget(QLabel("Metallic:"), 1, 0)
         self.slider_metallic = QSlider(Qt.Orientation.Horizontal)
@@ -543,26 +578,25 @@ class CubeViewerWidget(QWidget):
         self.slider_roughness.valueChanged.connect(self.on_roughness_changed)
         self.slider_roughness.setEnabled(False)
         orb_layout.addWidget(self.slider_roughness, 2, 1)
-        
+
         # Silhouette
         self.check_silhouette = QCheckBox("Silhouette")
         self.check_silhouette.toggled.connect(self.on_silhouette_toggled)
         orb_layout.addWidget(self.check_silhouette, 3, 0)
-        
+
         # Depth Peeling
         self.check_depth = QCheckBox("Depth Peeling")
-        if not hasattr(self.plotter, 'enable_depth_peeling'): self.check_depth.setEnabled(False)
+        if not hasattr(self.plotter, "enable_depth_peeling"):
+            self.check_depth.setEnabled(False)
         self.check_depth.toggled.connect(self.on_depth_peeling_toggled)
         orb_layout.addWidget(self.check_depth, 3, 1)
-        
+
         tab_orb.setLayout(orb_layout)
         tabs.addTab(tab_orb, "Orbital")
-
 
         group_layout.addWidget(tabs)
         group.setLayout(group_layout)
         layout.addWidget(group)
-
 
     def _init_default_presets(self):
         """Initialize built-in default presets that cannot be overwritten or deleted."""
@@ -587,26 +621,26 @@ class CubeViewerWidget(QWidget):
             "use_shadows": False,
             "light_intensity": 1.0,
             "smooth_shading": True,
-            "style": "Surface"
+            "style": "Surface",
         }
-        
-        
+
         # Mark these as default (read-only)
         self.default_preset_names = {"Default"}
 
-
     def get_settings_path(self):
         """Returns the path to the JSON settings file in the same directory."""
-        return os.path.join(os.path.dirname(os.path.abspath(__file__)), "cube_viewer_advanced.json")
+        return os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "cube_viewer_advanced.json"
+        )
 
     def load_settings(self):
         """Loads settings from JSON file."""
         try:
             settings_path = self.get_settings_path()
             if os.path.exists(settings_path):
-                with open(settings_path, 'r') as f:
+                with open(settings_path, "r") as f:
                     settings = json.load(f)
-                
+
                 # Apply settings
                 # Merge user presets with defaults (don't overwrite defaults)
                 if "presets" in settings:
@@ -619,14 +653,16 @@ class CubeViewerWidget(QWidget):
 
                 if "isovalue" in settings:
                     self.spin.setValue(float(settings["isovalue"]))
-                
+
                 if "color_p" in settings:
                     col = settings["color_p"]
                     # JSON deserializes tuples as lists, convert back
                     if isinstance(col, list):
                         col = tuple(col)
                     self.color_p = col
-                    self.btn_color_p.setStyleSheet(f"background-color: rgb{self.color_p}; border: 1px solid gray;")
+                    self.btn_color_p.setStyleSheet(
+                        f"background-color: rgb{self.color_p}; border: 1px solid gray;"
+                    )
 
                 if "color_n" in settings:
                     col = settings["color_n"]
@@ -634,17 +670,21 @@ class CubeViewerWidget(QWidget):
                     if isinstance(col, list):
                         col = tuple(col)
                     self.color_n = col
-                    self.btn_color_n.setStyleSheet(f"background-color: rgb{self.color_n}; border: 1px solid gray;")
-                
+                    self.btn_color_n.setStyleSheet(
+                        f"background-color: rgb{self.color_n}; border: 1px solid gray;"
+                    )
+
                 if "use_complementary" in settings:
-                    self.check_comp_color.setChecked(bool(settings["use_complementary"]))
+                    self.check_comp_color.setChecked(
+                        bool(settings["use_complementary"])
+                    )
                     # Force update of neg color button enabled state
                     self.btn_color_n.setEnabled(not self.check_comp_color.isChecked())
 
                 if "opacity" in settings:
                     val = float(settings["opacity"])
                     self.opacity_spin.setValue(val)
-                    
+
                 if "style" in settings:
                     # Robust find
                     text = settings["style"]
@@ -655,23 +695,23 @@ class CubeViewerWidget(QWidget):
                             if self.combo_style.itemText(i).lower() == text.lower():
                                 idx = i
                                 break
-                    if idx >= 0: 
+                    if idx >= 0:
                         self.combo_style.setCurrentIndex(idx)
-                    
+
                 if "smooth_shading" in settings:
                     self.check_smooth.setChecked(bool(settings["smooth_shading"]))
 
                 # Advanced Settings
                 if "env_texture_path" in settings:
                     path = settings["env_texture_path"]
-                    
+
                     # 1. Always populate the text field if we have a path (user sees what was attempted)
                     if path:
                         self.line_env_path.setText(path)
                         self.env_texture_path = path
 
                     # 2. Check for spaces first (VTK can't handle them)
-                    if path and ' ' in path:
+                    if path and " " in path:
                         print(f"Skipping texture with spaces in path: {path}")
                         # Keep text field for user to fix, but don't try to load
                     elif path and os.path.exists(path):
@@ -681,66 +721,85 @@ class CubeViewerWidget(QWidget):
                             print(f"Failed to restore texture from settings: {e}")
                             # Do NOT clear the path; let user retry or see the error
                     elif not path:
-                        # 3. SYNC: If no specific path is saved for this instance, check if the renderer 
+                        # 3. SYNC: If no specific path is saved for this instance, check if the renderer
                         # already has a texture (e.g. from another plugin or previous session state in main window)
                         # or if there is a shared path in the main window.
-                        
+
                         shared_path = getattr(self.mw, "current_env_texture_path", "")
                         # Try to find specific instance
-                        adv_viewer = getattr(self.mw, '_adv_rendering_viewer', None)
-                        if adv_viewer and hasattr(adv_viewer, 'env_texture_path') and adv_viewer.env_texture_path:
-                             shared_path = adv_viewer.env_texture_path
-                             if os.path.exists(shared_path) and ' ' not in shared_path:
-                                 print(f"Syncing texture from Advanced Renderer: {shared_path}")
-                                 self.line_env_path.setText(shared_path)
-                                 self.env_texture_path = shared_path
-                                 try:
-                                     self.load_env_texture(shared_path)
-                                 except Exception as _e:
-                                     logging.warning("[cube_viewer_advanced.py:697] silenced: %s", _e)
+                        adv_viewer = getattr(self.mw, "_adv_rendering_viewer", None)
+                        if (
+                            adv_viewer
+                            and hasattr(adv_viewer, "env_texture_path")
+                            and adv_viewer.env_texture_path
+                        ):
+                            shared_path = adv_viewer.env_texture_path
+                            if os.path.exists(shared_path) and " " not in shared_path:
+                                print(
+                                    f"Syncing texture from Advanced Renderer: {shared_path}"
+                                )
+                                self.line_env_path.setText(shared_path)
+                                self.env_texture_path = shared_path
+                                try:
+                                    self.load_env_texture(shared_path)
+                                except Exception as _e:
+                                    logging.warning(
+                                        "[cube_viewer_advanced.py:697] silenced: %s", _e
+                                    )
                         else:
-                             # Check shared global variable fallback
-                             shared_path = getattr(self.mw, "current_env_texture_path", "")
-                             if shared_path and os.path.exists(shared_path):
-                                 self.line_env_path.setText(shared_path)
-                                 self.env_texture_path = shared_path
-                                 try:
-                                     self.load_env_texture(shared_path)
-                                 except Exception as _e:
-                                     logging.warning("[cube_viewer_advanced.py:706] silenced: %s", _e)
+                            # Check shared global variable fallback
+                            shared_path = getattr(
+                                self.mw, "current_env_texture_path", ""
+                            )
+                            if shared_path and os.path.exists(shared_path):
+                                self.line_env_path.setText(shared_path)
+                                self.env_texture_path = shared_path
+                                try:
+                                    self.load_env_texture(shared_path)
+                                except Exception as _e:
+                                    logging.warning(
+                                        "[cube_viewer_advanced.py:706] silenced: %s", _e
+                                    )
 
-                if "metallic" in settings: 
+                if "metallic" in settings:
                     self.metallic = float(settings["metallic"])
                     self.slider_metallic.setValue(int(self.metallic * 100))
-                if "roughness" in settings: 
+                if "roughness" in settings:
                     self.roughness = float(settings["roughness"])
                     self.slider_roughness.setValue(int(self.roughness * 100))
-                
-                # Load PBR toggle last so it checks against loaded metallic/texture state
-                if "use_pbr" in settings: self.check_pbr.setChecked(bool(settings["use_pbr"]))
 
-                if "use_ssao" in settings: self.check_ssao.setChecked(bool(settings["use_ssao"]))
-                if "use_depth_peeling" in settings: self.check_depth.setChecked(bool(settings["use_depth_peeling"]))
-                if "use_silhouette" in settings: self.check_silhouette.setChecked(bool(settings["use_silhouette"]))
-                
+                # Load PBR toggle last so it checks against loaded metallic/texture state
+                if "use_pbr" in settings:
+                    self.check_pbr.setChecked(bool(settings["use_pbr"]))
+
+                if "use_ssao" in settings:
+                    self.check_ssao.setChecked(bool(settings["use_ssao"]))
+                if "use_depth_peeling" in settings:
+                    self.check_depth.setChecked(bool(settings["use_depth_peeling"]))
+                if "use_silhouette" in settings:
+                    self.check_silhouette.setChecked(bool(settings["use_silhouette"]))
+
                 # New Graphics Settings
-                if "use_aa" in settings: self.check_aa.setChecked(bool(settings["use_aa"]))
-                
+                if "use_aa" in settings:
+                    self.check_aa.setChecked(bool(settings["use_aa"]))
+
                 if "edl_strength" in settings:
                     self.edl_strength = float(settings["edl_strength"])
                     self.slider_edl.setValue(int(self.edl_strength * 100))
-                    
-                if "use_edl" in settings: self.check_edl.setChecked(bool(settings["use_edl"]))
-                
-                if "use_shadows" in settings: self.check_shadows.setChecked(bool(settings["use_shadows"]))
+
+                if "use_edl" in settings:
+                    self.check_edl.setChecked(bool(settings["use_edl"]))
+
+                if "use_shadows" in settings:
+                    self.check_shadows.setChecked(bool(settings["use_shadows"]))
                 if "light_intensity" in settings:
-                     self.light_intensity = float(settings["light_intensity"])
-                     self.slider_light.setValue(int(self.light_intensity * 100))
+                    self.light_intensity = float(settings["light_intensity"])
+                    self.slider_light.setValue(int(self.light_intensity * 100))
 
                 # Redraw orbital with loaded settings
                 self.update_iso()
                 self.plotter.render()
-                    
+
         except Exception as e:
             print(f"Error loading settings: {e}")
 
@@ -769,9 +828,9 @@ class CubeViewerWidget(QWidget):
                 "light_intensity": self.light_intensity,
                 "use_shadows": self.use_shadows,
                 "light_intensity": self.light_intensity,
-                "presets": self.presets
+                "presets": self.presets,
             }
-            
+
             # Helper to sanitize data for JSON
             def sanitize(obj):
                 if isinstance(obj, np.generic):
@@ -785,14 +844,14 @@ class CubeViewerWidget(QWidget):
                 if isinstance(obj, list):
                     return [sanitize(v) for v in obj]
                 if isinstance(obj, tuple):
-                    return [sanitize(v) for v in obj] # JSON doesn't support tuples
+                    return [sanitize(v) for v in obj]  # JSON doesn't support tuples
                 return obj
-            
+
             clean_settings = sanitize(settings)
-            
-            with open(self.get_settings_path(), 'w') as f:
+
+            with open(self.get_settings_path(), "w") as f:
                 json.dump(clean_settings, f, indent=4)
-                
+
         except Exception as e:
             print(f"Error saving settings: {e}")
 
@@ -806,25 +865,27 @@ class CubeViewerWidget(QWidget):
         if isinstance(self.color_p, str):
             col_temp = QColor(self.color_p)
             self.color_p = (col_temp.red(), col_temp.green(), col_temp.blue())
-        
+
         # Unpack RGB tuple for QColor
         col_p = QColor(*self.color_p)
         if not col_p.isValid():
             return
-            
+
         h = col_p.hue()
         s = col_p.saturation()
         v = col_p.value()
-        
+
         # Complementary = hue + 180 degrees
-        if h != -1: # -1 means grayscale/achromatic
-             new_h = (h + 180) % 360
+        if h != -1:  # -1 means grayscale/achromatic
+            new_h = (h + 180) % 360
         else:
-             new_h = h # Keep achromatic
-        
+            new_h = h  # Keep achromatic
+
         col_n = QColor.fromHsv(new_h, s, v)
         self.color_n = (col_n.red(), col_n.green(), col_n.blue())
-        self.btn_color_n.setStyleSheet(f"background-color: rgb{self.color_n}; border: 1px solid gray;")
+        self.btn_color_n.setStyleSheet(
+            f"background-color: rgb{self.color_n}; border: 1px solid gray;"
+        )
         self.update_iso()
 
     def choose_color_p(self):
@@ -832,13 +893,17 @@ class CubeViewerWidget(QWidget):
         if isinstance(self.color_p, str):
             col_temp = QColor(self.color_p)
             self.color_p = (col_temp.red(), col_temp.green(), col_temp.blue())
-        
+
         # Unpack RGB tuple for QColor
-        c = QColorDialog.getColor(initial=QColor(*self.color_p), title="Select Positive Lobe Color")
+        c = QColorDialog.getColor(
+            initial=QColor(*self.color_p), title="Select Positive Lobe Color"
+        )
         if c.isValid():
             self.color_p = (c.red(), c.green(), c.blue())
-            self.btn_color_p.setStyleSheet(f"background-color: rgb{self.color_p}; border: 1px solid gray;")
-            
+            self.btn_color_p.setStyleSheet(
+                f"background-color: rgb{self.color_p}; border: 1px solid gray;"
+            )
+
             if self.check_comp_color.isChecked():
                 self.update_complementary_color()
             else:
@@ -849,21 +914,29 @@ class CubeViewerWidget(QWidget):
         if isinstance(self.color_n, str):
             col_temp = QColor(self.color_n)
             self.color_n = (col_temp.red(), col_temp.green(), col_temp.blue())
-        
+
         # Unpack RGB tuple for QColor
-        c = QColorDialog.getColor(initial=QColor(*self.color_n), title="Select Negative Lobe Color")
+        c = QColorDialog.getColor(
+            initial=QColor(*self.color_n), title="Select Negative Lobe Color"
+        )
         if c.isValid():
             self.color_n = (c.red(), c.green(), c.blue())
-            self.btn_color_n.setStyleSheet(f"background-color: rgb{self.color_n}; border: 1px solid gray;")
+            self.btn_color_n.setStyleSheet(
+                f"background-color: rgb{self.color_n}; border: 1px solid gray;"
+            )
             self.update_iso()
 
     def update_iso(self):
         val = self.spin.value()
         # Prefer numeric spinbox value (kept in sync with slider)
-        opacity_val = self.opacity_spin.value() if getattr(self, 'opacity_spin', None) is not None else self.opacity_slider.value() / 100.0
+        opacity_val = (
+            self.opacity_spin.value()
+            if getattr(self, "opacity_spin", None) is not None
+            else self.opacity_slider.value() / 100.0
+        )
 
         # Style settings
-        style = self.combo_style.currentText() # Keep original case for check
+        style = self.combo_style.currentText()  # Keep original case for check
         smooth = self.check_smooth.isChecked()
 
         render_style = style.lower()
@@ -886,8 +959,12 @@ class CubeViewerWidget(QWidget):
         # After plotter.clear() (called by draw_molecule_3d), actor references become
         # stale and remove_actor() may throw. Isolate each removal so a failure
         # never prevents the orbital from being (re-)drawn.
-        for actor in [self.iso_actor_p, self.iso_actor_n,
-                      self.iso_actor_p_sil, self.iso_actor_n_sil]:
+        for actor in [
+            self.iso_actor_p,
+            self.iso_actor_n,
+            self.iso_actor_p_sil,
+            self.iso_actor_n_sil,
+        ]:
             if actor:
                 try:
                     self.plotter.remove_actor(actor)
@@ -910,7 +987,7 @@ class CubeViewerWidget(QWidget):
             # Decimation / Opacity Logic
             render_opacity = opacity_val
             target_reduction = 0.0
-            
+
             if is_density_mode:
                 # In density mode, opacity slider controls density (1.0 = full, 0.0 = empty)
                 # target_reduction is fraction to REMOVE.
@@ -919,24 +996,24 @@ class CubeViewerWidget(QWidget):
                 target_reduction = 1.0 - opacity_val
                 # Clamp to avoid total destruction or errors
                 target_reduction = max(0.0, min(0.99, target_reduction))
-                
+
                 # Force full opacity for the lines/points themselves so they are visible
                 render_opacity = 1.0
 
             def process_mesh(iso_mesh):
                 m = iso_mesh
-                
-                # 1. Geometric Smoothing (Before decimation usually better for shape, 
-                # but if decimating heavily, smoothing after might be cleaner? 
+
+                # 1. Geometric Smoothing (Before decimation usually better for shape,
+                # but if decimating heavily, smoothing after might be cleaner?
                 # Let's stick to user request order: Smoothing is a style feature, usually implies high qual.
                 # Decimation is for sparse view.)
                 if do_geometric_smooth:
-                     m = m.smooth(n_iter=100)
-                     
+                    m = m.smooth(n_iter=100)
+
                 # 2. Decimation (Density)
                 if is_density_mode and target_reduction > 0.0:
                     m = m.decimate(target_reduction)
-                    
+
                 return m
 
             # Positive lobe
@@ -944,52 +1021,57 @@ class CubeViewerWidget(QWidget):
             if iso_p.n_points > 0:
                 iso_p = process_mesh(iso_p)
                 self.iso_actor_p = self.plotter.add_mesh(
-                    iso_p, 
-                    color=self.color_p, 
-                    opacity=render_opacity, 
-                    name="cube_iso_p", 
-                    reset_camera=False, 
-                    style=render_style, 
+                    iso_p,
+                    color=self.color_p,
+                    opacity=render_opacity,
+                    name="cube_iso_p",
+                    reset_camera=False,
+                    style=render_style,
                     smooth_shading=smooth,
                     pbr=self.use_pbr,
                     metallic=self.metallic,
                     roughness=self.roughness,
                     # silhouette=self.use_silhouette # Doing manual handle
                 )
-                if self.use_silhouette and hasattr(self.plotter, 'add_silhouette'):
-                     self.iso_actor_p_sil = self.plotter.add_silhouette(iso_p, color='black', line_width=2.0)
-                
+                if self.use_silhouette and hasattr(self.plotter, "add_silhouette"):
+                    self.iso_actor_p_sil = self.plotter.add_silhouette(
+                        iso_p, color="black", line_width=2.0
+                    )
+
             # Negative lobe
             iso_n = using_grid.contour(isosurfaces=[-val])
             if iso_n.n_points > 0:
                 iso_n = process_mesh(iso_n)
                 self.iso_actor_n = self.plotter.add_mesh(
-                    iso_n, 
-                    color=self.color_n, 
-                    opacity=render_opacity, 
-                    name="cube_iso_n", 
-                    reset_camera=False, 
-                    style=render_style, 
+                    iso_n,
+                    color=self.color_n,
+                    opacity=render_opacity,
+                    name="cube_iso_n",
+                    reset_camera=False,
+                    style=render_style,
                     smooth_shading=smooth,
                     pbr=self.use_pbr,
                     metallic=self.metallic,
                     roughness=self.roughness,
                     # silhouette=self.use_silhouette # Doing manual handle
                 )
-                if self.use_silhouette and hasattr(self.plotter, 'add_silhouette'):
-                     self.iso_actor_n_sil = self.plotter.add_silhouette(iso_n, color='black', line_width=2.0)
-                
+                if self.use_silhouette and hasattr(self.plotter, "add_silhouette"):
+                    self.iso_actor_n_sil = self.plotter.add_silhouette(
+                        iso_n, color="black", line_width=2.0
+                    )
+
             self.plotter.render()
-            
+
         except Exception as e:
             print(f"Iso update error: {e}")
             import traceback
+
             traceback.print_exc()
 
     def on_opacity_changed(self, val):
         opacity = val / 100.0
         # Sync numeric spinbox without re-triggering signals
-        if getattr(self, 'opacity_spin', None) is not None:
+        if getattr(self, "opacity_spin", None) is not None:
             self.opacity_spin.blockSignals(True)
             self.opacity_spin.setValue(opacity)
             self.opacity_spin.blockSignals(False)
@@ -998,7 +1080,7 @@ class CubeViewerWidget(QWidget):
     def on_opacity_spin_changed(self, val):
         # val is between 0.0 and 1.0
         # Sync slider (0-100)
-        if getattr(self, 'opacity_slider', None) is not None:
+        if getattr(self, "opacity_slider", None) is not None:
             int_val = int(round(val * 100))
             self.opacity_slider.blockSignals(True)
             self.opacity_slider.setValue(int_val)
@@ -1026,24 +1108,21 @@ class CubeViewerWidget(QWidget):
         self.use_pbr = checked
         self.slider_metallic.setEnabled(checked)
         self.slider_roughness.setEnabled(checked)
-        
+
         # Removed MessageBox as requested by user
         if checked and not self.env_texture_path:
             # Just print to console or set status tip if needed, but avoid popup
             print("PBR enabled without environment texture. Surfaces may appear dark.")
-        
-        self.update_iso()
 
+        self.update_iso()
 
     def on_metallic_changed(self, val):
         self.metallic = val / 100.0
         self.update_iso()
 
-
     def on_roughness_changed(self, val):
         self.roughness = val / 100.0
         self.update_iso()
-
 
     def on_ssao_toggled(self, checked):
         self.use_ssao = checked
@@ -1052,11 +1131,10 @@ class CubeViewerWidget(QWidget):
         try:
             self._clean_render_pipeline()
             if checked:
-                if hasattr(self.plotter, 'enable_ssao'):
-
+                if hasattr(self.plotter, "enable_ssao"):
                     self.plotter.enable_ssao()
             else:
-                if hasattr(self.plotter, 'disable_ssao'):
+                if hasattr(self.plotter, "disable_ssao"):
                     self.plotter.disable_ssao()
             self.plotter.render()
         except Exception as e:
@@ -1067,31 +1145,31 @@ class CubeViewerWidget(QWidget):
         重要: パス切り替え時に発生するVTKエラーを防ぐため、
         一度レンダリングパイプラインを完全にリセットする。
         """
-        if not self.plotter or not hasattr(self.plotter, 'renderer'): return
-        
+        if not self.plotter or not hasattr(self.plotter, "renderer"):
+            return
+
         try:
             # 既存のパスを強制解除 (これがReleaseGraphicsResourcesエラーを防ぐ鍵)
-            if hasattr(self.plotter.renderer, 'SetPasses'):
+            if hasattr(self.plotter.renderer, "SetPasses"):
                 self.plotter.renderer.SetPasses(None)
-            
+
             # Note: Do NOT call render() here. Rendering with None passes can cause
             # VTK to complain about missing resources or invalid state.
-            # self.plotter.render() 
+            # self.plotter.render()
         except Exception as e:
             print(f"Pipeline clean error: {e}")
-
 
     def on_depth_peeling_toggled(self, checked):
         self.use_depth_peeling = checked
         self._disable_conflicting_effects(exclude="depth" if checked else "")
-            
+
         try:
-            self._clean_render_pipeline() # Clean before switching transparency mode
+            self._clean_render_pipeline()  # Clean before switching transparency mode
             if checked:
-                if hasattr(self.plotter, 'enable_depth_peeling'):
+                if hasattr(self.plotter, "enable_depth_peeling"):
                     self.plotter.enable_depth_peeling()
             else:
-                if hasattr(self.plotter, 'disable_depth_peeling'):
+                if hasattr(self.plotter, "disable_depth_peeling"):
                     self.plotter.disable_depth_peeling()
             self.plotter.render()
         except Exception as e:
@@ -1100,7 +1178,7 @@ class CubeViewerWidget(QWidget):
     def on_silhouette_toggled(self, checked):
         self.use_silhouette = checked
         self.update_iso()
-             
+
     def on_shadows_toggled(self, checked):
         self.use_shadows = checked
         self._disable_conflicting_effects(exclude="shadows" if checked else "")
@@ -1114,12 +1192,12 @@ class CubeViewerWidget(QWidget):
         except Exception as _e:
             logging.warning("[cube_viewer_advanced.py:1110] silenced: %s", _e)
         self.plotter.render()
-            
+
     def on_light_intensity_changed(self, val):
         self.light_intensity = val / 100.0
         try:
             # Update all lights
-            if hasattr(self.plotter, 'renderer'):
+            if hasattr(self.plotter, "renderer"):
                 lights = self.plotter.renderer.GetLights()
                 for light in lights:
                     light.SetIntensity(self.light_intensity)
@@ -1141,7 +1219,7 @@ class CubeViewerWidget(QWidget):
     def on_edl_toggled(self, checked):
         self.use_edl = checked
         self._disable_conflicting_effects(exclude="edl" if checked else "")
-            
+
         self.slider_edl.setEnabled(checked)
         self._clean_render_pipeline()
         self.apply_edl()
@@ -1150,23 +1228,23 @@ class CubeViewerWidget(QWidget):
         self.edl_strength = val / 100.0
         if self.use_edl:
             self.apply_edl()
-            
+
     def apply_edl(self):
         try:
             if self.use_edl:
                 self.plotter.enable_eye_dome_lighting()
-                
+
                 # Access the EDL pass to set strength
                 try:
-                    if hasattr(self.plotter.renderer, '_edl_pass'):
+                    if hasattr(self.plotter.renderer, "_edl_pass"):
                         edl_pass = self.plotter.renderer._edl_pass
-                        if edl_pass and hasattr(edl_pass, 'SetEDLStrength'):
+                        if edl_pass and hasattr(edl_pass, "SetEDLStrength"):
                             edl_pass.SetEDLStrength(self.edl_strength)
                 except Exception as _e:
                     logging.warning("[cube_viewer_advanced.py:1161] silenced: %s", _e)
-                
+
             else:
-                if hasattr(self.plotter, 'disable_eye_dome_lighting'):
+                if hasattr(self.plotter, "disable_eye_dome_lighting"):
                     self.plotter.disable_eye_dome_lighting()
             self.plotter.render()
         except Exception as e:
@@ -1181,25 +1259,26 @@ class CubeViewerWidget(QWidget):
         これらは共存できないため、一方をONにしたら他方を無効化(Disable & Uncheck)する。
         """
         # 無限ループ防止
-        self.blockSignals(True) 
-        
+        self.blockSignals(True)
+
         # 1. Depth PeelingがONの場合 -> 他のエフェクトをOFFにしてDisable
         if exclude == "depth" and self.use_depth_peeling:
             # EDL check OFF
             if self.use_edl:
                 self.check_edl.setChecked(False)
                 self.use_edl = False
-                try: 
-                    if hasattr(self.plotter, 'disable_eye_dome_lighting'):
+                try:
+                    if hasattr(self.plotter, "disable_eye_dome_lighting"):
                         self.plotter.disable_eye_dome_lighting()
                 except Exception as _e:
                     logging.warning("[cube_viewer_advanced.py:1191] silenced: %s", _e)
-            
+
             # Shadows check OFF
             if self.use_shadows:
                 self.check_shadows.setChecked(False)
                 self.use_shadows = False
-                try: self.plotter.disable_shadows()
+                try:
+                    self.plotter.disable_shadows()
                 except Exception as _e:
                     logging.warning("[cube_viewer_advanced.py:1198] silenced: %s", _e)
 
@@ -1207,76 +1286,76 @@ class CubeViewerWidget(QWidget):
             if self.use_ssao:
                 self.check_ssao.setChecked(False)
                 self.use_ssao = False
-                try: 
-                    if hasattr(self.plotter, 'disable_ssao'): self.plotter.disable_ssao()
+                try:
+                    if hasattr(self.plotter, "disable_ssao"):
+                        self.plotter.disable_ssao()
                 except Exception as _e:
                     logging.warning("[cube_viewer_advanced.py:1206] silenced: %s", _e)
 
         # 2. エフェクト(EDL/Shadows/SSAO)がONの場合 -> Depth PeelingをOFFにしてDisable
-        elif exclude in ["edl", "shadows", "ssao"] and (self.use_edl or self.use_shadows or self.use_ssao):
+        elif exclude in ["edl", "shadows", "ssao"] and (
+            self.use_edl or self.use_shadows or self.use_ssao
+        ):
             if self.use_depth_peeling:
                 self.check_depth.setChecked(False)
                 self.use_depth_peeling = False
                 try:
-                    if hasattr(self.plotter, 'disable_depth_peeling'):
+                    if hasattr(self.plotter, "disable_depth_peeling"):
                         self.plotter.disable_depth_peeling()
                 except Exception as _e:
                     logging.warning("[cube_viewer_advanced.py:1216] silenced: %s", _e)
-        
 
         # 3. 最後に有効/無効状態を更新 (グレーアウト処理) -> REMOVED
         # User requested to allow direct switching (auto-uncheck instead of disable).
         # We only keep the static checks (e.g. if VTK doesn't support it) which are done at init.
-        
+
         self.blockSignals(False)
 
-    # --- ATOM METHODS REMOVED ---
+        # --- ATOM METHODS REMOVED ---
 
-        
         # Save state of advanced rendering effects that get lost during plotter.clear()
         edl_was_enabled = self.use_edl
         shadows_were_enabled = self.use_shadows
-        
+
         # Temporarily disable these effects to prevent FrameBufferObject cleanup errors
         if edl_was_enabled:
             try:
                 self.plotter.disable_eye_dome_lighting()
             except Exception as _e:
                 logging.warning("[cube_viewer_advanced.py:1236] silenced: %s", _e)
-        
+
         if shadows_were_enabled:
             try:
                 self.plotter.disable_shadows()
             except Exception as _e:
                 logging.warning("[cube_viewer_advanced.py:1242] silenced: %s", _e)
-        
+
         # Redraw molecule 3D and orbital
-        # Redraw molecule using main window's draw_molecule_3d method
-        if hasattr(self.mw, 'current_mol') and self.mw.current_mol:
+        if self.mw.current_mol:
             try:
-                self.mw.view_3d_manager.draw_molecule_3d(self.mw.current_mol)
+                self.context.draw_molecule_3d(self.mw.current_mol)
             except Exception as e:
                 print(f"Error redrawing molecule: {e}")
-        
+
         # Redraw orbital
         try:
             self.update_iso()
         except Exception as e:
             print(f"Error updating orbital: {e}")
-        
+
         # Restore advanced rendering effects
         if shadows_were_enabled:
             try:
                 self.plotter.enable_shadows()
             except Exception as e:
                 print(f"Error restoring shadows: {e}")
-        
+
         if edl_was_enabled:
             try:
                 self.plotter.enable_eye_dome_lighting()
             except Exception as e:
                 print(f"Error restoring EDL: {e}")
-        
+
         # Final render to apply all effects
         try:
             self.plotter.render()
@@ -1286,14 +1365,14 @@ class CubeViewerWidget(QWidget):
     def on_texture_path_entered(self):
         path = self.line_env_path.text().strip()
         if path:
-             # TRIGGER LOAD
-             try:
-                 if os.path.exists(path):
+            # TRIGGER LOAD
+            try:
+                if os.path.exists(path):
                     self.load_env_texture(path)
-                 else:
+                else:
                     print(f"Texture path not found: {path}")
-             except Exception as e:
-                 print(f"Error loading entered texture: {e}")
+            except Exception as e:
+                print(f"Error loading entered texture: {e}")
 
     # --- PRESET HANDLERS ---
     def update_preset_combo(self):
@@ -1303,48 +1382,51 @@ class CubeViewerWidget(QWidget):
         self.combo_presets.addItems(sorted(self.presets.keys()))
         self.combo_presets.setEditText(current)
         self.combo_presets.blockSignals(False)
-        
+
     def on_preset_text_changed(self, text):
-        pass # Just typing
+        pass  # Just typing
 
     def on_preset_activated(self, index):
         name = self.combo_presets.currentText()
         if name in self.presets:
             # Redraw molecule and orbital before loading preset
-            if hasattr(self.mw, 'current_mol') and self.mw.current_mol:
+            if self.mw.current_mol:
                 try:
-                    self.mw.view_3d_manager.draw_molecule_3d(self.mw.current_mol)
+                    self.context.draw_molecule_3d(self.mw.current_mol)
                 except Exception as _e:
                     logging.warning("[cube_viewer_advanced.py:1309] silenced: %s", _e)
-            
+
             try:
                 self.update_iso()
             except Exception as _e:
                 logging.warning("[cube_viewer_advanced.py:1314] silenced: %s", _e)
-            
+
             self.load_preset_settings(self.presets[name])
             print(f"Loaded preset: {name}")
 
     def save_preset(self):
         # Show dialog to ask for preset name
         name, ok = QInputDialog.getText(
-            self, 
-            "Save Preset", 
+            self,
+            "Save Preset",
             "Enter preset name:",
-            text=self.combo_presets.currentText()
+            text=self.combo_presets.currentText(),
         )
-        
+
         if not ok or not name.strip():
             return
-        
+
         name = name.strip()
-        
+
         # Prevent overwriting default presets
         if name in self.default_preset_names:
-            QMessageBox.warning(self, "Cannot Overwrite Default", 
-                              f"'{name}' is a built-in preset and cannot be overwritten.\nPlease use a different name.")
+            QMessageBox.warning(
+                self,
+                "Cannot Overwrite Default",
+                f"'{name}' is a built-in preset and cannot be overwritten.\nPlease use a different name.",
+            )
             return
-        
+
         # Gather current settings
         current_data = {
             "isovalue": self.spin.value(),
@@ -1365,62 +1447,74 @@ class CubeViewerWidget(QWidget):
             "light_intensity": self.light_intensity,
             "smooth_shading": self.check_smooth.isChecked(),
             "style": self.combo_style.currentText(),
-            "env_texture_path": self.env_texture_path # Ensure save
+            "env_texture_path": self.env_texture_path,  # Ensure save
         }
-        
+
         self.presets[name] = current_data
         self.update_preset_combo()
         self.combo_presets.setCurrentText(name)
         self.save_settings()
         print(f"Saved preset: {name}")
-        
+
     def delete_preset(self):
         name = self.combo_presets.currentText().strip()
-        
+
         # Prevent deleting default presets
         if name in self.default_preset_names:
-            QMessageBox.warning(self, "Cannot Delete Default", 
-                              f"'{name}' is a built-in preset and cannot be deleted.")
+            QMessageBox.warning(
+                self,
+                "Cannot Delete Default",
+                f"'{name}' is a built-in preset and cannot be deleted.",
+            )
             return
-        
+
         if name in self.presets:
             del self.presets[name]
             self.update_preset_combo()
-            self.save_settings() # Update disk
+            self.save_settings()  # Update disk
             print(f"Deleted preset: {name}")
-            
+
     def load_preset_settings(self, settings):
         # Apply settings dict to UI
-        if "isovalue" in settings: self.spin.setValue(float(settings["isovalue"]))
-        
+        if "isovalue" in settings:
+            self.spin.setValue(float(settings["isovalue"]))
+
         if "color_p" in settings:
             col = settings["color_p"]
-            if isinstance(col, list): col = tuple(col)
+            if isinstance(col, list):
+                col = tuple(col)
             self.color_p = col
-            self.btn_color_p.setStyleSheet(f"background-color: rgb{self.color_p}; border: 1px solid gray;")
+            self.btn_color_p.setStyleSheet(
+                f"background-color: rgb{self.color_p}; border: 1px solid gray;"
+            )
 
         if "color_n" in settings:
             col = settings["color_n"]
-            if isinstance(col, list): col = tuple(col)
+            if isinstance(col, list):
+                col = tuple(col)
             self.color_n = col
-            self.btn_color_n.setStyleSheet(f"background-color: rgb{self.color_n}; border: 1px solid gray;")
-            
+            self.btn_color_n.setStyleSheet(
+                f"background-color: rgb{self.color_n}; border: 1px solid gray;"
+            )
+
         if "opacity" in settings:
             val = float(settings["opacity"])
             self.opacity_spin.setValue(val)
             self.opacity_slider.setValue(int(val * 100))
-            
+
         if "metallic" in settings:
             self.metallic = float(settings["metallic"])
             self.slider_metallic.setValue(int(self.metallic * 100))
-            
+
         if "roughness" in settings:
             self.roughness = float(settings["roughness"])
             self.slider_roughness.setValue(int(self.roughness * 100))
-            
+
         if "use_pbr" in settings:
             self.use_pbr = bool(settings["use_pbr"])
-            self.check_pbr.setChecked(self.use_pbr) # This triggers toggle signal -> Enable/Disable sliders
+            self.check_pbr.setChecked(
+                self.use_pbr
+            )  # This triggers toggle signal -> Enable/Disable sliders
 
         if "env_texture_path" in settings:
             self.env_texture_path = settings["env_texture_path"]
@@ -1429,23 +1523,29 @@ class CubeViewerWidget(QWidget):
                 if os.path.exists(self.env_texture_path):
                     self.load_env_texture(self.env_texture_path)
             else:
-                 self.line_env_path.clear()
+                self.line_env_path.clear()
 
-        if "use_ssao" in settings: self.check_ssao.setChecked(bool(settings["use_ssao"]))
-        if "use_depth_peeling" in settings: self.check_depth.setChecked(bool(settings["use_depth_peeling"]))
-        if "use_silhouette" in settings: self.check_silhouette.setChecked(bool(settings["use_silhouette"]))
-        if "use_aa" in settings: self.check_aa.setChecked(bool(settings["use_aa"]))
-        
+        if "use_ssao" in settings:
+            self.check_ssao.setChecked(bool(settings["use_ssao"]))
+        if "use_depth_peeling" in settings:
+            self.check_depth.setChecked(bool(settings["use_depth_peeling"]))
+        if "use_silhouette" in settings:
+            self.check_silhouette.setChecked(bool(settings["use_silhouette"]))
+        if "use_aa" in settings:
+            self.check_aa.setChecked(bool(settings["use_aa"]))
+
         if "edl_strength" in settings:
             self.edl_strength = float(settings["edl_strength"])
             self.slider_edl.setValue(int(self.edl_strength * 100))
-            
-        if "use_edl" in settings: self.check_edl.setChecked(bool(settings["use_edl"]))
-        if "use_shadows" in settings: self.check_shadows.setChecked(bool(settings["use_shadows"]))
+
+        if "use_edl" in settings:
+            self.check_edl.setChecked(bool(settings["use_edl"]))
+        if "use_shadows" in settings:
+            self.check_shadows.setChecked(bool(settings["use_shadows"]))
         if "light_intensity" in settings:
             self.light_intensity = float(settings["light_intensity"])
             self.slider_light.setValue(int(self.light_intensity * 100))
-            
+
         if "smooth_shading" in settings:
             self.check_smooth.setChecked(bool(settings["smooth_shading"]))
 
@@ -1459,28 +1559,28 @@ class CubeViewerWidget(QWidget):
                     if self.combo_style.itemText(i).lower() == text.lower():
                         idx = i
                         break
-            if idx >= 0: 
+            if idx >= 0:
                 self.combo_style.setCurrentIndex(idx)
-        
+
         # Redraw orbital with loaded preset settings
         self.update_iso()
 
     def on_load_env_texture(self):
         fname, _ = QFileDialog.getOpenFileName(
-            self, 
-            "Load Environment Texture", 
-            "", 
-            "Images (*.png *.jpg *.jpeg);;All Files (*.*)"
+            self,
+            "Load Environment Texture",
+            "",
+            "Images (*.png *.jpg *.jpeg);;All Files (*.*)",
         )
         if fname:
             # Check for spaces BEFORE attempting to load
-            if ' ' in fname:
+            if " " in fname:
                 QMessageBox.critical(
                     self,
                     "Invalid File Path",
                     "Texture file path contains spaces.\n\n"
                     "VTK cannot load files with spaces in the path.\n"
-                    "Please move the file to a path without spaces and try again."
+                    "Please move the file to a path without spaces and try again.",
                 )
                 return
             self.load_env_texture(fname)
@@ -1492,101 +1592,110 @@ class CubeViewerWidget(QWidget):
             # Validate file exists
             if not os.path.exists(path):
                 raise FileNotFoundError(f"Texture file not found: {path}")
-            
+
             # Check for spaces in path (VTK doesn't handle them well)
-            if ' ' in path:
-                raise ValueError("Texture file path contains spaces.\nVTK cannot load files with spaces in the path.\nPlease move the file to a path without spaces.")
-            
+            if " " in path:
+                raise ValueError(
+                    "Texture file path contains spaces.\nVTK cannot load files with spaces in the path.\nPlease move the file to a path without spaces."
+                )
+
             # Validate file extension
             ext = os.path.splitext(path)[1].lower()
-            if ext not in ['.png', '.jpg', '.jpeg']:
-                raise ValueError(f"Unsupported texture format: {ext}. Only PNG/JPG supported.")
-            
+            if ext not in [".png", ".jpg", ".jpeg"]:
+                raise ValueError(
+                    f"Unsupported texture format: {ext}. Only PNG/JPG supported."
+                )
+
             # Check file size to prevent freezing (limit to 10MB)
             file_size_mb = os.path.getsize(path) / (1024 * 1024)
             if file_size_mb > 10:
                 reply = QMessageBox.question(
-                    self, 
+                    self,
                     "Large Texture File",
                     f"Texture file is {file_size_mb:.1f}MB.\n"
                     f"Large textures may cause VTK to freeze.\n\n"
                     f"Continue loading?",
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 )
                 if reply == QMessageBox.StandardButton.No:
                     return
-            
+
             # Show progress dialog with cancel button
             from PyQt6.QtWidgets import QProgressDialog
+
             progress = QProgressDialog("Loading texture...", "Stop", 0, 0, self)
             progress.setWindowTitle("Loading Texture")
             progress.setWindowModality(Qt.WindowModality.WindowModal)
             progress.setMinimumDuration(0)
             progress.show()
             QCoreApplication.processEvents()
-            
+
             # Check for cancellation
             if progress.wasCanceled():
                 print("Texture loading cancelled by user")
                 return
-            
+
             # Load and apply texture with improved error handling
             try:
                 texture = pv.read_texture(path)
             except Exception as tex_err:
                 raise ValueError(f"Failed to read texture file: {tex_err}")
-            
+
             # Check for cancellation
             if progress.wasCanceled():
                 print("Texture loading cancelled by user")
                 return
-            
+
             progress.setLabelText("Applying texture to renderer...")
             QCoreApplication.processEvents()
-            
+
             try:
                 self.plotter.set_environment_texture(texture)
             except Exception as vtk_err:
-                raise ValueError(f"VTK failed to apply texture (possibly incompatible format): {vtk_err}")
-            
+                raise ValueError(
+                    f"VTK failed to apply texture (possibly incompatible format): {vtk_err}"
+                )
+
             self.env_texture_path = path
             self.line_env_path.setText(path)
-            
+
             # SYNC: Share state with Advanced Renderer & Global
             if hasattr(self.mw, "current_env_texture_path"):
-                 self.mw.current_env_texture_path = path
+                self.mw.current_env_texture_path = path
             else:
-                 self.mw.current_env_texture_path = path
-            
+                self.mw.current_env_texture_path = path
+
             # Also update Advanced Renderer instance if it exists
-            adv_viewer = getattr(self.mw, '_adv_rendering_viewer', None)
+            adv_viewer = getattr(self.mw, "_adv_rendering_viewer", None)
             if adv_viewer:
                 adv_viewer.env_texture_path = path
                 # Ideally we shouldn't trigger double-load, but setting path is safe
 
-            
             # SHARE PATH GLOBALLY
             if hasattr(self.mw, "current_env_texture_path"):
-                 self.mw.current_env_texture_path = path
+                self.mw.current_env_texture_path = path
             else:
-                 # Create it if it doesn't exist (simples way to share state)
-                 self.mw.current_env_texture_path = path
-            
+                # Create it if it doesn't exist (simples way to share state)
+                self.mw.current_env_texture_path = path
+
             # Check for cancellation
             if progress.wasCanceled():
                 print("Texture loading cancelled by user")
                 return
-            
+
             progress.setLabelText("Rendering...")
             QCoreApplication.processEvents()
-            
+
             self.plotter.render()
             print(f"Loaded texture: {os.path.basename(path)}")
-            
+
         except Exception as e:
             print(f"Failed to load texture: {e}")
-            QMessageBox.critical(self, "Texture Loading Failed", 
-                               f"Could not load texture:\n{os.path.basename(path)}\n\nError: {str(e)}")
+            QMessageBox.critical(
+                self,
+                "Texture Loading Failed",
+                f"Could not load texture:\n{os.path.basename(path)}\n\nError: {str(e)}",
+            )
             self.env_texture_path = ""
             # Re-raise exception so caller can handle it appropriately
             raise
@@ -1597,15 +1706,17 @@ class CubeViewerWidget(QWidget):
 
     def on_remove_env_texture(self):
         try:
-            if hasattr(self.plotter, 'remove_environment_texture'):
+            if hasattr(self.plotter, "remove_environment_texture"):
                 self.plotter.remove_environment_texture()
-            elif hasattr(self.plotter, 'set_environment_texture'):
+            elif hasattr(self.plotter, "set_environment_texture"):
                 # Fallback if remove_ doesn't exist but set_ does (unlikely given dir() output)
                 try:
                     self.plotter.set_environment_texture(None)
                 except:
-                    print("Could not clear environment texture (set_environment_texture(None) failed).")
-            
+                    print(
+                        "Could not clear environment texture (set_environment_texture(None) failed)."
+                    )
+
             self.env_texture_path = ""
             self.line_env_path.clear()
             self.plotter.render()
@@ -1616,40 +1727,41 @@ class CubeViewerWidget(QWidget):
         """Resets ALL settings to defaults (not just advanced)."""
         # Block signals to prevent redundant expensive updates
         self.blockSignals(True)
-        
+
         try:
             # 1. Reset Isovalue
             self.spin.setValue(0.02)
-            
+
             # 2. Reset Colors
-            self.color_p = (0, 0, 255) 
-            self.color_n = (255, 0, 0) 
+            self.color_p = (0, 0, 255)
+            self.color_n = (255, 0, 0)
             self.btn_color_p.setStyleSheet(f"background-color: rgb{self.color_p};")
             self.btn_color_n.setStyleSheet(f"background-color: rgb{self.color_n};")
-            
+
             # 3. Reset Opacity
             self.opacity_spin.setValue(0.4)
             self.opacity_slider.setValue(40)
-            
+
             # 4. Reset Style
             self.combo_style.setCurrentIndex(0)  # Surface
             self.check_smooth.setChecked(True)
-            
+
             # 5. Reset Advanced Settings
             self.check_pbr.setChecked(False)
             self.metallic = 0.5
             self.roughness = 0.5
             self.slider_metallic.setValue(50)
             self.slider_roughness.setValue(50)
-            
+
             # 6. Reset Effects
             # --- FIX START: シグナルブロック中は手動で無効化が必要 ---
-            
+
             # SSAO
             self.check_ssao.setChecked(False)
             if self.use_ssao:
-                try: 
-                    if hasattr(self.plotter, 'disable_ssao'): self.plotter.disable_ssao()
+                try:
+                    if hasattr(self.plotter, "disable_ssao"):
+                        self.plotter.disable_ssao()
                 except Exception as _e:
                     logging.warning("[cube_viewer_advanced.py:1646] silenced: %s", _e)
                 self.use_ssao = False
@@ -1658,7 +1770,8 @@ class CubeViewerWidget(QWidget):
             self.check_depth.setChecked(False)
             if self.use_depth_peeling:
                 try:
-                    if hasattr(self.plotter, 'disable_depth_peeling'): self.plotter.disable_depth_peeling()
+                    if hasattr(self.plotter, "disable_depth_peeling"):
+                        self.plotter.disable_depth_peeling()
                 except Exception as _e:
                     logging.warning("[cube_viewer_advanced.py:1654] silenced: %s", _e)
                 self.use_depth_peeling = False
@@ -1666,10 +1779,10 @@ class CubeViewerWidget(QWidget):
             # Silhouette
             self.check_silhouette.setChecked(False)
             self.use_silhouette = False
-            
+
             # EDL (Eye Dome Lighting)
             self.check_edl.setChecked(False)
-            self.slider_edl.setValue(20) # 0.2
+            self.slider_edl.setValue(20)  # 0.2
             if self.use_edl:
                 try:
                     self.plotter.disable_eye_dome_lighting()
@@ -1688,30 +1801,28 @@ class CubeViewerWidget(QWidget):
 
             # Shadows
             self.check_shadows.setChecked(False)
-            self.slider_light.setValue(100) # 1.0
+            self.slider_light.setValue(100)  # 1.0
             if self.use_shadows:
                 try:
                     self.plotter.disable_shadows()
                 except Exception as _e:
                     logging.warning("[cube_viewer_advanced.py:1684] silenced: %s", _e)
                 self.use_shadows = False
-            
+
             # --- FIX END ---
 
-
-             
             # 7. Clear Environment Texture
             self.on_remove_env_texture()
-            
+
             # 8. Trigger Update
             self.blockSignals(False)
-            
+
             # 確実に描画更新
             self.update_iso()
             self.plotter.render()
 
             print("All settings have been reset to defaults.")
-            
+
         except Exception as e:
             self.blockSignals(False)
             print(f"Error resetting settings: {e}")
@@ -1731,16 +1842,16 @@ class CubeViewerWidget(QWidget):
                     self.plotter.disable_eye_dome_lighting()
                 except Exception as _e:
                     logging.warning("[cube_viewer_advanced.py:1720] silenced: %s", _e)
-            
+
             if self.use_shadows:
                 try:
                     self.plotter.disable_shadows()
                 except Exception as _e:
                     logging.warning("[cube_viewer_advanced.py:1725] silenced: %s", _e)
-            
+
             if self.use_ssao:
                 try:
-                    if hasattr(self.plotter, 'disable_ssao'):
+                    if hasattr(self.plotter, "disable_ssao"):
                         self.plotter.disable_ssao()
                 except Exception as _e:
                     logging.warning("[cube_viewer_advanced.py:1731] silenced: %s", _e)
@@ -1751,66 +1862,74 @@ class CubeViewerWidget(QWidget):
             self.mw.current_mol = None
             self.mw.init_manager.current_file_path = None
             self.mw.plotter.render()
-             
+
             # Restore UI state (restore_ui_for_editing lives on ui_manager, not mw directly)
-            if hasattr(self.mw, 'ui_manager') and hasattr(self.mw.ui_manager, 'restore_ui_for_editing'):
+            if hasattr(self.mw, "ui_manager") and hasattr(
+                self.mw.ui_manager, "restore_ui_for_editing"
+            ):
                 self.mw.ui_manager.restore_ui_for_editing()
-        except Exception as e: 
+        except Exception as e:
             print(f"Error closing plugin: {e}")
-        
+
         if self.dock:
             self.mw.removeDockWidget(self.dock)
             self.dock.deleteLater()
             self.dock = None
-        
+
         self.deleteLater()
+
 
 class ChargeDialog(QDialog):
     def __init__(self, parent=None, current_charge=0):
         super().__init__(parent)
         self.setWindowTitle("Bond Connectivity Error")
-        self.result_action = "cancel" # retry, skip, cancel
+        self.result_action = "cancel"  # retry, skip, cancel
         self.charge = current_charge
-        
+
         self.init_ui()
-        
+
     def init_ui(self):
         layout = QVBoxLayout()
-        layout.addWidget(QLabel("Could not determine connectivity with charge: " + str(self.charge)))
-        layout.addWidget(QLabel("Please specify correct charge or skip chemistry check."))
-        
+        layout.addWidget(
+            QLabel("Could not determine connectivity with charge: " + str(self.charge))
+        )
+        layout.addWidget(
+            QLabel("Please specify correct charge or skip chemistry check.")
+        )
+
         form = QFormLayout()
         self.spin = QSpinBox()
         self.spin.setRange(-20, 20)
         self.spin.setValue(self.charge)
         form.addRow("Charge:", self.spin)
         layout.addLayout(form)
-        
+
         btns = QHBoxLayout()
         retry_btn = QPushButton("Retry")
         retry_btn.clicked.connect(self.on_retry)
-        
+
         skip_btn = QPushButton("Skip Chemistry")
         skip_btn.clicked.connect(self.on_skip)
-        
+
         cancel_btn = QPushButton("Cancel")
         cancel_btn.clicked.connect(self.reject)
-        
+
         btns.addWidget(retry_btn)
         btns.addWidget(skip_btn)
         btns.addWidget(cancel_btn)
         layout.addLayout(btns)
-        
+
         self.setLayout(layout)
-        
+
     def on_retry(self):
         self.charge = self.spin.value()
         self.result_action = "retry"
         self.accept()
-        
+
     def on_skip(self):
         self.result_action = "skip"
         self.accept()
+
 
 def open_cube_viewer(context, file_path):
     """
@@ -1823,21 +1942,23 @@ def open_cube_viewer(context, file_path):
     if old_dock:
         try:
             widget = old_dock.widget()
-            if hasattr(widget, 'close_plugin'):
+            if hasattr(widget, "close_plugin"):
                 widget.close_plugin()
             else:
                 old_dock.close()
         except Exception as _e:
-             logging.warning("[cube_viewer_advanced.py:1821] silenced: %s", _e)
+            logging.warning("[cube_viewer_advanced.py:1821] silenced: %s", _e)
 
     try:
         # Load and parse
         meta, grid = read_cube(file_path)
-        
+
         # Create Dock
         dock = QDockWidget(f"Cube Viewer: {os.path.basename(file_path)}", main_window)
-        dock.setAllowedAreas(Qt.DockWidgetArea.RightDockWidgetArea | Qt.DockWidgetArea.LeftDockWidgetArea)
-        
+        dock.setAllowedAreas(
+            Qt.DockWidgetArea.RightDockWidgetArea | Qt.DockWidgetArea.LeftDockWidgetArea
+        )
+
         try:
             # Data is stored in grid.point_data["values"]
             # "make sure that the data is only in the plot data"
@@ -1847,55 +1968,55 @@ def open_cube_viewer(context, file_path):
             else:
                 data_max = 1.0
         except:
-             data_max = 1.0
+            data_max = 1.0
 
         viewer = CubeViewerWidget(context, dock, grid, data_max=data_max)
         dock.setWidget(viewer)
-        
+
         # [DIRECT ACCESS] to main window for dock injection
         main_window.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
-        
+
         # Register the primary window for management
         context.register_window("main_panel", dock)
-        
+
         # Create Molecule (XYZ)
-        atoms = meta['atoms']
+        atoms = meta["atoms"]
         xyz_lines = [f"{len(atoms)}", "Generated by Cube Plugin"]
         pt = Chem.GetPeriodicTable()
         for atomic_num, pos in atoms:
             symbol = pt.GetElementSymbol(atomic_num)
             xyz_lines.append(f"{symbol} {pos[0]:.4f} {pos[1]:.4f} {pos[2]:.4f}")
-        
+
         xyz_content = "\n".join(xyz_lines)
-        
+
         mol = Chem.MolFromXYZBlock(xyz_content)
-        
+
         # Use rdDetermineBonds if available and no bonds found
         current_charge = 0
         if mol is not None and mol.GetNumBonds() == 0 and rdDetermineBonds is not None:
             while True:
                 # Re-create fresh molecule for this attempt to avoid dirty state on retry
                 mol = Chem.MolFromXYZBlock(xyz_content)
-                
+
                 try:
                     rdDetermineBonds.DetermineConnectivity(mol, charge=current_charge)
                     rdDetermineBonds.DetermineBondOrders(mol, charge=current_charge)
-                    break # Success
+                    break  # Success
                 except Exception as e:
                     # Show Dialog
                     dlg = ChargeDialog(main_window, current_charge)
                     if dlg.exec() == QDialog.DialogCode.Accepted:
                         if dlg.result_action == "retry":
                             current_charge = dlg.charge
-                            continue # Loop again with new charge
+                            continue  # Loop again with new charge
                         elif dlg.result_action == "skip":
                             # Ensure we have a clean unbonded mol
                             mol = Chem.MolFromXYZBlock(xyz_content)
                             rdDetermineBonds.DetermineConnectivity(mol, charge=0)
-                            break # Break loop, accept no bonds/bad connectivity
+                            break  # Break loop, accept no bonds/bad connectivity
                     else:
-                        return # User Cancelled plugin load
-        
+                        return  # User Cancelled plugin load
+
         if mol is None:
             # Fallback
             mol = Chem.RWMol()
@@ -1911,20 +2032,21 @@ def open_cube_viewer(context, file_path):
         main_window.init_manager.current_file_path = file_path
 
         # Enter full 3D viewer UI mode: minimizes 2D panel and disables editing tools
-        if hasattr(context, 'enter_3d_viewer_mode'):
+        if hasattr(context, "enter_3d_viewer_mode"):
             try:
                 context.enter_3d_viewer_mode()
             except Exception as _e:
                 logging.warning("[cube_viewer_advanced.py] silenced: %s", _e)
-        elif hasattr(main_window, 'ui_manager') and hasattr(main_window.ui_manager, 'enter_3d_viewer_ui_mode'):
+        elif hasattr(main_window, "ui_manager") and hasattr(
+            main_window.ui_manager, "enter_3d_viewer_ui_mode"
+        ):
             try:
                 main_window.ui_manager.enter_3d_viewer_ui_mode()
             except Exception as _e:
                 logging.warning("[cube_viewer_advanced.py:1888] silenced: %s", _e)
 
         # Draw molecule structure
-        if hasattr(main_window, 'view_3d_manager'):
-             main_window.view_3d_manager.draw_molecule_3d(mol)
+        context.draw_molecule_3d(mol)
 
         # Re-draw orbital AFTER draw_molecule_3d (which calls plotter.clear()).
         # Use a short timer so Qt finishes the molecule render pass first.
@@ -1933,11 +2055,13 @@ def open_cube_viewer(context, file_path):
         # Report bonds
         nb = mol.GetNumBonds() if mol else 0
         context.show_status_message(f"Loaded Cube. Atoms: {len(atoms)}, Bonds: {nb}")
-        
+
     except Exception as e:
         import traceback
+
         traceback.print_exc()
         context.show_status_message(f"Cube Viewer Error: {e}")
+
 
 def run_plugin(context):
     """Entry point for manual launch via menu."""
@@ -1946,27 +2070,32 @@ def run_plugin(context):
         QMessageBox.critical(mw, "Error", "RDKit is required for this plugin.")
         return
 
-    fname, _ = QFileDialog.getOpenFileName(mw, "Open Gaussian Cube File", "", "Cube Files (*.cube *.cub);;All Files (*)")
+    fname, _ = QFileDialog.getOpenFileName(
+        mw, "Open Gaussian Cube File", "", "Cube Files (*.cube *.cub);;All Files (*)"
+    )
     if fname:
         open_cube_viewer(context, fname)
+
 
 def initialize(context):
     """
     New Plugin System Entry Point
     """
+    global PLUGIN_CONTEXT
+    PLUGIN_CONTEXT = context
     # 1. Register Menu Action
-    #context.add_menu_action("File/Import Advanced Cube Viewer...", lambda: run_plugin(context))
+    # context.add_menu_action("File/Import Advanced Cube Viewer...", lambda: run_plugin(context))
 
     # 2. Register File Opener (Handle File > Import)
     def open_cube_wrapper(fname):
         open_cube_viewer(context, fname)
 
-    context.register_file_opener('.cube', open_cube_wrapper)
-    context.register_file_opener('.cub', open_cube_wrapper)
+    context.register_file_opener(".cube", open_cube_wrapper)
+    context.register_file_opener(".cub", open_cube_wrapper)
 
     # 3. Register Drop Handler (for robustness)
     def drop_handler(file_path):
-        if file_path.lower().endswith(('.cube', '.cub')):
+        if file_path.lower().endswith((".cube", ".cub")):
             open_cube_viewer(context, file_path)
             return True
         return False
@@ -1975,12 +2104,11 @@ def initialize(context):
 
 
 def run(mw):
-    if not hasattr(mw, 'plugin_manager'):
+    if not hasattr(mw, "plugin_manager"):
         return
 
-    from moleditpy.plugins.plugin_interface import PluginContext
-    context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
+    context = PLUGIN_CONTEXT
     if not context:
-        context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
+        return
 
     run_plugin(context)

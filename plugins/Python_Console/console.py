@@ -5,20 +5,24 @@ import keyword
 import pydoc
 from contextlib import redirect_stdout, redirect_stderr
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QTextEdit, QPlainTextEdit,
-    QLabel, QSplitter
+    QDialog,
+    QVBoxLayout,
+    QTextEdit,
+    QPlainTextEdit,
+    QLabel,
+    QSplitter,
 )
-from PyQt6.QtGui import (
-    QFont, QColor, QSyntaxHighlighter, QTextCharFormat,
-    QTextCursor
-)
+from PyQt6.QtGui import QFont, QColor, QSyntaxHighlighter, QTextCharFormat, QTextCursor
 from PyQt6.QtCore import Qt, QRegularExpression, pyqtSignal
 import rdkit.Chem as Chem
 
-PLUGIN_VERSION = "2026.06.18"
+PLUGIN_VERSION = "2026.06.20"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Embedded Python console for interactive scripting."
 PLUGIN_NAME = "Python Console"
+PLUGIN_CONTEXT = None
+
 
 class PythonHighlighter(QSyntaxHighlighter):
     def __init__(self, parent=None):
@@ -37,27 +41,39 @@ class PythonHighlighter(QSyntaxHighlighter):
         # String format ("" or '')
         string_format = QTextCharFormat()
         string_format.setForeground(QColor("#6A8759"))  # Greenish
-        self.highlighting_rules.append((QRegularExpression("\".*\""), string_format))
-        self.highlighting_rules.append((QRegularExpression("\'.*\'"), string_format))
+        self.highlighting_rules.append((QRegularExpression('".*"'), string_format))
+        self.highlighting_rules.append((QRegularExpression("'.*'"), string_format))
 
         # Comment format
         comment_format = QTextCharFormat()
         comment_format.setForeground(QColor("#808080"))  # Grey
         self.highlighting_rules.append((QRegularExpression("#[^\n]*"), comment_format))
-        
+
         # Number format
         number_format = QTextCharFormat()
-        number_format.setForeground(QColor("#6897BB")) # Blueish
-        self.highlighting_rules.append((QRegularExpression("\\b[0-9]+\\b"), number_format))
+        number_format.setForeground(QColor("#6897BB"))  # Blueish
+        self.highlighting_rules.append(
+            (QRegularExpression("\\b[0-9]+\\b"), number_format)
+        )
 
         # Builtins / Magic (Optional, simple set)
         builtin_format = QTextCharFormat()
         builtin_format.setForeground(QColor("#8888C6"))
-        builtins = ["print", "len", "range", "list", "dict", "set", "str", "int", "float", "help"]
+        builtins = [
+            "print",
+            "len",
+            "range",
+            "list",
+            "dict",
+            "set",
+            "str",
+            "int",
+            "float",
+            "help",
+        ]
         for word in builtins:
-             pattern = QRegularExpression(f"\\b{word}\\b")
-             self.highlighting_rules.append((pattern, builtin_format))
-
+            pattern = QRegularExpression(f"\\b{word}\\b")
+            self.highlighting_rules.append((pattern, builtin_format))
 
     def highlightBlock(self, text):
         for pattern, format in self.highlighting_rules:
@@ -76,7 +92,7 @@ class ConsoleInput(QPlainTextEdit):
         self.history_index = 0
         self.setPlaceholderText("Enter Python code... (Shift+Enter for new line)")
         # Make tab strictly 4 spaces
-        self.setTabStopDistance(self.fontMetrics().horizontalAdvance(' ') * 4)
+        self.setTabStopDistance(self.fontMetrics().horizontalAdvance(" ") * 4)
 
     def append_history(self, text):
         if text and (not self.history or self.history[-1] != text):
@@ -94,57 +110,58 @@ class ConsoleInput(QPlainTextEdit):
             else:
                 # Execute
                 self.execute_signal.emit()
-                return # Don't insert newline
-        
+                return  # Don't insert newline
+
         elif event.key() == Qt.Key.Key_Up:
-            # Navigate history only if we are at top (or 1 line) OR if modifiers? 
+            # Navigate history only if we are at top (or 1 line) OR if modifiers?
             # Standard console behavior: Up always goes to history if cursor is at top line?
-            # Let's simple it: ONLY if Control+Up, or if text is empty? 
+            # Let's simple it: ONLY if Control+Up, or if text is empty?
             # Or standard shell behavior: Up goes up through lines, then through history.
-            
+
             # Simple implementation: Up moves cursor unless at top line, then history.
             cursor = self.textCursor()
             block_number = cursor.blockNumber()
-            
+
             if block_number == 0 and self.history and self.history_index > 0:
-                 # Check if we are really at the very top (start of doc)?
-                 # Actually, usually shells allow Up to access history easily.
-                 # Let's say: if single line, Up -> History. If multi-line, Up -> Move up.
-                 # If at top line of multiline -> History.
-                 
-                 self.history_index -= 1
-                 self.setPlainText(self.history[self.history_index])
-                 self.moveCursor(QTextCursor.MoveOperation.End)
-                 return
-            
+                # Check if we are really at the very top (start of doc)?
+                # Actually, usually shells allow Up to access history easily.
+                # Let's say: if single line, Up -> History. If multi-line, Up -> Move up.
+                # If at top line of multiline -> History.
+
+                self.history_index -= 1
+                self.setPlainText(self.history[self.history_index])
+                self.moveCursor(QTextCursor.MoveOperation.End)
+                return
+
             super().keyPressEvent(event)
 
         elif event.key() == Qt.Key.Key_Down:
-             cursor = self.textCursor()
-             block_count = self.blockCount()
-             block_number = cursor.blockNumber()
+            cursor = self.textCursor()
+            block_count = self.blockCount()
+            block_number = cursor.blockNumber()
 
-             if block_number == block_count - 1:
-                 # At last line
-                 if self.history_index < len(self.history) - 1:
+            if block_number == block_count - 1:
+                # At last line
+                if self.history_index < len(self.history) - 1:
                     self.history_index += 1
                     self.setPlainText(self.history[self.history_index])
                     self.moveCursor(QTextCursor.MoveOperation.End)
                     return
-                 elif self.history_index == len(self.history) - 1:
-                     # Go to empty
-                     self.history_index += 1
-                     self.clear()
-                     return
-            
-             super().keyPressEvent(event)
-        
+                elif self.history_index == len(self.history) - 1:
+                    # Go to empty
+                    self.history_index += 1
+                    self.clear()
+                    return
+
+            super().keyPressEvent(event)
+
         else:
             super().keyPressEvent(event)
 
 
 class GUIHelp:
     """Custom help utility for the GUI Python Console to prevent freezing."""
+
     def __init__(self):
         pass
 
@@ -160,6 +177,7 @@ class GUIHelp:
             return
 
         import sys
+
         old_pager = getattr(pydoc, "pager", None)
         pydoc.pager = pydoc.plainpager
         try:
@@ -177,16 +195,16 @@ class PythonConsoleDialog(QDialog):
         self.context = context
         # Register window for V3 lifecycle management
         self.context.register_window("main_panel", self)
-        
+
         self.setWindowTitle("MoleditPy Python Console")
         self.resize(700, 500)
-        
+
         # UI Setup
         layout = QVBoxLayout()
-        
+
         # Splitter to allow resizing output/input area
         splitter = QSplitter(Qt.Orientation.Vertical)
-        
+
         # Output Area (Log)
         self.output_area = QTextEdit()
         self.output_area.setReadOnly(True)
@@ -194,37 +212,41 @@ class PythonConsoleDialog(QDialog):
         self.output_font = QFont("Consolas", 10)
         self.output_area.setFont(self.output_font)
         splitter.addWidget(self.output_area)
-        
+
         # Input Area with History
         self.input_area = ConsoleInput()
-        self.input_area.setStyleSheet("background-color: #2b2b2b; color: #ffffff; border: 1px solid #3e3e3e;")
+        self.input_area.setStyleSheet(
+            "background-color: #2b2b2b; color: #ffffff; border: 1px solid #3e3e3e;"
+        )
         self.input_area.setFont(self.output_font)
-        
+
         # Syntax Highlighter
         self.highlighter = PythonHighlighter(self.input_area.document())
-        
+
         self.input_area.execute_signal.connect(self.run_code)
         splitter.addWidget(self.input_area)
-        
+
         # Set initial sizes (Output 70%, Input 30%)
         splitter.setSizes([350, 150])
-        
+
         layout.addWidget(splitter)
-        
+
         # Help Label
-        help_text = QLabel("Avalable vars: 'mw' (MainWindow), 'mol' (current_mol), 'Chem' (rdkit.Chem)\nUse Shift+Enter for new line, Enter to Run.")
+        help_text = QLabel(
+            "Avalable vars: 'mw' (MainWindow), 'mol' (current_mol), 'Chem' (rdkit.Chem)\nUse Shift+Enter for new line, Enter to Run."
+        )
         help_text.setStyleSheet("color: gray; font-size: 10px;")
         layout.addWidget(help_text)
 
         self.setLayout(layout)
-        
+
         # Initialize execution environment (namespace)
         # # [DIRECT ACCESS] to core objects for scripting
         self.local_scope = {
-            'mw': self.context.get_main_window(),
-            'Chem': Chem,
-            'mol': self._get_best_mol(),
-            'help': GUIHelp(),
+            "mw": self.context.get_main_window(),
+            "Chem": Chem,
+            "mol": self._get_best_mol(),
+            "help": GUIHelp(),
         }
 
         # Initialize Interpreter
@@ -253,17 +275,17 @@ class PythonConsoleDialog(QDialog):
         self.input_area.clear()
 
         # Display Input
-        lines = command.split('\n')
+        lines = command.split("\n")
         self.append_output(f">>> {lines[0]}", color="#4CAF50")
         for line in lines[1:]:
-             self.append_output(f"... {line}", color="#4CAF50")
-        
+            self.append_output(f"... {line}", color="#4CAF50")
+
         # Sync variables
-        self.local_scope['mol'] = self._get_best_mol()
-        self.local_scope['mw'] = self.context.get_main_window()
-        
-        if self.local_scope['mol'] is None and 'mol' in command:
-             print("Warning: 'mol' is None (no valid molecule found).")
+        self.local_scope["mol"] = self._get_best_mol()
+        self.local_scope["mw"] = self.context.get_main_window()
+
+        if self.local_scope["mol"] is None and "mol" in command:
+            print("Warning: 'mol' is None (no valid molecule found).")
 
         # Capture Output
         stdout_capture = io.StringIO()
@@ -271,7 +293,9 @@ class PythonConsoleDialog(QDialog):
 
         try:
             with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
-                more = self.interpreter.runsource(command, "<console>", "exec" if '\n' in command else "single")
+                more = self.interpreter.runsource(
+                    command, "<console>", "exec" if "\n" in command else "single"
+                )
                 if more:
                     self.append_output("... (Incomplete input/block)", color="#FF9800")
         except Exception:
@@ -287,29 +311,37 @@ class PythonConsoleDialog(QDialog):
             self.append_output(err_str.strip(), color="#FF5252")
 
         # Scroll to bottom
-        self.output_area.verticalScrollBar().setValue(self.output_area.verticalScrollBar().maximum())
+        self.output_area.verticalScrollBar().setValue(
+            self.output_area.verticalScrollBar().maximum()
+        )
+
 
 def initialize(context):
+    global PLUGIN_CONTEXT
+    PLUGIN_CONTEXT = context
+
     def run_console():
         win = context.get_window("main_panel")
         if win is None:
             win = PythonConsoleDialog(context)
-        
+
         if win.isVisible():
             win.hide()
         else:
             win.show()
             win.raise_()
             win.activateWindow()
-            
+
     context.add_menu_action("Tools/Python Console", run_console)
 
+
 def run(mw):
-    if hasattr(mw, 'host'):
+    if hasattr(mw, "host"):
         mw = mw.host
-    from moleditpy.plugins.plugin_interface import PluginContext
-    context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
-    
+    context = PLUGIN_CONTEXT
+    if not context:
+        return
+
     win = context.get_window("main_panel")
     if win is None:
         win = PythonConsoleDialog(context)

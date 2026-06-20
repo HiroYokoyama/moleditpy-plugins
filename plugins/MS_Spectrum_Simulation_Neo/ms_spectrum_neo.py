@@ -1,9 +1,42 @@
 # -*- coding: utf-8 -*-
 import sys
 import math
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QWidget, QMessageBox, QPushButton, QFileDialog, QCheckBox, QDoubleSpinBox, QApplication
-from PyQt6.QtGui import QPainter, QPen, QColor, QFont, QPalette, QPageSize, QTextDocument, QImage, QPageLayout
-from PyQt6.QtCore import Qt, QRectF, QPointF, QTimer, QByteArray, QBuffer, QIODevice, QSizeF, QMarginsF, QLineF
+from PyQt6.QtWidgets import (
+    QDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QWidget,
+    QMessageBox,
+    QPushButton,
+    QFileDialog,
+    QCheckBox,
+    QDoubleSpinBox,
+    QApplication,
+)
+from PyQt6.QtGui import (
+    QPainter,
+    QPen,
+    QColor,
+    QFont,
+    QPalette,
+    QPageSize,
+    QTextDocument,
+    QImage,
+    QPageLayout,
+)
+from PyQt6.QtCore import (
+    Qt,
+    QRectF,
+    QPointF,
+    QTimer,
+    QByteArray,
+    QBuffer,
+    QIODevice,
+    QSizeF,
+    QMarginsF,
+    QLineF,
+)
 from PyQt6.QtPrintSupport import QPrinter
 import logging
 
@@ -15,11 +48,13 @@ except ImportError:
     Descriptors = None
     Draw = None
 
-PLUGIN_VERSION = "2026.04.12"
+PLUGIN_VERSION = "2026.06.20"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 
 PLUGIN_NAME = "MS Spectrum Simulation Neo"
 PLUGIN_DESCRIPTION = "Simulate and visualize mass spectra from molecular formula."
+
 
 class MSSpectrumDialog(QDialog):
     def __init__(self, context):
@@ -28,12 +63,12 @@ class MSSpectrumDialog(QDialog):
         self.resize(500, 700)
         self.context = context
         self.mol = self.context.current_molecule
-        
+
         # Setup timer for auto-update
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.check_update)
         # We start the timer later if sync is checked
-        
+
         # Clean white look
         self.setStyleSheet("""
             QDialog {
@@ -64,13 +99,19 @@ class MSSpectrumDialog(QDialog):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 10, 10, 10)
-        
+
         # --- Settings Panel ---
-        from PyQt6.QtWidgets import QGroupBox, QFormLayout, QLineEdit, QComboBox, QSpinBox
-        
+        from PyQt6.QtWidgets import (
+            QGroupBox,
+            QFormLayout,
+            QLineEdit,
+            QComboBox,
+            QSpinBox,
+        )
+
         settings_group = QGroupBox("Configuration")
         settings_layout = QFormLayout(settings_group)
-        
+
         # 1. Formula Input
         self.formula_input = QLineEdit()
         if self.mol:
@@ -81,41 +122,41 @@ class MSSpectrumDialog(QDialog):
             except Exception as _e:
                 logging.warning("[ms_spectrum_neo.py:79] silenced: %s", _e)
         settings_layout.addRow("Formula:", self.formula_input)
-        
+
         # 4. Sync & 2D Option
         self.sync_check = QCheckBox("Sync with Main Window")
         self.sync_check.stateChanged.connect(self.toggle_sync)
-        
+
         self.use_2d_check = QCheckBox("Use 2D molecule")
         self.use_2d_check.setChecked(True)
         self.use_2d_check.toggled.connect(lambda: self.check_update())
-        
+
         sync_layout = QHBoxLayout()
         sync_layout.addWidget(self.sync_check)
         sync_layout.addWidget(self.use_2d_check)
         sync_layout.addStretch()
-        
+
         if self.context.get_main_window():
-             self.sync_check.setChecked(True)
+            self.sync_check.setChecked(True)
         else:
-             self.sync_check.setChecked(False)
-             self.sync_check.setEnabled(False) # Disable in standalone/mock
-             self.use_2d_check.setEnabled(False)
-             self.use_2d_check.setChecked(False)
+            self.sync_check.setChecked(False)
+            self.sync_check.setEnabled(False)  # Disable in standalone/mock
+            self.use_2d_check.setEnabled(False)
+            self.use_2d_check.setChecked(False)
 
         settings_layout.addRow("Options:", sync_layout)
-        
+
         # 2. Charge (Signed)
         self.charge_spin = QSpinBox()
         self.charge_spin.setRange(-10, 10)
-        self.charge_spin.setValue(1) # Default +1
+        self.charge_spin.setValue(1)  # Default +1
         # Prevent 0
         self.charge_spin.valueChanged.connect(self.on_charge_changed)
         settings_layout.addRow("Charge (z):", self.charge_spin)
-        
+
         # 3. Adduct Species
         self.adduct_combo = QComboBox()
-        self.update_adduct_options() # Populate initial
+        self.update_adduct_options()  # Populate initial
         settings_layout.addRow("Adduct:", self.adduct_combo)
 
         layout.addWidget(settings_group)
@@ -139,7 +180,7 @@ class MSSpectrumDialog(QDialog):
         self.gauss_check = QCheckBox("Gaussian Broadening")
         self.gauss_check.setChecked(False)
         self.gauss_check.stateChanged.connect(self.recalc_peaks)
-        
+
         self.width_spin = QDoubleSpinBox()
         self.width_spin.setRange(0.001, 5.0)
         self.width_spin.setSingleStep(0.01)
@@ -147,7 +188,7 @@ class MSSpectrumDialog(QDialog):
         self.width_spin.setSuffix(" Da")
         self.width_spin.setToolTip("Peak width (Sigma)")
         self.width_spin.valueChanged.connect(self.recalc_peaks)
-        
+
         # Layout for Gaussian
         gauss_layout = QHBoxLayout()
         gauss_layout.addWidget(self.gauss_check)
@@ -155,17 +196,19 @@ class MSSpectrumDialog(QDialog):
         gauss_layout.addWidget(self.width_spin)
         gauss_layout.addStretch()
         spectrum_layout.addLayout(gauss_layout)
-        
+
         # --- Plot ---
         plot_container = QWidget()
-        plot_container.setStyleSheet("background-color: #ffffff; border: 1px solid #cccccc; border-radius: 4px;")
+        plot_container.setStyleSheet(
+            "background-color: #ffffff; border: 1px solid #cccccc; border-radius: 4px;"
+        )
         plot_layout = QVBoxLayout(plot_container)
         plot_layout.setContentsMargins(1, 1, 1, 1)
-        
-        self.plot_widget = HistogramWidget([]) # Init empty
+
+        self.plot_widget = HistogramWidget([])  # Init empty
         plot_layout.addWidget(self.plot_widget)
         spectrum_layout.addWidget(plot_container, 1)
-        
+
         layout.addWidget(spectrum_group, 1)
 
         # Export Button
@@ -189,26 +232,29 @@ class MSSpectrumDialog(QDialog):
         # Signals
         self.formula_input.textChanged.connect(lambda: self.recalc_peaks(reset=True))
         self.formula_input.textEdited.connect(lambda: self.sync_check.setChecked(False))
-        self.adduct_combo.currentIndexChanged.connect(lambda: self.recalc_peaks(reset=True))
+        self.adduct_combo.currentIndexChanged.connect(
+            lambda: self.recalc_peaks(reset=True)
+        )
         self.charge_spin.valueChanged.connect(lambda: self.recalc_peaks(reset=True))
-        
+
         # Gaussian changes should NOT reset view (keep zoom)
         self.gauss_check.stateChanged.connect(lambda: self.recalc_peaks(reset=False))
         self.width_spin.valueChanged.connect(lambda: self.recalc_peaks(reset=False))
-        
+
         # Initial Sync & Calc
         self.check_update()
         self.recalc_peaks(reset=True)
 
     def closeEvent(self, event):
-        if getattr(self, 'timer', None) is not None and self.timer.isActive():
+        if getattr(self, "timer", None) is not None and self.timer.isActive():
             self.timer.stop()
         event.accept()
 
     def toggle_sync(self, state):
-        if getattr(self, 'timer', None) is None: return
-        
-        if state == 2: # Checked
+        if getattr(self, "timer", None) is None:
+            return
+
+        if state == 2:  # Checked
             self.timer.start(500)
             self.check_update()
         else:
@@ -223,7 +269,9 @@ class MSSpectrumDialog(QDialog):
             if self.use_2d_check.isChecked():
                 # V3 Architecture: Use state_manager.data.to_rdkit_mol()
                 mw = self.context.get_main_window()
-                if hasattr(mw, 'state_manager') and hasattr(mw.state_manager.data, 'to_rdkit_mol'):
+                if hasattr(mw, "state_manager") and hasattr(
+                    mw.state_manager.data, "to_rdkit_mol"
+                ):
                     new_mol = mw.state_manager.data.to_rdkit_mol()
                 else:
                     new_mol = self.context.current_molecule
@@ -239,18 +287,22 @@ class MSSpectrumDialog(QDialog):
             # Generate formula from current molecule
             # For MS Spectrum, we usually want the formula including Hs
             # We don't modify the original mol, just calculate on a version with Hs
-            mol_to_calc = Chem.AddHs(self.mol) if self.use_2d_check.isChecked() else self.mol
+            mol_to_calc = (
+                Chem.AddHs(self.mol) if self.use_2d_check.isChecked() else self.mol
+            )
             current_formula = Chem.rdMolDescriptors.CalcMolFormula(mol_to_calc)
-            
+
             # If different from text box, update
             if self.formula_input.text() != current_formula:
-                 self.formula_input.setText(current_formula)
+                self.formula_input.setText(current_formula)
         except Exception as _e:
             # Fail silently to avoid spamming errors in timer
             logging.warning("[ms_spectrum_neo.py:246] silenced: %s", _e)
 
     def export_image(self):
-        filename, _ = QFileDialog.getSaveFileName(self, "Save Spectrum Image", "spectrum.png", "Images (*.png *.jpg)")
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Save Spectrum Image", "spectrum.png", "Images (*.png *.jpg)"
+        )
         if filename:
             pixmap = self.plot_widget.grab()
             if pixmap.save(filename):
@@ -260,7 +312,7 @@ class MSSpectrumDialog(QDialog):
 
     def on_charge_changed(self, val):
         # Allow 0
-        
+
         # Always update options to reflect new charge in strings
         # Always update options to reflect new charge in strings
         self.update_adduct_options()
@@ -272,174 +324,193 @@ class MSSpectrumDialog(QDialog):
 
     def to_superscript(self, txt):
         mapping = {
-            '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
-            '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
-            '+': '⁺', '-': '⁻'
+            "0": "⁰",
+            "1": "¹",
+            "2": "²",
+            "3": "³",
+            "4": "⁴",
+            "5": "⁵",
+            "6": "⁶",
+            "7": "⁷",
+            "8": "⁸",
+            "9": "⁹",
+            "+": "⁺",
+            "-": "⁻",
         }
         return "".join(mapping.get(c, c) for c in str(txt))
 
     def to_subscript(self, txt):
         mapping = {
-            '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄',
-            '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉'
+            "0": "₀",
+            "1": "₁",
+            "2": "₂",
+            "3": "₃",
+            "4": "₄",
+            "5": "₅",
+            "6": "₆",
+            "7": "₇",
+            "8": "₈",
+            "9": "₉",
         }
         return "".join(mapping.get(c, c) for c in str(txt))
 
     def update_adduct_options(self):
         # Save current choice
         current_idx = self.adduct_combo.currentIndex()
-        if current_idx < 0: current_idx = 0
-        
+        if current_idx < 0:
+            current_idx = 0
+
         self.adduct_combo.blockSignals(True)
         self.adduct_combo.clear()
-        
+
         charge_val = self.charge_spin.value()
         z = abs(charge_val)
-        
+
         if charge_val == 0:
-            items = [
-                "M (Neutral) [M]",
-                "None"
-            ]
+            items = ["M (Neutral) [M]", "None"]
             self.adduct_combo.addItems(items)
             self.adduct_combo.blockSignals(False)
             return
 
         sign = "⁺" if charge_val > 0 else "⁻"
-        
+
         # Format Charge Superscript (e.g. ²⁺ or ⁺)
         z_super = self.to_superscript(z) if z > 1 else ""
         charge_str = f"{z_super}{sign}"
-        
+
         # Format Count (coefficient) (e.g. 2 or "")
         n_str = str(z) if z > 1 else ""
-        
-        if charge_val > 0: # Positive
+
+        if charge_val > 0:  # Positive
             items = [
                 f"M [M]{charge_str}",
-                f"H (Proton) [M+{n_str}H]{charge_str}", 
-                f"Na (Sodium) [M+{n_str}Na]{charge_str}", 
-                f"K (Potassium) [M+{n_str}K]{charge_str}", 
-                f"NH4 (Ammonium) [M+{n_str}NH{self.to_subscript(4)}]{charge_str}", 
-                f"CH3CN+H (Acetonitrile) [M+{n_str}H+{n_str}CH{self.to_subscript(3)}CN]{charge_str}"
+                f"H (Proton) [M+{n_str}H]{charge_str}",
+                f"Na (Sodium) [M+{n_str}Na]{charge_str}",
+                f"K (Potassium) [M+{n_str}K]{charge_str}",
+                f"NH4 (Ammonium) [M+{n_str}NH{self.to_subscript(4)}]{charge_str}",
+                f"CH3CN+H (Acetonitrile) [M+{n_str}H+{n_str}CH{self.to_subscript(3)}CN]{charge_str}",
             ]
-        else: # Negative
+        else:  # Negative
             items = [
                 f"M [M]{charge_str}",
-                f"H (Deprotonation) [M-{n_str}H]{charge_str}", 
-                f"Cl (Chloride) [M+{n_str}Cl]{charge_str}", 
-                f"HCOO (Formate) [M+{n_str}HCOO]{charge_str}", 
-                f"CH3COO (Acetate) [M+{n_str}CH{self.to_subscript(3)}COO]{charge_str}"
+                f"H (Deprotonation) [M-{n_str}H]{charge_str}",
+                f"Cl (Chloride) [M+{n_str}Cl]{charge_str}",
+                f"HCOO (Formate) [M+{n_str}HCOO]{charge_str}",
+                f"CH3COO (Acetate) [M+{n_str}CH{self.to_subscript(3)}COO]{charge_str}",
             ]
-        
+
         self.adduct_combo.addItems(items)
-        
+
         # Restore index if safe, else 0
         if current_idx < self.adduct_combo.count():
             self.adduct_combo.setCurrentIndex(current_idx)
         else:
-             self.adduct_combo.setCurrentIndex(0)
-             
+            self.adduct_combo.setCurrentIndex(0)
+
         self.adduct_combo.blockSignals(False)
 
     def parse_formula_str(self, formula):
         import re
+
         # Tokenize: Elements (e.g., "Na", "C"), Numbers, Parentheses, Plus, Minus
         # We perform strict validation: joined tokens must match the input string (less whitespace)
         tokens = re.findall(r"([A-Z][a-z]*|\d+|\(|\)|[\+\-])", formula)
-        
+
         # Strict Check
         if "".join(tokens) != formula.replace(" ", ""):
-            return None # Invalid characters found
-        
+            return None  # Invalid characters found
+
         stack = [{}]
-        
+
         i = 0
         while i < len(tokens):
             token = tokens[i]
-            
-            if token == '(':
+
+            if token == "(":
                 stack.append({})
                 i += 1
-            elif token == ')':
+            elif token == ")":
                 # Check for multiplier after parenthesis
                 multiplier = 1
-                if i + 1 < len(tokens) and tokens[i+1].isdigit():
-                    multiplier = int(tokens[i+1])
-                    i += 1 # Consume number
-                
+                if i + 1 < len(tokens) and tokens[i + 1].isdigit():
+                    multiplier = int(tokens[i + 1])
+                    i += 1  # Consume number
+
                 # Pop and merge
                 if len(stack) > 1:
                     top = stack.pop()
                     for el, count in top.items():
                         stack[-1][el] = stack[-1].get(el, 0) + count * multiplier
                 i += 1
-            elif token in ['+', '-']:
+            elif token in ["+", "-"]:
                 # Ignore charge symbols in formula (handled by spinbox, or just noise)
                 i += 1
             elif token.isdigit():
                 # Should have been handled, but ignore if standalone
                 i += 1
-            elif token[0].isalpha(): # Element
+            elif token[0].isalpha():  # Element
                 element = token
                 count = 1
-                if i + 1 < len(tokens) and tokens[i+1].isdigit():
-                    count = int(tokens[i+1])
-                    i += 1 # Consume number
-                
+                if i + 1 < len(tokens) and tokens[i + 1].isdigit():
+                    count = int(tokens[i + 1])
+                    i += 1  # Consume number
+
                 stack[-1][element] = stack[-1].get(element, 0) + count
                 i += 1
-                
+
         # Merge any remaining stack items
         while len(stack) > 1:
-             top = stack.pop()
-             for el, count in top.items():
-                 stack[-1][el] = stack[-1].get(el, 0) + count
-                 
+            top = stack.pop()
+            for el, count in top.items():
+                stack[-1][el] = stack[-1].get(el, 0) + count
+
         return stack[0]
 
     def get_adduct_delta(self, species_idx, mode, charge):
         # Map index to species logic
         # Positive: 0:M, 1:H, 2:Na, 3:K, 4:NH4, 5:CH3CN+H
         # Negative: 0:M, 1:H(-), 2:Cl, 3:HCOO, 4:CH3COO
-        
+
         delta = {}
-        
+
         # NOTE: Indices shifted because M is now 0
         if mode == "Positive":
-            if species_idx == 0: # M
-                 pass
-            elif species_idx == 1: # H
-                 delta = {'H': 1 * charge}
-            elif species_idx == 2: # Na
-                 delta = {'Na': 1 * charge}
-            elif species_idx == 3: # K
-                 delta = {'K': 1 * charge}
-            elif species_idx == 4: # NH4
-                 delta = {'N': 1 * charge, 'H': 4 * charge}
-            elif species_idx == 5: # CH3CN+H
-                 delta = {'C': 2 * charge, 'H': 4 * charge, 'N': 1 * charge}
-            
-        else: # Negative
-            if species_idx == 0: # M
-                 pass
-            elif species_idx == 1: # H (Deprotonation -H)
-                 delta = {'H': -1 * charge}
-            elif species_idx == 2: # Cl
-                 delta = {'Cl': 1 * charge}
-            elif species_idx == 3: # HCOO
-                 delta = {'C': 1 * charge, 'H': 1 * charge, 'O': 2 * charge}
-            elif species_idx == 4: # CH3COO
-                 delta = {'C': 2 * charge, 'H': 3 * charge, 'O': 2 * charge}
+            if species_idx == 0:  # M
+                pass
+            elif species_idx == 1:  # H
+                delta = {"H": 1 * charge}
+            elif species_idx == 2:  # Na
+                delta = {"Na": 1 * charge}
+            elif species_idx == 3:  # K
+                delta = {"K": 1 * charge}
+            elif species_idx == 4:  # NH4
+                delta = {"N": 1 * charge, "H": 4 * charge}
+            elif species_idx == 5:  # CH3CN+H
+                delta = {"C": 2 * charge, "H": 4 * charge, "N": 1 * charge}
+
+        else:  # Negative
+            if species_idx == 0:  # M
+                pass
+            elif species_idx == 1:  # H (Deprotonation -H)
+                delta = {"H": -1 * charge}
+            elif species_idx == 2:  # Cl
+                delta = {"Cl": 1 * charge}
+            elif species_idx == 3:  # HCOO
+                delta = {"C": 1 * charge, "H": 1 * charge, "O": 2 * charge}
+            elif species_idx == 4:  # CH3COO
+                delta = {"C": 2 * charge, "H": 3 * charge, "O": 2 * charge}
 
         return delta
 
     def export_csv(self):
-        filename, _ = QFileDialog.getSaveFileName(self, "Save Spectrum CSV", "spectrum.csv", "CSV Files (*.csv)")
-        if not filename: return
-        
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Save Spectrum CSV", "spectrum.csv", "CSV Files (*.csv)"
+        )
+        if not filename:
+            return
+
         try:
-            with open(filename, 'w') as f:
+            with open(filename, "w") as f:
                 f.write("m/z,Intensity\n")
                 data = self.plot_widget.peaks
                 for m, i in data:
@@ -450,7 +521,7 @@ class MSSpectrumDialog(QDialog):
 
     def recalc_peaks(self, reset=True):
         peaks, final_mw, neutral_exact_mw, ion_mz = self._calculate_peaks()
-        
+
         # Apply Gaussian if checked
         if self.gauss_check.isChecked() and peaks:
             sigma = self.width_spin.value()
@@ -462,38 +533,39 @@ class MSSpectrumDialog(QDialog):
 
         self.peaks = display_peaks
         self.plot_widget.peaks = display_peaks
-        self.plot_widget.stick_peaks = peaks # Save theoretical peaks for labels
-        
+        self.plot_widget.stick_peaks = peaks  # Save theoretical peaks for labels
+
         if reset:
-             self.plot_widget.reset_view()
+            self.plot_widget.reset_view()
         else:
-             self.plot_widget.update()
-             
+            self.plot_widget.update()
+
         # Prepare Info Text for Graph
         formula_raw = self.formula_input.text().strip()
-        
+
         # Format formula (C6H6 -> C₁E₁E
         sub_map = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
         formula_formatted = formula_raw.translate(sub_map)
-        
+
         full_adduct_str = self.adduct_combo.currentText()
         import re
+
         match = re.search(r"\[.*?\][⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻˙]*", full_adduct_str)
         if match:
-             adduct_display = match.group(0)
+            adduct_display = match.group(0)
         else:
-             adduct_display = full_adduct_str
-        
+            adduct_display = full_adduct_str
+
         adduct_display = adduct_display.replace("M", formula_formatted)
 
         if self.charge_spin.value() == 0:
-             adduct_display = "Neutral"
-             self.plot_widget.info_text = f"{formula_formatted}\n{adduct_display}"
+            adduct_display = "Neutral"
+            self.plot_widget.info_text = f"{formula_formatted}\n{adduct_display}"
         else:
-             self.plot_widget.info_text = f"{adduct_display}"
+            self.plot_widget.info_text = f"{adduct_display}"
 
         self.plot_widget.update()
-        
+
         # Update Info
         try:
             self.lbl_ion.setText(f"<b>Monoisotopic m/z:</b> {ion_mz:.4f}")
@@ -503,32 +575,37 @@ class MSSpectrumDialog(QDialog):
             logging.warning("[ms_spectrum_neo.py:500] silenced: %s", _e)
 
     def apply_gaussian_broadening(self, peaks, sigma):
-        if not peaks: return []
-        
+        if not peaks:
+            return []
+
         # Dynamic margin to avoid clipping wide peaks
         margin = max(2.0, 6.0 * sigma)
         min_mz = min(p[0] for p in peaks) - margin
         max_mz = max(p[0] for p in peaks) + margin
-        
+
         # Grid - Finer resolution to minimize peak shift artifacts
         import numpy as np
+
         # 10 points per sigma is better for appearance, 20 is good for peak top approx
-        step = min(0.005, sigma / 10.0) 
+        step = min(0.005, sigma / 10.0)
         x_vals = np.arange(min_mz, max_mz, step)
         y_vals = np.zeros_like(x_vals)
-        
+
         # Sum Gaussians
         for center, intensity in peaks:
-            indices = np.where((x_vals >= center - 5*sigma) & (x_vals <= center + 5*sigma))
-            if len(indices[0]) == 0: continue
-            
+            indices = np.where(
+                (x_vals >= center - 5 * sigma) & (x_vals <= center + 5 * sigma)
+            )
+            if len(indices[0]) == 0:
+                continue
+
             xs = x_vals[indices]
-            ys = intensity * np.exp( - (xs - center)**2 / (2 * sigma**2) )
+            ys = intensity * np.exp(-((xs - center) ** 2) / (2 * sigma**2))
             y_vals[indices] += ys
-            
+
         if np.max(y_vals) > 0:
             y_vals = (y_vals / np.max(y_vals)) * 100.0
-            
+
         return list(zip(x_vals, y_vals))
 
     def _calculate_peaks(self):
@@ -539,24 +616,24 @@ class MSSpectrumDialog(QDialog):
         # 1. Base composition
         base_counts = self.parse_formula_str(formula_str)
         if not base_counts:
-             return [], 0.0, 0.0, 0.0
+            return [], 0.0, 0.0, 0.0
 
         # 2. Adduct adjustments
-        charge_val = self.charge_spin.value() # Signed
+        charge_val = self.charge_spin.value()  # Signed
         charge = abs(charge_val)
         mode = "Positive" if charge_val > 0 else "Negative"
         species_idx = self.adduct_combo.currentIndex()
-        
+
         delta = self.get_adduct_delta(species_idx, mode, charge)
-        
+
         # Merge counts
         final_counts = base_counts.copy()
         for el, count in delta.items():
             final_counts[el] = final_counts.get(el, 0) + count
-            
+
         # Remove elements with <= 0 count
         final_counts = {k: v for k, v in final_counts.items() if v > 0}
-        
+
         if not final_counts:
             return [], 0.0, 0.0, 0.0
 
@@ -564,22 +641,23 @@ class MSSpectrumDialog(QDialog):
         pt = Chem.GetPeriodicTable()
         current_dist = [(0.0, 1.0)]
         electron_mass = 0.00054858
-        
-        total_mw = 0.0 # Neutral average mass
+
+        total_mw = 0.0  # Neutral average mass
 
         for sym, count in final_counts.items():
             # Special handling for Deuterium
             if sym == "D":
-                 mass_d = 2.0141017781
-                 total_mw += mass_d * count
-                 atom_iso_dist = [(mass_d, 1.0)]
+                mass_d = 2.0141017781
+                total_mw += mass_d * count
+                atom_iso_dist = [(mass_d, 1.0)]
             else:
                 try:
-                    base_mass = pt.GetAtomicWeight(sym) # Average weight
+                    base_mass = pt.GetAtomicWeight(sym)  # Average weight
                     total_mw += base_mass * count
-                    
+
                     atomic_num = pt.GetAtomicNumber(sym)
-                    if atomic_num <= 0: raise RuntimeError("Invalid Atom") # Just in case
+                    if atomic_num <= 0:
+                        raise RuntimeError("Invalid Atom")  # Just in case
 
                     atom_iso_dist = []
                     center_mass = pt.GetMostCommonIsotope(atomic_num)
@@ -592,10 +670,11 @@ class MSSpectrumDialog(QDialog):
                                 atom_iso_dist.append((exact_mass, abundance))
                         except RuntimeError as _e:
                             logging.warning("[ms_spectrum_neo.py:592] silenced: %s", _e)
-                    
+
                     # Normalize
                     total_p = sum(p for m, p in atom_iso_dist)
-                    if total_p == 0: continue
+                    if total_p == 0:
+                        continue
                     atom_iso_dist = [(m, p / total_p) for m, p in atom_iso_dist]
                 except:
                     # Found an unrecognized element -> Invalid Formula -> Hide Spectrum
@@ -605,15 +684,16 @@ class MSSpectrumDialog(QDialog):
             for _ in range(count):
                 new_peaks = {}
                 for m1, p1 in current_dist:
-                    if p1 < 1e-5: continue
+                    if p1 < 1e-5:
+                        continue
                     for m2, p2 in atom_iso_dist:
                         m = m1 + m2
                         p = p1 * p2
                         m_bin = round(m, 6)
                         new_peaks[m_bin] = new_peaks.get(m_bin, 0) + p
-                
+
                 sorted_p = sorted(new_peaks.items())
-                
+
                 merged = []
                 if sorted_p:
                     curr_m, curr_p = sorted_p[0]
@@ -626,26 +706,26 @@ class MSSpectrumDialog(QDialog):
                             merged.append((curr_m, curr_p))
                             curr_m, curr_p = m, p
                     merged.append((curr_m, curr_p))
-                
+
                 max_p = max(p for m, p in merged) if merged else 1
                 current_dist = [x for x in merged if x[1] > max_p * 0.001]
                 if len(current_dist) > 200:
-                        current_dist.sort(key=lambda x: x[1], reverse=True)
-                        current_dist = current_dist[:200]
+                    current_dist.sort(key=lambda x: x[1], reverse=True)
+                    current_dist = current_dist[:200]
 
         # Calculate EXACT NEUTRAL MASS (Always needed)
         exact_mass_sum = 0.0
         for sym, count in final_counts.items():
             if sym == "D":
-                 exact_mass_sum += 2.0141017781 * count
+                exact_mass_sum += 2.0141017781 * count
             else:
-                 try:
-                     anum = pt.GetAtomicNumber(sym)
-                     m_iso = pt.GetMostCommonIsotope(anum)
-                     mass_iso = pt.GetMassForIsotope(anum, m_iso)
-                     exact_mass_sum += mass_iso * count
-                 except Exception as _e:
-                     logging.warning("[ms_spectrum_neo.py:645] silenced: %s", _e)
+                try:
+                    anum = pt.GetAtomicNumber(sym)
+                    m_iso = pt.GetMostCommonIsotope(anum)
+                    mass_iso = pt.GetMassForIsotope(anum, m_iso)
+                    exact_mass_sum += mass_iso * count
+                except Exception as _e:
+                    logging.warning("[ms_spectrum_neo.py:645] silenced: %s", _e)
 
         neutral_exact_mass = exact_mass_sum
 
@@ -657,47 +737,55 @@ class MSSpectrumDialog(QDialog):
 
         # Apply electron mass correction
         total_ion_mass_dist = []
-        
+
         e_params = 0
         if mode == "Positive":
-             e_params = -1 * charge * electron_mass
+            e_params = -1 * charge * electron_mass
         else:
-             e_params = +1 * charge * electron_mass
-             
+            e_params = +1 * charge * electron_mass
+
         for m, p in current_dist:
             ion_mass = m + e_params
-            if ion_mass <= 0: continue
+            if ion_mass <= 0:
+                continue
             mz = ion_mass / charge
             total_ion_mass_dist.append((mz, p))
-            
+
         if not total_ion_mass_dist:
             return [], total_mw, neutral_exact_mass, 0.0
 
         max_intensity = max(p for m, p in total_ion_mass_dist)
         final_peaks = [(m, (p / max_intensity) * 100.0) for m, p in total_ion_mass_dist]
         final_peaks.sort(key=lambda x: x[0])
-        
+
         if mode == "Positive":
-             exact_mass_sum += (-1 * charge * electron_mass)
+            exact_mass_sum += -1 * charge * electron_mass
         else:
-             exact_mass_sum += (+1 * charge * electron_mass)
-             
+            exact_mass_sum += +1 * charge * electron_mass
+
         exact_mz = exact_mass_sum / charge if charge != 0 else 0
 
-        return [p for p in final_peaks if p[1] > 0.05], total_mw, neutral_exact_mass, exact_mz
+        return (
+            [p for p in final_peaks if p[1] > 0.05],
+            total_mw,
+            neutral_exact_mass,
+            exact_mz,
+        )
 
     def create_report(self):
-        filename, _ = QFileDialog.getSaveFileName(self, "Save PDF Report", "spectrum_report.pdf", "PDF Files (*.pdf)")
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Save PDF Report", "spectrum_report.pdf", "PDF Files (*.pdf)"
+        )
         if not filename:
-             return
+            return
 
         # 1. Prepare Images
         # 1. Prepare Images
         # Spectrum - High Resolution Render
-        spec_w, spec_h = 2400, 1200 # 2x High Res
+        spec_w, spec_h = 2400, 1200  # 2x High Res
         spec_img = QImage(spec_w, spec_h, QImage.Format.Format_ARGB32)
         spec_img.fill(Qt.GlobalColor.white)
-        
+
         spec_painter = QPainter(spec_img)
         # Use a localized rect for the painter
         self.plot_widget.draw_spectrum(spec_painter, QRectF(0, 0, spec_w, spec_h))
@@ -712,41 +800,49 @@ class MSSpectrumDialog(QDialog):
         # Molecule Image Logic & Scaling
         mol_b64 = ""
         img_w, img_h = 0, 0
-        
+
         if self.mol:
             # 1. Try to grabbing from Main Window Scene (User's View) via context.scene
             if self.context.scene:
                 try:
                     scene = self.context.scene
-                    
+
                     # Calculate tight bounding box around atoms/bonds only
                     molecule_bounds = QRectF()
                     for item in scene.items():
                         item_type = type(item).__name__
                         if item_type in ["AtomItem", "BondItem"] and item.isVisible():
-                            molecule_bounds = molecule_bounds.united(item.sceneBoundingRect())
-                    
+                            molecule_bounds = molecule_bounds.united(
+                                item.sceneBoundingRect()
+                            )
+
                     if molecule_bounds.isEmpty():
                         molecule_bounds = scene.itemsBoundingRect()
-                    
+
                     if not molecule_bounds.isEmpty():
                         padding = 20
-                        source_rect = molecule_bounds.adjusted(-padding, -padding, padding, padding)
-                        
+                        source_rect = molecule_bounds.adjusted(
+                            -padding, -padding, padding, padding
+                        )
+
                         w = int(source_rect.width())
                         h = int(source_rect.height())
-                        
+
                         if w > 0 and h > 0:
                             img = QImage(w, h, QImage.Format.Format_ARGB32)
                             img.fill(Qt.GlobalColor.white)
-                            
+
                             if not img.isNull():
                                 painter = QPainter()
                                 if painter.begin(img):
-                                    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-                                    scene.render(painter, QRectF(0, 0, w, h), source_rect)
+                                    painter.setRenderHint(
+                                        QPainter.RenderHint.Antialiasing
+                                    )
+                                    scene.render(
+                                        painter, QRectF(0, 0, w, h), source_rect
+                                    )
                                     painter.end()
-                                    
+
                                     ba = QByteArray()
                                     buf = QBuffer(ba)
                                     buf.open(QIODevice.OpenModeFlag.WriteOnly)
@@ -760,24 +856,26 @@ class MSSpectrumDialog(QDialog):
 
             # 2. Fallback to RDKit Draw
             if not mol_b64 and Draw:
-                 try:
+                try:
                     img = Draw.MolToImage(self.mol, size=(300, 300))
                     from io import BytesIO
+
                     buffered = BytesIO()
                     img.save(buffered, format="PNG")
                     import base64
+
                     mol_b64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
                     img_w, img_h = 300, 300
-                 except Exception as e:
+                except Exception as e:
                     print(f"Mol Image Error: {e}")
 
         # Calculate Scaled Dimensions for Report (Max 260x190 inside 270x200 frame)
         disp_w, disp_h = 0, 0
         if mol_b64 and img_w > 0 and img_h > 0:
-            max_w, max_h = 260, 190 # Padding inside the 270x200 frame
+            max_w, max_h = 260, 190  # Padding inside the 270x200 frame
             ratio = min(max_w / img_w, max_h / img_h)
             # Scale to fit (contain) inside the box
-            final_ratio = ratio 
+            final_ratio = ratio
             disp_w = int(img_w * final_ratio)
             disp_h = int(img_h * final_ratio)
         else:
@@ -801,7 +899,7 @@ class MSSpectrumDialog(QDialog):
         mz_lbl, mz_val = split_lbl_val(mz_text)
         em_lbl, em_val = split_lbl_val(em_text)
         mw_lbl, mw_val = split_lbl_val(mw_text)
-        
+
         html = f"""
         <html>
         <body style="font-family: sans-serif;">
@@ -880,72 +978,92 @@ class MSSpectrumDialog(QDialog):
             printer = QPrinter()
             printer.setOutputFormat(QPrinter.OutputFormat.PdfFormat)
             printer.setOutputFileName(filename)
-            printer.setResolution(300) # High Resolution for quality, manually utilizing full width pixels
-            
+            printer.setResolution(
+                300
+            )  # High Resolution for quality, manually utilizing full width pixels
+
             # Page Layout
             margins = QMarginsF(30, 30, 30, 30)
-            layout = QPageLayout(QPageSize(QPageSize.PageSizeId.A4), QPageLayout.Orientation.Portrait, margins)
+            layout = QPageLayout(
+                QPageSize(QPageSize.PageSizeId.A4),
+                QPageLayout.Orientation.Portrait,
+                margins,
+            )
             layout.setUnits(QPageLayout.Unit.Millimeter)
             printer.setPageLayout(layout)
-            
+
             doc = QTextDocument()
             doc.setHtml(html)
-            
+
             # Use paintRectPixels at printer resolution
             paint_rect = layout.paintRectPixels(printer.resolution())
-            
+
             # Coordinate scaling for High DPI standard sizing
             # Map logical screen pixels (96 DPI) to printer resolution (300 DPI)
             scale_factor = printer.resolution() / 96.0
             logical_w = paint_rect.width() / scale_factor
             logical_h = paint_rect.height() / scale_factor
-            
+
             doc.setPageSize(QSizeF(logical_w, logical_h))
-            
+
             # Manual Painting
             painter = QPainter(printer)
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            
+
             # Save state before scaling for HTML
             painter.save()
-            
+
             # Apply scaling for HTML content
             painter.scale(scale_factor, scale_factor)
-            
+
             doc.drawContents(painter)
-            
+
             # Restore state (remove scaling) for Footer
             painter.restore()
-            
+
             # Draw Footer at absolute bottom of printable area (in Native Printer Coordinates)
-            footer_text = "Generated by MoleditPy MS Spectrum Simulation Neo Plugin (Ver. " + PLUGIN_VERSION + ")"
-            f_font = QFont("Arial", 9) # Standard readable size (native 300 DPI points)
+            footer_text = (
+                "Generated by MoleditPy MS Spectrum Simulation Neo Plugin (Ver. "
+                + PLUGIN_VERSION
+                + ")"
+            )
+            f_font = QFont("Arial", 9)  # Standard readable size (native 300 DPI points)
             painter.setFont(f_font)
             painter.setPen(QColor("#888888"))
-            
+
             # Position: Bottom 100 pixels (in native 300 DPI pixels)
             # paint_rect.height() is native pixels
             footer_rect = QRectF(0, paint_rect.height() - 100, paint_rect.width(), 100)
-            painter.drawText(footer_rect, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom, footer_text)
-            
+            painter.drawText(
+                footer_rect,
+                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom,
+                footer_text,
+            )
+
             painter.end()
-            
-            QMessageBox.information(self, "Report Saved", f"Report saved to:\n{filename}")
+
+            QMessageBox.information(
+                self, "Report Saved", f"Report saved to:\n{filename}"
+            )
         except Exception as e:
-             QMessageBox.critical(self, "Report Logic Error", f"Failed to generate PDF content: {e}")
+            QMessageBox.critical(
+                self, "Report Logic Error", f"Failed to generate PDF content: {e}"
+            )
 
 
 class HistogramWidget(QWidget):
     def __init__(self, peaks):
         super().__init__()
-        self.peaks = peaks # list of (mass, intensity) - used for drawing (stick or profile)
-        self.stick_peaks = [] # Always holds the theoretical stick peaks for labeling
+        self.peaks = (
+            peaks  # list of (mass, intensity) - used for drawing (stick or profile)
+        )
+        self.stick_peaks = []  # Always holds the theoretical stick peaks for labeling
         self.info_text = ""
-        self.draw_mode = "stick" # "stick" or "profile"
+        self.draw_mode = "stick"  # "stick" or "profile"
         self.setBackgroundRole(QPalette.ColorRole.Base)
         self.setAutoFillBackground(False)
         self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent)
-        
+
         # View State
         self.view_min = None
         self.view_max = None
@@ -963,55 +1081,60 @@ class HistogramWidget(QWidget):
         if masses:
             min_m, max_m = min(masses), max(masses)
             if max_m == min_m:
-                 min_m -= 5.0
-                 max_m += 5.0
+                min_m -= 5.0
+                max_m += 5.0
             else:
-                 padding = 5.0
-                 min_m -= padding
-                 max_m += padding
+                padding = 5.0
+                min_m -= padding
+                max_m += padding
             self.view_min = min_m
             self.view_max = max_m
         else:
             self.view_min = 0.0
             self.view_max = 100.0
-        
+
         self.update()
 
     def wheelEvent(self, event):
-        if self.view_min is None or self.view_max is None: return
-        
+        if self.view_min is None or self.view_max is None:
+            return
+
         # Current Range
         current_range = self.view_max - self.view_min
-        if current_range <= 0: return
+        if current_range <= 0:
+            return
 
         # Zoom Factor
         angle = event.angleDelta().y()
         factor = 0.9 if angle > 0 else 1.1
-        
+
         # Mouse Position Ratio (0.0 to 1.0) relative to plot area
         w = self.width()
         ml, mr = 60, 40
         plot_w = w - ml - mr
-        if plot_w <= 0: return
-        
+        if plot_w <= 0:
+            return
+
         mouse_x = event.position().x()
         ratio = (mouse_x - ml) / plot_w
         # Clamp ratio
         ratio = max(0.0, min(1.0, ratio))
-        
+
         # Calculate new range
         new_range = current_range * factor
-        
+
         # Limit zoom (e.g. max range 2000, min range 1.0)
-        if new_range > 5000: new_range = 5000
-        if new_range < 1.0: new_range = 1.0
-        
+        if new_range > 5000:
+            new_range = 5000
+        if new_range < 1.0:
+            new_range = 1.0
+
         # Adjust min/max keeping ratio point fixed
         change = new_range - current_range
-        
+
         self.view_min -= change * ratio
         self.view_max += change * (1.0 - ratio)
-        
+
         self.update()
 
     def mousePressEvent(self, event):
@@ -1020,22 +1143,22 @@ class HistogramWidget(QWidget):
 
     def mouseMoveEvent(self, event):
         if self.last_mouse_x is not None and self.view_min is not None:
-             dx = event.position().x() - self.last_mouse_x
-             
-             w = self.width()
-             ml, mr = 60, 40
-             plot_w = w - ml - mr
-             
-             if plot_w > 0:
-                 current_range = self.view_max - self.view_min
-                 # Pixels to Mass Units
-                 mass_shift = (dx / plot_w) * current_range
-                 
-                 self.view_min -= mass_shift
-                 self.view_max -= mass_shift
-                 self.update()
-             
-             self.last_mouse_x = event.position().x()
+            dx = event.position().x() - self.last_mouse_x
+
+            w = self.width()
+            ml, mr = 60, 40
+            plot_w = w - ml - mr
+
+            if plot_w > 0:
+                current_range = self.view_max - self.view_min
+                # Pixels to Mass Units
+                mass_shift = (dx / plot_w) * current_range
+
+                self.view_min -= mass_shift
+                self.view_max -= mass_shift
+                self.update()
+
+            self.last_mouse_x = event.position().x()
 
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -1045,28 +1168,26 @@ class HistogramWidget(QWidget):
         if event.button() == Qt.MouseButton.LeftButton:
             self.reset_view()
 
-
-
     def paintEvent(self, event):
         painter = QPainter(self)
         self.draw_spectrum(painter, self.rect())
 
     def draw_spectrum(self, painter, rect):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        
+
         # Use passed rect dimensions
         w = rect.width()
         h = rect.height()
-        
+
         # 1. Background White
         painter.fillRect(rect, QColor("#ffffff"))
-        
+
         # Scaled Margins (Base 60,60,40,50 on standard size, scale up for high res)
-        # We can keep fixed margins, but for high res image (e.g. 2400 width), 
+        # We can keep fixed margins, but for high res image (e.g. 2400 width),
         # fixed pixel margins might be too small/large.
         # Let's use proportional scaling or fixed reasonable margins.
         # Actually, let's keep them somewhat fixed or scaled relative to 'standard' ~600px width.
-        scale = w / 600.0 # Pure proportional scaling
+        scale = w / 600.0  # Pure proportional scaling
         ml = int(60 * scale)
         mt = int(60 * scale)
         mr = int(40 * scale)
@@ -1083,15 +1204,15 @@ class HistogramWidget(QWidget):
 
         plot_w = w - ml - mr
         plot_h = h - mt - mb
-        
+
         if self.view_min is None or self.view_max is None:
-             self.reset_view()
+            self.reset_view()
 
         min_mass = self.view_min
         max_mass = self.view_max
-            
+
         mass_range = max_mass - min_mass
-        max_intensity = 110.0 
+        max_intensity = 110.0
 
         # 2. Draw Grid & Y-Axis Labels
         painter.setPen(QPen(QColor("#eeeeee"), 1 * scale, Qt.PenStyle.SolidLine))
@@ -1099,21 +1220,27 @@ class HistogramWidget(QWidget):
         font.setPointSizeF(10 * scale)
         font.setBold(False)
         painter.setFont(font)
-        
+
         # Grid lines and Y Labels
-        for i in range(0, 6): # 0 to 5 (0, 20, 40, 60, 80, 100)
+        for i in range(0, 6):  # 0 to 5 (0, 20, 40, 60, 80, 100)
             val = i * 20
             ratio = val / max_intensity
             y = (h - mb) - (ratio * plot_h)
-            
+
             # Grid Line
-            if i > 0: # Don't draw over X axis
-                painter.setPen(QPen(QColor("#eeeeee"), 1 * scale, Qt.PenStyle.SolidLine))
+            if i > 0:  # Don't draw over X axis
+                painter.setPen(
+                    QPen(QColor("#eeeeee"), 1 * scale, Qt.PenStyle.SolidLine)
+                )
                 painter.drawLine(QLineF(ml, y, w - mr, y))
-            
+
             # Label
             painter.setPen(QColor("#000000"))
-            painter.drawText(QRectF(0, y - (10 * scale), ml - (5 * scale), 20 * scale), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, str(val))
+            painter.drawText(
+                QRectF(0, y - (10 * scale), ml - (5 * scale), 20 * scale),
+                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+                str(val),
+            )
 
         # 3. Draw Axes
         axis_pen = QPen(QColor("#000000"), 2 * scale)
@@ -1122,66 +1249,76 @@ class HistogramWidget(QWidget):
         painter.drawLine(QLineF(ml, mt, ml, h - mb))
         # X axis
         painter.drawLine(QLineF(ml, h - mb, w - mr, h - mb))
-        
+
         # X-Axis Ticks
         n_ticks = 5
         tick_step = mass_range / n_ticks
-        mag = 10**math.floor(math.log10(tick_step)) if tick_step > 0 else 1
+        mag = 10 ** math.floor(math.log10(tick_step)) if tick_step > 0 else 1
         nice_step = round(tick_step / mag) * mag
-        if nice_step == 0: nice_step = tick_step
-        
+        if nice_step == 0:
+            nice_step = tick_step
+
         start_tick = math.ceil(min_mass / nice_step) * nice_step
-        
+
         painter.setPen(QColor("#000000"))
         curr_tick = start_tick
         while curr_tick <= max_mass:
             x_ratio = (curr_tick - min_mass) / mass_range if mass_range > 0 else 0.5
             x = ml + x_ratio * plot_w
-            
+
             if ml <= x <= w - mr:
                 painter.drawLine(QLineF(x, h - mb, x, h - mb + (5 * scale)))
-                painter.drawText(QRectF(x - (30 * scale), h - mb + (5 * scale), 60 * scale, 20 * scale), Qt.AlignmentFlag.AlignCenter, f"{curr_tick:.1f}")
-            
-            curr_tick += nice_step
-        
-        # 4. Draw Peaks
+                painter.drawText(
+                    QRectF(
+                        x - (30 * scale), h - mb + (5 * scale), 60 * scale, 20 * scale
+                    ),
+                    Qt.AlignmentFlag.AlignCenter,
+                    f"{curr_tick:.1f}",
+                )
 
+            curr_tick += nice_step
+
+        # 4. Draw Peaks
 
         font.setPointSizeF(11 * scale)
         painter.setFont(font)
-        
+
         base_y = h - mb
 
         if self.draw_mode == "profile":
             # 1. Draw Profile Curve (CLIPPED)
             painter.save()
             painter.setClipRect(QRectF(ml, mt, plot_w, plot_h))
-            
+
             path_points = []
             first_mass = self.peaks[0][0]
-            first_x_ratio = (first_mass - min_mass) / mass_range if mass_range > 0 else 0.5
+            first_x_ratio = (
+                (first_mass - min_mass) / mass_range if mass_range > 0 else 0.5
+            )
             first_x = ml + first_x_ratio * plot_w
             path_points.append(QPointF(first_x, base_y))
-            
+
             # Use self.peaks (profile data) for Curve
             for mass, intensity in self.peaks:
                 x_ratio = (mass - min_mass) / mass_range if mass_range > 0 else 0.5
                 y_ratio = intensity / max_intensity
-                
+
                 x_pos = ml + x_ratio * plot_w
                 y_pos = (h - mb) - (y_ratio * plot_h)
                 path_points.append(QPointF(x_pos, y_pos))
-            
+
             last_mass = self.peaks[-1][0]
-            last_x_ratio = (last_mass - min_mass) / mass_range if mass_range > 0 else 0.5
+            last_x_ratio = (
+                (last_mass - min_mass) / mass_range if mass_range > 0 else 0.5
+            )
             last_x = ml + last_x_ratio * plot_w
             path_points.append(QPointF(last_x, base_y))
-            
+
             profile_pen = QPen(QColor("#007bff"), 2 * scale)
             painter.setPen(profile_pen)
             painter.drawPolyline(path_points)
-            
-            painter.restore() # Unclip for labels
+
+            painter.restore()  # Unclip for labels
 
             # 2. Peak Labels (Theoretical Stick Peaks) - UNCLIPPED
             painter.setPen(QPen(QColor("#007bff")))
@@ -1189,94 +1326,129 @@ class HistogramWidget(QWidget):
             if self.stick_peaks:
                 for s_mass, s_int in self.stick_peaks:
                     # Filter very low intensity theoretical peaks
-                    if s_int < 0.05: continue 
-                    
-                    if s_mass < min_mass or s_mass > max_mass: continue
+                    if s_int < 0.05:
+                        continue
 
-                    x_ratio = (s_mass - min_mass) / mass_range if mass_range > 0 else 0.5
+                    if s_mass < min_mass or s_mass > max_mass:
+                        continue
+
+                    x_ratio = (
+                        (s_mass - min_mass) / mass_range if mass_range > 0 else 0.5
+                    )
                     y_ratio = s_int / max_intensity
-                    
+
                     x_pos = ml + x_ratio * plot_w
                     y_pos = (h - mb) - (y_ratio * plot_h)
-                    
-                    if not (ml <= x_pos <= w - mr): continue
-                    
+
+                    if not (ml <= x_pos <= w - mr):
+                        continue
+
                     # Mass Label - Higher Position over stick peak
                     # NOTE: We draw label at STICK height, not PROFILE height
-                    label_rect = QRectF(x_pos - (40 * scale), y_pos - (25 * scale), 80 * scale, 20 * scale)
+                    label_rect = QRectF(
+                        x_pos - (40 * scale),
+                        y_pos - (25 * scale),
+                        80 * scale,
+                        20 * scale,
+                    )
                     painter.setPen(QColor("#000000"))
-                    painter.drawText(label_rect, Qt.AlignmentFlag.AlignCenter, f"{s_mass:.4f}")
+                    painter.drawText(
+                        label_rect, Qt.AlignmentFlag.AlignCenter, f"{s_mass:.4f}"
+                    )
 
         else:
             # STICK MODE
-            
+
             # 1. Draw Sticks (CLIPPED)
             painter.save()
             painter.setClipRect(QRectF(ml, mt, plot_w, plot_h))
-            
-            stick_pen = QPen(QColor("#007bff"), 3 * scale) 
+
+            stick_pen = QPen(QColor("#007bff"), 3 * scale)
             stick_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
             painter.setPen(stick_pen)
-            
+
             for mass, intensity in self.peaks:
                 x_ratio = (mass - min_mass) / mass_range if mass_range > 0 else 0.5
                 y_ratio = intensity / max_intensity
-                
+
                 x_pos = ml + x_ratio * plot_w
                 y_pos = (h - mb) - (y_ratio * plot_h)
 
                 painter.drawLine(QPointF(x_pos, base_y), QPointF(x_pos, y_pos))
-                
-            painter.restore() # Unclip for labels
+
+            painter.restore()  # Unclip for labels
 
             # 2. Draw Labels (UNCLIPPED)
             for mass, intensity in self.peaks:
                 x_ratio = (mass - min_mass) / mass_range if mass_range > 0 else 0.5
                 y_ratio = intensity / max_intensity
-                
+
                 x_pos = ml + x_ratio * plot_w
                 y_pos = (h - mb) - (y_ratio * plot_h)
-                
-                if x_pos < ml or x_pos > w - mr: continue # Simple visibility check
+
+                if x_pos < ml or x_pos > w - mr:
+                    continue  # Simple visibility check
 
                 painter.setPen(QPen(QColor("#000000")))
-                
+
                 # Mass Label (Line 1)
-                label_rect = QRectF(x_pos - (40 * scale), y_pos - (35 * scale), 80 * scale, 15 * scale) 
-                painter.drawText(label_rect, Qt.AlignmentFlag.AlignCenter, f"{mass:.4f}")
-                
+                label_rect = QRectF(
+                    x_pos - (40 * scale), y_pos - (35 * scale), 80 * scale, 15 * scale
+                )
+                painter.drawText(
+                    label_rect, Qt.AlignmentFlag.AlignCenter, f"{mass:.4f}"
+                )
+
                 # Intensity Label (Line 2)
                 painter.setPen(QPen(QColor("#007bff")))
-                int_rect = QRectF(x_pos - (40 * scale), y_pos - (20 * scale), 80 * scale, 15 * scale)
-                painter.drawText(int_rect, Qt.AlignmentFlag.AlignCenter, f"{int(intensity)}%")
-        
+                int_rect = QRectF(
+                    x_pos - (40 * scale), y_pos - (20 * scale), 80 * scale, 15 * scale
+                )
+                painter.drawText(
+                    int_rect, Qt.AlignmentFlag.AlignCenter, f"{int(intensity)}%"
+                )
+
         # Axis Labels
         painter.setPen(QColor("#000000"))
         font.setBold(True)
         painter.setFont(font)
-        painter.drawText(QRectF(0, h - (30 * scale), w, 20 * scale), Qt.AlignmentFlag.AlignCenter, "m/z")
+        painter.drawText(
+            QRectF(0, h - (30 * scale), w, 20 * scale),
+            Qt.AlignmentFlag.AlignCenter,
+            "m/z",
+        )
 
         # Draw Info Text (Top Right) - Drawn Last to be on top of Grid
         if self.info_text:
-             painter.setPen(QColor("#333333"))
-             font = painter.font()
-             font.setPointSizeF(14 * scale)
-             font.setBold(True)
-             painter.setFont(font)
-             
-             rect_info = QRectF(w - (250 * scale) - mr, mt, 250 * scale, 60 * scale)
-             painter.drawText(rect_info, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop, self.info_text)
-        
+            painter.setPen(QColor("#333333"))
+            font = painter.font()
+            font.setPointSizeF(14 * scale)
+            font.setBold(True)
+            painter.setFont(font)
+
+            rect_info = QRectF(w - (250 * scale) - mr, mt, 250 * scale, 60 * scale)
+            painter.drawText(
+                rect_info,
+                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop,
+                self.info_text,
+            )
+
         painter.save()
         painter.translate(20 * scale, h / 2)
         painter.rotate(-90)
-        painter.drawText(QRectF(-100 * scale, -100 * scale, 200 * scale, 20 * scale), Qt.AlignmentFlag.AlignCenter, "Relative Intensity (%)")
+        painter.drawText(
+            QRectF(-100 * scale, -100 * scale, 200 * scale, 20 * scale),
+            Qt.AlignmentFlag.AlignCenter,
+            "Relative Intensity (%)",
+        )
         painter.restore()
+
 
 def initialize(context):
     """
     Initialize the MS Spectrum Simulation Neo plugin.
     """
+
     def toggle_window():
         if Chem is None:
             context.show_status_message("RDKit is not available.", 5000)
@@ -1288,7 +1460,11 @@ def initialize(context):
             win.raise_()
             win.activateWindow()
             win.check_update()
-            if hasattr(win, 'sync_check') and win.sync_check.isChecked() and not win.timer.isActive():
+            if (
+                hasattr(win, "sync_check")
+                and win.sync_check.isChecked()
+                and not win.timer.isActive()
+            ):
                 win.timer.start(1000)
             return
 
@@ -1297,9 +1473,10 @@ def initialize(context):
 
     context.add_analysis_tool("MS Spectrum Neo", toggle_window)
 
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    
+
     # Mock Molecule (Empty)
     mol = None
     # if Chem:

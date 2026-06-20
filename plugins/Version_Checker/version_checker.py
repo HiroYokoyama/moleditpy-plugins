@@ -12,9 +12,18 @@ import json
 import urllib.request
 import urllib.error
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
-    QTableWidget, QTableWidgetItem, QPushButton, 
-    QHeaderView, QMessageBox, QAbstractItemView, QApplication, QCheckBox
+    QDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QTableWidget,
+    QTableWidgetItem,
+    QPushButton,
+    QHeaderView,
+    QMessageBox,
+    QAbstractItemView,
+    QApplication,
+    QCheckBox,
 )
 from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QDesktopServices, QColor, QIcon
@@ -23,7 +32,9 @@ from PyQt6.QtGui import QDesktopServices, QColor, QIcon
 PLUGIN_NAME = "Version Checker"
 PLUGIN_VERSION = "2025.12.26"
 PLUGIN_AUTHOR = "HiroYokoyama"
-PLUGIN_DESCRIPTION = "Checks installed plugins against the official repository for updates."
+PLUGIN_DESCRIPTION = (
+    "Checks installed plugins against the official repository for updates."
+)
 
 REMOTE_JSON_URL = "https://raw.githubusercontent.com/HiroYokoyama/moleditpy-plugins/refs/heads/main/explorer/plugins.json"
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "version_checker.json")
@@ -31,22 +42,25 @@ SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "version_checker.json")
 # Global flag to ensure startup check runs only once per session
 _startup_check_performed = False
 
+
 def load_settings():
     if os.path.exists(SETTINGS_FILE):
         try:
-            with open(SETTINGS_FILE, 'r') as f:
+            with open(SETTINGS_FILE, "r") as f:
                 return json.load(f)
         except:
             pass
     # Default to empty so we can detect "first run" (missing config)
     return {}
 
+
 def save_settings(settings):
     try:
-        with open(SETTINGS_FILE, 'w') as f:
+        with open(SETTINGS_FILE, "w") as f:
             json.dump(settings, f)
     except Exception as e:
         print(f"Error saving version checker settings: {e}")
+
 
 def initialize(context):
     """
@@ -67,21 +81,25 @@ def initialize(context):
     if "check_at_startup" not in settings:
         # First Run: Ask the user ONCE
         from PyQt6.QtCore import QTimer
+
         QTimer.singleShot(2000, lambda: ask_user_permission(mw))
     elif settings.get("check_at_startup"):
         # Configured True: Run check
         from PyQt6.QtCore import QTimer
+
         QTimer.singleShot(2000, lambda: perform_startup_check(mw))
+
 
 def ask_user_permission(mw):
     """Ask user if they want to enable automatic updates."""
     reply = QMessageBox.question(
-        mw, "Version Checker",
+        mw,
+        "Version Checker",
         "Do you want to enable automatic plugin update checks at startup?\n\n(You can change this later in the Version Checker)",
         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        QMessageBox.StandardButton.No
+        QMessageBox.StandardButton.No,
     )
-    
+
     settings = load_settings()
     if reply == QMessageBox.StandardButton.Yes:
         settings["check_at_startup"] = True
@@ -92,6 +110,7 @@ def ask_user_permission(mw):
         settings["check_at_startup"] = False
         save_settings(settings)
 
+
 def perform_startup_check(mw):
     try:
         # Run silent check
@@ -99,12 +118,13 @@ def perform_startup_check(mw):
         if checker.updates_found:
             # Ask user if they want to see updates or skip
             reply = QMessageBox.question(
-                mw, "Version Checker", 
+                mw,
+                "Version Checker",
                 "Updates are available for MoleditPy or installed plugins.\nDo you want to check them now?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.Yes
+                QMessageBox.StandardButton.Yes,
             )
-            
+
             if reply == QMessageBox.StandardButton.Yes:
                 checker.show()
                 checker.raise_()
@@ -115,6 +135,7 @@ def perform_startup_check(mw):
     except Exception as e:
         print(f"Version Check Auto-run failed: {e}")
 
+
 def run(main_window):
     """
     Entry point for the plugin.
@@ -122,6 +143,7 @@ def run(main_window):
     """
     dialog = VersionCheckerWindow(main_window)
     dialog.exec()
+
 
 class VersionCheckerWindow(QDialog):
     def __init__(self, main_window, auto_check=False):
@@ -133,9 +155,9 @@ class VersionCheckerWindow(QDialog):
         self.settings = load_settings()
         self.auto_check_mode = auto_check
         self.updates_found = False
-        
+
         self.init_ui()
-        
+
         if self.auto_check_mode:
             self.check_updates_silent()
         else:
@@ -152,22 +174,24 @@ class VersionCheckerWindow(QDialog):
 
         # Check PyPI for latest version
         self.latest_app_version = "Checking..."
-        
+
         info_layout = QHBoxLayout()
-        
+
         self.lbl_current_version = QLabel(f"<b>MoleditPy Version:</b> {APP_VERSION}")
         self.lbl_current_version.setStyleSheet("font-size: 14px;")
         info_layout.addWidget(self.lbl_current_version)
-        
+
         info_layout.addSpacing(20)
-        
-        self.lbl_latest_version = QLabel(f"<b>Latest (PyPI):</b> {self.latest_app_version}")
+
+        self.lbl_latest_version = QLabel(
+            f"<b>Latest (PyPI):</b> {self.latest_app_version}"
+        )
         self.lbl_latest_version.setStyleSheet("font-size: 14px; color: gray;")
         info_layout.addWidget(self.lbl_latest_version)
-        
+
         info_layout.addStretch()
         layout.addLayout(info_layout)
-        
+
         # Add a small line
         line = QLabel()
         line.setFrameStyle(QLabel.Shape.HLine | QLabel.Shadow.Sunken)
@@ -175,36 +199,48 @@ class VersionCheckerWindow(QDialog):
 
         # Table
         self.table = QTableWidget()
-        self.table.setColumnCount(5) # Added "Action" column
-        self.table.setHorizontalHeaderLabels(["Plugin Name", "Local Version", "Latest Version", "Status", "Action"])
-        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents) # Action
+        self.table.setColumnCount(5)  # Added "Action" column
+        self.table.setHorizontalHeaderLabels(
+            ["Plugin Name", "Local Version", "Latest Version", "Status", "Action"]
+        )
+        self.table.horizontalHeader().setSectionResizeMode(
+            0, QHeaderView.ResizeMode.Stretch
+        )
+        self.table.horizontalHeader().setSectionResizeMode(
+            1, QHeaderView.ResizeMode.ResizeToContents
+        )
+        self.table.horizontalHeader().setSectionResizeMode(
+            2, QHeaderView.ResizeMode.ResizeToContents
+        )
+        self.table.horizontalHeader().setSectionResizeMode(
+            3, QHeaderView.ResizeMode.ResizeToContents
+        )
+        self.table.horizontalHeader().setSectionResizeMode(
+            4, QHeaderView.ResizeMode.ResizeToContents
+        )  # Action
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         layout.addWidget(self.table)
-        
+
         # Settings Checkbox
         self.chk_startup = QCheckBox("Check for updates at startup")
         self.chk_startup.setChecked(self.settings.get("check_at_startup", False))
         self.chk_startup.toggled.connect(self.save_settings_ui)
         layout.addWidget(self.chk_startup)
-        
+
         # Buttons
         btn_layout = QHBoxLayout()
-        
+
         refresh_btn = QPushButton("Refresh")
         refresh_btn.clicked.connect(self.check_updates)
         btn_layout.addWidget(refresh_btn)
-        
+
         btn_layout.addStretch()
-        
+
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(self.accept)
         btn_layout.addWidget(close_btn)
-        
+
         layout.addLayout(btn_layout)
 
     def save_settings_ui(self):
@@ -216,8 +252,8 @@ class VersionCheckerWindow(QDialog):
             url = "https://pypi.org/pypi/moleditpy/json"
             with urllib.request.urlopen(url, timeout=5) as response:
                 if response.status == 200:
-                    data = json.loads(response.read().decode('utf-8'))
-                    return data['info']['version']
+                    data = json.loads(response.read().decode("utf-8"))
+                    return data["info"]["version"]
         except Exception as e:
             print(f"Error fetching PyPI version: {e}")
         return "Unknown"
@@ -227,11 +263,13 @@ class VersionCheckerWindow(QDialog):
             with urllib.request.urlopen(REMOTE_JSON_URL, timeout=5) as response:
                 if response.status == 200:
                     # Use utf-8-sig to handle potential BOM
-                    data = json.loads(response.read().decode('utf-8-sig'))
+                    data = json.loads(response.read().decode("utf-8-sig"))
                     return data
         except Exception as e:
             if not self.auto_check_mode:
-                QMessageBox.warning(self, "Network Error", f"Failed to fetch plugin data:\n{e}")
+                QMessageBox.warning(
+                    self, "Network Error", f"Failed to fetch plugin data:\n{e}"
+                )
             return []
         return []
 
@@ -243,24 +281,24 @@ class VersionCheckerWindow(QDialog):
             from moleditpy.modules.constants import VERSION as APP_VERSION
         except ImportError:
             APP_VERSION = "0.0.0"
-            
+
         if latest != "Unknown" and latest > APP_VERSION:
-             self.updates_found = True
+            self.updates_found = True
 
         self.remote_data = self.fetch_remote_data()
         self.populate_table(silent=True)
-        
+
         if self.updates_found:
-             self.setWindowTitle("Plugin Version Checker (Updates Available!)")
+            self.setWindowTitle("Plugin Version Checker (Updates Available!)")
 
     def check_updates(self):
         # Update App Version
         self.lbl_latest_version.setText("<b>Latest (PyPI):</b> Checking...")
-        QApplication.processEvents() 
-        
+        QApplication.processEvents()
+
         latest = self.fetch_pypi_version()
         self.latest_app_version = latest
-        
+
         try:
             from moleditpy.modules.constants import VERSION as APP_VERSION
         except ImportError:
@@ -269,18 +307,20 @@ class VersionCheckerWindow(QDialog):
         color = "gray"
         if latest != "Unknown":
             if latest > APP_VERSION:
-                 color = "#dc3545" # Red
-                 status_text = f"{latest} (Update Available)"
+                color = "#dc3545"  # Red
+                status_text = f"{latest} (Update Available)"
             elif latest == APP_VERSION:
-                 color = "green"
-                 status_text = f"{latest} (Up to date)"
+                color = "green"
+                status_text = f"{latest} (Up to date)"
             else:
-                 color = "blue"
-                 status_text = f"{latest} (Dev/Newer)"
+                color = "blue"
+                status_text = f"{latest} (Dev/Newer)"
         else:
-             status_text = "Unknown"
+            status_text = "Unknown"
 
-        self.lbl_latest_version.setText(f"<b>Latest (PyPI):</b> <span style='color:{color}'>{status_text}</span>")
+        self.lbl_latest_version.setText(
+            f"<b>Latest (PyPI):</b> <span style='color:{color}'>{status_text}</span>"
+        )
 
         self.remote_data = self.fetch_remote_data()
         self.populate_table()
@@ -288,30 +328,30 @@ class VersionCheckerWindow(QDialog):
     def populate_table(self, silent=False):
         self.table.setRowCount(0)
         self.updates_found = False
-        
+
         # Create map
         remote_map = {}
         for entry in self.remote_data:
-            name = entry.get('name', '')
+            name = entry.get("name", "")
             remote_map[name] = entry
-            if 'id' in entry:
-                 remote_map[entry['id']] = entry
+            if "id" in entry:
+                remote_map[entry["id"]] = entry
 
         installed_plugins = self.main_window.plugin_manager.plugins
-        
+
         for plugin in installed_plugins:
-            name = plugin.get('name', 'Unknown')
-            local_ver = plugin.get('version', 'Unknown')
-            
+            name = plugin.get("name", "Unknown")
+            local_ver = plugin.get("version", "Unknown")
+
             remote_info = remote_map.get(name)
             remote_ver = "Unknown"
             status = "Unknown"
             color = None
             update_available = False
-            
+
             if remote_info:
-                remote_ver = remote_info.get('version', 'Unknown')
-                if local_ver != 'Unknown' and remote_ver != 'Unknown':
+                remote_ver = remote_info.get("version", "Unknown")
+                if local_ver != "Unknown" and remote_ver != "Unknown":
                     if local_ver == remote_ver:
                         status = "Up to date"
                         color = QColor("#d4edda")
@@ -331,29 +371,29 @@ class VersionCheckerWindow(QDialog):
                 color = QColor("#e2e3e5")
 
             if silent and not update_available:
-                # If doing silent check, we might not populate everything? 
+                # If doing silent check, we might not populate everything?
                 # Actually we should populate so if user shows window it's ready.
                 pass
 
             row = self.table.rowCount()
             self.table.insertRow(row)
-            
+
             self.table.setItem(row, 0, QTableWidgetItem(name))
             self.table.setItem(row, 1, QTableWidgetItem(str(local_ver)))
             self.table.setItem(row, 2, QTableWidgetItem(str(remote_ver)))
-            
+
             status_item = QTableWidgetItem(status)
             if color:
                 status_item.setBackground(color)
             self.table.setItem(row, 3, status_item)
-            
+
             # Action Button
-            if update_available and remote_info and 'downloadUrl' in remote_info:
+            if update_available and remote_info and "downloadUrl" in remote_info:
                 btn_update = QPushButton("Update")
                 # Store data in button property to retrieve later
                 btn_update.setProperty("plugin_name", name)
-                btn_update.setProperty("download_url", remote_info['downloadUrl'])
-                btn_update.setProperty("target_file", plugin.get('filepath'))
+                btn_update.setProperty("download_url", remote_info["downloadUrl"])
+                btn_update.setProperty("target_file", plugin.get("filepath"))
                 btn_update.clicked.connect(self.on_update_clicked)
                 self.table.setCellWidget(row, 4, btn_update)
             else:
@@ -361,20 +401,26 @@ class VersionCheckerWindow(QDialog):
 
     def on_update_clicked(self):
         btn = self.sender()
-        if not btn: return
-        
+        if not btn:
+            return
+
         plugin_name = btn.property("plugin_name")
         download_url = btn.property("download_url")
         target_file = btn.property("target_file")
-        
+
         if not download_url or not target_file:
-            QMessageBox.warning(self, "Error", "Cannot update: Missing URL or file path.")
+            QMessageBox.warning(
+                self, "Error", "Cannot update: Missing URL or file path."
+            )
             return
 
         # Confirm
-        ret = QMessageBox.question(self, "Update Plugin", 
-                                   f"Update '{plugin_name}'?\nThis will overwrite the local file.",
-                                   QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        ret = QMessageBox.question(
+            self,
+            "Update Plugin",
+            f"Update '{plugin_name}'?\nThis will overwrite the local file.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
         if ret != QMessageBox.StandardButton.Yes:
             return
 
@@ -382,29 +428,36 @@ class VersionCheckerWindow(QDialog):
         final_url = download_url
         if not download_url.startswith("http"):
             # Construct absolute URL relative to plugins.json location
-            base_url = REMOTE_JSON_URL.rsplit('/', 1)[0]
+            base_url = REMOTE_JSON_URL.rsplit("/", 1)[0]
             # Handle ../ parent traversal if needed, but urllib.parse.urljoin is best
             from urllib.parse import urljoin
+
             final_url = urljoin(base_url + "/", download_url)
 
         print(f"Downloading update from: {final_url}")
-        
+
         # Download and Overwrite
         try:
             with urllib.request.urlopen(final_url, timeout=10) as response:
                 if response.status == 200:
                     content = response.read()
-                    with open(target_file, 'wb') as f:
+                    with open(target_file, "wb") as f:
                         f.write(content)
-                    
-                    QMessageBox.information(self, "Success", f"Updated '{plugin_name}'.\nReloading plugins...")
-                    
+
+                    QMessageBox.information(
+                        self,
+                        "Success",
+                        f"Updated '{plugin_name}'.\nReloading plugins...",
+                    )
+
                     # Reload plugins
                     self.main_window.plugin_manager.discover_plugins(self.main_window)
                     # Refresh our list
                     self.check_updates()
-                    
+
                 else:
-                    QMessageBox.warning(self, "Error", f"Download failed with status: {response.status}")
+                    QMessageBox.warning(
+                        self, "Error", f"Download failed with status: {response.status}"
+                    )
         except Exception as e:
-             QMessageBox.warning(self, "Update Error", f"Failed to update plugin:\n{e}")
+            QMessageBox.warning(self, "Update Error", f"Failed to update plugin:\n{e}")

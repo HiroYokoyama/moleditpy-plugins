@@ -1,8 +1,15 @@
 import random
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QPushButton, QMessageBox, 
-    QLabel, QProgressBar, QSpinBox, QGroupBox,
-    QFormLayout, QComboBox
+    QDialog,
+    QVBoxLayout,
+    QPushButton,
+    QMessageBox,
+    QLabel,
+    QProgressBar,
+    QSpinBox,
+    QGroupBox,
+    QFormLayout,
+    QComboBox,
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QFont
@@ -11,18 +18,21 @@ from rdkit.Chem import AllChem, rdMolTransforms
 import logging
 
 PLUGIN_NAME = "Complex Molecule Untangler"
-PLUGIN_VERSION = "2026.04.12"
+PLUGIN_VERSION = "2026.06.20"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Untangle overlapping fragments in complex molecules."
+PLUGIN_CONTEXT = None
 
 
 class UntangleWorker(QThread):
     """
     回転可能な結合をランダムに回して、衝突（エネルギー）が減る配置を探すスレッド
     """
+
     progress = pyqtSignal(int)
     finished = pyqtSignal(object, str)
-    
+
     def __init__(self, mol, max_iter=500, force_field="MMFF94"):
         super().__init__()
         self.mol = mol
@@ -33,7 +43,7 @@ class UntangleWorker(QThread):
         try:
             # 元の分子をコピーして操作
             work_mol = Chem.Mol(self.mol)
-            
+
             # フォースフィールドのセットアップ
             ff = None
             if self.force_field == "MMFF94":
@@ -42,12 +52,16 @@ class UntangleWorker(QThread):
                     if props:
                         ff = AllChem.MMFFGetMoleculeForceField(work_mol, props)
                 except Exception as _e:
-                    logging.warning("[complex_molecule_untangler.py:43] silenced: %s", _e)
+                    logging.warning(
+                        "[complex_molecule_untangler.py:43] silenced: %s", _e
+                    )
             elif self.force_field == "UFF":
                 try:
                     ff = AllChem.UFFGetMoleculeForceField(work_mol)
                 except Exception as _e:
-                    logging.warning("[complex_molecule_untangler.py:48] silenced: %s", _e)
+                    logging.warning(
+                        "[complex_molecule_untangler.py:48] silenced: %s", _e
+                    )
 
             # フォースフィールド構築失敗時のフォールバックなどは今回は厳密にしない（エラー通知）
             if not ff:
@@ -59,28 +73,28 @@ class UntangleWorker(QThread):
 
             # 初期エネルギー（衝突具合）
             current_energy = ff.CalcEnergy()
-            
+
             # 回転可能な結合（二面角）を探索
             # SMARTSパターン: アミド結合などを除外した、厳密な回転可能結合
-            rotatable_smarts = Chem.MolFromSmarts('[!$(*#*)&!D1]-&!@[!$(*#*)&!D1]')
+            rotatable_smarts = Chem.MolFromSmarts("[!$(*#*)&!D1]-&!@[!$(*#*)&!D1]")
             matches = work_mol.GetSubstructMatches(rotatable_smarts)
-            
+
             if not matches:
                 self.finished.emit(None, "No rotatable bonds found.")
                 return
 
             # 結合ごとの4原子インデックス(i, j, k, l)のリストを作成
             dihedrals = []
-            for (j, k) in matches:
+            for j, k in matches:
                 # j-k が回転軸。それぞれの隣接原子 i, l を探す
                 atom_j = work_mol.GetAtomWithIdx(j)
                 atom_k = work_mol.GetAtomWithIdx(k)
-                
+
                 # jの隣接原子でk以外
                 nbrs_j = [n.GetIdx() for n in atom_j.GetNeighbors() if n.GetIdx() != k]
                 # kの隣接原子でj以外
                 nbrs_k = [n.GetIdx() for n in atom_k.GetNeighbors() if n.GetIdx() != j]
-                
+
                 if nbrs_j and nbrs_k:
                     dihedrals.append((nbrs_j[0], j, k, nbrs_k[0]))
 
@@ -90,32 +104,38 @@ class UntangleWorker(QThread):
 
             # --- メインループ: ランダム回転による衝突回避 ---
             conf = work_mol.GetConformer()
-            
+
             for i in range(self.max_iter):
                 # ランダムに1つ選択
                 i_idx, j_idx, k_idx, l_idx = random.choice(dihedrals)
-                
+
                 # 現在の角度を保存
-                old_angle = rdMolTransforms.GetDihedralDeg(conf, i_idx, j_idx, k_idx, l_idx)
-                
+                old_angle = rdMolTransforms.GetDihedralDeg(
+                    conf, i_idx, j_idx, k_idx, l_idx
+                )
+
                 # ランダムに回転 (-180度 〜 +180度 の範囲で新しい角度を決定)
                 new_angle = random.uniform(-180, 180)
-                
+
                 # 回転適用
-                rdMolTransforms.SetDihedralDeg(conf, i_idx, j_idx, k_idx, l_idx, new_angle)
-                
+                rdMolTransforms.SetDihedralDeg(
+                    conf, i_idx, j_idx, k_idx, l_idx, new_angle
+                )
+
                 # 判定
                 # 座標が変わったのでFFを更新する必要があるか？ -> RDKitのFFは座標更新を追跡しない場合があるが、
                 # CalcEnergyは現在のCoordsを使うはず。ただしInitializeが必要な場合も。
                 # RDKit通常の使用法では座標を変えたらそのままCalcEnergyで反映される。
                 new_energy = ff.CalcEnergy()
-                
+
                 if new_energy < current_energy:
                     # 改善した（衝突が減った） -> 採用
                     current_energy = new_energy
                 else:
                     # 悪化した（ぶつかった） -> 元に戻す
-                    rdMolTransforms.SetDihedralDeg(conf, i_idx, j_idx, k_idx, l_idx, old_angle)
+                    rdMolTransforms.SetDihedralDeg(
+                        conf, i_idx, j_idx, k_idx, l_idx, old_angle
+                    )
 
                 # 進捗通知
                 self.progress.emit(i + 1)
@@ -126,17 +146,25 @@ class UntangleWorker(QThread):
                 try:
                     AllChem.MMFFOptimizeMolecule(work_mol, maxIters=50)
                 except Exception as _e:
-                    logging.warning("[complex_molecule_untangler.py:127] silenced: %s", _e)
+                    logging.warning(
+                        "[complex_molecule_untangler.py:127] silenced: %s", _e
+                    )
             elif self.force_field == "UFF":
                 try:
                     AllChem.UFFOptimizeMolecule(work_mol, maxIters=50)
                 except Exception as _e:
-                    logging.warning("[complex_molecule_untangler.py:132] silenced: %s", _e)
+                    logging.warning(
+                        "[complex_molecule_untangler.py:132] silenced: %s", _e
+                    )
 
-            self.finished.emit(work_mol, f"Processed {len(matches)} bonds.\nFinal Score ({self.force_field}): {current_energy:.2f}")
+            self.finished.emit(
+                work_mol,
+                f"Processed {len(matches)} bonds.\nFinal Score ({self.force_field}): {current_energy:.2f}",
+            )
 
         except Exception as e:
             self.finished.emit(None, str(e))
+
 
 class UntanglerDialog(QDialog):
     def __init__(self, context, parent=None):
@@ -145,7 +173,7 @@ class UntanglerDialog(QDialog):
         self.main_window = context.get_main_window()
         self.setWindowTitle("Complex Molecule Untangler")
         self.resize(320, 350)
-        
+
         self.worker = None
         self.init_ui()
 
@@ -161,7 +189,9 @@ class UntanglerDialog(QDialog):
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title_label)
 
-        sub_label = QLabel("Resolves steric clashes by randomly rotating single bonds (Monte Carlo).")
+        sub_label = QLabel(
+            "Resolves steric clashes by randomly rotating single bonds (Monte Carlo)."
+        )
         sub_label.setWordWrap(True)
         sub_label.setStyleSheet("color: #555; margin-bottom: 10px;")
         layout.addWidget(sub_label)
@@ -175,7 +205,7 @@ class UntanglerDialog(QDialog):
         self.combo_ff.addItems(["MMFF94", "UFF"])
         self.combo_ff.setToolTip("Select the Force Field for energy calculation.")
         form_layout.addRow("Force Field:", self.combo_ff)
-        
+
         # Set default based on main window setting
         default_method = self.context.get_setting("optimization_method", "MMFF_RDKIT")
         if default_method:
@@ -214,15 +244,17 @@ class UntanglerDialog(QDialog):
     def run_untangle(self):
         mol = self.context.current_mol
         if not mol:
-            QMessageBox.warning(self, PLUGIN_NAME, "No molecule loaded.\nPlease load a molecule first.")
+            QMessageBox.warning(
+                self, PLUGIN_NAME, "No molecule loaded.\nPlease load a molecule first."
+            )
             return
 
         self.btn_run.setEnabled(False)
         self.btn_run.setText("Processing...")
-        
+
         max_iter = self.spin_iter.value()
         ff_choice = self.combo_ff.currentText()
-        
+
         self.pbar.setRange(0, max_iter)
         self.pbar.setValue(0)
         self.pbar.setTextVisible(True)
@@ -240,16 +272,17 @@ class UntanglerDialog(QDialog):
 
         if new_mol:
             self.context.current_mol = new_mol
-            
+
             # ビュー更新
             self.context.refresh_3d_view()
-            
+
             # Push undo state using context
             self.context.push_undo_checkpoint()
-                
+
             QMessageBox.information(self, PLUGIN_NAME, f"Untangling Complete!\n{msg}")
         else:
             QMessageBox.warning(self, PLUGIN_NAME, f"Error: {msg}")
+
 
 def run_plugin(context):
     """
@@ -267,18 +300,20 @@ def run_plugin(context):
     context.register_window("main_panel", dialog)
     dialog.show()
 
+
 _launch_fn = None
 
+
 def initialize(context):
-    global _launch_fn
+    global _launch_fn, PLUGIN_CONTEXT
+    PLUGIN_CONTEXT = context
     _launch_fn = lambda: run_plugin(context)
 
+
 def run(mw):
-    if hasattr(mw, 'host'):
+    if hasattr(mw, "host"):
         mw = mw.host
     if _launch_fn:
         _launch_fn()
-    elif hasattr(mw, 'plugin_manager'):
-        from moleditpy.plugins.plugin_interface import PluginContext
-        ctx = PluginContext(mw.plugin_manager, PLUGIN_NAME)
-        run_plugin(ctx)
+    elif PLUGIN_CONTEXT:
+        run_plugin(PLUGIN_CONTEXT)

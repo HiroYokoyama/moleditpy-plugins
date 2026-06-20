@@ -1,12 +1,25 @@
-
 import os
 import json
 import numpy as np
 import pyvista as pv
-from PyQt6.QtWidgets import (QFileDialog, QDockWidget, QWidget, QVBoxLayout, 
-                             QSlider, QLabel, QHBoxLayout, QPushButton, QMessageBox, 
-                             QDoubleSpinBox, QColorDialog, QDialog, QFormLayout, 
-                             QSpinBox, QCheckBox, QComboBox)
+from PyQt6.QtWidgets import (
+    QFileDialog,
+    QDockWidget,
+    QWidget,
+    QVBoxLayout,
+    QSlider,
+    QLabel,
+    QHBoxLayout,
+    QPushButton,
+    QMessageBox,
+    QDoubleSpinBox,
+    QColorDialog,
+    QDialog,
+    QFormLayout,
+    QSpinBox,
+    QCheckBox,
+    QComboBox,
+)
 from PyQt6.QtGui import QColor
 from PyQt6.QtCore import Qt, QTimer, QCoreApplication
 import logging
@@ -15,6 +28,7 @@ import logging
 try:
     from rdkit import Chem
     from rdkit import Geometry
+
     try:
         from rdkit.Chem import rdDetermineBonds
     except ImportError:
@@ -23,19 +37,21 @@ except ImportError:
     Chem = None
     Geometry = None
     rdDetermineBonds = None
-    
+
 PLUGIN_VERSION = "2026.06.19"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Visualize Gaussian cube files (electron density, MOs)."
 PLUGIN_NAME = "Cube File Viewer"
+PLUGIN_CONTEXT = None
+
 
 def parse_cube_data(filename):
     """
     Parses a Gaussian Cube file and returns raw data structures.
     Adapted from test.py with robust header handling.
     """
-    with open(filename, 'r') as f:
+    with open(filename, "r") as f:
         lines = f.readlines()
 
     if len(lines) < 6:
@@ -56,10 +72,10 @@ def parse_cube_data(filename):
     nx, x_vec_raw = parse_vec(lines[3])
     ny, y_vec_raw = parse_vec(lines[4])
     nz, z_vec_raw = parse_vec(lines[5])
-    
+
     # Auto-detect units based on sign of NX/NY/NZ (Gaussian standard)
-    is_angstrom_header = (nx < 0 or ny < 0 or nz < 0)
-    
+    is_angstrom_header = nx < 0 or ny < 0 or nz < 0
+
     nx, ny, nz = abs(nx), abs(ny), abs(nz)
 
     # --- Atoms Parsing ---
@@ -69,10 +85,10 @@ def parse_cube_data(filename):
         # Smart check: if next line does not look like an atom line, skip it.
         try:
             parts = lines[current_line].split()
-            if len(parts) != 5: 
-                 current_line += 1
+            if len(parts) != 5:
+                current_line += 1
         except:
-             current_line += 1
+            current_line += 1
 
     for _ in range(n_atoms):
         line = lines[current_line].split()
@@ -85,42 +101,42 @@ def parse_cube_data(filename):
         atoms.append((atomic_num, np.array([x, y, z])))
 
     # --- Volumetric Data Parsing ---
-    
+
     # Skip metadata lines (e.g. "1 150") before data starts
     while current_line < len(lines):
         line_content = lines[current_line].strip()
         parts = line_content.split()
-        
+
         # Skip empty lines
         if not parts:
             current_line += 1
             continue
-            
+
         # Skip short lines (metadata often has few columns, data usually has 6)
         if len(parts) < 6:
             current_line += 1
             continue
-            
+
         # Check if start is numeric
         try:
             float(parts[0])
         except ValueError:
             current_line += 1
             continue
-            
+
         # If we get here, it's likely data
         break
 
     # Read rest of file
     full_str = " ".join(lines[current_line:])
     try:
-        data_values = np.fromstring(full_str, sep=' ')
+        data_values = np.fromstring(full_str, sep=" ")
     except:
         data_values = np.array([])
-    
+
     expected_size = nx * ny * nz
     actual_size = len(data_values)
-    
+
     # FIX: Trim from START if excess > 0 (The header values are at the start)
     # This logic fixes the shift issue test.py had.
     if actual_size > expected_size:
@@ -129,7 +145,7 @@ def parse_cube_data(filename):
     elif actual_size < expected_size:
         pad = np.zeros(expected_size - actual_size)
         data_values = np.concatenate((data_values, pad))
-    
+
     return {
         "atoms": atoms,
         "origin": origin_raw,
@@ -138,34 +154,35 @@ def parse_cube_data(filename):
         "z_vec": z_vec_raw,
         "dims": (nx, ny, nz),
         "data_flat": data_values,
-        "is_angstrom_header": is_angstrom_header
+        "is_angstrom_header": is_angstrom_header,
     }
+
 
 def build_grid_from_meta(meta):
     """
     Reconstructs the PyVista grid.
     Correctly handles standard Cube (Z-fast) mapping.
     """
-    nx, ny, nz = meta['dims']
-    origin = meta['origin'].copy()
-    x_vec = meta['x_vec'].copy()
-    y_vec = meta['y_vec'].copy()
-    z_vec = meta['z_vec'].copy()
+    nx, ny, nz = meta["dims"]
+    origin = meta["origin"].copy()
+    x_vec = meta["x_vec"].copy()
+    y_vec = meta["y_vec"].copy()
+    z_vec = meta["z_vec"].copy()
     atoms = []
-    
+
     # Units Handling (replicated logic)
     BOHR_TO_ANGSTROM = 0.529177210903
     convert_to_ang = True
-    if meta['is_angstrom_header']:
+    if meta["is_angstrom_header"]:
         convert_to_ang = False
-            
+
     if convert_to_ang:
         origin *= BOHR_TO_ANGSTROM
         x_vec *= BOHR_TO_ANGSTROM
         y_vec *= BOHR_TO_ANGSTROM
         z_vec *= BOHR_TO_ANGSTROM
-        
-    for anum, pos in meta['atoms']:
+
+    for anum, pos in meta["atoms"]:
         p = pos.copy()
         if convert_to_ang:
             p *= BOHR_TO_ANGSTROM
@@ -175,74 +192,79 @@ def build_grid_from_meta(meta):
     x_range = np.arange(nx)
     y_range = np.arange(ny)
     z_range = np.arange(nz)
-    
-    gx, gy, gz = np.meshgrid(x_range, y_range, z_range, indexing='ij')
-    
+
+    gx, gy, gz = np.meshgrid(x_range, y_range, z_range, indexing="ij")
+
     # Flatten using Fortran order (X-fast) for VTK Structure
-    gx_f = gx.flatten(order='F')
-    gy_f = gy.flatten(order='F')
-    gz_f = gz.flatten(order='F')
-    
-    points = (origin + 
-              np.outer(gx_f, x_vec) + 
-              np.outer(gy_f, y_vec) + 
-              np.outer(gz_f, z_vec))
-    
+    gx_f = gx.flatten(order="F")
+    gy_f = gy.flatten(order="F")
+    gz_f = gz.flatten(order="F")
+
+    points = (
+        origin + np.outer(gx_f, x_vec) + np.outer(gy_f, y_vec) + np.outer(gz_f, z_vec)
+    )
+
     grid = pv.StructuredGrid()
     grid.points = points
     grid.dimensions = [nx, ny, nz]
-    
+
     # Data Mapping
-    raw_data = meta['data_flat']
-    
+    raw_data = meta["data_flat"]
+
     # Standard Cube: Z-Fast (C-order reshape)
     # Then flatten F-order to match the X-fast points we just generated
     # This logic matches test.py's implementation which user preferred
-    vol_3d = raw_data.reshape((nx, ny, nz), order='C')
-    grid.point_data["values"] = vol_3d.flatten(order='F')
-        
+    vol_3d = raw_data.reshape((nx, ny, nz), order="C")
+    grid.point_data["values"] = vol_3d.flatten(order="F")
+
     return {"atoms": atoms}, grid
+
 
 def read_cube(filename):
     meta = parse_cube_data(filename)
     return build_grid_from_meta(meta)
 
+
 class FlexibleDoubleSpinBox(QDoubleSpinBox):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setDecimals(10) # Set extremely high to allow typing, but we format display manually
+        self.setDecimals(
+            10
+        )  # Set extremely high to allow typing, but we format display manually
 
     def textFromValue(self, value):
         # Return simplest string representation (stripping 0s)
         # Using string formatting to avoid scientific notation if possible
-        text = f"{value:.10f}".rstrip('0').rstrip('.')
-        if text == "": text = "0"
+        text = f"{value:.10f}".rstrip("0").rstrip(".")
+        if text == "":
+            text = "0"
         return text
+
 
 class CubeViewerWidget(QWidget):
     def __init__(self, parent_window, dock_widget, grid, data_max=1.0):
         super().__init__(parent_window)
         self.mw = parent_window
-        self.dock = dock_widget 
+        self.dock = dock_widget
         self.grid = grid
         # Ensure we have a reasonable positive max value
         self.data_max = max(abs(float(data_max)), 1e-6)
-        
+
         self.iso_actor_p = None
         self.iso_actor_n = None
-        
+
         self.plotter = self.mw.plotter
-        
+
         # Initial Colors
-        self.color_p = "#0000FF" # Blue
-        self.color_n = "#FF0000" # Red
+        self.color_p = "#0000FF"  # Blue
+        self.color_n = "#FF0000"  # Red
 
         self.init_ui()
-        # DELAY INITIAL UPDATE: 
+        # DELAY INITIAL UPDATE:
         # When opening from command line, the window might not be fully ready.
         # A small delay ensures the plotter is ready for actors.
         QTimer.singleShot(100, self.initial_update)
-        
+
         # Ensure settings are saved when application quits (Main Window X button)
         QCoreApplication.instance().aboutToQuit.connect(self.save_settings)
 
@@ -253,62 +275,64 @@ class CubeViewerWidget(QWidget):
 
     def init_ui(self):
         layout = QVBoxLayout()
-        
+
         # --- Isovalue Controls ---
         ctrl_layout = QHBoxLayout()
         ctrl_layout.addWidget(QLabel("Isovalue:"))
-        
+
         # Spinbox: Fixed max 1.0 as requested
         # Spinbox: Dynamic max based on data
         # We allow going a bit higher than the max found in data, e.g. 1.2x, just in case
         self.max_val = self.data_max * 1.2
-        
+
         self.spin = FlexibleDoubleSpinBox()
-        self.spin.setRange(0.00001, self.max_val) 
-        self.spin.setSingleStep(0.01) # User requested 0.01 step
+        self.spin.setRange(0.00001, self.max_val)
+        self.spin.setSingleStep(0.01)  # User requested 0.01 step
         # self.spin.setDecimals(10) # already set in class __init__
-        
-        # Default value strategy: 
+
+        # Default value strategy:
         # User requested hardcoded 0.05
         default_val = 0.05
-        
+
         # If default is outside the max range, adjust it
         if default_val > self.max_val:
             default_val = self.max_val * 0.1
-            
+
         self.spin.setValue(default_val)
-        
+
         self.spin.valueChanged.connect(self.on_spin_changed)
         ctrl_layout.addWidget(self.spin)
-        
+
         # Slider
         self.slider_max_int = 1000
-        
+
         self.slider = QSlider(Qt.Orientation.Horizontal)
         self.slider.setRange(0, self.slider_max_int)
-        
+
         # Default 0.05
         # Default set from spinbox value
         self.slider.setValue(int((default_val / self.max_val) * self.slider_max_int))
-        
+
         self.slider.valueChanged.connect(self.on_slider_changed)
         ctrl_layout.addWidget(self.slider)
 
         layout.addLayout(ctrl_layout)
-        
+
         # --- Color Controls ---
         # Fixed size for color buttons to align them nicely
         btn_size = (50, 24)
-        
+
         # Positive
         pos_color_layout = QHBoxLayout()
         pos_color_layout.addWidget(QLabel("Pos Color:"))
         self.btn_color_p = QPushButton()
         self.btn_color_p.setFixedSize(*btn_size)
-        self.btn_color_p.setStyleSheet(f"background-color: {self.color_p}; border: 1px solid gray;")
+        self.btn_color_p.setStyleSheet(
+            f"background-color: {self.color_p}; border: 1px solid gray;"
+        )
         self.btn_color_p.clicked.connect(self.choose_color_p)
         pos_color_layout.addWidget(self.btn_color_p)
-        pos_color_layout.addStretch() # Align left
+        pos_color_layout.addStretch()  # Align left
         layout.addLayout(pos_color_layout)
 
         # Negative
@@ -316,10 +340,12 @@ class CubeViewerWidget(QWidget):
         neg_color_layout.addWidget(QLabel("Neg Color:"))
         self.btn_color_n = QPushButton()
         self.btn_color_n.setFixedSize(*btn_size)
-        self.btn_color_n.setStyleSheet(f"background-color: {self.color_n}; border: 1px solid gray;")
+        self.btn_color_n.setStyleSheet(
+            f"background-color: {self.color_n}; border: 1px solid gray;"
+        )
         self.btn_color_n.clicked.connect(self.choose_color_n)
         neg_color_layout.addWidget(self.btn_color_n)
-        neg_color_layout.addStretch() # Align left
+        neg_color_layout.addStretch()  # Align left
         layout.addLayout(neg_color_layout)
 
         # Complementary Checkbox (Next line)
@@ -335,7 +361,7 @@ class CubeViewerWidget(QWidget):
         # Static label (no numeric value displayed)
         self.opacity_label = QLabel("Opacity:")
         opacity_layout.addWidget(self.opacity_label)
-        
+
         # Numeric opacity input: place before the slider to match isovalue controls
         self.opacity_spin = QDoubleSpinBox()
         self.opacity_spin.setRange(0.0, 1.0)
@@ -347,74 +373,84 @@ class CubeViewerWidget(QWidget):
 
         self.opacity_slider = QSlider(Qt.Orientation.Horizontal)
         self.opacity_slider.setRange(0, 100)
-        self.opacity_slider.setValue(40) # Match spinbox
+        self.opacity_slider.setValue(40)  # Match spinbox
         self.opacity_slider.valueChanged.connect(self.on_opacity_changed)
         opacity_layout.addWidget(self.opacity_slider)
-        
+
         layout.addLayout(opacity_layout)
-        
+
         # --- Style Controls ---
         style_layout = QHBoxLayout()
         style_layout.addWidget(QLabel("Style:"))
         self.combo_style = QComboBox()
-        self.combo_style.addItems(["Surface", "Smoothed Surface", "Wireframe", "Points"])
+        self.combo_style.addItems(
+            ["Surface", "Smoothed Surface", "Wireframe", "Points"]
+        )
         self.combo_style.currentIndexChanged.connect(self.update_iso)
         style_layout.addWidget(self.combo_style)
-        
+
         self.check_smooth = QCheckBox("Smooth Shading")
         self.check_smooth.setChecked(True)
         self.check_smooth.toggled.connect(self.update_iso)
         style_layout.addWidget(self.check_smooth)
-        
+
         layout.addLayout(style_layout)
 
         close_btn = QPushButton("Close Plugin")
         close_btn.clicked.connect(self.close_plugin)
         layout.addWidget(close_btn)
-        
+
         layout.addStretch()
         self.setLayout(layout)
-        
+
         # Load settings after UI init
         self.load_settings()
 
     def get_settings_path(self):
         """Returns the path to the JSON settings file in the same directory."""
-        return os.path.join(os.path.dirname(os.path.abspath(__file__)), "cube_viewer.json")
+        return os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "cube_viewer.json"
+        )
 
     def load_settings(self):
         """Loads settings from JSON file."""
         try:
             settings_path = self.get_settings_path()
             if os.path.exists(settings_path):
-                with open(settings_path, 'r') as f:
+                with open(settings_path, "r") as f:
                     settings = json.load(f)
-                
+
                 # Apply settings
                 if "isovalue" in settings:
                     self.spin.setValue(float(settings["isovalue"]))
-                
+
                 if "color_p" in settings:
                     col = settings["color_p"]
                     if QColor(col).isValid():
                         self.color_p = col
-                        self.btn_color_p.setStyleSheet(f"background-color: {self.color_p}; border: 1px solid gray;")
+                        self.btn_color_p.setStyleSheet(
+                            f"background-color: {self.color_p}; border: 1px solid gray;"
+                        )
 
                 if "color_n" in settings:
                     col = settings["color_n"]
                     if QColor(col).isValid():
                         self.color_n = col
-                        self.btn_color_n.setStyleSheet(f"background-color: {self.color_n}; border: 1px solid gray;")
-                
+                        self.btn_color_n.setStyleSheet(
+                            f"background-color: {self.color_n}; border: 1px solid gray;"
+                        )
+
                 if "use_complementary" in settings:
-                    self.check_comp_color.setChecked(bool(settings["use_complementary"]))
+                    self.check_comp_color.setChecked(
+                        bool(settings["use_complementary"])
+                    )
                     # Force update of neg color button enabled state
                     self.btn_color_n.setEnabled(not self.check_comp_color.isChecked())
 
                 if "opacity" in settings:
                     val = float(settings["opacity"])
                     self.opacity_spin.setValue(val)
-                    
+
                 if "style" in settings:
                     # Robust find
                     text = settings["style"]
@@ -425,12 +461,12 @@ class CubeViewerWidget(QWidget):
                             if self.combo_style.itemText(i).lower() == text.lower():
                                 idx = i
                                 break
-                    if idx >= 0: 
+                    if idx >= 0:
                         self.combo_style.setCurrentIndex(idx)
-                    
+
                 if "smooth_shading" in settings:
                     self.check_smooth.setChecked(bool(settings["smooth_shading"]))
-                    
+
         except Exception as e:
             print(f"Error loading settings: {e}")
 
@@ -444,12 +480,12 @@ class CubeViewerWidget(QWidget):
                 "use_complementary": self.check_comp_color.isChecked(),
                 "opacity": self.opacity_spin.value(),
                 "style": self.combo_style.currentText(),
-                "smooth_shading": self.check_smooth.isChecked()
+                "smooth_shading": self.check_smooth.isChecked(),
             }
-            
-            with open(self.get_settings_path(), 'w') as f:
+
+            with open(self.get_settings_path(), "w") as f:
                 json.dump(settings, f, indent=4)
-                
+
         except Exception as e:
             print(f"Error saving settings: {e}")
 
@@ -463,81 +499,97 @@ class CubeViewerWidget(QWidget):
         col_p = QColor(self.color_p)
         if not col_p.isValid():
             return
-            
+
         h = col_p.hue()
         s = col_p.saturation()
         v = col_p.value()
-        
+
         # Complementary = hue + 180 degrees
-        if h != -1: # -1 means grayscale/achromatic
-             new_h = (h + 180) % 360
+        if h != -1:  # -1 means grayscale/achromatic
+            new_h = (h + 180) % 360
         else:
-             new_h = h # Keep achromatic
-        
+            new_h = h  # Keep achromatic
+
         col_n = QColor.fromHsv(new_h, s, v)
         self.color_n = col_n.name()
-        self.btn_color_n.setStyleSheet(f"background-color: {self.color_n}; border: 1px solid gray;")
+        self.btn_color_n.setStyleSheet(
+            f"background-color: {self.color_n}; border: 1px solid gray;"
+        )
         self.update_iso()
 
     def choose_color_p(self):
-        c = QColorDialog.getColor(initial=QColor(self.color_p), title="Select Positive Lobe Color")
+        c = QColorDialog.getColor(
+            initial=QColor(self.color_p), title="Select Positive Lobe Color"
+        )
         if c.isValid():
             self.color_p = c.name()
-            self.btn_color_p.setStyleSheet(f"background-color: {self.color_p}; border: 1px solid gray;")
-            
+            self.btn_color_p.setStyleSheet(
+                f"background-color: {self.color_p}; border: 1px solid gray;"
+            )
+
             if self.check_comp_color.isChecked():
                 self.update_complementary_color()
             else:
                 self.update_iso()
 
     def choose_color_n(self):
-        c = QColorDialog.getColor(initial=QColor(self.color_n), title="Select Negative Lobe Color")
+        c = QColorDialog.getColor(
+            initial=QColor(self.color_n), title="Select Negative Lobe Color"
+        )
         if c.isValid():
             self.color_n = c.name()
-            self.btn_color_n.setStyleSheet(f"background-color: {self.color_n}; border: 1px solid gray;")
+            self.btn_color_n.setStyleSheet(
+                f"background-color: {self.color_n}; border: 1px solid gray;"
+            )
             self.update_iso()
 
     def update_iso(self):
         val = self.spin.value()
         # Prefer numeric spinbox value (kept in sync with slider)
-        opacity_val = self.opacity_spin.value() if getattr(self, 'opacity_spin', None) is not None else self.opacity_slider.value() / 100.0
-        
+        opacity_val = (
+            self.opacity_spin.value()
+            if getattr(self, "opacity_spin", None) is not None
+            else self.opacity_slider.value() / 100.0
+        )
+
         # Style settings
-        style = self.combo_style.currentText() # Keep original case for check
+        style = self.combo_style.currentText()  # Keep original case for check
         smooth = self.check_smooth.isChecked()
-        
+
         render_style = style.lower()
         do_geometric_smooth = False
         is_density_mode = False
-        
+
         if style == "Smoothed Surface":
             render_style = "surface"
             do_geometric_smooth = True
         elif render_style in ["wireframe", "points"]:
             is_density_mode = True
-            
+
         # Update Label to reflect usage
         if is_density_mode:
             self.opacity_label.setText("Density:")
         else:
             self.opacity_label.setText("Opacity:")
-        
+
         try:
             # Cleanup previous
-            if self.iso_actor_p: self.plotter.remove_actor(self.iso_actor_p)
-            if self.iso_actor_n: self.plotter.remove_actor(self.iso_actor_n)
-            
+            if self.iso_actor_p:
+                self.plotter.remove_actor(self.iso_actor_p)
+            if self.iso_actor_n:
+                self.plotter.remove_actor(self.iso_actor_n)
+
             # Additional safety cleanup by name
             self.plotter.remove_actor("cube_iso_p")
             self.plotter.remove_actor("cube_iso_n")
-            
+
             # Using full grid
             using_grid = self.grid
 
             # Decimation / Opacity Logic
             render_opacity = opacity_val
             target_reduction = 0.0
-            
+
             if is_density_mode:
                 # In density mode, opacity slider controls density (1.0 = full, 0.0 = empty)
                 # target_reduction is fraction to REMOVE.
@@ -546,49 +598,66 @@ class CubeViewerWidget(QWidget):
                 target_reduction = 1.0 - opacity_val
                 # Clamp to avoid total destruction or errors
                 target_reduction = max(0.0, min(0.99, target_reduction))
-                
+
                 # Force full opacity for the lines/points themselves so they are visible
                 render_opacity = 1.0
 
             def process_mesh(iso_mesh):
                 m = iso_mesh
-                
-                # 1. Geometric Smoothing (Before decimation usually better for shape, 
-                # but if decimating heavily, smoothing after might be cleaner? 
+
+                # 1. Geometric Smoothing (Before decimation usually better for shape,
+                # but if decimating heavily, smoothing after might be cleaner?
                 # Let's stick to user request order: Smoothing is a style feature, usually implies high qual.
                 # Decimation is for sparse view.)
                 if do_geometric_smooth:
-                     m = m.smooth(n_iter=100)
-                     
+                    m = m.smooth(n_iter=100)
+
                 # 2. Decimation (Density)
                 if is_density_mode and target_reduction > 0.0:
                     m = m.decimate(target_reduction)
-                    
+
                 return m
 
             # Positive lobe
             iso_p = using_grid.contour(isosurfaces=[val])
             if iso_p.n_points > 0:
                 iso_p = process_mesh(iso_p)
-                self.iso_actor_p = self.plotter.add_mesh(iso_p, color=self.color_p, opacity=render_opacity, name="cube_iso_p", reset_camera=False, style=render_style, smooth_shading=smooth)
-                
+                self.iso_actor_p = self.plotter.add_mesh(
+                    iso_p,
+                    color=self.color_p,
+                    opacity=render_opacity,
+                    name="cube_iso_p",
+                    reset_camera=False,
+                    style=render_style,
+                    smooth_shading=smooth,
+                )
+
             # Negative lobe
             iso_n = using_grid.contour(isosurfaces=[-val])
             if iso_n.n_points > 0:
                 iso_n = process_mesh(iso_n)
-                self.iso_actor_n = self.plotter.add_mesh(iso_n, color=self.color_n, opacity=render_opacity, name="cube_iso_n", reset_camera=False, style=render_style, smooth_shading=smooth)
-                
+                self.iso_actor_n = self.plotter.add_mesh(
+                    iso_n,
+                    color=self.color_n,
+                    opacity=render_opacity,
+                    name="cube_iso_n",
+                    reset_camera=False,
+                    style=render_style,
+                    smooth_shading=smooth,
+                )
+
             self.plotter.render()
-            
+
         except Exception as e:
             print(f"Iso update error: {e}")
             import traceback
+
             traceback.print_exc()
 
     def on_opacity_changed(self, val):
         opacity = val / 100.0
         # Sync numeric spinbox without re-triggering signals
-        if getattr(self, 'opacity_spin', None) is not None:
+        if getattr(self, "opacity_spin", None) is not None:
             self.opacity_spin.blockSignals(True)
             self.opacity_spin.setValue(opacity)
             self.opacity_spin.blockSignals(False)
@@ -597,7 +666,7 @@ class CubeViewerWidget(QWidget):
     def on_opacity_spin_changed(self, val):
         # val is between 0.0 and 1.0
         # Sync slider (0-100)
-        if getattr(self, 'opacity_slider', None) is not None:
+        if getattr(self, "opacity_slider", None) is not None:
             int_val = int(round(val * 100))
             self.opacity_slider.blockSignals(True)
             self.opacity_slider.setValue(int_val)
@@ -626,71 +695,77 @@ class CubeViewerWidget(QWidget):
     def close_plugin(self):
         self.save_settings()
         try:
-             # Full cleanup
-             self.mw.plotter.clear()
-             self.mw.current_mol = None
-             self.mw.init_manager.current_file_path = None
-             self.mw.plotter.render()
-             
-             # Restore UI state
-             if hasattr(self.mw, 'restore_ui_for_editing'):
-                 self.mw.ui_manager.restore_ui_for_editing()
+            # Full cleanup
+            self.mw.plotter.clear()
+            self.mw.current_mol = None
+            self.mw.init_manager.current_file_path = None
+            self.mw.plotter.render()
+
+            # Restore UI state
+            if hasattr(self.mw, "restore_ui_for_editing"):
+                self.mw.ui_manager.restore_ui_for_editing()
         except Exception as _e:
             logging.warning("[cube_viewer.py:636] silenced: %s", _e)
-        
+
         if self.dock:
             self.mw.removeDockWidget(self.dock)
             self.dock.deleteLater()
             self.dock = None
-        
+
         self.deleteLater()
+
 
 class ChargeDialog(QDialog):
     def __init__(self, parent=None, current_charge=0):
         super().__init__(parent)
         self.setWindowTitle("Bond Connectivity Error")
-        self.result_action = "cancel" # retry, skip, cancel
+        self.result_action = "cancel"  # retry, skip, cancel
         self.charge = current_charge
-        
+
         self.init_ui()
-        
+
     def init_ui(self):
         layout = QVBoxLayout()
-        layout.addWidget(QLabel("Could not determine connectivity with charge: " + str(self.charge)))
-        layout.addWidget(QLabel("Please specificy correct charge or skip chemistry check."))
-        
+        layout.addWidget(
+            QLabel("Could not determine connectivity with charge: " + str(self.charge))
+        )
+        layout.addWidget(
+            QLabel("Please specificy correct charge or skip chemistry check.")
+        )
+
         form = QFormLayout()
         self.spin = QSpinBox()
         self.spin.setRange(-20, 20)
         self.spin.setValue(self.charge)
         form.addRow("Charge:", self.spin)
         layout.addLayout(form)
-        
+
         btns = QHBoxLayout()
         retry_btn = QPushButton("Retry")
         retry_btn.clicked.connect(self.on_retry)
-        
+
         skip_btn = QPushButton("Skip Chemistry")
         skip_btn.clicked.connect(self.on_skip)
-        
+
         cancel_btn = QPushButton("Cancel")
         cancel_btn.clicked.connect(self.reject)
-        
+
         btns.addWidget(retry_btn)
         btns.addWidget(skip_btn)
         btns.addWidget(cancel_btn)
         layout.addLayout(btns)
-        
+
         self.setLayout(layout)
-        
+
     def on_retry(self):
         self.charge = self.spin.value()
         self.result_action = "retry"
         self.accept()
-        
+
     def on_skip(self):
         self.result_action = "skip"
         self.accept()
+
 
 def open_cube_viewer(context, fname):
     """Core logic to open cube viewer with a specific file."""
@@ -704,71 +779,76 @@ def open_cube_viewer(context, fname):
     if old_dock:
         try:
             widget = old_dock.widget()
-            if hasattr(widget, 'close_plugin'):
+            if hasattr(widget, "close_plugin"):
                 widget.close_plugin()
             else:
                 old_dock.close()
         except Exception as _e:
-             logging.warning("[cube_viewer.py:716] silenced: %s", _e)
+            logging.warning("[cube_viewer.py:716] silenced: %s", _e)
 
     try:
-        if not fname: # Should not happen if called correctly
+        if not fname:  # Should not happen if called correctly
             return
 
         try:
             meta, grid = read_cube(fname)
         except Exception as e:
             import traceback
+
             traceback.print_exc()
-            QMessageBox.critical(main_window, "Error", f"Failed to parse Cube file:\n{e}")
+            QMessageBox.critical(
+                main_window, "Error", f"Failed to parse Cube file:\n{e}"
+            )
             return
-        
-        if hasattr(main_window, 'plotter'):
+
+        if hasattr(main_window, "plotter"):
             main_window.plotter.clear()
-        
-        if hasattr(context, 'enter_3d_viewer_mode'):
+
+        if hasattr(context, "enter_3d_viewer_mode"):
             context.enter_3d_viewer_mode()
-        elif hasattr(main_window, 'ui_manager') and hasattr(main_window.ui_manager, 'enter_3d_viewer_ui_mode'):
+        elif hasattr(main_window, "ui_manager") and hasattr(
+            main_window.ui_manager, "enter_3d_viewer_ui_mode"
+        ):
             main_window.ui_manager.enter_3d_viewer_ui_mode()
-        
+
         # Create Molecule (XYZ)
-        atoms = meta['atoms']
+        atoms = meta["atoms"]
         xyz_lines = [f"{len(atoms)}", "Generated by Cube Plugin"]
         pt = Chem.GetPeriodicTable()
         for atomic_num, pos in atoms:
             symbol = pt.GetElementSymbol(atomic_num)
             xyz_lines.append(f"{symbol} {pos[0]:.4f} {pos[1]:.4f} {pos[2]:.4f}")
-        
+
         xyz_content = "\n".join(xyz_lines)
-        
+
         mol = Chem.MolFromXYZBlock(xyz_content)
-        
+
         # Use rdDetermineBonds if available and no bonds found
         current_charge = 0
         if mol is not None and mol.GetNumBonds() == 0 and rdDetermineBonds is not None:
             while True:
                 # Re-create fresh molecule for this attempt to avoid dirty state on retry
                 mol = Chem.MolFromXYZBlock(xyz_content)
-                
+
                 try:
                     rdDetermineBonds.DetermineConnectivity(mol, charge=current_charge)
                     rdDetermineBonds.DetermineBondOrders(mol, charge=current_charge)
-                    break # Success
+                    break  # Success
                 except Exception as e:
                     # Show Dialog
                     dlg = ChargeDialog(main_window, current_charge)
                     if dlg.exec() == QDialog.DialogCode.Accepted:
                         if dlg.result_action == "retry":
                             current_charge = dlg.charge
-                            continue # Loop again with new charge
+                            continue  # Loop again with new charge
                         elif dlg.result_action == "skip":
                             # Ensure we have a clean unbonded mol
                             mol = Chem.MolFromXYZBlock(xyz_content)
                             rdDetermineBonds.DetermineConnectivity(mol, charge=0)
-                            break # Break loop, accept no bonds/bad connectivity
+                            break  # Break loop, accept no bonds/bad connectivity
                     else:
-                        return # User Cancelled plugin load
-        
+                        return  # User Cancelled plugin load
+
         if mol is None:
             # Fallback
             mol = Chem.RWMol()
@@ -784,25 +864,27 @@ def open_cube_viewer(context, fname):
         main_window.init_manager.current_file_path = fname
 
         # Enter full 3D viewer UI mode: minimizes 2D panel and disables editing tools (enables Export 3D)
-        if hasattr(context, 'enter_3d_viewer_mode'):
+        if hasattr(context, "enter_3d_viewer_mode"):
             try:
                 context.enter_3d_viewer_mode()
             except Exception as _e:
                 logging.warning("[cube_viewer.py] silenced: %s", _e)
-        elif hasattr(main_window, 'ui_manager') and hasattr(main_window.ui_manager, 'enter_3d_viewer_ui_mode'):
+        elif hasattr(main_window, "ui_manager") and hasattr(
+            main_window.ui_manager, "enter_3d_viewer_ui_mode"
+        ):
             try:
                 main_window.ui_manager.enter_3d_viewer_ui_mode()
             except Exception as _e:
                 logging.warning("[cube_viewer.py] silenced: %s", _e)
 
-             
         # Report bonds
         nb = mol.GetNumBonds() if mol else 0
-        if hasattr(main_window, 'statusBar'):
-            main_window.statusBar().showMessage(f"Loaded Cube. Atoms: {len(atoms)}, Bonds: {nb}")
+        context.show_status_message(f"Loaded Cube. Atoms: {len(atoms)}, Bonds: {nb}")
 
         dock = QDockWidget("Cube Viewer", main_window)
-        dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea)
+        dock.setAllowedAreas(
+            Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea
+        )
 
         # Calculate max absolute value in data for dynamic scaling
         try:
@@ -813,57 +895,61 @@ def open_cube_viewer(context, fname):
             else:
                 data_max = 1.0
         except Exception:
-             data_max = 1.0
+            data_max = 1.0
 
         viewer = CubeViewerWidget(main_window, dock, grid, data_max=data_max)
         dock.setWidget(viewer)
-        
+
         main_window.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
         context.register_window("main_panel", dock)
-        
-        
+
         # main_window.plotter.reset_camera() # Handled in initial_update of widget
 
     except Exception as e:
         import traceback
+
         traceback.print_exc()
         print(f"Plugin Error: {e}")
+
 
 def run(mw):
     if Chem is None:
         QMessageBox.critical(mw, "Error", "RDKit is required for this plugin.")
         return
 
-    from moleditpy.plugins.plugin_interface import PluginContext
-    context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
+    context = PLUGIN_CONTEXT
+    if not context:
+        return
 
-    fname, _ = QFileDialog.getOpenFileName(mw, "Open Gaussian Cube File", "", "Cube Files (*.cube *.cub);;All Files (*)")
+    fname, _ = QFileDialog.getOpenFileName(
+        mw, "Open Gaussian Cube File", "", "Cube Files (*.cube *.cub);;All Files (*)"
+    )
     if fname:
         open_cube_viewer(context, fname)
+
 
 def initialize(context):
     """
     New Plugin System Entry Point
     """
+    global PLUGIN_CONTEXT
+    PLUGIN_CONTEXT = context
     mw = context.get_main_window()
 
     def open_cube_wrapper(fname):
         open_cube_viewer(context, fname)
 
     # 1. Register File Opener (Handle File > Import)
-    context.register_file_opener('.cube', open_cube_wrapper)
-    context.register_file_opener('.cub', open_cube_wrapper)
+    context.register_file_opener(".cube", open_cube_wrapper)
+    context.register_file_opener(".cub", open_cube_wrapper)
 
     # 2. Register Drop Handler (for robustness)
     # The system iterates drop handlers. Return True if we handled it.
     def drop_handler(file_path):
-        if file_path.lower().endswith(('.cube', '.cub')):
+        if file_path.lower().endswith((".cube", ".cub")):
             open_cube_viewer(context, file_path)
             return True
         return False
 
-    if hasattr(context, 'register_drop_handler'):
+    if hasattr(context, "register_drop_handler"):
         context.register_drop_handler(drop_handler, priority=10)
-
-
-

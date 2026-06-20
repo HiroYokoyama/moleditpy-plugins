@@ -1,7 +1,14 @@
 import numpy as np
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem,
-    QPushButton, QHBoxLayout, QMessageBox, QHeaderView, QFileDialog,
+    QWidget,
+    QVBoxLayout,
+    QTableWidget,
+    QTableWidgetItem,
+    QPushButton,
+    QHBoxLayout,
+    QMessageBox,
+    QHeaderView,
+    QFileDialog,
 )
 from PyQt6.QtCore import Qt, QTimer, QObject, QEvent
 from rdkit import Chem
@@ -11,9 +18,11 @@ import logging
 
 
 PLUGIN_NAME = "XYZ Editor"
-PLUGIN_VERSION = "2026.04.18"
+PLUGIN_VERSION = "2026.06.20"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "A table-based editor for atom coordinates and symbols, supporting ghost atoms. Refactored for V3 API."
+PLUGIN_CONTEXT = None
 
 
 class _ClickFilter(QObject):
@@ -30,7 +39,10 @@ class _ClickFilter(QObject):
             if event.button() == Qt.MouseButton.LeftButton:
                 self._press_pos = event.position().toPoint()
         elif t == QEvent.Type.MouseButtonRelease:
-            if event.button() == Qt.MouseButton.LeftButton and self._press_pos is not None:
+            if (
+                event.button() == Qt.MouseButton.LeftButton
+                and self._press_pos is not None
+            ):
                 rel = event.position().toPoint()
                 dx = rel.x() - self._press_pos.x()
                 dy = rel.y() - self._press_pos.y()
@@ -45,6 +57,7 @@ class XYZEditorWindow(QWidget):
     Namespaced window for editing XYZ coordinates and symbols.
     Refactored for MoleditPy V3.0 API.
     """
+
     def __init__(self, context):
         super().__init__(parent=context.get_main_window())
         self.setWindowFlags(Qt.WindowType.Window)
@@ -66,7 +79,7 @@ class XYZEditorWindow(QWidget):
 
         # Install click-detection filter on 3D plotter
         self._enable_plotter_picking()
-        
+
     def init_ui(self):
         layout = QVBoxLayout(self)
 
@@ -74,10 +87,12 @@ class XYZEditorWindow(QWidget):
         self.table = QTableWidget()
         self.table.setColumnCount(5)
         self.table.setHorizontalHeaderLabels(["Index", "Symbol", "X", "Y", "Z"])
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.Stretch
+        )
         self.table.itemChanged.connect(self.on_item_changed)
         self.table.itemSelectionChanged.connect(self.highlight_selected_atoms)
-        
+
         # UI Styling to prevent overlap issues
         self.table.setStyleSheet("""
             QTableWidget {
@@ -100,7 +115,7 @@ class XYZEditorWindow(QWidget):
 
         # Buttons
         btn_layout = QHBoxLayout()
-        
+
         self.apply_btn = QPushButton("Apply to View")
         self.apply_btn.clicked.connect(self.apply_changes)
         btn_layout.addWidget(self.apply_btn)
@@ -120,7 +135,7 @@ class XYZEditorWindow(QWidget):
         self.remove_btn = QPushButton("Remove Selected")
         self.remove_btn.clicked.connect(self.remove_selected_rows)
         edit_layout.addWidget(self.remove_btn)
-        
+
         self.copy_btn = QPushButton("Copy to Clipboard")
         self.copy_btn.clicked.connect(self.copy_to_clipboard)
         edit_layout.addWidget(self.copy_btn)
@@ -128,7 +143,7 @@ class XYZEditorWindow(QWidget):
         self.unselect_btn = QPushButton("Unselect")
         self.unselect_btn.clicked.connect(self.unselect_all)
         edit_layout.addWidget(self.unselect_btn)
-        
+
         layout.addLayout(edit_layout)
 
     def _enable_plotter_picking(self):
@@ -160,6 +175,7 @@ class XYZEditorWindow(QWidget):
         """Called when a non-drag left click is detected on the 3D plotter interactor widget."""
         try:
             import vtk
+
             mw = self.context.get_main_window()
             v3d = getattr(mw, "view_3d_manager", None) if mw else None
             plotter = self.context.plotter
@@ -244,9 +260,9 @@ class XYZEditorWindow(QWidget):
             # 1. Object Identity (primary check for new files)
             # 2. Number of Atoms/Bonds (check for structure changes)
             # 3. First atom position (check for movement/conformer updates)
-            
+
             sig = [id(mol), mol.GetNumAtoms(), mol.GetNumBonds()]
-            
+
             if mol.GetNumAtoms() > 0:
                 conf = mol.GetConformer()
                 # Use a robust signature: hash of all coordinates (rounded to 4 decimals)
@@ -254,7 +270,7 @@ class XYZEditorWindow(QWidget):
                 pos_array = conf.GetPositions()
                 coord_hash = hash(np.round(pos_array, 4).tobytes())
                 sig.append(coord_hash)
-            
+
             return tuple(sig)
         except:
             return None
@@ -263,19 +279,19 @@ class XYZEditorWindow(QWidget):
         try:
             current_mol = self.context.current_molecule
             current_sig = self.get_mol_signature(current_mol)
-            
+
             if current_sig != self.last_seen_signature:
                 self.load_molecule()
         except Exception as _e:
             logging.warning("[xyz_editor.py:264] silenced: %s", _e)
-            
+
     def load_molecule(self):
         self.table.blockSignals(True)
         self.table.setRowCount(0)
 
         mol = self.context.current_molecule
         self.last_seen_signature = self.get_mol_signature(mol)
-        
+
         if not mol:
             self.table.blockSignals(False)
             return
@@ -284,17 +300,17 @@ class XYZEditorWindow(QWidget):
         for atom in mol.GetAtoms():
             idx = atom.GetIdx()
             pos = conf.GetAtomPosition(idx)
-            
+
             # Atomic Symbol handling
             symbol = atom.GetSymbol()
-            
+
             # Check for custom label property first (our new standard)
             if atom.HasProp("custom_symbol"):
                 symbol = atom.GetProp("custom_symbol")
             # Fallback to dummyLabel if custom_symbol missing (legacy/other plugins)
             elif atom.HasProp("dummyLabel"):
                 symbol = atom.GetProp("dummyLabel")
-            
+
             # Note: We no longer map '*' to 'X' here to allow asterisks as requested.
             # RDKit dummy atoms default to '*' symbol.
 
@@ -326,7 +342,9 @@ class XYZEditorWindow(QWidget):
         self.table.scrollToBottom()
 
     def remove_selected_rows(self):
-        rows = sorted(set(index.row() for index in self.table.selectedIndexes()), reverse=True)
+        rows = sorted(
+            set(index.row() for index in self.table.selectedIndexes()), reverse=True
+        )
         for row in rows:
             self.table.removeRow(row)
 
@@ -337,6 +355,7 @@ class XYZEditorWindow(QWidget):
         lines = self._generate_xyz_content()
         clipboard_text = "\n".join(lines)
         from PyQt6.QtGui import QGuiApplication
+
         clipboard = QGuiApplication.clipboard()
         clipboard.setText(clipboard_text)
         self.context.show_status_message("XYZ data copied to clipboard.")
@@ -347,13 +366,13 @@ class XYZEditorWindow(QWidget):
         )
         if not file_path:
             return
-            
+
         if not file_path.lower().endswith(".xyz"):
             file_path += ".xyz"
-            
+
         try:
             lines = self._generate_xyz_content()
-            with open(file_path, 'w', encoding='utf-8') as f:
+            with open(file_path, "w", encoding="utf-8") as f:
                 f.write("\n".join(lines))
             self.context.show_status_message(f"XYZ saved to {file_path}")
         except Exception as e:
@@ -364,7 +383,7 @@ class XYZEditorWindow(QWidget):
         atom_count = self.table.rowCount()
         lines.append(str(atom_count))
         lines.append("Generated by MoleditPy XYZ Editor")
-        
+
         for row in range(atom_count):
             symbol = self.table.item(row, 1).text().strip()
             x = self.table.item(row, 2).text()
@@ -376,7 +395,7 @@ class XYZEditorWindow(QWidget):
     def highlight_selected_atoms(self):
         # Identify selected rows
         rows = set(index.row() for index in self.table.selectedIndexes())
-        
+
         if not rows:
             plotter = self.context.plotter
             if plotter:
@@ -405,7 +424,7 @@ class XYZEditorWindow(QWidget):
                 y = float(self.table.item(row, 3).text())
                 z = float(self.table.item(row, 4).text())
                 points.append([x, y, z])
-                
+
                 # Determine radius based on element
                 try:
                     atomic_num = pt.GetAtomicNumber(symbol.capitalize())
@@ -414,12 +433,12 @@ class XYZEditorWindow(QWidget):
                 except RuntimeError:
                     # Ghost/Unknown -> Default size
                     radius = 1.5 * 0.3
-                
+
                 radii.append(radius)
 
             except ValueError:
                 continue
-        
+
         if not points:
             plotter = self.context.plotter
             if plotter:
@@ -435,15 +454,15 @@ class XYZEditorWindow(QWidget):
                         pass
                 plotter.render()
             return
-            
+
         # Create polydata for points
         poly = pv.PolyData(points)
-        poly["radii"] = radii # Add scalar array
-        
+        poly["radii"] = radii  # Add scalar array
+
         # Add spheres at these points, scaled by radius
         # orient=False added to suppress PyVista UserWarning (No vector-like data to use for orient)
         spheres = poly.glyph(geom=pv.Sphere(radius=1.0), scale="radii", orient=False)
-        
+
         plotter = self.context.plotter
         if plotter:
             try:
@@ -455,7 +474,7 @@ class XYZEditorWindow(QWidget):
                 name="xyz_selection",
                 color="yellow",
                 opacity=0.5,
-                pickable=False
+                pickable=False,
             )
             if cam is not None:
                 try:
@@ -480,16 +499,16 @@ class XYZEditorWindow(QWidget):
 
         # We need to rebuild the molecule based on the table content
         # Because rows might have been deleted or added/reordered
-        
+
         new_rw_mol = Chem.RWMol()
         # Store coords to set AFTER adding all atoms (requires sizing conformer)
-        atom_coords = [] 
-        
+        atom_coords = []
+
         # Map old_idx -> new_idx to reconstruct bonds if possible
-        old_to_new_map = {} 
-        
+        old_to_new_map = {}
+
         table_rows = self.table.rowCount()
-        
+
         try:
             for row in range(table_rows):
                 # Parse inputs
@@ -527,16 +546,16 @@ class XYZEditorWindow(QWidget):
                                 p_num = pt.GetAtomicNumber(prefix)
                                 if pt.GetElementSymbol(p_num) == prefix:
                                     # NEW LOGIC: If we found a prefix match, ensure the next character
-                                    # is NOT an alphabet (which would imply it's part of a longer 
+                                    # is NOT an alphabet (which would imply it's part of a longer
                                     # unidentified symbol like 'Bq' or 'Calpha')
                                     if i < len(symbol) and symbol[i].isalpha():
                                         continue
-                                    
+
                                     found_atomic_num = p_num
                                     break
                             except Exception:
                                 continue
-                        
+
                         # Create atom (defaults to dummy 0 if no prefix found)
                         atom = Chem.Atom(found_atomic_num)
                         # Store the EXACT string (c, ag, Ag*, etc.)
@@ -548,7 +567,7 @@ class XYZEditorWindow(QWidget):
 
                 new_idx = new_rw_mol.AddAtom(atom)
                 atom_coords.append(Point3D(x, y, z))
-                
+
                 # Track Index Mapping
                 idx_text = self.table.item(row, 0).text()
                 if idx_text != "+":
@@ -559,18 +578,20 @@ class XYZEditorWindow(QWidget):
             conf = Chem.Conformer(new_rw_mol.GetNumAtoms())
             for idx, pt in enumerate(atom_coords):
                 conf.SetAtomPosition(idx, pt)
-            
+
             # Re-add bonds if they exist between surviving atoms
             if mol:
                 for bond in mol.GetBonds():
                     b = bond.GetBeginAtomIdx()
                     e = bond.GetEndAtomIdx()
                     if b in old_to_new_map and e in old_to_new_map:
-                        new_rw_mol.AddBond(old_to_new_map[b], old_to_new_map[e], bond.GetBondType())
+                        new_rw_mol.AddBond(
+                            old_to_new_map[b], old_to_new_map[e], bond.GetBondType()
+                        )
 
             # Add Conformer
             new_rw_mol.AddConformer(conf)
-            
+
             # Commit changes
             # self.mw.edit_actions_manager.push_undo_state()  # MOVED TO START
             # Update properties and ring info to avoid RDKit errors
@@ -579,16 +600,18 @@ class XYZEditorWindow(QWidget):
             except:
                 new_rw_mol.UpdatePropertyCache(strict=False)
                 Chem.GetSSSR(new_rw_mol)
-            self.context.current_molecule = new_rw_mol.GetMol() 
+            self.context.current_molecule = new_rw_mol.GetMol()
             self.context.push_undo_checkpoint()
-            self.last_seen_signature = self.get_mol_signature(self.context.current_molecule)
-            
+            self.last_seen_signature = self.get_mol_signature(
+                self.context.current_molecule
+            )
+
             # Refresh visualization
-            self.context.reset_3d_camera() 
-            
+            self.context.reset_3d_camera()
+
             # Reload table to get clean indices and ensure properties stuck
             self.load_molecule()
-            
+
             self.context.show_status_message("XYZ changes applied.")
 
         except Exception as e:
@@ -597,7 +620,9 @@ class XYZEditorWindow(QWidget):
 
 def initialize(context):
     """MoleditPy Plugin Entry Point (V3.0)"""
-    
+    global PLUGIN_CONTEXT
+    PLUGIN_CONTEXT = context
+
     def show_editor():
         win = context.get_window("main_panel")
         if win:
@@ -606,7 +631,7 @@ def initialize(context):
             win.activateWindow()
             win.load_molecule()
             return
-            
+
         win = XYZEditorWindow(context)
         win.show()
 
@@ -615,8 +640,13 @@ def initialize(context):
     # Persistence Handling
     def save_plugin_state():
         mol = context.current_molecule
-        if not mol: return {}
-        labels = {a.GetIdx(): a.GetProp("custom_symbol") for a in mol.GetAtoms() if a.HasProp("custom_symbol")}
+        if not mol:
+            return {}
+        labels = {
+            a.GetIdx(): a.GetProp("custom_symbol")
+            for a in mol.GetAtoms()
+            if a.HasProp("custom_symbol")
+        }
         return {"custom_labels": labels}
 
     def load_plugin_state(data):
@@ -624,25 +654,29 @@ def initialize(context):
         mol = context.current_molecule
         if mol:
             for idx, lbl in labels.items():
-                try: mol.GetAtomWithIdx(int(idx)).SetProp("custom_symbol", lbl)
+                try:
+                    mol.GetAtomWithIdx(int(idx)).SetProp("custom_symbol", lbl)
                 except Exception as _e:
                     logging.warning("[xyz_editor.py:597] silenced: %s", _e)
             context.current_molecule = mol
 
     def on_document_reset():
         win = context.get_window("main_panel")
-        if win: win.load_molecule()
+        if win:
+            win.load_molecule()
 
     context.register_save_handler(save_plugin_state)
     context.register_load_handler(load_plugin_state)
     context.register_document_reset_handler(on_document_reset)
 
+
 def run(mw):
-    if hasattr(mw, 'host'):
+    if hasattr(mw, "host"):
         mw = mw.host
-    from moleditpy.plugins.plugin_interface import PluginContext
-    context = PluginContext(mw.plugin_manager, PLUGIN_NAME)
-    
+    context = PLUGIN_CONTEXT
+    if not context:
+        return
+
     win = context.get_window("main_panel")
     if win is None:
         win = XYZEditorWindow(context)
