@@ -223,6 +223,7 @@ def main():
     parser.add_argument("--expected-sha256", dest="expected_sha256", help="Expected SHA-256 hash (Required for non-HiroYokoyama plugins)")
     parser.add_argument("--date", help="Override registration date (YYYY-MM-DD, optional)")
     parser.add_argument("--supported-version", dest="supported_version", help="Supported MoleditPy version (e.g., 3.*). Required for visible plugins.")
+    parser.add_argument("--allow-same-version", action="store_true", dest="allow_same_version", help="Allow re-registering with the same version (bypasses same-version error)")
     
     args = parser.parse_args()
     
@@ -396,7 +397,11 @@ def main():
                 )
                 sys.exit(1)
             elif new_v == old_v:
-                if args.dry_run:
+                if args.allow_same_version:
+                    print(
+                        f"Warning: New version '{code_version}' equals existing version '{old_version}' in registry. Proceeding anyway (--allow-same-version)."
+                    )
+                elif args.dry_run:
                     print(
                         f"Warning: [Dry Run] New version '{code_version}' is equal to existing version '{old_version}' in registry."
                     )

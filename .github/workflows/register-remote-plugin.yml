@@ -39,6 +39,11 @@ on:
         description: 'Supported MoleditPy version (e.g. 3.*, required if visible)'
         required: false
         type: string
+      allow_same_version:
+        description: 'Allow re-registering with the same version (bypasses same-version error)'
+        required: false
+        type: boolean
+        default: false
       dry_run:
         description: 'Dry run (validate but do not commit/push changes)'
         required: true
@@ -76,6 +81,7 @@ jobs:
           DRY_RUN: ${{ github.event.inputs.dry_run }}
           DATE: ${{ github.event.inputs.date }}
           SUPPORTED_VERSION: ${{ github.event.inputs.supported_version }}
+          ALLOW_SAME_VERSION: ${{ github.event.inputs.allow_same_version }}
         run: |
           ARGS=""
           if [ -n "$PLUGIN_ID" ]; then
@@ -101,6 +107,9 @@ jobs:
           fi
           if [ -n "$SUPPORTED_VERSION" ]; then
             ARGS="$ARGS --supported-version \"$SUPPORTED_VERSION\""
+          fi
+          if [ "$ALLOW_SAME_VERSION" = "true" ]; then
+            ARGS="$ARGS --allow-same-version"
           fi
           
           # Execute the python script with the safely built arguments list
