@@ -84,7 +84,7 @@ External plugin repos send this event from their own `release.yml` after a succe
 | Field | Description |
 | :--- | :--- |
 | `client_payload.repo` | Full `owner/repo` of the releasing plugin (e.g. `HiroYokoyama/moleditpy_cif_viewer`) |
-| `client_payload.tag` | Release tag without `v` prefix (e.g. `0.11.0`) |
+| `client_payload.tag` | Release tag with `v` prefix (e.g. `v0.11.0`) |
 
 ### What It Does
 
@@ -119,6 +119,20 @@ An automated CI workflow triggered on every `push` and `pull_request` to `main`.
 
 Each external plugin repository (e.g. `moleditpy_cif_viewer`, `moleditpy_reaction_sketcher_plugin`) contains its own `.github/workflows/release.yml`. This is the **sending side** of the cross-repo pipeline.
 
+### Triggers
+
+The release workflow fires in two ways:
+
+| Trigger | When it fires | Tag behaviour |
+| :--- | :--- | :--- |
+| `workflow_dispatch` | Manually via GitHub Actions UI | Automatically creates and pushes `vX.X.X` tag |
+| `push: tags: v*.*.*` | When a `vX.X.X` tag is pushed to the repo | Tag already exists; version resolved from tag name |
+
+Both paths produce an identical result: a GitHub Release tagged `vX.X.X` with the asset attached, followed by a registry dispatch.
+
+> [!NOTE]
+> When `workflow_dispatch` pushes the auto-created tag via `GITHUB_TOKEN`, GitHub's built-in anti-loop protection prevents that tag push from triggering a second workflow run.
+
 ### One-Time Setup: `REGISTRY_PAT` Secret
 
 The release workflow needs permission to dispatch events to this registry repo. Set this up once per external plugin repo:
@@ -146,23 +160,33 @@ Repeat Step 2 for each external plugin repo. The token itself only needs to be c
 
 ### How to Publish a Release
 
-1. Update `PLUGIN_VERSION` in the plugin source file and commit + push.
+**Option A — workflow_dispatch (recommended)**
+
+1. Update `PLUGIN_VERSION` in the plugin source file, commit and push.
 2. Go to the plugin repo on GitHub → **Actions** → **Release** → **Run workflow**.
 3. Enter the version number **without a leading `v`** (e.g. `0.11.0`).
 4. Click **Run workflow**.
 
-The workflow will:
-- Verify the entered version matches `PLUGIN_VERSION` in the source file (fails if mismatched).
-- Build a `.zip` of the plugin package.
-- Create a GitHub Release with that tag and attach the zip.
-- Dispatch a `plugin_release` event to `moleditpy-plugins`, which triggers `auto-register-remote-plugin.yml` to update the registry automatically.
+The workflow will automatically create and push the `v0.11.0` git tag, then proceed with the release.
+
+**Option B — push a tag**
+
+1. Update `PLUGIN_VERSION` in the plugin source file, commit and push.
+2. Push a `vX.X.X` tag directly: `git tag v0.11.0 && git push origin v0.11.0`.
+
+The tag push triggers the workflow automatically.
+
+Either option results in:
+- Version verified against `PLUGIN_VERSION` in source (fails if mismatched).
+- `.zip` built and attached to a GitHub Release tagged `vX.X.X`.
+- `plugin_release` event dispatched to `moleditpy-plugins`, triggering `auto-register-remote-plugin.yml`.
 
 > [!NOTE]
 > The registry update step has `continue-on-error: true` and only fires if `REGISTRY_PAT` is set. A missing secret will not fail the release itself — the zip and GitHub Release are still created. The registry update simply won't happen automatically; you can always trigger `register-remote-plugin.yml` manually as a fallback.
 
 ### What Gets Packaged
 
-Each repo's `release.yml` zips its plugin package directory (e.g. `cif_viewer/`) excluding `__pycache__` and `.git`. The zip is named `<prefix>_<version>.zip` (e.g. `cif_viewer_0.11.0.zip`).
+Each repo's `release.yml` zips its plugin package directory (e.g. `cif_viewer/`) excluding `__pycache__` and `.git`. The zip is named `<prefix>_<version>.zip` (e.g. `cif_viewer_0.11.0.zip`) — no `v` prefix in the filename. The GitHub Release tag and the registry dispatch tag both use the `v`-prefixed form (e.g. `v0.11.0`).
 
 ### Required Plugin Source Constants
 
