@@ -144,8 +144,10 @@ The release workflow needs permission to dispatch events to this registry repo. 
    - Resource owner: `HiroYokoyama`
    - Repository access: **Only select repositories** → `moleditpy-plugins`
    - Permissions → Repository permissions → **Contents**: `Read and write`
+   > [!IMPORTANT]
+   > Select **Contents → Read and write** — NOT "Actions". The `repository_dispatch` API endpoint is gated on the `Contents` permission, not `Actions`.
 3. **Classic token** (alternative):
-   - Scope: `repo` (full control of private repositories)
+   - Scope: `repo`
 4. Copy the generated token value.
 
 **Step 2 — Add the Secret to the Plugin Repo**
