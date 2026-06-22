@@ -1406,7 +1406,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Dummy Atom Mode",
-    "version": "1.0.0",
+    "version": "2026.06.22",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Adds a dummy atom (*) mode to the 2D editor and registers a toolbar action to place dummy atoms.",
@@ -1420,7 +1420,7 @@
     ],
     "downloadUrl": "../plugins/Dummy_Atom_Mode/dummy_atom_mode.py",
     "lastUpdated": "2026-06-22",
-    "sha256": "02dfafe5c21cef780ec95d62e9fc6fddc9c85e4746f18566b3efcfd002995b62",
+    "sha256": "f3b1a2fd705c2846e94ffc8b0d05d93aaafbc99e17f01ee76dc20f7899d15022",
     "firstAppeared": "2026-06-22"
   }
 ]

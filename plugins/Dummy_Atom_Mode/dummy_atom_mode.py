@@ -8,7 +8,7 @@ from moleditpy.ui.ui_manager import UIManager
 
 # Metadata
 PLUGIN_NAME = "Dummy Atom Mode"
-PLUGIN_VERSION = "1.0.0"
+PLUGIN_VERSION = "2026.06.22"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Adds a dummy atom (*) mode to the 2D editor and registers a toolbar action to place dummy atoms."
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
@@ -46,7 +46,7 @@ def initialize(context):
         mw = self.host
         if hasattr(mw, "init_manager") and hasattr(mw.init_manager, "plugin_toolbar"):
             for action in mw.init_manager.plugin_toolbar.actions():
-                if action.text() == "Dummy Atom Mode":
+                if action.text() == "Dummy Atom *":
                     action.setChecked(is_dummy)
                     
     UIManager.set_mode = patched_set_mode
@@ -64,7 +64,7 @@ def initialize(context):
     # 5. Add the action to the plugin toolbar
     context.add_toolbar_action(
         callback=toggle_dummy_atom_mode,
-        text="Dummy Atom Mode",
+        text="Dummy Atom *",
         tooltip="Enter dummy atom mode to place *",
     )
     
@@ -75,7 +75,7 @@ def initialize(context):
         mw = context.get_main_window()
         if hasattr(mw, "init_manager") and hasattr(mw.init_manager, "plugin_toolbar"):
             for action in mw.init_manager.plugin_toolbar.actions():
-                if action.text() == "Dummy Atom Mode":
+                if action.text() == "Dummy Atom *":
                     action.setCheckable(True)
                     current_mode = getattr(mw.init_manager.scene, "mode", None)
                     action.setChecked(current_mode == "atom_*")

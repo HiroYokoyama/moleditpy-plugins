@@ -148,10 +148,8 @@ def update_single_json(json_path: Path) -> tuple[int, int, int, int, list[str]]:
             plugin["supported_moleditpy_version"] = new_supported
             updated_supported += 1
 
-    json_path.write_text(
-        json.dumps(data, indent=2, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
+    with json_path.open("w", encoding="utf-8", newline="\n") as f:
+        f.write(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
     return updated_sha, updated_ver, updated_date, updated_supported, missing
 
 
