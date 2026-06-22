@@ -37,9 +37,12 @@ def _load_module():
         ]:
             setattr(pyqt6.QtWidgets, name, MagicMock())
         setattr(pyqt6.QtGui, "QColor", MagicMock())
+        pyqt6.QtCore = types.ModuleType("PyQt6.QtCore")
+        setattr(pyqt6.QtCore, "QTimer", MagicMock())
         sys.modules["PyQt6"] = pyqt6
         sys.modules["PyQt6.QtWidgets"] = pyqt6.QtWidgets
         sys.modules["PyQt6.QtGui"] = pyqt6.QtGui
+        sys.modules["PyQt6.QtCore"] = pyqt6.QtCore
 
     spec = importlib.util.spec_from_file_location("plugin_installer", PLUGIN_PATH)
     mod = importlib.util.module_from_spec(spec)
@@ -154,10 +157,7 @@ class TestInitialize:
         PI.save_settings({"check_at_startup": True})
 
         timer_mock = MagicMock()
-        qtcore = types.ModuleType("PyQt6.QtCore")
-        qtcore.QTimer = MagicMock()
-        qtcore.QTimer.singleShot = timer_mock
-        sys.modules["PyQt6.QtCore"] = qtcore
+        monkeypatch.setattr(PI.QTimer, "singleShot", timer_mock)
 
         ctx = self._make_context()
         PI.initialize(ctx)
@@ -173,10 +173,7 @@ class TestInitialize:
         (tmp_path / "s.json").unlink(missing_ok=True)
 
         timer_mock = MagicMock()
-        qtcore = types.ModuleType("PyQt6.QtCore")
-        qtcore.QTimer = MagicMock()
-        qtcore.QTimer.singleShot = timer_mock
-        sys.modules["PyQt6.QtCore"] = qtcore
+        monkeypatch.setattr(PI.QTimer, "singleShot", timer_mock)
 
         ctx = self._make_context()
         PI.initialize(ctx)
@@ -190,10 +187,7 @@ class TestInitialize:
         PI.save_settings({"check_at_startup": False})
 
         timer_mock = MagicMock()
-        qtcore = types.ModuleType("PyQt6.QtCore")
-        qtcore.QTimer = MagicMock()
-        qtcore.QTimer.singleShot = timer_mock
-        sys.modules["PyQt6.QtCore"] = qtcore
+        monkeypatch.setattr(PI.QTimer, "singleShot", timer_mock)
 
         ctx = self._make_context()
         PI.initialize(ctx)
@@ -205,10 +199,7 @@ class TestInitialize:
         PI.save_settings({"check_at_startup": True})
 
         timer_mock = MagicMock()
-        qtcore = types.ModuleType("PyQt6.QtCore")
-        qtcore.QTimer = MagicMock()
-        qtcore.QTimer.singleShot = timer_mock
-        sys.modules["PyQt6.QtCore"] = qtcore
+        monkeypatch.setattr(PI.QTimer, "singleShot", timer_mock)
 
         ctx = self._make_context()
         PI.initialize(ctx)

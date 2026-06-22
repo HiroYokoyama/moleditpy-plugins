@@ -10,9 +10,11 @@ import sys
 import os
 import json
 import zipfile
+import urllib.parse
 import urllib.request
 import urllib.error
 import logging
+from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import (
     QDialog,
     QVBoxLayout,
@@ -38,7 +40,7 @@ import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.06.19"
+PLUGIN_VERSION = "2026.06.22"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -71,7 +73,7 @@ def _refresh_plugin_menus(mw):
 def load_settings():
     if os.path.exists(SETTINGS_FILE):
         try:
-            with open(SETTINGS_FILE, "r") as f:
+            with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception as e:
             logging.warning("Plugin Installer: failed to load settings: %s", e)
@@ -81,7 +83,7 @@ def load_settings():
 
 def save_settings(settings):
     try:
-        with open(SETTINGS_FILE, "w") as f:
+        with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
             json.dump(settings, f)
     except Exception as e:
         logging.warning("Plugin Installer: failed to save settings: %s", e)
@@ -106,12 +108,8 @@ def initialize(context):
         settings = load_settings()
         if "check_at_startup" not in settings:
             # First run: ask the user whether to enable startup checks
-            from PyQt6.QtCore import QTimer
-
             QTimer.singleShot(3000, lambda: ask_user_permission(mw))
         elif settings.get("check_at_startup"):
-            from PyQt6.QtCore import QTimer
-
             QTimer.singleShot(2000, lambda: perform_startup_check(mw))
 
 
@@ -166,10 +164,6 @@ def run(main_window):
         main_window = main_window.host
     if hasattr(main_window, "host"):
         main_window = main_window.host
-    """
-    Entry point for the plugin.
-    Display the Plugin Installer window.
-    """
     dialog = PluginInstallerWindow(main_window)
     dialog.exec()
 
@@ -1317,9 +1311,7 @@ class PluginInstallerWindow(QDialog):
         if not download_url.startswith("http"):
             # Construct absolute URL relative to plugins.json location
             base_url = REMOTE_JSON_URL.rsplit("/", 1)[0]
-            from urllib.parse import urljoin
-
-            final_url = urljoin(base_url + "/", download_url)
+            final_url = urllib.parse.urljoin(base_url + "/", download_url)
 
         logging.info(
             "Plugin Installer: %sing %s from: %s", action_verb, plugin_name, final_url
