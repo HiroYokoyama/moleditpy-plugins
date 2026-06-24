@@ -1384,7 +1384,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Strain Homodesmotic Reaction Generator",
-    "version": "0.5.0",
+    "version": "0.6.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Detect strain-molecule bonding environments and build a draft homodesmotic reaction balance.",
@@ -1395,10 +1395,10 @@
       "numpy",
       "scipy"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_strain_homodesmotic_reaction_generator/releases/download/0.5.0/strain_homodesmotic_reaction_generator_0.5.0.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_strain_homodesmotic_reaction_generator/releases/download/v0.6.0/strain_homodesmotic_reaction_generator_0.6.0.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_strain_homodesmotic_reaction_generator",
-    "lastUpdated": "2026-06-20",
-    "sha256": "fcea99685028d1a25cbadc9873c9141fd88d8fdf5937ae98a752868acae4ff98",
+    "lastUpdated": "2026-06-24",
+    "sha256": "f06a513449b4e429d70f44d30eb2c4f23e2ee0c0cc15f844472f0669f0a8db3a",
     "firstAppeared": "2026-06-09"
   },
   {
