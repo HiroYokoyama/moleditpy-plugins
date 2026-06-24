@@ -136,5 +136,6 @@ The new API allows plugins to:
 
 For full documentation and examples, please refer to the [Plugin Development Manual (V4)](https://hiroyokoyama.github.io/python_molecular_editor/docs/PLUGIN_DEVELOPMENT_MANUAL_V4.html).
 
+## License & Disclaimer
 
-
+This is open-source software distributed under the GNU GPL v3 license. It is provided 'as is' without warranty of any kind, and the author assumes no responsibility or liability for the results. Although outputs have been carefully verified, users are strongly encouraged to independently check and validate results for critical purposes (such as publications). If you encounter any bugs, please open an issue.
