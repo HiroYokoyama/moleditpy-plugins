@@ -560,6 +560,38 @@ class TestDownloadChunked:
 
 
 # ---------------------------------------------------------------------------
+# _read_plugin_version_ast — version extraction without import
+# ---------------------------------------------------------------------------
+
+
+class TestReadPluginVersionAst:
+    def test_reads_version(self, tmp_path):
+        f = tmp_path / "plugin.py"
+        f.write_text('PLUGIN_VERSION = "2026.06.26"\n')
+        assert PI._read_plugin_version_ast(str(f)) == "2026.06.26"
+
+    def test_missing_constant_returns_unknown(self, tmp_path):
+        f = tmp_path / "plugin.py"
+        f.write_text("x = 1\n")
+        assert PI._read_plugin_version_ast(str(f)) == "Unknown"
+
+    def test_nonexistent_file_returns_unknown(self, tmp_path):
+        assert PI._read_plugin_version_ast(str(tmp_path / "missing.py")) == "Unknown"
+
+    def test_syntax_error_returns_unknown(self, tmp_path):
+        f = tmp_path / "plugin.py"
+        f.write_text("def (:\n")
+        assert PI._read_plugin_version_ast(str(f)) == "Unknown"
+
+    def test_reads_version_from_package_init(self, tmp_path):
+        pkg = tmp_path / "My_Plugin"
+        pkg.mkdir()
+        init = pkg / "__init__.py"
+        init.write_text('PLUGIN_VERSION = "2026.01.01"\nPLUGIN_NAME = "My Plugin"\n')
+        assert PI._read_plugin_version_ast(str(init)) == "2026.01.01"
+
+
+# ---------------------------------------------------------------------------
 # _update_status_label — update-count label text and colour
 # ---------------------------------------------------------------------------
 

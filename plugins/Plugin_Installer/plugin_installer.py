@@ -13,6 +13,7 @@ import zipfile
 import urllib.parse
 import urllib.request
 import urllib.error
+import ast
 import logging
 from PyQt6.QtCore import QThread, pyqtSignal, Qt, QTimer
 from PyQt6.QtWidgets import (
@@ -56,6 +57,23 @@ SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "plugin_installer.json")
 
 _startup_check_performed = False
 _context = None
+
+
+def _read_plugin_version_ast(filepath: str) -> str:
+    """Read PLUGIN_VERSION from a .py file using AST — no import, no side effects."""
+    try:
+        with open(filepath, "r", encoding="utf-8", errors="replace") as f:
+            source = f.read()
+        tree = ast.parse(source, filename=filepath)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Name) and target.id == "PLUGIN_VERSION":
+                        if isinstance(node.value, ast.Constant):
+                            return str(node.value.value)
+    except Exception as e:
+        logging.warning("Plugin Installer: AST version read failed for %s: %s", filepath, e)
+    return "Unknown"
 
 
 def _refresh_plugin_menus(mw):
@@ -502,6 +520,7 @@ class PluginInstallerWindow(QDialog):
         self._needs_plugin_reload = False
 
         self.init_ui()
+        self.finished.connect(self._on_finished)
 
         if auto_check:
             self.check_updates_silent()
@@ -820,8 +839,11 @@ class PluginInstallerWindow(QDialog):
             target_file = None
 
             if is_installed:
-                local_ver = local_info.get("version", "Unknown")
                 target_file = local_info.get("filepath", None)
+                if target_file and os.path.isfile(target_file):
+                    local_ver = _read_plugin_version_ast(target_file)
+                else:
+                    local_ver = local_info.get("version", "Unknown")
 
             if remote_info:
                 remote_ver = remote_info.get("version", "Unknown")
@@ -1706,37 +1728,25 @@ class PluginInstallerWindow(QDialog):
     # ------------------------------------------------------------------
 
     def on_close_clicked(self):
-        self.accept()
+        self.close()
 
-    def closeEvent(self, event):
-        # Stop any in-flight fetch thread first
-        if self._fetch_worker and self._fetch_worker.isRunning():
-            try:
-                self._fetch_worker.done.disconnect()
-            except Exception:
-                pass
-            self._fetch_worker.quit()
-            self._fetch_worker.wait(500)
-
-        # One authoritative reload — only if plugins were installed this session
-        if (
+    def _on_finished(self, _result: int) -> None:
+        """Runs after the dialog closes regardless of how it was closed."""
+        if not (
             self._needs_plugin_reload
             and self.main_window
             and hasattr(self.main_window, "plugin_manager")
         ):
-            self._progress_bar.setRange(0, 0)
-            self._progress_bar.setVisible(True)
-            QApplication.processEvents()
-            try:
-                self.main_window.plugin_manager.discover_plugins(self.main_window)
-                QApplication.processEvents()
-                _refresh_plugin_menus(self.main_window)
-            except Exception as e:
-                logging.warning("Plugin Installer: reload on close failed: %s", e)
-            finally:
-                self._progress_bar.setVisible(False)
-                self._pending_installs.clear()
-                self._needs_plugin_reload = False
+            return
+
+        try:
+            self.main_window.plugin_manager.discover_plugins(self.main_window)
+            _refresh_plugin_menus(self.main_window)
+        except Exception as e:
+            logging.warning("Plugin Installer: reload on close failed: %s", e)
+        finally:
+            self._pending_installs.clear()
+            self._needs_plugin_reload = False
 
         for widget in QApplication.topLevelWidgets():
             if type(widget).__name__ == "PluginManagerWindow":
@@ -1748,6 +1758,16 @@ class PluginInstallerWindow(QDialog):
                             "Plugin Installer: failed to sync PluginManagerWindow: %s",
                             e,
                         )
+
+    def closeEvent(self, event):
+        # Stop any in-flight fetch thread before closing
+        if self._fetch_worker and self._fetch_worker.isRunning():
+            try:
+                self._fetch_worker.done.disconnect()
+            except Exception:
+                pass
+            self._fetch_worker.quit()
+            self._fetch_worker.wait(500)
 
         super().closeEvent(event)
 
