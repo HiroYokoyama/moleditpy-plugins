@@ -239,4 +239,4 @@ Two jobs in `.github/workflows/test-plugins.yml`:
 | Job | Python matrix | Main app cloned | Tests run |
 |---|---|---|---|
 | `test` | 3.11, 3.12, 3.13 | No | All except `test_api` (skipped) |
-| `test-api` | 3.11 | Yes (`--depth 1`) | All including `test_api` |
+| `test-api` | 3.11 | Yes (`--depth 1`) | `test_api.py` only |

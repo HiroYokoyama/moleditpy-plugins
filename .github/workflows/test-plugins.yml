@@ -54,7 +54,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install pytest pytest-mock numpy
+        run: pip install pytest
 
       - name: Clone main MoleditPy application
         run: |
@@ -65,5 +65,5 @@ jobs:
       - name: Validate plugins.json
         run: python scripts/validate_json.py
 
-      - name: Run plugin tests (with API check)
-        run: pytest tests/ -v --tb=short
+      - name: Run API compatibility check
+        run: pytest tests/test_api.py -v --tb=short
