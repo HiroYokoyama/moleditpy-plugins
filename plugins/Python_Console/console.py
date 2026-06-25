@@ -1,5 +1,4 @@
 import io
-import logging
 import code
 import traceback
 import keyword
@@ -17,7 +16,7 @@ from PyQt6.QtGui import QFont, QColor, QSyntaxHighlighter, QTextCharFormat, QTex
 from PyQt6.QtCore import Qt, QRegularExpression, pyqtSignal
 import rdkit.Chem as Chem
 
-PLUGIN_VERSION = "2026.06.26"
+PLUGIN_VERSION = "2026.06.27"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Embedded Python console for interactive scripting."
@@ -184,7 +183,7 @@ class GUIHelp:
         try:
             pydoc.help(*args, **kwargs)
         except Exception as e:
-            logging.warning("Error retrieving help: %s", e)
+            print(f"help() error: {e}", file=sys.stderr)
         finally:
             if old_pager is not None:
                 pydoc.pager = old_pager
@@ -286,7 +285,7 @@ class PythonConsoleDialog(QDialog):
         self.local_scope["mw"] = self.context.get_main_window()
 
         if self.local_scope["mol"] is None and "mol" in command:
-            print("Warning: 'mol' is None (no valid molecule found).")
+            self.append_output("Warning: 'mol' is None (no valid molecule found).", color="#FF9800")
 
         # Capture Output
         stdout_capture = io.StringIO()

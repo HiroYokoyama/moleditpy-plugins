@@ -218,7 +218,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Python Console",
-    "version": "2026.06.26",
+    "version": "2026.06.27",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "An interactive Python interpreter embedded in the application. Allows runtime script execution with access to the MainWindow (mw) and current molecule (mol).",
@@ -230,8 +230,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Python_Console/console.py",
-    "lastUpdated": "2026-06-26",
-    "sha256": "9a8e64ed82c70de2607244d214770383f6f92e094cc59b11476e904afb65c297",
+    "lastUpdated": "2026-06-27",
+    "sha256": "936839924e683cce1fc784042757416a630882b9d2fbb934761ad968b20a5792",
     "firstAppeared": "2025-12-16"
   },
   {
