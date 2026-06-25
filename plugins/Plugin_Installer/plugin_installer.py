@@ -57,18 +57,6 @@ SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "plugin_installer.json")
 _startup_check_performed = False
 _context = None
 
-# Status sort priority: lower = closer to top
-_STATUS_PRIORITY = {
-    "Update Available": 0,
-    "Not Installed": 1,
-    "Up to date": 2,
-    "Newer": 3,
-    "Version Mismatch": 4,
-    "Not in Registry": 5,
-    "Incompatible": 6,
-    "Unknown": 7,
-}
-
 
 def _refresh_plugin_menus(mw):
     global _context
@@ -161,8 +149,6 @@ def perform_startup_check(mw):
             checker.deleteLater()
     except Exception as e:
         logging.warning("Plugin Installer: auto-run failed: %s", e)
-
-
 
 
 def is_app_version_compatible(app_version: str, specifier: str) -> bool:
@@ -302,6 +288,7 @@ def sanitize_and_quote_dependency(dep_str: str) -> str:
 # Background worker: fetches PyPI version + remote registry without blocking
 # ---------------------------------------------------------------------------
 
+
 class _FetchWorker(QThread):
     """Fetches the PyPI app version and remote registry JSON in a background thread."""
 
@@ -340,6 +327,7 @@ class _FetchWorker(QThread):
 # ---------------------------------------------------------------------------
 # Details dialog
 # ---------------------------------------------------------------------------
+
 
 class PluginDetailsDialog(QDialog):
     def __init__(
@@ -492,6 +480,7 @@ class PluginDetailsDialog(QDialog):
 # Main installer window
 # ---------------------------------------------------------------------------
 
+
 class PluginInstallerWindow(QDialog):
     def __init__(self, main_window, auto_check=False):
         super().__init__(main_window)
@@ -555,7 +544,7 @@ class PluginInstallerWindow(QDialog):
 
         # Thin indeterminate progress bar shown while fetching
         self._progress_bar = QProgressBar()
-        self._progress_bar.setRange(0, 0)       # indeterminate
+        self._progress_bar.setRange(0, 0)  # indeterminate
         self._progress_bar.setMaximumHeight(5)
         self._progress_bar.setTextVisible(False)
         self._progress_bar.setVisible(False)
@@ -594,6 +583,10 @@ class PluginInstallerWindow(QDialog):
         self.chk_startup.setChecked(self.settings.get("check_at_startup", False))
         self.chk_startup.toggled.connect(self.save_settings_ui)
         layout.addWidget(self.chk_startup)
+
+        self._status_label = QLabel("")
+        self._status_label.setStyleSheet("color: #856404; font-weight: bold;")
+        layout.addWidget(self._status_label)
 
         btn_layout = QHBoxLayout()
 
@@ -757,13 +750,13 @@ class PluginInstallerWindow(QDialog):
             return False
 
     # ------------------------------------------------------------------
-    # Table population — "Update Available" rows sorted to the top
+    # Table population
     # ------------------------------------------------------------------
 
     def populate_table(self, silent=False):
         self.table.setRowCount(0)
         self.updates_found = False
-        plugin_updates_found = False
+        plugin_update_count = 0
 
         app_ver = self.get_app_version()
         if (
@@ -846,7 +839,7 @@ class PluginInstallerWindow(QDialog):
                             color = QColor("#f8d7da")
                             can_update = True
                             self.updates_found = True
-                            plugin_updates_found = True
+                            plugin_update_count += 1
                         elif comp == 0:
                             status = "Up to date"
                             color = QColor("#d4edda")
@@ -879,22 +872,24 @@ class PluginInstallerWindow(QDialog):
             if not is_compatible:
                 color = QColor("#fff3cd")
 
-            rows.append(dict(
-                name=name,
-                author=author,
-                local_ver=local_ver,
-                remote_ver=remote_ver,
-                status=status,
-                color=color,
-                is_installed=is_installed,
-                is_compatible=is_compatible,
-                supported_ver_str=supported_ver_str,
-                can_update=can_update,
-                can_download=can_download,
-                target_file=target_file,
-                remote_info=remote_info,
-                local_info=local_info,
-            ))
+            rows.append(
+                dict(
+                    name=name,
+                    author=author,
+                    local_ver=local_ver,
+                    remote_ver=remote_ver,
+                    status=status,
+                    color=color,
+                    is_installed=is_installed,
+                    is_compatible=is_compatible,
+                    supported_ver_str=supported_ver_str,
+                    can_update=can_update,
+                    can_download=can_download,
+                    target_file=target_file,
+                    remote_info=remote_info,
+                    local_info=local_info,
+                )
+            )
 
         rows.sort(key=lambda r: r["name"].lower())
 
@@ -925,7 +920,11 @@ class PluginInstallerWindow(QDialog):
             if remote_info and "downloadUrl" in remote_info:
                 label = ""
                 if row_data["can_update"]:
-                    label = "Update" if row_data["status"] == "Update Available" else "Reinstall"
+                    label = (
+                        "Update"
+                        if row_data["status"] == "Update Available"
+                        else "Reinstall"
+                    )
                 elif row_data["can_download"]:
                     label = "Install"
 
@@ -950,7 +949,15 @@ class PluginInstallerWindow(QDialog):
         self.table.setUpdatesEnabled(True)
 
         if getattr(self, "btn_update_all", None) is not None:
-            self.btn_update_all.setEnabled(plugin_updates_found)
+            self.btn_update_all.setEnabled(plugin_update_count > 0)
+
+        if getattr(self, "_status_label", None) is not None:
+            if plugin_update_count > 0:
+                self._status_label.setText(
+                    f"{plugin_update_count} plugin(s) have updates available"
+                )
+            else:
+                self._status_label.setText("")
 
         if getattr(self, "search_input", None) is not None:
             self.filter_plugins()
@@ -972,6 +979,7 @@ class PluginInstallerWindow(QDialog):
 
     def compare_versions(self, v1, v2):
         try:
+
             def parse(v):
                 return [int(x) for x in re.findall(r"\d+", v)]
 
@@ -998,11 +1006,13 @@ class PluginInstallerWindow(QDialog):
     def _get_package_name(self):
         try:
             from moleditpy.utils.constants import VERSION as _ver  # noqa: F401
+
             return "moleditpy"
         except ImportError:
             pass
         try:
             from moleditpy_linux.utils.constants import VERSION as _ver2  # noqa: F401
+
             return "moleditpy-linux"
         except ImportError:
             pass
@@ -1011,10 +1021,12 @@ class PluginInstallerWindow(QDialog):
     def get_app_version(self):
         try:
             from moleditpy.utils.constants import VERSION as APP_VERSION
+
             return APP_VERSION
         except ImportError:
             try:
                 from moleditpy_linux.utils.constants import VERSION as APP_VERSION
+
                 return APP_VERSION
             except ImportError:
                 try:
@@ -1029,9 +1041,7 @@ class PluginInstallerWindow(QDialog):
                         )
                     return APP_VERSION
                 except Exception as e:
-                    logging.warning(
-                        "Plugin Installer: failed to detect version: %s", e
-                    )
+                    logging.warning("Plugin Installer: failed to detect version: %s", e)
                     return "0.0.0"
 
     def filter_plugins(self):
@@ -1138,9 +1148,7 @@ class PluginInstallerWindow(QDialog):
             return
         name = name_item.text()
 
-        remote_info = next(
-            (e for e in self.remote_data if e.get("name") == name), None
-        )
+        remote_info = next((e for e in self.remote_data if e.get("name") == name), None)
         local_info = next(
             (
                 p
@@ -1181,8 +1189,15 @@ class PluginInstallerWindow(QDialog):
         )
 
         dialog = PluginDetailsDialog(
-            self, name, author, version, description, dependencies,
-            local_info, target_file, supported_version,
+            self,
+            name,
+            author,
+            version,
+            description,
+            dependencies,
+            local_info,
+            target_file,
+            supported_version,
         )
         dialog.exec()
 
@@ -1243,11 +1258,13 @@ class PluginInstallerWindow(QDialog):
                     ),
                     None,
                 )
-                description = (
-                    remote_info.get("description", "") if remote_info else ""
+                description = remote_info.get("description", "") if remote_info else ""
+                author = (
+                    remote_info.get("author", "Unknown") if remote_info else "Unknown"
                 )
-                author = remote_info.get("author", "Unknown") if remote_info else "Unknown"
-                version = remote_info.get("version", "Unknown") if remote_info else "Unknown"
+                version = (
+                    remote_info.get("version", "Unknown") if remote_info else "Unknown"
+                )
                 if local_info:
                     local_ver = local_info.get("version", "Unknown")
                     version = f"Installed: {local_ver}\nLatest: {version}"
@@ -1262,11 +1279,19 @@ class PluginInstallerWindow(QDialog):
                 if ret == QMessageBox.StandardButton.No:
                     supported_version = (
                         remote_info.get("supported_moleditpy_version", "Unknown")
-                        if remote_info else "Unknown"
+                        if remote_info
+                        else "Unknown"
                     )
                     dialog = PluginDetailsDialog(
-                        self, plugin_name, author, version, description,
-                        dependencies, local_info, target_file, supported_version,
+                        self,
+                        plugin_name,
+                        author,
+                        version,
+                        description,
+                        dependencies,
+                        local_info,
+                        target_file,
+                        supported_version,
                     )
                     dialog.exec()
                     return
@@ -1472,7 +1497,9 @@ class PluginInstallerWindow(QDialog):
                             settings_path = os.path.join(target_dir, "settings.json")
                             if os.path.exists(settings_path):
                                 try:
-                                    with open(settings_path, "r", encoding="utf-8") as f:
+                                    with open(
+                                        settings_path, "r", encoding="utf-8"
+                                    ) as f:
                                         settings_backup = f.read()
                                 except Exception as e:
                                     logging.warning(
@@ -1486,7 +1513,9 @@ class PluginInstallerWindow(QDialog):
 
                             if settings_backup:
                                 try:
-                                    with open(settings_path, "w", encoding="utf-8") as f:
+                                    with open(
+                                        settings_path, "w", encoding="utf-8"
+                                    ) as f:
                                         f.write(settings_backup)
                                     logging.info(
                                         "Plugin Installer: restored settings.json"
@@ -1516,7 +1545,9 @@ class PluginInstallerWindow(QDialog):
                             settings_json = os.path.join(folder_dir, "settings.json")
                             if os.path.exists(settings_json):
                                 try:
-                                    with open(settings_json, "r", encoding="utf-8") as f:
+                                    with open(
+                                        settings_json, "r", encoding="utf-8"
+                                    ) as f:
                                         saved_settings_content = f.read()
                                     target_dir_for_restore = folder_dir
                                 except Exception as e:
@@ -1608,20 +1639,37 @@ class PluginInstallerWindow(QDialog):
                     description = (
                         remote_info.get("description", "") if remote_info else ""
                     )
-                    author = remote_info.get("author", "Unknown") if remote_info else "Unknown"
-                    version = remote_info.get("version", "Unknown") if remote_info else "Unknown"
+                    author = (
+                        remote_info.get("author", "Unknown")
+                        if remote_info
+                        else "Unknown"
+                    )
+                    version = (
+                        remote_info.get("version", "Unknown")
+                        if remote_info
+                        else "Unknown"
+                    )
                     supported_version = (
                         remote_info.get("supported_moleditpy_version", "Unknown")
-                        if remote_info else "Unknown"
+                        if remote_info
+                        else "Unknown"
                     )
                     dialog = PluginDetailsDialog(
-                        self, plugin_name, author, version, description,
-                        dependencies, local_info, target_file, supported_version,
+                        self,
+                        plugin_name,
+                        author,
+                        version,
+                        description,
+                        dependencies,
+                        local_info,
+                        target_file,
+                        supported_version,
                     )
                     dialog.exec()
                 elif not self._batch_updating:
                     QMessageBox.information(
-                        self, "Success",
+                        self,
+                        "Success",
                         f"Successfully {verb_past} '{plugin_name}'.",
                     )
 
@@ -1633,7 +1681,8 @@ class PluginInstallerWindow(QDialog):
                     "Plugin Installer: installation error for %s: %s", plugin_name, e
                 )
                 QMessageBox.warning(
-                    self, "Installation Error",
+                    self,
+                    "Installation Error",
                     f"Failed to install plugin:\n{e}",
                 )
 
@@ -1659,8 +1708,10 @@ class PluginInstallerWindow(QDialog):
             self._fetch_worker.wait(500)
 
         # One authoritative reload — only if plugins were installed this session
-        if self._needs_plugin_reload and self.main_window and hasattr(
-            self.main_window, "plugin_manager"
+        if (
+            self._needs_plugin_reload
+            and self.main_window
+            and hasattr(self.main_window, "plugin_manager")
         ):
             self._progress_bar.setRange(0, 0)
             self._progress_bar.setVisible(True)
@@ -1670,9 +1721,7 @@ class PluginInstallerWindow(QDialog):
                 QApplication.processEvents()
                 _refresh_plugin_menus(self.main_window)
             except Exception as e:
-                logging.warning(
-                    "Plugin Installer: reload on close failed: %s", e
-                )
+                logging.warning("Plugin Installer: reload on close failed: %s", e)
             finally:
                 self._progress_bar.setVisible(False)
                 self._pending_installs.clear()

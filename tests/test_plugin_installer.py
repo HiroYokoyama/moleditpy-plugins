@@ -9,8 +9,8 @@ import sys
 import types
 import importlib
 from pathlib import Path
-from unittest.mock import MagicMock, patch, call
-import pytest
+import re as _re
+from unittest.mock import MagicMock, patch
 
 # ---------------------------------------------------------------------------
 # Helpers — load the module without executing Qt or network code at import
@@ -18,7 +18,9 @@ import pytest
 
 PLUGIN_PATH = (
     Path(__file__).resolve().parents[1]
-    / "plugins" / "Plugin_Installer" / "plugin_installer.py"
+    / "plugins"
+    / "Plugin_Installer"
+    / "plugin_installer.py"
 )
 
 
@@ -30,16 +32,27 @@ def _load_module():
     object.__new__() to create bare instances for unit testing.
     All other Qt classes remain MagicMock.
     """
+
     # Concrete stubs for classes that are subclassed in the plugin
     class _FakeQThread:
-        def __init__(self, *a, **kw): pass
-        def start(self): pass
-        def quit(self): pass
-        def wait(self, *a): return True
-        def isRunning(self): return False
+        def __init__(self, *a, **kw):
+            pass
+
+        def start(self):
+            pass
+
+        def quit(self):
+            pass
+
+        def wait(self, *a):
+            return True
+
+        def isRunning(self):
+            return False
 
     class _FakeQDialog:
-        def __init__(self, parent=None, *a, **kw): pass
+        def __init__(self, parent=None, *a, **kw):
+            pass
 
     if "PyQt6" not in sys.modules:
         pyqt6 = types.ModuleType("PyQt6")
@@ -49,11 +62,20 @@ def _load_module():
         # QDialog needs to be a real class (it's subclassed by PluginInstallerWindow
         # and PluginDetailsDialog).  Everything else stays as MagicMock.
         for name in [
-            "QVBoxLayout", "QHBoxLayout", "QLabel",
-            "QTableWidget", "QTableWidgetItem", "QPushButton",
-            "QHeaderView", "QMessageBox", "QAbstractItemView",
-            "QApplication", "QCheckBox", "QLineEdit",
-            "QProgressBar", "QProgressDialog",
+            "QVBoxLayout",
+            "QHBoxLayout",
+            "QLabel",
+            "QTableWidget",
+            "QTableWidgetItem",
+            "QPushButton",
+            "QHeaderView",
+            "QMessageBox",
+            "QAbstractItemView",
+            "QApplication",
+            "QCheckBox",
+            "QLineEdit",
+            "QProgressBar",
+            "QProgressDialog",
         ]:
             setattr(pyqt6.QtWidgets, name, MagicMock())
         pyqt6.QtWidgets.QDialog = _FakeQDialog
@@ -85,14 +107,14 @@ PI = _load_module()
 # (tested standalone because the class inherits from a mocked QDialog)
 # ---------------------------------------------------------------------------
 
-import re as _re
-
 
 def _compare_versions(v1, v2):
     """Mirrors PluginInstallerWindow.compare_versions for unit testing."""
     try:
+
         def parse(v):
-            return [int(x) for x in _re.findall(r'\d+', v)]
+            return [int(x) for x in _re.findall(r"\d+", v)]
+
         p1 = parse(v1)
         p2 = parse(v2)
         length = max(len(p1), len(p2))
@@ -137,6 +159,7 @@ class TestCompareVersions:
 # load_settings / save_settings
 # ---------------------------------------------------------------------------
 
+
 class TestSettings:
     def test_round_trip(self, tmp_path, monkeypatch):
         settings_file = tmp_path / "plugin_installer.json"
@@ -163,6 +186,7 @@ class TestSettings:
 # ---------------------------------------------------------------------------
 # initialize — startup check scheduling
 # ---------------------------------------------------------------------------
+
 
 class TestInitialize:
     def _make_context(self, mw=None):
@@ -252,6 +276,7 @@ class TestInitialize:
 # Version metadata check
 # ---------------------------------------------------------------------------
 
+
 def test_plugin_version_constant_present():
     assert hasattr(PI, "PLUGIN_VERSION")
     assert PI.PLUGIN_VERSION  # non-empty
@@ -259,10 +284,10 @@ def test_plugin_version_constant_present():
 
 def test_plugin_version_matches_registry():
     """PLUGIN_VERSION in source must match the registry entry."""
-    import re
     registry = json.loads(
-        (Path(__file__).resolve().parents[1] / "REGISTRY" / "plugins.json")
-        .read_text(encoding="utf-8-sig")
+        (Path(__file__).resolve().parents[1] / "REGISTRY" / "plugins.json").read_text(
+            encoding="utf-8-sig"
+        )
     )
     entry = next((p for p in registry if p.get("id") == "plugin_installer"), None)
     assert entry is not None, "plugin_installer not found in registry"
@@ -301,7 +326,7 @@ class TestVersionCompatibility:
         # ~=1.2.3 means >=1.2.3 and <1.3
         assert PI.is_app_version_compatible("1.3.0", "~=1.2.3") is False
         assert PI.is_app_version_compatible("1.2.2", "~=1.2.3") is False
-        
+
         # ~=1.2 means >=1.2 and <2.0
         assert PI.is_app_version_compatible("1.2.0", "~=1.2") is True
         assert PI.is_app_version_compatible("1.5.0", "~=1.2") is True
@@ -311,30 +336,42 @@ class TestVersionCompatibility:
 class TestDependencyParsing:
     def test_simple_package(self):
         assert PI.parse_dependency("numpy") == ("numpy", "")
-        
+
     def test_simple_version(self):
         assert PI.parse_dependency("numpy>=1.20") == ("numpy", ">=1.20")
-        
+
     def test_compound_versions(self):
-        assert PI.parse_dependency("rdkit>=2022.03,<2023.0") == ("rdkit", ">=2022.03,<2023.0")
-        
+        assert PI.parse_dependency("rdkit>=2022.03,<2023.0") == (
+            "rdkit",
+            ">=2022.03,<2023.0",
+        )
+
     def test_with_spaces(self):
-        assert PI.parse_dependency("numpy >= 1.20, < 2.0") == ("numpy", ">= 1.20, < 2.0")
-        
+        assert PI.parse_dependency("numpy >= 1.20, < 2.0") == (
+            "numpy",
+            ">= 1.20, < 2.0",
+        )
+
     def test_with_extras(self):
         assert PI.parse_dependency("requests[security]>=2.0") == ("requests", ">=2.0")
         assert PI.parse_dependency("requests[security,other]") == ("requests", "")
-        
+
     def test_with_markers(self):
-        assert PI.parse_dependency("numpy>=1.20; python_version < '3.8'") == ("numpy", ">=1.20")
-        
+        assert PI.parse_dependency("numpy>=1.20; python_version < '3.8'") == (
+            "numpy",
+            ">=1.20",
+        )
+
     def test_reject_colon_separated(self):
         assert PI.parse_dependency("numpy:>=1.20") == ("", "")
 
 
 class TestCheckDependencySatisfied:
     def test_missing_package(self):
-        with patch("importlib.metadata.distribution", side_effect=importlib.metadata.PackageNotFoundError):
+        with patch(
+            "importlib.metadata.distribution",
+            side_effect=importlib.metadata.PackageNotFoundError,
+        ):
             assert PI.check_dependency_satisfied("nonexistent_package") is False
 
     def test_installed_no_constraint(self):
@@ -365,7 +402,10 @@ class TestSanitizeAndQuoteDependency:
 
     def test_valid_with_specifier(self):
         assert PI.sanitize_and_quote_dependency("numpy>=1.20") == '"numpy>=1.20"'
-        assert PI.sanitize_and_quote_dependency("rdkit>=2022.03,<2023.0") == '"rdkit>=2022.03,<2023.0"'
+        assert (
+            PI.sanitize_and_quote_dependency("rdkit>=2022.03,<2023.0")
+            == '"rdkit>=2022.03,<2023.0"'
+        )
 
     def test_invalid_characters_in_name(self):
         assert PI.sanitize_and_quote_dependency("numpy;pkg") == ""
@@ -376,55 +416,9 @@ class TestSanitizeAndQuoteDependency:
 
 
 # ---------------------------------------------------------------------------
-# _STATUS_PRIORITY — "Update Available" must sort to the very top
-# ---------------------------------------------------------------------------
-
-class TestStatusPriority:
-    def test_update_available_is_lowest_priority_value(self):
-        """'Update Available' must have the smallest priority number (sorts first)."""
-        update_prio = PI._STATUS_PRIORITY["Update Available"]
-        for status, prio in PI._STATUS_PRIORITY.items():
-            if status != "Update Available":
-                assert update_prio < prio, (
-                    f"'Update Available' priority {update_prio} should be lower than "
-                    f"'{status}' priority {prio}"
-                )
-
-    def test_sort_order_update_available_first(self):
-        """Rows with 'Update Available' must appear before all other statuses."""
-        rows = [
-            {"status": "Up to date",       "name": "Aaa"},
-            {"status": "Update Available",  "name": "Zzz"},
-            {"status": "Not Installed",     "name": "Mmm"},
-            {"status": "Update Available",  "name": "Aab"},
-            {"status": "Incompatible",      "name": "Bbb"},
-        ]
-        rows.sort(
-            key=lambda r: (PI._STATUS_PRIORITY.get(r["status"], 99), r["name"].lower())
-        )
-        assert rows[0]["status"] == "Update Available"
-        assert rows[1]["status"] == "Update Available"
-        # "Update Available" rows themselves should be alphabetical
-        assert rows[0]["name"] < rows[1]["name"]
-        # Everything after the Update Available rows is a non-update status
-        assert all(r["status"] != "Update Available" for r in rows[2:])
-
-    def test_sort_order_alphabetical_within_group(self):
-        """Within the same status group, names are sorted alphabetically."""
-        rows = [
-            {"status": "Up to date", "name": "Zzz"},
-            {"status": "Up to date", "name": "Aaa"},
-            {"status": "Up to date", "name": "Mmm"},
-        ]
-        rows.sort(
-            key=lambda r: (PI._STATUS_PRIORITY.get(r["status"], 99), r["name"].lower())
-        )
-        assert [r["name"] for r in rows] == ["Aaa", "Mmm", "Zzz"]
-
-
-# ---------------------------------------------------------------------------
 # _FetchWorker — network fetch logic
 # ---------------------------------------------------------------------------
+
 
 class TestFetchWorker:
     """Tests for _FetchWorker._fetch_pypi and _fetch_remote (no real threads)."""
@@ -478,6 +472,7 @@ class TestFetchWorker:
 # _download_chunked — progress callback and cancellation
 # ---------------------------------------------------------------------------
 
+
 class TestDownloadChunked:
     """Tests for PluginInstallerWindow._download_chunked via a bare instance."""
 
@@ -506,7 +501,9 @@ class TestDownloadChunked:
             return True  # continue
 
         with patch("urllib.request.urlopen", return_value=fake_resp):
-            ok = inst._download_chunked("https://example.com/plugin.py", str(dest), on_progress)
+            ok = inst._download_chunked(
+                "https://example.com/plugin.py", str(dest), on_progress
+            )
 
         assert ok is True
         assert dest.read_bytes() == content
@@ -539,9 +536,7 @@ class TestDownloadChunked:
 
         with patch("urllib.request.urlopen", side_effect=OSError("connection refused")):
             with patch.object(PI.QMessageBox, "warning") as warn:
-                ok = inst._download_chunked(
-                    "https://example.com/plugin.py", str(dest)
-                )
+                ok = inst._download_chunked("https://example.com/plugin.py", str(dest))
 
         assert ok is False
         warn.assert_called_once()
@@ -558,9 +553,7 @@ class TestDownloadChunked:
         fake_resp.read.side_effect = [content, b""]
 
         with patch("urllib.request.urlopen", return_value=fake_resp):
-            ok = inst._download_chunked(
-                "https://example.com/plugin.py", str(dest)
-            )
+            ok = inst._download_chunked("https://example.com/plugin.py", str(dest))
 
         assert ok is True
         assert dest.read_bytes() == content
@@ -570,13 +563,14 @@ class TestDownloadChunked:
 # SHA-256 verification
 # ---------------------------------------------------------------------------
 
+
 class TestCalculateSha256:
     def test_known_hash(self, tmp_path):
         import hashlib
+
         f = tmp_path / "data.bin"
         data = b"hello world"
         f.write_bytes(data)
         inst = object.__new__(PI.PluginInstallerWindow)
         expected = hashlib.sha256(data).hexdigest()
         assert inst.calculate_sha256(str(f)) == expected
-
