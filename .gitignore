@@ -18,3 +18,5 @@ htmlcov/
 **/*.trj
 tmp/
 plugins/Structural_Updater/structural_updater.json
+new.json
+old.json
