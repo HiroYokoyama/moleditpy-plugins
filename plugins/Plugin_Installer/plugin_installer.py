@@ -691,46 +691,20 @@ class PluginInstallerWindow(QDialog):
     # ------------------------------------------------------------------
 
     def check_updates_silent(self):
-        latest = self.fetch_pypi_version()
+        pkg_name = self._get_package_name()
+        worker = _FetchWorker(pkg_name, REMOTE_JSON_URL)
+        latest = worker._fetch_pypi()
         self.latest_app_version = latest
         app_ver = self.get_app_version()
 
         if latest != "Unknown" and self.compare_versions(latest, app_ver) > 0:
             self.updates_found = True
 
-        self.remote_data = self.fetch_remote_data()
+        self.remote_data = worker._fetch_remote()
         self.populate_table(silent=True)
 
         if self.updates_found:
             self.setWindowTitle("Plugin Installer (Updates Available!)")
-
-    def fetch_pypi_version(self):
-        package_name = self._get_package_name()
-        try:
-            url = f"https://pypi.org/pypi/{package_name}/json"
-            with urllib.request.urlopen(url, timeout=5) as response:
-                if response.status == 200:
-                    data = json.loads(response.read().decode("utf-8"))
-                    return data["info"]["version"]
-        except Exception as e:
-            logging.warning(
-                "Plugin Installer: failed to fetch PyPI version for %s: %s",
-                package_name,
-                e,
-            )
-        return "Unknown"
-
-    def fetch_remote_data(self):
-        try:
-            with urllib.request.urlopen(REMOTE_JSON_URL, timeout=5) as response:
-                if response.status == 200:
-                    return json.loads(response.read().decode("utf-8-sig"))
-        except Exception as e:
-            if not self.auto_check_mode:
-                QMessageBox.warning(
-                    self, "Network Error", f"Failed to fetch plugin data:\n{e}"
-                )
-        return []
 
     # ------------------------------------------------------------------
     # Download helper — chunked reads, callback per chunk
