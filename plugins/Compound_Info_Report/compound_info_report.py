@@ -1,5 +1,5 @@
 PLUGIN_NAME = "Compound Info Report"
-PLUGIN_VERSION = "2026.06.20"
+PLUGIN_VERSION = "2026.06.26"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Generate a compound info report with properties, adducts, and structure. Refactored for V3 API."
@@ -335,7 +335,7 @@ class ReportDialog(QDialog):
                         img_w, img_h = w, h
 
             except Exception as e:
-                print(f"Scene Capture Error: {e}")
+                logging.warning("Scene Capture Error: %s", e)
 
         # Fallback to RDKit if scene capture failed
         if not mol_b64 and Chem:

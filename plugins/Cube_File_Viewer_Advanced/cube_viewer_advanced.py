@@ -43,7 +43,7 @@ except ImportError:
 __author__ = "HiroYokoyama"
 PLUGIN_AUTHOR = __author__
 PLUGIN_NAME = "Cube File Viewer Advanced"
-PLUGIN_VERSION = "2026.06.20"
+PLUGIN_VERSION = "2026.06.26"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_DESCRIPTION = "Advanced 3D visualization for Gaussian Cube files with PBR, SSAO, and other effects."
 PLUGIN_CONTEXT = None
@@ -90,7 +90,7 @@ def parse_cube_data(filename):
             parts = lines[current_line].split()
             if len(parts) != 5:
                 current_line += 1
-        except:
+        except Exception:
             current_line += 1
 
     for _ in range(n_atoms):
@@ -99,7 +99,7 @@ def parse_cube_data(filename):
         atomic_num = int(line[0])
         try:
             x, y, z = float(line[2]), float(line[3]), float(line[4])
-        except:
+        except Exception:
             x, y, z = 0.0, 0.0, 0.0
         atoms.append((atomic_num, np.array([x, y, z])))
 
@@ -134,7 +134,7 @@ def parse_cube_data(filename):
     full_str = " ".join(lines[current_line:])
     try:
         data_values = np.fromstring(full_str, sep=" ")
-    except:
+    except Exception:
         data_values = np.array([])
 
     expected_size = nx * ny * nz
@@ -712,13 +712,13 @@ class CubeViewerWidget(QWidget):
 
                     # 2. Check for spaces first (VTK can't handle them)
                     if path and " " in path:
-                        print(f"Skipping texture with spaces in path: {path}")
+                        logging.debug("Skipping texture with spaces in path: %s", path)
                         # Keep text field for user to fix, but don't try to load
                     elif path and os.path.exists(path):
                         try:
                             self.load_env_texture(path)
                         except Exception as e:
-                            print(f"Failed to restore texture from settings: {e}")
+                            logging.warning("Failed to restore texture from settings: %s", e)
                             # Do NOT clear the path; let user retry or see the error
                     elif not path:
                         # 3. SYNC: If no specific path is saved for this instance, check if the renderer
@@ -735,9 +735,7 @@ class CubeViewerWidget(QWidget):
                         ):
                             shared_path = adv_viewer.env_texture_path
                             if os.path.exists(shared_path) and " " not in shared_path:
-                                print(
-                                    f"Syncing texture from Advanced Renderer: {shared_path}"
-                                )
+                                logging.debug("Syncing texture from Advanced Renderer: %s", shared_path)
                                 self.line_env_path.setText(shared_path)
                                 self.env_texture_path = shared_path
                                 try:
@@ -801,7 +799,7 @@ class CubeViewerWidget(QWidget):
                 self.plotter.render()
 
         except Exception as e:
-            print(f"Error loading settings: {e}")
+            logging.warning("Error loading settings: %s", e)
 
     def save_settings(self):
         """Saves current settings to JSON file."""
@@ -853,7 +851,7 @@ class CubeViewerWidget(QWidget):
                 json.dump(clean_settings, f, indent=4)
 
         except Exception as e:
-            print(f"Error saving settings: {e}")
+            logging.warning("Error saving settings: %s", e)
 
     def on_comp_color_toggled(self, checked):
         self.btn_color_n.setEnabled(not checked)
@@ -1063,7 +1061,7 @@ class CubeViewerWidget(QWidget):
             self.plotter.render()
 
         except Exception as e:
-            print(f"Iso update error: {e}")
+            logging.warning("Iso update error: %s", e)
             import traceback
 
             traceback.print_exc()
@@ -1112,7 +1110,7 @@ class CubeViewerWidget(QWidget):
         # Removed MessageBox as requested by user
         if checked and not self.env_texture_path:
             # Just print to console or set status tip if needed, but avoid popup
-            print("PBR enabled without environment texture. Surfaces may appear dark.")
+            logging.info("PBR enabled without environment texture. Surfaces may appear dark.")
 
         self.update_iso()
 
@@ -1138,7 +1136,7 @@ class CubeViewerWidget(QWidget):
                     self.plotter.disable_ssao()
             self.plotter.render()
         except Exception as e:
-            print(f"SSAO error: {e}")
+            logging.warning("SSAO error: %s", e)
 
     def _clean_render_pipeline(self):
         """
@@ -1967,7 +1965,7 @@ def open_cube_viewer(context, file_path):
                 data_max = float(np.max(np.abs(flat_data)))
             else:
                 data_max = 1.0
-        except:
+        except Exception:
             data_max = 1.0
 
         viewer = CubeViewerWidget(context, dock, grid, data_max=data_max)

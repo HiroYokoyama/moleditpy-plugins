@@ -21,7 +21,7 @@ from PyQt6.QtCore import Qt
 
 # --- Metadata ---
 PLUGIN_NAME = "PubChem Structure Identifier"
-PLUGIN_VERSION = "2026.06.20"
+PLUGIN_VERSION = "2026.06.26"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Resolve chemical names and fetch molecular properties (Name, Formula, Weight) via PubChem."
@@ -98,7 +98,7 @@ class PubChemResolver:
                             if title:
                                 details["Common Name"] = title
                                 break
-            except:
+            except Exception:
                 details["Common Name"] = "Unknown"
 
             # 2. Get Physical Properties (No SMILES, No XLogP, No TPSA)

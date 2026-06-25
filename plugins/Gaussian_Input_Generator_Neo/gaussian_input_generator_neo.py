@@ -26,7 +26,7 @@ from rdkit import Chem
 import json
 
 PLUGIN_NAME = "Gaussian Input Generator Neo"
-PLUGIN_VERSION = "2026.06.20"
+PLUGIN_VERSION = "2026.06.26"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Advanced Gaussian Input Generator with Preview and Presets"
@@ -983,7 +983,7 @@ class GaussianSetupDialog(QDialog):
             # Use Chem.GetFormalCharge for consistency
             try:
                 charge = Chem.GetFormalCharge(self.mol)
-            except:
+            except Exception:
                 # Fallback if Chem.GetFormalCharge fails
                 charge = 0
                 if hasattr(self.mol, "GetFormalCharge"):

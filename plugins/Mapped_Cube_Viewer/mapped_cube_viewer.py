@@ -40,13 +40,13 @@ except ImportError:
             from rdkit import Chem
 
             pt = Chem.GetPeriodicTable()
-        except:
+        except Exception:
             pt = None
 
 __author__ = "HiroYokoyama"
 PLUGIN_AUTHOR = __author__
 PLUGIN_NAME = "Mapped Cube Viewer"
-PLUGIN_VERSION = "2026.06.20"
+PLUGIN_VERSION = "2026.06.26"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_DESCRIPTION = "Visualizes electrostatic potential or other properties mapped onto an isosurface from Gaussian Cube files."
 
@@ -88,7 +88,7 @@ def parse_cube_data(filename):
             parts = lines[current_line].split()
             if len(parts) != 5:
                 current_line += 1
-        except:
+        except Exception:
             current_line += 1
 
     for _ in range(n_atoms):
@@ -97,7 +97,7 @@ def parse_cube_data(filename):
         atomic_num = int(line[0])
         try:
             x, y, z = float(line[2]), float(line[3]), float(line[4])
-        except:
+        except Exception:
             x, y, z = 0.0, 0.0, 0.0
         atoms.append((atomic_num, np.array([x, y, z])))
 
@@ -121,7 +121,7 @@ def parse_cube_data(filename):
     full_str = " ".join(lines[current_line:])
     try:
         data_values = np.fromstring(full_str, sep=" ")
-    except:
+    except Exception:
         data_values = np.array([])
 
     expected_size = nx * ny * nz

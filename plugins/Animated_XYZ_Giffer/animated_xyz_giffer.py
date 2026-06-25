@@ -37,7 +37,7 @@ try:
 except ImportError:
     rdDetermineBonds = None
 
-PLUGIN_VERSION = "2026.06.19"
+PLUGIN_VERSION = "2026.06.26"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_NAME = "Animated XYZ Giffer"
@@ -285,7 +285,7 @@ class AnimatedXYZPlayer(QDialog):
             # Handle unknown symbols or numbers
             try:
                 atom = Chem.Atom(sym)
-            except:
+            except Exception:
                 atom = Chem.Atom("C")  # Fallback
             mol.AddAtom(atom)
 
@@ -414,7 +414,7 @@ class AnimatedXYZPlayer(QDialog):
                             for idx, (x, y, z) in enumerate(coords):
                                 conf.SetAtomPosition(idx, rdGeometry.Point3D(x, y, z))
                     except Exception as e:
-                        print(f"Dynamic bond calculation failed: {e}")
+                        logging.warning("Dynamic bond calculation failed: %s", e)
                         display_mol = self.base_mol
                 else:
                     # Static / Pre-calculated topology restoration
@@ -724,7 +724,7 @@ class AnimatedXYZPlayer(QDialog):
         try:
             self.mw.ui_manager.restore_ui_for_editing()
         except Exception as e:
-            print(f"Error restoring UI: {e}")
+            logging.warning("Error restoring UI: %s", e)
 
         # Force a re-render/clear of the generic 3D draw function
         try:

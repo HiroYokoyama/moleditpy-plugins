@@ -8,7 +8,7 @@ Exports molecular structures as Blender Python scripts
 """
 
 PLUGIN_NAME = "Blender Export"
-PLUGIN_VERSION = "2026.06.20"
+PLUGIN_VERSION = "2026.06.26"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Export molecular structures as Blender Python scripts that create 3D visualizations"
@@ -264,7 +264,7 @@ def generate_blender_script(mol, mw):
             try:
                 r = pt.GetRvdw(pt.GetAtomicNumber(symbol))
                 return (r if r > 0.1 else 1.5) * scale
-            except:
+            except Exception:
                 return 1.5 * scale
         elif current_style == "stick":
             return settings.get("stick_bond_radius", 0.15)
@@ -276,7 +276,7 @@ def generate_blender_script(mol, mw):
                 # App VDW_RADII is already scaled by 0.3 in constants.py
                 r = pt.GetRvdw(pt.GetAtomicNumber(symbol))
                 return (r if r > 0.1 else 1.5) * 0.3 * scale
-            except:
+            except Exception:
                 return 0.4 * scale  # App default fallback
 
     # CPK colors for common elements (RGB 0-1 range) - fallback only

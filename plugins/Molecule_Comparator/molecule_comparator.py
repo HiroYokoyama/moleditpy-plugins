@@ -28,7 +28,7 @@ import copy
 import logging
 
 PLUGIN_NAME = "Molecule Comparator"
-PLUGIN_VERSION = "2026.06.20"
+PLUGIN_VERSION = "2026.06.26"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Side-by-side comparison and alignment of multiple molecules."
@@ -695,7 +695,7 @@ class MoleculeComparator(QWidget):
 
             # Return white text for dark backgrounds, black for light backgrounds
             return "white" if luminance < 0.5 else "black"
-        except:
+        except Exception:
             # Fallback to black if parsing fails
             return "black"
 

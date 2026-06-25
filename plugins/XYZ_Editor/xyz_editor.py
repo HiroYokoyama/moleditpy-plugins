@@ -18,7 +18,7 @@ import logging
 
 
 PLUGIN_NAME = "XYZ Editor"
-PLUGIN_VERSION = "2026.06.20"
+PLUGIN_VERSION = "2026.06.26"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "A table-based editor for atom coordinates and symbols, supporting ghost atoms. Refactored for V3 API."
@@ -272,7 +272,7 @@ class XYZEditorWindow(QWidget):
                 sig.append(coord_hash)
 
             return tuple(sig)
-        except:
+        except Exception:
             return None
 
     def check_molecule_update(self):
@@ -597,7 +597,7 @@ class XYZEditorWindow(QWidget):
             # Update properties and ring info to avoid RDKit errors
             try:
                 Chem.SanitizeMol(new_rw_mol)
-            except:
+            except Exception:
                 new_rw_mol.UpdatePropertyCache(strict=False)
                 Chem.GetSSSR(new_rw_mol)
             self.context.current_molecule = new_rw_mol.GetMol()

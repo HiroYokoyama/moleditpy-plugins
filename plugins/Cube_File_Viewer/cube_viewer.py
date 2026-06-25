@@ -38,7 +38,7 @@ except ImportError:
     Geometry = None
     rdDetermineBonds = None
 
-PLUGIN_VERSION = "2026.06.19"
+PLUGIN_VERSION = "2026.06.26"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Visualize Gaussian cube files (electron density, MOs)."
@@ -87,7 +87,7 @@ def parse_cube_data(filename):
             parts = lines[current_line].split()
             if len(parts) != 5:
                 current_line += 1
-        except:
+        except Exception:
             current_line += 1
 
     for _ in range(n_atoms):
@@ -96,7 +96,7 @@ def parse_cube_data(filename):
         atomic_num = int(line[0])
         try:
             x, y, z = float(line[2]), float(line[3]), float(line[4])
-        except:
+        except Exception:
             x, y, z = 0.0, 0.0, 0.0
         atoms.append((atomic_num, np.array([x, y, z])))
 
@@ -131,7 +131,7 @@ def parse_cube_data(filename):
     full_str = " ".join(lines[current_line:])
     try:
         data_values = np.fromstring(full_str, sep=" ")
-    except:
+    except Exception:
         data_values = np.array([])
 
     expected_size = nx * ny * nz
@@ -468,7 +468,7 @@ class CubeViewerWidget(QWidget):
                     self.check_smooth.setChecked(bool(settings["smooth_shading"]))
 
         except Exception as e:
-            print(f"Error loading settings: {e}")
+            logging.warning("Error loading settings: %s", e)
 
     def save_settings(self):
         """Saves current settings to JSON file."""
@@ -487,7 +487,7 @@ class CubeViewerWidget(QWidget):
                 json.dump(settings, f, indent=4)
 
         except Exception as e:
-            print(f"Error saving settings: {e}")
+            logging.warning("Error saving settings: %s", e)
 
     def on_comp_color_toggled(self, checked):
         self.btn_color_n.setEnabled(not checked)
@@ -649,10 +649,7 @@ class CubeViewerWidget(QWidget):
             self.plotter.render()
 
         except Exception as e:
-            print(f"Iso update error: {e}")
-            import traceback
-
-            traceback.print_exc()
+            logging.warning("Iso update error: %s", e, exc_info=True)
 
     def on_opacity_changed(self, val):
         opacity = val / 100.0
@@ -906,10 +903,7 @@ def open_cube_viewer(context, fname):
         # main_window.plotter.reset_camera() # Handled in initial_update of widget
 
     except Exception as e:
-        import traceback
-
-        traceback.print_exc()
-        print(f"Plugin Error: {e}")
+        logging.exception("Plugin Error: %s", e)
 
 
 def run(mw):

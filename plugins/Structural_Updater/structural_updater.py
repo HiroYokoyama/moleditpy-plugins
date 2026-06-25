@@ -13,7 +13,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 
 PLUGIN_NAME = "Structural Updater"
-PLUGIN_VERSION = "2026.06.20"
+PLUGIN_VERSION = "2026.06.26"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Applies 2D structural changes to 3D conformation without full re-embedding. Refactored for V3 API."
@@ -275,7 +275,7 @@ class StructuralUpdaterPlugin:
         # Get Conformer from Old Mol
         try:
             old_conf = old_mol.GetConformer()
-        except:
+        except Exception:
             self.force_full_conversion()
             return
 
