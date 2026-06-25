@@ -108,7 +108,7 @@ def initialize(context):
         dlg = PluginInstallerWindow(context.get_main_window())
         dlg.exec()
 
-    context.add_menu_action("Plugins/Plugin Installer...", _open_installer)
+    context.add_menu_action("Plugin/Plugin Installer...", _open_installer)
 
     mw = context.get_main_window()
     if not mw:
@@ -896,10 +896,7 @@ class PluginInstallerWindow(QDialog):
                 local_info=local_info,
             ))
 
-        # Sort: "Update Available" first, then by status priority, then alphabetical
-        rows.sort(
-            key=lambda r: (_STATUS_PRIORITY.get(r["status"], 99), r["name"].lower())
-        )
+        rows.sort(key=lambda r: r["name"].lower())
 
         # Disable repaints during bulk insertion so the table doesn't redraw
         # after every row — avoids visible stutter on 40+ plugins.
