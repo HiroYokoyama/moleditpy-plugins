@@ -23,22 +23,49 @@ PLUGIN_PATH = (
 
 
 def _load_module():
-    """Import plugin_installer with PyQt6 stubbed out."""
-    # Provide a minimal PyQt6 stub so the top-level import succeeds
+    """Import plugin_installer with PyQt6 stubbed out.
+
+    QThread and QDialog use real (minimal) base classes so that subclasses
+    defined in the plugin are proper Python types — this lets tests use
+    object.__new__() to create bare instances for unit testing.
+    All other Qt classes remain MagicMock.
+    """
+    # Concrete stubs for classes that are subclassed in the plugin
+    class _FakeQThread:
+        def __init__(self, *a, **kw): pass
+        def start(self): pass
+        def quit(self): pass
+        def wait(self, *a): return True
+        def isRunning(self): return False
+
+    class _FakeQDialog:
+        def __init__(self, parent=None, *a, **kw): pass
+
     if "PyQt6" not in sys.modules:
         pyqt6 = types.ModuleType("PyQt6")
         pyqt6.QtWidgets = types.ModuleType("PyQt6.QtWidgets")
         pyqt6.QtGui = types.ModuleType("PyQt6.QtGui")
+
+        # QDialog needs to be a real class (it's subclassed by PluginInstallerWindow
+        # and PluginDetailsDialog).  Everything else stays as MagicMock.
         for name in [
-            "QDialog", "QVBoxLayout", "QHBoxLayout", "QLabel",
+            "QVBoxLayout", "QHBoxLayout", "QLabel",
             "QTableWidget", "QTableWidgetItem", "QPushButton",
             "QHeaderView", "QMessageBox", "QAbstractItemView",
             "QApplication", "QCheckBox", "QLineEdit",
+            "QProgressBar", "QProgressDialog",
         ]:
             setattr(pyqt6.QtWidgets, name, MagicMock())
+        pyqt6.QtWidgets.QDialog = _FakeQDialog
+
         setattr(pyqt6.QtGui, "QColor", MagicMock())
+
         pyqt6.QtCore = types.ModuleType("PyQt6.QtCore")
-        setattr(pyqt6.QtCore, "QTimer", MagicMock())
+        # QThread needs to be a real class (it's subclassed by _FetchWorker).
+        pyqt6.QtCore.QThread = _FakeQThread
+        for name in ["QTimer", "pyqtSignal", "Qt"]:
+            setattr(pyqt6.QtCore, name, MagicMock())
+
         sys.modules["PyQt6"] = pyqt6
         sys.modules["PyQt6.QtWidgets"] = pyqt6.QtWidgets
         sys.modules["PyQt6.QtGui"] = pyqt6.QtGui
@@ -333,4 +360,210 @@ class TestSanitizeAndQuoteDependency:
 
     def test_invalid_characters_in_specifier(self):
         assert PI.sanitize_and_quote_dependency("numpy>=1.20;echo") == ""
+
+
+# ---------------------------------------------------------------------------
+# _STATUS_PRIORITY — "Update Available" must sort to the very top
+# ---------------------------------------------------------------------------
+
+class TestStatusPriority:
+    def test_update_available_is_lowest_priority_value(self):
+        """'Update Available' must have the smallest priority number (sorts first)."""
+        update_prio = PI._STATUS_PRIORITY["Update Available"]
+        for status, prio in PI._STATUS_PRIORITY.items():
+            if status != "Update Available":
+                assert update_prio < prio, (
+                    f"'Update Available' priority {update_prio} should be lower than "
+                    f"'{status}' priority {prio}"
+                )
+
+    def test_sort_order_update_available_first(self):
+        """Rows with 'Update Available' must appear before all other statuses."""
+        rows = [
+            {"status": "Up to date",       "name": "Aaa"},
+            {"status": "Update Available",  "name": "Zzz"},
+            {"status": "Not Installed",     "name": "Mmm"},
+            {"status": "Update Available",  "name": "Aab"},
+            {"status": "Incompatible",      "name": "Bbb"},
+        ]
+        rows.sort(
+            key=lambda r: (PI._STATUS_PRIORITY.get(r["status"], 99), r["name"].lower())
+        )
+        assert rows[0]["status"] == "Update Available"
+        assert rows[1]["status"] == "Update Available"
+        # "Update Available" rows themselves should be alphabetical
+        assert rows[0]["name"] < rows[1]["name"]
+        # Everything after the Update Available rows is a non-update status
+        assert all(r["status"] != "Update Available" for r in rows[2:])
+
+    def test_sort_order_alphabetical_within_group(self):
+        """Within the same status group, names are sorted alphabetically."""
+        rows = [
+            {"status": "Up to date", "name": "Zzz"},
+            {"status": "Up to date", "name": "Aaa"},
+            {"status": "Up to date", "name": "Mmm"},
+        ]
+        rows.sort(
+            key=lambda r: (PI._STATUS_PRIORITY.get(r["status"], 99), r["name"].lower())
+        )
+        assert [r["name"] for r in rows] == ["Aaa", "Mmm", "Zzz"]
+
+
+# ---------------------------------------------------------------------------
+# _FetchWorker — network fetch logic
+# ---------------------------------------------------------------------------
+
+class TestFetchWorker:
+    """Tests for _FetchWorker._fetch_pypi and _fetch_remote (no real threads)."""
+
+    def _make_worker(self):
+        """Create a _FetchWorker bypassing QThread.__init__."""
+        w = object.__new__(PI._FetchWorker)
+        w._pkg = "moleditpy"
+        w._url = PI.REMOTE_JSON_URL
+        return w
+
+    def test_fetch_pypi_returns_version(self):
+        w = self._make_worker()
+        fake_body = json.dumps({"info": {"version": "4.5.0"}}).encode()
+        fake_resp = MagicMock()
+        fake_resp.__enter__ = lambda s: s
+        fake_resp.__exit__ = MagicMock(return_value=False)
+        fake_resp.status = 200
+        fake_resp.read.return_value = fake_body
+        with patch("urllib.request.urlopen", return_value=fake_resp):
+            result = w._fetch_pypi()
+        assert result == "4.5.0"
+
+    def test_fetch_pypi_network_error_returns_unknown(self):
+        w = self._make_worker()
+        with patch("urllib.request.urlopen", side_effect=OSError("timeout")):
+            result = w._fetch_pypi()
+        assert result == "Unknown"
+
+    def test_fetch_remote_returns_list(self):
+        w = self._make_worker()
+        payload = [{"name": "PluginA", "version": "1.0.0"}]
+        fake_body = json.dumps(payload).encode("utf-8-sig")
+        fake_resp = MagicMock()
+        fake_resp.__enter__ = lambda s: s
+        fake_resp.__exit__ = MagicMock(return_value=False)
+        fake_resp.status = 200
+        fake_resp.read.return_value = fake_body
+        with patch("urllib.request.urlopen", return_value=fake_resp):
+            result = w._fetch_remote()
+        assert result == payload
+
+    def test_fetch_remote_network_error_returns_empty_list(self):
+        w = self._make_worker()
+        with patch("urllib.request.urlopen", side_effect=OSError("no route")):
+            result = w._fetch_remote()
+        assert result == []
+
+
+# ---------------------------------------------------------------------------
+# _download_chunked — progress callback and cancellation
+# ---------------------------------------------------------------------------
+
+class TestDownloadChunked:
+    """Tests for PluginInstallerWindow._download_chunked via a bare instance."""
+
+    def _make_installer(self):
+        """Create a PluginInstallerWindow without running __init__ or Qt code."""
+        inst = object.__new__(PI.PluginInstallerWindow)
+        inst.main_window = MagicMock()
+        return inst
+
+    def test_downloads_file_and_calls_callback(self, tmp_path):
+        inst = self._make_installer()
+        dest = tmp_path / "plugin.py"
+        content = b"print('hello')" * 100
+
+        fake_resp = MagicMock()
+        fake_resp.__enter__ = lambda s: s
+        fake_resp.__exit__ = MagicMock(return_value=False)
+        fake_resp.headers = {"Content-Length": str(len(content))}
+        # Serve content in two chunks then empty
+        fake_resp.read.side_effect = [content[:800], content[800:], b""]
+
+        progress_calls = []
+
+        def on_progress(recv, total):
+            progress_calls.append((recv, total))
+            return True  # continue
+
+        with patch("urllib.request.urlopen", return_value=fake_resp):
+            ok = inst._download_chunked("https://example.com/plugin.py", str(dest), on_progress)
+
+        assert ok is True
+        assert dest.read_bytes() == content
+        assert len(progress_calls) == 2
+        assert progress_calls[-1][1] == len(content)
+
+    def test_callback_returning_false_aborts(self, tmp_path):
+        inst = self._make_installer()
+        dest = tmp_path / "plugin.py"
+        content = b"x" * 1000
+
+        fake_resp = MagicMock()
+        fake_resp.__enter__ = lambda s: s
+        fake_resp.__exit__ = MagicMock(return_value=False)
+        fake_resp.headers = {}
+        fake_resp.read.side_effect = [content, b""]
+
+        with patch("urllib.request.urlopen", return_value=fake_resp):
+            ok = inst._download_chunked(
+                "https://example.com/plugin.py",
+                str(dest),
+                on_progress=lambda r, t: False,  # cancel immediately
+            )
+
+        assert ok is False
+
+    def test_network_error_returns_false(self, tmp_path):
+        inst = self._make_installer()
+        dest = tmp_path / "plugin.py"
+
+        with patch("urllib.request.urlopen", side_effect=OSError("connection refused")):
+            with patch.object(PI.QMessageBox, "warning") as warn:
+                ok = inst._download_chunked(
+                    "https://example.com/plugin.py", str(dest)
+                )
+
+        assert ok is False
+        warn.assert_called_once()
+
+    def test_no_callback_still_downloads(self, tmp_path):
+        inst = self._make_installer()
+        dest = tmp_path / "plugin.py"
+        content = b"# plugin code"
+
+        fake_resp = MagicMock()
+        fake_resp.__enter__ = lambda s: s
+        fake_resp.__exit__ = MagicMock(return_value=False)
+        fake_resp.headers = {}
+        fake_resp.read.side_effect = [content, b""]
+
+        with patch("urllib.request.urlopen", return_value=fake_resp):
+            ok = inst._download_chunked(
+                "https://example.com/plugin.py", str(dest)
+            )
+
+        assert ok is True
+        assert dest.read_bytes() == content
+
+
+# ---------------------------------------------------------------------------
+# SHA-256 verification
+# ---------------------------------------------------------------------------
+
+class TestCalculateSha256:
+    def test_known_hash(self, tmp_path):
+        import hashlib
+        f = tmp_path / "data.bin"
+        data = b"hello world"
+        f.write_bytes(data)
+        inst = object.__new__(PI.PluginInstallerWindow)
+        expected = hashlib.sha256(data).hexdigest()
+        assert inst.calculate_sha256(str(f)) == expected
 
