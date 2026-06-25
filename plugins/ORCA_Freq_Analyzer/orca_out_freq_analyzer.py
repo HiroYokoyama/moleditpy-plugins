@@ -153,7 +153,7 @@ class OrcaParser:
                         break
                     curr += 1
             except Exception as e:
-                print(f"Error parsing coords: {e}")
+                logging.warning("Error parsing coords: %s", e)
 
         # Parse Frequencies
         # -----------------------
@@ -611,8 +611,8 @@ class OrcaOutFreqAnalyzer(QWidget):
                 PLUGIN_CONTEXT.refresh_ui()
 
         except Exception as e:
+            logging.exception("Failed to parse Output: %s", e)
             QMessageBox.critical(self, "Error", f"Failed to parse Output:\n{e}")
-            traceback.print_exc()
 
     def update_ui_after_load(self):
         self.list_freq.clear()
@@ -962,7 +962,7 @@ class OrcaOutFreqAnalyzer(QWidget):
                 show_scalar_bar=False,
             )
         except Exception as e:
-            print(f"Error adding arrows: {e}")
+            logging.warning("Error adding arrows: %s", e)
 
     def save_as_gif(self):
         if not self.parser or not self.base_mol:
@@ -1096,8 +1096,8 @@ class OrcaOutFreqAnalyzer(QWidget):
                 QMessageBox.information(self, "Success", f"Saved GIF to:\n{file_path}")
 
         except Exception as e:
+            logging.exception("Failed to save GIF: %s", e)
             QMessageBox.critical(self, "Error", f"Failed to save GIF: {e}")
-            traceback.print_exc()
         finally:
             self.reset_geometry()
             if was_playing:

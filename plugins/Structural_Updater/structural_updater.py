@@ -120,7 +120,7 @@ class StructuralUpdaterPlugin:
                 # Create default settings if file doesn't exist
                 self.save_settings()
         except Exception as e:
-            print(f"[{PLUGIN_NAME}] Error loading settings: {e}")
+            logging.warning("[%s] Error loading settings: %s", PLUGIN_NAME, e)
 
     def save_settings(self):
         try:
@@ -128,7 +128,7 @@ class StructuralUpdaterPlugin:
             with open(self.settings_file, "w") as f:
                 json.dump(data, f)
         except Exception as e:
-            print(f"[{PLUGIN_NAME}] Error saving settings: {e}")
+            logging.warning("[%s] Error saving settings: %s", PLUGIN_NAME, e)
 
     def open_settings(self):
         dlg = SettingsDialog(self.mw, self.enabled)
@@ -441,7 +441,7 @@ class StructuralUpdaterPlugin:
                 return
 
         except Exception as e:  # Error during embedding
-            print(f"[{PLUGIN_NAME}] Embedding failed: {e}")
+            logging.warning("[%s] Embedding failed: %s", PLUGIN_NAME, e)
             self.force_full_conversion()
             return
 

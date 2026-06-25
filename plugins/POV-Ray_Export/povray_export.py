@@ -8,7 +8,7 @@ Exports molecular structures as POV-Ray scene files for high-quality ray-traced 
 """
 
 PLUGIN_NAME = "POV-Ray Export"
-PLUGIN_VERSION = "2026.06.20"
+PLUGIN_VERSION = "2026.06.26"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Export molecular structures as POV-Ray scene files for professional ray-traced rendering"
@@ -642,7 +642,7 @@ def generate_povray_scene(mol, mw):
                         try:
                             r = pt.GetRvdw(pt.GetAtomicNumber(symbol))
                             radius = (r if r > 0.1 else 1.5) * scale
-                        except:
+                        except Exception:
                             radius = 1.5 * scale
                     else:  # ball_and_stick
                         scale = settings.get("ball_stick_atom_scale", 1.0)
@@ -650,7 +650,7 @@ def generate_povray_scene(mol, mw):
                             # Use 0.3 factor matching app's constants.py VDW_RADII
                             r = pt.GetRvdw(pt.GetAtomicNumber(symbol))
                             radius = (r if r > 0.1 else 1.5) * 0.3 * scale
-                        except:
+                        except Exception:
                             radius = 0.4 * scale
                 atoms_to_draw.append(
                     (np.array([pos.x, pos.y, pos.z]), radius, color, symbol, idx)

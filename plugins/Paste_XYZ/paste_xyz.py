@@ -19,7 +19,7 @@ except ImportError:
     Chem = None
 
 PLUGIN_NAME = "Paste XYZ"
-PLUGIN_VERSION = "2026.06.19"
+PLUGIN_VERSION = "2026.06.26"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Allows pasting XYZ coordinates directly from the clipboard to create a new molecule."
@@ -159,7 +159,7 @@ def run_plugin(context):
 
                 try:
                     return int(line_edit.text().strip()), True, False
-                except:
+                except Exception:
                     return 0, True, False
 
             # Inner helper: process with charge
@@ -173,7 +173,7 @@ def run_plugin(context):
                     rdDetermineBonds.DetermineBonds(mol_candidate, charge=charge_val)
                     mol_to_finalize = mol_candidate
                     used_rd_determine = True
-                except:
+                except Exception:
                     used_rd_determine = False
                     mol_to_finalize = mol
 
@@ -220,7 +220,7 @@ def run_plugin(context):
                     if not always_ask:
                         try:
                             final_mol = _process_with_charge(0)
-                        except:
+                        except Exception:
                             while True:
                                 charge_val, ok, skip_flag = prompt_for_charge()
                                 if not ok:
@@ -243,7 +243,7 @@ def run_plugin(context):
                                 try:
                                     final_mol = _process_with_charge(charge_val)
                                     break
-                                except:
+                                except Exception:
                                     context.show_status_message(
                                         "Bond determination failed for that charge."
                                     )
@@ -268,7 +268,7 @@ def run_plugin(context):
                             try:
                                 final_mol = _process_with_charge(charge_val)
                                 break
-                            except:
+                            except Exception:
                                 context.show_status_message(
                                     "Bond determination failed."
                                 )
@@ -321,7 +321,7 @@ def run_plugin(context):
                     logging.warning("[paste_xyz.py:244] silenced: %s", _e)
 
         except Exception as e:
-            traceback.print_exc()
+            logging.exception("Failed to parse or load data: %s", e)
             QMessageBox.critical(mw, "Error", f"Failed to parse or load data:\n{e}")
 
 

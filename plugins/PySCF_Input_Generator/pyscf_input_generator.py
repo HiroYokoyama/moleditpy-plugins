@@ -23,7 +23,7 @@ from rdkit import Chem
 import logging
 
 PLUGIN_NAME = "PySCF Input Generator"
-PLUGIN_VERSION = "2026.06.20"
+PLUGIN_VERSION = "2026.06.26"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Generate Python scripts for PySCF quantum chemistry calculations."
@@ -327,7 +327,7 @@ class PyscfSetupDialog(QDialog):
                 with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
                     self.presets_data = json.load(f)
             except Exception as e:
-                print(f"Error loading presets: {e}")
+                logging.warning("Error loading presets: %s", e)
         self.update_preset_combo()
 
     def update_preset_combo(self):

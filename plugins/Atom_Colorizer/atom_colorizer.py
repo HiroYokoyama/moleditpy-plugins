@@ -26,7 +26,7 @@ except ImportError:
 
 # Plugin Metadata
 PLUGIN_NAME = "Atom Colorizer"
-PLUGIN_VERSION = "2026.06.20"
+PLUGIN_VERSION = "2026.06.26"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -218,8 +218,8 @@ class AtomColorizerWindow(QDialog):
             self.context.refresh_3d_view()
 
         except Exception as e:
+            logging.exception("Failed to apply color: %s", e)
             QMessageBox.critical(self, "Error", f"Failed to apply color: {e}")
-            traceback.print_exc()
 
     def reset_colors(self):
         mol = self.context.current_molecule

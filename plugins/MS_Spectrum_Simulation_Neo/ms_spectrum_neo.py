@@ -48,7 +48,7 @@ except ImportError:
     Descriptors = None
     Draw = None
 
-PLUGIN_VERSION = "2026.06.20"
+PLUGIN_VERSION = "2026.06.26"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 
@@ -676,7 +676,7 @@ class MSSpectrumDialog(QDialog):
                     if total_p == 0:
                         continue
                     atom_iso_dist = [(m, p / total_p) for m, p in atom_iso_dist]
-                except:
+                except Exception:
                     # Found an unrecognized element -> Invalid Formula -> Hide Spectrum
                     return [], 0.0, 0.0, 0.0
 
@@ -852,7 +852,7 @@ class MSSpectrumDialog(QDialog):
                                 else:
                                     print("QPainter failed to begin on image")
                 except Exception as e:
-                    print(f"Scene Capture Error: {e}")
+                    logging.warning("Scene Capture Error: %s", e)
 
             # 2. Fallback to RDKit Draw
             if not mol_b64 and Draw:
@@ -867,7 +867,7 @@ class MSSpectrumDialog(QDialog):
                     mol_b64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
                     img_w, img_h = 300, 300
                 except Exception as e:
-                    print(f"Mol Image Error: {e}")
+                    logging.warning("Mol Image Error: %s", e)
 
         # Calculate Scaled Dimensions for Report (Max 260x190 inside 270x200 frame)
         disp_w, disp_h = 0, 0

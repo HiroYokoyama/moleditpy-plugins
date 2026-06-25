@@ -264,9 +264,7 @@ class AlignmentWorker(QThread):
             self.finished_signal.emit(results)
 
         except Exception as e:
-            import traceback
-
-            traceback.print_exc()
+            logging.exception("Worker error: %s", e)
             self.error_signal.emit(str(e))
 
 
@@ -980,7 +978,7 @@ class MoleculeComparator(QWidget):
                         try:
                             controller.set_atom_color(global_idx, color_hex)
                         except Exception as e:
-                            print(f"Failed to set atom color: {e}")
+                            logging.warning("Failed to set atom color: %s", e)
 
                 current_atom_offset += mol.GetNumAtoms()
 

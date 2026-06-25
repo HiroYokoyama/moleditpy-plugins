@@ -7,7 +7,7 @@ import logging
 
 # --- Plugin Basic Information ---
 PLUGIN_NAME = "Paste from ChemDraw"
-PLUGIN_VERSION = "2026.06.20"
+PLUGIN_VERSION = "2026.06.26"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Paste chemical structures from ChemDraw clipboard data (MDLCT/MDLSK). Optimized for MoleditPy V3."
@@ -81,12 +81,12 @@ def run(context):
                             mol_text = text
                             success = True
                             break
-                    except:
+                    except Exception:
                         continue
                 if success:
                     break
             except Exception as e:
-                print(f"[{PLUGIN_NAME}] Data retrieval error for {fmt}: {e}")
+                logging.warning("[%s] Data retrieval error for %s: %s", PLUGIN_NAME, fmt, e)
 
     # Log debug info
     # try:

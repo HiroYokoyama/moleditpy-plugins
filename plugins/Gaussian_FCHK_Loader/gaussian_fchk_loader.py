@@ -1,4 +1,5 @@
 import os
+import logging
 import sys
 import importlib
 import importlib.util
@@ -15,7 +16,7 @@ from PyQt6.QtCore import Qt, QTimer
 
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Gaussian FCHK Loader"
-PLUGIN_VERSION = "2026.06.20"
+PLUGIN_VERSION = "2026.06.26"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Dispatches FCHK, FCH, and FCK files to appropriate analyzers (Freq vs MO) with priority handling."
@@ -58,7 +59,7 @@ def load_module_from_path(name, path):
             spec.loader.exec_module(module)
             return module
     except Exception as e:
-        print(f"Failed to load module {name} from {path}: {e}")
+        logging.warning("Failed to load module %s from %s: %s", name, path, e)
     return None
 
 

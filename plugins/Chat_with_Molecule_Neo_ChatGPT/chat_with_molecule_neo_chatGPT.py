@@ -4165,9 +4165,7 @@ class ChatMoleculeWindow(QDialog):
 
         except Exception as e:
             self.append_message("System", f"Update Error: {e}", "red")
-            import traceback
-
-            traceback.print_exc()
+            logging.exception("Update Error: %s", e)
 
 
 def run_plugin(context):

@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
 )
 
 PLUGIN_NAME = "High Resolution Imager"
-PLUGIN_VERSION = "2026.06.20"
+PLUGIN_VERSION = "2026.06.26"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -191,7 +191,7 @@ def take_screenshot(context):
                             "background_color", "#4f4f4f"
                         )
                         mw.plotter.set_background(target_bg)
-                    except:
+                    except Exception:
                         original_bg = None
 
                 try:

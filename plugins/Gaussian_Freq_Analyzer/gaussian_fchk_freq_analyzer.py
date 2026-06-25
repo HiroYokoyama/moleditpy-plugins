@@ -33,7 +33,7 @@ except ImportError:
     Chem = None
 
 PLUGIN_NAME = "Gaussian Freq Analyzer"
-PLUGIN_VERSION = "2026.06.20"
+PLUGIN_VERSION = "2026.06.26"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -537,8 +537,8 @@ class GaussianFCHKFreqAnalyzer(QWidget):
                 self.context.refresh_ui()
 
         except Exception as e:
+            logging.exception("Failed to parse FCHK: %s", e)
             QMessageBox.critical(self, "Error", f"Failed to parse FCHK:\n{e}")
-            traceback.print_exc()
 
     def update_ui_after_load(self):
         self.list_freq.clear()
@@ -793,7 +793,7 @@ class GaussianFCHKFreqAnalyzer(QWidget):
                 show_scalar_bar=False,
             )
         except Exception as e:
-            print(f"Error adding arrows: {e}")
+            logging.warning("Error adding arrows: %s", e)
 
     def save_as_gif(self):
         if not self.parser or not self.base_mol:
@@ -930,8 +930,8 @@ class GaussianFCHKFreqAnalyzer(QWidget):
                 QMessageBox.information(self, "Success", f"Saved GIF to:\n{file_path}")
 
         except Exception as e:
+            logging.exception("Failed to save GIF: %s", e)
             QMessageBox.critical(self, "Error", f"Failed to save GIF: {e}")
-            traceback.print_exc()
         finally:
             self.reset_geometry()
             # Restore play state if needed, or leave paused

@@ -1,4 +1,5 @@
 import os
+import logging
 import json
 import traceback
 import pyvista as pv
@@ -30,7 +31,7 @@ except ImportError:
 
 # Plugin Metadata
 PLUGIN_NAME = "VDW Radii Overlay"
-PLUGIN_VERSION = "2026.06.20"
+PLUGIN_VERSION = "2026.06.26"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Visualizes VDW radii as a translucent surface overlay using PyVista. Refactored for V3 API."
@@ -57,7 +58,7 @@ def load_settings():
                 if "resolution" in saved:
                     _vdw_settings["resolution"] = float(saved["resolution"])
     except Exception as e:
-        print(f"Error loading VDW settings: {e}")
+        logging.warning("Error loading VDW settings: %s", e)
 
 
 def save_settings():
@@ -65,7 +66,7 @@ def save_settings():
         with open(SETTINGS_FILE, "w") as f:
             json.dump(_vdw_settings, f, indent=4)
     except Exception as e:
-        print(f"Error saving VDW settings: {e}")
+        logging.warning("Error saving VDW settings: %s", e)
 
 
 class VDWConfigWindow(QDialog):
@@ -384,8 +385,7 @@ def draw_vdw_overlay(mw, mol):
                         )
 
         except Exception as e:
-            print(f"VDW Overlay Error: {e}")
-            traceback.print_exc()
+            logging.exception("VDW Overlay Error: %s", e)
 
 
 def open_settings(context):

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import logging
 from PyQt6.QtWidgets import (
     QMessageBox,
     QDialog,
@@ -1006,7 +1007,7 @@ class GaussianSetupDialog(QDialog):
             self.validate_charge_mult()
 
         except Exception as e:
-            print(f"Error calculating charge/mult: {e}")
+            logging.warning("Error calculating charge/mult: %s", e)
 
     def validate_charge_mult(self):
         """
@@ -1051,7 +1052,7 @@ class GaussianSetupDialog(QDialog):
             self.update_preview()
 
         except Exception as e:
-            print(f"Validation error: {e}")
+            logging.warning("Validation error: %s", e)
 
     # --- Preset Management Methods ---
 
@@ -1063,7 +1064,7 @@ class GaussianSetupDialog(QDialog):
                 with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
                     self.presets_data = json.load(f)
             except Exception as e:
-                print(f"Error loading presets: {e}")
+                logging.warning("Error loading presets: %s", e)
 
         # Ensure Default exists if empty
         if "Default" not in self.presets_data:

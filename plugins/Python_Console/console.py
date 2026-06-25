@@ -1,4 +1,5 @@
 import io
+import logging
 import code
 import traceback
 import keyword
@@ -16,7 +17,7 @@ from PyQt6.QtGui import QFont, QColor, QSyntaxHighlighter, QTextCharFormat, QTex
 from PyQt6.QtCore import Qt, QRegularExpression, pyqtSignal
 import rdkit.Chem as Chem
 
-PLUGIN_VERSION = "2026.06.20"
+PLUGIN_VERSION = "2026.06.26"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Embedded Python console for interactive scripting."
@@ -183,7 +184,7 @@ class GUIHelp:
         try:
             pydoc.help(*args, **kwargs)
         except Exception as e:
-            print(f"Error retrieving help: {e}", file=sys.stderr)
+            logging.warning("Error retrieving help: %s", e)
         finally:
             if old_pager is not None:
                 pydoc.pager = old_pager

@@ -4,12 +4,13 @@ dark_mode_plugin.py
 A plugin that automatically applies a dark mode stylesheet to MoleditPy upon loading.
 """
 
-PLUGIN_VERSION = "2026.06.20"
+PLUGIN_VERSION = "2026.06.26"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Apply dark mode theme to the MoleditPy UI."
 
 PLUGIN_NAME = "Dark Mode Theme"
+import logging
 
 _CONTEXT = None
 
@@ -338,7 +339,7 @@ def autorun(main_window):
             # if it observes settings changes.
 
     except Exception as e:
-        print(f"[{PLUGIN_NAME}] Warning: Could not auto-set 3D background color: {e}")
+        logging.warning("[%s] Warning: Could not auto-set 3D background color: %s", PLUGIN_NAME, e)
 
     # 3. Inform user
     if _CONTEXT:

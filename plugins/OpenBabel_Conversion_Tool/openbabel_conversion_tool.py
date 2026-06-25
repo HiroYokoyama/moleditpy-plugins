@@ -30,7 +30,7 @@ except ImportError:
         OBABEL_AVAILABLE = False
 
 PLUGIN_NAME = "OpenBabel Conversion Tool"
-PLUGIN_VERSION = "2026.06.20"
+PLUGIN_VERSION = "2026.06.26"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -151,9 +151,7 @@ def open_file_with_openbabel(file_path, context):
                 shutil.copy2(file_path, temp_file_path)
                 path_to_open = temp_file_path
             except Exception as e:
-                print(
-                    f"[{PLUGIN_NAME}] Failed to create temp file for non-ascii path: {e}"
-                )
+                logging.warning("[%s] Failed to create temp file for non-ascii path: %s", PLUGIN_NAME, e)
                 # Fallback to original path
                 path_to_open = file_path
                 temp_file_path = None
@@ -245,7 +243,7 @@ def open_file_with_openbabel(file_path, context):
                 ):
                     mw.ui_manager.enter_3d_viewer_ui_mode()
             except Exception as e:
-                print(f"[{PLUGIN_NAME}] Failed to switch to 3D mode: {e}")
+                logging.warning("[%s] Failed to switch to 3D mode: %s", PLUGIN_NAME, e)
 
             context.show_status_message(f"Loaded {file_path} via OpenBabel", 3000)
 
@@ -266,10 +264,8 @@ def open_file_with_openbabel(file_path, context):
             )
 
     except Exception as e:
+        logging.exception("Import error: %s", e)
         QMessageBox.critical(mw, "Import Error", f"An error occurred:\n{e}")
-        import traceback
-
-        traceback.print_exc()
 
 
 def export_with_openbabel(context):
@@ -347,10 +343,8 @@ def export_with_openbabel(context):
         PLUGIN_CONTEXT.show_status_message(f"Exported to {path}", 3000)
 
     except Exception as e:
+        logging.exception("Export error: %s", e)
         QMessageBox.critical(mw, "Export Error", f"Failed to export:\n{e}")
-        import traceback
-
-        traceback.print_exc()
 
 
 class MoleculeSelectionDialog(QDialog):

@@ -1,12 +1,13 @@
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Symmetry Analyzer"
-PLUGIN_VERSION = "2026.06.20"
+PLUGIN_VERSION = "2026.06.26"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Analyzes molecular symmetry (point group) and symmetrizes structures. Refactored for MoleditPy V3.0 API."
 PLUGIN_CONTEXT = None
 
 import sys
+import logging
 import numpy as np
 from PyQt6.QtWidgets import (
     QVBoxLayout,
@@ -807,15 +808,15 @@ if __name__ == "__main__":
                 AllChem.EmbedMolecule(m, randomSeed=42)  # Generate 3D coords
                 AllChem.MMFFOptimizeMolecule(m)  # Optimize
                 self.mol = m
-                print("Mock: Created sample molecule (CH4) - Optimized.")
+                logging.debug("Mock: Created sample molecule (CH4) - Optimized.")
             except ImportError:
-                print("Mock: RDKit not found or error creating molecule.")
+                logging.debug("Mock: RDKit not found or error creating molecule.")
 
         def get_molecule(self):
             return self.mol
 
         def update_view(self):
-            print("Mock: View updated.")
+            logging.debug("Mock: View updated.")
 
     app = QApplication(sys.argv)
 
@@ -823,7 +824,7 @@ if __name__ == "__main__":
     try:
         print("Dependencies found.")
     except ImportError as e:
-        print(f"Warning: Missing dependencies for full functionality: {e}")
+        logging.warning("Warning: Missing dependencies for full functionality: %s", e)
 
     interface = MockInterface()
     window = SymmetryAnalysisPlugin(interface)

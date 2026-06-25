@@ -22,7 +22,7 @@ except ImportError:
     CRYPTOGRAPHY_AVAILABLE = False
 
 PLUGIN_NAME = "Encrypted Project"
-PLUGIN_VERSION = "2026.06.20"
+PLUGIN_VERSION = "2026.06.26"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -67,10 +67,10 @@ class PmeencPlugin:
                     # Silently handle cancelled or failed authentication from UI
                     logging.warning("[encrypted_project.py:60] silenced: %s", _e)
                 except Exception as e:
+                    logging.exception("Unexpected import error: %s", e)
                     QMessageBox.critical(
                         self.mw, "Import Error", f"Unexpected error: {e}"
                     )
-                    traceback.print_exc()
 
             QTimer.singleShot(0, safe_import)
             return True
@@ -319,8 +319,8 @@ class PmeencPlugin:
             self.context.show_status_message(f"Encrypted project saved to {file_path}")
 
         except Exception as e:
+            logging.exception("Encryption error: %s", e)
             QMessageBox.critical(self.mw, "Encryption Error", f"Failed to encrypt: {e}")
-            traceback.print_exc()
 
     def on_import(self, file_path: str):
         """Import logic for .pmeenc files."""
@@ -388,7 +388,7 @@ class PmeencPlugin:
                     QMessageBox.critical(
                         self.mw, "Decryption Error", f"Failed to decrypt: {e}"
                     )
-                    traceback.print_exc()
+                    logging.exception("Decryption error: %s", e)
                 raise  # Re-raise to signal failure to load_command_line_file
 
 

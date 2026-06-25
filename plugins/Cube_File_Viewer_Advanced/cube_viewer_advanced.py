@@ -1061,10 +1061,7 @@ class CubeViewerWidget(QWidget):
             self.plotter.render()
 
         except Exception as e:
-            logging.warning("Iso update error: %s", e)
-            import traceback
-
-            traceback.print_exc()
+            logging.warning("Iso update error: %s", e, exc_info=True)
 
     def on_opacity_changed(self, val):
         opacity = val / 100.0
@@ -1155,7 +1152,7 @@ class CubeViewerWidget(QWidget):
             # VTK to complain about missing resources or invalid state.
             # self.plotter.render()
         except Exception as e:
-            print(f"Pipeline clean error: {e}")
+            logging.warning("Pipeline clean error: %s", e)
 
     def on_depth_peeling_toggled(self, checked):
         self.use_depth_peeling = checked
@@ -1171,7 +1168,7 @@ class CubeViewerWidget(QWidget):
                     self.plotter.disable_depth_peeling()
             self.plotter.render()
         except Exception as e:
-            print(f"Depth Peeling error: {e}")
+            logging.warning("Depth Peeling error: %s", e)
 
     def on_silhouette_toggled(self, checked):
         self.use_silhouette = checked
@@ -1212,7 +1209,7 @@ class CubeViewerWidget(QWidget):
                 self.plotter.disable_anti_aliasing()
             self.plotter.render()
         except Exception as e:
-            print(f"AA Error: {e}")
+            logging.warning("AA Error: %s", e)
 
     def on_edl_toggled(self, checked):
         self.use_edl = checked
@@ -1333,26 +1330,26 @@ class CubeViewerWidget(QWidget):
             try:
                 self.context.draw_molecule_3d(self.mw.current_mol)
             except Exception as e:
-                print(f"Error redrawing molecule: {e}")
+                logging.warning("Error redrawing molecule: %s", e)
 
         # Redraw orbital
         try:
             self.update_iso()
         except Exception as e:
-            print(f"Error updating orbital: {e}")
+            logging.warning("Error updating orbital: %s", e)
 
         # Restore advanced rendering effects
         if shadows_were_enabled:
             try:
                 self.plotter.enable_shadows()
             except Exception as e:
-                print(f"Error restoring shadows: {e}")
+                logging.warning("Error restoring shadows: %s", e)
 
         if edl_was_enabled:
             try:
                 self.plotter.enable_eye_dome_lighting()
             except Exception as e:
-                print(f"Error restoring EDL: {e}")
+                logging.warning("Error restoring EDL: %s", e)
 
         # Final render to apply all effects
         try:
@@ -1370,7 +1367,7 @@ class CubeViewerWidget(QWidget):
                 else:
                     print(f"Texture path not found: {path}")
             except Exception as e:
-                print(f"Error loading entered texture: {e}")
+                logging.warning("Error loading entered texture: %s", e)
 
     # --- PRESET HANDLERS ---
     def update_preset_combo(self):
@@ -1688,7 +1685,7 @@ class CubeViewerWidget(QWidget):
             print(f"Loaded texture: {os.path.basename(path)}")
 
         except Exception as e:
-            print(f"Failed to load texture: {e}")
+            logging.warning("Failed to load texture: %s", e)
             QMessageBox.critical(
                 self,
                 "Texture Loading Failed",
@@ -1710,16 +1707,14 @@ class CubeViewerWidget(QWidget):
                 # Fallback if remove_ doesn't exist but set_ does (unlikely given dir() output)
                 try:
                     self.plotter.set_environment_texture(None)
-                except:
-                    print(
-                        "Could not clear environment texture (set_environment_texture(None) failed)."
-                    )
+                except Exception:
+                    logging.warning("Could not clear environment texture (set_environment_texture(None) failed).")
 
             self.env_texture_path = ""
             self.line_env_path.clear()
             self.plotter.render()
         except Exception as e:
-            print(f"Error removing texture: {e}")
+            logging.warning("Error removing texture: %s", e)
 
     def on_reset_all(self):
         """Resets ALL settings to defaults (not just advanced)."""
@@ -1823,7 +1818,7 @@ class CubeViewerWidget(QWidget):
 
         except Exception as e:
             self.blockSignals(False)
-            print(f"Error resetting settings: {e}")
+            logging.warning("Error resetting settings: %s", e)
 
     def closeEvent(self, event):
         self.save_settings()
@@ -1867,7 +1862,7 @@ class CubeViewerWidget(QWidget):
             ):
                 self.mw.ui_manager.restore_ui_for_editing()
         except Exception as e:
-            print(f"Error closing plugin: {e}")
+            logging.warning("Error closing plugin: %s", e)
 
         if self.dock:
             self.mw.removeDockWidget(self.dock)
@@ -2055,9 +2050,7 @@ def open_cube_viewer(context, file_path):
         context.show_status_message(f"Loaded Cube. Atoms: {len(atoms)}, Bonds: {nb}")
 
     except Exception as e:
-        import traceback
-
-        traceback.print_exc()
+        logging.exception("Cube Viewer Error: %s", e)
         context.show_status_message(f"Cube Viewer Error: {e}")
 
 

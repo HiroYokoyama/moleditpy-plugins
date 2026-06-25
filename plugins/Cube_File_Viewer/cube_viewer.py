@@ -790,9 +790,7 @@ def open_cube_viewer(context, fname):
         try:
             meta, grid = read_cube(fname)
         except Exception as e:
-            import traceback
-
-            traceback.print_exc()
+            logging.exception("Failed to parse Cube file: %s", e)
             QMessageBox.critical(
                 main_window, "Error", f"Failed to parse Cube file:\n{e}"
             )

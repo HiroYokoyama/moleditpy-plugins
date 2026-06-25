@@ -488,9 +488,7 @@ class MappedWidget(QWidget):
                 pl.close()
                 QMessageBox.information(self, "Success", f"Saved Color Bar to {f}")
             except Exception as e:
-                import traceback
-
-                traceback.print_exc()
+                logging.exception("Save failed: %s", e)
                 QMessageBox.critical(self, "Error", f"Save failed: {e}")
 
     def update_mesh(self, auto_fit=False):
@@ -537,7 +535,7 @@ class MappedWidget(QWidget):
             self.mw.plotter.render()
 
         except Exception as e:
-            print(f"Update Error: {e}")
+            logging.warning("Update Error: %s", e)
 
     def close_plugin(self):
         try:
@@ -647,9 +645,7 @@ def run_plugin(context):
         context.register_window("main_panel", dock)
 
     except Exception as e:
-        import traceback
-
-        traceback.print_exc()
+        logging.exception("Mapped Cube Viewer Error: %s", e)
         context.show_status_message(f"Mapped Cube Viewer Error: {e}")
 
 

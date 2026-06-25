@@ -561,7 +561,7 @@ class XYZEditorWindow(QWidget):
                         # Store the EXACT string (c, ag, Ag*, etc.)
                         atom.SetProp("custom_symbol", symbol)
                 except Exception as e:
-                    print(f"Error creating atom for row {row}: {e}")
+                    logging.warning("Error creating atom for row %s: %s", row, e)
                     # Fallback to Carbon if something goes wrong
                     atom = Chem.Atom(6)
 
