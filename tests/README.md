@@ -207,6 +207,20 @@ Plugins covered: **Cube File Viewer**, **Cube File Viewer Advanced**, **Mapped C
 
 ---
 
+### `test_plugin_encrypted_and_structural.py` — Encrypted Project & Structural Updater tests (33 tests)
+
+| Class | Plugin | What it covers |
+|---|---|---|
+| `TestEncryptedProjectOnDrop` (7) | Encrypted Project | `on_drop()` returns True for `.pmeenc`/`.PMEENC`, False for other extensions and empty string |
+| `TestEncryptedProjectDocumentReset` (2) | Encrypted Project | `on_document_reset()` clears `current_key`/`current_salt`; no-op from None state |
+| `TestEncryptedProjectPatchMethod` (6) | Encrypted Project | `_patch_method` replaces `mw` method and marks it with `._is_pmeenc_patch=True`; `_unpatch_method` restores original; double-patch guard; missing-method no-raise |
+| `TestEncryptedProjectInitialize` (4) | Encrypted Project | `initialize()` registers file opener for `.pmeenc`, export action, document-reset handler, drop handler |
+| `TestStructuralUpdaterInitialize` (4) | Structural Updater | `initialize()` sets `_PLUGIN_INSTANCE`, calls `add_menu_action` with "Structural Updater" in path; `finalize()` does not raise |
+| `TestStructuralUpdaterSettings` (8) | Structural Updater | `save_settings`/`load_settings` round-trip; default `enabled=True`; missing file creates default; JSON content verified |
+| `TestStructuralUpdaterCheckState` (2) | Structural Updater | `check_state()` exits early when disabled; runs without raise when enabled |
+
+---
+
 ### `test_api.py` — Static API compatibility check (1 test)
 
 Uses `api-checker/check_api.py` to perform a two-phase AST scan:
