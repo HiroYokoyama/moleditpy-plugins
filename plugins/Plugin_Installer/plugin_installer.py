@@ -951,16 +951,27 @@ class PluginInstallerWindow(QDialog):
         if getattr(self, "btn_update_all", None) is not None:
             self.btn_update_all.setEnabled(plugin_update_count > 0)
 
-        if getattr(self, "_status_label", None) is not None:
-            if plugin_update_count > 0:
-                self._status_label.setText(
-                    f"{plugin_update_count} plugin(s) have updates available"
-                )
-            else:
-                self._status_label.setText("")
+        self._update_status_label(plugin_update_count)
 
         if getattr(self, "search_input", None) is not None:
             self.filter_plugins()
+
+    def _update_status_label(self, plugin_update_count: int) -> None:
+        if getattr(self, "_status_label", None) is None:
+            return
+        if plugin_update_count == 1:
+            self._status_label.setStyleSheet("color: #856404; font-weight: bold;")
+            self._status_label.setText("1 plugin has an update available")
+        elif plugin_update_count > 1:
+            self._status_label.setStyleSheet("color: #856404; font-weight: bold;")
+            self._status_label.setText(
+                f"{plugin_update_count} plugins have updates available"
+            )
+        elif self.table.rowCount() > 0:
+            self._status_label.setStyleSheet("color: #155724; font-weight: bold;")
+            self._status_label.setText("All plugins are up to date")
+        else:
+            self._status_label.setText("")
 
     # ------------------------------------------------------------------
     # Misc helpers

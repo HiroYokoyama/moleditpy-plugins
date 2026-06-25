@@ -560,6 +560,50 @@ class TestDownloadChunked:
 
 
 # ---------------------------------------------------------------------------
+# _update_status_label — update-count label text and colour
+# ---------------------------------------------------------------------------
+
+
+class TestUpdateStatusLabel:
+    def _make_installer(self, row_count=5):
+        inst = object.__new__(PI.PluginInstallerWindow)
+        inst._status_label = MagicMock()
+        inst.table = MagicMock()
+        inst.table.rowCount.return_value = row_count
+        return inst
+
+    def test_singular_update(self):
+        inst = self._make_installer()
+        inst._update_status_label(1)
+        inst._status_label.setText.assert_called_once_with(
+            "1 plugin has an update available"
+        )
+
+    def test_plural_updates(self):
+        inst = self._make_installer()
+        inst._update_status_label(3)
+        inst._status_label.setText.assert_called_once_with(
+            "3 plugins have updates available"
+        )
+
+    def test_all_up_to_date(self):
+        inst = self._make_installer()
+        inst._update_status_label(0)
+        inst._status_label.setText.assert_called_once_with("All plugins are up to date")
+
+    def test_no_rows_clears_label(self):
+        inst = self._make_installer(row_count=0)
+        inst._update_status_label(0)
+        inst._status_label.setText.assert_called_once_with("")
+
+    def test_no_label_does_not_crash(self):
+        inst = object.__new__(PI.PluginInstallerWindow)
+        inst.table = MagicMock()
+        inst.table.rowCount.return_value = 5
+        inst._update_status_label(2)  # must not raise
+
+
+# ---------------------------------------------------------------------------
 # SHA-256 verification
 # ---------------------------------------------------------------------------
 
