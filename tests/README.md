@@ -124,6 +124,89 @@ Deep unit tests for the `Plugin_Installer` plugin specifically.
 
 ---
 
+### `test_menu_registration.py` — Menu registration contract (≈43 tests)
+
+Parametrized over every visible `initialize()`-plugin. Asserts that at least
+one `PluginContext` registration method is called so the plugin is reachable.
+
+Recognised registration methods: `add_menu_action`, `add_export_action`,
+`add_analysis_tool`, `add_plugin_menu`, `register_file_opener`,
+`register_3d_style`, `register_save_handler`, `register_load_handler`,
+`register_document_reset_handler`, `add_toolbar_action`.
+
+**Exempt** (intentional — no menu registration in `initialize()`):
+
+| Plugin | Reason |
+|---|---|
+| Dark Mode Theme | `autorun()` applies a stylesheet at load; no menu entry |
+| Plugin Installer | `run(mw)` is auto-registered by the host; `initialize()` only schedules checks |
+| All-Trans Optimizer | `run(mw)` auto-registered; `initialize()` stores the launch closure |
+| Complex Molecule Untangler | same |
+| PubChem Name Resolver | same |
+| Vector Viewer | same; `initialize()` calls `show_status_message()` but no menu |
+
+---
+
+### `test_plugin_cube_parsers.py` — Cube file parser tests (29 tests)
+
+Pure-function tests for the three Cube viewer plugins.
+
+| Area | What it covers |
+|---|---|
+| `parse_cube_data` | Valid files, short-file `ValueError`, excess-line trim, zero-pad, Angstrom header flag, multi-atom |
+| `build_grid_from_meta` | Grid shape from metadata dict |
+| `read_cube` | End-to-end read returning atom list + flat data array |
+| `initialize()` | File-opener registration for `.cube` for all three plugins |
+
+Plugins covered: **Cube File Viewer**, **Cube File Viewer Advanced**, **Mapped Cube Viewer**.
+
+---
+
+### `test_plugin_parsers_exports.py` — Parser and export-script tests (49 tests)
+
+| Area | Plugin | What it covers |
+|---|---|---|
+| `is_valid_orca_file` | ORCA Freq Analyzer | Keyword variants, 500-line boundary, empty/missing files, case sensitivity |
+| `OrcaParser.parse` | ORCA Freq Analyzer | Atom symbols/coords, frequency extraction, multi-block geometry, edge cases |
+| `FCHKParser.parse` | Gaussian Freq Analyzer | Atomic numbers, Bohr→Å conversion, Vib-E2 frequency/intensity |
+| `find_file_recursive` | Gaussian FCHK Loader | Exact match, wildcard, nested dirs, not found |
+| `find_mo_analyzer_module` | Gaussian FCHK Loader | Found, missing `__init__.py`, not found |
+| `initialize()` | Blender Export | Export action registered with correct label |
+| `initialize()` | POV-Ray Export | Same |
+| `initialize()` | ORCA / Gaussian Freq | File-opener registration |
+
+---
+
+### `test_plugin_optimize_resolvers.py` — Optimizer / resolver / viewer tests (≈30 tests)
+
+| Class | Plugin | What it covers |
+|---|---|---|
+| `TestAllTransOptimizer` | All-Trans Optimizer | `_launch_fn` set by `initialize()`; `run_plugin(mol=None)` shows warning |
+| `TestComplexMoleculeUntangler` | Complex Molecule Untangler | `PLUGIN_CONTEXT` and `_launch_fn` set; window reuse; `register_window` called |
+| `TestConformationalSearch` | Conformational Search | Menu action registered; `run_plugin(mol=None)` warns; dialog accept; window registered |
+| `TestPubChemNameResolver` | PubChem Name Resolver | `initialize()` doesn't raise; `run_search("")` short-circuits; `run(mw)` doesn't raise |
+| `TestVectorViewer` | Vector Viewer | `_launch_fn` set; `show_status_message` called |
+| `TestMoleculeComparator` | Molecule Comparator | `register_document_reset_handler` called; luminance text-colour formula |
+
+---
+
+### `test_plugin_ui_misc.py` — UI helpers and settings round-trips (48 tests)
+
+| Area | Plugin | What it covers |
+|---|---|---|
+| `ConsoleInput.append_history` | Python Console | Deduplication, empty-string skip, index tracking |
+| `GUIHelp.__repr__` / `__call__` | Python Console | Help text content |
+| `MSSpectrumDialog.parse_formula_str` | MS Spectrum Simulation Neo | H₂O, glucose, parentheses, invalid chars |
+| `to_subscript` / `to_superscript` | MS Spectrum Simulation Neo | Unicode conversion |
+| `get_adduct_delta` | MS Spectrum Simulation Neo | Positive/negative mode, multi-charge adducts |
+| `load_settings` / `save_settings` | VDW Radii Overlay | Round-trip, missing file, corrupt JSON |
+| `load_library` / `save_library` | Settings Saver | Round-trip, empty library |
+| `load_settings` / `save_settings` | Chat with Molecule Neo | Round-trip |
+| `latex_to_html` | Chat with Molecule Neo | LaTeX → HTML conversion |
+| `reconstruct_from_flat_text` | Paste from ChemDraw | Edge cases: empty, single atom, malformed |
+
+---
+
 ### `test_api.py` — Static API compatibility check (1 test)
 
 Uses `api-checker/check_api.py` to perform a two-phase AST scan:
