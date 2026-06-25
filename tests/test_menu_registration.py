@@ -53,6 +53,7 @@ _REGISTRATION_ATTRS: frozenset[str] = frozenset({
 #   - "PubChem Name Resolver":        same as above.
 #   - "Vector Viewer":                same as above; initialize() calls
 #                                     show_status_message() but no menu registration.
+#   - "Python Console":               run(mw) auto-registered; initialize() only stores context.
 _EXEMPT: frozenset[str] = frozenset({
     "Dark Mode Theme",
     "Plugin Installer",
@@ -60,6 +61,7 @@ _EXEMPT: frozenset[str] = frozenset({
     "Complex Molecule Untangler",
     "PubChem Name Resolver",
     "Vector Viewer",
+    "Python Console",
 })
 
 _PLUGINS = visible_py_plugins(entry_point="initialize")
