@@ -136,6 +136,12 @@ MY_FUNC = mod.my_function
 | `test_plugin_parsers_exports.py` | `OrcaParser`, `FCHKParser`, `find_file_recursive`, Blender/POV-Ray export init |
 | `test_plugin_optimize_resolvers.py` | All-Trans Optimizer, Complex Untangler, PubChem Resolver, and related plugins |
 | `test_plugin_ui_misc.py` | Remaining visible plugins: settings, helpers, save/load |
+| `test_plugin_chat_variants.py` | Chat Neo ChatGPT + Local: settings round-trip, latex_to_html fallback, PubChemResolver guards, run() smoke |
+| `test_plugin_pubchem_and_paste.py` | PubChem Structure Identifier, Compound Info Report, Paste XYZ: early-exit guards, mocked HTTP, parse logic |
+| `test_plugin_ai_tool_parsing.py` | Chat Neo Gemini/ChatGPT/Local: tool-call regex, collect_tools, SMILES links, module constants, append_log |
+| `test_plugin_settings_saver_extended.py` | Settings Saver: data path, live settings, sync alias, save/load project, project mode, document reset |
+| `test_plugin_encrypted_and_structural.py` | Encrypted Project: on_drop, document reset, patch/unpatch; Structural Updater: initialize, finalize, settings |
+| `test_plugin_advanced_and_misc.py` | Animated XYZ Giffer (parse_multi_frame_xyz), Advanced Rendering, Dummy Atom, OpenBabel, Hi-Res Imager, XYZ Editor, Symmetry Analyzer |
 | `test_api.py` | Static `mw.attr` compatibility scan against the main app (skipped if main app absent) |
 
 ## CI

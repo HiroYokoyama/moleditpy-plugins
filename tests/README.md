@@ -274,6 +274,22 @@ Plugins covered: **Cube File Viewer**, **Cube File Viewer Advanced**, **Mapped C
 
 ---
 
+### `test_plugin_advanced_and_misc.py` — Advanced rendering, misc visible plugins (42 tests)
+
+| Class | Plugin | What it covers |
+|---|---|---|
+| `TestParseMultiFrameXYZ` (9) | Animated XYZ Giffer | `parse_multi_frame_xyz`: single/multi-frame files, empty file, blank lines, incomplete frame at EOF, bad coord skipped, non-integer atom count skipped, `run(mw)` no-raise smoke |
+| `TestAdvancedRendering` (5) | Advanced Rendering | `get_icon()→None`; `initialize()` registers exactly 4 × `register_3d_style` + 1 × `add_menu_action`; menu path and style key names verified |
+| `TestDummyAtomMode` (4) | Dummy Atom Mode | `initialize()` calls `add_toolbar_action` with text `"Dummy Atom *"` and tooltip containing "dummy"; does NOT call `add_menu_action` |
+| `TestOpenBabelConversionTool` (6) | OpenBabel Conversion Tool | `initialize()` with mocked openbabel (available): registers export + drop handler; with `OBABEL_AVAILABLE=False`: returns early, no registrations; `open_file_with_openbabel` extensionless path warns and returns |
+| `TestHighResolutionImager` (4) | High Resolution Imager | `initialize()` registers export action with "Screenshot" in label; stores `PLUGIN_CONTEXT`; does not call `add_menu_action` |
+| `TestXYZEditor` (8) | XYZ Editor | `initialize()` registers menu action, save/load/document-reset handlers; stores `PLUGIN_CONTEXT`; save handler returns `{}` when `current_molecule=None`; load handler tolerates `{}` |
+| `TestSymmetryAnalyzer` (6) | Symmetry Analyzer | `initialize()` registers menu action with "Symmetr" in path; stores `PLUGIN_CONTEXT`; `SymmetryAnalysisWorker.run()` always emits `finished(dict, bool)`, `found_any=False` when pymatgen loop runs 0 iterations |
+
+**Technique note:** `SymmetryAnalysisWorker` and `AnimatedXYZPlayer` inherit from Qt classes (mocked → MagicMock metaclass → class body becomes MagicMock). Pure methods are extracted via `ast.get_source_segment` + `exec` into an isolated namespace to avoid the `object.__new__` limitation.
+
+---
+
 ### `test_api.py` — Static API compatibility check (1 test)
 
 Uses `api-checker/check_api.py` to perform a two-phase AST scan:
