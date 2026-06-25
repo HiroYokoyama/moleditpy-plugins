@@ -506,6 +506,12 @@ class PluginInstallerWindow(QDialog):
         self._fetch_worker = None
         self._batch_updating = False
         self._batch_progress = None
+        # Plugins installed this session but not yet reloaded into the host.
+        # Keyed by plugin name; holds a minimal dict for table display so the
+        # table shows correct status immediately without calling discover_plugins.
+        # discover_plugins is called exactly once, in closeEvent.
+        self._pending_installs: dict = {}
+        self._needs_plugin_reload = False
 
         self.init_ui()
 
@@ -625,6 +631,7 @@ class PluginInstallerWindow(QDialog):
             f"<b>Latest ({pkg_name} on PyPI):</b> Fetching..."
         )
         self._set_ui_busy(True)
+        QApplication.processEvents()  # paint the bar before the thread starts
 
         # Cancel any in-flight fetch
         if self._fetch_worker and self._fetch_worker.isRunning():
@@ -782,6 +789,11 @@ class PluginInstallerWindow(QDialog):
         remote_map = {entry.get("name", ""): entry for entry in self.remote_data}
         installed_plugins = self.main_window.plugin_manager.plugins
         installed_map = {p.get("name"): p for p in installed_plugins}
+        # Merge plugins installed this session so the table shows correct status
+        # without waiting for discover_plugins (which only runs on close).
+        for name, info in self._pending_installs.items():
+            if name not in installed_map:
+                installed_map[name] = info
         all_names = sorted(set(remote_map.keys()) | set(installed_map.keys()))
 
         # Collect row descriptors, then sort before rendering
@@ -890,6 +902,9 @@ class PluginInstallerWindow(QDialog):
             key=lambda r: (_STATUS_PRIORITY.get(r["status"], 99), r["name"].lower())
         )
 
+        # Disable repaints during bulk insertion so the table doesn't redraw
+        # after every row — avoids visible stutter on 40+ plugins.
+        self.table.setUpdatesEnabled(False)
         for row_data in rows:
             row = self.table.rowCount()
             self.table.insertRow(row)
@@ -935,6 +950,8 @@ class PluginInstallerWindow(QDialog):
                     self.table.setCellWidget(row, 5, btn_action)
             else:
                 self.table.setItem(row, 5, QTableWidgetItem(""))
+
+        self.table.setUpdatesEnabled(True)
 
         if getattr(self, "btn_update_all", None) is not None:
             self.btn_update_all.setEnabled(plugin_updates_found)
@@ -1101,10 +1118,8 @@ class PluginInstallerWindow(QDialog):
             self._batch_updating = False
             self._batch_progress = None
             progress.close()
-            QApplication.processEvents()
-            self.main_window.plugin_manager.discover_plugins(self.main_window)
-            QApplication.processEvents()
-            _refresh_plugin_menus(self.main_window)
+            # discover_plugins / _refresh_plugin_menus run once in closeEvent.
+            # _pending_installs was populated per-plugin inside on_update_clicked.
             QApplication.processEvents()
             self.populate_table()
 
@@ -1562,6 +1577,22 @@ class PluginInstallerWindow(QDialog):
                 verb_past = "updated" if is_installed else "installed"
                 self._last_install_succeeded = True
 
+                # Record installed plugin for immediate table display.
+                # discover_plugins / _refresh_plugin_menus run once in closeEvent.
+                installed_ver = (
+                    remote_info.get("version", "Unknown") if remote_info else "Unknown"
+                )
+                installed_author = (
+                    remote_info.get("author", "Unknown") if remote_info else "Unknown"
+                )
+                self._pending_installs[plugin_name] = {
+                    "name": plugin_name,
+                    "version": installed_ver,
+                    "filepath": target_file or "",
+                    "author": installed_author,
+                }
+                self._needs_plugin_reload = True
+
                 if missing_deps:
                     QMessageBox.warning(
                         self,
@@ -1599,11 +1630,6 @@ class PluginInstallerWindow(QDialog):
                     )
 
                 if not self._batch_updating:
-                    QApplication.processEvents()
-                    self.main_window.plugin_manager.discover_plugins(self.main_window)
-                    QApplication.processEvents()
-                    _refresh_plugin_menus(self.main_window)
-                    QApplication.processEvents()
                     self.populate_table()
 
             except Exception as e:
@@ -1627,7 +1653,7 @@ class PluginInstallerWindow(QDialog):
         self.accept()
 
     def closeEvent(self, event):
-        # Stop any in-flight fetch thread before closing
+        # Stop any in-flight fetch thread first
         if self._fetch_worker and self._fetch_worker.isRunning():
             try:
                 self._fetch_worker.done.disconnect()
@@ -1636,14 +1662,25 @@ class PluginInstallerWindow(QDialog):
             self._fetch_worker.quit()
             self._fetch_worker.wait(500)
 
-        if self.main_window and hasattr(self.main_window, "plugin_manager"):
+        # One authoritative reload — only if plugins were installed this session
+        if self._needs_plugin_reload and self.main_window and hasattr(
+            self.main_window, "plugin_manager"
+        ):
+            self._progress_bar.setRange(0, 0)
+            self._progress_bar.setVisible(True)
+            QApplication.processEvents()
             try:
                 self.main_window.plugin_manager.discover_plugins(self.main_window)
+                QApplication.processEvents()
                 _refresh_plugin_menus(self.main_window)
             except Exception as e:
                 logging.warning(
-                    "Plugin Installer: failed to refresh menus on close: %s", e
+                    "Plugin Installer: reload on close failed: %s", e
                 )
+            finally:
+                self._progress_bar.setVisible(False)
+                self._pending_installs.clear()
+                self._needs_plugin_reload = False
 
         for widget in QApplication.topLevelWidgets():
             if type(widget).__name__ == "PluginManagerWindow":
