@@ -207,6 +207,59 @@ Plugins covered: **Cube File Viewer**, **Cube File Viewer Advanced**, **Mapped C
 
 ---
 
+### `test_plugin_chat_variants.py` — Chat Neo ChatGPT + Local tests (27 tests)
+
+| Class | What it covers |
+|---|---|
+| `TestChatGPTSettings` (6) | `load_settings`/`save_settings` round-trip, missing file, corrupt JSON, DEMO_MODE guard, valid JSON output |
+| `TestChatGPTLatexToHtml` (5) | No-matplotlib fallback returns `<i>text</i>`; empty string; mocked-matplotlib path; cache hit |
+| `TestChatGPTPubChemResolver` (2) | Empty string and `None` → immediate error, no network call |
+| `test_chatgpt_run_does_not_raise` (1) | `run(mw)` smoke |
+| `TestLocalSettings` (6) | Same battery for the Local variant |
+| `TestLocalLatexToHtml` (4) | Fallback + mocked + cache |
+| `TestLocalPubChemResolver` (2) | Empty/None guard |
+| `test_local_run_does_not_raise` (1) | `run(mw)` smoke |
+
+---
+
+### `test_plugin_pubchem_and_paste.py` — PubChem utilities & Paste XYZ tests (33 tests)
+
+| Class | Plugin | What it covers |
+|---|---|---|
+| `TestPubChemResolver` (9) | PubChem Structure Identifier | Early-exit on empty/None name+InChIKey; mocked HTTP 200 success; HTTP 404 "not found"; empty properties; network error; `run(mw)` smoke |
+| `TestPubChemFetcher` (14) | Compound Info Report | Early-exit on empty/None InChIKey for `get_synonyms`/`get_cid`; mocked success paths; `extract_cas` valid/filtered/capped; `initialize()` registers action |
+| `TestPasteXYZParser` (9) | Paste XYZ | Valid 3-atom block; header lines skipped; short lines skipped; non-float coords skipped; non-alpha symbol skipped; empty input; blank lines; fractional coords; mixed-case elements |
+| `TestPasteXYZSmoke` (1) | Paste XYZ | `run(mw)` exits cleanly when dialog returns non-Accepted result |
+
+---
+
+### `test_plugin_ai_tool_parsing.py` — AI/LLM tool-call parsing tests (84 tests)
+
+| Class | Tests | What it verifies |
+|---|---|---|
+| `TestToolRegex` | 7 | Regex extracts single/array/multi-block tool JSON; non-tool JSON found but lacks "tool" key; invalid JSON matched but unparseable; no blocks → empty |
+| `TestCollectTools` | 8 | Collection logic: single tool, array of 3, two separate blocks merged, invalid block silently dropped, non-tool JSON and missing "params" excluded |
+| `TestSmilesLinkPattern` | 6 | `[Name](smiles:...)` → `<a href=...>`; multiple links; `https://` links not converted; no-link text unchanged |
+| `TestLatexToHtmlFallback` | 15 | Fallback (`HAS_MATPLOTLIB=False`) returns `<i>text</i>`; mocked-matplotlib path returns non-empty string — all 3 Chat Neo variants |
+| `TestPubChemResolverEarlyReturn` | 12 | `resolve_inchikey_to_name("")/None` and `resolve_name_to_smiles("")/None` return `(None, msg)` without network — all 3 variants |
+| `TestModuleConstants` | 24 | `MAX_HISTORY` is even int ≥ 2; `DEMO_MODE=False`; `SYSTEM_PROMPT` non-empty and contains "tool"; `GENERATION_CONFIG` has `temperature` — all 3 variants |
+| `TestAppendLog` | 12 | Creates file, writes sender+text, appends across calls, bad path doesn't raise — all 3 variants |
+
+---
+
+### `test_plugin_settings_saver_extended.py` — Settings Saver extended tests (26 tests)
+
+| Class | What it covers |
+|---|---|
+| `TestGetPluginDataPath` (3) | Returns a string ending in `"settings_saver.json"`; parent dir exists on disk |
+| `TestGetLiveSettings` (3) | Returns `mw.init_manager.settings` when present; `None` when `init_manager` absent or has no `settings` |
+| `TestSyncLegacySettingsAlias` (5) | Clears+updates distinct dict; same-object no-op; no `init_manager` no-op; non-dict `settings` no-op; exception silently swallowed |
+| `TestSaveLoadProject` (6) | `on_save_project` returns `None` when disabled; returns dict when live settings present; `on_load_project` handles empty dict, `"settings"` key, preset storage, non-dict input |
+| `TestProjectMode` (5) | `enable_project_mode` sets `EMBED_SETTINGS["enabled"]=True`; `disable_project_mode` sets it `False`; both don't raise; round-trip |
+| `TestOnDocumentReset` (4) | No context; mock context; clears `PROJECT_PRESETS`; disables embed when `always_save_to_project=False` |
+
+---
+
 ### `test_plugin_encrypted_and_structural.py` — Encrypted Project & Structural Updater tests (33 tests)
 
 | Class | Plugin | What it covers |
