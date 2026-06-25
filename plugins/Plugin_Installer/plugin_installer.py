@@ -104,6 +104,12 @@ def initialize(context):
     global _startup_check_performed, _context
     _context = context
 
+    def _open_installer():
+        dlg = PluginInstallerWindow(context.get_main_window())
+        dlg.exec()
+
+    context.add_menu_action("Plugins/Plugin Installer...", _open_installer)
+
     mw = context.get_main_window()
     if not mw:
         return
@@ -157,13 +163,6 @@ def perform_startup_check(mw):
         logging.warning("Plugin Installer: auto-run failed: %s", e)
 
 
-def run(main_window):
-    if hasattr(main_window, "host"):
-        main_window = main_window.host
-    if hasattr(main_window, "host"):
-        main_window = main_window.host
-    dialog = PluginInstallerWindow(main_window)
-    dialog.exec()
 
 
 def is_app_version_compatible(app_version: str, specifier: str) -> bool:

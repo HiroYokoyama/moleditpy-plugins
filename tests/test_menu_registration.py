@@ -45,8 +45,6 @@ _REGISTRATION_ATTRS: frozenset[str] = frozenset({
 #
 #   - "Dark Mode Theme":              autorun() applies a stylesheet at load time;
 #                                     no menu entry is expected.
-#   - "Plugin Installer":             uses run(main_window) for its UI; initialize()
-#                                     only schedules background checks.
 #   - "All-Trans Optimizer":          run(mw) auto-registered; initialize() stores
 #                                     the launch function, nothing more.
 #   - "Complex Molecule Untangler":   same as above.
@@ -56,7 +54,6 @@ _REGISTRATION_ATTRS: frozenset[str] = frozenset({
 #   - "Python Console":               run(mw) auto-registered; initialize() only stores context.
 _EXEMPT: frozenset[str] = frozenset({
     "Dark Mode Theme",
-    "Plugin Installer",
     "All-Trans Optimizer",
     "Complex Molecule Untangler",
     "PubChem Name Resolver",

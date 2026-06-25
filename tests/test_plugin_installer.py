@@ -234,6 +234,19 @@ class TestInitialize:
 
         assert timer_mock.call_count == 1
 
+    def test_registers_menu_action(self):
+        ctx = self._make_context()
+        PI.initialize(ctx)
+        ctx.add_menu_action.assert_called_once()
+        path, _callback = ctx.add_menu_action.call_args[0]
+        assert "Plugin Installer" in path
+
+    def test_registers_menu_action_even_when_no_main_window(self):
+        ctx = MagicMock()
+        ctx.get_main_window.return_value = None
+        PI.initialize(ctx)
+        ctx.add_menu_action.assert_called_once()
+
 
 # ---------------------------------------------------------------------------
 # Version metadata check
