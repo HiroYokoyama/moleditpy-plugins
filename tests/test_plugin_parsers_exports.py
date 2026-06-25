@@ -241,6 +241,11 @@ class TestFCHKParserParse:
     def _parse(self, tmp_path, content=_WATER_FCHK):
         f = tmp_path / "water.fchk"
         f.write_text(content)
+        # The module was loaded with rdkit mocked (Chem = MagicMock, truthy).
+        # The lazy `from rdkit.Chem import GetPeriodicTable` inside parse()
+        # fires after the mock context exits, hitting the real absent rdkit.
+        # Setting Chem = None makes the `if Chem:` guard skip that branch.
+        _gfreq.Chem = None
         p = _gfreq.FCHKParser()
         p.parse(str(f))
         return p
