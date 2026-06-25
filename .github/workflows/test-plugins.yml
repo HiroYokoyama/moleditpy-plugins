@@ -30,7 +30,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: pip install pytest pytest-mock
+        run: pip install pytest pytest-mock numpy
 
       - name: Validate plugins.json
         run: python scripts/validate_json.py
@@ -54,7 +54,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install pytest pytest-mock
+        run: pip install pytest pytest-mock numpy
 
       - name: Clone main MoleditPy application
         run: |
