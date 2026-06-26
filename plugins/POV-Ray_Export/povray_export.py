@@ -8,7 +8,7 @@ Exports molecular structures as POV-Ray scene files for high-quality ray-traced 
 """
 
 PLUGIN_NAME = "POV-Ray Export"
-PLUGIN_VERSION = "2026.06.26"
+PLUGIN_VERSION = "2026.06.27"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Export molecular structures as POV-Ray scene files for professional ray-traced rendering"
@@ -282,14 +282,15 @@ def generate_povray_scene(mol, mw):
         "height": 1080,
     }
 
-    if hasattr(mw, "plotter"):
+    plotter = mw.plotter
+    if plotter is not None:
         # Get resolution
-        if hasattr(mw.plotter, "window_size"):
-            camera_data["width"], camera_data["height"] = mw.plotter.window_size
+        if hasattr(plotter, "window_size"):
+            camera_data["width"], camera_data["height"] = plotter.window_size
 
         # Get camera
-        if hasattr(mw.plotter, "camera"):
-            vtk_camera = mw.plotter.camera
+        if hasattr(plotter, "camera"):
+            vtk_camera = plotter.camera
             pos = vtk_camera.GetPosition()
             focal = vtk_camera.GetFocalPoint()
             up = vtk_camera.GetViewUp()

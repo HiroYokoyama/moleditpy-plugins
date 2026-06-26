@@ -1104,29 +1104,28 @@ class MoleculeComparator(QWidget):
         try:
             current_style = self.combo_style.currentText()
 
-            if hasattr(self.mw, "plotter"):
-                # If Wireframe mode, apply checkbox setting
-                if current_style == "Wireframe":
-                    enable_lighting = self.check_wireframe_lighting.isChecked()
-                else:
-                    # For other styles, always enable lighting
-                    enable_lighting = True
+            # If Wireframe mode, apply checkbox setting
+            if current_style == "Wireframe":
+                enable_lighting = self.check_wireframe_lighting.isChecked()
+            else:
+                # For other styles, always enable lighting
+                enable_lighting = True
 
-                # Control lighting by setting actor properties
-                # This is the correct way to enable/disable lighting in VTK/PyVista
-                actors = self.context.plotter.renderer.GetActors()
-                if actors:
-                    actors.InitTraversal()
-                    for i in range(actors.GetNumberOfItems()):
-                        actor = actors.GetNextItem()
-                        if actor and hasattr(actor, "GetProperty"):
-                            prop = actor.GetProperty()
-                            if prop:
-                                # Enable/disable lighting for this actor
-                                prop.SetLighting(enable_lighting)
+            # Control lighting by setting actor properties
+            # This is the correct way to enable/disable lighting in VTK/PyVista
+            actors = self.context.plotter.renderer.GetActors()
+            if actors:
+                actors.InitTraversal()
+                for i in range(actors.GetNumberOfItems()):
+                    actor = actors.GetNextItem()
+                    if actor and hasattr(actor, "GetProperty"):
+                        prop = actor.GetProperty()
+                        if prop:
+                            # Enable/disable lighting for this actor
+                            prop.SetLighting(enable_lighting)
 
-                # Render to apply changes
-                self.context.plotter.render()
+            # Render to apply changes
+            self.context.plotter.render()
         except Exception as e:
             # Silently handle if plotter doesn't support lighting control
             logging.warning("[molecule_comparator.py:998] silenced: %s", e)
@@ -1136,8 +1135,7 @@ class MoleculeComparator(QWidget):
         def _do_reset():
             try:
                 self.context.reset_3d_camera()
-                if hasattr(self.mw, "plotter"):
-                    self.context.plotter.render()
+                self.context.plotter.render()
             except Exception as _e:
                 logging.warning("[molecule_comparator.py:1010] silenced: %s", _e)
 

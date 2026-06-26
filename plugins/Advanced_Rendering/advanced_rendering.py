@@ -46,7 +46,7 @@ except ImportError:
     vtk = None
 
 PLUGIN_NAME = "Advanced Rendering"
-PLUGIN_VERSION = "2026.06.20"
+PLUGIN_VERSION = "2026.06.27"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Fine-grained control over Scene lighting, shadows, and PBR effects. Refactored for V3 API."
@@ -571,8 +571,7 @@ class AdvancedGraphicsWidget(QWidget):
         if self.plotter:
             return self.plotter
         # まだ取得できていない場合は親から再取得を試みる
-        if hasattr(self.mw, "plotter"):
-            self.plotter = self.mw.plotter
+        self.plotter = self.mw.plotter
         return self.plotter
 
     def update_atoms_pbr(self, force_pbr=False):

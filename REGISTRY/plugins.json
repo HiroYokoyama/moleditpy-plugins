@@ -787,7 +787,7 @@
     ],
     "downloadUrl": "../plugins/Molecule_Comparator/molecule_comparator.py",
     "lastUpdated": "2026-06-27",
-    "sha256": "671b68ed7201d849adbb73c3553cd161073e0b0b2b04d372b8d7d9426138266f",
+    "sha256": "4f01d496d7e0c807a58a88574550cd5878d8af09142c1a6ea7af4218268cfa8c",
     "firstAppeared": "2026-01-03"
   },
   {
@@ -1110,7 +1110,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Advanced Rendering",
-    "version": "2026.06.20",
+    "version": "2026.06.27",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Fine-grained control over Scene lighting, shadows, post-processing effects (SSAO, Depth Peeling, EDL), and Atom/Bond rendering (PBR, Silhouette).",
@@ -1123,8 +1123,8 @@
       "numpy"
     ],
     "downloadUrl": "../plugins/Advanced_Rendering/advanced_rendering.py",
-    "lastUpdated": "2026-06-20",
-    "sha256": "de33421bd7ddbd57ea06f4e81ca80e39128d3aafe149b72ae138758e806b1079",
+    "lastUpdated": "2026-06-27",
+    "sha256": "e16462044b302e0dbe84efb3593f1d0dc3016381f0b3778305db55aacfce3ec2",
     "firstAppeared": "2026-02-03"
   },
   {
@@ -1154,7 +1154,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Blender Export",
-    "version": "2026.06.26",
+    "version": "2026.06.27",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Export molecular structures as Blender Python scripts that create 3D visualizations",
@@ -1168,8 +1168,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Blender_Export/blender_export.py",
-    "lastUpdated": "2026-06-26",
-    "sha256": "a99177c311a541ae49e81f1d3f9d4036796ea2d4047172b15112d7e65085e5c9",
+    "lastUpdated": "2026-06-27",
+    "sha256": "d919beb0704e0ac3a63edf4239f4d5698a2c0189e180e4d2b7da52a3a399cc08",
     "firstAppeared": "2026-02-05"
   },
   {
@@ -1177,7 +1177,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "POV-Ray Export",
-    "version": "2026.06.26",
+    "version": "2026.06.27",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Export molecular structures as POV-Ray scene files for professional ray-traced rendering",
@@ -1191,8 +1191,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/POV-Ray_Export/povray_export.py",
-    "lastUpdated": "2026-06-26",
-    "sha256": "384d72109faa77208bcd1e707c84c6a4ddffd9e304fa4bdca20e120dc97d7580",
+    "lastUpdated": "2026-06-27",
+    "sha256": "32208997639064d644001de47d165da6475a12bd61c948ca194f55c6887d1a75",
     "firstAppeared": "2026-02-05"
   },
   {

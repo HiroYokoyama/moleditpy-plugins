@@ -8,7 +8,7 @@ Exports molecular structures as Blender Python scripts
 """
 
 PLUGIN_NAME = "Blender Export"
-PLUGIN_VERSION = "2026.06.26"
+PLUGIN_VERSION = "2026.06.27"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Export molecular structures as Blender Python scripts that create 3D visualizations"
@@ -349,9 +349,10 @@ def generate_blender_script(mol, mw):
         "orthographic": False,
     }
 
-    if hasattr(mw, "plotter") and mw.plotter is not None:
-        if hasattr(mw.plotter, "camera"):
-            vtk_camera = mw.plotter.camera
+    plotter = mw.plotter
+    if plotter is not None:
+        if hasattr(plotter, "camera"):
+            vtk_camera = plotter.camera
             pos = vtk_camera.GetPosition()
             focal = vtk_camera.GetFocalPoint()
             up = vtk_camera.GetViewUp()
