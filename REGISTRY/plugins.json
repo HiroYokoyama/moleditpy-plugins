@@ -433,7 +433,7 @@
     ],
     "downloadUrl": "../plugins/Gaussian_Freq_Analyzer/gaussian_fchk_freq_analyzer.py",
     "lastUpdated": "2026-06-27",
-    "sha256": "214be9f98ae5dc2fe1518fdd6d2db69b899612f9a9adaa42d7679ceb21f65160",
+    "sha256": "2ed9078f8c3ec8c48a6d20839bd71175a1292a9be5d173471551b4415509e917",
     "firstAppeared": "2025-12-20"
   },
   {
@@ -458,7 +458,7 @@
     ],
     "downloadUrl": "../plugins/ORCA_Freq_Analyzer/orca_out_freq_analyzer.py",
     "lastUpdated": "2026-06-27",
-    "sha256": "41c976ed340921c9d6cea088b3a0758fb7523ac54781749a71bafeb42254257c",
+    "sha256": "db497a61e7580b155f0cbb293f3ac0dbf58cece82a39b514af5e7edb53c26553",
     "firstAppeared": "2025-12-20"
   },
   {

@@ -724,7 +724,7 @@ class GaussianFCHKFreqAnalyzer(QWidget):
                 conf.SetAtomPosition(idx, Point3D(nx, ny, nz))
 
     def remove_vectors(self):
-        if self.vector_actor and hasattr(self.mw, "plotter"):
+        if self.vector_actor:
             try:
                 self.context.plotter.remove_actor(self.vector_actor)
             except Exception as _e:
@@ -738,7 +738,7 @@ class GaussianFCHKFreqAnalyzer(QWidget):
         if not self.chk_vectors.isChecked():
             return
 
-        if not self.parser or not self.base_mol or not hasattr(self.mw, "plotter"):
+        if not self.parser or not self.base_mol:
             return
 
         # Get current frequency
