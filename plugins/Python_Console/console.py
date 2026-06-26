@@ -16,7 +16,7 @@ from PyQt6.QtGui import QFont, QColor, QSyntaxHighlighter, QTextCharFormat, QTex
 from PyQt6.QtCore import Qt, QRegularExpression, pyqtSignal
 import rdkit.Chem as Chem
 
-PLUGIN_VERSION = "2026.06.26"
+PLUGIN_VERSION = "2026.06.27"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Embedded Python console for interactive scripting."
@@ -233,7 +233,7 @@ class PythonConsoleDialog(QDialog):
 
         # Help Label
         help_text = QLabel(
-            "Avalable vars: 'mw' (MainWindow), 'mol' (current_mol), 'Chem' (rdkit.Chem)\nUse Shift+Enter for new line, Enter to Run."
+            "Available vars: 'mw' (MainWindow), 'mol' (current_mol), 'context' (PluginContext), 'Chem' (rdkit.Chem)\nUse Shift+Enter for new line, Enter to Run."
         )
         help_text.setStyleSheet("color: gray; font-size: 10px;")
         layout.addWidget(help_text)
@@ -244,6 +244,7 @@ class PythonConsoleDialog(QDialog):
         # # [DIRECT ACCESS] to core objects for scripting
         self.local_scope = {
             "mw": self.context.get_main_window(),
+            "context": self.context,
             "Chem": Chem,
             "mol": self._get_best_mol(),
             "help": GUIHelp(),

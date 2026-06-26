@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
 )
 
 PLUGIN_NAME = "High Resolution Imager"
-PLUGIN_VERSION = "2026.06.26"
+PLUGIN_VERSION = "2026.06.27"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -190,7 +190,7 @@ def take_screenshot(context):
                         original_bg = mw.init_manager.settings.get(
                             "background_color", "#4f4f4f"
                         )
-                        mw.plotter.set_background(target_bg)
+                        context.plotter.set_background(target_bg)
                     except Exception:
                         original_bg = None
 
@@ -202,18 +202,18 @@ def take_screenshot(context):
                         or filename.lower().endswith(".eps")
                         or filename.lower().endswith(".ps")
                     ):
-                        mw.plotter.save_graphic(filename)
+                        context.plotter.save_graphic(filename)
                     else:
                         # PyVista Screenshot with custom window_size
                         param_dict = {"window_size": (width, height)}
                         if rb_trans.isChecked():
                             param_dict["transparent_background"] = True
 
-                        mw.plotter.screenshot(filename, **param_dict)
+                        context.plotter.screenshot(filename, **param_dict)
                 finally:
                     # Restore background
                     if original_bg:
-                        mw.plotter.set_background(original_bg)
+                        context.plotter.set_background(original_bg)
 
                 QMessageBox.information(
                     mw, "Success", f"Screenshot saved to:\n{filename}"

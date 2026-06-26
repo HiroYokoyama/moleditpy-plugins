@@ -316,5 +316,5 @@ class TestStructuralUpdaterCheckState:
             plugin = SU.StructuralUpdaterPlugin(ctx)
         plugin.enabled = True
         # MagicMock() > 0 raises TypeError — configure GetNumAtoms to return int
-        plugin.mw.current_mol.GetNumAtoms.return_value = 0
+        plugin.context.current_molecule.GetNumAtoms.return_value = 0
         plugin.check_state()  # must not raise

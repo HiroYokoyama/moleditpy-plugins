@@ -43,7 +43,7 @@ except ImportError:
 __author__ = "HiroYokoyama"
 PLUGIN_AUTHOR = __author__
 PLUGIN_NAME = "Cube File Viewer Advanced"
-PLUGIN_VERSION = "2026.06.26"
+PLUGIN_VERSION = "2026.06.27"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_DESCRIPTION = "Advanced 3D visualization for Gaussian Cube files with PBR, SSAO, and other effects."
 PLUGIN_CONTEXT = None
@@ -1326,9 +1326,10 @@ class CubeViewerWidget(QWidget):
                 logging.warning("[cube_viewer_advanced.py:1242] silenced: %s", _e)
 
         # Redraw molecule 3D and orbital
-        if self.mw.current_mol:
+        mol = self.context.current_molecule
+        if mol:
             try:
-                self.context.draw_molecule_3d(self.mw.current_mol)
+                self.context.draw_molecule_3d(mol)
             except Exception as e:
                 logging.warning("Error redrawing molecule: %s", e)
 
@@ -1385,9 +1386,10 @@ class CubeViewerWidget(QWidget):
         name = self.combo_presets.currentText()
         if name in self.presets:
             # Redraw molecule and orbital before loading preset
-            if self.mw.current_mol:
+            mol = self.context.current_molecule
+            if mol:
                 try:
-                    self.context.draw_molecule_3d(self.mw.current_mol)
+                    self.context.draw_molecule_3d(mol)
                 except Exception as _e:
                     logging.warning("[cube_viewer_advanced.py:1309] silenced: %s", _e)
 
@@ -1852,7 +1854,7 @@ class CubeViewerWidget(QWidget):
 
             # Full cleanup
             self.mw.plotter.clear()
-            self.mw.current_mol = None
+            self.context.current_molecule = None
             self.mw.init_manager.current_file_path = None
             self.mw.plotter.render()
 

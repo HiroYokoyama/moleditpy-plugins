@@ -37,7 +37,7 @@ try:
 except ImportError:
     rdDetermineBonds = None
 
-PLUGIN_VERSION = "2026.06.26"
+PLUGIN_VERSION = "2026.06.27"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_NAME = "Animated XYZ Giffer"
@@ -304,14 +304,9 @@ class AnimatedXYZPlayer(QDialog):
         self.base_mol = mol.GetMol()
         self.original_topology = Chem.Mol(self.base_mol)  # Store a copy
 
-        # Set as current mol in main window so it can be drawn
-        self.mw.current_mol = self.base_mol
-
         # Ensure 3D capabilities are on
-        if hasattr(self.context, "enter_3d_viewer_mode"):
-            self.context.enter_3d_viewer_mode()
-        elif hasattr(self.mw.ui_manager, "enter_3d_viewer_ui_mode"):
-            self.mw.ui_manager.enter_3d_viewer_ui_mode()
+        self.context.enter_3d_mode()
+        self.context.current_molecule = self.base_mol
 
         # Reset camera on first load
         self.context.reset_3d_camera()
@@ -446,13 +441,8 @@ class AnimatedXYZPlayer(QDialog):
 
                 self.last_display_mol = display_mol
 
-                # Push to current molecule every time the frame changes
-                if getattr(self, "mw", None) is not None and self.mw:
-                    self.mw.current_mol = display_mol
-
-                # Redraw
-                # This calls main_window.draw_molecule_3d which might call processEvents
-                self.context.draw_molecule_3d(display_mol)
+                # Push to current molecule and redraw
+                self.context.current_molecule = display_mol
                 # Update frame comment/title if possible
                 if "comment" in frame:
                     self.context.show_status_message(
@@ -505,10 +495,12 @@ class AnimatedXYZPlayer(QDialog):
             self.timer.stop()
             # Ensure the main window knows this is the generic current molecule
             # so the user can use File->Save As... to export the current frame.
-            if getattr(self, "last_display_mol", None) is not None:
-                self.mw.current_mol = self.last_display_mol
-            else:
-                self.mw.current_mol = self.base_mol
+            mol = (
+                self.last_display_mol
+                if getattr(self, "last_display_mol", None) is not None
+                else self.base_mol
+            )
+            self.context.current_molecule = mol
 
     def next_frame(self):
         next_idx = self.current_frame_idx + 1
@@ -697,9 +689,9 @@ class AnimatedXYZPlayer(QDialog):
                 getattr(self, "last_display_mol", None) is not None
                 and self.last_display_mol
             ):
-                self.mw.current_mol = self.last_display_mol
+                self.context.current_molecule = self.last_display_mol
             elif getattr(self, "base_mol", None) is not None and self.base_mol:
-                self.mw.current_mol = self.base_mol
+                self.context.current_molecule = self.base_mol
 
             self.context.push_undo_checkpoint()
         except Exception as _e:

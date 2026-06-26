@@ -22,7 +22,7 @@ except ImportError:
     CRYPTOGRAPHY_AVAILABLE = False
 
 PLUGIN_NAME = "Encrypted Project"
-PLUGIN_VERSION = "2026.06.26"
+PLUGIN_VERSION = "2026.06.27"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -208,8 +208,9 @@ class PmeencPlugin:
         if hasattr(self.mw, "_plugin_color_overrides"):
             self.mw._plugin_color_overrides = {}
             # Trigger a redraw if there is a molecule
-            if self.mw.current_mol:
-                self.context.draw_molecule_3d(self.mw.current_mol)
+            mol = self.context.current_molecule
+            if mol:
+                self.context.draw_molecule_3d(mol)
 
         self._unpatch_all()
 
@@ -224,7 +225,7 @@ class PmeencPlugin:
 
     def on_export(self):
         """Export as .pmeenc file."""
-        if not self.mw.state_manager.data.atoms and not self.mw.current_mol:
+        if not self.mw.state_manager.data.atoms and not self.context.current_molecule:
             self.context.show_status_message("Error: Nothing to save.")
             return
 

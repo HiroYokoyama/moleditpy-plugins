@@ -28,7 +28,7 @@ import copy
 import logging
 
 PLUGIN_NAME = "Molecule Comparator"
-PLUGIN_VERSION = "2026.06.26"
+PLUGIN_VERSION = "2026.06.27"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Side-by-side comparison and alignment of multiple molecules."
@@ -491,8 +491,9 @@ class MoleculeComparator(QWidget):
         if hasattr(self.mw.view_3d_manager, "_plugin_color_overrides"):
             self.mw.view_3d_manager._plugin_color_overrides = {}
 
-        if self.mw.current_mol:
-            self.context.draw_molecule_3d(self.mw.current_mol)
+        mol = self.context.current_molecule
+        if mol:
+            self.context.draw_molecule_3d(mol)
         else:
             self.mw.plotter.clear()
 

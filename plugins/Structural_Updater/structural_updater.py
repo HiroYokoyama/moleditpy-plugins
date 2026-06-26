@@ -13,7 +13,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 
 PLUGIN_NAME = "Structural Updater"
-PLUGIN_VERSION = "2026.06.26"
+PLUGIN_VERSION = "2026.06.27"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Applies 2D structural changes to 3D conformation without full re-embedding. Refactored for V3 API."
@@ -93,9 +93,10 @@ class StructuralUpdaterPlugin:
         # Check if 3D molecule exists and has original_atom_id props
         # # [DIRECT ACCESS] to current_mol proxy
         has_3d = False
-        if self.mw.current_mol and self.mw.current_mol.GetNumAtoms() > 0:
+        _mol_3d = self.context.current_molecule
+        if _mol_3d and _mol_3d.GetNumAtoms() > 0:
             # Check for at least one original_atom_id
-            for atom in self.mw.current_mol.GetAtoms():
+            for atom in _mol_3d.GetAtoms():
                 if atom.HasProp("_original_atom_id"):
                     has_3d = True
                     break
@@ -203,7 +204,7 @@ class StructuralUpdaterPlugin:
         # 2. If plugin is enabled and conversion was successful, switch to "Apply Mode"
         if self.enabled:
             # Check if we have a valid molecule now
-            if self.mw.current_mol and self.mw.current_mol.GetNumAtoms() > 0:
+            if self.context.current_molecule and self.context.current_molecule.GetNumAtoms() > 0:
                 self.apply_mode_active = True
                 self.mw.init_manager.convert_button.setText("Apply 2D Changes to 3D")
             else:
@@ -244,7 +245,7 @@ class StructuralUpdaterPlugin:
             return
 
         # 2. Get Old 3D Mol
-        old_mol = self.mw.current_mol
+        old_mol = self.context.current_molecule
         if not old_mol:
             # If no 3D mol exists, fall back to full conversion
             self.force_full_conversion()

@@ -23,7 +23,7 @@ from PyQt6.QtCore import Qt, QTimer
 import logging
 
 PLUGIN_NAME = "Settings Saver"
-PLUGIN_VERSION = "2026.06.26"
+PLUGIN_VERSION = "2026.06.27"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Save, load, and manage settings presets in a unified dialog."
 PLUGIN_CATEGORY = "Utility"
@@ -337,8 +337,9 @@ def apply_settings_hot(mw):
 
         # 4. Redraw 3D Molecule
         try:
-            if mw.current_mol:
-                PLUGIN_CONTEXT.draw_molecule_3d(mw.current_mol)
+            mol = PLUGIN_CONTEXT.current_molecule if PLUGIN_CONTEXT else None
+            if mol:
+                PLUGIN_CONTEXT.draw_molecule_3d(mol)
         except Exception as e:
             # print(f"Error redrawing 3D molecule: {e}")
             logging.warning("[settings_saver.py:300] silenced: %s", e)
@@ -417,8 +418,9 @@ def refresh_loaded_scene(mw, defer=False):
                     logging.warning("[settings_saver.py:358] silenced: %s", _e)
 
             try:
-                if mw.current_mol:
-                    PLUGIN_CONTEXT.draw_molecule_3d(mw.current_mol)
+                mol = PLUGIN_CONTEXT.current_molecule if PLUGIN_CONTEXT else None
+                if mol:
+                    PLUGIN_CONTEXT.draw_molecule_3d(mol)
             except Exception as _e:
                 logging.warning("[settings_saver.py:365] silenced: %s", _e)
         except Exception as _e:

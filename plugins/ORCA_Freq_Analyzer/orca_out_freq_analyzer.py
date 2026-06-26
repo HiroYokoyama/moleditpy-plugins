@@ -42,7 +42,7 @@ except ImportError:
 
 PLUGIN_NAME = "ORCA Freq Analyzer"
 PLUGIN_DESCRIPTION = "Parse ORCA output files and visualize vibrational frequencies."
-PLUGIN_VERSION = "2026.06.26"
+PLUGIN_VERSION = "2026.06.27"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_CONTEXT = None
@@ -791,14 +791,8 @@ class OrcaOutFreqAnalyzer(QWidget):
             self.mw.io_manager.estimate_bonds_from_distances(mol)
 
         self.base_mol = mol.GetMol()
-        self.mw.current_mol = self.base_mol
-
-        if hasattr(self.mw, "ui_manager") and hasattr(
-            self.mw.ui_manager, "enter_3d_viewer_mode"
-        ):
-            self.mw.ui_manager.enter_3d_viewer_mode()
-
-        PLUGIN_CONTEXT.draw_molecule_3d(self.base_mol)
+        PLUGIN_CONTEXT.enter_3d_mode()
+        PLUGIN_CONTEXT.current_mol = self.base_mol
         PLUGIN_CONTEXT.reset_3d_camera()
 
     def on_freq_selected(self, current, previous):
