@@ -41,17 +41,22 @@ jobs:
   # ---------------------------------------------------------------------------
   # Headless GUI tests — real PyQt6 with QT_QPA_PLATFORM=offscreen.
   # Chemistry libs (rdkit, numpy, …) are still mocked, so no conda env needed.
+  # The integration tests auto-clone the main app if ../python_molecular_editor
+  # is absent (one shallow clone per CI run, cached by session fixture).
   # ---------------------------------------------------------------------------
   test-gui:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
         run: pip install pytest PyQt6
