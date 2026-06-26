@@ -10,6 +10,7 @@ import sys
 import os
 import json
 import zipfile
+import time
 import urllib.parse
 import urllib.request
 import urllib.error
@@ -43,7 +44,7 @@ import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.06.26"
+PLUGIN_VERSION = "2026.06.27"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -72,7 +73,9 @@ def _read_plugin_version_ast(filepath: str) -> str:
                         if isinstance(node.value, ast.Constant):
                             return str(node.value.value)
     except Exception as e:
-        logging.warning("Plugin Installer: AST version read failed for %s: %s", filepath, e)
+        logging.warning(
+            "Plugin Installer: AST version read failed for %s: %s", filepath, e
+        )
     return "Unknown"
 
 
@@ -719,28 +722,57 @@ class PluginInstallerWindow(QDialog):
         If omitted the download still runs without cancellation support.
 
         Returns True on success, False if aborted or on network error.
+        Retries up to 3 times on network errors before showing an error dialog.
         The caller is responsible for showing any progress UI — this method
         only drives the data transfer and reports progress via the callback.
         """
-        try:
-            with urllib.request.urlopen(url, timeout=15) as response:
-                total = int(response.headers.get("Content-Length") or 0)
-                received = 0
-                with open(dest_path, "wb") as f:
-                    while True:
-                        chunk = response.read(8192)
-                        if not chunk:
-                            break
-                        f.write(chunk)
-                        received += len(chunk)
-                        if on_progress is not None:
-                            if not on_progress(received, total):
-                                return False
-            return True
-        except Exception as e:
-            logging.exception("Plugin Installer: download failed from %s: %s", url, e)
-            QMessageBox.warning(self, "Download Error", f"Download failed:\n{e}")
-            return False
+        _MAX_RETRIES = 3
+        last_exc: Exception = Exception("unknown")
+        for attempt in range(1, _MAX_RETRIES + 1):
+            try:
+                with urllib.request.urlopen(url, timeout=15) as response:
+                    total = int(response.headers.get("Content-Length") or 0)
+                    received = 0
+                    with open(dest_path, "wb") as f:
+                        while True:
+                            chunk = response.read(8192)
+                            if not chunk:
+                                break
+                            f.write(chunk)
+                            received += len(chunk)
+                            if on_progress is not None:
+                                if not on_progress(received, total):
+                                    return False
+                return True
+            except (urllib.error.URLError, TimeoutError, OSError) as e:
+                last_exc = e
+                logging.warning(
+                    "Plugin Installer: download attempt %d/%d failed from %s: %s",
+                    attempt,
+                    _MAX_RETRIES,
+                    url,
+                    e,
+                )
+                if attempt < _MAX_RETRIES:
+                    time.sleep(2)
+            except Exception as e:
+                logging.exception(
+                    "Plugin Installer: download failed from %s: %s", url, e
+                )
+                QMessageBox.warning(self, "Download Error", f"Download failed:\n{e}")
+                return False
+        logging.error(
+            "Plugin Installer: download failed after %d attempts from %s: %s",
+            _MAX_RETRIES,
+            url,
+            last_exc,
+        )
+        QMessageBox.warning(
+            self,
+            "Download Error",
+            f"Download failed after {_MAX_RETRIES} attempts:\n{last_exc}",
+        )
+        return False
 
     # ------------------------------------------------------------------
     # Table population

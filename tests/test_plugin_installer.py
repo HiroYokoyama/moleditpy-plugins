@@ -530,13 +530,81 @@ class TestDownloadChunked:
 
         assert ok is False
 
+    def test_network_error_retries_3_times_then_shows_dialog(self, tmp_path):
+        """URLError retried up to 3 times; dialog shown only after all attempts fail."""
+        import urllib.error
+
+        inst = self._make_installer()
+        dest = tmp_path / "plugin.py"
+
+        with patch(
+            "urllib.request.urlopen",
+            side_effect=urllib.error.URLError("timeout"),
+        ) as mock_open:
+            with patch.object(PI.QMessageBox, "warning") as warn:
+                with patch("time.sleep") as mock_sleep:
+                    ok = inst._download_chunked("https://example.com/plugin.py", str(dest))
+
+        assert ok is False
+        assert mock_open.call_count == 3
+        warn.assert_called_once()
+        # sleep(2) called between retries: after attempt 1 and 2, not after 3
+        assert mock_sleep.call_count == 2
+        mock_sleep.assert_called_with(2)
+
+    def test_transient_network_error_recovers_on_second_attempt(self, tmp_path):
+        """Fails once then succeeds — returns True without showing a dialog."""
+        import urllib.error
+
+        inst = self._make_installer()
+        dest = tmp_path / "plugin.py"
+        content = b"# plugin"
+
+        fake_resp = MagicMock()
+        fake_resp.__enter__ = lambda s: s
+        fake_resp.__exit__ = MagicMock(return_value=False)
+        fake_resp.headers = {}
+        fake_resp.read.side_effect = [content, b""]
+
+        with patch(
+            "urllib.request.urlopen",
+            side_effect=[urllib.error.URLError("timeout"), fake_resp],
+        ) as mock_open:
+            with patch.object(PI.QMessageBox, "warning") as warn:
+                with patch("time.sleep"):
+                    ok = inst._download_chunked("https://example.com/plugin.py", str(dest))
+
+        assert ok is True
+        assert dest.read_bytes() == content
+        assert mock_open.call_count == 2
+        warn.assert_not_called()
+
+    def test_non_network_error_does_not_retry(self, tmp_path):
+        """Non-retryable exception shows dialog immediately without retrying."""
+        inst = self._make_installer()
+        dest = tmp_path / "plugin.py"
+
+        with patch(
+            "urllib.request.urlopen",
+            side_effect=ValueError("unexpected"),
+        ) as mock_open:
+            with patch.object(PI.QMessageBox, "warning") as warn:
+                with patch("time.sleep") as mock_sleep:
+                    ok = inst._download_chunked("https://example.com/plugin.py", str(dest))
+
+        assert ok is False
+        assert mock_open.call_count == 1
+        warn.assert_called_once()
+        mock_sleep.assert_not_called()
+
     def test_network_error_returns_false(self, tmp_path):
         inst = self._make_installer()
         dest = tmp_path / "plugin.py"
 
         with patch("urllib.request.urlopen", side_effect=OSError("connection refused")):
             with patch.object(PI.QMessageBox, "warning") as warn:
-                ok = inst._download_chunked("https://example.com/plugin.py", str(dest))
+                with patch("time.sleep"):
+                    ok = inst._download_chunked("https://example.com/plugin.py", str(dest))
 
         assert ok is False
         warn.assert_called_once()
