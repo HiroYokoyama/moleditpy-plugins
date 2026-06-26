@@ -254,16 +254,19 @@ def real_plugin_context_class(app_src_path: Path):
     """
     Return the real PluginContext class imported from the main app.
 
-    Importing plugin_interface.py is safe without Qt or chemistry libs —
-    it only uses stdlib (logging, typing).
+    We load plugin_interface.py *directly by file path* rather than via
+    ``from moleditpy.plugins.plugin_interface import PluginContext``.
+    The latter triggers moleditpy/__init__.py, which imports rdkit — a
+    library not present in the CI environment.  Loading by spec bypasses
+    the package __init__ entirely; plugin_interface.py itself only uses
+    stdlib (logging, typing) so this is always safe.
     """
-    src = str(app_src_path)
-    if src not in sys.path:
-        sys.path.insert(0, src)
-    # Import outside any mock_chemistry_imports() block so the real module is used.
-    from moleditpy.plugins.plugin_interface import PluginContext  # noqa: PLC0415
-
-    return PluginContext
+    pi_path = app_src_path / "moleditpy" / "plugins" / "plugin_interface.py"
+    spec = importlib.util.spec_from_file_location("_moleditpy_plugin_interface", pi_path)
+    assert spec is not None and spec.loader is not None, f"Cannot find {pi_path}"
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)  # type: ignore[union-attr]
+    return mod.PluginContext
 
 
 _STUB_DEFAULT = object()  # sentinel — distinguishes "not given" from explicit None
