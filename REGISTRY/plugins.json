@@ -37,7 +37,7 @@
     ],
     "downloadUrl": "../plugins/Animated_XYZ_Giffer/animated_xyz_giffer.py",
     "lastUpdated": "2026-06-27",
-    "sha256": "5672bbe553c6044432f2c2800f178c2731eadc89cc9acadd53d7f4adf7bff946",
+    "sha256": "0b1fd5d807b8ab6959884c939058b7b39afbd14202d4352fbf5acd192b6b7cf9",
     "firstAppeared": "2025-12-15"
   },
   {
@@ -342,7 +342,7 @@
     ],
     "downloadUrl": "../plugins/Mapped_Cube_Viewer/mapped_cube_viewer.py",
     "lastUpdated": "2026-06-27",
-    "sha256": "e4cd64da3ec7fc7a8ba00011a5ae5763ee66a847db054869ac9266aca421862e",
+    "sha256": "c70d549009fced17215ced8f6ec4a1ef30e226431b40e1737a8f4dce33700c52",
     "firstAppeared": "2025-12-17"
   },
   {
@@ -433,7 +433,7 @@
     ],
     "downloadUrl": "../plugins/Gaussian_Freq_Analyzer/gaussian_fchk_freq_analyzer.py",
     "lastUpdated": "2026-06-27",
-    "sha256": "8d70305b1467f83a89c2ee6a0a1aced104fc2ba1c3bc7e228207c90853cf8604",
+    "sha256": "214be9f98ae5dc2fe1518fdd6d2db69b899612f9a9adaa42d7679ceb21f65160",
     "firstAppeared": "2025-12-20"
   },
   {
@@ -458,7 +458,7 @@
     ],
     "downloadUrl": "../plugins/ORCA_Freq_Analyzer/orca_out_freq_analyzer.py",
     "lastUpdated": "2026-06-27",
-    "sha256": "7ae6fc8f7773ee81da161af1bb5ef09dd9978425c65e405f055d3a693311c358",
+    "sha256": "41c976ed340921c9d6cea088b3a0758fb7523ac54781749a71bafeb42254257c",
     "firstAppeared": "2025-12-20"
   },
   {
@@ -562,7 +562,7 @@
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo/chat_with_molecule_neo.py",
     "lastUpdated": "2026-06-27",
-    "sha256": "62eac103235a384e9f221869474cae358c90984e656da78eb5c87fb390f61a7b",
+    "sha256": "de72c4fc721ba29cba17d839836f3fc9ac31a2981b5c454661f1306708eb3134",
     "firstAppeared": "2025-12-28"
   },
   {
@@ -787,7 +787,7 @@
     ],
     "downloadUrl": "../plugins/Molecule_Comparator/molecule_comparator.py",
     "lastUpdated": "2026-06-27",
-    "sha256": "51abbbef21653590234c3402d42ba595db9a657d6379f08f230bf8dd901110c2",
+    "sha256": "671b68ed7201d849adbb73c3553cd161073e0b0b2b04d372b8d7d9426138266f",
     "firstAppeared": "2026-01-03"
   },
   {
@@ -1102,7 +1102,7 @@
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer_Advanced/cube_viewer_advanced.py",
     "lastUpdated": "2026-06-27",
-    "sha256": "b9dc0d918da570deb3e20245af84a7e1ed6222f5cf74f17a2a3497575635e016",
+    "sha256": "497242555697b80abe884ade2e89cba3147329207a98444731b10681de9162fa",
     "firstAppeared": "2026-02-02"
   },
   {

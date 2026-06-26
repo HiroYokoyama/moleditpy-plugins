@@ -2930,8 +2930,8 @@ class ChatMoleculeWindow(QDialog):
                 mw.edit_3d_manager.clear_2d_measurement_labels()
 
             # --- Manual Clear 3D Logic ---
-            mw.plotter.clear()
-            mw.current_mol = None
+            self.context.plotter.clear()
+            self.context.current_molecule = None
             self.context.set_3d_features_enabled(False)
 
             # Update UI

@@ -495,7 +495,7 @@ class MoleculeComparator(QWidget):
         if mol:
             self.context.draw_molecule_3d(mol)
         else:
-            self.mw.plotter.clear()
+            self.context.plotter.clear()
 
         self.exit_3d_only_mode()
 
@@ -922,7 +922,7 @@ class MoleculeComparator(QWidget):
         try:
             # Save screenshot using PyVista
             # # [DIRECT ACCESS] to plotter
-            self.mw.plotter.screenshot(file_path, transparent_background=transparent)
+            self.context.plotter.screenshot(file_path, transparent_background=transparent)
 
             # Show confirmation
             QMessageBox.information(
@@ -1114,7 +1114,7 @@ class MoleculeComparator(QWidget):
 
                 # Control lighting by setting actor properties
                 # This is the correct way to enable/disable lighting in VTK/PyVista
-                actors = self.mw.plotter.renderer.GetActors()
+                actors = self.context.plotter.renderer.GetActors()
                 if actors:
                     actors.InitTraversal()
                     for i in range(actors.GetNumberOfItems()):
@@ -1126,7 +1126,7 @@ class MoleculeComparator(QWidget):
                                 prop.SetLighting(enable_lighting)
 
                 # Render to apply changes
-                self.mw.plotter.render()
+                self.context.plotter.render()
         except Exception as e:
             # Silently handle if plotter doesn't support lighting control
             logging.warning("[molecule_comparator.py:998] silenced: %s", e)
@@ -1137,7 +1137,7 @@ class MoleculeComparator(QWidget):
             try:
                 self.context.reset_3d_camera()
                 if hasattr(self.mw, "plotter"):
-                    self.mw.plotter.render()
+                    self.context.plotter.render()
             except Exception as _e:
                 logging.warning("[molecule_comparator.py:1010] silenced: %s", _e)
 

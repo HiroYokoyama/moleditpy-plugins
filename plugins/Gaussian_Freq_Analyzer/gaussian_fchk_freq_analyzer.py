@@ -684,8 +684,7 @@ class GaussianFCHKFreqAnalyzer(QWidget):
 
         self.update_vectors()
 
-        if hasattr(self.mw, "plotter"):
-            self.mw.plotter.render()
+        self.context.plotter.render()
 
     def animate_frame(self):
         if not self.parser or not self.base_mol:
@@ -727,7 +726,7 @@ class GaussianFCHKFreqAnalyzer(QWidget):
     def remove_vectors(self):
         if self.vector_actor and hasattr(self.mw, "plotter"):
             try:
-                self.mw.plotter.remove_actor(self.vector_actor)
+                self.context.plotter.remove_actor(self.vector_actor)
             except Exception as _e:
                 logging.warning("[gaussian_fchk_freq_analyzer.py:659] silenced: %s", _e)
         self.vector_actor = None
@@ -777,7 +776,7 @@ class GaussianFCHKFreqAnalyzer(QWidget):
         vectors = np.array(vectors)
 
         try:
-            self.vector_actor = self.mw.plotter.add_arrows(
+            self.vector_actor = self.context.plotter.add_arrows(
                 coords,
                 vectors,
                 mag=vis_scale,
@@ -870,9 +869,9 @@ class GaussianFCHKFreqAnalyzer(QWidget):
                 self.apply_displacement(mode_vecs, factor)
                 self.context.draw_molecule_3d(self.base_mol)
                 self.update_vectors(mode_vecs, factor)
-                self.mw.plotter.render()
+                self.context.plotter.render()
 
-                img_array = self.mw.plotter.screenshot(
+                img_array = self.context.plotter.screenshot(
                     transparent_background=use_transparent, return_img=True
                 )
                 if img_array is not None:
@@ -1267,8 +1266,7 @@ class SpectrumPlotWidget(QWidget):
             if self.base_mol:
                 self.reset_geometry()
                 # Force redraw
-                if hasattr(self.mw, "plotter"):
-                    self.mw.plotter.render()
+                self.context.plotter.render()
 
 
 def load_from_file(context, fname):

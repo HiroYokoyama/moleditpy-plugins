@@ -426,7 +426,7 @@ class MappedWidget(QWidget):
         )
         if f:
             try:
-                self.mw.plotter.screenshot(
+                self.context.plotter.screenshot(
                     f, transparent_background=self.check_transparent.isChecked()
                 )
                 QMessageBox.information(self, "Success", f"Saved View to {f}")
@@ -519,9 +519,9 @@ class MappedWidget(QWidget):
                     self.max_spin.blockSignals(False)
 
             if self.actor:
-                self.mw.plotter.remove_actor(self.actor)
+                self.context.plotter.remove_actor(self.actor)
 
-            self.actor = self.mw.plotter.add_mesh(
+            self.actor = self.context.plotter.add_mesh(
                 mapped,
                 scalars="property_values",
                 cmap=self.cmap_combo.currentText(),
@@ -532,15 +532,15 @@ class MappedWidget(QWidget):
                 scalar_bar_args={"title": ""},
             )
 
-            self.mw.plotter.render()
+            self.context.plotter.render()
 
         except Exception as e:
             logging.warning("Update Error: %s", e)
 
     def close_plugin(self):
         try:
-            self.mw.plotter.remove_actor(self.actor)
-            self.mw.plotter.render()
+            self.context.plotter.remove_actor(self.actor)
+            self.context.plotter.render()
         except Exception as _e:
             logging.warning("[mapped_cube_viewer.py:485] silenced: %s", _e)
         # Restore 2D editing UI when leaving the 3D viewer mode

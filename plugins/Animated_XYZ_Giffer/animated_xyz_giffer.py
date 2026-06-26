@@ -604,19 +604,18 @@ class AnimatedXYZPlayer(QDialog):
 
                 # Force repaint of the main window view to ensure updated frame is rendered
                 # We need to access the plotter widget
-                if hasattr(self.mw, "plotter"):
-                    # This might update the view
-                    self.mw.plotter.update()
+                # This might update the view
+                self.context.plotter.update()
 
-                    # Check if we can get image
-                    # screenshot(transparent_background=..., return_img=True)
-                    img_array = self.mw.plotter.screenshot(
-                        transparent_background=use_transparent, return_img=True
-                    )
+                # Check if we can get image
+                # screenshot(transparent_background=..., return_img=True)
+                img_array = self.context.plotter.screenshot(
+                    transparent_background=use_transparent, return_img=True
+                )
 
-                    if img_array is not None:
-                        img = Image.fromarray(img_array)
-                        images.append(img)
+                if img_array is not None:
+                    img = Image.fromarray(img_array)
+                    images.append(img)
 
             # Save
             if images:
@@ -701,13 +700,12 @@ class AnimatedXYZPlayer(QDialog):
         
         # Clear the main window view
         try:
-            if hasattr(self.mw, 'plotter'):
-                self.mw.plotter.clear()
+            self.context.plotter.clear()
         except Exception as _e:
             logging.warning("[animated_xyz_giffer.py:662] silenced: %s", _e)
 
         try:
-            self.mw.current_mol = None
+            self.context.current_molecule = None
         except Exception as _e:
             logging.warning("[animated_xyz_giffer.py:667] silenced: %s", _e)
             

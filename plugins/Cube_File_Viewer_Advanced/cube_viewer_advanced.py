@@ -260,7 +260,7 @@ class CubeViewerWidget(QWidget):
         self.iso_actor_p_sil = None
         self.iso_actor_n_sil = None
 
-        self.plotter = self.mw.plotter
+        self.plotter = self.context.plotter
 
         # Initial Colors
         self.color_p = (0, 0, 255)  # Default blue
@@ -1853,10 +1853,10 @@ class CubeViewerWidget(QWidget):
             # --- FIX END ---
 
             # Full cleanup
-            self.mw.plotter.clear()
+            self.plotter.clear()
             self.context.current_molecule = None
             self.mw.init_manager.current_file_path = None
-            self.mw.plotter.render()
+            self.plotter.render()
 
             # Restore UI state (restore_ui_for_editing lives on ui_manager, not mw directly)
             if hasattr(self.mw, "ui_manager") and hasattr(
