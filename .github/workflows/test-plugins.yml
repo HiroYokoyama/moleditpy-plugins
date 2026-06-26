@@ -39,6 +39,29 @@ jobs:
         run: pytest tests/ -v --tb=short
 
   # ---------------------------------------------------------------------------
+  # Headless GUI tests — real PyQt6 with QT_QPA_PLATFORM=offscreen.
+  # Chemistry libs (rdkit, numpy, …) are still mocked, so no conda env needed.
+  # ---------------------------------------------------------------------------
+  test-gui:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install pytest PyQt6
+
+      - name: Run headless GUI tests
+        run: pytest tests_gui/ -v --tb=short
+        env:
+          QT_QPA_PLATFORM: offscreen
+
+  # ---------------------------------------------------------------------------
   # API compatibility check — requires the main app.
   # Clones python_molecular_editor at --depth 1 so test_api.py is not skipped.
   # ---------------------------------------------------------------------------
