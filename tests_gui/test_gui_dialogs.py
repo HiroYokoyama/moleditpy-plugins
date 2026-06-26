@@ -28,6 +28,12 @@ GAUSSIAN_NEO_PATH = (
     PLUGINS_DIR / "Gaussian_Input_Generator_Neo" / "gaussian_input_generator_neo.py"
 )
 MS_NEO_PATH = PLUGINS_DIR / "MS_Spectrum_Simulation_Neo" / "ms_spectrum_neo.py"
+MOPAC_PATH = PLUGINS_DIR / "Mopac_Input_Generator" / "mopac_input_generator.py"
+GAMESS_PATH = PLUGINS_DIR / "Gamess_Input_Generator" / "gamess_input_generator.py"
+PSI4_PATH = PLUGINS_DIR / "Psi4_Input_Generator" / "psi4_input_generator.py"
+ATOM_COLORIZER_PATH = PLUGINS_DIR / "Atom_Colorizer" / "atom_colorizer.py"
+PLUGIN_INSTALLER_PATH = PLUGINS_DIR / "Plugin_Installer" / "plugin_installer.py"
+CONSOLE_PATH = PLUGINS_DIR / "Python_Console" / "console.py"
 
 
 # ---------------------------------------------------------------------------
@@ -39,6 +45,12 @@ with mock_chemistry_imports():
     _paste_xyz = load_plugin_for_gui(PASTE_XYZ_PATH)
     _gaussian = load_plugin_for_gui(GAUSSIAN_NEO_PATH)
     _ms_neo = load_plugin_for_gui(MS_NEO_PATH)
+    _mopac = load_plugin_for_gui(MOPAC_PATH)
+    _gamess = load_plugin_for_gui(GAMESS_PATH)
+    _psi4 = load_plugin_for_gui(PSI4_PATH)
+    _atom_colorizer = load_plugin_for_gui(ATOM_COLORIZER_PATH)
+    _plugin_installer = load_plugin_for_gui(PLUGIN_INSTALLER_PATH)
+    _console = load_plugin_for_gui(CONSOLE_PATH)
 
 
 def _ms_context() -> MagicMock:
@@ -257,3 +269,303 @@ class TestMSSpectrumDialogNeo:
     def test_formula_input_accepts_text(self, dlg):
         dlg.formula_input.setText("C6H12O6")
         assert dlg.formula_input.text() == "C6H12O6"
+
+
+# ===========================================================================
+# MopacSetupDialog  (visible plugin: "MOPAC Input Generator")
+# ===========================================================================
+
+
+class TestMopacSetupDialog:
+    """MopacSetupDialog with mol=None — exercises the no-molecule UI path."""
+
+    @pytest.fixture
+    def dlg(self, qapp):
+        d = _mopac.MopacSetupDialog(parent=None, mol=None)
+        yield d
+        d.destroy()
+
+    def test_creates_without_error(self, dlg):
+        assert dlg is not None
+
+    def test_window_title(self, dlg):
+        assert dlg.windowTitle() == "MOPAC Input Generator"
+
+    def test_default_keywords_field(self, dlg):
+        assert dlg.keywords_edit.text() == "PM7 PRECISE"
+
+    def test_default_title_field(self, dlg):
+        assert dlg.title_edit.text() == "MOPAC Calculation"
+
+    def test_charge_spinbox_range(self, dlg):
+        assert dlg.charge_spin.minimum() == -10
+        assert dlg.charge_spin.maximum() == 10
+
+    def test_mult_spinbox_minimum_is_one(self, dlg):
+        assert dlg.mult_spin.minimum() == 1
+
+    def test_template_combo_populated(self, dlg):
+        assert dlg.template_combo.count() > 0
+
+    def test_nosym_checkbox_initially_unchecked(self, dlg):
+        assert not dlg.chk_nosym.isChecked()
+
+    def test_preview_area_is_editable(self, dlg):
+        assert not dlg.preview_text.isReadOnly()
+
+    def test_preset_combo_initially_empty(self, dlg):
+        assert dlg.preset_combo.count() == 0
+
+
+# ===========================================================================
+# GamessSetupDialog  (visible plugin: "GAMESS Input Generator")
+# ===========================================================================
+
+
+class TestGamessSetupDialog:
+    """GamessSetupDialog with mol=None."""
+
+    @pytest.fixture
+    def dlg(self, qapp):
+        d = _gamess.GamessSetupDialog(parent=None, mol=None)
+        yield d
+        d.destroy()
+
+    def test_creates_without_error(self, dlg):
+        assert dlg is not None
+
+    def test_window_title(self, dlg):
+        assert dlg.windowTitle() == "GAMESS Input Generator"
+
+    def test_run_type_default(self, dlg):
+        assert dlg.run_type.currentText() == "OPTIMIZE"
+
+    def test_scf_type_default(self, dlg):
+        assert dlg.scf_type.currentText() == "RHF"
+
+    def test_nosym_checked_by_default(self, dlg):
+        assert dlg.chk_nosym.isChecked()
+
+    def test_basis_ngauss_default(self, dlg):
+        assert dlg.basis_ngauss.value() == 6
+
+    def test_mem_spin_default(self, dlg):
+        assert dlg.mem_spin.value() == 100
+
+
+# ===========================================================================
+# Psi4SetupDialog  (visible plugin: "Psi4 Input Generator")
+# ===========================================================================
+
+
+class TestPsi4SetupDialog:
+    """Psi4SetupDialog with mol=None."""
+
+    @pytest.fixture
+    def dlg(self, qapp):
+        d = _psi4.Psi4SetupDialog(parent=None, mol=None)
+        yield d
+        d.destroy()
+
+    def test_creates_without_error(self, dlg):
+        assert dlg is not None
+
+    def test_window_title(self, dlg):
+        assert dlg.windowTitle() == "Psi4 Input Generator"
+
+    def test_method_default(self, dlg):
+        assert dlg.method_combo.currentText() == "b3lyp"
+
+    def test_basis_default(self, dlg):
+        assert dlg.basis_combo.currentText() == "def2-svp"
+
+    def test_reference_default(self, dlg):
+        assert dlg.ref_combo.currentText() == "rks"
+
+    def test_mem_spin_default(self, dlg):
+        assert dlg.mem_spin.value() == 2
+
+    def test_thread_spin_default(self, dlg):
+        assert dlg.thread_spin.value() == 4
+
+
+# ===========================================================================
+# AtomColorizerWindow  (visible plugin: "Atom Colorizer")
+# ===========================================================================
+
+
+def _colorizer_context() -> MagicMock:
+    """Minimal stub: get_main_window() returns None so no QObject parent issues."""
+    ctx = MagicMock()
+    ctx.get_main_window.return_value = None
+    return ctx
+
+
+class TestAtomColorizerWindow:
+    """AtomColorizerWindow with a no-main-window context."""
+
+    @pytest.fixture
+    def win(self, qapp):
+        ctx = _colorizer_context()
+        w = _atom_colorizer.AtomColorizerWindow(context=ctx)
+        yield w
+        w.sel_timer.stop()
+        w.destroy()
+
+    def test_creates_without_error(self, win):
+        assert win is not None
+
+    def test_window_title(self, win):
+        assert win.windowTitle() == "Atom Colorizer"
+
+    def test_indices_placeholder(self, win):
+        assert win.le_indices.placeholderText() == "e.g. 0, 1, 5"
+
+    def test_choose_color_button_exists(self, win):
+        assert win.btn_color.text() == "Choose Color"
+
+    def test_timer_is_active(self, win):
+        assert win.sel_timer.isActive()
+
+    def test_is_non_modal(self, win):
+        assert not win.isModal()
+
+
+# ===========================================================================
+# PluginDetailsDialog  (inside Plugin Installer)
+# ===========================================================================
+
+
+def _make_details_dialog(*, dependencies=None, local_info=None) -> object:
+    """Create a PluginDetailsDialog with safe defaults."""
+    return _plugin_installer.PluginDetailsDialog(
+        None,
+        "Test Plugin",
+        "Test Author",
+        "2026.01.01",
+        "A headless test plugin.",
+        dependencies if dependencies is not None else [],
+        local_info,
+        None,
+        ">=4.0.0",
+    )
+
+
+class TestPluginDetailsDialog:
+    """PluginDetailsDialog — lightweight details popup, no network calls."""
+
+    @pytest.fixture
+    def dlg(self, qapp):
+        d = _make_details_dialog()
+        yield d
+        d.destroy()
+
+    def test_creates_without_error(self, dlg):
+        assert dlg is not None
+
+    def test_window_title_includes_plugin_name(self, dlg):
+        assert "Test Plugin" in dlg.windowTitle()
+
+    def test_no_error_with_empty_dependencies(self, qapp):
+        d = _make_details_dialog(dependencies=[])
+        assert d is not None
+        d.destroy()
+
+    def test_no_error_with_missing_dependency(self, qapp):
+        d = _make_details_dialog(dependencies=["fake-nonexistent-pkg-xyz"])
+        assert d is not None
+        d.destroy()
+
+    def test_no_error_with_installed_dependency(self, qapp):
+        d = _make_details_dialog(dependencies=["pytest"])
+        assert d is not None
+        d.destroy()
+
+    def test_target_file_stored(self, qapp):
+        d = _plugin_installer.PluginDetailsDialog(
+            None, "X", "A", "1.0", "Desc", [], None, "/some/path.py"
+        )
+        assert d.target_file == "/some/path.py"
+        d.destroy()
+
+
+# ===========================================================================
+# PluginInstallerWindow  (visible plugin: "Plugin Installer")
+# ===========================================================================
+
+
+class TestPluginInstallerWindow:
+    """PluginInstallerWindow — main window of the Plugin Installer.
+
+    check_updates() is patched to prevent any network calls during __init__.
+    """
+
+    @pytest.fixture
+    def installer(self, qapp):
+        from unittest.mock import patch
+
+        with patch.object(
+            _plugin_installer.PluginInstallerWindow,
+            "check_updates",
+            lambda self: None,
+        ):
+            d = _plugin_installer.PluginInstallerWindow(None, auto_check=False)
+        yield d
+        d.destroy()
+
+    def test_creates_without_error(self, installer):
+        assert installer is not None
+
+    def test_window_title(self, installer):
+        assert installer.windowTitle() == "Plugin Installer"
+
+    def test_table_has_six_columns(self, installer):
+        assert installer.table.columnCount() == 6
+
+    def test_search_input_exists(self, installer):
+        assert installer.search_input.placeholderText() != ""
+
+    def test_startup_checkbox_exists(self, installer):
+        assert installer.chk_startup is not None
+
+
+# ===========================================================================
+# PythonConsoleDialog  (visible plugin: "Python Console")
+# ===========================================================================
+
+
+def _console_context() -> MagicMock:
+    """Stub context with no main window and a MagicMock current_molecule."""
+    ctx = MagicMock()
+    ctx.get_main_window.return_value = None
+    return ctx
+
+
+class TestPythonConsoleDialog:
+    """PythonConsoleDialog — embedded Python REPL dialog."""
+
+    @pytest.fixture
+    def console(self, qapp):
+        ctx = _console_context()
+        d = _console.PythonConsoleDialog(context=ctx)
+        yield d
+        d.destroy()
+
+    def test_creates_without_error(self, console):
+        assert console is not None
+
+    def test_window_title(self, console):
+        assert console.windowTitle() == "MoleditPy Python Console"
+
+    def test_output_area_is_readonly(self, console):
+        assert console.output_area.isReadOnly()
+
+    def test_input_area_exists(self, console):
+        assert console.input_area is not None
+
+    def test_interpreter_is_interactive(self, console):
+        import code as _code
+        assert isinstance(console.interpreter, _code.InteractiveInterpreter)
+
+    def test_context_in_local_scope(self, console):
+        assert "context" in console.local_scope

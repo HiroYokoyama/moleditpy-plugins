@@ -339,3 +339,205 @@ def test_register_menu_action_compat_old_style(
     args = mgr.register_menu_action.call_args.args
     assert args[1] == "A/B"
     assert args[2] is cb
+
+
+def test_add_analysis_tool_delegates(real_plugin_context_class: type) -> None:
+    """add_analysis_tool(label, cb) → mgr.register_analysis_tool(name, label, cb)."""
+    mgr = make_stub_manager()
+    ctx = real_plugin_context_class(mgr, "Analyser")
+    cb = lambda: None  # noqa: E731
+    ctx.add_analysis_tool("My Analysis...", cb)
+    mgr.register_analysis_tool.assert_called_once_with("Analyser", "My Analysis...", cb)
+
+
+def test_register_3d_style_delegates(real_plugin_context_class: type) -> None:
+    """register_3d_style(name, cb) → mgr.register_3d_style(plugin_name, name, cb)."""
+    mgr = make_stub_manager()
+    ctx = real_plugin_context_class(mgr, "Styler")
+    cb = lambda mw, mol: None  # noqa: E731
+    ctx.register_3d_style("ball_stick", cb)
+    mgr.register_3d_style.assert_called_once_with("Styler", "ball_stick", cb)
+
+
+def test_register_optimization_method_delegates(
+    real_plugin_context_class: type,
+) -> None:
+    """register_optimization_method(method, cb) → mgr.register_optimization_method(name, method, cb)."""
+    mgr = make_stub_manager()
+    ctx = real_plugin_context_class(mgr, "Optimizer")
+    cb = lambda mol: True  # noqa: E731
+    ctx.register_optimization_method("MyForceField", cb)
+    mgr.register_optimization_method.assert_called_once_with(
+        "Optimizer", "MyForceField", cb
+    )
+
+
+def test_register_drop_handler_delegates(real_plugin_context_class: type) -> None:
+    """register_drop_handler(cb, priority) → mgr.register_drop_handler(name, cb, priority)."""
+    mgr = make_stub_manager()
+    ctx = real_plugin_context_class(mgr, "Dropper")
+    cb = lambda path: True  # noqa: E731
+    ctx.register_drop_handler(cb, priority=10)
+    mgr.register_drop_handler.assert_called_once_with("Dropper", cb, 10)
+
+
+def test_register_document_reset_handler_delegates(
+    real_plugin_context_class: type,
+) -> None:
+    """register_document_reset_handler(cb) → mgr.register_document_reset_handler(name, cb)."""
+    mgr = make_stub_manager()
+    ctx = real_plugin_context_class(mgr, "Resetter")
+    cb = lambda: None  # noqa: E731
+    ctx.register_document_reset_handler(cb)
+    mgr.register_document_reset_handler.assert_called_once_with("Resetter", cb)
+
+
+def test_push_undo_checkpoint_delegates(real_plugin_context_class: type) -> None:
+    """push_undo_checkpoint() → mgr.push_undo_checkpoint()."""
+    mgr = make_stub_manager()
+    ctx = real_plugin_context_class(mgr, "t")
+    ctx.push_undo_checkpoint()
+    mgr.push_undo_checkpoint.assert_called_once_with()
+
+
+def test_get_selected_atom_indices_delegates(real_plugin_context_class: type) -> None:
+    """get_selected_atom_indices() → mgr.get_selected_atom_indices()."""
+    mgr = make_stub_manager()
+    sentinel = [0, 3, 7]
+    mgr.get_selected_atom_indices.return_value = sentinel
+    ctx = real_plugin_context_class(mgr, "t")
+    result = ctx.get_selected_atom_indices()
+    assert result is sentinel
+
+
+def test_add_toolbar_action_delegates(real_plugin_context_class: type) -> None:
+    """add_toolbar_action(cb, text, icon, tooltip) → mgr.register_toolbar_action(name, ...)."""
+    mgr = make_stub_manager()
+    ctx = real_plugin_context_class(mgr, "TB")
+    cb = lambda: None  # noqa: E731
+    ctx.add_toolbar_action(cb, "My Action", icon=None, tooltip="Tip")
+    mgr.register_toolbar_action.assert_called_once_with("TB", cb, "My Action", None, "Tip")
+
+
+# ===========================================================================
+# 5. PluginContext no-op / fallback contracts — methods that guard on mw
+# ===========================================================================
+# All of these must not raise even when get_main_window() returns None.
+
+
+def test_ctx_to_xyz_block_returns_none_without_mol(
+    real_plugin_context_class: type,
+) -> None:
+    """to_xyz_block() returns None when current_mol is None (no main window)."""
+    ctx = real_plugin_context_class(make_stub_manager(main_window=None), "t")
+    assert ctx.to_xyz_block() is None
+
+
+def test_ctx_get_setting_returns_default_without_window(
+    real_plugin_context_class: type,
+) -> None:
+    """get_setting(key, default) returns default when there is no main window."""
+    ctx = real_plugin_context_class(make_stub_manager(main_window=None), "t")
+    assert ctx.get_setting("theme", "dark") == "dark"
+
+
+def test_ctx_get_setting_returns_none_default_when_unset(
+    real_plugin_context_class: type,
+) -> None:
+    """get_setting(key) with no default argument returns None when there is no main window."""
+    ctx = real_plugin_context_class(make_stub_manager(main_window=None), "t")
+    assert ctx.get_setting("missing_key") is None
+
+
+def test_ctx_set_setting_no_error_without_window(
+    real_plugin_context_class: type,
+) -> None:
+    """set_setting() silently does nothing when there is no main window."""
+    ctx = real_plugin_context_class(make_stub_manager(main_window=None), "t")
+    ctx.set_setting("color", "#ff0000")  # must not raise
+
+
+def test_ctx_mark_project_modified_no_error_without_window(
+    real_plugin_context_class: type,
+) -> None:
+    """mark_project_modified() must not raise when mw is None."""
+    ctx = real_plugin_context_class(make_stub_manager(main_window=None), "t")
+    ctx.mark_project_modified()
+
+
+def test_ctx_refresh_ui_no_error_without_window(
+    real_plugin_context_class: type,
+) -> None:
+    """refresh_ui() returns immediately when mw is None — no exception."""
+    ctx = real_plugin_context_class(make_stub_manager(main_window=None), "t")
+    ctx.refresh_ui()
+
+
+def test_ctx_clear_canvas_no_error_without_window(
+    real_plugin_context_class: type,
+) -> None:
+    """clear_canvas() must not raise when mw is None."""
+    ctx = real_plugin_context_class(make_stub_manager(main_window=None), "t")
+    ctx.clear_canvas()
+
+
+def test_ctx_enter_3d_viewer_mode_no_error_without_window(
+    real_plugin_context_class: type,
+) -> None:
+    """enter_3d_viewer_mode() must not raise when mw is None."""
+    ctx = real_plugin_context_class(make_stub_manager(main_window=None), "t")
+    ctx.enter_3d_viewer_mode()
+
+
+def test_ctx_set_3d_features_enabled_no_error_without_window(
+    real_plugin_context_class: type,
+) -> None:
+    """set_3d_features_enabled() must not raise when mw is None."""
+    ctx = real_plugin_context_class(make_stub_manager(main_window=None), "t")
+    ctx.set_3d_features_enabled(True)
+
+
+def test_ctx_set_analysis_enabled_no_error_without_window(
+    real_plugin_context_class: type,
+) -> None:
+    """set_analysis_enabled() must not raise when mw is None."""
+    ctx = real_plugin_context_class(make_stub_manager(main_window=None), "t")
+    ctx.set_analysis_enabled(False)
+
+
+def test_ctx_get_setting_with_init_manager(
+    real_plugin_context_class: type,
+) -> None:
+    """get_setting() reads from mw.init_manager.settings when mw is present."""
+    mgr = make_stub_manager()
+    mw = mgr.get_main_window()
+    mw.init_manager.settings = {"plugin.MyPlugin.color": "#abc"}
+    ctx = real_plugin_context_class(mgr, "MyPlugin")
+    assert ctx.get_setting("color", "default") == "#abc"
+
+
+def test_ctx_set_setting_with_init_manager(
+    real_plugin_context_class: type,
+) -> None:
+    """set_setting() writes into mw.init_manager.settings and marks dirty."""
+    mgr = make_stub_manager()
+    mw = mgr.get_main_window()
+    mw.init_manager.settings = {}
+    ctx = real_plugin_context_class(mgr, "MyPlugin")
+    ctx.set_setting("theme", "dark")
+    assert mw.init_manager.settings.get("plugin.MyPlugin.theme") == "dark"
+    assert mw.init_manager.settings_dirty is True
+
+
+def test_ctx_register_save_and_load_handler_namespaced(
+    real_plugin_context_class: type,
+) -> None:
+    """register_save_handler / register_load_handler pass plugin_name to manager."""
+    mgr = make_stub_manager()
+    ctx = real_plugin_context_class(mgr, "SaverPlugin")
+    save_cb = lambda: {}  # noqa: E731
+    load_cb = lambda d: None  # noqa: E731
+    ctx.register_save_handler(save_cb)
+    ctx.register_load_handler(load_cb)
+    mgr.register_save_handler.assert_called_once_with("SaverPlugin", save_cb)
+    mgr.register_load_handler.assert_called_once_with("SaverPlugin", load_cb)
