@@ -44,7 +44,7 @@ import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.06.27"
+PLUGIN_VERSION = "2026.06.28"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -325,23 +325,41 @@ class _FetchWorker(QThread):
         remote = self._fetch_remote()
         self.done.emit(pypi_ver, remote)
 
+    _MAX_RETRIES = 3
+
     def _fetch_pypi(self) -> str:
-        try:
-            url = f"https://pypi.org/pypi/{self._pkg}/json"
-            with urllib.request.urlopen(url, timeout=5) as r:
-                if r.status == 200:
-                    return json.loads(r.read().decode("utf-8"))["info"]["version"]
-        except Exception as e:
-            logging.warning("Plugin Installer: PyPI fetch failed: %s", e)
+        url = f"https://pypi.org/pypi/{self._pkg}/json"
+        for attempt in range(1, self._MAX_RETRIES + 1):
+            try:
+                with urllib.request.urlopen(url, timeout=5) as r:
+                    if r.status == 200:
+                        return json.loads(r.read().decode("utf-8"))["info"]["version"]
+            except Exception as e:
+                logging.warning(
+                    "Plugin Installer: PyPI fetch attempt %d/%d failed: %s",
+                    attempt,
+                    self._MAX_RETRIES,
+                    e,
+                )
+                if attempt < self._MAX_RETRIES:
+                    time.sleep(2)
         return "Unknown"
 
     def _fetch_remote(self) -> list:
-        try:
-            with urllib.request.urlopen(self._url, timeout=5) as r:
-                if r.status == 200:
-                    return json.loads(r.read().decode("utf-8-sig"))
-        except Exception as e:
-            logging.warning("Plugin Installer: registry fetch failed: %s", e)
+        for attempt in range(1, self._MAX_RETRIES + 1):
+            try:
+                with urllib.request.urlopen(self._url, timeout=5) as r:
+                    if r.status == 200:
+                        return json.loads(r.read().decode("utf-8-sig"))
+            except Exception as e:
+                logging.warning(
+                    "Plugin Installer: registry fetch attempt %d/%d failed: %s",
+                    attempt,
+                    self._MAX_RETRIES,
+                    e,
+                )
+                if attempt < self._MAX_RETRIES:
+                    time.sleep(2)
         return []
 
 
