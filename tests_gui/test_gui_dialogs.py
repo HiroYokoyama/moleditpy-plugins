@@ -569,3 +569,218 @@ class TestPythonConsoleDialog:
 
     def test_context_in_local_scope(self, console):
         assert "context" in console.local_scope
+
+
+# ===========================================================================
+# Plugin Installer — pure-function unit tests (no Qt needed)
+# ===========================================================================
+
+
+class TestPluginInstallerVersionCompat:
+    """is_app_version_compatible(): pure Python, no Qt required."""
+
+    def test_within_range(self):
+        assert _plugin_installer.is_app_version_compatible("4.2.0", ">=4.0.0,<5.0.0")
+
+    def test_equal_lower_bound(self):
+        assert _plugin_installer.is_app_version_compatible("4.0.0", ">=4.0.0")
+
+    def test_below_lower_bound(self):
+        assert not _plugin_installer.is_app_version_compatible("3.9.9", ">=4.0.0")
+
+    def test_equal_upper_bound_exclusive(self):
+        assert not _plugin_installer.is_app_version_compatible("5.0.0", "<5.0.0")
+
+    def test_wildcard_always_passes(self):
+        assert _plugin_installer.is_app_version_compatible("1.0.0", "*")
+
+    def test_empty_specifier_always_passes(self):
+        assert _plugin_installer.is_app_version_compatible("1.0.0", "")
+
+    def test_not_equal(self):
+        assert not _plugin_installer.is_app_version_compatible("4.0.0", "!=4.0.0")
+
+    def test_compatible_release_same_major(self):
+        assert _plugin_installer.is_app_version_compatible("4.2.0", "~=4.0")
+
+    def test_compatible_release_different_major(self):
+        assert not _plugin_installer.is_app_version_compatible("5.0.0", "~=4.0")
+
+
+class TestPluginInstallerParseDependency:
+    """parse_dependency(): pure Python, no Qt required."""
+
+    def test_name_only(self):
+        name, spec = _plugin_installer.parse_dependency("numpy")
+        assert name == "numpy"
+        assert spec == ""
+
+    def test_name_with_specifier(self):
+        name, spec = _plugin_installer.parse_dependency("rdkit>=2022.03.5")
+        assert name == "rdkit"
+        assert "2022" in spec
+
+    def test_empty_string_returns_empty_pair(self):
+        name, spec = _plugin_installer.parse_dependency("")
+        assert name == ""
+        assert spec == ""
+
+    def test_url_with_colon_is_rejected(self):
+        name, spec = _plugin_installer.parse_dependency("http://example.com/package")
+        assert name == ""
+
+    def test_dash_in_name(self):
+        name, spec = _plugin_installer.parse_dependency("my-package>=1.0")
+        assert name == "my-package"
+
+
+class TestPluginInstallerCheckDependency:
+    """check_dependency_satisfied(): queries importlib.metadata, pure Python."""
+
+    def test_installed_package_returns_true(self):
+        assert _plugin_installer.check_dependency_satisfied("pytest")
+
+    def test_nonexistent_package_returns_false(self):
+        assert not _plugin_installer.check_dependency_satisfied(
+            "fake-nonexistent-dep-xyz123"
+        )
+
+    def test_empty_string_returns_false(self):
+        assert not _plugin_installer.check_dependency_satisfied("")
+
+
+# ===========================================================================
+# Plugin Installer — PluginInstallerWindow more widget tests
+# ===========================================================================
+
+
+class TestPluginInstallerWindowWidgets:
+    """Additional widget-state tests for PluginInstallerWindow."""
+
+    @pytest.fixture
+    def installer(self, qapp):
+        from unittest.mock import patch
+
+        with patch.object(
+            _plugin_installer.PluginInstallerWindow,
+            "check_updates",
+            lambda self: None,
+        ):
+            d = _plugin_installer.PluginInstallerWindow(None, auto_check=False)
+        yield d
+        d.destroy()
+
+    def test_table_header_first_column(self, installer):
+        assert installer.table.horizontalHeaderItem(0).text() == "Plugin Name"
+
+    def test_table_header_action_column(self, installer):
+        assert installer.table.horizontalHeaderItem(5).text() == "Action"
+
+    def test_progress_bar_initially_hidden(self, installer):
+        assert installer._progress_bar.isHidden()
+
+    def test_upgrade_button_initially_hidden(self, installer):
+        assert installer.btn_upgrade_app.isHidden()
+
+    def test_update_all_initially_disabled(self, installer):
+        assert not installer.btn_update_all.isEnabled()
+
+    def test_table_empty_before_fetch(self, installer):
+        assert installer.table.rowCount() == 0
+
+    def test_remote_data_initially_empty(self, installer):
+        assert installer.remote_data == []
+
+
+# ===========================================================================
+# Python Console — initialize/run entry point tests
+# ===========================================================================
+
+
+class TestPythonConsoleEntryPoints:
+    """initialize() and run() entry-point behaviour without a full main window."""
+
+    def test_initialize_sets_plugin_context(self, qapp):
+        ctx = _console_context()
+        _console.initialize(ctx)
+        assert _console.PLUGIN_CONTEXT is ctx
+        _console.PLUGIN_CONTEXT = None  # reset global after test
+
+    def test_run_is_noop_when_context_is_none(self, qapp):
+        _console.PLUGIN_CONTEXT = None
+        mw = MagicMock()
+        _console.run(mw)  # must not raise
+        _console.PLUGIN_CONTEXT = None
+
+    def test_run_creates_dialog_and_calls_get_window(self, qapp):
+        ctx = _console_context()
+        ctx.get_window.return_value = None  # no cached window
+        _console.PLUGIN_CONTEXT = ctx
+        mw = MagicMock()
+        _console.run(mw)  # constructs a PythonConsoleDialog, calls show()
+        ctx.get_window.assert_called_once_with("main_panel")
+        _console.PLUGIN_CONTEXT = None
+
+
+# ===========================================================================
+# Python Console — ConsoleInput widget tests
+# ===========================================================================
+
+
+class TestConsoleInput:
+    """ConsoleInput (QPlainTextEdit subclass) — history and placeholder tests."""
+
+    @pytest.fixture
+    def inp(self, qapp):
+        w = _console.ConsoleInput()
+        yield w
+        w.destroy()
+
+    def test_creates_without_error(self, inp):
+        assert inp is not None
+
+    def test_placeholder_text(self, inp):
+        assert "Python" in inp.placeholderText() or "Enter" in inp.placeholderText()
+
+    def test_history_initially_empty(self, inp):
+        assert inp.history == []
+
+    def test_append_history_stores_command(self, inp):
+        inp.append_history("x = 1")
+        assert inp.history[-1] == "x = 1"
+
+    def test_append_history_deduplicates_consecutive(self, inp):
+        inp.append_history("cmd")
+        inp.append_history("cmd")
+        assert inp.history.count("cmd") == 1
+
+    def test_history_index_advances_after_append(self, inp):
+        inp.append_history("a")
+        inp.append_history("b")
+        assert inp.history_index == 2
+
+
+# ===========================================================================
+# Python Console — PythonHighlighter tests
+# ===========================================================================
+
+
+class TestPythonHighlighter:
+    """PythonHighlighter (QSyntaxHighlighter) — highlighting rule counts."""
+
+    @pytest.fixture
+    def hl(self, qapp):
+        from PyQt6.QtGui import QTextDocument
+        doc = QTextDocument()
+        h = _console.PythonHighlighter(parent=doc)
+        yield h
+
+    def test_creates_without_error(self, hl):
+        assert hl is not None
+
+    def test_has_highlighting_rules(self, hl):
+        assert len(hl.highlighting_rules) > 0
+
+    def test_rules_are_tuples(self, hl):
+        for rule in hl.highlighting_rules:
+            assert isinstance(rule, tuple) and len(rule) == 2
