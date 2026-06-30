@@ -31,7 +31,7 @@ except ImportError:
 
 # Plugin Metadata
 PLUGIN_NAME = "VDW Radii Overlay"
-PLUGIN_VERSION = "2026.06.26"
+PLUGIN_VERSION = "2026.06.30"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Visualizes VDW radii as a translucent surface overlay using PyVista. Refactored for V3 API."
@@ -318,56 +318,57 @@ def draw_vdw_overlay(mw, mol):
                 spacing = (res_val, res_val, res_val)
 
                 dims = np.ceil((max_bounds - min_bounds) / spacing).astype(int)
+                nx, ny, nz = dims
+
+                # Generate 1D coordinates for axes
+                xs = np.arange(nx) * spacing[0] + min_bounds[0]
+                ys = np.arange(ny) * spacing[1] + min_bounds[1]
+                zs = np.arange(nz) * spacing[2] + min_bounds[2]
+
+                values = np.full((nx, ny, nz), np.inf)
+
+                # Calculate SDF values by iterating over atoms and using 3D broadcasting
+                for i in range(len(positions)):
+                    dx2 = (xs - positions[i, 0]) ** 2
+                    dy2 = (ys - positions[i, 1]) ** 2
+                    dz2 = (zs - positions[i, 2]) ** 2
+                    dist = np.sqrt(
+                        dx2[:, np.newaxis, np.newaxis]
+                        + dy2[np.newaxis, :, np.newaxis]
+                        + dz2[np.newaxis, np.newaxis, :]
+                    ) - radii[i]
+                    np.minimum(values, dist, out=values)
 
                 grid = pv.ImageData()
                 grid.dimensions = dims
                 grid.origin = min_bounds
                 grid.spacing = spacing
 
-                grid_points = grid.points
-                n_points = grid_points.shape[0]
-                values = np.empty(n_points)
-
-                # Process in chunks of 100k points
-                chunk_size = 100000
-                for start_idx in range(0, n_points, chunk_size):
-                    end_idx = min(start_idx + chunk_size, n_points)
-                    chunk_pts = grid_points[start_idx:end_idx]
-
-                    d = np.linalg.norm(
-                        chunk_pts[:, np.newaxis, :] - positions[np.newaxis, :, :],
-                        axis=2,
-                    )
-                    d_surface = d - radii[np.newaxis, :]
-                    values[start_idx:end_idx] = d_surface.min(axis=1)
-
-                grid.point_data["values"] = values
+                # Assign computed distance field values using Fortran ordering to match VTK dimensions
+                grid.point_data["values"] = values.ravel(order="F")
 
                 # 3. Contour at iso-value 0 to get the surface
                 mesh = grid.contour([0], scalars="values")
 
                 # 4. Map Colors to Surface Vertices
                 mesh_points = mesh.points
-                if mesh_points.shape[0] > 0:
-                    n_mesh_pts = mesh_points.shape[0]
-                    mesh_colors = np.zeros((n_mesh_pts, 3))
+                n_mesh_pts = mesh_points.shape[0]
+                if n_mesh_pts > 0:
+                    min_dists = np.full(n_mesh_pts, np.inf)
+                    nearest_atom_indices = np.zeros(n_mesh_pts, dtype=int)
 
-                    chunk_size = 50000
-                    for start_idx in range(0, n_mesh_pts, chunk_size):
-                        end_idx = min(start_idx + chunk_size, n_mesh_pts)
-                        chunk_pts = mesh_points[start_idx:end_idx]
+                    # Determine closest atom for each mesh vertex in a vectorized loop over atoms
+                    for i in range(len(positions)):
+                        dx = mesh_points[:, 0] - positions[i, 0]
+                        dy = mesh_points[:, 1] - positions[i, 1]
+                        dz = mesh_points[:, 2] - positions[i, 2]
+                        dist = np.sqrt(dx*dx + dy*dy + dz*dz) - radii[i]
 
-                        d_center = np.linalg.norm(
-                            chunk_pts[:, np.newaxis, :] - positions[np.newaxis, :, :],
-                            axis=2,
-                        )
-                        d_surface = d_center - radii[np.newaxis, :]
-                        nearest_atom_indices = np.argmin(d_surface, axis=1)
-                        mesh_colors[start_idx:end_idx] = atom_colors[
-                            nearest_atom_indices
-                        ]
+                        mask = dist < min_dists
+                        min_dists[mask] = dist[mask]
+                        nearest_atom_indices[mask] = i
 
-                    mesh.point_data["AtomColors"] = mesh_colors
+                    mesh.point_data["AtomColors"] = atom_colors[nearest_atom_indices]
 
                     opacity = _vdw_settings.get("occupancy", 0.3)
 
