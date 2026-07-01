@@ -1428,7 +1428,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "DECIMER Image Importer",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Import chemical structures from PNG/JPG/JPEG images using the DECIMER deep learning model (SMILES prediction from chemical structure drawings).",
@@ -1440,10 +1440,10 @@
       "DECIMER",
       "Pillow"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_DECIMER_plugin/releases/download/v0.1.0/decimer_plugin.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_DECIMER_plugin/releases/download/v1.0.0/decimer_plugin.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_DECIMER_plugin",
     "lastUpdated": "2026-07-01",
-    "sha256": "0cb0814656d666e91c0d53efd789d9013515d3ce49723ef7fcf93bef29bba8af",
+    "sha256": "0bdd3e94f7bc9c9186b983bbe9939e12a763b1c3c6a72e013fdfaa010dbaa5de",
     "firstAppeared": "2026-07-01"
   }
 ]
