@@ -1445,5 +1445,27 @@
     "lastUpdated": "2026-07-01",
     "sha256": "0bdd3e94f7bc9c9186b983bbe9939e12a763b1c3c6a72e013fdfaa010dbaa5de",
     "firstAppeared": "2026-07-01"
+  },
+  {
+    "id": "blender_export_pro",
+    "visible": true,
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
+    "name": "Blender Export Pro",
+    "version": "0.2.0",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Stylized/deformed Blender export: cartoon, low-poly, glass, clay and custom styles with a live 3D preview and one-click bpy script generation.",
+    "tags": [
+      "blender",
+      "export",
+      "rendering",
+      "visualization"
+    ],
+    "dependencies": [],
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_blender-export-pro/releases/download/v0.2.0/blender_export_pro.zip",
+    "projectUrl": "https://github.com/HiroYokoyama/moleditpy_blender-export-pro",
+    "lastUpdated": "2026-07-02",
+    "sha256": "30d0a42ca6f6d742e05a6bffc71450cb3eda440fd582e1ea61dd39aa9968e6f6",
+    "firstAppeared": "2026-07-02"
   }
 ]
