@@ -1456,9 +1456,6 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Stylized/deformed Blender export: cartoon, low-poly, glass, clay and custom styles with a live 3D preview and one-click bpy script generation.",
     "tags": [
-      "blender",
-      "export",
-      "rendering",
       "visualization"
     ],
     "dependencies": [],
@@ -1478,9 +1475,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "PMEFF (Python Molecular Editor Force Field) — a self-contained universal force field covering the entire periodic table (Z=1..118). Adds a geometry optimizer, a single-point energy tool with per-term decomposition, and a vibrational minimum check. No external QM binary required.",
     "tags": [
-      "Optimization",
-      "Force Field",
-      "3D"
+      "Optimization"
     ],
     "dependencies": [
       "numpy",
