@@ -1456,7 +1456,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Stylized/deformed Blender export: cartoon, low-poly, glass, clay and custom styles with a live 3D preview and one-click bpy script generation.",
     "tags": [
-      "visualization"
+      "Visualization"
     ],
     "dependencies": [],
     "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_blender-export-pro/releases/download/v1.0.0/blender_export_pro.zip",
