@@ -1467,5 +1467,29 @@
     "lastUpdated": "2026-07-02",
     "sha256": "9499f793189a1f2e961952e46cd52e948212933f95467e3de8c69c0c8539d3cd",
     "firstAppeared": "2026-07-02"
+  },
+  {
+    "id": "pmeff_plugin",
+    "visible": true,
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
+    "name": "PMEFF Plugin",
+    "version": "0.3.0",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "PMEFF (Python Molecular Editor Force Field) — a self-contained universal force field covering the entire periodic table (Z=1..118). Adds a geometry optimizer, a single-point energy tool with per-term decomposition, and a vibrational minimum check. No external QM binary required.",
+    "tags": [
+      "Optimization",
+      "Force Field",
+      "3D"
+    ],
+    "dependencies": [
+      "numpy",
+      "rdkit"
+    ],
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_pmeff-plugin/releases/download/v0.3.0/pmeff_plugin.zip",
+    "projectUrl": "https://github.com/HiroYokoyama/moleditpy_pmeff-plugin",
+    "lastUpdated": "2026-07-03",
+    "sha256": "afbef3364fbe4c9312547422d48d0a6b330cbb64fd811737ea12e45e7494b690",
+    "firstAppeared": "2026-07-03"
   }
 ]
