@@ -3,7 +3,7 @@ Tests for visible plugins with PubChem API helpers and XYZ parsing logic:
   - PubChem Structure Identifier  (PubChemResolver static methods)
   - Compound Info Report          (PubChemFetcher static methods, extract_cas,
                                    calculate_adducts, initialize)
-  - Paste XYZ                     (XYZ line-parser logic, run smoke)
+  - Paste XYZ                     (parse_xyz_lines, initialize smoke)
 
 All tests run headlessly — PyQt6 / rdkit / etc. are replaced with MagicMock.
 Network-dependent paths are exercised by patching urllib.request.urlopen.
@@ -214,85 +214,81 @@ class TestPubChemFetcher:
 
 
 # ===========================================================================
-# Paste XYZ — XYZ parsing logic
+# Paste XYZ — parse_xyz_lines (imported from plugin) + initialize smoke
 # ===========================================================================
 
-def _parse_xyz_lines(text: str) -> list:
-    """Mirror of the parsing loop inside paste_xyz.run_plugin."""
-    atoms_data = []
-    for line in text.splitlines():
-        parts = line.split()
-        if len(parts) >= 4:
-            try:
-                x = float(parts[1])
-                y = float(parts[2])
-                z = float(parts[3])
-                symbol = parts[0]
-                if not symbol[0].isalpha():
-                    continue
-                atoms_data.append((symbol, x, y, z))
-            except ValueError:
-                continue
-    return atoms_data
+# parse_xyz_lines is a module-level function in the plugin so tests import it directly.
+_parse = PASTE_XYZ_MOD.parse_xyz_lines
 
 
 class TestPasteXYZParser:
     def test_valid_three_atom_block(self):
         xyz = "C  0.0  0.0  0.0\nH  1.0  0.0  0.0\nH -1.0  0.0  0.0"
-        atoms = _parse_xyz_lines(xyz)
+        atoms = _parse(xyz)
         assert len(atoms) == 3
         assert atoms[0] == ("C", 0.0, 0.0, 0.0)
         assert atoms[1] == ("H", 1.0, 0.0, 0.0)
 
     def test_header_lines_skipped(self):
         xyz = "3\nComment line\nC 0.0 0.0 0.0\nH 1.0 0.0 0.0\nH -1.0 0.0 0.0"
-        atoms = _parse_xyz_lines(xyz)
+        atoms = _parse(xyz)
         assert len(atoms) == 3
 
     def test_short_lines_skipped(self):
-        xyz = "C 0.0 0.0\nH 1.0 0.0 0.0"  # first line has only 3 parts
-        atoms = _parse_xyz_lines(xyz)
+        xyz = "C 0.0 0.0\nH 1.0 0.0 0.0"
+        atoms = _parse(xyz)
         assert len(atoms) == 1
         assert atoms[0][0] == "H"
 
     def test_non_float_coords_skipped(self):
         xyz = "C abc 0.0 0.0\nH 1.0 0.0 0.0"
-        atoms = _parse_xyz_lines(xyz)
+        atoms = _parse(xyz)
         assert len(atoms) == 1
         assert atoms[0][0] == "H"
 
     def test_non_alpha_symbol_skipped(self):
         xyz = "1 0.0 0.0 0.0\nH 1.0 0.0 0.0"
-        atoms = _parse_xyz_lines(xyz)
+        atoms = _parse(xyz)
         assert len(atoms) == 1
         assert atoms[0][0] == "H"
 
     def test_empty_input_returns_empty(self):
-        assert _parse_xyz_lines("") == []
+        assert _parse("") == []
 
     def test_blank_lines_skipped(self):
         xyz = "\n\nC 0.0 0.0 0.0\n\n"
-        atoms = _parse_xyz_lines(xyz)
+        atoms = _parse(xyz)
         assert len(atoms) == 1
 
     def test_fractional_coords_parsed(self):
         xyz = "O -0.12345 6.789 -3.141"
-        atoms = _parse_xyz_lines(xyz)
+        atoms = _parse(xyz)
         assert len(atoms) == 1
         assert atoms[0][0] == "O"
         assert abs(atoms[0][1] - (-0.12345)) < 1e-9
 
     def test_mixed_case_symbols_accepted(self):
         xyz = "Ca 0.0 0.0 0.0\nFe 1.0 0.0 0.0"
-        atoms = _parse_xyz_lines(xyz)
+        atoms = _parse(xyz)
         assert len(atoms) == 2
         assert atoms[0][0] == "Ca"
         assert atoms[1][0] == "Fe"
 
 
 class TestPasteXYZSmoke:
-    def test_run_smoke(self):
-        """run(mw) must not raise — dialog.exec() returns a MagicMock != Accepted."""
+    def test_initialize_registers_menu_action(self):
+        """initialize(ctx) must register exactly one menu action under File/."""
         with mock_optional_imports():
-            mw = MagicMock()
-            PASTE_XYZ_MOD.run(mw)  # must not raise
+            ctx = make_context()
+            PASTE_XYZ_MOD.initialize(ctx)
+        ctx.add_menu_action.assert_called_once()
+        path = ctx.add_menu_action.call_args[0][0]
+        assert path.startswith("File/")
+
+    def test_initialize_action_callable(self):
+        """The callback registered by initialize must be callable without raising."""
+        with mock_optional_imports():
+            ctx = make_context()
+            PASTE_XYZ_MOD.initialize(ctx)
+        callback = ctx.add_menu_action.call_args[0][1]
+        assert callable(callback)
