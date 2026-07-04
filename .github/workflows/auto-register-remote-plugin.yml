@@ -50,16 +50,36 @@ jobs:
           pytest tests/test_registry.py -v
 
       - name: Commit and push changes
+        env:
+          ASSET_URL: ${{ steps.resolve.outputs.asset_url }}
+          REPO: ${{ github.event.client_payload.repo }}
+          TAG: ${{ github.event.client_payload.tag }}
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add REGISTRY/plugins.json
-          if ! git diff --cached --quiet; then
-            REPO="${{ github.event.client_payload.repo }}"
-            TAG="${{ github.event.client_payload.tag }}"
-            PLUGIN_NAME=$(basename "$REPO")
+          PLUGIN_NAME=$(basename "$REPO")
+
+          # Several plugin releases can dispatch at once, so multiple runs of
+          # this job race to push REGISTRY/plugins.json to main. Retry on a
+          # rejected (non-fast-forward) push: re-sync to the latest remote and
+          # re-apply our registration on top, so no update is lost.
+          for attempt in 1 2 3 4 5; do
+            git add REGISTRY/plugins.json
+            if git diff --cached --quiet; then
+              echo "No registry changes to commit."
+              exit 0
+            fi
             git commit -m "Update registry: $PLUGIN_NAME $TAG"
-            git push origin main
-          else
-            echo "No registry changes to commit."
-          fi
+            if git push origin main; then
+              echo "Pushed registry update on attempt $attempt."
+              exit 0
+            fi
+            echo "Push rejected on attempt $attempt; re-syncing with origin/main and recomputing..."
+            git fetch origin main
+            git reset --hard origin/main
+            python scripts/register_remote_plugin.py "$ASSET_URL"
+            sleep $(( (RANDOM % 5) + 2 ))
+          done
+
+          echo "ERROR: failed to push registry update for $PLUGIN_NAME $TAG after 5 attempts" >&2
+          exit 1
