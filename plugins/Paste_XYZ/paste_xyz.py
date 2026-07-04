@@ -156,15 +156,15 @@ class PasteXYZDialog(QDialog):
         layout.addWidget(self.text_edit)
 
         btn_layout = QHBoxLayout()
-        load_btn = QPushButton("Load")
-        cancel_btn = QPushButton("Cancel")
+        self.load_btn = QPushButton("Load")
+        self.cancel_btn = QPushButton("Cancel")
         btn_layout.addStretch()
-        btn_layout.addWidget(load_btn)
-        btn_layout.addWidget(cancel_btn)
+        btn_layout.addWidget(self.load_btn)
+        btn_layout.addWidget(self.cancel_btn)
         layout.addLayout(btn_layout)
 
-        load_btn.clicked.connect(self.accept)
-        cancel_btn.clicked.connect(self.reject)
+        self.load_btn.clicked.connect(self.accept)
+        self.cancel_btn.clicked.connect(self.reject)
 
     def get_data(self) -> str:
         return self.text_edit.toPlainText()
