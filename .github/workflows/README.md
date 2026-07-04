@@ -88,10 +88,10 @@ External plugin repos send this event from their own `release.yml` after a succe
 
 ### What It Does
 
-1. Uses `gh api` to look up the GitHub Release for the given `repo` + `tag` and resolves the `.zip` asset download URL automatically.
-2. Calls `scripts/register_remote_plugin.py` with that URL — which downloads the zip, extracts all metadata constants (`PLUGIN_VERSION`, `PLUGIN_SUPPORTED_MOLEDITPY_VERSION`, etc.) via AST, validates version consistency, and updates `REGISTRY/plugins.json`.
+1. Uses `gh api` to look up the GitHub Release for the given `repo` + `tag` and resolves the release asset download URL automatically — the first asset ending in `.zip` (package plugins) or `.py` (single-file plugins).
+2. Calls `scripts/register_remote_plugin.py` with that URL — which downloads the asset, extracts all metadata constants (`PLUGIN_VERSION`, `PLUGIN_SUPPORTED_MOLEDITPY_VERSION`, etc.), validates version consistency, and updates `REGISTRY/plugins.json`.
 3. Runs `validate_json.py` and `tests/test_registry.py` to verify the updated registry.
-4. Commits and pushes the registry change to `main` if any fields changed.
+4. Commits and pushes the registry change to `main` if any fields changed, using a **race-safe retry loop** (see [Concurrency](#concurrency-race-safe-push) below).
 
 ### No Manual Input Needed
 
@@ -103,6 +103,58 @@ External plugin repos send this event from their own `release.yml` after a succe
 ### Permissions Required
 
 This workflow uses `GITHUB_TOKEN` (already scoped to `contents: write`) to resolve release assets and push registry changes. No extra secrets needed on the moleditpy-plugins side.
+
+### Concurrency: race-safe push
+
+Every external plugin release dispatches its own `plugin_release` event, so
+several runs of this workflow can execute at the same time (e.g. when multiple
+plugins are released in quick succession). They all try to commit and push
+`REGISTRY/plugins.json` to `main`, so pushes can collide — the loser of a race
+is rejected with a non-fast-forward error and, without handling, its registry
+update would be **silently dropped**.
+
+The "Commit and push changes" step therefore retries up to 5 times. On each
+rejected push it:
+
+1. `git fetch origin main` + `git reset --hard origin/main` to adopt whatever
+   landed in the meantime, then
+2. re-runs `scripts/register_remote_plugin.py` to re-apply this plugin's entry
+   on top of the fresh state, then
+3. commits and pushes again (with a short random back-off between attempts).
+
+Because the registration is **recomputed** against the latest `main` on every
+attempt (rather than rebased), concurrent updates to different plugins never
+conflict and no update is lost.
+
+> [!NOTE]
+> When cutting many releases at once, still stagger the tag pushes by a few
+> seconds. The retry loop guarantees correctness, but spacing the releases out
+> keeps the number of colliding runs (and retries) small.
+
+### Manually re-dispatching a registration
+
+If a registry update is ever missing (for example an old run failed before the
+retry loop existed), you can re-fire the exact event a plugin's `release.yml`
+sends — no new tag or release is needed, the release for that `repo`+`tag` just
+has to already exist with its `.zip`/`.py` asset attached:
+
+```bash
+gh api repos/HiroYokoyama/moleditpy-plugins/dispatches --input - <<'JSON'
+{"event_type":"plugin_release",
+ "client_payload":{"repo":"HiroYokoyama/moleditpy_<plugin>","tag":"v<X.Y.Z>"}}
+JSON
+```
+
+The equivalent with `curl` (using a token with `Contents: read/write` on
+`moleditpy-plugins`):
+
+```bash
+curl -s -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Accept: application/vnd.github+json" \
+  https://api.github.com/repos/HiroYokoyama/moleditpy-plugins/dispatches \
+  -d '{"event_type":"plugin_release","client_payload":{"repo":"HiroYokoyama/moleditpy_<plugin>","tag":"v<X.Y.Z>"}}'
+```
 
 ---
 
