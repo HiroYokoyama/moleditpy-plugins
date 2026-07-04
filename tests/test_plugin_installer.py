@@ -5,6 +5,7 @@ All tests run headlessly — PyQt6 and network are fully mocked.
 """
 
 import json
+import os
 import sys
 import types
 import importlib
@@ -718,3 +719,196 @@ class TestCalculateSha256:
         inst = object.__new__(PI.PluginInstallerWindow)
         expected = hashlib.sha256(data).hexdigest()
         assert inst.calculate_sha256(str(f)) == expected
+
+
+# ---------------------------------------------------------------------------
+# _overwrite_folder_plugin — wipe-and-replace with settings.json preservation
+# ---------------------------------------------------------------------------
+
+
+class TestOverwriteFolderPlugin:
+    """Updating a folder plugin must remove orphaned files while keeping settings."""
+
+    def _make_source(self, tmp_path, files):
+        src = tmp_path / "source"
+        src.mkdir()
+        for name, content in files.items():
+            (src / name).write_text(content, encoding="utf-8")
+        return src
+
+    def _make_installed(self, tmp_path, files):
+        tgt = tmp_path / "installed_plugin"
+        tgt.mkdir()
+        for name, content in files.items():
+            (tgt / name).write_text(content, encoding="utf-8")
+        return tgt
+
+    def test_removes_orphaned_file_on_update(self, tmp_path):
+        # Installed copy has a stale LICENSE.txt no longer shipped upstream.
+        target = self._make_installed(
+            tmp_path,
+            {"__init__.py": "old", "LICENSE.txt": "stale", "LICENSE": "gpl"},
+        )
+        source = self._make_source(
+            tmp_path, {"__init__.py": "new", "LICENSE": "gpl"}
+        )
+
+        PI.PluginInstallerWindow._overwrite_folder_plugin(str(source), str(target))
+
+        assert not (target / "LICENSE.txt").exists()  # orphan removed
+        assert (target / "LICENSE").exists()
+        assert (target / "__init__.py").read_text(encoding="utf-8") == "new"
+
+    def test_preserves_user_settings_json(self, tmp_path):
+        target = self._make_installed(
+            tmp_path,
+            {"__init__.py": "old", "settings.json": '{"user": "keepme"}'},
+        )
+        source = self._make_source(tmp_path, {"__init__.py": "new"})
+
+        PI.PluginInstallerWindow._overwrite_folder_plugin(str(source), str(target))
+
+        assert (target / "settings.json").read_text(encoding="utf-8") == '{"user": "keepme"}'
+        assert (target / "__init__.py").read_text(encoding="utf-8") == "new"
+
+    def test_no_settings_json_is_fine(self, tmp_path):
+        target = self._make_installed(tmp_path, {"__init__.py": "old"})
+        source = self._make_source(
+            tmp_path, {"__init__.py": "new", "helper.py": "x = 1"}
+        )
+
+        PI.PluginInstallerWindow._overwrite_folder_plugin(str(source), str(target))
+
+        assert not (target / "settings.json").exists()
+        assert (target / "helper.py").read_text(encoding="utf-8") == "x = 1"
+
+    def test_nested_orphan_directory_removed(self, tmp_path):
+        target = self._make_installed(tmp_path, {"__init__.py": "old"})
+        (target / "old_subdir").mkdir()
+        (target / "old_subdir" / "data.txt").write_text("gone", encoding="utf-8")
+        source = self._make_source(tmp_path, {"__init__.py": "new"})
+
+        PI.PluginInstallerWindow._overwrite_folder_plugin(str(source), str(target))
+
+        assert not (target / "old_subdir").exists()
+
+
+# ---------------------------------------------------------------------------
+# _is_within_directory — zip-slip / path-traversal guard
+# ---------------------------------------------------------------------------
+
+
+class TestIsWithinDirectory:
+    def test_file_directly_inside(self, tmp_path):
+        base = tmp_path / "extracted"
+        assert PI._is_within_directory(str(base), str(base / "a.py")) is True
+
+    def test_nested_inside(self, tmp_path):
+        base = tmp_path / "extracted"
+        assert PI._is_within_directory(str(base), str(base / "sub" / "a.py")) is True
+
+    def test_sibling_prefix_rejected(self, tmp_path):
+        # The bug a plain startswith() has: /x/extracted_evil is NOT inside /x/extracted
+        base = tmp_path / "extracted"
+        sibling = tmp_path / "extracted_evil" / "a.py"
+        assert PI._is_within_directory(str(base), str(sibling)) is False
+
+    def test_parent_traversal_rejected(self, tmp_path):
+        base = tmp_path / "extracted"
+        escaped = os.path.join(str(base), "..", "..", "evil.py")
+        assert PI._is_within_directory(str(base), escaped) is False
+
+
+# ---------------------------------------------------------------------------
+# _is_allowed_download_url — scheme allowlist
+# ---------------------------------------------------------------------------
+
+
+class TestIsAllowedDownloadUrl:
+    def test_https_allowed(self):
+        assert PI._is_allowed_download_url("https://github.com/x/y/z.zip") is True
+
+    def test_http_allowed(self):
+        assert PI._is_allowed_download_url("http://example.com/z.py") is True
+
+    def test_file_scheme_rejected(self):
+        assert PI._is_allowed_download_url("file:///etc/passwd") is False
+
+    def test_ftp_scheme_rejected(self):
+        assert PI._is_allowed_download_url("ftp://example.com/z.zip") is False
+
+    def test_data_scheme_rejected(self):
+        assert PI._is_allowed_download_url("data:text/plain;base64,QQ==") is False
+
+    def test_empty_rejected(self):
+        assert PI._is_allowed_download_url("") is False
+
+
+# ---------------------------------------------------------------------------
+# on_update_clicked — dependency warning suppressed when already installed
+# ---------------------------------------------------------------------------
+
+
+class TestUpdateSkipsDependencyWarning:
+    """Updating an installed plugin must not nag about missing libraries."""
+
+    def _make_installer(self):
+        inst = object.__new__(PI.PluginInstallerWindow)
+        inst.main_window = MagicMock()
+        inst.main_window.plugin_manager.plugins = []
+        inst.remote_data = []  # -> remote_info None, skips app-compat block
+        inst._batch_updating = False
+        inst._last_install_succeeded = False
+        return inst
+
+    def _btn(self, target_file, deps):
+        props = {
+            "plugin_name": "Demo",
+            "download_url": "https://example.com/demo.zip",
+            "target_file": target_file,
+            "dependencies": deps,
+        }
+        btn = MagicMock()
+        btn.property.side_effect = lambda k: props.get(k)
+        return btn
+
+    @staticmethod
+    def _question_titles(mock_question):
+        titles = []
+        for call in mock_question.call_args_list:
+            if len(call.args) > 1:
+                titles.append(call.args[1])
+        return titles
+
+    def test_no_dependency_warning_when_already_installed(self, tmp_path, monkeypatch):
+        installed = tmp_path / "demo.py"
+        installed.write_text("x = 1", encoding="utf-8")
+        inst = self._make_installer()
+        btn = self._btn(str(installed), ["definitely_missing_pkg_xyz"])
+        monkeypatch.setattr(inst, "sender", lambda: btn, raising=False)
+
+        with patch.object(PI.QMessageBox, "question") as q, patch.object(
+            PI.QMessageBox, "warning"
+        ):
+            inst.on_update_clicked()  # returns at the confirm dialog
+
+        assert not any(
+            "Missing Dependencies" in t for t in self._question_titles(q)
+        )
+
+    def test_dependency_warning_shown_on_fresh_install(self, tmp_path, monkeypatch):
+        inst = self._make_installer()
+        # target_file does not exist -> is_installed False -> warning applies
+        btn = self._btn(str(tmp_path / "missing.py"), ["definitely_missing_pkg_xyz"])
+        monkeypatch.setattr(inst, "sender", lambda: btn, raising=False)
+
+        with patch.object(
+            PI.QMessageBox,
+            "question",
+            return_value=PI.QMessageBox.StandardButton.No,
+        ) as q, patch.object(PI, "PluginDetailsDialog"):
+            inst.on_update_clicked()
+
+        assert any(
+            "Missing Dependencies" in t for t in self._question_titles(q)
+        )

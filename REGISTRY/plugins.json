@@ -503,7 +503,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Plugin Installer",
-    "version": "2026.06.28",
+    "version": "2026.07.04",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Checks for updates, installs new plugins, and allows manual reinstallation.",
@@ -514,8 +514,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Plugin_Installer/plugin_installer.py",
-    "lastUpdated": "2026-06-28",
-    "sha256": "c46ca6d60b35198e7a04bbb32feafaf01bc65c557213b26369841899f5d719ba",
+    "lastUpdated": "2026-07-04",
+    "sha256": "d321177977e480dd232e5af9cc84d7b03c1316d3ebeff518c9ca170f364e6b70",
     "firstAppeared": "2026-01-04"
   },
   {

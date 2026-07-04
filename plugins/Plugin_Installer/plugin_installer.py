@@ -44,7 +44,7 @@ import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.06.28"
+PLUGIN_VERSION = "2026.07.04"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -77,6 +77,37 @@ def _read_plugin_version_ast(filepath: str) -> str:
             "Plugin Installer: AST version read failed for %s: %s", filepath, e
         )
     return "Unknown"
+
+
+def _is_allowed_download_url(url: str) -> bool:
+    """Return True only for plain http/https URLs.
+
+    Blocks schemes like ``file://``, ``ftp://`` or ``data:`` that the installer
+    should never fetch — a malformed or malicious registry entry could otherwise
+    make ``urlopen`` read a local file or an unexpected resource.
+    """
+    try:
+        scheme = urllib.parse.urlparse(url).scheme.lower()
+    except Exception:
+        return False
+    return scheme in ("http", "https")
+
+
+def _is_within_directory(base_dir: str, target_path: str) -> bool:
+    """Return True if *target_path* resolves to a location inside *base_dir*.
+
+    Used to reject zip entries that would extract outside the intended directory
+    (zip-slip / path traversal). Uses ``commonpath`` so a sibling such as
+    ``/x/extracted_evil`` is not mistaken for being inside ``/x/extracted`` (the
+    bug a plain ``startswith`` prefix check has).
+    """
+    try:
+        base_abs = os.path.abspath(base_dir)
+        target_abs = os.path.abspath(target_path)
+        return os.path.commonpath([base_abs, target_abs]) == base_abs
+    except ValueError:
+        # Raised e.g. for paths on different drives on Windows.
+        return False
 
 
 def _refresh_plugin_menus(mw):
@@ -792,6 +823,41 @@ class PluginInstallerWindow(QDialog):
         )
         return False
 
+    @staticmethod
+    def _overwrite_folder_plugin(source_dir: str, target_dir: str) -> None:
+        """Replace an installed folder plugin with the freshly downloaded copy.
+
+        The target directory is wiped before the new files are copied in, so
+        files removed upstream (e.g. a renamed ``LICENSE.txt``) do not linger as
+        orphans — a plain merge overwrite (``copytree(dirs_exist_ok=True)``)
+        would leave them behind. The user's ``settings.json`` is backed up and
+        restored across the wipe so runtime settings survive the update.
+        """
+        settings_backup = None
+        settings_path = os.path.join(target_dir, "settings.json")
+        if os.path.exists(settings_path):
+            try:
+                with open(settings_path, "rb") as f:
+                    settings_backup = f.read()
+            except Exception as e:
+                logging.warning(
+                    "Plugin Installer: failed to back up settings.json: %s", e
+                )
+
+        if os.path.isdir(target_dir):
+            shutil.rmtree(target_dir)
+        shutil.copytree(source_dir, target_dir)
+
+        if settings_backup is not None:
+            try:
+                with open(os.path.join(target_dir, "settings.json"), "wb") as f:
+                    f.write(settings_backup)
+                logging.info("Plugin Installer: restored settings.json")
+            except Exception as e:
+                logging.warning(
+                    "Plugin Installer: failed to restore settings.json: %s", e
+                )
+
     # ------------------------------------------------------------------
     # Table population
     # ------------------------------------------------------------------
@@ -1301,8 +1367,11 @@ class PluginInstallerWindow(QDialog):
                     return
                 user_confirmed_intent = True
 
-        # Dependency check
-        if dependencies:
+        # Dependency check — only for a fresh install. When updating a plugin
+        # that is already installed, skip the missing-dependency warning: the
+        # user already chose to run this plugin, and an update should not nag
+        # about libraries that were just as missing before the update.
+        if dependencies and not is_installed:
             missing_deps = [
                 d for d in dependencies if not check_dependency_satisfied(d)
             ]
@@ -1377,6 +1446,15 @@ class PluginInstallerWindow(QDialog):
         if not download_url.startswith("http"):
             base_url = REMOTE_JSON_URL.rsplit("/", 1)[0]
             final_url = urllib.parse.urljoin(base_url + "/", download_url)
+
+        if not _is_allowed_download_url(final_url):
+            QMessageBox.warning(
+                self,
+                "Error",
+                f"Refusing to download '{plugin_name}': the download URL uses an "
+                f"unsupported or unsafe scheme (only http/https are allowed).",
+            )
+            return
 
         logging.info(
             "Plugin Installer: %sing %s from: %s", action_verb, plugin_name, final_url
@@ -1531,8 +1609,8 @@ class PluginInstallerWindow(QDialog):
                                     target_path = os.path.join(
                                         extract_temp, member.filename
                                     )
-                                    if not os.path.abspath(target_path).startswith(
-                                        os.path.abspath(extract_temp)
+                                    if not _is_within_directory(
+                                        extract_temp, target_path
                                     ):
                                         logging.warning(
                                             "Plugin Installer: skipping suspicious "
@@ -1550,39 +1628,8 @@ class PluginInstallerWindow(QDialog):
                             else:
                                 source = extract_temp
 
-                            settings_backup = None
-                            settings_path = os.path.join(target_dir, "settings.json")
-                            if os.path.exists(settings_path):
-                                try:
-                                    with open(
-                                        settings_path, "r", encoding="utf-8"
-                                    ) as f:
-                                        settings_backup = f.read()
-                                except Exception as e:
-                                    logging.warning(
-                                        "Plugin Installer: failed to backup "
-                                        "settings.json: %s",
-                                        e,
-                                    )
-
-                            shutil.copytree(source, target_dir, dirs_exist_ok=True)
+                            self._overwrite_folder_plugin(source, target_dir)
                             QApplication.processEvents()
-
-                            if settings_backup:
-                                try:
-                                    with open(
-                                        settings_path, "w", encoding="utf-8"
-                                    ) as f:
-                                        f.write(settings_backup)
-                                    logging.info(
-                                        "Plugin Installer: restored settings.json"
-                                    )
-                                except Exception as e:
-                                    logging.warning(
-                                        "Plugin Installer: failed to restore "
-                                        "settings.json: %s",
-                                        e,
-                                    )
 
                             did_manual_overwrite = True
                         except Exception as e:
