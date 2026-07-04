@@ -30,7 +30,7 @@ except ImportError:
         OBABEL_AVAILABLE = False
 
 PLUGIN_NAME = "OpenBabel Conversion Tool"
-PLUGIN_VERSION = "2026.06.26"
+PLUGIN_VERSION = "2026.07.04"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -230,7 +230,7 @@ def open_file_with_openbabel(file_path, context):
 
             # Also update 2D view if possible or fit to view
             # Using QTimer to allow UI to settle
-            QTimer.singleShot(100, context.fit_3d_view)
+            QTimer.singleShot(100, context.fit_2d_view)
 
             # Switch to 3D only mode
             # We access the internal method on MainWindow which proxies to the UI Manager

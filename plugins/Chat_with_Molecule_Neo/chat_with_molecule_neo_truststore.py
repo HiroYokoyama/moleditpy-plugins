@@ -3,8 +3,8 @@
 
 
 PLUGIN_NAME = "Chat with Molecule Neo (Gemini) (truststore)"
-PLUGIN_VERSION = "2026.06.19"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=3.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.07.04"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with Google Gemini about the current molecule. Automatically injects SMILES context. (Neo Version)"
 PLUGIN_ID = "chat_with_molecule_neo_truststore"
@@ -45,7 +45,6 @@ from rdkit.Chem import AllChem
 try:
     import truststore
     import ssl
-
     # Inject truststore into the system SSL defaults
     # This forces Python (urllib, requests, pip, openai) to use the Windows System Certificate Store
     # Solution for: "SSL: CERTIFICATE_VERIFY_FAILED" in corporate networks
@@ -437,7 +436,7 @@ def save_settings(settings):
         with open(SETTINGS_FILE, "w") as f:
             json.dump(settings, f)
     except Exception as e:
-        print(f"Error saving settings: {e}")
+        logging.warning("Error saving settings: %s", e)
 
 
 def append_log(sender, text):
@@ -449,7 +448,7 @@ def append_log(sender, text):
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(f"[{timestamp}] {sender}: {text}\n")
     except Exception as e:
-        print(f"Logging failed: {e}")
+        logging.warning("Logging failed: %s", e)
 
 
 # --- LaTeX Cache ---
@@ -509,7 +508,7 @@ def latex_to_html(latex_str):
         return html_tag
 
     except Exception as e:
-        print(f"LaTeX render error: {e}")
+        logging.warning("LaTeX render error: %s", e)
         return f"<code>{latex_str}</code>"
 
 
@@ -667,10 +666,7 @@ class ChatMoleculeWindow(QDialog):
             self.init_ui()
 
         except Exception as e:
-            print(f"ChatMoleculeWindow Init Error: {e}")
-            import traceback
-
-            traceback.print_exc()
+            logging.error("ChatMoleculeWindow Init Error: %s", e, exc_info=True)
             QMessageBox.critical(
                 self.main_window,
                 "Plugin Init Error",
@@ -1042,7 +1038,7 @@ class ChatMoleculeWindow(QDialog):
                     logging.warning("[chat_with_molecule_neo.py:950] silenced: %s", _e)
 
         except Exception as e:
-            print(f"CloseEvent Error: {e}")
+            logging.warning("CloseEvent Error: %s", e)
 
         event.accept()
 
@@ -1238,7 +1234,7 @@ class ChatMoleculeWindow(QDialog):
                     )
                 else:
                     return match.group(0)  # Not a tool, keep raw
-            except:
+            except Exception:
                 return match.group(0)  # Parse error, keep raw
 
         # Replace ```json ... ``` blocks if they contain tools
@@ -1256,7 +1252,7 @@ class ChatMoleculeWindow(QDialog):
                     processed_text, extensions=["fenced_code", "tables"]
                 )
             except Exception as e:
-                print(f"Markdown error: {e}")
+                logging.warning("Markdown error: %s", e)
                 processed_text = processed_text.replace(chr(10), "<br>")
         else:
             processed_text = processed_text.replace(chr(10), "<br>")
@@ -1643,7 +1639,7 @@ class ChatMoleculeWindow(QDialog):
                         pass  # Don't rely on external to_rdkit_mol
 
                     except Exception as e:
-                        print(f"Local Mol Build Failed: {e}")
+                        logging.warning("Local Mol Build Failed: %s", e)
                         # Fallback to existing method if local build fails
                         mol = self.main_window.state_manager.data.to_rdkit_mol()
 
@@ -1663,8 +1659,7 @@ class ChatMoleculeWindow(QDialog):
         # 2. Fallback: Try cached 3D mol
         if mol is None:
             try:
-                if hasattr(self.main_window, "current_mol"):
-                    mol = self.main_window.current_mol
+                mol = self.context.current_molecule
             except Exception as _e:
                 logging.warning("[chat_with_molecule_neo.py:1496] silenced: %s", _e)
 
@@ -1714,7 +1709,7 @@ class ChatMoleculeWindow(QDialog):
                             "Warning: Molecule loaded with relaxed validation (check structure).",
                             "orange",
                         )
-                except:
+                except Exception:
                     mol = None
 
             if mol is None:
@@ -1738,8 +1733,8 @@ class ChatMoleculeWindow(QDialog):
             # Clear editor WITHOUT pushing another undo state
             self.context.clear_canvas(push_to_undo=False)
 
-            mw.current_mol = None
-            mw.plotter.clear()
+            self.context.current_molecule = None
+            self.context.plotter.clear()
             self.context.set_analysis_enabled(False)
 
             # --- RECONSTRUCT SCENE ---
@@ -1800,11 +1795,9 @@ class ChatMoleculeWindow(QDialog):
                                 ):
                                     adata["item"].atom_id = target_id
                             except Exception as e:
-                                print(f"ID Remap Failed: {e}")
+                                logging.warning("ID Remap Failed: %s", e)
                         else:
-                            print(
-                                f"ID Collision: {target_id} already exists. Keeping {atom_id}"
-                            )
+                            logging.debug("ID Collision: %s already exists. Keeping %s", target_id, atom_id)
 
                 rdkit_idx_to_my_id[i] = atom_id
 
@@ -1857,7 +1850,7 @@ class ChatMoleculeWindow(QDialog):
                 logging.warning("[chat_with_molecule_neo.py:1657] silenced: %s", _e)
 
             self.context.refresh_ui()
-            QTimer.singleShot(0, self.context.fit_3d_view)
+            QTimer.singleShot(0, self.context.fit_2d_view)
 
             # Force Scene Update
             if hasattr(mw.init_manager, "scene"):
@@ -1939,12 +1932,7 @@ class ChatMoleculeWindow(QDialog):
             # Update: User said "Only just before sending". So freezing/blocking is acceptable here.
             # Strategy: Generate 3D locally for ACCURATE descriptors.
 
-            mol = None
-            if (
-                hasattr(self.main_window, "current_mol")
-                and self.main_window.current_mol
-            ):
-                mol = self.main_window.current_mol
+            mol = self.context.current_molecule
 
             # If no current 3D mol (because we disabled auto-trigger), generate temp one.
             if not mol or mol.GetNumConformers() == 0:
@@ -1968,7 +1956,7 @@ class ChatMoleculeWindow(QDialog):
             num_rings = rdMolDescriptors.CalcNumRings(mol)
 
             return f"Properties: Formula={formula}, MW={mw:.2f}, LogP={logp:.2f}, TPSA={tpsa:.2f}, NumRings={num_rings}. "
-        except:
+        except Exception:
             return ""
 
     def propose_tool_action(self, payload):
@@ -2396,7 +2384,7 @@ class ChatMoleculeWindow(QDialog):
                         )
 
                 except Exception as e:
-                    print(f"Index filtering failed: {e}")
+                    logging.warning("Index filtering failed: %s", e)
 
             # Take selected product
             if selected_product_idx < len(products):
@@ -2488,7 +2476,7 @@ class ChatMoleculeWindow(QDialog):
                     AllChem.GenerateDepictionMatching2DStructure(clean_mol, ref_mol)
                 else:
                     raise Exception("Ref mol failed")
-            except:
+            except Exception:
                 # Fallback if matching fails (e.g. significant structural change)
                 AllChem.Compute2DCoords(clean_mol)
 
@@ -2958,8 +2946,8 @@ class ChatMoleculeWindow(QDialog):
                 mw.edit_3d_manager.clear_2d_measurement_labels()
 
             # --- Manual Clear 3D Logic ---
-            mw.plotter.clear()
-            mw.current_mol = None
+            self.context.plotter.clear()
+            self.context.current_molecule = None
             self.context.set_3d_features_enabled(False)
 
             # Update UI
@@ -2986,9 +2974,9 @@ class ChatMoleculeWindow(QDialog):
         mol_to_export = None
 
         # 1. Try existing Main Window 3D Mol
-        if hasattr(self.main_window, "current_mol") and self.main_window.current_mol:
-            if self.main_window.current_mol.GetNumConformers() > 0:
-                mol_to_export = self.main_window.current_mol
+        _cur_mol = self.context.current_molecule
+        if _cur_mol and _cur_mol.GetNumConformers() > 0:
+            mol_to_export = _cur_mol
 
         # 2. If missing/flat, Trigger Conversion
         if not mol_to_export:
@@ -2997,12 +2985,9 @@ class ChatMoleculeWindow(QDialog):
             )
             self._ensure_main_window_3d_conversion()
 
-            if (
-                hasattr(self.main_window, "current_mol")
-                and self.main_window.current_mol
-            ):
-                if self.main_window.current_mol.GetNumConformers() > 0:
-                    mol_to_export = self.main_window.current_mol
+            _cur_mol = self.context.current_molecule
+            if _cur_mol and _cur_mol.GetNumConformers() > 0:
+                mol_to_export = _cur_mol
 
         # 3. Fallback to Local Generation (Blocking)
         if not mol_to_export:
@@ -3632,7 +3617,7 @@ class ChatMoleculeWindow(QDialog):
                 time.sleep(0.05)  # Yield CPU
 
             # Force 3D Update as requested
-            self.context.draw_molecule_3d(self.main_window.current_mol)
+            self.context.draw_molecule_3d(self.context.current_molecule)
 
         except Exception as e:
             self.append_message("Error", f"3D Conversion Wait Failed: {e}", "red")
@@ -3770,7 +3755,7 @@ class ChatMoleculeWindow(QDialog):
                         # Single tool
                         all_tools.append(payload)
                 except json.JSONDecodeError:
-                    print(f"Failed to parse Tool JSON: {json_str[:50]}...")
+                    logging.warning("Failed to parse Tool JSON: %s...", json_str[:50])
 
             # Propose all collected tools at once
             if all_tools:
@@ -3818,7 +3803,7 @@ class ChatMoleculeWindow(QDialog):
                     self._prune_history()
 
         except Exception as e:
-            print(f"Failed to log usage / manage history: {e}")
+            logging.warning("Failed to log usage / manage history: %s", e)
 
     def _prune_history(self):
         """Rolling history: Keep last N turns + System prompt context (handled by restart)"""
@@ -3872,7 +3857,7 @@ class ChatMoleculeWindow(QDialog):
             try:
                 Chem.Kekulize(mol, clearAromaticFlags=True)
             except Exception as e:
-                print(f"Kekulize Warning: {e}")
+                logging.warning("Kekulize Warning: %s", e)
 
             # 1. 座標生成 (2D)
             AllChem.Compute2DCoords(mol)
@@ -4164,9 +4149,7 @@ class ChatMoleculeWindow(QDialog):
 
         except Exception as e:
             self.append_message("System", f"Update Error: {e}", "red")
-            import traceback
-
-            traceback.print_exc()
+            logging.exception("Update Error: %s", e)
 
 
 def run_plugin(context):

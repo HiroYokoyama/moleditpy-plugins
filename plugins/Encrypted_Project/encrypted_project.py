@@ -22,7 +22,7 @@ except ImportError:
     CRYPTOGRAPHY_AVAILABLE = False
 
 PLUGIN_NAME = "Encrypted Project"
-PLUGIN_VERSION = "2026.06.27"
+PLUGIN_VERSION = "2026.07.04"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -379,7 +379,7 @@ class PmeencPlugin:
                 self.context.show_status_message(
                     f"Encrypted project loaded from {file_path}"
                 )
-                QTimer.singleShot(0, self.context.fit_3d_view)
+                QTimer.singleShot(0, self.context.fit_2d_view)
 
                 # Success: break the retry loop
                 break

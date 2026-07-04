@@ -3,7 +3,7 @@
 
 
 PLUGIN_NAME = "Chat with Molecule Neo (ChatGPT)"
-PLUGIN_VERSION = "2026.06.27"
+PLUGIN_VERSION = "2026.07.04"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with OpenAI ChatGPT about the current molecule. Automatically injects SMILES context. (Neo Version)"
@@ -1809,7 +1809,7 @@ class ChatMoleculeWindow(QDialog):
                 )
 
             self.context.refresh_ui()
-            QTimer.singleShot(0, self.context.fit_3d_view)
+            QTimer.singleShot(0, self.context.fit_2d_view)
 
             # Force Scene Update
             if hasattr(mw.init_manager, "scene"):

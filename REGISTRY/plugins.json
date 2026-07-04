@@ -546,7 +546,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Chat with Molecule Neo (Gemini)",
-    "version": "2026.06.27",
+    "version": "2026.07.04",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with Google Gemini about the current molecule. Automatically injects SMILES context. (Neo Version)",
@@ -561,8 +561,8 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo/chat_with_molecule_neo.py",
-    "lastUpdated": "2026-06-27",
-    "sha256": "de72c4fc721ba29cba17d839836f3fc9ac31a2981b5c454661f1306708eb3134",
+    "lastUpdated": "2026-07-04",
+    "sha256": "a98844cfc23fc80950175fbb9e483a58ea6828ee7edbcd22abb2a6e071ff601f",
     "firstAppeared": "2025-12-28"
   },
   {
@@ -591,7 +591,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Chat with Molecule Neo (ChatGPT)",
-    "version": "2026.06.27",
+    "version": "2026.07.04",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with OpenAI ChatGPT about the current molecule. Automatically injects SMILES context. (Neo Version)",
@@ -606,8 +606,8 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_ChatGPT/chat_with_molecule_neo_chatGPT.py",
-    "lastUpdated": "2026-06-27",
-    "sha256": "15f530b97e2c0de683224cdb7b4ce3d39d6dab529036e4fe8a3df8dc1ba7fb98",
+    "lastUpdated": "2026-07-04",
+    "sha256": "344baf567949f03556b634ba047897f05c2118ca8d31211b3e258c362ebd116e",
     "firstAppeared": "2025-12-30"
   },
   {
@@ -615,7 +615,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Chat with Molecule Neo (Local)",
-    "version": "2026.06.27",
+    "version": "2026.07.04",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with local LLM about the current molecule. Automatically injects SMILES context. (Neo Version)",
@@ -630,8 +630,8 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_Local/chat_with_molecule_neo_local.py",
-    "lastUpdated": "2026-06-27",
-    "sha256": "4eb9eb95b5d9332979126db3ad17080c7bbe4acf9ce8f758518239ab32c87efd",
+    "lastUpdated": "2026-07-04",
+    "sha256": "d15f368b3a6570aadf46bd4646ab49f0c585986c84b911dbedc9b260d8bf6e6e",
     "firstAppeared": "2025-12-30"
   },
   {
@@ -882,7 +882,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "OpenBabel Conversion Tool",
-    "version": "2026.06.26",
+    "version": "2026.07.04",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Import various chemical file formats using OpenBabel with multi-molecule support.",
@@ -894,8 +894,8 @@
       "openbabel-wheel"
     ],
     "downloadUrl": "../plugins/OpenBabel_Conversion_Tool/openbabel_conversion_tool.py",
-    "lastUpdated": "2026-06-26",
-    "sha256": "2ed3224f850589244bdde113aac60e9c1383dc0a30293b1d09b5cb7fa5c8f377",
+    "lastUpdated": "2026-07-04",
+    "sha256": "98bcddbaa36d82acac7cdbb4ff23d9d2c5fe6e5fa6bca1c390ce7ea40a9fbce1",
     "firstAppeared": "2026-01-10"
   },
   {
@@ -1224,7 +1224,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Encrypted Project",
-    "version": "2026.06.27",
+    "version": "2026.07.04",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Securely saves molecular data using AES-128 encryption with password protection (.pmeenc file).",
@@ -1236,8 +1236,8 @@
       "cryptography"
     ],
     "downloadUrl": "../plugins/Encrypted_Project/encrypted_project.py",
-    "lastUpdated": "2026-06-27",
-    "sha256": "d9abaaab078c43a7970d060735c6f294c7f50f18f1119f796887643cfd2c8899",
+    "lastUpdated": "2026-07-04",
+    "sha256": "637ff54365f13475cf92b5078c757244e60e2b569a505a61cf2d36298a85d9a7",
     "firstAppeared": "2026-02-12"
   },
   {
