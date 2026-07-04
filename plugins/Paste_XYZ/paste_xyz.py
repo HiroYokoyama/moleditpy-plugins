@@ -250,7 +250,7 @@ def run_plugin(context) -> None:
         context.check_chemistry_problems()
         context.refresh_ui()
         context.enter_3d_mode()
-        context.fit_3d_view()
+        context.reset_3d_camera()
         context.show_status_message(f"Pasted {len(atoms_data)} atoms from clipboard.")
 
     except Exception as exc:
