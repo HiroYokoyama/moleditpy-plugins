@@ -103,7 +103,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Cube File Viewer",
-    "version": "2026.06.26",
+    "version": "2026.07.06",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes Gaussian Cube files (.cube) containing volumetric data (e.g., orbitals, densities).",
@@ -116,8 +116,8 @@
       "numpy"
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer/cube_viewer.py",
-    "lastUpdated": "2026-06-26",
-    "sha256": "0f2f3d35e579f63422eb930e83308e466d7c5f852b6f3d46b5c320fa072cc8a2",
+    "lastUpdated": "2026-07-06",
+    "sha256": "a41e291a4a2c7a77bcc2db2cecc6c154b8f030bd691f99e3d1cb90854a6e9066",
     "firstAppeared": "2025-12-15"
   },
   {
@@ -1086,7 +1086,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Cube File Viewer Advanced",
-    "version": "2026.06.27",
+    "version": "2026.07.06",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Advanced 3D visualization for Gaussian Cube files with PBR, SSAO, and other effects.",
@@ -1101,8 +1101,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer_Advanced/cube_viewer_advanced.py",
-    "lastUpdated": "2026-06-27",
-    "sha256": "497242555697b80abe884ade2e89cba3147329207a98444731b10681de9162fa",
+    "lastUpdated": "2026-07-06",
+    "sha256": "ac2ca66f94317b04b9e10e4e2e787191281efcd723c943cffd8c8cc3a3252998",
     "firstAppeared": "2026-02-02"
   },
   {

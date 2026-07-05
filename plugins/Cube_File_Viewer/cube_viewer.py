@@ -38,7 +38,7 @@ except ImportError:
     Geometry = None
     rdDetermineBonds = None
 
-PLUGIN_VERSION = "2026.06.26"
+PLUGIN_VERSION = "2026.07.06"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Visualize Gaussian cube files (electron density, MOs)."
@@ -254,6 +254,15 @@ class CubeViewerWidget(QWidget):
         self.iso_actor_n = None
 
         self.plotter = self.mw.plotter
+
+        # The molecule this cube's grid was generated for. Used to detect
+        # when the main window's structure is later replaced by an unrelated
+        # one (e.g. opening/dropping a different .xyz), so the now-mismatched
+        # orbital surface doesn't linger over the wrong geometry.
+        self._bound_mol = None
+        self._structure_watch_timer = QTimer(self)
+        self._structure_watch_timer.timeout.connect(self._check_structure_still_bound)
+        self._structure_watch_timer.start(1500)
 
         # Initial Colors
         self.color_p = "#0000FF"  # Blue
@@ -685,11 +694,66 @@ class CubeViewerWidget(QWidget):
             self.slider.blockSignals(False)
         self.update_iso()
 
+    def bind_structure(self, mol):
+        """Record the molecule this cube belongs to, to detect later mismatch."""
+        self._bound_mol = mol
+
+    def _check_structure_still_bound(self):
+        """Auto-detach if the main window now shows a different molecule.
+
+        File>Open / drag-drop of an unrelated .xyz (or .mol/.sdf) replaces
+        ``mw.current_mol`` without going through this plugin at all, so we
+        can't intercept it directly. Polling is the only way to notice —
+        without it the stale orbital surface stays rendered over a structure
+        it was never computed for.
+        """
+        if self._bound_mol is None:
+            return
+        current = getattr(self.mw, "current_mol", None)
+        if current is not self._bound_mol:
+            self._structure_watch_timer.stop()
+            self._detach_stale_view()
+
+    def _detach_stale_view(self):
+        """Remove this cube's surfaces/dock without touching the (unrelated)
+        structure that has since replaced it in the main 3D view."""
+        self.save_settings()
+        try:
+            if self.iso_actor_p:
+                self.plotter.remove_actor(self.iso_actor_p)
+            if self.iso_actor_n:
+                self.plotter.remove_actor(self.iso_actor_n)
+            self.plotter.remove_actor("cube_iso_p")
+            self.plotter.remove_actor("cube_iso_n")
+            self.plotter.render()
+        except Exception as e:
+            logging.warning("[cube_viewer.py] silenced: %s", e)
+
+        try:
+            sb = self.mw.statusBar() if hasattr(self.mw, "statusBar") else None
+            if sb:
+                sb.showMessage(
+                    "Cube Viewer closed: the loaded structure changed.", 6000
+                )
+        except Exception as e:
+            logging.warning("[cube_viewer.py] silenced: %s", e)
+
+        if self.dock:
+            self.mw.removeDockWidget(self.dock)
+            self.dock.deleteLater()
+            self.dock = None
+
+        self.deleteLater()
+
     def closeEvent(self, event):
+        if getattr(self, "_structure_watch_timer", None) is not None:
+            self._structure_watch_timer.stop()
         self.save_settings()
         super().closeEvent(event)
 
     def close_plugin(self):
+        if getattr(self, "_structure_watch_timer", None) is not None:
+            self._structure_watch_timer.stop()
         self.save_settings()
         try:
             # Full cleanup
@@ -893,6 +957,7 @@ def open_cube_viewer(context, fname):
             data_max = 1.0
 
         viewer = CubeViewerWidget(main_window, dock, grid, data_max=data_max)
+        viewer.bind_structure(mol)
         dock.setWidget(viewer)
 
         main_window.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
