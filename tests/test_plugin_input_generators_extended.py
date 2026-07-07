@@ -477,6 +477,283 @@ class TestGamessPresets:
 
 
 # ---------------------------------------------------------------------------
+# PySCF Input Generator — generate_content
+# ---------------------------------------------------------------------------
+
+_pyscf_generate = _extract_method_as_fn(
+    PYSCF_PATH, "PyscfSetupDialog", "generate_content"
+)
+
+
+def _pyscf_self(
+    category="Hartree-Fock",
+    functional="b3lyp",
+    post_hf="MP2",
+    post_hf_ref="RHF",
+    basis="def2-svp",
+    charge=0,
+    mult=1,
+    symmetry=True,
+    mol=None,
+):
+    self = MagicMock()
+    self.category_combo = FakeCombo(category)
+    self.functional_combo = FakeCombo(functional)
+    self.post_hf_combo = FakeCombo(post_hf)
+    self.post_hf_ref_combo = FakeCombo(post_hf_ref)
+    self.basis_combo = FakeCombo(basis)
+    self.charge_spin = FakeSpin(charge)
+    self.mult_spin = FakeSpin(mult)
+    self.symmetry_check = FakeCheck(symmetry)
+    self.mol = mol
+    return self
+
+
+class TestPyscfGenerateContent:
+    def test_extraction_succeeded(self):
+        assert _pyscf_generate is not None
+
+    def test_imports_line_first(self):
+        content = _pyscf_generate(_pyscf_self())
+        assert content.split("\n")[0] == "from pyscf import gto, scf, dft, mp, cc"
+
+    def test_molecule_block_params(self):
+        content = _pyscf_generate(_pyscf_self(charge=-1, mult=3, basis="cc-pvtz"))
+        assert "basis='cc-pvtz'," in content
+        assert "charge=-1," in content
+        assert "spin=2," in content  # 2S = mult - 1
+        assert "symmetry=True" in content
+        assert "mol.build()" in content
+
+    def test_symmetry_false(self):
+        content = _pyscf_generate(_pyscf_self(symmetry=False))
+        assert "symmetry=False" in content
+
+    def test_atom_coordinates_embedded(self):
+        content = _pyscf_generate(_pyscf_self(mol=water_mol()))
+        assert "O 0.00000000 0.00000000 0.11700000" in content
+        assert "H 0.00000000 0.75700000 -0.46900000" in content
+
+    def test_hf_singlet_uses_rhf(self):
+        content = _pyscf_generate(_pyscf_self(category="Hartree-Fock", mult=1))
+        assert "mf = scf.RHF(mol)" in content
+
+    def test_hf_open_shell_uses_rohf(self):
+        content = _pyscf_generate(_pyscf_self(category="Hartree-Fock", mult=2))
+        assert "mf = scf.ROHF(mol)" in content
+
+    def test_dft_singlet_rks_with_xc(self):
+        content = _pyscf_generate(_pyscf_self(category="DFT", functional="m06"))
+        assert "mf = dft.RKS(mol)" in content
+        assert "mf.xc = 'm06'" in content
+
+    def test_dft_open_shell_roks(self):
+        content = _pyscf_generate(_pyscf_self(category="DFT", mult=2))
+        assert "mf = dft.ROKS(mol)" in content
+
+    @pytest.mark.parametrize(
+        "ref,expected",
+        [("RHF", "scf.RHF"), ("UHF", "scf.UHF"), ("ROHF", "scf.ROHF")],
+    )
+    def test_post_hf_reference_selection(self, ref, expected):
+        content = _pyscf_generate(
+            _pyscf_self(category="Post-HF (MP2, CCSD)", post_hf_ref=ref)
+        )
+        assert f"mf = {expected}(mol)" in content
+
+    def test_mp2_block(self):
+        content = _pyscf_generate(
+            _pyscf_self(category="Post-HF (MP2, CCSD)", post_hf="MP2")
+        )
+        assert "pt = mp.MP2(mf)" in content
+        assert "pt.kernel()" in content
+
+    def test_ccsd_t_block(self):
+        content = _pyscf_generate(
+            _pyscf_self(category="Post-HF (MP2, CCSD)", post_hf="CCSD(T)")
+        )
+        assert "from pyscf.cc import ccsd_t" in content
+        assert "e_t = ccsd_t.kernel(mycc, mycc.ao2mo())" in content
+        assert "mycc.e_tot + e_t" in content
+
+    def test_chkfile_uses_filename_hint(self):
+        content = _pyscf_generate(_pyscf_self(), filename_hint="myjob")
+        assert "mf.chkfile = 'myjob.chk'" in content
+
+
+class TestPyscfSaveFile:
+    def _save(self, tmp_path, content, target_name="final_job.py"):
+        target = tmp_path / target_name
+        qfd = MagicMock()
+        qfd.getSaveFileName.return_value = (str(target), "")
+        fn = _extract_method_as_fn(
+            PYSCF_PATH,
+            "PyscfSetupDialog",
+            "save_file",
+            extra_globals={"QFileDialog": qfd, "QMessageBox": MagicMock()},
+        )
+        self = MagicMock()
+        self.filename = None
+        self.preview_text = FakeText(content)
+        fn(self)
+        return target.read_text(encoding="utf-8")
+
+    def test_chkfile_placeholder_replaced_with_basename(self, tmp_path):
+        content = _pyscf_generate(_pyscf_self())  # contains job.chk hint default
+        saved = self._save(tmp_path, content, "water_opt.py")
+        assert "mf.chkfile = 'water_opt.chk'" in saved
+        assert "job.chk" not in saved
+
+    def test_preview_placeholder_replaced(self, tmp_path):
+        content = _pyscf_generate(_pyscf_self(), filename_hint="[filename]")
+        saved = self._save(tmp_path, content, "water_opt.py")
+        assert "mf.chkfile = 'water_opt.chk'" in saved
+        assert "[filename]" not in saved
+
+    def test_missing_chkfile_inserted_before_kernel(self, tmp_path):
+        content = "mf = scf.RHF(mol)\nmf.kernel()\n"
+        saved = self._save(tmp_path, content, "abc.py")
+        assert "mf.chkfile = 'abc.chk'\nmf.kernel()" in saved
+
+    def test_no_kernel_appends_chk_line(self, tmp_path):
+        content = "print('hello')"
+        saved = self._save(tmp_path, content, "abc.py")
+        assert "mf.chkfile = 'abc.chk'" in saved
+
+
+# ---------------------------------------------------------------------------
+# Psi4 Input Generator — generate_content + update_auto_reference
+# ---------------------------------------------------------------------------
+
+_psi4_generate = _extract_method_as_fn(
+    PSI4_PATH, "Psi4SetupDialog", "generate_content"
+)
+_psi4_auto_ref = _extract_method_as_fn(
+    PSI4_PATH, "Psi4SetupDialog", "update_auto_reference"
+)
+
+
+def _psi4_self(
+    mem=2,
+    threads=4,
+    task="energy",
+    method="b3lyp",
+    basis="def2-svp",
+    reference="rks",
+    charge=0,
+    mult=1,
+    mol=None,
+):
+    self = MagicMock()
+    self.mem_spin = FakeSpin(mem)
+    self.thread_spin = FakeSpin(threads)
+    self.task_combo = FakeCombo(task)
+    self.method_combo = FakeCombo(method)
+    self.basis_combo = FakeCombo(basis)
+    self.ref_combo = FakeCombo(reference)
+    self.charge_spin = FakeSpin(charge)
+    self.mult_spin = FakeSpin(mult)
+    self.mol = mol
+    return self
+
+
+class TestPsi4GenerateContent:
+    def test_extraction_succeeded(self):
+        assert _psi4_generate is not None
+
+    def test_resources_lines(self):
+        content = _psi4_generate(_psi4_self(mem=8, threads=16))
+        assert "memory 8 GB" in content
+        assert "set_num_threads(16)" in content
+
+    def test_output_file_uses_hint(self):
+        content = _psi4_generate(_psi4_self(), filename_hint="run01")
+        assert "psi4.core.set_output_file('run01.out', False)" in content
+
+    def test_molecule_block_charge_mult(self):
+        content = _psi4_generate(_psi4_self(charge=1, mult=2, mol=water_mol()))
+        lines = content.split("\n")
+        mol_idx = lines.index("molecule {")
+        assert lines[mol_idx + 1] == "1 2"
+        assert lines[mol_idx + 2].split()[0] == "O"
+        assert "}" in lines[mol_idx + 5]
+
+    def test_set_block(self):
+        content = _psi4_generate(_psi4_self(basis="cc-pvtz", reference="uhf"))
+        assert "  basis cc-pvtz" in content
+        assert "  reference uhf" in content
+
+    def test_task_line_last(self):
+        content = _psi4_generate(_psi4_self(task="optimize", method="mp2"))
+        assert content.split("\n")[-1] == "optimize('mp2')"
+
+
+class TestPsi4AutoReference:
+    def _run(self, method, mult):
+        self = MagicMock()
+        self.method_combo = FakeCombo(method)
+        self.mult_spin = FakeSpin(mult)
+        _psi4_auto_ref(self)
+        calls = [c.args[0] for c in self.ref_combo.setCurrentText.call_args_list]
+        assert len(calls) == 1
+        return calls[0]
+
+    @pytest.mark.parametrize(
+        "method,mult,expected",
+        [
+            ("b3lyp", 1, "rks"),
+            ("b3lyp", 2, "uks"),
+            ("wB97X-D", 3, "uks"),
+            ("scf", 1, "rhf"),
+            ("scf", 2, "uhf"),
+            ("mp2", 1, "rhf"),
+            ("mp2", 2, "uhf"),
+            ("ccsd(t)", 1, "rhf"),
+        ],
+    )
+    def test_reference_selection(self, method, mult, expected):
+        assert self._run(method, mult) == expected
+
+    def test_signals_blocked_and_restored(self):
+        self = MagicMock()
+        self.method_combo = FakeCombo("scf")
+        self.mult_spin = FakeSpin(1)
+        _psi4_auto_ref(self)
+        assert self.ref_combo.blockSignals.call_args_list[0].args == (True,)
+        assert self.ref_combo.blockSignals.call_args_list[-1].args == (False,)
+        self.update_preview.assert_called_once()
+
+
+class TestPsi4SaveFile:
+    def _save(self, tmp_path, content, target_name="job.dat"):
+        target = tmp_path / target_name
+        qfd = MagicMock()
+        qfd.getSaveFileName.return_value = (str(target), "")
+        fn = _extract_method_as_fn(
+            PSI4_PATH,
+            "Psi4SetupDialog",
+            "save_file",
+            extra_globals={"QFileDialog": qfd, "QMessageBox": MagicMock()},
+        )
+        self = MagicMock()
+        self.filename = None
+        self.preview_text = FakeText(content)
+        fn(self)
+        return target.read_text(encoding="utf-8")
+
+    def test_output_placeholder_replaced(self, tmp_path):
+        content = _psi4_generate(_psi4_self(), filename_hint="[filename]")
+        saved = self._save(tmp_path, content, "benzene_sp.dat")
+        assert "psi4.core.set_output_file('benzene_sp.out', False)" in saved
+        assert "[filename]" not in saved
+
+    def test_missing_output_line_prepended(self, tmp_path):
+        saved = self._save(tmp_path, "molecule { 0 1 }", "abc.dat")
+        assert saved.startswith("psi4.core.set_output_file('abc.out', False)")
+        assert "molecule { 0 1 }" in saved
+
+
+# ---------------------------------------------------------------------------
 # Legacy run(mw) guard — all six generators warn when no molecule is loaded
 # ---------------------------------------------------------------------------
 
