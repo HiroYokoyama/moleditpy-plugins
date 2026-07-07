@@ -38,7 +38,7 @@ except ImportError:
     Geometry = None
     rdDetermineBonds = None
 
-PLUGIN_VERSION = "2026.07.06"
+PLUGIN_VERSION = "2026.07.08"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Visualize Gaussian cube files (electron density, MOs)."
@@ -762,8 +762,10 @@ class CubeViewerWidget(QWidget):
             self.mw.init_manager.current_file_path = None
             self.mw.plotter.render()
 
-            # Restore UI state
-            if hasattr(self.mw, "restore_ui_for_editing"):
+            # Restore UI state (restore_ui_for_editing lives on ui_manager, not mw)
+            if hasattr(self.mw, "ui_manager") and hasattr(
+                self.mw.ui_manager, "restore_ui_for_editing"
+            ):
                 self.mw.ui_manager.restore_ui_for_editing()
         except Exception as _e:
             logging.warning("[cube_viewer.py:636] silenced: %s", _e)
