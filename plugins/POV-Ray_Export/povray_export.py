@@ -8,7 +8,7 @@ Exports molecular structures as POV-Ray scene files for high-quality ray-traced 
 """
 
 PLUGIN_NAME = "POV-Ray Export"
-PLUGIN_VERSION = "2026.06.27"
+PLUGIN_VERSION = "2026.07.08"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Export molecular structures as POV-Ray scene files for professional ray-traced rendering"
@@ -825,6 +825,14 @@ def generate_povray_scene(mol, mw):
                 elif bond_type == Chem.rdchem.BondType.TRIPLE:
                     r = cyl_radius * triple_radius_factor
                     s_triple = cyl_radius * triple_offset_factor
+
+                    bond_vec = pos2 - pos1
+                    bond_unit = bond_vec / np.linalg.norm(bond_vec)
+                    v_arb = np.array([0, 0, 1])
+                    if np.allclose(np.abs(np.dot(bond_unit, v_arb)), 1.0):
+                        v_arb = np.array([0, 1, 0])
+                    off_dir = np.cross(bond_unit, v_arb)
+                    off_dir /= np.linalg.norm(off_dir)
 
                     if f"bond_{bond_counter}_1" in color_map:
                         add_pov_segment(
