@@ -42,7 +42,7 @@ except ImportError:
 
 PLUGIN_NAME = "ORCA Freq Analyzer"
 PLUGIN_DESCRIPTION = "Parse ORCA output files and visualize vibrational frequencies."
-PLUGIN_VERSION = "2026.06.27"
+PLUGIN_VERSION = "2026.07.08"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_CONTEXT = None
@@ -852,7 +852,7 @@ class OrcaOutFreqAnalyzer(QWidget):
 
         self.update_vectors()
 
-        self.context.plotter.render()
+        PLUGIN_CONTEXT.plotter.render()
 
     def animate_frame(self):
         if not self.parser or not self.base_mol:
@@ -896,7 +896,7 @@ class OrcaOutFreqAnalyzer(QWidget):
     def remove_vectors(self):
         if self.vector_actor:
             try:
-                self.context.plotter.remove_actor(self.vector_actor)
+                PLUGIN_CONTEXT.plotter.remove_actor(self.vector_actor)
             except Exception as _e:
                 logging.warning("[orca_out_freq_analyzer.py:847] silenced: %s", _e)
         self.vector_actor = None
@@ -947,7 +947,7 @@ class OrcaOutFreqAnalyzer(QWidget):
         vectors = np.array(vectors)
 
         try:
-            self.vector_actor = self.context.plotter.add_arrows(
+            self.vector_actor = PLUGIN_CONTEXT.plotter.add_arrows(
                 coords,
                 vectors,
                 mag=vis_scale,
@@ -1039,9 +1039,9 @@ class OrcaOutFreqAnalyzer(QWidget):
                 self.apply_displacement(mode_vecs, factor)
                 PLUGIN_CONTEXT.draw_molecule_3d(self.base_mol)
                 self.update_vectors(mode_vecs, factor)
-                self.context.plotter.render()
+                PLUGIN_CONTEXT.plotter.render()
 
-                img_array = self.context.plotter.screenshot(
+                img_array = PLUGIN_CONTEXT.plotter.screenshot(
                     transparent_background=use_transparent, return_img=True
                 )
                 if img_array is not None:

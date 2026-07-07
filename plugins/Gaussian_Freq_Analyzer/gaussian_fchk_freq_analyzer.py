@@ -33,7 +33,7 @@ except ImportError:
     Chem = None
 
 PLUGIN_NAME = "Gaussian Freq Analyzer"
-PLUGIN_VERSION = "2026.06.27"
+PLUGIN_VERSION = "2026.07.08"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -147,6 +147,17 @@ class FCHKParser:
                         current_section = " ".join(label_parts)
 
                     current_values = []
+
+                    # Scalar sections carry their value inline on the header
+                    # line ("Charge   I   -2") instead of an N= count followed
+                    # by data lines — capture it or the value is lost.
+                    if "N=" not in line:
+                        header_parts = line.split()
+                        for ti, tok in enumerate(header_parts):
+                            if tok in ("I", "R", "C"):
+                                current_values = header_parts[ti + 1 :]
+                                break
+
                     i += 1
                     continue
 
