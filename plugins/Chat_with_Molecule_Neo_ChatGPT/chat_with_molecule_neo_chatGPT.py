@@ -3,7 +3,7 @@
 
 
 PLUGIN_NAME = "Chat with Molecule Neo (ChatGPT)"
-PLUGIN_VERSION = "2026.07.04"
+PLUGIN_VERSION = "2026.07.08"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with OpenAI ChatGPT about the current molecule. Automatically injects SMILES context. (Neo Version)"
@@ -3837,11 +3837,22 @@ class ChatMoleculeWindow(QDialog):
             logging.warning("Failed to log usage / manage history: %s", e)
 
     def _prune_history(self):
-        """Rolling history: Keep last N turns"""
+        """Rolling history: keep system messages + the last 10 conversation messages"""
         try:
             old_history = self.chat_history_state
-            # Keep last 10 messages
-            self.chat_history_state = old_history[-10:]
+            # Keep the system prompt (index 0) — a plain [-10:] slice would
+            # silently drop it and the model would lose all tool instructions.
+            system_msgs = [
+                m
+                for m in old_history
+                if isinstance(m, dict) and m.get("role") == "system"
+            ]
+            conversation = [
+                m
+                for m in old_history
+                if not (isinstance(m, dict) and m.get("role") == "system")
+            ]
+            self.chat_history_state = system_msgs + conversation[-10:]
 
             self.append_message(
                 "System", "History pruned to save tokens (Rolling update).", "gray"
