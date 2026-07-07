@@ -142,6 +142,11 @@ MY_FUNC = mod.my_function
 | `test_plugin_settings_saver_extended.py` | Settings Saver: data path, live settings, sync alias, save/load project, project mode, document reset |
 | `test_plugin_encrypted_and_structural.py` | Encrypted Project: on_drop, document reset, patch/unpatch; Structural Updater: initialize, finalize, settings |
 | `test_plugin_advanced_and_misc.py` | Animated XYZ Giffer (parse_multi_frame_xyz), Advanced Rendering, Dummy Atom, OpenBabel, Hi-Res Imager, XYZ Editor, Symmetry Analyzer |
+| `test_plugin_input_generators_extended.py` | MOPAC/GAMESS/PySCF/Psi4/NWChem input generators: content generation, presets, save-file rewrite, no-molecule guards, NWChem scf spin lines |
+| `test_plugin_visualization_extended.py` | Dark Mode stylesheet/autorun, Atom Colorizer handlers, Vector Viewer COM/visualization, Hi-Res Imager run, VDW Overlay settings/init |
+| `test_plugin_analysis_extended.py` | ORCA final modes + context regression, FCHK parser edge cases, Gaussian MO Analyzer (reader/normalization/cube writer), Symmetry label helpers, Comparator reset, MS Spectrum broadening, Compound Info fetch |
+| `test_plugin_io_export_extended.py` | Blender/POV-Ray script generation content, double-bond offset math, triple-bond regression (uses numpy-passthrough mock helper) |
+| `test_plugin_chat_optimizer_extended.py` | Chat Neo (all 3 variants) history pruning regressions, Local variant log_usage |
 | `test_api.py` | Static `mw.attr` compatibility scan against the main app (skipped if main app absent) |
 
 ## CI

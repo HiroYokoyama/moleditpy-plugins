@@ -290,6 +290,57 @@ Plugins covered: **Cube File Viewer**, **Cube File Viewer Advanced**, **Mapped C
 
 ---
 
+### `test_plugin_input_generators_extended.py` — QM input generators (84 tests)
+
+Deep content tests for the MOPAC, GAMESS, PySCF, Psi4 and NWChem input
+generators: generated input text (keywords, charge/multiplicity, coordinate
+blocks), preset save/load round-trips, save-file rewrite logic, the legacy
+`run(mw)` no-molecule warning guard, and NWChem `_scf_spin_lines`
+(rhf/uhf + multiplicity keyword selection, parametrized over mult 1–9).
+
+---
+
+### `test_plugin_visualization_extended.py` — Visualization plugins (~50 tests)
+
+Dark Mode stylesheet content and `autorun()`, Atom Colorizer save/load/reset
+handlers and color application, Vector Viewer center-of-mass and visualization
+update, High Resolution Imager `run()`, VDW Radii Overlay settings edge cases
+and `initialize()` detail.
+
+---
+
+### `test_plugin_analysis_extended.py` — Analysis plugins (~70 tests)
+
+ORCA Freq Analyzer final-mode parsing and the `self.context` →
+`PLUGIN_CONTEXT` regression; Gaussian Freq Analyzer FCHK parser edge cases
+including the inline-scalar (`Charge  I  -2`) regression; Gaussian MO Analyzer
+FCHK reader, normalization prefactor and cube writer; Symmetry Analyzer
+sort-key/op-label/symbol helpers; Molecule Comparator reset handler;
+MS Spectrum Neo gaussian broadening; Compound Info Report property fetch.
+
+---
+
+### `test_plugin_io_export_extended.py` — Export script generation (~40 tests)
+
+Blender and POV-Ray script/scene content generation (materials, cylinders,
+per-bond splitting), `_calculate_double_bond_offset` math, and the POV-Ray
+triple-bond `off_dir` UnboundLocalError regression.
+
+**Technique note:** uses `mocks_with_real_numpy()`, which restores real numpy
+(including *all* `numpy.*` submodules — restoring only the top-level package
+lets the mocking MetaPathFinder corrupt numpy process-wide) while keeping
+rdkit/PyQt6 mocked.
+
+---
+
+### `test_plugin_chat_optimizer_extended.py` — Chat history management (~15 tests)
+
+History-pruning regressions for all three Chat Neo variants (system prompt
+must survive pruning; Local variant must prune `chat_history_state`, not a
+nonexistent Gemini `chat_session`) and Local `log_usage`.
+
+---
+
 ### `test_api.py` — Static API compatibility check (1 test)
 
 Uses `api-checker/check_api.py` to perform a two-phase AST scan:
