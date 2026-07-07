@@ -1012,7 +1012,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Structural Updater",
-    "version": "2026.06.27",
+    "version": "2026.07.08",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Applies 2D structural changes to 3D conformation without full re-embedding.",
@@ -1024,8 +1024,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Structural_Updater/structural_updater.py",
-    "lastUpdated": "2026-06-27",
-    "sha256": "9d264536fcc03a64d472f8b3c76437582f2f8e8ed726e3fb1a83b2b02cc7f87c",
+    "lastUpdated": "2026-07-08",
+    "sha256": "cc8de22c3f364e7f99bd32fe4037cb82b2122c18f0fbdfffc68297f81dc1761b",
     "firstAppeared": "2026-01-28"
   },
   {
@@ -1110,7 +1110,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Advanced Rendering",
-    "version": "2026.06.27",
+    "version": "2026.07.08",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Fine-grained control over Scene lighting, shadows, post-processing effects (SSAO, Depth Peeling, EDL), and Atom/Bond rendering (PBR, Silhouette).",
@@ -1123,8 +1123,8 @@
       "numpy"
     ],
     "downloadUrl": "../plugins/Advanced_Rendering/advanced_rendering.py",
-    "lastUpdated": "2026-06-27",
-    "sha256": "e16462044b302e0dbe84efb3593f1d0dc3016381f0b3778305db55aacfce3ec2",
+    "lastUpdated": "2026-07-08",
+    "sha256": "257a876c9b5a95d12dc68724e87ecff74745945fb55112154768c4d3ebb5ebc7",
     "firstAppeared": "2026-02-03"
   },
   {

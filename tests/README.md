@@ -341,6 +341,29 @@ nonexistent Gemini `chat_session`) and Local `log_usage`.
 
 ---
 
+### `test_plugin_neo_and_data_extended.py` — Gaussian Neo & data IO (126 tests)
+
+Gaussian Input Generator Neo content generation (Link0/%chk auto-naming,
+route prefixing, charge/mult validation, save-file %chk/%wfn rewrite,
+RouteBuilder preview/parse); Paste from ChemDraw flat-text→MolBlock
+reconstruction; XYZ Editor signatures and custom-symbol persistence;
+Animated XYZ Giffer playback/timer logic; Structural Updater conversion
+dispatch and the `finalize()` unpatch regression; Encrypted Project
+PBKDF2 parameters, `[salt16][ciphertext]` layout and import/export paths.
+
+---
+
+### `test_plugin_installer_misc_extended.py` — Installer & misc utilities (65 tests)
+
+Plugin Installer `populate_table` status logic, filtering and app-version
+detection; PubChem Name Resolver mocked-HTTP success/404/error paths;
+Python Console `run_code` with a real `InteractiveInterpreter`;
+Conformational Search energy-window dedup; All-Trans Optimizer torsions;
+Complex Molecule Untangler Monte Carlo worker; Advanced Rendering style
+callbacks and the unguarded `view_3d_manager` regression.
+
+---
+
 ### `test_api.py` — Static API compatibility check (1 test)
 
 Uses `api-checker/check_api.py` to perform a two-phase AST scan:

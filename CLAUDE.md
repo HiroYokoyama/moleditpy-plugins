@@ -147,6 +147,8 @@ MY_FUNC = mod.my_function
 | `test_plugin_analysis_extended.py` | ORCA final modes + context regression, FCHK parser edge cases, Gaussian MO Analyzer (reader/normalization/cube writer), Symmetry label helpers, Comparator reset, MS Spectrum broadening, Compound Info fetch |
 | `test_plugin_io_export_extended.py` | Blender/POV-Ray script generation content, double-bond offset math, triple-bond regression (uses numpy-passthrough mock helper) |
 | `test_plugin_chat_optimizer_extended.py` | Chat Neo (all 3 variants) history pruning regressions, Local variant log_usage |
+| `test_plugin_neo_and_data_extended.py` | Gaussian Input Generator Neo (route/Link0/charge-mult/save rewrite), ChemDraw MolBlock reconstruction, XYZ Editor signatures/handlers, Giffer playback, Structural Updater dispatch/finalize, Encrypted Project key/export/import |
+| `test_plugin_installer_misc_extended.py` | Plugin Installer table/filter/app-version, PubChem Name Resolver HTTP paths, Python Console run_code, Conformational Search dedup, All-Trans/Untangler workers, Advanced Rendering style callbacks |
 | `test_api.py` | Static `mw.attr` compatibility scan against the main app (skipped if main app absent) |
 
 ## CI
