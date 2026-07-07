@@ -679,3 +679,392 @@ class TestConsoleRunCode:
         texts = [t for t, _ in s.outputs]
         assert ">>> a = 1" in texts
         assert "... b = 2" in texts
+
+
+# ---------------------------------------------------------------------------
+# Conformational Search — energy-window dedup and table content
+# ---------------------------------------------------------------------------
+
+
+def _conf_filter_fn():
+    return _extract_fn(
+        CONF_SEARCH_PATH, "ConformerSearchDialog", "apply_filter_and_update", {}
+    )
+
+
+def _conf_self(results_raw, show_all=False):
+    s = SimpleNamespace()
+    s.results_raw = results_raw
+    s.conformer_data = []
+    s.cb_show_all = MagicMock()
+    s.cb_show_all.isChecked.return_value = show_all
+    s.update_table = MagicMock()
+    s.lbl_info = MagicMock()
+    return s
+
+
+class TestConfSearchFilter:
+    def test_empty_results_returns_early(self):
+        fn = _conf_filter_fn()
+        s = _conf_self([])
+        fn(s)
+        s.update_table.assert_not_called()
+        assert s.conformer_data == []
+
+    def test_show_all_keeps_everything(self):
+        fn = _conf_filter_fn()
+        raw = [(1.0, 0), (1.0, 1), (2.0, 2)]
+        s = _conf_self(raw, show_all=True)
+        fn(s)
+        assert s.conformer_data == raw
+        s.update_table.assert_called_once()
+
+    def test_duplicate_energies_deduplicated(self):
+        fn = _conf_filter_fn()
+        # 1.0 and 1.00005 are within the 1e-4 window -> one survivor
+        raw = [(1.0, 0), (1.00005, 1), (2.0, 2)]
+        s = _conf_self(raw)
+        fn(s)
+        assert s.conformer_data == [(1.0, 0), (2.0, 2)]
+
+    def test_distinct_energies_all_kept(self):
+        fn = _conf_filter_fn()
+        raw = [(1.0, 0), (1.5, 1), (2.0, 2)]
+        s = _conf_self(raw)
+        fn(s)
+        assert s.conformer_data == raw
+
+    def test_info_label_shows_counts(self):
+        fn = _conf_filter_fn()
+        raw = [(1.0, 0), (1.00001, 1), (3.0, 2)]
+        s = _conf_self(raw)
+        fn(s)
+        msg = s.lbl_info.setText.call_args[0][0]
+        assert "Showing 2 conformers" in msg
+        assert "Total found: 3" in msg
+
+
+class TestConfSearchUpdateTable:
+    def _run(self, conformer_data):
+        items = []
+
+        class _RecItem:
+            def __init__(self, text):
+                self.text = text
+                self.user_data = None
+                items.append(self)
+
+            def setData(self, role, value):
+                self.user_data = value
+
+        globs = {"QTableWidgetItem": _RecItem, "Qt": MagicMock()}
+        fn = _extract_fn(
+            CONF_SEARCH_PATH, "ConformerSearchDialog", "update_table", globs
+        )
+        s = SimpleNamespace()
+        s.conformer_data = conformer_data
+        s.table = _FakeTable()
+        fn(s)
+        return s, items
+
+    def test_rows_ranked_and_energy_formatted(self):
+        s, _ = self._run([(1.23456789, 7), (2.5, 3)])
+        assert s.table.rows == 2
+        assert s.table.items[(0, 0)].text == "1"
+        assert s.table.items[(0, 1)].text == "1.2346"  # 4 decimal places
+        assert s.table.items[(1, 0)].text == "2"
+        assert s.table.items[(1, 1)].text == "2.5000"
+
+    def test_conformer_id_stored_as_user_data(self):
+        s, _ = self._run([(1.0, 42)])
+        assert s.table.items[(0, 0)].user_data == 42
+
+
+# ---------------------------------------------------------------------------
+# All-Trans Optimizer — torsion application paths
+# ---------------------------------------------------------------------------
+
+
+class TestAllTransRunPlugin:
+    def _load(self):
+        with mock_optional_imports():
+            mod = load_plugin(ALL_TRANS_PATH)
+        return mod
+
+    def _context(self, mol):
+        ctx = MagicMock()
+        ctx.get_main_window.return_value = MagicMock()
+        ctx.current_mol = mol
+        return ctx
+
+    def test_no_conformer_warns_and_stops(self):
+        mod = self._load()
+        mol = MagicMock()
+        mol.GetNumConformers.return_value = 0
+        ctx = self._context(mol)
+        mod.QMessageBox.reset_mock()
+        mod.rdMolTransforms.reset_mock()
+        mod.run_plugin(ctx)
+        mod.QMessageBox.warning.assert_called_once()
+        mod.rdMolTransforms.SetDihedralDeg.assert_not_called()
+
+    def test_matches_set_to_180_and_view_refreshed(self):
+        mod = self._load()
+        mol = MagicMock()
+        mol.GetNumConformers.return_value = 1
+        conf = MagicMock()
+        mol.GetConformer.return_value = conf
+        mol.GetSubstructMatches.return_value = [(0, 1, 2, 3), (4, 5, 6, 7)]
+        ctx = self._context(mol)
+        mod.rdMolTransforms.reset_mock()
+        mod.QMessageBox.reset_mock()
+
+        mod.run_plugin(ctx)
+
+        calls = mod.rdMolTransforms.SetDihedralDeg.call_args_list
+        assert len(calls) == 2
+        assert calls[0].args == (conf, 0, 1, 2, 3, 180.0)
+        assert calls[1].args == (conf, 4, 5, 6, 7, 180.0)
+        ctx.refresh_3d_view.assert_called_once()
+        ctx.push_undo_checkpoint.assert_called_once()
+        assert "2" in ctx.show_status_message.call_args[0][0]
+
+    def test_no_matches_informs_without_refresh(self):
+        mod = self._load()
+        mol = MagicMock()
+        mol.GetNumConformers.return_value = 1
+        mol.GetSubstructMatches.return_value = []
+        ctx = self._context(mol)
+        mod.rdMolTransforms.reset_mock()
+        mod.QMessageBox.reset_mock()
+
+        mod.run_plugin(ctx)
+
+        mod.QMessageBox.information.assert_called_once()
+        mod.rdMolTransforms.SetDihedralDeg.assert_not_called()
+        ctx.refresh_3d_view.assert_not_called()
+        ctx.push_undo_checkpoint.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Complex Molecule Untangler — UntangleWorker.run Monte Carlo loop
+# ---------------------------------------------------------------------------
+
+
+class _FakeAtom2:
+    def __init__(self, idx, neighbor_idxs):
+        self._idx = idx
+        self._nbrs = neighbor_idxs
+
+    def GetIdx(self):
+        return self._idx
+
+    def GetNeighbors(self):
+        return [_FakeAtom2(i, []) for i in self._nbrs]
+
+
+class _FakeWorkMol:
+    """Linear chain 0-1-2-3 with one rotatable central bond (1,2)."""
+
+    def __init__(self, matches=((1, 2),)):
+        self.matches = matches
+        self.conf = MagicMock(name="conf")
+
+    def GetSubstructMatches(self, patt):
+        return self.matches
+
+    def GetAtomWithIdx(self, idx):
+        neighbors = {1: [0, 2], 2: [1, 3]}
+        return _FakeAtom2(idx, neighbors.get(idx, []))
+
+    def GetConformer(self):
+        return self.conf
+
+
+def _untangle_env(work_mol, energies, props_ok=True, ff=None):
+    """Build globals for UntangleWorker.run with scripted force-field energies."""
+    import logging
+
+    chem = MagicMock()
+    chem.Mol.return_value = work_mol
+    chem.MolFromSmarts.return_value = "SMARTS"
+
+    if ff is None:
+        ff = MagicMock()
+        ff.CalcEnergy.side_effect = list(energies)
+
+    allchem = MagicMock()
+    allchem.MMFFGetMoleculeProperties.return_value = (
+        MagicMock() if props_ok else None
+    )
+    allchem.MMFFGetMoleculeForceField.return_value = ff
+
+    rdt = MagicMock()
+    rdt.GetDihedralDeg.return_value = 10.0
+
+    rnd = SimpleNamespace(
+        choice=lambda seq: seq[0],
+        uniform=lambda a, b: 42.0,
+    )
+
+    globs = {
+        "Chem": chem,
+        "AllChem": allchem,
+        "rdMolTransforms": rdt,
+        "random": rnd,
+        "logging": logging,
+    }
+    fn = _extract_fn(UNTANGLER_PATH, "UntangleWorker", "run", globs)
+    return fn, globs, ff, rdt
+
+
+def _untangle_self(mol="MOL", max_iter=3, force_field="MMFF94"):
+    return SimpleNamespace(
+        mol=mol,
+        max_iter=max_iter,
+        force_field=force_field,
+        progress=MagicMock(),
+        finished=MagicMock(),
+    )
+
+
+class TestUntangleWorkerRun:
+    def test_ff_setup_failure_reports_error(self):
+        fn, globs, _, _ = _untangle_env(_FakeWorkMol(), [], props_ok=False)
+        globs["AllChem"].MMFFGetMoleculeForceField.return_value = None
+        s = _untangle_self()
+        fn(s)
+        new_mol, msg = s.finished.emit.call_args[0]
+        assert new_mol is None
+        assert "Could not setup Force Field" in msg
+        assert "Try using UFF" in msg  # MMFF-specific hint
+
+    def test_no_rotatable_bonds_reports_message(self):
+        fn, _, _, _ = _untangle_env(_FakeWorkMol(matches=()), [100.0])
+        s = _untangle_self()
+        fn(s)
+        new_mol, msg = s.finished.emit.call_args[0]
+        assert new_mol is None
+        assert msg == "No rotatable bonds found."
+
+    def test_improvement_accepted_worsening_reverted(self):
+        work_mol = _FakeWorkMol()
+        # initial 100 -> iter1 90 (accept) -> iter2 95 (revert) -> iter3 80 (accept)
+        fn, globs, ff, rdt = _untangle_env(work_mol, [100.0, 90.0, 95.0, 80.0])
+        s = _untangle_self(max_iter=3)
+        fn(s)
+
+        set_calls = rdt.SetDihedralDeg.call_args_list
+        # 3 rotations + 1 revert (iter2 back to old angle 10.0)
+        assert len(set_calls) == 4
+        assert set_calls[0].args == (work_mol.conf, 0, 1, 2, 3, 42.0)
+        assert set_calls[2].args == (work_mol.conf, 0, 1, 2, 3, 10.0)  # revert
+
+        new_mol, msg = s.finished.emit.call_args[0]
+        assert new_mol is work_mol
+        assert "Processed 1 bonds" in msg
+        assert "80.00" in msg  # best energy reported
+
+    def test_progress_emitted_each_iteration(self):
+        fn, _, _, _ = _untangle_env(_FakeWorkMol(), [100.0, 90.0, 80.0, 70.0])
+        s = _untangle_self(max_iter=3)
+        fn(s)
+        assert s.progress.emit.call_args_list == [((1,),), ((2,),), ((3,),)]
+
+    def test_final_optimization_uses_selected_ff(self):
+        fn, globs, _, _ = _untangle_env(_FakeWorkMol(), [100.0, 90.0])
+        s = _untangle_self(max_iter=1)
+        fn(s)
+        globs["AllChem"].MMFFOptimizeMolecule.assert_called_once()
+
+    def test_uff_path_builds_uff_force_field(self):
+        work_mol = _FakeWorkMol()
+        fn, globs, _, _ = _untangle_env(work_mol, [])
+        uff = MagicMock()
+        uff.CalcEnergy.side_effect = [100.0, 90.0]
+        globs["AllChem"].UFFGetMoleculeForceField.return_value = uff
+        s = _untangle_self(max_iter=1, force_field="UFF")
+        fn(s)
+        globs["AllChem"].UFFGetMoleculeForceField.assert_called_once()
+        globs["AllChem"].UFFOptimizeMolecule.assert_called_once()
+        new_mol, _ = s.finished.emit.call_args[0]
+        assert new_mol is work_mol
+
+    def test_exception_reported_via_finished(self):
+        fn, globs, _, _ = _untangle_env(_FakeWorkMol(), [])
+        globs["Chem"].Mol.side_effect = RuntimeError("boom")
+        s = _untangle_self()
+        fn(s)
+        new_mol, msg = s.finished.emit.call_args[0]
+        assert new_mol is None
+        assert msg == "boom"
+
+
+# ---------------------------------------------------------------------------
+# Advanced Rendering — registered style drawers
+# ---------------------------------------------------------------------------
+
+
+class TestAdvancedRenderingStyleDrawers:
+    def _drawers(self):
+        with mock_optional_imports():
+            mod = load_plugin(ADV_RENDER_PATH)
+            ctx = make_context()
+            mod.initialize(ctx)
+        return {
+            call.args[0]: call.args[1]
+            for call in ctx.register_3d_style.call_args_list
+        }
+
+    def test_four_styles_registered(self):
+        drawers = self._drawers()
+        assert set(drawers) == {
+            "Ball & Stick (Advanced Rendering)",
+            "CPK (Advanced Rendering)",
+            "Wireframe (Advanced Rendering)",
+            "Stick (Advanced Rendering)",
+        }
+
+    def test_drawer_uses_normalized_style_key(self):
+        drawers = self._drawers()
+        viewer = MagicMock()
+        mw_obj = SimpleNamespace(
+            view_3d_manager=MagicMock(), _adv_rendering_viewer=viewer
+        )
+        mw_obj.view_3d_manager.current_3d_style = "Ball & Stick (Advanced Rendering)"
+
+        drawers["Ball & Stick (Advanced Rendering)"](mw_obj, "MOL")
+
+        mw_obj.view_3d_manager.draw_standard_3d_style.assert_called_once_with(
+            "MOL", style_override="ball_and_stick"
+        )
+        viewer.apply_pbr_forced.assert_called_once()
+        viewer.update_lights.assert_called_once()
+        viewer.sync_style_ui.assert_called_once_with(
+            "Ball & Stick (Advanced Rendering)"
+        )
+
+    def test_cpk_drawer_key(self):
+        drawers = self._drawers()
+        mw_obj = SimpleNamespace(
+            view_3d_manager=MagicMock(), _adv_rendering_viewer=MagicMock()
+        )
+        drawers["CPK (Advanced Rendering)"](mw_obj, "MOL")
+        mw_obj.view_3d_manager.draw_standard_3d_style.assert_called_once_with(
+            "MOL", style_override="cpk"
+        )
+
+    def test_drawer_without_viewer_does_not_crash(self):
+        drawers = self._drawers()
+        mw_obj = SimpleNamespace(view_3d_manager=MagicMock())  # no viewer attr
+        drawers["Stick (Advanced Rendering)"](mw_obj, "MOL")
+        mw_obj.view_3d_manager.draw_standard_3d_style.assert_called_once()
+
+    def test_drawer_without_view_manager_does_not_crash(self):
+        # Regression (2026.07.08): sync_style_ui read mw_obj.view_3d_manager
+        # unguarded even though the draw call above is hasattr-guarded for it.
+        drawers = self._drawers()
+        viewer = MagicMock()
+        mw_obj = SimpleNamespace(_adv_rendering_viewer=viewer)
+        drawers["Wireframe (Advanced Rendering)"](mw_obj, "MOL")
+        viewer.sync_style_ui.assert_called_once_with("")

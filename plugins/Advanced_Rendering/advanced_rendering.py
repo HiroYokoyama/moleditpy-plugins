@@ -46,7 +46,7 @@ except ImportError:
     vtk = None
 
 PLUGIN_NAME = "Advanced Rendering"
-PLUGIN_VERSION = "2026.06.27"
+PLUGIN_VERSION = "2026.07.08"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Fine-grained control over Scene lighting, shadows, and PBR effects. Refactored for V3 API."
@@ -187,7 +187,15 @@ def initialize(context):
                 else:
                     v.update_atoms_pbr()
                 v.update_lights()
-                v.sync_style_ui(getattr(mw_obj.view_3d_manager, "current_3d_style", ""))
+                # view_3d_manager may be absent (the draw call above is guarded
+                # for the same reason) — don't crash the style callback on it.
+                v.sync_style_ui(
+                    getattr(
+                        getattr(mw_obj, "view_3d_manager", None),
+                        "current_3d_style",
+                        "",
+                    )
+                )
 
         return drawer
 
