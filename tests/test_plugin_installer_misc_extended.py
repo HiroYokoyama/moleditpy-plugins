@@ -355,3 +355,327 @@ class TestAppVersionDetection:
         _block_pkg(monkeypatch, "moleditpy")
         _block_pkg(monkeypatch, "moleditpy_linux")
         assert self._inst()._get_package_name() == "moleditpy"
+
+
+# ---------------------------------------------------------------------------
+# PubChem Name Resolver — run_search / load_molecule
+# ---------------------------------------------------------------------------
+
+
+def _make_requests_stub():
+    """Stub requests module with a real RequestException class."""
+    m = types.ModuleType("requests")
+
+    class RequestException(Exception):
+        pass
+
+    m.exceptions = SimpleNamespace(RequestException=RequestException)
+    m.get = MagicMock()
+    return m
+
+
+def _pubchem_search_env(requests_stub, chem=None):
+    globs = {
+        "requests": requests_stub,
+        "Chem": chem or MagicMock(),
+        "QMessageBox": MagicMock(),
+        "QApplication": MagicMock(),
+        "Qt": MagicMock(),
+        "PLUGIN_NAME": "PubChem Name Resolver",
+    }
+    fn = _extract_fn(PUBCHEM_PATH, "MoleculeResolverDialog", "run_search", globs)
+    return fn, globs
+
+
+def _pubchem_self(query, search_type="Auto (Name/CAS)"):
+    s = SimpleNamespace()
+    s.line_input = MagicMock()
+    s.line_input.text.return_value = query
+    s.combo_type = MagicMock()
+    s.combo_type.currentText.return_value = search_type
+    s.lbl_info = MagicMock()
+    s.btn_search = MagicMock()
+    s.table = MagicMock()
+    s.context = MagicMock()
+    s.candidates_data = []
+    s.update_table = MagicMock()
+    return s
+
+
+def _http_response(status_code, payload=None):
+    return SimpleNamespace(status_code=status_code, json=lambda: payload or {})
+
+
+class TestPubChemRunSearch:
+    def test_empty_query_returns_immediately(self):
+        req = _make_requests_stub()
+        fn, _ = _pubchem_search_env(req)
+        s = _pubchem_self("   ")
+        fn(s)
+        s.btn_search.setEnabled.assert_not_called()
+        req.get.assert_not_called()
+
+    def test_http_200_populates_candidates(self):
+        req = _make_requests_stub()
+        req.get.return_value = _http_response(200, {
+            "PropertyTable": {"Properties": [
+                {"IsomericSMILES": "CCO", "Title": "Ethanol",
+                 "MolecularFormula": "C2H6O"},
+            ]}
+        })
+        fn, _ = _pubchem_search_env(req)
+        s = _pubchem_self("ethanol")
+        fn(s)
+        assert s.candidates_data == [
+            {"name": "Ethanol", "smiles": "CCO", "formula": "C2H6O"}
+        ]
+        s.update_table.assert_called_once()
+        assert "Found 1 candidates" in s.lbl_info.setText.call_args[0][0]
+
+    def test_canonical_smiles_fallback(self):
+        req = _make_requests_stub()
+        req.get.return_value = _http_response(200, {
+            "PropertyTable": {"Properties": [
+                {"CanonicalSMILES": "CC", "Title": "Ethane",
+                 "MolecularFormula": "C2H6"},
+            ]}
+        })
+        fn, _ = _pubchem_search_env(req)
+        s = _pubchem_self("ethane")
+        fn(s)
+        assert s.candidates_data[0]["smiles"] == "CC"
+
+    def test_any_smiles_key_fallback(self):
+        req = _make_requests_stub()
+        req.get.return_value = _http_response(200, {
+            "PropertyTable": {"Properties": [
+                {"ConnectivitySMILES": "CN", "Title": "X",
+                 "MolecularFormula": "CH5N"},
+            ]}
+        })
+        fn, _ = _pubchem_search_env(req)
+        s = _pubchem_self("methylamine")
+        fn(s)
+        assert s.candidates_data[0]["smiles"] == "CN"
+
+    def test_http_404_reports_not_found(self):
+        req = _make_requests_stub()
+        req.get.return_value = _http_response(404)
+        fn, _ = _pubchem_search_env(req)
+        s = _pubchem_self("nosuchcompound")
+        fn(s)
+        assert s.lbl_info.setText.call_args[0][0] == "Not found in PubChem search."
+        s.update_table.assert_not_called()
+
+    def test_network_error_shows_dialog(self):
+        req = _make_requests_stub()
+        req.get.side_effect = req.exceptions.RequestException("offline")
+        fn, globs = _pubchem_search_env(req)
+        s = _pubchem_self("water")
+        fn(s)
+        globs["QMessageBox"].critical.assert_called_once()
+        assert s.lbl_info.setText.call_args[0][0] == "Network error."
+
+    def test_search_button_reenabled_after_error(self):
+        req = _make_requests_stub()
+        req.get.side_effect = req.exceptions.RequestException("offline")
+        fn, _ = _pubchem_search_env(req)
+        s = _pubchem_self("water")
+        fn(s)
+        s.btn_search.setEnabled.assert_called_with(True)
+
+    def test_smiles_mode_valid_input(self):
+        req = _make_requests_stub()
+        chem = MagicMock()
+        chem.rdMolDescriptors.CalcMolFormula.return_value = "C6H6"
+        fn, _ = _pubchem_search_env(req, chem=chem)
+        s = _pubchem_self("c1ccccc1", search_type="SMILES")
+        fn(s)
+        assert s.candidates_data == [
+            {"name": "User Input SMILES", "smiles": "c1ccccc1", "formula": "C6H6"}
+        ]
+        req.get.assert_not_called()  # no network in SMILES mode
+
+    def test_smiles_mode_invalid_input_reports_error(self):
+        req = _make_requests_stub()
+        chem = MagicMock()
+        chem.MolFromSmiles.return_value = None
+        fn, globs = _pubchem_search_env(req, chem=chem)
+        s = _pubchem_self("not_smiles", search_type="SMILES")
+        fn(s)
+        globs["QMessageBox"].critical.assert_called_once()
+        assert "Invalid SMILES" in globs["QMessageBox"].critical.call_args[0][2]
+        assert s.lbl_info.setText.call_args[0][0] == "Error occurred."
+
+
+class TestPubChemLoadMolecule:
+    def _env(self):
+        globs = {
+            "QMessageBox": MagicMock(),
+            "QApplication": MagicMock(),
+            "Qt": MagicMock(),
+            "PLUGIN_NAME": "PubChem Name Resolver",
+        }
+        fn = _extract_fn(
+            PUBCHEM_PATH, "MoleculeResolverDialog", "load_molecule", globs
+        )
+        return fn, globs
+
+    def _self(self, selected_row=0, smiles="CCO"):
+        s = SimpleNamespace()
+        item = MagicMock()
+        item.row.return_value = selected_row
+        s.table = MagicMock()
+        s.table.selectedItems.return_value = [item] if selected_row is not None else []
+        s.candidates_data = [{"name": "Ethanol", "smiles": smiles}]
+        s.lbl_info = MagicMock()
+        s.context = MagicMock()
+        s.accept = MagicMock()
+        return s
+
+    def test_no_selection_warns(self):
+        fn, globs = self._env()
+        s = self._self(selected_row=None)
+        fn(s)
+        globs["QMessageBox"].warning.assert_called_once()
+        s.accept.assert_not_called()
+
+    def test_empty_smiles_warns(self):
+        fn, globs = self._env()
+        s = self._self(smiles="")
+        fn(s)
+        globs["QMessageBox"].warning.assert_called_once()
+        s.accept.assert_not_called()
+
+    def test_success_loads_via_string_importer(self):
+        fn, globs = self._env()
+        s = self._self()
+        mw = MagicMock()
+        s.context.get_main_window.return_value = mw
+        fn(s)
+        mw.string_importer_manager.load_from_smiles.assert_called_once_with("CCO")
+        s.accept.assert_called_once()
+        globs["QMessageBox"].information.assert_called_once()
+
+    def test_missing_importer_reports_error(self):
+        fn, globs = self._env()
+        s = self._self()
+        mw = SimpleNamespace()  # no string_importer_manager attribute
+        s.context.get_main_window.return_value = mw
+        fn(s)
+        globs["QMessageBox"].critical.assert_called_once()
+        s.accept.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Python Console — run_code execution and output capture
+# ---------------------------------------------------------------------------
+
+
+def _console_self(command, mol="MOL"):
+    import code as code_mod
+
+    s = SimpleNamespace()
+    s.input_area = MagicMock()
+    s.input_area.toPlainText.return_value = command
+    s.outputs = []  # (text, color)
+    s.append_output = lambda text, color=None: s.outputs.append((text, color))
+    s.output_area = MagicMock()
+    s.context = MagicMock()
+    s._get_best_mol = lambda: mol
+    s.local_scope = {}
+    s.interpreter = code_mod.InteractiveInterpreter(s.local_scope)
+    return s
+
+
+def _run_code_fn():
+    import io
+    import traceback
+    from contextlib import redirect_stderr, redirect_stdout
+
+    globs = {
+        "io": io,
+        "traceback": traceback,
+        "redirect_stdout": redirect_stdout,
+        "redirect_stderr": redirect_stderr,
+    }
+    return _extract_fn(CONSOLE_PATH, "PythonConsoleDialog", "run_code", globs)
+
+
+class TestConsoleRunCode:
+    def test_empty_command_is_ignored(self):
+        fn = _run_code_fn()
+        s = _console_self("   \n  ")
+        fn(s)
+        s.input_area.append_history.assert_not_called()
+        assert s.outputs == []
+
+    def test_print_output_captured(self):
+        fn = _run_code_fn()
+        s = _console_self("print(21 * 2)")
+        fn(s)
+        s.output_area.append.assert_any_call("42")
+
+    def test_expression_result_echoed_in_single_mode(self):
+        fn = _run_code_fn()
+        s = _console_self("1 + 1")
+        fn(s)
+        s.output_area.append.assert_any_call("2")
+
+    # code.InteractiveInterpreter routes the traceback through sys.excepthook,
+    # which pytest-qt's exception capture would report as a Qt-loop error.
+    @pytest.mark.qt_no_exception_capture
+    def test_exception_written_in_error_color(self):
+        fn = _run_code_fn()
+        s = _console_self("1/0")
+        fn(s)
+        err = [t for t, c in s.outputs if c == "#FF5252"]
+        assert err and "ZeroDivisionError" in err[0]
+
+    def test_incomplete_block_warns(self):
+        fn = _run_code_fn()
+        s = _console_self("def f():")
+        fn(s)
+        assert any("Incomplete" in t for t, _ in s.outputs)
+
+    def test_multiline_runs_in_exec_mode(self):
+        fn = _run_code_fn()
+        s = _console_self("a = 6\nprint(a * 7)")
+        fn(s)
+        s.output_area.append.assert_any_call("42")
+
+    def test_command_stored_in_history(self):
+        fn = _run_code_fn()
+        s = _console_self("x = 1")
+        fn(s)
+        s.input_area.append_history.assert_called_once_with("x = 1")
+        s.input_area.clear.assert_called_once()
+
+    def test_mol_and_mw_synced_into_scope(self):
+        fn = _run_code_fn()
+        s = _console_self("x = 1", mol="THEMOL")
+        mw = object()
+        s.context.get_main_window.return_value = mw
+        fn(s)
+        assert s.local_scope["mol"] == "THEMOL"
+        assert s.local_scope["mw"] is mw
+
+    def test_none_mol_warning_when_command_uses_mol(self):
+        fn = _run_code_fn()
+        s = _console_self("mol", mol=None)
+        fn(s)
+        assert any("'mol' is None" in t for t, _ in s.outputs)
+
+    def test_no_mol_warning_for_unrelated_command(self):
+        fn = _run_code_fn()
+        s = _console_self("x = 5", mol=None)
+        fn(s)
+        assert not any("'mol' is None" in t for t, _ in s.outputs)
+
+    def test_input_echoed_with_prompt_markers(self):
+        fn = _run_code_fn()
+        s = _console_self("a = 1\nb = 2")
+        fn(s)
+        texts = [t for t, _ in s.outputs]
+        assert ">>> a = 1" in texts
+        assert "... b = 2" in texts
