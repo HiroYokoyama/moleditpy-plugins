@@ -23,11 +23,29 @@ from rdkit import Chem
 import logging
 
 PLUGIN_NAME = "NWChem Input Generator"
-PLUGIN_VERSION = "2026.06.26"
+PLUGIN_VERSION = "2026.07.08"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Generate NWChem input files for quantum chemistry calculations."
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "nwchem_input_generator.json")
+
+
+def _scf_spin_lines(mult):
+    """Return scf-block lines selecting the spin state for a given multiplicity."""
+    if mult == 1:
+        return ["  rhf", "  singlet"]
+    kw_map = {
+        2: "doublet",
+        3: "triplet",
+        4: "quartet",
+        5: "quintet",
+        6: "sextet",
+        7: "septet",
+        8: "octet",
+    }
+    if mult in kw_map:
+        return ["  uhf", f"  {kw_map[mult]}"]
+    return ["  uhf", f"  # Generic multiplicity {mult}"]
 
 
 class NwchemSetupDialog(QDialog):
@@ -259,29 +277,7 @@ class NwchemSetupDialog(QDialog):
             lines.append(f"  xc {self.functional_combo.currentText()}")
             lines.append(f"  mult {mult}")
         elif module == "scf":
-            if mult == 1:
-                lines.append("  rhf")
-                lines.append("  singlet")
-            elif mult == 2:
-                lines.append("  uhf")
-                lines.append("  doublet")
-            elif mult == 3:
-                lines.append("  uhf")
-                lines.append("  triplet")
-            else:
-                lines.append("  uhf")
-                # High multiplicity, see previous turn comments
-                kw_map = {
-                    4: "quartet",
-                    5: "quintet",
-                    6: "sextet",
-                    7: "septet",
-                    8: "octet",
-                }
-                if mult in kw_map:
-                    lines.append(f"  {kw_map[mult]}")
-                else:
-                    lines.append(f"  # Generic multiplicity {mult}")
+            lines.extend(_scf_spin_lines(mult))
 
         lines.append("end")
         lines.append("")
