@@ -13,7 +13,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 
 PLUGIN_NAME = "Structural Updater"
-PLUGIN_VERSION = "2026.06.27"
+PLUGIN_VERSION = "2026.07.08"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Applies 2D structural changes to 3D conformation without full re-embedding. Refactored for V3 API."
@@ -459,7 +459,10 @@ def initialize(context):
 
 
 def finalize():
-    # Restore original methods
+    # Restore original methods where they were patched (compute_manager,
+    # not the MainWindow itself — see patch_mainwindow).
+    if _PLUGIN_INSTANCE is None:
+        return
     mw = _PLUGIN_INSTANCE.mw
     for name, method in _ORIGINAL_METHODS.items():
-        setattr(mw, name, method)
+        setattr(mw.compute_manager, name, method)

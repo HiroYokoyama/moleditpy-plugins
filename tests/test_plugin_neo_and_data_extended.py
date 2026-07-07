@@ -1176,3 +1176,373 @@ class TestGifferScheduling:
         fake.slider.blockSignals.assert_any_call(True)
         fake.slider.setValue.assert_called_once_with(2)
         fake.slider.blockSignals.assert_any_call(False)
+
+
+# ===========================================================================
+# Structural Updater — trigger dispatch, apply-mode state, finalize
+# ===========================================================================
+
+
+def _updater_instance(mod, enabled=True, apply_mode=False, temp_mode=None):
+    inst = object.__new__(mod.StructuralUpdaterPlugin)
+    inst.enabled = enabled
+    inst.apply_mode_active = apply_mode
+    inst.context = MagicMock()
+    inst.mw = MagicMock()
+    if temp_mode is None:
+        # getattr(self.mw, "_temp_conv_mode", None) must yield None
+        inst.mw._temp_conv_mode = None
+    else:
+        inst.mw._temp_conv_mode = temp_mode
+    inst.apply_changes_to_3d = MagicMock()
+    return inst
+
+
+class TestUpdaterTriggerDispatch:
+    def _mod(self):
+        with mock_optional_imports():
+            return load_plugin(STRUCTURAL_PATH)
+
+    def test_apply_mode_uses_plugin_logic(self):
+        mod = self._mod()
+        orig = MagicMock()
+        mod._ORIGINAL_METHODS["trigger_conversion"] = orig
+        inst = _updater_instance(mod, enabled=True, apply_mode=True)
+        inst.new_trigger_conversion()
+        inst.apply_changes_to_3d.assert_called_once()
+        orig.assert_not_called()
+
+    def test_disabled_falls_through_to_original(self):
+        mod = self._mod()
+        orig = MagicMock()
+        mod._ORIGINAL_METHODS["trigger_conversion"] = orig
+        inst = _updater_instance(mod, enabled=False, apply_mode=True)
+        inst.new_trigger_conversion()
+        orig.assert_called_once()
+        inst.apply_changes_to_3d.assert_not_called()
+
+    def test_no_apply_mode_falls_through(self):
+        mod = self._mod()
+        orig = MagicMock()
+        mod._ORIGINAL_METHODS["trigger_conversion"] = orig
+        inst = _updater_instance(mod, enabled=True, apply_mode=False)
+        inst.new_trigger_conversion()
+        orig.assert_called_once()
+
+    def test_temp_mode_override_bypasses_plugin(self):
+        mod = self._mod()
+        orig = MagicMock()
+        mod._ORIGINAL_METHODS["trigger_conversion"] = orig
+        inst = _updater_instance(
+            mod, enabled=True, apply_mode=True, temp_mode="fast"
+        )
+        inst.new_trigger_conversion()
+        orig.assert_called_once()
+        inst.apply_changes_to_3d.assert_not_called()
+
+    def test_force_full_conversion_resets_apply_mode(self):
+        mod = self._mod()
+        orig = MagicMock()
+        mod._ORIGINAL_METHODS["trigger_conversion"] = orig
+        inst = _updater_instance(mod, apply_mode=True)
+        inst.force_full_conversion()
+        assert inst.apply_mode_active is False
+        orig.assert_called_once()
+
+
+class TestUpdaterCalculationFinished:
+    def _run(self, mol, enabled=True):
+        with mock_optional_imports():
+            mod = load_plugin(STRUCTURAL_PATH)
+            orig = MagicMock()
+            mod._ORIGINAL_METHODS["on_calculation_finished"] = orig
+            inst = _updater_instance(mod, enabled=enabled)
+            inst.new_trigger_conversion = MagicMock()
+            inst.context.current_molecule = mol
+            inst.new_on_calculation_finished("RESULT")
+            return inst, orig
+
+    def test_original_called_with_result(self):
+        _, orig = self._run(mol=None)
+        orig.assert_called_once_with("RESULT")
+
+    def test_molecule_present_enables_apply_mode(self):
+        mol = FakeMol([FakeAtom("C")], [(0, 0, 0)])
+        inst, _ = self._run(mol=mol)
+        assert inst.apply_mode_active is True
+        inst.mw.init_manager.convert_button.setText.assert_called_with(
+            "Apply 2D Changes to 3D"
+        )
+
+    def test_no_molecule_disables_apply_mode(self):
+        inst, _ = self._run(mol=None)
+        assert inst.apply_mode_active is False
+        inst.mw.init_manager.convert_button.setText.assert_called_with(
+            "Convert 2D to 3D"
+        )
+
+    def test_button_reconnected_to_wrapper(self):
+        inst, _ = self._run(mol=None)
+        inst.mw.init_manager.convert_button.clicked.connect.assert_called_with(
+            inst.new_trigger_conversion
+        )
+
+
+class TestUpdaterCheckState:
+    def _inst(self, mod, mol, apply_mode, halt=False):
+        inst = _updater_instance(mod, enabled=True, apply_mode=apply_mode)
+        inst.context.current_molecule = mol
+        inst.mw.init_manager.convert_button.text.return_value = (
+            "Halt conversion" if halt else "Convert 2D to 3D"
+        )
+        return inst
+
+    def test_3d_props_switch_to_apply_mode(self):
+        with mock_optional_imports():
+            mod = load_plugin(STRUCTURAL_PATH)
+            mol = FakeMol(
+                [FakeAtom("C", props={"_original_atom_id": 1})], [(0, 0, 0)]
+            )
+            inst = self._inst(mod, mol, apply_mode=False)
+            inst.check_state()
+            assert inst.apply_mode_active is True
+
+    def test_no_props_switch_back(self):
+        with mock_optional_imports():
+            mod = load_plugin(STRUCTURAL_PATH)
+            mol = FakeMol([FakeAtom("C")], [(0, 0, 0)])
+            inst = self._inst(mod, mol, apply_mode=True)
+            inst.check_state()
+            assert inst.apply_mode_active is False
+
+    def test_halt_button_freezes_state(self):
+        with mock_optional_imports():
+            mod = load_plugin(STRUCTURAL_PATH)
+            mol = FakeMol(
+                [FakeAtom("C", props={"_original_atom_id": 1})], [(0, 0, 0)]
+            )
+            inst = self._inst(mod, mol, apply_mode=False, halt=True)
+            inst.check_state()
+            assert inst.apply_mode_active is False
+
+    def test_disabled_is_noop(self):
+        with mock_optional_imports():
+            mod = load_plugin(STRUCTURAL_PATH)
+            inst = _updater_instance(mod, enabled=False, apply_mode=False)
+            inst.check_state()
+            assert inst.apply_mode_active is False
+
+
+class TestUpdaterFinalize:
+    """Regression: finalize() restored originals onto mw, but the patches
+    live on mw.compute_manager — so the patch was never actually undone."""
+
+    def test_finalize_restores_compute_manager_methods(self):
+        with mock_optional_imports():
+            mod = load_plugin(STRUCTURAL_PATH)
+            orig_trigger = MagicMock(name="orig_trigger")
+            orig_finished = MagicMock(name="orig_finished")
+            mw = MagicMock()
+            mod._ORIGINAL_METHODS.clear()
+            mod._ORIGINAL_METHODS["trigger_conversion"] = orig_trigger
+            mod._ORIGINAL_METHODS["on_calculation_finished"] = orig_finished
+            mod._PLUGIN_INSTANCE = SimpleNamespace(mw=mw)
+
+            mod.finalize()
+
+            assert mw.compute_manager.trigger_conversion is orig_trigger
+            assert mw.compute_manager.on_calculation_finished is orig_finished
+
+    def test_finalize_without_instance_is_noop(self):
+        with mock_optional_imports():
+            mod = load_plugin(STRUCTURAL_PATH)
+            mod._PLUGIN_INSTANCE = None
+            mod.finalize()  # must not raise
+
+    def test_version_bumped(self):
+        with mock_optional_imports():
+            mod = load_plugin(STRUCTURAL_PATH)
+            assert mod.PLUGIN_VERSION > "2026.06.27"
+
+
+# ===========================================================================
+# Encrypted Project — derive_key, export/import flow, salt header
+# ===========================================================================
+
+
+def _enc_plugin(mod):
+    ctx = make_context()
+    plugin = mod.PmeencPlugin(ctx)
+    return plugin, ctx
+
+
+class TestEncryptedDeriveKey:
+    def test_pbkdf2_parameters(self):
+        with mock_optional_imports():
+            mod = load_plugin(ENCRYPTED_PATH)
+            captured = {}
+
+            class FakeKDF:
+                def __init__(self, **kwargs):
+                    captured.update(kwargs)
+
+                def derive(self, pw_bytes):
+                    captured["password"] = pw_bytes
+                    return b"K" * 32
+
+            mod.PBKDF2HMAC = FakeKDF
+            plugin, _ = _enc_plugin(mod)
+            key = plugin.derive_key("hunter2", b"S" * 16)
+
+            assert captured["length"] == 32
+            assert captured["iterations"] == 100000
+            assert captured["salt"] == b"S" * 16
+            assert captured["password"] == b"hunter2"
+            assert key == base64.urlsafe_b64encode(b"K" * 32)
+
+
+class TestEncryptedExport:
+    def _export(self, mod, tmp_path, cached=False, cancel=False, fname="proj.pmeenc"):
+        plugin, ctx = _enc_plugin(mod)
+        target = tmp_path / fname
+
+        mod.QInputDialog.getText.reset_mock()
+        if cancel:
+            mod.QInputDialog.getText.return_value = ("", False)
+        else:
+            mod.QInputDialog.getText.return_value = ("pw", True)
+
+        plugin.derive_key = MagicMock(return_value=b"DERIVED_KEY")
+        plugin._apply_patches = MagicMock()
+        plugin.mw.state_manager.create_json_data.return_value = {"atoms": [1]}
+
+        fernet_obj = MagicMock()
+        fernet_obj.encrypt.return_value = b"ENCRYPTED_BLOB"
+        mod.Fernet = MagicMock(return_value=fernet_obj)
+
+        if cached:
+            plugin.current_key = b"CACHED_KEY"
+            plugin.current_salt = b"C" * 16
+            plugin.mw.init_manager.current_file_path = str(target)
+        else:
+            plugin.mw.init_manager.current_file_path = None
+
+        with patch("os.urandom", return_value=b"R" * 16):
+            plugin.export_encrypted(str(target))
+        return plugin, ctx, target
+
+    def test_file_layout_salt_then_ciphertext(self, tmp_path):
+        with mock_optional_imports():
+            mod = load_plugin(ENCRYPTED_PATH)
+            plugin, _, target = self._export(mod, tmp_path)
+            data = target.read_bytes()
+            assert data[:16] == b"R" * 16
+            assert data[16:] == b"ENCRYPTED_BLOB"
+
+    def test_key_and_salt_cached_after_save(self, tmp_path):
+        with mock_optional_imports():
+            mod = load_plugin(ENCRYPTED_PATH)
+            plugin, _, target = self._export(mod, tmp_path)
+            assert plugin.current_key == b"DERIVED_KEY"
+            assert plugin.current_salt == b"R" * 16
+            assert plugin.mw.state_manager.has_unsaved_changes is False
+            assert plugin.mw.init_manager.current_file_path == str(target)
+
+    def test_patches_applied_after_successful_save(self, tmp_path):
+        with mock_optional_imports():
+            mod = load_plugin(ENCRYPTED_PATH)
+            plugin, _, _ = self._export(mod, tmp_path)
+            plugin._apply_patches.assert_called_once()
+
+    def test_cached_key_skips_password_prompt(self, tmp_path):
+        with mock_optional_imports():
+            mod = load_plugin(ENCRYPTED_PATH)
+            plugin, _, target = self._export(mod, tmp_path, cached=True)
+            mod.QInputDialog.getText.assert_not_called()
+            data = target.read_bytes()
+            assert data[:16] == b"C" * 16
+
+    def test_cancel_writes_nothing(self, tmp_path):
+        with mock_optional_imports():
+            mod = load_plugin(ENCRYPTED_PATH)
+            plugin, ctx, target = self._export(mod, tmp_path, cancel=True)
+            assert not target.exists()
+            ctx.show_status_message.assert_called_with("Export cancelled.")
+
+
+class TestEncryptedPatchedSave:
+    def test_pmeenc_path_routes_to_encrypted_export(self):
+        with mock_optional_imports():
+            mod = load_plugin(ENCRYPTED_PATH)
+            plugin, _ = _enc_plugin(mod)
+            plugin.export_encrypted = MagicMock()
+            mw_instance = MagicMock()
+            mw_instance.current_file_path = "C:/data/proj.PMEENC"
+            plugin._patched_save_project(mw_instance)
+            plugin.export_encrypted.assert_called_once_with(
+                "C:/data/proj.PMEENC"
+            )
+
+    def test_plain_path_falls_back_to_original(self):
+        with mock_optional_imports():
+            mod = load_plugin(ENCRYPTED_PATH)
+            plugin, _ = _enc_plugin(mod)
+            plugin.export_encrypted = MagicMock()
+            original = MagicMock()
+            plugin._original_save_project = original
+            mw_instance = MagicMock()
+            mw_instance.current_file_path = "C:/data/proj.pme"
+            plugin._patched_save_project(mw_instance)
+            original.assert_called_once()
+            plugin.export_encrypted.assert_not_called()
+
+    def test_original_typeerror_falls_back_to_no_args(self):
+        with mock_optional_imports():
+            mod = load_plugin(ENCRYPTED_PATH)
+            plugin, _ = _enc_plugin(mod)
+            calls = []
+
+            def original(*args):
+                if args:
+                    raise TypeError("no args expected")
+                calls.append("bare")
+
+            plugin._original_save_project = original
+            mw_instance = MagicMock()
+            mw_instance.current_file_path = None
+            plugin._patched_save_project(mw_instance, True)
+            assert calls == ["bare"]
+
+
+class TestEncryptedImport:
+    def test_cancel_raises_value_error(self):
+        with mock_optional_imports():
+            mod = load_plugin(ENCRYPTED_PATH)
+            plugin, _ = _enc_plugin(mod)
+            mod.QInputDialog.getText.return_value = ("", False)
+            with pytest.raises(ValueError, match="cancelled"):
+                plugin.on_import("x.pmeenc")
+
+    def test_salt_read_from_first_16_bytes(self, tmp_path):
+        with mock_optional_imports():
+            mod = load_plugin(ENCRYPTED_PATH)
+            plugin, _ = _enc_plugin(mod)
+            target = tmp_path / "in.pmeenc"
+            target.write_bytes(b"S" * 16 + b"CIPHER")
+
+            mod.QInputDialog.getText.return_value = ("pw", True)
+            plugin.derive_key = MagicMock(return_value=b"KEY")
+            fernet_obj = MagicMock()
+            fernet_obj.decrypt.return_value = json.dumps({"a": 1}).encode()
+            mod.Fernet = MagicMock(return_value=fernet_obj)
+
+            plugin._apply_patches = MagicMock()
+            plugin.on_import(str(target))
+
+            plugin.derive_key.assert_called_once_with("pw", b"S" * 16)
+            fernet_obj.decrypt.assert_called_once_with(b"CIPHER")
+            assert plugin.current_salt == b"S" * 16
+            plugin.mw.state_manager.load_from_json_data.assert_called_once_with(
+                {"a": 1}
+            )
+            plugin._apply_patches.assert_called_once()
