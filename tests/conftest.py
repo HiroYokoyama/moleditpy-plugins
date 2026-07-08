@@ -21,6 +21,7 @@ import importlib.machinery
 import importlib.util
 import json
 import sys
+import textwrap
 from pathlib import Path
 from typing import Generator
 from unittest.mock import MagicMock
@@ -192,3 +193,168 @@ def visible_py_plugins(
                 continue
         result.append((entry["name"], path))
     return result
+
+
+# ---------------------------------------------------------------------------
+# Real-numpy passthrough (for export-script generators that do real vector
+# math) and shared fake-rdkit structures
+# ---------------------------------------------------------------------------
+
+
+@contextlib.contextmanager
+def mocks_with_real_numpy() -> Generator[None, None, None]:
+    """
+    Like mock_optional_imports(), but numpy resolves to the real package.
+
+    The export generators do ``import numpy as np`` at call time; placing the
+    real modules in sys.modules bypasses the mocking MetaPathFinder for numpy
+    only, so vector math is real while rdkit/PyQt6 stay mocked.
+
+    ALL already-imported ``numpy.*`` submodules must be restored, not just the
+    top-level package: numpy resolves internals like ``numpy._core._methods``
+    through sys.modules at call time, and if the MetaPathFinder answers that
+    import with a MagicMock the real numpy package is corrupted for the rest
+    of the process (e.g. ``np.allclose(0, 1)`` starts returning True).
+    """
+    real_mods = {
+        k: v
+        for k, v in sys.modules.items()
+        if k == "numpy" or k.startswith("numpy.")
+    }
+    with mock_optional_imports():
+        sys.modules.update(real_mods)
+        try:
+            yield
+        finally:
+            for k in real_mods:
+                sys.modules.pop(k, None)
+
+
+class P3:
+    """3-component point supporting .x/.y/.z and the sequence protocol."""
+
+    def __init__(self, x, y, z):
+        self.x, self.y, self.z = float(x), float(y), float(z)
+
+    def __len__(self):
+        return 3
+
+    def __getitem__(self, i):
+        return (self.x, self.y, self.z)[i]
+
+    def __iter__(self):
+        return iter((self.x, self.y, self.z))
+
+
+class FakeAtom:
+    def __init__(self, idx, symbol):
+        self.idx = idx
+        self.symbol = symbol
+        self.bonds = []
+
+    def GetIdx(self):
+        return self.idx
+
+    def GetSymbol(self):
+        return self.symbol
+
+    def GetDegree(self):
+        return len(self.bonds)
+
+    def GetBonds(self):
+        return list(self.bonds)
+
+    def GetNeighbors(self):
+        out = []
+        for b in self.bonds:
+            out.append(b.end_atom if b.begin_atom is self else b.begin_atom)
+        return out
+
+
+class FakeBond:
+    def __init__(self, begin_atom, end_atom, bond_type):
+        self.begin_atom = begin_atom
+        self.end_atom = end_atom
+        self.bond_type = bond_type
+        begin_atom.bonds.append(self)
+        end_atom.bonds.append(self)
+
+    def GetBeginAtomIdx(self):
+        return self.begin_atom.idx
+
+    def GetEndAtomIdx(self):
+        return self.end_atom.idx
+
+    def GetBondType(self):
+        return self.bond_type
+
+
+class FakeConf:
+    def __init__(self, coords):
+        self.coords = {i: P3(*c) for i, c in enumerate(coords)}
+
+    def GetAtomPosition(self, idx):
+        return self.coords[idx]
+
+
+class FakeMol:
+    def __init__(self, symbols, coords, bonds=()):
+        # bonds: iterable of (begin_idx, end_idx, bond_type)
+        self.atoms = [FakeAtom(i, s) for i, s in enumerate(symbols)]
+        self.conf = FakeConf(coords)
+        self.bonds = [FakeBond(self.atoms[b], self.atoms[e], t) for b, e, t in bonds]
+
+    def GetNumAtoms(self):
+        return len(self.atoms)
+
+    def GetNumBonds(self):
+        return len(self.bonds)
+
+    def GetNumConformers(self):
+        return 1
+
+    def GetConformer(self):
+        return self.conf
+
+    def GetAtoms(self):
+        return list(self.atoms)
+
+    def GetBonds(self):
+        return list(self.bonds)
+
+    def GetAtomWithIdx(self, idx):
+        return self.atoms[idx]
+
+
+def extract_function(
+    path: Path,
+    class_name: str | None,
+    fn_name: str,
+    extra_globals: dict | None = None,
+):
+    """
+    Extract a function or method from source via AST and exec it standalone.
+
+    Needed for methods of Qt-derived classes: the mocked Qt bases make the
+    class object a MagicMock, so methods can't be reached via the class.
+
+    ``class_name=None`` extracts a module-level function instead of a method.
+    """
+    source = path.read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    scope = tree
+    if class_name is not None:
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef) and node.name == class_name:
+                scope = node
+                break
+        else:
+            raise AssertionError(f"class {class_name} not found in {path}")
+    for node in scope.body:
+        if isinstance(node, ast.FunctionDef) and node.name == fn_name:
+            segment = ast.get_source_segment(source, node)
+            ns = {"MagicMock": MagicMock}
+            ns.update(extra_globals or {})
+            exec(textwrap.dedent(segment), ns)  # noqa: S102
+            return ns[fn_name]
+    raise AssertionError(f"function {fn_name} not found in {path}")
