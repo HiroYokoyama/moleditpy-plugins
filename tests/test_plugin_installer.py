@@ -1132,6 +1132,303 @@ class TestFilterPlugins:
         assert inst.table.hidden == {0: True}
 
 
+class TestOnUpdateClickedSecurity:
+    """Exercises the SHA256-verification / download-URL branches of
+    on_update_clicked (the actual install path) rather than the earlier
+    dependency-warning gate."""
+
+    def _make_installer(self):
+        inst = object.__new__(PI.PluginInstallerWindow)
+        inst.main_window = MagicMock()
+        inst.main_window.plugin_manager.plugins = []
+        inst._batch_updating = False
+        inst._last_install_succeeded = False
+        inst._pending_installs = {}
+        inst.populate_table = MagicMock()
+        return inst
+
+    def _btn(self, plugin_name, download_url, target_file, sha256=None):
+        props = {
+            "plugin_name": plugin_name,
+            "download_url": download_url,
+            "target_file": target_file,
+            "dependencies": [],
+        }
+        btn = MagicMock()
+        btn.property.side_effect = lambda k: props.get(k)
+        entry = {
+            "name": plugin_name,
+            "downloadUrl": download_url,
+            "version": "1.0.0",
+            "author": "Someone",
+            "description": "desc",
+        }
+        if sha256 is not None:
+            entry["sha256"] = sha256
+        return btn, entry
+
+    def test_sha256_mismatch_blocks_install(self, tmp_path, monkeypatch):
+        content = b"actual downloaded bytes"
+        wrong_hash = "0" * 64
+        btn, entry = self._btn(
+            "Demo", "https://example.com/demo.py",
+            str(tmp_path / "missing.py"), sha256=wrong_hash,
+        )
+        inst = self._make_installer()
+        inst.remote_data = [entry]
+        monkeypatch.setattr(inst, "sender", lambda: btn, raising=False)
+        monkeypatch.setattr(
+            inst, "_download_chunked",
+            lambda url, path, cb=None: (open(path, "wb").write(content) or True) and True,
+            raising=False,
+        )
+
+        with patch.object(PI.QMessageBox, "question", return_value=PI.QMessageBox.StandardButton.Yes):
+            with patch.object(PI.QMessageBox, "critical") as crit:
+                inst.on_update_clicked()
+
+        crit.assert_called_once()
+        title = crit.call_args[0][1]
+        assert "Security" in title
+        inst.main_window.plugin_manager.install_plugin.assert_not_called()
+        assert inst._last_install_succeeded is False
+
+    def test_sha256_match_allows_install(self, tmp_path, monkeypatch):
+        import hashlib
+
+        content = b"actual downloaded bytes"
+        correct_hash = hashlib.sha256(content).hexdigest()
+        btn, entry = self._btn(
+            "Demo", "https://example.com/demo.py",
+            str(tmp_path / "missing.py"), sha256=correct_hash,
+        )
+        inst = self._make_installer()
+        inst.remote_data = [entry]
+        monkeypatch.setattr(inst, "sender", lambda: btn, raising=False)
+        monkeypatch.setattr(
+            inst, "_download_chunked",
+            lambda url, path, cb=None: open(path, "wb").write(content) or True,
+            raising=False,
+        )
+
+        with patch.object(PI.QMessageBox, "question", return_value=PI.QMessageBox.StandardButton.Yes):
+            with patch.object(PI.QMessageBox, "information"):
+                inst.on_update_clicked()
+
+        inst.main_window.plugin_manager.install_plugin.assert_called_once()
+        assert inst._last_install_succeeded is True
+
+    def test_missing_sha256_prompt_no_aborts(self, tmp_path, monkeypatch):
+        btn, entry = self._btn(
+            "Demo", "https://example.com/demo.py", str(tmp_path / "missing.py")
+        )  # no sha256 key
+        inst = self._make_installer()
+        inst.remote_data = [entry]
+        monkeypatch.setattr(inst, "sender", lambda: btn, raising=False)
+        monkeypatch.setattr(
+            inst, "_download_chunked",
+            lambda url, path, cb=None: open(path, "wb").write(b"x") or True,
+            raising=False,
+        )
+
+        # First question() = confirm install -> Yes.
+        # Second question() would be missing-sha warning is actually QMessageBox.warning,
+        # not question -- patch warning to return No.
+        with patch.object(PI.QMessageBox, "question", return_value=PI.QMessageBox.StandardButton.Yes):
+            with patch.object(PI.QMessageBox, "warning", return_value=PI.QMessageBox.StandardButton.No) as warn:
+                inst.on_update_clicked()
+
+        warn.assert_called_once()
+        assert "checksum" in warn.call_args[0][2].lower()
+        inst.main_window.plugin_manager.install_plugin.assert_not_called()
+
+    def test_missing_sha256_prompt_yes_proceeds(self, tmp_path, monkeypatch):
+        btn, entry = self._btn(
+            "Demo", "https://example.com/demo.py", str(tmp_path / "missing.py")
+        )  # no sha256 key
+        inst = self._make_installer()
+        inst.remote_data = [entry]
+        monkeypatch.setattr(inst, "sender", lambda: btn, raising=False)
+        monkeypatch.setattr(
+            inst, "_download_chunked",
+            lambda url, path, cb=None: open(path, "wb").write(b"x") or True,
+            raising=False,
+        )
+
+        with patch.object(PI.QMessageBox, "question", return_value=PI.QMessageBox.StandardButton.Yes):
+            with patch.object(PI.QMessageBox, "warning", return_value=PI.QMessageBox.StandardButton.Yes):
+                with patch.object(PI.QMessageBox, "information"):
+                    inst.on_update_clicked()
+
+        inst.main_window.plugin_manager.install_plugin.assert_called_once()
+        assert inst._last_install_succeeded is True
+
+    def test_download_failure_skips_sha_and_install(self, tmp_path, monkeypatch):
+        btn, entry = self._btn(
+            "Demo", "https://example.com/demo.py",
+            str(tmp_path / "missing.py"), sha256="deadbeef",
+        )
+        inst = self._make_installer()
+        inst.remote_data = [entry]
+        monkeypatch.setattr(inst, "sender", lambda: btn, raising=False)
+        monkeypatch.setattr(inst, "_download_chunked", lambda *a, **k: False, raising=False)
+        calc_mock = MagicMock()
+        monkeypatch.setattr(inst, "calculate_sha256", calc_mock, raising=False)
+
+        with patch.object(PI.QMessageBox, "question", return_value=PI.QMessageBox.StandardButton.Yes):
+            inst.on_update_clicked()
+
+        calc_mock.assert_not_called()
+        inst.main_window.plugin_manager.install_plugin.assert_not_called()
+
+    def test_disallowed_url_scheme_rejected_before_download(self, tmp_path, monkeypatch):
+        # Starts with "http" (passes the naive startswith check) but the scheme
+        # itself ("httpevil") is not in the http/https allowlist.
+        btn, entry = self._btn(
+            "Demo", "httpevil://example.com/demo.py",
+            str(tmp_path / "missing.py"), sha256="deadbeef",
+        )
+        inst = self._make_installer()
+        inst.remote_data = [entry]
+        monkeypatch.setattr(inst, "sender", lambda: btn, raising=False)
+        dl_mock = MagicMock()
+        monkeypatch.setattr(inst, "_download_chunked", dl_mock, raising=False)
+
+        with patch.object(PI.QMessageBox, "question", return_value=PI.QMessageBox.StandardButton.Yes):
+            with patch.object(PI.QMessageBox, "warning") as warn:
+                inst.on_update_clicked()
+
+        dl_mock.assert_not_called()
+        warn.assert_called_once()
+        assert "unsafe" in warn.call_args[0][2].lower() or "scheme" in warn.call_args[0][2].lower()
+
+    def test_no_sender_returns_immediately(self):
+        inst = self._make_installer()
+        inst.remote_data = []
+        with patch.object(inst, "sender", return_value=None, create=True):
+            inst.on_update_clicked()  # must not raise
+        inst.main_window.plugin_manager.install_plugin.assert_not_called()
+
+    def test_no_download_url_warns_and_returns(self, tmp_path, monkeypatch):
+        btn, entry = self._btn("Demo", "", str(tmp_path / "missing.py"))
+        inst = self._make_installer()
+        inst.remote_data = [entry]
+        monkeypatch.setattr(inst, "sender", lambda: btn, raising=False)
+
+        with patch.object(PI.QMessageBox, "warning") as warn:
+            inst.on_update_clicked()
+
+        warn.assert_called_once()
+        inst.main_window.plugin_manager.install_plugin.assert_not_called()
+
+    def test_incompatible_version_no_aborts(self, tmp_path, monkeypatch):
+        btn, entry = self._btn(
+            "Demo", "https://example.com/demo.py",
+            str(tmp_path / "missing.py"), sha256="deadbeef",
+        )
+        entry["supported_moleditpy_version"] = ">=99.0.0"
+        inst = self._make_installer()
+        inst.remote_data = [entry]
+        inst.get_app_version = lambda: "4.2.0"
+        monkeypatch.setattr(inst, "sender", lambda: btn, raising=False)
+        dl_mock = MagicMock()
+        monkeypatch.setattr(inst, "_download_chunked", dl_mock, raising=False)
+
+        with patch.object(PI.QMessageBox, "warning", return_value=PI.QMessageBox.StandardButton.No):
+            inst.on_update_clicked()
+
+        dl_mock.assert_not_called()
+        inst.main_window.plugin_manager.install_plugin.assert_not_called()
+
+
+class TestPluginDetailsDialogActions:
+    def _dialog(self, missing_deps=None, target_file=None, plugin_name="Demo"):
+        d = object.__new__(PI.PluginDetailsDialog)
+        d.plugin_name = plugin_name
+        d.target_file = target_file
+        d.parent_installer = MagicMock()
+        if missing_deps is not None:
+            d.missing_deps = missing_deps
+        return d
+
+    def test_copy_install_all_no_missing_deps_is_noop(self):
+        d = self._dialog(missing_deps=None)
+        with patch.object(PI.QApplication, "clipboard") as clip:
+            d.copy_install_all_command()
+        clip.assert_not_called()
+
+    def test_copy_install_all_builds_pip_command(self):
+        d = self._dialog(missing_deps=["numpy>=1.20", "rdkit"])
+        clipboard = MagicMock()
+        with patch.object(PI.QApplication, "clipboard", return_value=clipboard):
+            with patch.object(PI.QMessageBox, "information") as info:
+                d.copy_install_all_command()
+        clipboard.setText.assert_called_once()
+        cmd = clipboard.setText.call_args[0][0]
+        assert cmd == 'pip install "numpy>=1.20" rdkit'
+        info.assert_called_once()
+
+    def test_copy_install_all_skips_unsafe_dep_with_warning(self):
+        d = self._dialog(missing_deps=["numpy;pkg", "rdkit"])
+        clipboard = MagicMock()
+        with patch.object(PI.QApplication, "clipboard", return_value=clipboard):
+            with patch.object(PI.QMessageBox, "warning") as warn:
+                with patch.object(PI.QMessageBox, "information"):
+                    d.copy_install_all_command()
+        warn.assert_called_once()
+        cmd = clipboard.setText.call_args[0][0]
+        assert cmd == "pip install rdkit"
+
+    def test_copy_install_all_all_unsafe_sets_nothing(self):
+        d = self._dialog(missing_deps=["numpy;pkg", "rdkit&x"])
+        clipboard = MagicMock()
+        with patch.object(PI.QApplication, "clipboard", return_value=clipboard):
+            with patch.object(PI.QMessageBox, "warning"):
+                d.copy_install_all_command()
+        clipboard.setText.assert_not_called()
+
+    def test_on_delete_user_cancels_does_not_delete(self, tmp_path):
+        f = tmp_path / "demo.py"
+        f.write_text("x = 1")
+        d = self._dialog(target_file=str(f))
+        with patch.object(PI.QMessageBox, "question", return_value=PI.QMessageBox.StandardButton.No):
+            d.on_delete()
+        assert f.exists()
+
+    def test_on_delete_removes_single_file(self, tmp_path):
+        f = tmp_path / "demo.py"
+        f.write_text("x = 1")
+        d = self._dialog(target_file=str(f))
+        d.accept = MagicMock()
+        with patch.object(PI.QMessageBox, "question", return_value=PI.QMessageBox.StandardButton.Yes):
+            with patch.object(PI.QMessageBox, "information"):
+                d.on_delete()
+        assert not f.exists()
+        d.accept.assert_called_once()
+        d.parent_installer.main_window.plugin_manager.discover_plugins.assert_called_once()
+        d.parent_installer.check_updates.assert_called_once()
+
+    def test_on_delete_removes_folder_plugin(self, tmp_path):
+        pkg = tmp_path / "My_Plugin"
+        pkg.mkdir()
+        init = pkg / "__init__.py"
+        init.write_text("x = 1")
+        d = self._dialog(target_file=str(init))
+        d.accept = MagicMock()
+        with patch.object(PI.QMessageBox, "question", return_value=PI.QMessageBox.StandardButton.Yes):
+            with patch.object(PI.QMessageBox, "information"):
+                d.on_delete()
+        assert not pkg.exists()
+
+    def test_on_delete_missing_file_warns(self, tmp_path):
+        d = self._dialog(target_file=str(tmp_path / "gone.py"))
+        with patch.object(PI.QMessageBox, "question", return_value=PI.QMessageBox.StandardButton.Yes):
+            with patch.object(PI.QMessageBox, "warning") as warn:
+                d.on_delete()
+        warn.assert_called_once()
+        d.parent_installer.check_updates.assert_not_called()
+
+
 def _fake_pkg(monkeypatch, top, version):
     """Install a fake <top>.utils.constants module tree with VERSION."""
     pkg = types.ModuleType(top)
