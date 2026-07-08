@@ -42,3 +42,40 @@ class TestHighResolutionImager:
             ctx = make_context()
             mod.initialize(ctx)
             ctx.add_menu_action.assert_not_called()
+
+
+
+
+# ---------------------------------------------------------------------------
+# run() guards / rejected dialog short-circuit
+# ---------------------------------------------------------------------------
+
+from unittest.mock import MagicMock
+
+HIRES_PATH = HI_RES_PATH
+
+
+class TestHighResImagerRun:
+    def test_run_without_plugin_manager_returns(self):
+        with mock_optional_imports():
+            mod = load_plugin(HIRES_PATH)
+            mod.PLUGIN_CONTEXT = MagicMock()
+            mw = MagicMock(spec=[])  # no plugin_manager attribute
+            mod.run(mw)  # must not raise, must not open dialog
+        mod.PLUGIN_CONTEXT.get_main_window.assert_not_called()
+
+    def test_run_without_context_returns(self):
+        with mock_optional_imports():
+            mod = load_plugin(HIRES_PATH)
+            assert mod.PLUGIN_CONTEXT is None
+            mod.run(MagicMock())  # must not raise
+
+    def test_rejected_dialog_skips_file_dialog(self):
+        with mock_optional_imports():
+            mod = load_plugin(HIRES_PATH)
+            ctx = make_context()
+            # QDialog is a MagicMock: exec() returns a MagicMock which never
+            # equals DialogCode.Accepted, i.e. the "user cancelled" path.
+            mod.take_screenshot(ctx)
+            assert mod.QFileDialog.getSaveFileName.call_count == 0
+            ctx.plotter.screenshot.assert_not_called()
