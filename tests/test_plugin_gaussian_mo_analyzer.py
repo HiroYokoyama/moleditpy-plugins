@@ -15,16 +15,28 @@ import importlib.util
 import math
 import sys
 import textwrap
+import types
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import numpy as np
 import pytest
 
-from conftest import make_context, mock_optional_imports
+from conftest import load_plugin, make_context, mock_optional_imports, mocks_with_real_numpy
 
 PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
 MO_PKG_DIR = PLUGINS_DIR / "Gaussian_MO_Analyzer" / "gaussian_fchk_mo_analyzer"
 MO_ANALYZER_PATH = MO_PKG_DIR / "analyzer.py"
+
+# analyzer.py has no PyQt6/rdkit imports at module scope (rdkit is imported
+# lazily inside get_xyz_block/get_basis_labels), so it can be loaded as a
+# real module with real numpy for genuine coverage of BasisSetEngine, unlike
+# the AST-extracted classes above which stand in for methods on Qt-derived
+# classes elsewhere in this repo.
+with mocks_with_real_numpy():
+    _mo_real = load_plugin(MO_ANALYZER_PATH)
+RealFCHKReader = _mo_real.FCHKReader
+RealBasisSetEngine = _mo_real.BasisSetEngine
 
 
 def _extract_method_source(path: Path, class_name: str, method_name: str) -> str:
@@ -253,6 +265,336 @@ class TestMOCubeWriter:
         lines = self._write(tmp_path, 6)
         vals = [float(v) for v in lines[7].split()]
         assert vals == pytest.approx([0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
+
+
+def _s_shell_fchk(exponent=1.0, coeff=1.0):
+    return textwrap.dedent(f"""\
+        Atomic numbers                              I   N=           1
+                 1
+        Current cartesian coordinates               R   N=           3
+          0.000000000000E+00  0.000000000000E+00  0.000000000000E+00
+        Shell types                                 I   N=           1
+                 0
+        Number of primitives per shell              I   N=           1
+                 1
+        Shell to atom map                           I   N=           1
+                 1
+        Primitive exponents                         R   N=           1
+          {exponent:.12E}
+        Contraction coefficients                    R   N=           1
+          {coeff:.12E}
+        """)
+
+
+_P_SHELL_FCHK = textwrap.dedent("""\
+    Atomic numbers                              I   N=           1
+             1
+    Current cartesian coordinates               R   N=           3
+      0.000000000000E+00  0.000000000000E+00  0.000000000000E+00
+    Shell types                                 I   N=           1
+             1
+    Number of primitives per shell              I   N=           1
+             1
+    Shell to atom map                           I   N=           1
+             1
+    Primitive exponents                         R   N=           1
+      5.000000000000E-01
+    Contraction coefficients                    R   N=           1
+      1.000000000000E+00
+    """)
+
+_SP_SHELL_FALLBACK_FCHK = textwrap.dedent("""\
+    Atomic numbers                              I   N=           1
+             1
+    Current cartesian coordinates               R   N=           3
+      0.000000000000E+00  0.000000000000E+00  0.000000000000E+00
+    Shell types                                 I   N=           1
+            -1
+    Number of primitives per shell              I   N=           1
+             1
+    Shell to atom map                           I   N=           1
+             1
+    Primitive exponents                         R   N=           1
+      5.000000000000E-01
+    Contraction coefficients                    R   N=           2
+      1.000000000000E+00  5.000000000000E-01
+    """)
+
+_SP_SHELL_PMOD_FCHK = textwrap.dedent("""\
+    Atomic numbers                              I   N=           1
+             1
+    Current cartesian coordinates               R   N=           3
+      0.000000000000E+00  0.000000000000E+00  0.000000000000E+00
+    Shell types                                 I   N=           1
+            -1
+    Number of primitives per shell              I   N=           1
+             1
+    Shell to atom map                           I   N=           1
+             1
+    Primitive exponents                         R   N=           1
+      5.000000000000E-01
+    Contraction coefficients                    R   N=           1
+      1.000000000000E+00
+    P(S=P) Contraction coefficients             R   N=           1
+      3.000000000000E-01
+    """)
+
+_UNSUPPORTED_THEN_S_FCHK = textwrap.dedent("""\
+    Atomic numbers                              I   N=           1
+             1
+    Current cartesian coordinates               R   N=           3
+      0.000000000000E+00  0.000000000000E+00  0.000000000000E+00
+    Shell types                                 I   N=           2
+             9           0
+    Number of primitives per shell              I   N=           2
+             1           1
+    Shell to atom map                           I   N=           2
+             1           1
+    Primitive exponents                         R   N=           2
+      1.000000000000E+00  2.000000000000E+00
+    Contraction coefficients                    R   N=           2
+      1.000000000000E+00  1.000000000000E+00
+    """)
+
+
+def _d_shell_fchk(pure_flag=None):
+    extra = ""
+    if pure_flag is not None:
+        extra = f"Pure/Cartesian d shells                     I                {pure_flag}\n"
+    return textwrap.dedent("""\
+        Atomic numbers                              I   N=           1
+                 1
+        Current cartesian coordinates               R   N=           3
+          0.000000000000E+00  0.000000000000E+00  0.000000000000E+00
+        Shell types                                 I   N=           1
+                 2
+        Number of primitives per shell              I   N=           1
+                 1
+        Shell to atom map                           I   N=           1
+                 1
+        Primitive exponents                         R   N=           1
+          1.000000000000E+00
+        Contraction coefficients                    R   N=           1
+          1.000000000000E+00
+        """) + extra
+
+
+def _neg_d_shell_fchk():
+    return textwrap.dedent("""\
+        Atomic numbers                              I   N=           1
+                 1
+        Current cartesian coordinates               R   N=           3
+          0.000000000000E+00  0.000000000000E+00  0.000000000000E+00
+        Shell types                                 I   N=           1
+                -2
+        Number of primitives per shell              I   N=           1
+                 1
+        Shell to atom map                           I   N=           1
+                 1
+        Primitive exponents                         R   N=           1
+          1.000000000000E+00
+        Contraction coefficients                    R   N=           1
+          1.000000000000E+00
+        Pure/Cartesian d shells                     I                0
+        """)
+
+
+def _make_engine(tmp_path, content, name="mo.fchk"):
+    f = tmp_path / name
+    f.write_text(content)
+    reader = RealFCHKReader(str(f))
+    return RealBasisSetEngine(reader), reader
+
+
+class TestMOBasisSetEnginePrepareBasisSet:
+    def test_s_shell_single_basis_function(self, tmp_path):
+        engine, _ = _make_engine(tmp_path, _s_shell_fchk())
+        assert engine.n_basis == 1
+        assert len(engine.shells) == 1
+
+    def test_p_shell_three_basis_functions(self, tmp_path):
+        engine, _ = _make_engine(tmp_path, _P_SHELL_FCHK)
+        assert engine.n_basis == 3
+        assert len(engine.shells) == 1
+
+    def test_sp_shell_fallback_coeffs_four_basis_functions(self, tmp_path):
+        engine, _ = _make_engine(tmp_path, _SP_SHELL_FALLBACK_FCHK)
+        # SP shell expands into an S sub-shell (1 func) + P sub-shell (3 funcs)
+        assert engine.n_basis == 4
+        assert len(engine.shells) == 2
+        assert engine.shells[0]["type"] == 0
+        assert engine.shells[1]["type"] == 1
+
+    def test_sp_shell_p_modifiers_path(self, tmp_path):
+        engine, _ = _make_engine(tmp_path, _SP_SHELL_PMOD_FCHK)
+        assert engine.n_basis == 4
+        assert len(engine.shells) == 2
+
+    def test_unsupported_shell_type_skipped_pointers_advance(self, tmp_path):
+        engine, _ = _make_engine(tmp_path, _UNSUPPORTED_THEN_S_FCHK)
+        # Only the trailing S shell (type 0) should survive; the unsupported
+        # type-9 shell is skipped but its primitive/coeff slots are consumed.
+        assert engine.n_basis == 1
+        assert len(engine.shells) == 1
+        assert engine.shells[0]["type"] == 0
+
+    def test_d_shell_defaults_to_cartesian_six_functions(self, tmp_path):
+        engine, _ = _make_engine(tmp_path, _d_shell_fchk(pure_flag=None))
+        assert engine.n_basis == 6
+
+    def test_d_shell_cartesian_flag_one_six_functions(self, tmp_path):
+        engine, _ = _make_engine(tmp_path, _d_shell_fchk(pure_flag=1))
+        assert engine.n_basis == 6
+
+    def test_d_shell_pure_flag_zero_five_functions(self, tmp_path):
+        engine, _ = _make_engine(tmp_path, _d_shell_fchk(pure_flag=0))
+        assert engine.n_basis == 5
+
+    def test_negative_shell_type_uses_abs_for_definitions(self, tmp_path):
+        # Shell type -2 with the pure/spherical D flag set: effective_type
+        # abs(-2) == 2, same 5-function spherical definition as type 2 pure.
+        engine, _ = _make_engine(tmp_path, _neg_d_shell_fchk())
+        assert engine.n_basis == 5
+
+
+class TestMOBasisSetEngineEvaluateMoOnGrid:
+    def test_s_function_value_at_center(self, tmp_path):
+        engine, _ = _make_engine(tmp_path, _s_shell_fchk(exponent=1.0, coeff=1.0))
+        grid = np.array([[0.0, 0.0, 0.0]])
+        coeffs = np.array([1.0])
+        phi = engine.evaluate_mo_on_grid(0, grid, coeffs)
+        expected = (2 * 1.0 / np.pi) ** 0.75
+        assert phi[0] == pytest.approx(expected)
+
+    def test_s_function_decays_with_distance(self, tmp_path):
+        engine, _ = _make_engine(tmp_path, _s_shell_fchk(exponent=1.0, coeff=1.0))
+        grid = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]])
+        coeffs = np.array([1.0])
+        phi = engine.evaluate_mo_on_grid(0, grid, coeffs)
+        assert phi[1] < phi[0]
+
+    def test_small_coefficient_below_threshold_contributes_zero(self, tmp_path):
+        engine, _ = _make_engine(tmp_path, _s_shell_fchk())
+        grid = np.array([[0.0, 0.0, 0.0]])
+        coeffs = np.array([1e-10])
+        phi = engine.evaluate_mo_on_grid(0, grid, coeffs)
+        assert phi[0] == pytest.approx(0.0)
+
+    def test_out_of_range_mo_index_raises_value_error(self, tmp_path):
+        engine, _ = _make_engine(tmp_path, _s_shell_fchk())
+        grid = np.array([[0.0, 0.0, 0.0]])
+        coeffs = np.array([1.0])
+        with pytest.raises(ValueError):
+            engine.evaluate_mo_on_grid(1, grid, coeffs)  # only 1 basis fn -> mo 1 out of range
+
+
+class TestMOBasisSetEngineEvaluateBasisOnGrid:
+    def test_single_basis_function_matches_manual_gaussian(self, tmp_path):
+        engine, _ = _make_engine(tmp_path, _s_shell_fchk(exponent=1.0, coeff=1.0))
+        grid = np.array([[1.0, 0.0, 0.0]])
+        phi = engine.evaluate_basis_on_grid(0, grid)
+        prefactor = (2 * 1.0 / np.pi) ** 0.75
+        expected = prefactor * math.exp(-1.0 * 1.0**2)
+        assert phi[0] == pytest.approx(expected)
+
+    def test_out_of_range_basis_index_returns_zeros(self, tmp_path):
+        engine, _ = _make_engine(tmp_path, _s_shell_fchk())
+        grid = np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]])
+        phi = engine.evaluate_basis_on_grid(5, grid)
+        assert list(phi) == [0.0, 0.0]
+
+
+class TestMOBasisSetEngineGetBasisLabels:
+    def test_p_shell_labels(self, tmp_path):
+        engine, _ = _make_engine(tmp_path, _P_SHELL_FCHK)
+        with mock_optional_imports():
+            labels = engine.get_basis_labels()
+        assert len(labels) == 3
+        assert labels[0].endswith("Px") or "L1_0" in labels[0]
+
+    def test_negative_shell_type_label_count_matches_n_basis(self, tmp_path):
+        # Regression test: get_basis_labels() previously produced zero
+        # labels for shell types below -1 (e.g. -2 for pure/spherical D),
+        # even though _prepare_basis_set correctly builds 5 basis functions
+        # for such a shell via abs(stype). This mismatch (0 labels vs
+        # n_basis == 5) breaks any caller that zips labels with MO
+        # coefficients (e.g. a GUI table).
+        engine, _ = _make_engine(tmp_path, _neg_d_shell_fchk())
+        with mock_optional_imports():
+            labels = engine.get_basis_labels()
+        assert len(labels) == engine.n_basis == 5
+
+    def test_sp_shell_labels_four_components(self, tmp_path):
+        engine, _ = _make_engine(tmp_path, _SP_SHELL_FALLBACK_FCHK)
+        with mock_optional_imports():
+            labels = engine.get_basis_labels()
+        assert len(labels) == 4
+
+
+class _FakePeriodicTable:
+    _MAP = {8: "O", 1: "H"}
+
+    def GetElementSymbol(self, z):
+        return self._MAP.get(int(z), f"Z{z}")
+
+
+def _install_fake_rdkit():
+    fake_chem = types.ModuleType("rdkit.Chem")
+    fake_chem.GetPeriodicTable = lambda: _FakePeriodicTable()
+    fake_rdkit = types.ModuleType("rdkit")
+    fake_rdkit.Chem = fake_chem
+    saved = {k: sys.modules.get(k) for k in ("rdkit", "rdkit.Chem")}
+    sys.modules["rdkit"] = fake_rdkit
+    sys.modules["rdkit.Chem"] = fake_chem
+    return saved
+
+
+def _restore_rdkit(saved):
+    for k, v in saved.items():
+        if v is None:
+            sys.modules.pop(k, None)
+        else:
+            sys.modules[k] = v
+
+
+class TestMOFCHKReaderGetXyzBlock:
+    def test_returns_none_when_atoms_missing(self, tmp_path):
+        f = tmp_path / "empty.fchk"
+        f.write_text("Charge                                      I                0\n")
+        reader = RealFCHKReader(str(f))
+        assert reader.get_xyz_block() is None
+
+    def test_returns_none_when_coords_missing(self, tmp_path):
+        f = tmp_path / "atoms_only.fchk"
+        f.write_text(
+            "Atomic numbers                              I   N=           1\n"
+            "         1\n"
+        )
+        reader = RealFCHKReader(str(f))
+        assert reader.get_xyz_block() is None
+
+    def test_header_and_bohr_to_angstrom_conversion(self, tmp_path):
+        f = tmp_path / "water.fchk"
+        f.write_text(
+            "Atomic numbers                              I   N=           2\n"
+            "         8           1\n"
+            "Current cartesian coordinates               R   N=           6\n"
+            "  0.000000000000E+00  0.000000000000E+00  0.000000000000E+00\n"
+            "  1.000000000000E+00  0.000000000000E+00  0.000000000000E+00\n"
+        )
+        reader = RealFCHKReader(str(f))
+        saved = _install_fake_rdkit()
+        try:
+            block = reader.get_xyz_block()
+        finally:
+            _restore_rdkit(saved)
+        lines = block.splitlines()
+        assert lines[0] == "2"
+        assert lines[1] == "Generated from FCHK"
+        assert lines[2].split()[0] == "O"
+        h_parts = lines[3].split()
+        assert h_parts[0] == "H"
+        assert float(h_parts[1]) == pytest.approx(0.529177249)
 
 
 def _load_mo_package():
