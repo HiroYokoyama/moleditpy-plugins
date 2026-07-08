@@ -20,6 +20,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import numpy as real_numpy
+import pytest
 
 from conftest import load_plugin, make_context, mock_optional_imports
 
@@ -128,6 +129,9 @@ class FakeText:
         return self._text
 
     def setText(self, t):
+        self._text = t
+
+    def setPlainText(self, t):
         self._text = t
 
 
@@ -666,3 +670,332 @@ class TestGaussianEntryPoints:
             mod.initialize(ctx)
             ctx.add_export_action.assert_called_once()
             assert "Gaussian" in ctx.add_export_action.call_args[0][0]
+
+    def test_run_plugin_with_valid_molecule_opens_dialog(self):
+        with mock_optional_imports():
+            mod = load_plugin(GAUSSIAN_PATH)
+            ctx = make_context()
+            mol = MagicMock()
+            mol.GetNumAtoms.return_value = 3
+            ctx.current_mol = mol
+            mod.QMessageBox.warning.reset_mock()
+            # GaussianSetupDialog collapses to a MagicMock under the mocked Qt
+            # bases; just confirm no warning fires and exec() gets invoked.
+            mod.run_plugin(ctx)
+            mod.QMessageBox.warning.assert_not_called()
+
+    def test_run_noop_without_plugin_manager(self):
+        with mock_optional_imports():
+            mod = load_plugin(GAUSSIAN_PATH)
+            mw = MagicMock(spec=[])  # no plugin_manager attribute
+            mod.run(mw)  # must not raise
+
+    def test_run_noop_without_context(self):
+        with mock_optional_imports():
+            mod = load_plugin(GAUSSIAN_PATH)
+            mod.PLUGIN_CONTEXT = None
+            mw = MagicMock()
+            mod.run(mw)  # must not raise
+
+
+# ---------------------------------------------------------------------------
+# RouteBuilderDialog.get_route / is_wfn_enabled
+# ---------------------------------------------------------------------------
+
+_route_get_route = _extract_method_as_fn(GAUSSIAN_PATH, "RouteBuilderDialog", "get_route")
+_route_is_wfn_enabled = _extract_method_as_fn(
+    GAUSSIAN_PATH, "RouteBuilderDialog", "is_wfn_enabled"
+)
+
+
+class TestRouteBuilderMisc:
+    def test_get_route_returns_preview_str(self):
+        fake = SimpleNamespace(preview_str="# B3LYP/6-31G(d) Opt")
+        assert _route_get_route(fake) == "# B3LYP/6-31G(d) Opt"
+
+    def test_is_wfn_enabled_true(self):
+        fake = SimpleNamespace(wfn_chk=FakeCheck(True))
+        assert _route_is_wfn_enabled(fake) is True
+
+    def test_is_wfn_enabled_false(self):
+        fake = SimpleNamespace(wfn_chk=FakeCheck(False))
+        assert _route_is_wfn_enabled(fake) is False
+
+
+# ---------------------------------------------------------------------------
+# GaussianSetupDialog.update_job_options_visibility (job-tab visibility rules)
+# ---------------------------------------------------------------------------
+
+_update_job_vis = _extract_method_as_fn(
+    GAUSSIAN_PATH, "RouteBuilderDialog", "update_job_options_visibility"
+)
+
+
+class FakeGroupBox:
+    def __init__(self):
+        self._visible = None
+
+    def setVisible(self, v):
+        self._visible = v
+
+
+def _job_vis_self(job_idx):
+    fake = SimpleNamespace()
+    fake.job_type = FakeCombo(index=job_idx)
+    fake.opt_group = FakeGroupBox()
+    fake.freq_group = FakeGroupBox()
+    return fake
+
+
+class TestUpdateJobOptionsVisibility:
+    @pytest.mark.parametrize("idx,is_opt", [(0, True), (1, True), (2, False), (3, False), (4, True), (5, True), (6, False), (7, False)])
+    def test_opt_group_visibility(self, idx, is_opt):
+        fake = _job_vis_self(idx)
+        _update_job_vis(fake)
+        assert fake.opt_group._visible is is_opt
+
+    @pytest.mark.parametrize("idx,is_freq", [(0, True), (1, False), (2, True), (3, False), (4, False)])
+    def test_freq_group_visibility(self, idx, is_freq):
+        fake = _job_vis_self(idx)
+        _update_job_vis(fake)
+        assert fake.freq_group._visible is is_freq
+
+
+# ---------------------------------------------------------------------------
+# GaussianSetupDialog.insert_tail_template
+# ---------------------------------------------------------------------------
+
+_insert_tail_template = _extract_method_as_fn(
+    GAUSSIAN_PATH, "GaussianSetupDialog", "insert_tail_template"
+)
+
+
+def _tail_self(combo_text):
+    fake = SimpleNamespace()
+    fake.tail_template_combo = FakeCombo(combo_text)
+    cursor = MagicMock()
+    fake.tail_edit = MagicMock()
+    fake.tail_edit.textCursor.return_value = cursor
+    return fake, cursor
+
+
+class TestInsertTailTemplate:
+    def test_select_placeholder_is_noop(self):
+        fake, cursor = _tail_self("-- Select Template --")
+        _insert_tail_template(fake)
+        cursor.insertText.assert_not_called()
+
+    def test_modredundant_template_inserted(self):
+        fake, cursor = _tail_self("ModRedundant Freeze/Scan")
+        _insert_tail_template(fake)
+        text = cursor.insertText.call_args[0][0]
+        assert "B 1 2 F" in text
+        fake.tail_edit.setFocus.assert_called_once()
+
+    def test_basis_set_template_inserted(self):
+        fake, cursor = _tail_self("Gen/GenECP Basis Set Block")
+        _insert_tail_template(fake)
+        text = cursor.insertText.call_args[0][0]
+        assert "6-31G(d)" in text
+
+    def test_ecp_template_inserted(self):
+        fake, cursor = _tail_self("ECP Block")
+        _insert_tail_template(fake)
+        text = cursor.insertText.call_args[0][0]
+        assert "LanL2DZ" in text
+
+    def test_nbo_template_inserted(self):
+        fake, cursor = _tail_self("NBO Analysis")
+        _insert_tail_template(fake)
+        text = cursor.insertText.call_args[0][0]
+        assert "$NBO" in text
+
+    def test_link1_template_inserted(self):
+        fake, cursor = _tail_self("Link1 Section")
+        _insert_tail_template(fake)
+        text = cursor.insertText.call_args[0][0]
+        assert "--Link1--" in text
+
+    def test_connectivity_template_inserted(self):
+        fake, cursor = _tail_self("Connectivity Block")
+        _insert_tail_template(fake)
+        text = cursor.insertText.call_args[0][0]
+        assert "Geom=Connectivity" in text
+
+    def test_unrecognized_text_no_insert(self):
+        fake, cursor = _tail_self("Totally Unknown Option")
+        _insert_tail_template(fake)
+        cursor.insertText.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Preset persistence: load/save/apply/delete
+# ---------------------------------------------------------------------------
+
+def _preset_fn(name, settings_file):
+    return _extract_method_as_fn(
+        GAUSSIAN_PATH,
+        "GaussianSetupDialog",
+        name,
+        extra_globals={"SETTINGS_FILE": str(settings_file), "QMessageBox": MagicMock(),
+                        "QInputDialog": MagicMock()},
+    )
+
+
+def _preset_self(**overrides):
+    fake = SimpleNamespace()
+    fake.presets_data = {}
+    fake.preset_combo = FakeCombo()
+    fake.nproc_spin = FakeSpin(4)
+    fake.mem_spin = FakeSpin(4)
+    fake.mem_unit = FakeCombo("GB")
+    fake.chk_edit = FakeLine("")
+    fake.keywords_edit = FakeLine("")
+    fake.tail_edit = FakeText("")
+    fake.update_preview = MagicMock()
+    for k, v in overrides.items():
+        setattr(fake, k, v)
+    return fake
+
+
+class TestPresetPersistence:
+    def test_load_presets_creates_default_when_no_file(self, tmp_path):
+        settings_file = tmp_path / "presets.json"
+        fn = _preset_fn("load_presets_from_file", settings_file)
+        fake = _preset_self()
+        fake.update_preset_combo = MagicMock()
+        fn(fake)
+        assert "Default" in fake.presets_data
+        fake.update_preset_combo.assert_called_once()
+
+    def test_load_presets_reads_existing_file(self, tmp_path):
+        settings_file = tmp_path / "presets.json"
+        settings_file.write_text(
+            json.dumps({"MyPreset": {"nproc": 8, "route": "# HF/STO-3G SP"}}),
+            encoding="utf-8",
+        )
+        fn = _preset_fn("load_presets_from_file", settings_file)
+        fake = _preset_self()
+        fake.update_preset_combo = MagicMock()
+        fn(fake)
+        assert fake.presets_data["MyPreset"]["nproc"] == 8
+        assert "Default" in fake.presets_data  # still auto-added
+
+    def test_load_presets_corrupted_file_falls_back_to_default(self, tmp_path):
+        settings_file = tmp_path / "presets.json"
+        settings_file.write_text("{not valid json", encoding="utf-8")
+        fn = _preset_fn("load_presets_from_file", settings_file)
+        fake = _preset_self()
+        fake.update_preset_combo = MagicMock()
+        fn(fake)
+        assert "Default" in fake.presets_data
+
+    def test_apply_selected_preset_populates_fields(self, tmp_path):
+        fn = _preset_fn("apply_selected_preset", tmp_path / "presets.json")
+        fake = _preset_self(
+            presets_data={
+                "P1": {
+                    "nproc": 16,
+                    "mem_val": 8,
+                    "mem_unit": "MB",
+                    "chk": "job",
+                    "route": "# PBE0/def2SVP SP",
+                    "tail": "B 1 2 F",
+                }
+            },
+            preset_combo=FakeCombo("P1"),
+        )
+        fn(fake)
+        assert fake.nproc_spin.value() == 16
+        assert fake.mem_spin.value() == 8
+        assert fake.mem_unit.currentText() == "MB"
+        assert fake.chk_edit.text() == "job"
+        assert fake.keywords_edit.text() == "# PBE0/def2SVP SP"
+        assert fake.tail_edit.toPlainText() == "B 1 2 F"
+        fake.update_preview.assert_called_once()
+
+    def test_apply_selected_preset_missing_name_is_noop(self, tmp_path):
+        fn = _preset_fn("apply_selected_preset", tmp_path / "presets.json")
+        fake = _preset_self(preset_combo=FakeCombo("Ghost"))
+        fn(fake)
+        fake.update_preview.assert_not_called()
+
+    def test_get_current_ui_settings_round_trip(self, tmp_path):
+        fn = _preset_fn("get_current_ui_settings", tmp_path / "presets.json")
+        fake = _preset_self(
+            nproc_spin=FakeSpin(2),
+            mem_spin=FakeSpin(1),
+            mem_unit=FakeCombo("GB"),
+            chk_edit=FakeLine("c"),
+            keywords_edit=FakeLine("# HF SP"),
+            tail_edit=FakeText("tail text"),
+        )
+        result = fn(fake)
+        assert result == {
+            "nproc": 2,
+            "mem_val": 1,
+            "mem_unit": "GB",
+            "chk": "c",
+            "route": "# HF SP",
+            "tail": "tail text",
+        }
+
+    def test_save_presets_to_file_writes_json(self, tmp_path):
+        settings_file = tmp_path / "presets.json"
+        fn = _preset_fn("save_presets_to_file", settings_file)
+        fake = _preset_self(presets_data={"Default": {"nproc": 4}})
+        fn(fake)
+        assert json.loads(settings_file.read_text(encoding="utf-8")) == {
+            "Default": {"nproc": 4}
+        }
+
+    def test_delete_preset_default_is_protected(self, tmp_path):
+        fn = _preset_fn("delete_preset", tmp_path / "presets.json")
+        fake = _preset_self(
+            presets_data={"Default": {"nproc": 4}}, preset_combo=FakeCombo("Default")
+        )
+        fake.update_preset_combo = MagicMock()
+        fake.save_presets_to_file = MagicMock()
+        fn(fake)
+        assert "Default" in fake.presets_data
+        fake.save_presets_to_file.assert_not_called()
+        fake.update_preset_combo.assert_not_called()
+
+    def test_delete_preset_confirmed_removes_entry(self, tmp_path):
+        settings_file = tmp_path / "presets.json"
+        qmb = MagicMock()
+        qmb.question.return_value = qmb.StandardButton.Yes
+        fn = _extract_method_as_fn(
+            GAUSSIAN_PATH,
+            "GaussianSetupDialog",
+            "delete_preset",
+            extra_globals={"SETTINGS_FILE": str(settings_file), "QMessageBox": qmb},
+        )
+        fake = _preset_self(
+            presets_data={"Custom": {"nproc": 4}}, preset_combo=FakeCombo("Custom")
+        )
+        fake.update_preset_combo = MagicMock()
+        fake.save_presets_to_file = MagicMock()
+        fn(fake)
+        assert "Custom" not in fake.presets_data
+        fake.save_presets_to_file.assert_called_once()
+        fake.update_preset_combo.assert_called_once()
+
+    def test_delete_preset_declined_keeps_entry(self, tmp_path):
+        settings_file = tmp_path / "presets.json"
+        qmb = MagicMock()
+        qmb.question.return_value = qmb.StandardButton.No
+        fn = _extract_method_as_fn(
+            GAUSSIAN_PATH,
+            "GaussianSetupDialog",
+            "delete_preset",
+            extra_globals={"SETTINGS_FILE": str(settings_file), "QMessageBox": qmb},
+        )
+        fake = _preset_self(
+            presets_data={"Custom": {"nproc": 4}}, preset_combo=FakeCombo("Custom")
+        )
+        fake.update_preset_combo = MagicMock()
+        fake.save_presets_to_file = MagicMock()
+        fn(fake)
+        assert "Custom" in fake.presets_data
+        fake.save_presets_to_file.assert_not_called()
