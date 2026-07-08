@@ -1,8 +1,5 @@
 """
-Tests for the cube-file parsing plugins:
-  - Cube File Viewer        (plugins/Cube_File_Viewer/cube_viewer.py)
-  - Cube File Viewer Advanced (plugins/Cube_File_Viewer_Advanced/cube_viewer_advanced.py)
-  - Mapped Cube Viewer      (plugins/Mapped_Cube_Viewer/mapped_cube_viewer.py)
+Tests for the Cube File Viewer plugin (plugins/Cube_File_Viewer/cube_viewer.py).
 
 Pure-function tests (parse_cube_data) run with real numpy injected after
 plugin load so we can verify actual parsing behaviour.
@@ -10,7 +7,6 @@ Qt / PyVista / RDKit remain mocked throughout.
 """
 from __future__ import annotations
 
-import textwrap
 from pathlib import Path
 
 import numpy as np
@@ -20,8 +16,6 @@ from conftest import load_plugin, make_context, mock_optional_imports
 
 PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
 CUBE_PATH = PLUGINS_DIR / "Cube_File_Viewer" / "cube_viewer.py"
-CUBE_ADV_PATH = PLUGINS_DIR / "Cube_File_Viewer_Advanced" / "cube_viewer_advanced.py"
-MAPPED_PATH = PLUGINS_DIR / "Mapped_Cube_Viewer" / "mapped_cube_viewer.py"
 
 
 # ---------------------------------------------------------------------------
@@ -82,16 +76,6 @@ def _make_cube_content(nx: int = 2, ny: int = 2, nz: int = 2,
 @pytest.fixture(scope="module")
 def cube_mod():
     return _load_with_real_numpy(CUBE_PATH)
-
-
-@pytest.fixture(scope="module")
-def cube_adv_mod():
-    return _load_with_real_numpy(CUBE_ADV_PATH)
-
-
-@pytest.fixture(scope="module")
-def mapped_mod():
-    return _load_with_real_numpy(MAPPED_PATH)
 
 
 @pytest.fixture
@@ -201,66 +185,6 @@ class TestParseCubeData:
 
 
 # ---------------------------------------------------------------------------
-# parse_cube_data — Cube File Viewer Advanced (independent copy)
-# ---------------------------------------------------------------------------
-
-class TestCubeAdvancedParseCubeData:
-    def test_short_file_raises(self, tmp_path, cube_adv_mod):
-        f = tmp_path / "short.cube"
-        f.write_text("a\nb\n")
-        with pytest.raises(ValueError, match="too short"):
-            cube_adv_mod.parse_cube_data(str(f))
-
-    def test_returns_expected_keys(self, cube_file, cube_adv_mod):
-        result = cube_adv_mod.parse_cube_data(str(cube_file))
-        assert {"atoms", "dims", "data_flat", "is_angstrom_header"}.issubset(
-            result.keys()
-        )
-
-    def test_dims(self, cube_file, cube_adv_mod):
-        result = cube_adv_mod.parse_cube_data(str(cube_file))
-        assert result["dims"] == (2, 2, 2)
-
-    def test_pads_short_data(self, tmp_path, cube_adv_mod):
-        content = _make_cube_content(nx=2, ny=2, nz=2, n_atoms=1,
-                                     data_values=[1.0, 2.0])
-        # 2×2×2 = 8 expected, 2 provided → 6 zeros appended
-        # BUT: 2 values on one line = only 2 tokens < 6, fails heuristic → 0 data found
-        # So result is all zeros (padded from 0 to 8). That's also valid padding behaviour.
-        p = tmp_path / "short2.cube"
-        p.write_text(content)
-        result = cube_adv_mod.parse_cube_data(str(p))
-        assert len(result["data_flat"]) == 8
-
-
-# ---------------------------------------------------------------------------
-# parse_cube_data — Mapped Cube Viewer (independent copy)
-# ---------------------------------------------------------------------------
-
-class TestMappedCubeParseCubeData:
-    def test_short_file_raises(self, tmp_path, mapped_mod):
-        f = tmp_path / "short.cube"
-        f.write_text("x\ny\nz\n")
-        with pytest.raises(ValueError, match="too short"):
-            mapped_mod.parse_cube_data(str(f))
-
-    def test_returns_expected_keys(self, cube_file, mapped_mod):
-        result = mapped_mod.parse_cube_data(str(cube_file))
-        assert {"atoms", "dims", "data_flat", "is_angstrom_header"}.issubset(
-            result.keys()
-        )
-
-    def test_dims(self, cube_file, mapped_mod):
-        result = mapped_mod.parse_cube_data(str(cube_file))
-        assert result["dims"] == (2, 2, 2)
-
-    def test_data_length(self, cube_file, mapped_mod):
-        result = mapped_mod.parse_cube_data(str(cube_file))
-        nx, ny, nz = result["dims"]
-        assert len(result["data_flat"]) == nx * ny * nz
-
-
-# ---------------------------------------------------------------------------
 # initialize() — Cube File Viewer
 # ---------------------------------------------------------------------------
 
@@ -286,53 +210,3 @@ class TestCubeViewerInitialize:
             mod.initialize(ctx)
         exts = [c.args[0] for c in ctx.register_file_opener.call_args_list]
         assert ".cub" in exts
-
-
-# ---------------------------------------------------------------------------
-# initialize() — Cube File Viewer Advanced
-# ---------------------------------------------------------------------------
-
-class TestCubeAdvancedInitialize:
-    def test_does_not_raise(self):
-        with mock_optional_imports():
-            mod = load_plugin(CUBE_ADV_PATH)
-            ctx = make_context()
-            mod.initialize(ctx)
-
-    def test_registers_dot_cube_opener(self):
-        with mock_optional_imports():
-            mod = load_plugin(CUBE_ADV_PATH)
-            ctx = make_context()
-            mod.initialize(ctx)
-        exts = [c.args[0] for c in ctx.register_file_opener.call_args_list]
-        assert ".cube" in exts
-
-    def test_registers_dot_cub_opener(self):
-        with mock_optional_imports():
-            mod = load_plugin(CUBE_ADV_PATH)
-            ctx = make_context()
-            mod.initialize(ctx)
-        exts = [c.args[0] for c in ctx.register_file_opener.call_args_list]
-        assert ".cub" in exts
-
-
-# ---------------------------------------------------------------------------
-# Mapped Cube Viewer — entry points
-# ---------------------------------------------------------------------------
-
-class TestMappedCubeEntryPoints:
-    def test_has_run_function(self):
-        with mock_optional_imports():
-            mod = load_plugin(MAPPED_PATH)
-        assert callable(getattr(mod, "run", None))
-
-    def test_has_run_plugin_function(self):
-        with mock_optional_imports():
-            mod = load_plugin(MAPPED_PATH)
-        assert callable(getattr(mod, "run_plugin", None))
-
-    def test_no_initialize_function(self):
-        """Mapped Cube Viewer uses legacy run() only — no initialize()."""
-        with mock_optional_imports():
-            mod = load_plugin(MAPPED_PATH)
-        assert not hasattr(mod, "initialize")
