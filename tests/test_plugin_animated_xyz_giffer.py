@@ -8,6 +8,7 @@ import ast
 import logging
 import textwrap
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from conftest import load_plugin, mock_optional_imports
@@ -134,3 +135,169 @@ class TestParseMultiFrameXYZ:
             mod = load_plugin(GIFFER_PATH)
             mw = MagicMock(spec=[])  # no attributes → plugin_manager absent
             mod.run(mw)
+
+
+
+
+# ---------------------------------------------------------------------------
+# frame stepping, play/pause, update scheduling
+# ---------------------------------------------------------------------------
+
+from unittest.mock import MagicMock
+
+
+class FakeCheck:
+    def __init__(self, checked=False):
+        self._checked = checked
+
+    def isChecked(self):
+        return self._checked
+
+    def setChecked(self, v):
+        self._checked = v
+
+
+class FakeLabel:
+    def __init__(self):
+        self._text = ""
+
+    def setText(self, t):
+        self._text = t
+
+    def text(self):
+        return self._text
+
+
+_g_next = _extract_method_as_fn(GIFFER_PATH, "AnimatedXYZPlayer", "next_frame")
+_g_prev = _extract_method_as_fn(GIFFER_PATH, "AnimatedXYZPlayer", "prev_frame")
+_g_toggle = _extract_method_as_fn(GIFFER_PATH, "AnimatedXYZPlayer", "toggle_play")
+_g_fps = _extract_method_as_fn(GIFFER_PATH, "AnimatedXYZPlayer", "set_fps")
+_g_sched = _extract_method_as_fn(GIFFER_PATH, "AnimatedXYZPlayer", "schedule_update")
+_g_status = _extract_method_as_fn(
+    GIFFER_PATH, "AnimatedXYZPlayer", "update_status_silent"
+)
+
+
+def _giffer_self(n_frames=5, current=0, loop=True, playing=False, fps=10):
+    fake = SimpleNamespace()
+    fake.frames = [{"coords": []} for _ in range(n_frames)]
+    fake.current_frame_idx = current
+    fake.target_frame_idx = current
+    fake.chk_loop = FakeCheck(loop)
+    fake.is_playing = playing
+    fake.fps = fps
+    fake.schedule_update = MagicMock()
+    fake.toggle_play = MagicMock()
+    fake.timer = MagicMock()
+    fake.btn_play = MagicMock()
+    fake.context = MagicMock()
+    fake.base_mol = "BASE"
+    fake.last_display_mol = None
+    fake.is_updating_view = False
+    fake.pending_update = False
+    fake.do_effective_update = MagicMock()
+    fake.lbl_status = FakeLabel()
+    fake.slider = MagicMock()
+    return fake
+
+
+class TestGifferFrameStepping:
+    def test_next_advances(self):
+        fake = _giffer_self(current=1)
+        _g_next(fake)
+        assert fake.target_frame_idx == 2
+        fake.schedule_update.assert_called_once()
+
+    def test_next_wraps_with_loop(self):
+        fake = _giffer_self(current=4, loop=True)
+        _g_next(fake)
+        assert fake.target_frame_idx == 0
+
+    def test_next_at_end_no_loop_stops_playback(self):
+        fake = _giffer_self(current=4, loop=False, playing=True)
+        _g_next(fake)
+        fake.toggle_play.assert_called_once()
+        fake.schedule_update.assert_not_called()
+
+    def test_next_at_end_no_loop_not_playing_noop(self):
+        fake = _giffer_self(current=4, loop=False, playing=False)
+        _g_next(fake)
+        fake.toggle_play.assert_not_called()
+        fake.schedule_update.assert_not_called()
+
+    def test_prev_steps_back(self):
+        fake = _giffer_self(current=3)
+        _g_prev(fake)
+        assert fake.target_frame_idx == 2
+
+    def test_prev_wraps_with_loop(self):
+        fake = _giffer_self(current=0, loop=True)
+        _g_prev(fake)
+        assert fake.target_frame_idx == 4
+
+    def test_prev_at_start_no_loop_noop(self):
+        fake = _giffer_self(current=0, loop=False)
+        _g_prev(fake)
+        fake.schedule_update.assert_not_called()
+
+
+class TestGifferPlayback:
+    def test_play_starts_timer_with_fps_interval(self):
+        fake = _giffer_self(playing=False, fps=20)
+        _g_toggle(fake)
+        assert fake.is_playing is True
+        fake.timer.start.assert_called_once_with(50)
+        fake.btn_play.setText.assert_called_with("Pause")
+
+    def test_play_from_last_frame_restarts(self):
+        fake = _giffer_self(current=4, playing=False)
+        _g_toggle(fake)
+        assert fake.target_frame_idx == 0
+        fake.schedule_update.assert_called_once()
+
+    def test_pause_stops_timer_and_pushes_molecule(self):
+        fake = _giffer_self(playing=True)
+        fake.last_display_mol = "FRAME_MOL"
+        _g_toggle(fake)
+        assert fake.is_playing is False
+        fake.timer.stop.assert_called_once()
+        assert fake.context.current_molecule == "FRAME_MOL"
+
+    def test_pause_falls_back_to_base_mol(self):
+        fake = _giffer_self(playing=True)
+        fake.last_display_mol = None
+        _g_toggle(fake)
+        assert fake.context.current_molecule == "BASE"
+
+    def test_set_fps_restarts_timer_only_when_playing(self):
+        fake = _giffer_self(playing=True)
+        _g_fps(fake, 25)
+        assert fake.fps == 25
+        fake.timer.start.assert_called_once_with(40)
+
+        fake2 = _giffer_self(playing=False)
+        _g_fps(fake2, 25)
+        fake2.timer.start.assert_not_called()
+
+
+class TestGifferScheduling:
+    def test_schedule_runs_when_idle(self):
+        fake = _giffer_self()
+        _g_sched(fake)
+        fake.do_effective_update.assert_called_once()
+        assert fake.is_updating_view is True  # cleared by do_effective_update IRL
+
+    def test_schedule_defers_when_busy(self):
+        fake = _giffer_self()
+        fake.is_updating_view = True
+        _g_sched(fake)
+        fake.do_effective_update.assert_not_called()
+        assert fake.pending_update is True
+
+    def test_status_label_and_slider_sync(self):
+        fake = _giffer_self(n_frames=8, current=2)
+        _g_status(fake)
+        assert fake.lbl_status.text() == "Frame: 3 / 8"
+        fake.slider.blockSignals.assert_any_call(True)
+        fake.slider.setValue.assert_called_once_with(2)
+        fake.slider.blockSignals.assert_any_call(False)

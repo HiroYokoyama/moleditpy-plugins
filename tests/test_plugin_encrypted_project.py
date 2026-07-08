@@ -179,3 +179,194 @@ class TestEncryptedProjectInitialize:
             ctx = make_context()
             ENC.initialize(ctx)
         assert ctx.register_drop_handler.called
+
+
+
+
+# ---------------------------------------------------------------------------
+# derive_key, export/import flow, salt header
+# ---------------------------------------------------------------------------
+
+import base64
+import json
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+
+def _enc_plugin(mod):
+    ctx = make_context()
+    plugin = mod.PmeencPlugin(ctx)
+    return plugin, ctx
+
+
+class TestEncryptedDeriveKey:
+    def test_pbkdf2_parameters(self):
+        with mock_optional_imports():
+            mod = load_plugin(ENCRYPTED_PATH)
+            captured = {}
+
+            class FakeKDF:
+                def __init__(self, **kwargs):
+                    captured.update(kwargs)
+
+                def derive(self, pw_bytes):
+                    captured["password"] = pw_bytes
+                    return b"K" * 32
+
+            mod.PBKDF2HMAC = FakeKDF
+            plugin, _ = _enc_plugin(mod)
+            key = plugin.derive_key("hunter2", b"S" * 16)
+
+            assert captured["length"] == 32
+            assert captured["iterations"] == 100000
+            assert captured["salt"] == b"S" * 16
+            assert captured["password"] == b"hunter2"
+            assert key == base64.urlsafe_b64encode(b"K" * 32)
+
+
+class TestEncryptedExport:
+    def _export(self, mod, tmp_path, cached=False, cancel=False, fname="proj.pmeenc"):
+        plugin, ctx = _enc_plugin(mod)
+        target = tmp_path / fname
+
+        mod.QInputDialog.getText.reset_mock()
+        if cancel:
+            mod.QInputDialog.getText.return_value = ("", False)
+        else:
+            mod.QInputDialog.getText.return_value = ("pw", True)
+
+        plugin.derive_key = MagicMock(return_value=b"DERIVED_KEY")
+        plugin._apply_patches = MagicMock()
+        plugin.mw.state_manager.create_json_data.return_value = {"atoms": [1]}
+
+        fernet_obj = MagicMock()
+        fernet_obj.encrypt.return_value = b"ENCRYPTED_BLOB"
+        mod.Fernet = MagicMock(return_value=fernet_obj)
+
+        if cached:
+            plugin.current_key = b"CACHED_KEY"
+            plugin.current_salt = b"C" * 16
+            plugin.mw.init_manager.current_file_path = str(target)
+        else:
+            plugin.mw.init_manager.current_file_path = None
+
+        with patch("os.urandom", return_value=b"R" * 16):
+            plugin.export_encrypted(str(target))
+        return plugin, ctx, target
+
+    def test_file_layout_salt_then_ciphertext(self, tmp_path):
+        with mock_optional_imports():
+            mod = load_plugin(ENCRYPTED_PATH)
+            plugin, _, target = self._export(mod, tmp_path)
+            data = target.read_bytes()
+            assert data[:16] == b"R" * 16
+            assert data[16:] == b"ENCRYPTED_BLOB"
+
+    def test_key_and_salt_cached_after_save(self, tmp_path):
+        with mock_optional_imports():
+            mod = load_plugin(ENCRYPTED_PATH)
+            plugin, _, target = self._export(mod, tmp_path)
+            assert plugin.current_key == b"DERIVED_KEY"
+            assert plugin.current_salt == b"R" * 16
+            assert plugin.mw.state_manager.has_unsaved_changes is False
+            assert plugin.mw.init_manager.current_file_path == str(target)
+
+    def test_patches_applied_after_successful_save(self, tmp_path):
+        with mock_optional_imports():
+            mod = load_plugin(ENCRYPTED_PATH)
+            plugin, _, _ = self._export(mod, tmp_path)
+            plugin._apply_patches.assert_called_once()
+
+    def test_cached_key_skips_password_prompt(self, tmp_path):
+        with mock_optional_imports():
+            mod = load_plugin(ENCRYPTED_PATH)
+            plugin, _, target = self._export(mod, tmp_path, cached=True)
+            mod.QInputDialog.getText.assert_not_called()
+            data = target.read_bytes()
+            assert data[:16] == b"C" * 16
+
+    def test_cancel_writes_nothing(self, tmp_path):
+        with mock_optional_imports():
+            mod = load_plugin(ENCRYPTED_PATH)
+            plugin, ctx, target = self._export(mod, tmp_path, cancel=True)
+            assert not target.exists()
+            ctx.show_status_message.assert_called_with("Export cancelled.")
+
+
+class TestEncryptedPatchedSave:
+    def test_pmeenc_path_routes_to_encrypted_export(self):
+        with mock_optional_imports():
+            mod = load_plugin(ENCRYPTED_PATH)
+            plugin, _ = _enc_plugin(mod)
+            plugin.export_encrypted = MagicMock()
+            mw_instance = MagicMock()
+            mw_instance.current_file_path = "C:/data/proj.PMEENC"
+            plugin._patched_save_project(mw_instance)
+            plugin.export_encrypted.assert_called_once_with(
+                "C:/data/proj.PMEENC"
+            )
+
+    def test_plain_path_falls_back_to_original(self):
+        with mock_optional_imports():
+            mod = load_plugin(ENCRYPTED_PATH)
+            plugin, _ = _enc_plugin(mod)
+            plugin.export_encrypted = MagicMock()
+            original = MagicMock()
+            plugin._original_save_project = original
+            mw_instance = MagicMock()
+            mw_instance.current_file_path = "C:/data/proj.pme"
+            plugin._patched_save_project(mw_instance)
+            original.assert_called_once()
+            plugin.export_encrypted.assert_not_called()
+
+    def test_original_typeerror_falls_back_to_no_args(self):
+        with mock_optional_imports():
+            mod = load_plugin(ENCRYPTED_PATH)
+            plugin, _ = _enc_plugin(mod)
+            calls = []
+
+            def original(*args):
+                if args:
+                    raise TypeError("no args expected")
+                calls.append("bare")
+
+            plugin._original_save_project = original
+            mw_instance = MagicMock()
+            mw_instance.current_file_path = None
+            plugin._patched_save_project(mw_instance, True)
+            assert calls == ["bare"]
+
+
+class TestEncryptedImport:
+    def test_cancel_raises_value_error(self):
+        with mock_optional_imports():
+            mod = load_plugin(ENCRYPTED_PATH)
+            plugin, _ = _enc_plugin(mod)
+            mod.QInputDialog.getText.return_value = ("", False)
+            with pytest.raises(ValueError, match="cancelled"):
+                plugin.on_import("x.pmeenc")
+
+    def test_salt_read_from_first_16_bytes(self, tmp_path):
+        with mock_optional_imports():
+            mod = load_plugin(ENCRYPTED_PATH)
+            plugin, _ = _enc_plugin(mod)
+            target = tmp_path / "in.pmeenc"
+            target.write_bytes(b"S" * 16 + b"CIPHER")
+
+            mod.QInputDialog.getText.return_value = ("pw", True)
+            plugin.derive_key = MagicMock(return_value=b"KEY")
+            fernet_obj = MagicMock()
+            fernet_obj.decrypt.return_value = json.dumps({"a": 1}).encode()
+            mod.Fernet = MagicMock(return_value=fernet_obj)
+
+            plugin._apply_patches = MagicMock()
+            plugin.on_import(str(target))
+
+            plugin.derive_key.assert_called_once_with("pw", b"S" * 16)
+            fernet_obj.decrypt.assert_called_once_with(b"CIPHER")
+            assert plugin.current_salt == b"S" * 16
+            plugin.mw.state_manager.load_from_json_data.assert_called_once_with(
+                {"a": 1}
+            )
+            plugin._apply_patches.assert_called_once()
