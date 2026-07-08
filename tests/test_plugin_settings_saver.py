@@ -488,6 +488,14 @@ def _fake_dialog_self(mw=None, library=None):
 
 
 class TestSettingsSaverDialogMethods:
+    @pytest.fixture(autouse=True)
+    def _patch_data_path(self, tmp_path, monkeypatch):
+        # Every dialog method here may transitively call save_library()/
+        # load_library(); always redirect them away from the real plugin
+        # directory to avoid polluting it with test artifacts.
+        data_path = str(tmp_path / "settings_saver.json")
+        monkeypatch.setattr(MOD, "get_plugin_data_path", lambda: data_path)
+
     def test_get_selected_name_none_when_nothing_selected(self):
         fn = _extract_dialog_method("get_selected_name")
         self_ = _fake_dialog_self()
@@ -509,9 +517,7 @@ class TestSettingsSaverDialogMethods:
         self_ = _fake_dialog_self()
         assert fn(self_, _FakeListItem("x", is_project=False)) is False
 
-    def test_on_always_save_toggled_persists_config(self, tmp_path, monkeypatch):
-        data_path = str(tmp_path / "settings_saver.json")
-        monkeypatch.setattr(MOD, "get_plugin_data_path", lambda: data_path)
+    def test_on_always_save_toggled_persists_config(self):
         fn = _extract_dialog_method("on_always_save_toggled")
         self_ = _fake_dialog_self()
         try:
