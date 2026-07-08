@@ -271,3 +271,185 @@ def test_run_plugin_reuses_existing_window():
         existing_win.raise_.assert_called_once()
         # No new dialog should be registered
         ctx.register_window.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Menu path
+# ---------------------------------------------------------------------------
+
+
+def test_menu_path_is_under_3d_edit():
+    """The menu action must be registered under the '3D Edit/' prefix."""
+    with mock_optional_imports():
+        mod = load_plugin(PLUGIN_PATH)
+        ctx = make_context()
+        mod.initialize(ctx)
+        path_arg = ctx.add_menu_action.call_args[0][0]
+        assert path_arg.startswith("3D Edit/"), (
+            f"Expected path to start with '3D Edit/', got {path_arg!r}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# run(mw) host unwrapping
+# ---------------------------------------------------------------------------
+
+
+def test_run_unwraps_host_attribute():
+    """run(mw) must use mw.host when the attribute exists."""
+    with mock_optional_imports():
+        mod = load_plugin(PLUGIN_PATH)
+        ctx = make_context()
+        mod.initialize(ctx)
+
+        calls = []
+        mod._launch_fn = lambda: calls.append(True)
+
+        host = MagicMock()
+        host.host = MagicMock()   # mw.host exists
+        mod.run(host)
+
+        assert calls, "run(mw) did not call _launch_fn when mw.host present"
+
+
+def test_run_without_launch_fn_does_not_raise():
+    """run(mw) with _launch_fn=None must be a silent no-op."""
+    with mock_optional_imports():
+        mod = load_plugin(PLUGIN_PATH)
+        mod._launch_fn = None
+        mw = MagicMock()
+        mod.run(mw)   # must not raise
+
+
+# ---------------------------------------------------------------------------
+# PLUGIN_SUPPORTED_MOLEDITPY_VERSION format
+# ---------------------------------------------------------------------------
+
+
+def test_supported_version_specifier(plugin_mod):
+    """Version specifier must include '>=4' to target the V4 API."""
+    spec = plugin_mod.PLUGIN_SUPPORTED_MOLEDITPY_VERSION
+    assert ">=4" in spec, (
+        f"Expected '>=4' in PLUGIN_SUPPORTED_MOLEDITPY_VERSION, got {spec!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# XtbWorker — cancel sets internal flag (AST + extract_function)
+# ---------------------------------------------------------------------------
+
+
+def test_worker_cancel_sets_flag():
+    """cancel() must set self._cancelled = True."""
+    fn = extract_function(PLUGIN_PATH, "XtbWorker", "cancel")
+    self_mock = MagicMock()
+    self_mock._cancelled = False
+    fn(self_mock)
+    assert self_mock._cancelled is True
+
+
+# ---------------------------------------------------------------------------
+# _on_finished — success path calls push_undo_checkpoint
+# ---------------------------------------------------------------------------
+
+
+def test_on_finished_success_calls_undo_checkpoint():
+    """
+    When success=True, _on_finished must apply coordinates and call
+    push_undo_checkpoint exactly once.
+    """
+    fn = extract_function(
+        PLUGIN_PATH, "XtbOptimizerDialog", "_on_finished",
+        extra_globals={"PLUGIN_NAME": "xTB Optimizer", "logger": MagicMock()},
+    )
+    fake_conf = MagicMock()
+    fake_mol = MagicMock()
+    fake_mol.GetConformer.return_value = fake_conf
+
+    ctx = MagicMock()
+    ctx.current_mol = fake_mol
+
+    self_mock = MagicMock()
+    self_mock.context = ctx
+    self_mock._set_running = MagicMock()
+    self_mock.lbl_status = MagicMock()
+    self_mock._worker = None
+    self_mock._step_count = 3
+    self_mock.combo_method = MagicMock()
+    self_mock.combo_method.currentText.return_value = "GFN2-xTB"
+
+    # Two atoms, two positions
+    new_positions = [[0.0, 0.0, 0.0], [1.5, 0.0, 0.0]]
+    fn(self_mock, True, new_positions)
+
+    ctx.push_undo_checkpoint.assert_called_once()
+    ctx.refresh_3d_view.assert_called_once()
+
+
+def test_on_finished_success_sets_each_atom_position():
+    """All positions from the worker payload must be applied to the conformer."""
+    fn = extract_function(
+        PLUGIN_PATH, "XtbOptimizerDialog", "_on_finished",
+        extra_globals={"PLUGIN_NAME": "xTB Optimizer", "logger": MagicMock()},
+    )
+
+    fake_conf = MagicMock()
+    fake_mol = MagicMock()
+    fake_mol.GetConformer.return_value = fake_conf
+
+    ctx = MagicMock()
+    ctx.current_mol = fake_mol
+
+    self_mock = MagicMock()
+    self_mock.context = ctx
+    self_mock._set_running = MagicMock()
+    self_mock.lbl_status = MagicMock()
+    self_mock._worker = None
+    self_mock._step_count = 1
+    self_mock.combo_method = MagicMock()
+    self_mock.combo_method.currentText.return_value = "GFN2-xTB"
+
+    positions = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]
+    fn(self_mock, True, positions)
+
+    assert fake_conf.SetAtomPosition.call_count == len(positions)
+
+
+# ---------------------------------------------------------------------------
+# XtbOptimizerDialog — additional lifecycle methods (AST)
+# ---------------------------------------------------------------------------
+
+
+def test_dialog_has_close_event():
+    assert _source_has_class_method("XtbOptimizerDialog", "closeEvent")
+
+
+def test_dialog_has_build_ui():
+    assert _source_has_class_method("XtbOptimizerDialog", "_build_ui")
+
+
+def test_dialog_has_set_running():
+    assert _source_has_class_method("XtbOptimizerDialog", "_set_running")
+
+
+def test_dialog_has_append_log():
+    assert _source_has_class_method("XtbOptimizerDialog", "_append_log")
+
+
+def test_dialog_has_on_step_update():
+    assert _source_has_class_method("XtbOptimizerDialog", "_on_step_update")
+
+
+# ---------------------------------------------------------------------------
+# PLUGIN_TAGS
+# ---------------------------------------------------------------------------
+
+
+def test_plugin_tags_contains_optimization(plugin_mod):
+    assert "Optimization" in plugin_mod.PLUGIN_TAGS
+
+
+def test_plugin_tags_is_minimal(plugin_mod):
+    """Tags should be minimal — only ['Optimization']."""
+    assert plugin_mod.PLUGIN_TAGS == ["Optimization"]
+
