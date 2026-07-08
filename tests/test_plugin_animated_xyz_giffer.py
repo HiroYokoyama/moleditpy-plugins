@@ -301,3 +301,285 @@ class TestGifferScheduling:
         fake.slider.blockSignals.assert_any_call(True)
         fake.slider.setValue.assert_called_once_with(2)
         fake.slider.blockSignals.assert_any_call(False)
+
+
+# ---------------------------------------------------------------------------
+# on_slider_changed / on_timer
+# ---------------------------------------------------------------------------
+
+_g_slider_changed = _extract_method_as_fn(GIFFER_PATH, "AnimatedXYZPlayer", "on_slider_changed")
+_g_on_timer = _extract_method_as_fn(GIFFER_PATH, "AnimatedXYZPlayer", "on_timer")
+
+
+class TestGifferSliderAndTimer:
+    def test_slider_changed_sets_target_and_schedules(self):
+        fake = _giffer_self()
+        _g_slider_changed(fake, 3)
+        assert fake.target_frame_idx == 3
+        fake.schedule_update.assert_called_once()
+
+    def test_on_timer_calls_next_frame(self):
+        fake = SimpleNamespace()
+        fake.next_frame = MagicMock()
+        _g_on_timer(fake)
+        fake.next_frame.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# try_import_from_mainwindow / load_from_path / load_file
+# ---------------------------------------------------------------------------
+
+_g_try_import = _extract_method_as_fn(
+    GIFFER_PATH, "AnimatedXYZPlayer", "try_import_from_mainwindow"
+)
+_g_load_from_path = _extract_method_as_fn(
+    GIFFER_PATH,
+    "AnimatedXYZPlayer",
+    "load_from_path",
+    extra_globals={
+        "os": __import__("os"),
+        "QMessageBox": MagicMock(),
+        "HAS_PIL": True,
+    },
+)
+_g_load_file = _extract_method_as_fn(GIFFER_PATH, "AnimatedXYZPlayer", "load_file")
+
+
+class TestGifferTryImportFromMainwindow:
+    def test_xyz_path_triggers_load(self):
+        mw = MagicMock()
+        mw.init_manager.current_file_path = "traj.xyz"
+        fake = SimpleNamespace(mw=mw)
+        fake.load_from_path = MagicMock()
+        _g_try_import(fake)
+        fake.load_from_path.assert_called_once_with("traj.xyz")
+
+    def test_extxyz_path_triggers_load(self):
+        mw = MagicMock()
+        mw.init_manager.current_file_path = "traj.extxyz"
+        fake = SimpleNamespace(mw=mw)
+        fake.load_from_path = MagicMock()
+        _g_try_import(fake)
+        fake.load_from_path.assert_called_once_with("traj.extxyz")
+
+    def test_non_xyz_path_skipped(self):
+        mw = MagicMock()
+        mw.init_manager.current_file_path = "molecule.pdb"
+        fake = SimpleNamespace(mw=mw)
+        fake.load_from_path = MagicMock()
+        _g_try_import(fake)
+        fake.load_from_path.assert_not_called()
+
+    def test_no_current_file_path_skipped(self):
+        mw = MagicMock()
+        mw.init_manager.current_file_path = ""
+        fake = SimpleNamespace(mw=mw)
+        fake.load_from_path = MagicMock()
+        _g_try_import(fake)
+        fake.load_from_path.assert_not_called()
+
+
+def _load_path_self(parse_result):
+    fake = SimpleNamespace()
+    fake.parse_multi_frame_xyz = MagicMock(return_value=parse_result)
+    fake.lbl_file = FakeLabel()
+    fake.slider = MagicMock()
+    fake.btn_prev = MagicMock()
+    fake.btn_play = MagicMock()
+    fake.btn_next = MagicMock()
+    fake.btn_save_gif = MagicMock()
+    fake.create_base_molecule = MagicMock()
+    fake.update_view = MagicMock()
+    fake.update_status = MagicMock()
+    return fake
+
+
+class TestGifferLoadFromPath:
+    def test_valid_frames_populate_state(self):
+        frames = [{"symbols": ["H"], "coords": [(0, 0, 0)], "comment": "f1"}]
+        fake = _load_path_self(frames)
+        _g_load_from_path(fake, "/tmp/traj.xyz")
+        assert fake.frames == frames
+        assert fake.current_frame_idx == 0
+        assert fake.target_frame_idx == 0
+        fake.slider.setRange.assert_called_once_with(0, 0)
+        fake.slider.setEnabled.assert_called_once_with(True)
+        fake.create_base_molecule.assert_called_once()
+        fake.update_view.assert_called_once()
+        fake.update_status.assert_called_once()
+
+    def test_empty_frames_warns_and_stops(self):
+        fake = _load_path_self([])
+        _g_load_from_path(fake, "/tmp/empty.xyz")
+        fake.create_base_molecule.assert_not_called()
+
+    def test_parse_exception_reports_critical(self):
+        fake = _load_path_self(None)
+        fake.parse_multi_frame_xyz.side_effect = RuntimeError("bad file")
+        _g_load_from_path(fake, "/tmp/broken.xyz")
+        fake.create_base_molecule.assert_not_called()
+
+
+class TestGifferLoadFile:
+    def test_file_selected_delegates_to_load_from_path(self):
+        qfd = MagicMock()
+        qfd.getOpenFileName.return_value = ("/tmp/chosen.xyz", "")
+        fn = _extract_method_as_fn(
+            GIFFER_PATH, "AnimatedXYZPlayer", "load_file",
+            extra_globals={"QFileDialog": qfd},
+        )
+        fake = SimpleNamespace()
+        fake.load_from_path = MagicMock()
+        fn(fake)
+        fake.load_from_path.assert_called_once_with("/tmp/chosen.xyz")
+
+    def test_cancel_does_not_load(self):
+        qfd = MagicMock()
+        qfd.getOpenFileName.return_value = ("", "")
+        fn = _extract_method_as_fn(
+            GIFFER_PATH, "AnimatedXYZPlayer", "load_file",
+            extra_globals={"QFileDialog": qfd},
+        )
+        fake = SimpleNamespace()
+        fake.load_from_path = MagicMock()
+        fn(fake)
+        fake.load_from_path.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# create_base_molecule
+# ---------------------------------------------------------------------------
+
+def _base_mol_self(frames, mw_has_estimator=True):
+    fake = SimpleNamespace()
+    fake.frames = frames
+    fake.mw = MagicMock()
+    if not mw_has_estimator:
+        fake.mw.io_manager = MagicMock(spec=[])
+    fake.context = MagicMock()
+    return fake
+
+
+class TestGifferCreateBaseMolecule:
+    def test_no_frames_is_noop(self):
+        chem = MagicMock()
+        fn = _extract_method_as_fn(
+            GIFFER_PATH, "AnimatedXYZPlayer", "create_base_molecule",
+            extra_globals={"Chem": chem, "rdGeometry": MagicMock()},
+        )
+        fake = _base_mol_self([])
+        fn(fake)
+        chem.RWMol.assert_not_called()
+
+    def test_builds_mol_and_sets_context(self):
+        chem = MagicMock()
+        rdgeom = MagicMock()
+        fn = _extract_method_as_fn(
+            GIFFER_PATH, "AnimatedXYZPlayer", "create_base_molecule",
+            extra_globals={"Chem": chem, "rdGeometry": rdgeom},
+        )
+        frames = [{"symbols": ["H", "O"], "coords": [(0, 0, 0), (0, 0, 1)]}]
+        fake = _base_mol_self(frames)
+        fn(fake)
+        chem.RWMol.return_value.AddAtom.assert_called()
+        fake.context.enter_3d_mode.assert_called_once()
+        fake.context.reset_3d_camera.assert_called_once()
+        assert fake.context.current_molecule is fake.base_mol
+
+    def test_estimate_bonds_called_when_available(self):
+        chem = MagicMock()
+        fn = _extract_method_as_fn(
+            GIFFER_PATH, "AnimatedXYZPlayer", "create_base_molecule",
+            extra_globals={"Chem": chem, "rdGeometry": MagicMock()},
+        )
+        frames = [{"symbols": ["H"], "coords": [(0, 0, 0)]}]
+        fake = _base_mol_self(frames, mw_has_estimator=True)
+        fn(fake)
+        fake.mw.io_manager.estimate_bonds_from_distances.assert_called_once()
+
+    def test_estimate_bonds_skipped_when_unavailable(self):
+        chem = MagicMock()
+        fn = _extract_method_as_fn(
+            GIFFER_PATH, "AnimatedXYZPlayer", "create_base_molecule",
+            extra_globals={"Chem": chem, "rdGeometry": MagicMock()},
+        )
+        frames = [{"symbols": ["H"], "coords": [(0, 0, 0)]}]
+        fake = _base_mol_self(frames, mw_has_estimator=False)
+        fn(fake)  # must not raise even though estimate_bonds_from_distances is absent
+
+
+# ---------------------------------------------------------------------------
+# closeEvent
+# ---------------------------------------------------------------------------
+
+def _fake_super_factory():
+    return SimpleNamespace(closeEvent=lambda event: None)
+
+
+_g_close_event = _extract_method_as_fn(
+    GIFFER_PATH, "AnimatedXYZPlayer", "closeEvent",
+    extra_globals={"super": _fake_super_factory},
+)
+
+
+class TestGifferCloseEvent:
+    def test_stops_timer(self):
+        fake = SimpleNamespace()
+        fake.timer = MagicMock()
+        fake.context = MagicMock()
+        fake.last_display_mol = None
+        fake.base_mol = None
+        _g_close_event(fake, MagicMock())
+        fake.timer.stop.assert_called_once()
+
+    def test_pushes_last_display_mol_when_present(self):
+        fake = SimpleNamespace()
+        fake.timer = MagicMock()
+        fake.context = MagicMock()
+        fake.last_display_mol = "LAST"
+        fake.base_mol = "BASE"
+        _g_close_event(fake, MagicMock())
+        assert fake.context.current_molecule == "LAST"
+        fake.context.push_undo_checkpoint.assert_called_once()
+
+    def test_falls_back_to_base_mol(self):
+        fake = SimpleNamespace()
+        fake.timer = MagicMock()
+        fake.context = MagicMock()
+        fake.last_display_mol = None
+        fake.base_mol = "BASE"
+        _g_close_event(fake, MagicMock())
+        assert fake.context.current_molecule == "BASE"
+
+    def test_exception_in_push_is_swallowed(self):
+        fake = SimpleNamespace()
+        fake.timer = MagicMock()
+        fake.context = MagicMock()
+        fake.context.push_undo_checkpoint.side_effect = RuntimeError("boom")
+        fake.last_display_mol = None
+        fake.base_mol = None
+        _g_close_event(fake, MagicMock())  # must not raise
+
+
+# ---------------------------------------------------------------------------
+# run_plugin / run entry points
+# ---------------------------------------------------------------------------
+
+class TestGifferRunPlugin:
+    def test_run_plugin_shows_and_registers_window(self):
+        with mock_optional_imports():
+            mod = load_plugin(GIFFER_PATH)
+            ctx = MagicMock()
+            ctx.get_main_window.return_value = MagicMock()
+            mod.run_plugin(ctx)
+            ctx.register_window.assert_called_once()
+            assert ctx.register_window.call_args[0][0] == "main_panel"
+
+    def test_run_with_plugin_manager_invokes_run_plugin(self):
+        with mock_optional_imports():
+            mod = load_plugin(GIFFER_PATH)
+            called = []
+            mod.run_plugin = lambda ctx: called.append(ctx)
+            mw = MagicMock()
+            mod.run(mw)
+            assert len(called) == 1
