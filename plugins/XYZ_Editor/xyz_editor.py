@@ -18,7 +18,7 @@ import logging
 
 
 PLUGIN_NAME = "XYZ Editor"
-PLUGIN_VERSION = "2026.06.26"
+PLUGIN_VERSION = "2026.07.08"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "A table-based editor for atom coordinates and symbols, supporting ghost atoms. Refactored for V3 API."
@@ -651,6 +651,8 @@ def initialize(context):
 
     def load_plugin_state(data):
         labels = data.get("custom_labels", {})
+        if not isinstance(labels, dict):
+            labels = {}
         mol = context.current_molecule
         if mol:
             for idx, lbl in labels.items():

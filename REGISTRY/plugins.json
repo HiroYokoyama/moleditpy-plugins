@@ -1,5 +1,26 @@
 [
   {
+    "id": "xtb_optimizer",
+    "visible": true,
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
+    "name": "xTB Optimizer",
+    "version": "2026.07.08",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Geometry optimization using semiempirical xTB methods (GFN2-xTB, GFN1-xTB) via the tblite package. Runs on a background thread.",
+    "tags": [
+      "Optimization"
+    ],
+    "dependencies": [
+      "tblite",
+      "ase"
+    ],
+    "downloadUrl": "../plugins/XTB_Optimizer/xtb_optimizer.py",
+    "lastUpdated": "2026-07-08",
+    "sha256": "0f41cb65e9e0b59f7b4f72c8dabdce324f504cdfd8143083de9348e7db0ee3ed",
+    "firstAppeared": "2026-07-08"
+  },
+  {
     "id": "all-trans_optimizer",
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",

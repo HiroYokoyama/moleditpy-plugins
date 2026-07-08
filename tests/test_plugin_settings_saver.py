@@ -13,13 +13,15 @@ Covers functions not tested by test_save_load.py:
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
-from unittest.mock import MagicMock
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from conftest import load_plugin, make_context, mock_optional_imports
+from conftest import extract_function, load_plugin, make_context, mock_optional_imports
 
 PLUGIN_PATH = (
     Path(__file__).resolve().parents[1]
@@ -290,3 +292,432 @@ class TestSettingsSaver:
         assert isinstance(path, str)
         assert path.endswith(".json")
         assert os.path.basename(path) == MOD.SETTINGS_FILENAME
+
+    def test_load_corrupted_json_returns_empty_dict(self, tmp_path, monkeypatch):
+        data_path = self._patch_path(tmp_path, monkeypatch)
+        Path(data_path).write_text("{not valid json", encoding="utf-8")
+        assert MOD.load_library() == {}
+
+
+# ---------------------------------------------------------------------------
+# apply_settings_hot / refresh_loaded_scene
+# ---------------------------------------------------------------------------
+
+
+class _FakeInitManager:
+    def __init__(self, settings):
+        self.settings = settings
+        self.settings_dirty = None
+        self.cpk_calls = 0
+
+    def update_cpk_colors_from_settings(self):
+        self.cpk_calls += 1
+
+
+class _FakeView3D:
+    def __init__(self):
+        self.applied = False
+
+    def apply_3d_settings(self):
+        self.applied = True
+
+
+class _FakeScene:
+    def __init__(self):
+        self.background_calls = []
+        self._items = []
+
+    def setBackgroundBrush(self, color):
+        self.background_calls.append(color)
+
+    def items(self):
+        return self._items
+
+
+class TestApplySettingsHot:
+    def setup_method(self):
+        self._orig_ctx = MOD.PLUGIN_CONTEXT
+        self._orig_embed = dict(MOD.EMBED_SETTINGS)
+
+    def teardown_method(self):
+        MOD.PLUGIN_CONTEXT = self._orig_ctx
+        MOD.EMBED_SETTINGS.clear()
+        MOD.EMBED_SETTINGS.update(self._orig_embed)
+
+    def _mw(self):
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            init_manager=_FakeInitManager({"background_color_2d": "#112233"}),
+            view_3d_manager=_FakeView3D(),
+            scene=_FakeScene(),
+        )
+
+    def test_no_settings_returns_early_without_raising(self):
+        mw = MagicMock(spec=[])
+        MOD.PLUGIN_CONTEXT = None
+        MOD.apply_settings_hot(mw)  # must not raise
+
+    def test_applies_3d_settings_and_cpk_colors(self):
+        MOD.PLUGIN_CONTEXT = None
+        MOD.EMBED_SETTINGS["enabled"] = False
+        mw = self._mw()
+        MOD.apply_settings_hot(mw)
+        assert mw.view_3d_manager.applied is True
+        assert mw.init_manager.cpk_calls == 1
+
+    def test_dirty_flag_set_true_when_project_mode_disabled(self):
+        MOD.PLUGIN_CONTEXT = None
+        MOD.EMBED_SETTINGS["enabled"] = False
+        mw = self._mw()
+        MOD.apply_settings_hot(mw)
+        assert mw.init_manager.settings_dirty is True
+
+    def test_dirty_flag_cleared_when_project_mode_enabled(self):
+        MOD.PLUGIN_CONTEXT = None
+        MOD.EMBED_SETTINGS["enabled"] = True
+        mw = self._mw()
+        MOD.apply_settings_hot(mw)
+        assert mw.init_manager.settings_dirty is False
+
+    def test_updates_2d_scene_background(self):
+        MOD.PLUGIN_CONTEXT = None
+        MOD.EMBED_SETTINGS["enabled"] = False
+        mw = self._mw()
+        MOD.apply_settings_hot(mw)
+        assert len(mw.scene.background_calls) == 1
+
+
+class _FakeScene2:
+    def __init__(self):
+        self.updated = False
+        self._views = []
+
+    def update(self):
+        self.updated = True
+
+    def views(self):
+        return self._views
+
+
+class TestRefreshLoadedScene:
+    def test_immediate_refresh_updates_scene(self):
+        from types import SimpleNamespace
+
+        mw = SimpleNamespace(scene=_FakeScene2())
+        MOD.refresh_loaded_scene(mw, defer=False)
+        assert mw.scene.updated is True
+
+    def test_deferred_refresh_uses_qtimer_singleshot(self):
+        from types import SimpleNamespace
+
+        mw = SimpleNamespace(scene=_FakeScene2())
+        MOD.QTimer.singleShot.reset_mock()
+        MOD.refresh_loaded_scene(mw, defer=True)
+        MOD.QTimer.singleShot.assert_called_once()
+        args = MOD.QTimer.singleShot.call_args[0]
+        assert args[0] == 0
+        assert callable(args[1])
+        # scene not updated synchronously (deferred via QTimer)
+        assert mw.scene.updated is False
+
+
+# ---------------------------------------------------------------------------
+# SettingsSaverDialog: real-instance behavior tests (QDialog base is mocked)
+# ---------------------------------------------------------------------------
+
+
+class _FakeListItem:
+    def __init__(self, text, is_project=False):
+        self._text = text
+        self._is_project = is_project
+
+    def text(self):
+        return self._text
+
+    def data(self, role):
+        return "project" if self._is_project else None
+
+
+class _FakePresetList:
+    def __init__(self, items=None):
+        self._selected = items or []
+        self.cleared = False
+        self.added = []
+        self.find_items_result = []
+        self.set_current = []
+
+    def selectedItems(self):
+        return self._selected
+
+    def clear(self):
+        self.cleared = True
+        self.added = []
+
+    def addItem(self, item):
+        self.added.append(item)
+
+    def findItems(self, name, flag):
+        return self.find_items_result
+
+    def setCurrentItem(self, item):
+        self.set_current.append(item)
+
+
+def _extract_dialog_method(method_name):
+    """
+    Extract a SettingsSaverDialog method via AST and exec it with MOD's real
+    module namespace as globals (so Qt/QMessageBox/save_library/etc. resolve
+    to the same mocked objects the module itself uses).
+    """
+    return extract_function(
+        PLUGIN_PATH, "SettingsSaverDialog", method_name, extra_globals=dict(vars(MOD))
+    )
+
+
+def _fake_dialog_self(mw=None, library=None):
+    return SimpleNamespace(
+        library=library if library is not None else {},
+        preset_list=_FakePresetList(),
+        main_window=mw if mw is not None else MagicMock(),
+        context=make_context(),
+        btn_set_global=MagicMock(),
+        refresh_list=MagicMock(),
+        is_project_preset=lambda item: item.data(None) == "project",
+    )
+
+
+class TestSettingsSaverDialogMethods:
+    def test_get_selected_name_none_when_nothing_selected(self):
+        fn = _extract_dialog_method("get_selected_name")
+        self_ = _fake_dialog_self()
+        assert fn(self_) is None
+
+    def test_get_selected_name_returns_text(self):
+        fn = _extract_dialog_method("get_selected_name")
+        self_ = _fake_dialog_self()
+        self_.preset_list = _FakePresetList([_FakeListItem("Preset A")])
+        assert fn(self_) == "Preset A"
+
+    def test_is_project_preset_true_for_project_item(self):
+        fn = _extract_dialog_method("is_project_preset")
+        self_ = _fake_dialog_self()
+        assert fn(self_, _FakeListItem("x", is_project=True)) is True
+
+    def test_is_project_preset_false_for_library_item(self):
+        fn = _extract_dialog_method("is_project_preset")
+        self_ = _fake_dialog_self()
+        assert fn(self_, _FakeListItem("x", is_project=False)) is False
+
+    def test_on_always_save_toggled_persists_config(self, tmp_path, monkeypatch):
+        data_path = str(tmp_path / "settings_saver.json")
+        monkeypatch.setattr(MOD, "get_plugin_data_path", lambda: data_path)
+        fn = _extract_dialog_method("on_always_save_toggled")
+        self_ = _fake_dialog_self()
+        try:
+            fn(self_, True)
+            assert MOD.PLUGIN_CONFIG["always_save_to_project"] is True
+            assert MOD.load_library()["_PLUGIN_CONFIG"]["always_save_to_project"] is True
+        finally:
+            MOD.PLUGIN_CONFIG["always_save_to_project"] = False
+
+    def test_on_embed_toggled_true_enables_project_mode(self):
+        fn = _extract_dialog_method("on_embed_toggled")
+        mw = MagicMock()
+        self_ = _fake_dialog_self(mw=mw)
+        try:
+            fn(self_, True)
+            assert MOD.EMBED_SETTINGS["enabled"] is True
+            self_.btn_set_global.setEnabled.assert_called_with(True)
+        finally:
+            MOD.EMBED_SETTINGS["enabled"] = False
+
+    def test_on_embed_toggled_false_disables_and_marks_dirty(self):
+        fn = _extract_dialog_method("on_embed_toggled")
+        mw = MagicMock()
+        self_ = _fake_dialog_self(mw=mw)
+        fn(self_, False)
+        assert MOD.EMBED_SETTINGS["enabled"] is False
+        assert mw.edit_actions_manager.settings_dirty is True
+
+    def test_on_save_adds_new_preset(self):
+        fn = _extract_dialog_method("on_save")
+        mw = MagicMock()
+        mw.init_manager.settings = {"a": 1}
+        self_ = _fake_dialog_self(mw=mw)
+        with patch.object(MOD.QInputDialog, "getText", return_value=("MyPreset", True)):
+            fn(self_)
+        assert self_.library.get("MyPreset") == {"a": 1}
+        self_.refresh_list.assert_called_once()
+
+    def test_on_save_rejects_underscore_prefixed_name(self):
+        fn = _extract_dialog_method("on_save")
+        self_ = _fake_dialog_self()
+        with patch.object(
+            MOD.QInputDialog, "getText", return_value=("_bad", True)
+        ), patch.object(MOD.QMessageBox, "warning") as warn:
+            fn(self_)
+        warn.assert_called_once()
+        assert "_bad" not in self_.library
+
+    def test_on_save_cancelled_does_nothing(self):
+        fn = _extract_dialog_method("on_save")
+        self_ = _fake_dialog_self()
+        with patch.object(MOD.QInputDialog, "getText", return_value=("", False)):
+            fn(self_)
+        assert self_.library == {}
+
+    def test_on_delete_removes_library_preset(self):
+        fn = _extract_dialog_method("on_delete")
+        self_ = _fake_dialog_self(library={"MyPreset": {"a": 1}})
+        self_.preset_list = _FakePresetList([_FakeListItem("MyPreset")])
+        with patch.object(
+            MOD.QMessageBox, "question", return_value=MOD.QMessageBox.StandardButton.Yes
+        ):
+            fn(self_)
+        assert "MyPreset" not in self_.library
+
+    def test_on_delete_project_preset_blocked(self):
+        fn = _extract_dialog_method("on_delete")
+        self_ = _fake_dialog_self()
+        self_.preset_list = _FakePresetList(
+            [_FakeListItem("Project Settings", is_project=True)]
+        )
+        with patch.object(MOD.QMessageBox, "information") as info:
+            fn(self_)
+        info.assert_called_once()
+
+    def test_on_load_applies_library_preset(self):
+        fn = _extract_dialog_method("on_load")
+        mw = MagicMock()
+        self_ = _fake_dialog_self(mw=mw, library={"P1": {"x": 1}})
+        self_.preset_list = _FakePresetList([_FakeListItem("P1")])
+        fn(self_)
+        mw.init_manager.settings.update.assert_called_once_with({"x": 1})
+
+    def test_on_load_missing_preset_warns(self):
+        fn = _extract_dialog_method("on_load")
+        self_ = _fake_dialog_self()
+        self_.preset_list = _FakePresetList([_FakeListItem("DoesNotExist")])
+        with patch.object(MOD.QMessageBox, "warning") as warn:
+            fn(self_)
+        warn.assert_called_once()
+
+    def test_on_export_single_writes_selected_preset(self, tmp_path):
+        fn = _extract_dialog_method("on_export_single")
+        self_ = _fake_dialog_self(library={"P1": {"x": 1}})
+        self_.preset_list = _FakePresetList([_FakeListItem("P1")])
+        out = tmp_path / "out.json"
+        with patch.object(
+            MOD.QFileDialog, "getSaveFileName", return_value=(str(out), "")
+        ):
+            fn(self_)
+        assert json.loads(out.read_text(encoding="utf-8")) == {"x": 1}
+
+    def test_on_export_all_excludes_underscore_keys(self, tmp_path):
+        fn = _extract_dialog_method("on_export_all")
+        self_ = _fake_dialog_self(
+            library={
+                "P1": {"x": 1},
+                "_PLUGIN_CONFIG": {"always_save_to_project": True},
+            }
+        )
+        out = tmp_path / "all.json"
+        with patch.object(
+            MOD.QFileDialog, "getSaveFileName", return_value=(str(out), "")
+        ):
+            fn(self_)
+        data = json.loads(out.read_text(encoding="utf-8"))
+        assert "P1" in data
+        assert "_PLUGIN_CONFIG" not in data
+
+    def test_on_import_library_format_skips_underscore_keys(self, tmp_path):
+        fn = _extract_dialog_method("on_import")
+        src = tmp_path / "in.json"
+        src.write_text(
+            json.dumps({"P1": {"x": 1}, "_PLUGIN_CONFIG": {"a": 1}}),
+            encoding="utf-8",
+        )
+        self_ = _fake_dialog_self()
+        with patch.object(
+            MOD.QFileDialog, "getOpenFileName", return_value=(str(src), "")
+        ):
+            fn(self_)
+        assert self_.library.get("P1") == {"x": 1}
+        assert "_PLUGIN_CONFIG" not in self_.library
+
+    def test_on_import_single_preset_format(self, tmp_path):
+        fn = _extract_dialog_method("on_import")
+        src = tmp_path / "single.json"
+        src.write_text(json.dumps({"opacity": 0.5}), encoding="utf-8")
+        self_ = _fake_dialog_self()
+        with patch.object(
+            MOD.QFileDialog, "getOpenFileName", return_value=(str(src), "")
+        ), patch.object(MOD.QInputDialog, "getText", return_value=("Imported1", True)):
+            fn(self_)
+        assert self_.library.get("Imported1") == {"opacity": 0.5}
+
+    def test_on_import_invalid_json_shows_critical(self, tmp_path):
+        fn = _extract_dialog_method("on_import")
+        src = tmp_path / "bad.json"
+        src.write_text("not valid json", encoding="utf-8")
+        self_ = _fake_dialog_self()
+        with patch.object(
+            MOD.QFileDialog, "getOpenFileName", return_value=(str(src), "")
+        ), patch.object(MOD.QMessageBox, "critical") as crit:
+            fn(self_)
+        crit.assert_called_once()
+
+    def test_on_save_as_global_default_cancelled_noop(self):
+        fn = _extract_dialog_method("on_save_as_global_default")
+        self_ = _fake_dialog_self()
+        with patch.object(
+            MOD.QMessageBox, "question", return_value=MOD.QMessageBox.StandardButton.No
+        ):
+            fn(self_)  # must not raise
+
+    def test_on_save_as_global_default_no_save_func_warns(self):
+        fn = _extract_dialog_method("on_save_as_global_default")
+        mw = MagicMock(spec=["init_manager"])
+        mw.init_manager = MagicMock(spec=["settings"])
+        self_ = _fake_dialog_self(mw=mw)
+        with patch.object(
+            MOD.QMessageBox, "question", return_value=MOD.QMessageBox.StandardButton.Yes
+        ), patch.object(MOD.QMessageBox, "warning") as warn:
+            fn(self_)
+        warn.assert_called_once()
+
+    def test_on_save_as_global_default_executes_save_func(self):
+        fn = _extract_dialog_method("on_save_as_global_default")
+        # spec-limited so hasattr(mw, "_original_save_settings") is False,
+        # forcing the mw.init_manager.save_settings branch.
+        mw = MagicMock(spec=["init_manager", "initial_settings"])
+        mw.init_manager = MagicMock(spec=["settings", "save_settings"])
+        mw.init_manager.settings = {"a": 1}
+        self_ = _fake_dialog_self(mw=mw)
+        with patch.object(
+            MOD.QMessageBox, "question", return_value=MOD.QMessageBox.StandardButton.Yes
+        ), patch.object(MOD.QMessageBox, "information") as info:
+            fn(self_)
+        mw.init_manager.save_settings.assert_called_once()
+        info.assert_called_once()
+
+    def test_refresh_list_sorts_and_marks_project_presets(self):
+        fn = _extract_dialog_method("refresh_list")
+        self_ = _fake_dialog_self(library={"Zeta": {}, "Alpha": {}})
+        self_.preset_list = _FakePresetList()
+        MOD.PROJECT_PRESETS["Project Settings"] = {}
+        try:
+            fn(self_)
+            assert self_.preset_list.cleared is True
+            assert len(self_.preset_list.added) == 3
+        finally:
+            MOD.PROJECT_PRESETS.clear()
+
+
+class TestOpenManager:
+    def test_open_manager_does_not_raise(self, tmp_path, monkeypatch):
+        data_path = str(tmp_path / "settings_saver.json")
+        monkeypatch.setattr(MOD, "get_plugin_data_path", lambda: data_path)
+        ctx = make_context()
+        MOD.open_manager(ctx)  # must not raise
