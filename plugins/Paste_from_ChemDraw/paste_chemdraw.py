@@ -7,7 +7,7 @@ import logging
 
 # --- Plugin Basic Information ---
 PLUGIN_NAME = "Paste from ChemDraw"
-PLUGIN_VERSION = "2026.06.26"
+PLUGIN_VERSION = "2026.07.08"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Paste chemical structures from ChemDraw clipboard data (MDLCT/MDLSK). Optimized for MoleditPy V3."
@@ -175,7 +175,7 @@ def run(context):
                 a_id = context.scene.create_atom(
                     atom.GetSymbol(), QPointF(sx, sy), charge=atom.GetFormalCharge()
                 )
-                rdkit_idx_to_item[i] = context.scene.data.atoms[a_id]["item"]
+                rdkit_idx_to_item[i] = context.scene.atom_items[a_id]
 
             # Create Bonds
             for bond in mol.GetBonds():
