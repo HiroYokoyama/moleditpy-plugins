@@ -422,9 +422,19 @@ def _accept_self(target_mol, ctx):
     return SimpleNamespace(context=ctx, target_mol=target_mol)
 
 
+# accept()/reject() call super().accept()/reject(); zero-arg super() needs a
+# __class__ cell that only exists inside a real class body, so we stub the
+# global `super` builtin when extracting these methods standalone.
+_FAKE_SUPER_GLOBALS = {
+    "super": lambda *a: SimpleNamespace(accept=lambda: None, reject=lambda: None)
+}
+
+
 class TestConfSearchAcceptReject:
     def test_accept_pushes_undo_checkpoint_when_mol_present(self):
-        fn = extract_function(CONF_SEARCH_PATH, "ConformerSearchDialog", "accept")
+        fn = extract_function(
+            CONF_SEARCH_PATH, "ConformerSearchDialog", "accept", _FAKE_SUPER_GLOBALS
+        )
         ctx = make_context()
         self_ = _accept_self(_RSMol(1, [(0.0, 0.0, 0.0)]), ctx)
         fn(self_)
@@ -432,7 +442,9 @@ class TestConfSearchAcceptReject:
         ctx.register_window.assert_called_with("main_panel", None)
 
     def test_accept_no_undo_checkpoint_when_no_mol(self):
-        fn = extract_function(CONF_SEARCH_PATH, "ConformerSearchDialog", "accept")
+        fn = extract_function(
+            CONF_SEARCH_PATH, "ConformerSearchDialog", "accept", _FAKE_SUPER_GLOBALS
+        )
         ctx = make_context()
         self_ = _accept_self(None, ctx)
         fn(self_)
@@ -440,7 +452,9 @@ class TestConfSearchAcceptReject:
         ctx.register_window.assert_called_with("main_panel", None)
 
     def test_reject_restores_original_coordinates(self):
-        fn = extract_function(CONF_SEARCH_PATH, "ConformerSearchDialog", "reject")
+        fn = extract_function(
+            CONF_SEARCH_PATH, "ConformerSearchDialog", "reject", _FAKE_SUPER_GLOBALS
+        )
         ctx = make_context()
         mol = _RSMol(2, ["p0_new", "p1_new"])
         self_ = SimpleNamespace(
@@ -452,7 +466,9 @@ class TestConfSearchAcceptReject:
         ctx.register_window.assert_called_with("main_panel", None)
 
     def test_reject_without_mol_does_not_raise(self):
-        fn = extract_function(CONF_SEARCH_PATH, "ConformerSearchDialog", "reject")
+        fn = extract_function(
+            CONF_SEARCH_PATH, "ConformerSearchDialog", "reject", _FAKE_SUPER_GLOBALS
+        )
         ctx = make_context()
         self_ = SimpleNamespace(context=ctx, target_mol=None, original_coords=[])
         fn(self_)  # must not raise
