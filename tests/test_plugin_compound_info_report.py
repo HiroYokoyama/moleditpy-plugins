@@ -118,3 +118,153 @@ class TestPubChemFetcher:
         ctx.add_menu_action.assert_called_once()
         path = ctx.add_menu_action.call_args[0][0]
         assert "Compound" in path or "compound" in path.lower()
+
+
+
+
+# ---------------------------------------------------------------------------
+# fetch_experimental_properties (mocked urllib)
+# ---------------------------------------------------------------------------
+
+
+def _pugview_payload(props):
+    return {
+        "Record": {
+            "Section": [
+                {
+                    "TOCHeading": "Chemical and Physical Properties",
+                    "Section": [
+                        {
+                            "TOCHeading": "Experimental Properties",
+                            "Section": props,
+                        }
+                    ],
+                }
+            ]
+        }
+    }
+
+
+class _FakeResponse:
+    def __init__(self, payload, status=200):
+        self.status = status
+        self._body = json.dumps(payload).encode("utf-8")
+
+    def read(self):
+        return self._body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+
+class TestFetchExperimentalProperties:
+    def _patch(self, monkeypatch, payload, status=200):
+        monkeypatch.setattr(
+            COMPOUND_MOD.urllib.request,
+            "urlopen",
+            lambda url: _FakeResponse(payload, status=status),
+        )
+
+    def test_density_string_extracted(self, monkeypatch):
+        payload = _pugview_payload(
+            [
+                {
+                    "TOCHeading": "Density",
+                    "Information": [
+                        {"Value": {"StringWithMarkup": [{"String": "1.234 g/cm3"}]}}
+                    ],
+                }
+            ]
+        )
+        self._patch(monkeypatch, payload)
+        density, desc = COMPOUND_MOD.PubChemFetcher.fetch_experimental_properties(241)
+        assert density == "1.234 g/cm3"
+        assert desc is None
+
+    def test_density_number_value(self, monkeypatch):
+        payload = _pugview_payload(
+            [
+                {
+                    "TOCHeading": "Density",
+                    "Information": [{"Value": {"Number": [0.879]}}],
+                }
+            ]
+        )
+        self._patch(monkeypatch, payload)
+        density, _ = COMPOUND_MOD.PubChemFetcher.fetch_experimental_properties(241)
+        assert density == "0.879"
+
+    def test_physical_description_matching_heuristic(self, monkeypatch):
+        payload = _pugview_payload(
+            [
+                {
+                    "TOCHeading": "Physical Description",
+                    "Information": [
+                        {
+                            "Value": {
+                                "StringWithMarkup": [
+                                    {"String": "White crystalline powder"}
+                                ]
+                            }
+                        }
+                    ],
+                }
+            ]
+        )
+        self._patch(monkeypatch, payload)
+        _, desc = COMPOUND_MOD.PubChemFetcher.fetch_experimental_properties(241)
+        assert desc == "White crystalline powder"
+
+    def test_description_without_keywords_rejected(self, monkeypatch):
+        payload = _pugview_payload(
+            [
+                {
+                    "TOCHeading": "Physical Description",
+                    "Information": [
+                        {"Value": {"StringWithMarkup": [{"String": "Pungent smell"}]}}
+                    ],
+                }
+            ]
+        )
+        self._patch(monkeypatch, payload)
+        _, desc = COMPOUND_MOD.PubChemFetcher.fetch_experimental_properties(241)
+        assert desc is None
+
+    def test_non_200_status_returns_none_pair(self, monkeypatch):
+        self._patch(monkeypatch, _pugview_payload([]), status=404)
+        result = COMPOUND_MOD.PubChemFetcher.fetch_experimental_properties(241)
+        assert result == (None, None)
+
+    def test_no_cid_short_circuits_without_network(self, monkeypatch):
+        def _explode(url):
+            raise AssertionError("network must not be touched")
+
+        monkeypatch.setattr(COMPOUND_MOD.urllib.request, "urlopen", _explode)
+        assert COMPOUND_MOD.PubChemFetcher.fetch_experimental_properties(None) == (
+            None,
+            None,
+        )
+
+    def test_first_matching_density_wins(self, monkeypatch):
+        payload = _pugview_payload(
+            [
+                {
+                    "TOCHeading": "Density",
+                    "Information": [
+                        {"Value": {"StringWithMarkup": [{"String": "1.0 g/cm3"}]}}
+                    ],
+                },
+                {
+                    "TOCHeading": "Density",
+                    "Information": [
+                        {"Value": {"StringWithMarkup": [{"String": "2.0 g/cm3"}]}}
+                    ],
+                },
+            ]
+        )
+        self._patch(monkeypatch, payload)
+        density, _ = COMPOUND_MOD.PubChemFetcher.fetch_experimental_properties(241)
+        assert density == "1.0 g/cm3"

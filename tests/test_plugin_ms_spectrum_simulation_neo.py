@@ -8,7 +8,11 @@ plugin source via AST and compiled standalone (self is unused in all of them).
 
 from __future__ import annotations
 
+import ast
+import textwrap
 from pathlib import Path
+
+import pytest
 
 from conftest import extract_function, load_plugin, mock_optional_imports
 
@@ -104,3 +108,54 @@ class TestGetAdductDelta:
 
     def test_negative_formate(self):
         assert _get_adduct_delta(None, 3, "Negative", 1) == {"C": 1, "H": 1, "O": 2}
+
+
+
+
+# ---------------------------------------------------------------------------
+# Gaussian broadening (requires real numpy)
+# ---------------------------------------------------------------------------
+
+
+def _extract_method_source(path: Path, class_name: str, method_name: str) -> str:
+    source = path.read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef) and node.name == class_name:
+            for item in node.body:
+                if isinstance(item, ast.FunctionDef) and item.name == method_name:
+                    return textwrap.dedent(ast.get_source_segment(source, item))
+    raise AssertionError(f"{class_name}.{method_name} not found in {path.name}")
+
+
+def _make_function(src: str, namespace: dict):
+    exec(src, namespace)  # noqa: S102 - test-only extraction
+    name = src.split("def ", 1)[1].split("(", 1)[0]
+    return namespace[name]
+
+
+class TestGaussianBroadening:
+    def _fn(self):
+        pytest.importorskip("numpy")
+        src = _extract_method_source(MS_PATH, "MSSpectrumDialog", "apply_gaussian_broadening")
+        return _make_function(src, {})
+
+    def test_empty_peaks_returns_empty(self):
+        assert self._fn()(None, [], 0.05) == []
+
+    def test_profile_normalized_to_100(self):
+        result = self._fn()(None, [(100.0, 55.0)], 0.05)
+        max_y = max(y for _, y in result)
+        assert max_y == pytest.approx(100.0, abs=1e-6)
+
+    def test_peak_maximum_near_center(self):
+        result = self._fn()(None, [(200.0, 10.0)], 0.05)
+        x_at_max = max(result, key=lambda p: p[1])[0]
+        assert x_at_max == pytest.approx(200.0, abs=0.01)
+
+    def test_two_isotope_peaks_keep_relative_height(self):
+        result = self._fn()(None, [(100.0, 100.0), (101.0, 50.0)], 0.02)
+        near_100 = max(y for x, y in result if abs(x - 100.0) < 0.1)
+        near_101 = max(y for x, y in result if abs(x - 101.0) < 0.1)
+        assert near_100 == pytest.approx(100.0, abs=1e-6)
+        assert near_101 == pytest.approx(50.0, rel=0.02)

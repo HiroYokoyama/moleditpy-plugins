@@ -59,3 +59,34 @@ class TestMoleculeComparator:
                 return "black"
 
         assert _luminance_text("not_a_color") == "black"
+
+
+
+
+# ---------------------------------------------------------------------------
+# document-reset handler behaviour
+# ---------------------------------------------------------------------------
+
+from types import SimpleNamespace
+from unittest.mock import MagicMock
+
+
+class TestComparatorResetHandler:
+    def _handler(self, mw):
+        with mock_optional_imports():
+            mod = load_plugin(MOLECULE_COMPARATOR_PATH)
+            ctx = make_context()
+            ctx.get_main_window.return_value = mw
+            mod.initialize(ctx)
+        return ctx.register_document_reset_handler.call_args[0][0]
+
+    def test_reset_closes_open_window(self):
+        mw = SimpleNamespace(molecule_comparator_window=MagicMock())
+        handler = self._handler(mw)
+        handler()
+        mw.molecule_comparator_window.close.assert_called_once()
+
+    def test_reset_noop_without_window(self):
+        mw = SimpleNamespace()  # no molecule_comparator_window attribute
+        handler = self._handler(mw)
+        handler()
