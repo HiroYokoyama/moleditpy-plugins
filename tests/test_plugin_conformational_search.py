@@ -10,9 +10,10 @@ Covers:
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-from conftest import load_plugin, make_context, mock_optional_imports
+from conftest import extract_function, load_plugin, make_context, mock_optional_imports
 
 PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
 CONF_SEARCH_PATH = PLUGINS_DIR / "Conformational_Search" / "conf_search.py"
@@ -77,3 +78,134 @@ class TestConformationalSearch:
             ctx.current_mol = MagicMock()
             mod.run_plugin(ctx)
             ctx.register_window.assert_called_once()
+
+
+def _conf_filter_fn():
+    return extract_function(
+        CONF_SEARCH_PATH, "ConformerSearchDialog", "apply_filter_and_update", {}
+    )
+
+
+def _conf_self(results_raw, show_all=False):
+    s = SimpleNamespace()
+    s.results_raw = results_raw
+    s.conformer_data = []
+    s.cb_show_all = MagicMock()
+    s.cb_show_all.isChecked.return_value = show_all
+    s.update_table = MagicMock()
+    s.lbl_info = MagicMock()
+    return s
+
+
+class TestConfSearchFilter:
+    def test_empty_results_returns_early(self):
+        fn = _conf_filter_fn()
+        s = _conf_self([])
+        fn(s)
+        s.update_table.assert_not_called()
+        assert s.conformer_data == []
+
+    def test_show_all_keeps_everything(self):
+        fn = _conf_filter_fn()
+        raw = [(1.0, 0), (1.0, 1), (2.0, 2)]
+        s = _conf_self(raw, show_all=True)
+        fn(s)
+        assert s.conformer_data == raw
+        s.update_table.assert_called_once()
+
+    def test_duplicate_energies_deduplicated(self):
+        fn = _conf_filter_fn()
+        # 1.0 and 1.00005 are within the 1e-4 window -> one survivor
+        raw = [(1.0, 0), (1.00005, 1), (2.0, 2)]
+        s = _conf_self(raw)
+        fn(s)
+        assert s.conformer_data == [(1.0, 0), (2.0, 2)]
+
+    def test_distinct_energies_all_kept(self):
+        fn = _conf_filter_fn()
+        raw = [(1.0, 0), (1.5, 1), (2.0, 2)]
+        s = _conf_self(raw)
+        fn(s)
+        assert s.conformer_data == raw
+
+    def test_info_label_shows_counts(self):
+        fn = _conf_filter_fn()
+        raw = [(1.0, 0), (1.00001, 1), (3.0, 2)]
+        s = _conf_self(raw)
+        fn(s)
+        msg = s.lbl_info.setText.call_args[0][0]
+        assert "Showing 2 conformers" in msg
+        assert "Total found: 3" in msg
+
+
+class _FakeTable:
+    """Recorder stand-in for the installer's QTableWidget."""
+
+    def __init__(self):
+        self.rows = 0
+        self.items = {}  # (row, col) -> _Item
+        self.cell_widgets = {}  # (row, col) -> widget
+        self.hidden = {}  # row -> bool
+
+    def setRowCount(self, n):
+        self.rows = n
+        if n == 0:
+            self.items.clear()
+            self.cell_widgets.clear()
+
+    def rowCount(self):
+        return self.rows
+
+    def insertRow(self, row):
+        self.rows += 1
+
+    def setItem(self, row, col, item):
+        self.items[(row, col)] = item
+
+    def item(self, row, col):
+        return self.items.get((row, col))
+
+    def setCellWidget(self, row, col, widget):
+        self.cell_widgets[(row, col)] = widget
+
+    def setUpdatesEnabled(self, flag):
+        pass
+
+    def setRowHidden(self, row, hidden):
+        self.hidden[row] = hidden
+
+
+class TestConfSearchUpdateTable:
+    def _run(self, conformer_data):
+        items = []
+
+        class _RecItem:
+            def __init__(self, text):
+                self.text = text
+                self.user_data = None
+                items.append(self)
+
+            def setData(self, role, value):
+                self.user_data = value
+
+        globs = {"QTableWidgetItem": _RecItem, "Qt": MagicMock()}
+        fn = extract_function(
+            CONF_SEARCH_PATH, "ConformerSearchDialog", "update_table", globs
+        )
+        s = SimpleNamespace()
+        s.conformer_data = conformer_data
+        s.table = _FakeTable()
+        fn(s)
+        return s, items
+
+    def test_rows_ranked_and_energy_formatted(self):
+        s, _ = self._run([(1.23456789, 7), (2.5, 3)])
+        assert s.table.rows == 2
+        assert s.table.items[(0, 0)].text == "1"
+        assert s.table.items[(0, 1)].text == "1.2346"  # 4 decimal places
+        assert s.table.items[(1, 0)].text == "2"
+        assert s.table.items[(1, 1)].text == "2.5000"
+
+    def test_conformer_id_stored_as_user_data(self):
+        s, _ = self._run([(1.0, 42)])
+        assert s.table.items[(0, 0)].user_data == 42
