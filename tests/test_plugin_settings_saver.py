@@ -1,17 +1,19 @@
 """
-Extended unit tests for the Settings Saver plugin.
+Unit tests for the Settings Saver plugin.
 
-Covers functions not tested by test_save_load.py or test_plugin_ui_misc.py:
+Covers functions not tested by test_save_load.py:
   - get_plugin_data_path()
   - _get_live_settings(mw)
   - _sync_legacy_settings_alias(mw, settings)
   - on_save_project() / on_load_project(data)
   - enable_project_mode(mw) / disable_project_mode(mw)
   - on_document_reset()
+  - load_library() / save_library()
 """
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -254,3 +256,37 @@ class TestOnDocumentReset:
         MOD.PLUGIN_CONFIG["always_save_to_project"] = False
         MOD.on_document_reset()
         assert MOD.EMBED_SETTINGS["enabled"] is False
+
+
+class TestSettingsSaver:
+    def _patch_path(self, tmp_path, monkeypatch) -> str:
+        data_path = str(tmp_path / "settings_saver.json")
+        monkeypatch.setattr(MOD, "get_plugin_data_path", lambda: data_path)
+        return data_path
+
+    def test_round_trip(self, tmp_path, monkeypatch):
+        self._patch_path(tmp_path, monkeypatch)
+        payload = {
+            "preset_A": {"opacity": 0.5},
+            "_PLUGIN_CONFIG": {"always_save_to_project": True},
+        }
+        MOD.save_library(payload)
+        loaded = MOD.load_library()
+        assert loaded["preset_A"]["opacity"] == pytest.approx(0.5)
+        assert loaded["_PLUGIN_CONFIG"]["always_save_to_project"] is True
+
+    def test_load_missing_returns_empty_dict(self, tmp_path, monkeypatch):
+        self._patch_path(tmp_path, monkeypatch)
+        assert MOD.load_library() == {}
+
+    def test_save_overwrites_existing(self, tmp_path, monkeypatch):
+        self._patch_path(tmp_path, monkeypatch)
+        MOD.save_library({"old": 1})
+        MOD.save_library({"new": 2})
+        assert MOD.load_library() == {"new": 2}
+
+    def test_get_plugin_data_path_returns_json(self):
+        path = MOD.get_plugin_data_path()
+        assert isinstance(path, str)
+        assert path.endswith(".json")
+        assert os.path.basename(path) == MOD.SETTINGS_FILENAME
