@@ -471,9 +471,13 @@ class BasisSetEngine:
             comps = []
             if stype == -1:  # SP
                 comps = ["S", "Px", "Py", "Pz"]
-            elif stype >= 0:
-                count = len(self.basis_definitions.get(stype, []))
-                comps = [f"L{stype}_{k}" for k in range(count)]
+            else:
+                # Negative types below -1 (e.g. -2, -3) denote pure/spherical
+                # D, F, ... shells; mirror the abs() handling used in
+                # _prepare_basis_set so label counts match n_basis.
+                effective_type = abs(stype) if stype < -1 else stype
+                count = len(self.basis_definitions.get(effective_type, []))
+                comps = [f"L{effective_type}_{k}" for k in range(count)]
 
             for c in comps:
                 labels.append(f"{atom_idx + 1} {sym} {c}")
