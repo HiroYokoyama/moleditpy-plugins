@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -85,6 +85,228 @@ class TestGUIHelp:
         r = repr(_console.GUIHelp())
         lowered = r.lower()
         assert "disabled" in lowered or "prevent" in lowered
+
+    def test_call_no_args_prints_repr(self, capsys):
+        h = _console.GUIHelp()
+        h()
+        out = capsys.readouterr().out
+        assert "help(object)" in out
+
+    def test_call_with_object_delegates_to_pydoc_help(self):
+        h = _console.GUIHelp()
+        with patch.object(_console.pydoc, "help") as mock_help:
+            h(str)
+        mock_help.assert_called_once_with(str)
+
+    def test_call_uses_plainpager_and_restores_original(self):
+        h = _console.GUIHelp()
+        sentinel_pager = object()
+        _console.pydoc.pager = sentinel_pager
+        try:
+            with patch.object(_console.pydoc, "help"):
+                h(str)
+            assert _console.pydoc.pager is sentinel_pager
+        finally:
+            _console.pydoc.pager = sentinel_pager
+
+    def test_call_swallows_pydoc_exceptions(self, capsys):
+        h = _console.GUIHelp()
+        with patch.object(_console.pydoc, "help", side_effect=RuntimeError("boom")):
+            h(str)  # must not raise
+        err = capsys.readouterr().err
+        assert "help() error" in err
+        assert "boom" in err
+
+
+class TestInitializeAndRun:
+    def test_initialize_sets_plugin_context(self):
+        ctx = MagicMock()
+        _console.initialize(ctx)
+        assert _console.PLUGIN_CONTEXT is ctx
+
+    def test_run_returns_early_without_context(self):
+        _console.PLUGIN_CONTEXT = None
+        mw = MagicMock()
+        _console.run(mw)  # must not raise
+
+    def test_run_unwraps_host_attribute(self):
+        ctx = MagicMock()
+        win = MagicMock()
+        ctx.get_window.return_value = win
+        _console.initialize(ctx)
+        outer_mw = MagicMock()
+        real_mw = MagicMock()
+        outer_mw.host = real_mw
+        _console.run(outer_mw)
+        win.show.assert_called_once()
+        win.raise_.assert_called_once()
+        win.activateWindow.assert_called_once()
+
+    def test_run_creates_dialog_when_no_existing_window(self):
+        ctx = MagicMock()
+        ctx.get_window.return_value = None
+        _console.initialize(ctx)
+        with patch.object(_console, "PythonConsoleDialog") as dialog_cls:
+            dialog_cls.return_value = MagicMock()
+            mw = MagicMock()
+            del mw.host
+            _console.run(mw)
+        dialog_cls.assert_called_once_with(ctx)
+
+
+class _SuperProxy:
+    """Stand-in for the QPlainTextEdit base reached via super() in keyPressEvent."""
+
+    def __init__(self):
+        self.calls = []
+
+    def keyPressEvent(self, event):
+        self.calls.append(event)
+
+
+def _key_press_fn(super_proxy):
+    class _FakeKey:
+        Key_Return = "Return"
+        Key_Up = "Up"
+        Key_Down = "Down"
+        Key_A = "A"
+
+    class _FakeModifier:
+        ShiftModifier = 1
+        NoModifier = 0
+
+    class _FakeMoveOp:
+        End = "End"
+
+    fake_qt = SimpleNamespace(
+        Key=_FakeKey, KeyboardModifier=_FakeModifier
+    )
+    globs = {
+        "Qt": fake_qt,
+        "QTextCursor": SimpleNamespace(MoveOperation=_FakeMoveOp),
+        "super": lambda *a, **kw: super_proxy,
+    }
+    return extract_function(CONSOLE_PATH, "ConsoleInput", "keyPressEvent", globs)
+
+
+class _ConsoleInputStub:
+    """Minimal stand-in for ConsoleInput carrying only what keyPressEvent touches."""
+
+    def __init__(self, history=None, history_index=0, block_number=0, block_count=1):
+        self.history = history or []
+        self.history_index = history_index
+        self._block_number = block_number
+        self._block_count = block_count
+        self.set_texts = []
+        self.moved = []
+        self.cleared = False
+
+    def textCursor(self):
+        return SimpleNamespace(blockNumber=lambda: self._block_number)
+
+    def blockCount(self):
+        return self._block_count
+
+    def setPlainText(self, text):
+        self.set_texts.append(text)
+
+    def moveCursor(self, op):
+        self.moved.append(op)
+
+    def clear(self):
+        self.cleared = True
+
+
+def _event(key, shift=False):
+    return SimpleNamespace(
+        key=lambda: key,
+        modifiers=lambda: (1 if shift else 0),
+    )
+
+
+class TestConsoleInputKeyPressEvent:
+    def test_enter_executes_and_does_not_insert_newline(self):
+        proxy = _SuperProxy()
+        fn = _key_press_fn(proxy)
+        stub = _ConsoleInputStub()
+        stub.execute_signal = MagicMock()
+        fn(stub, _event("Return", shift=False))
+        stub.execute_signal.emit.assert_called_once()
+        assert proxy.calls == []  # newline not inserted
+
+    def test_shift_enter_inserts_newline_via_super(self):
+        proxy = _SuperProxy()
+        fn = _key_press_fn(proxy)
+        stub = _ConsoleInputStub()
+        stub.execute_signal = MagicMock()
+        ev = _event("Return", shift=True)
+        fn(stub, ev)
+        stub.execute_signal.emit.assert_not_called()
+        assert proxy.calls == [ev]
+
+    def test_up_at_top_line_navigates_history(self):
+        proxy = _SuperProxy()
+        fn = _key_press_fn(proxy)
+        stub = _ConsoleInputStub(history=["a", "b"], history_index=2, block_number=0)
+        fn(stub, _event("Up"))
+        assert stub.history_index == 1
+        assert stub.set_texts == ["b"]
+        assert stub.moved == ["End"]
+
+    def test_up_not_at_top_line_moves_cursor_normally(self):
+        proxy = _SuperProxy()
+        fn = _key_press_fn(proxy)
+        stub = _ConsoleInputStub(history=["a"], history_index=1, block_number=1)
+        ev = _event("Up")
+        fn(stub, ev)
+        assert proxy.calls == [ev]
+        assert stub.set_texts == []
+
+    def test_up_with_empty_history_moves_cursor_normally(self):
+        proxy = _SuperProxy()
+        fn = _key_press_fn(proxy)
+        stub = _ConsoleInputStub(history=[], history_index=0, block_number=0)
+        ev = _event("Up")
+        fn(stub, ev)
+        assert proxy.calls == [ev]
+
+    def test_down_at_last_line_navigates_forward_in_history(self):
+        proxy = _SuperProxy()
+        fn = _key_press_fn(proxy)
+        stub = _ConsoleInputStub(
+            history=["a", "b"], history_index=0, block_number=0, block_count=1
+        )
+        fn(stub, _event("Down"))
+        assert stub.history_index == 1
+        assert stub.set_texts == ["b"]
+
+    def test_down_past_end_of_history_clears_input(self):
+        proxy = _SuperProxy()
+        fn = _key_press_fn(proxy)
+        stub = _ConsoleInputStub(
+            history=["a", "b"], history_index=1, block_number=0, block_count=1
+        )
+        fn(stub, _event("Down"))
+        assert stub.history_index == 2
+        assert stub.cleared is True
+
+    def test_down_not_at_last_line_moves_cursor_normally(self):
+        proxy = _SuperProxy()
+        fn = _key_press_fn(proxy)
+        stub = _ConsoleInputStub(
+            history=["a", "b"], history_index=1, block_number=0, block_count=2
+        )
+        ev = _event("Down")
+        fn(stub, ev)
+        assert proxy.calls == [ev]
+
+    def test_other_key_falls_through_to_super(self):
+        proxy = _SuperProxy()
+        fn = _key_press_fn(proxy)
+        stub = _ConsoleInputStub()
+        ev = _event("A")
+        fn(stub, ev)
+        assert proxy.calls == [ev]
 
 
 def _console_self(command, mol="MOL"):
