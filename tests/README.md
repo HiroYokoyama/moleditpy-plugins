@@ -35,6 +35,9 @@ Not a test file. Provides helpers used by all smoke/API test files:
 | `load_plugin(path)` | Load a plugin `.py` file as an isolated module (call inside `mock_optional_imports()`) |
 | `make_context()` | Return a stub `PluginContext` (MagicMock with a non-None main window) |
 | `visible_py_plugins(entry_point)` | Iterate visible single-file `.py` plugins from the registry, optionally filtered by entry-point function name |
+| `mocks_with_real_numpy()` | Like `mock_optional_imports()` but keeps real numpy in `sys.modules` for generators/parsers doing real vector math |
+| `P3`, `FakeAtom`, `FakeBond`, `FakeConf`, `FakeMol` | Shared fake rdkit bond-graph objects |
+| `extract_function(path, class_name, fn_name, extra_globals=None)` | AST-based method/function extractor for methods on Qt-derived (mocked-base) classes |
 
 ---
 
@@ -110,17 +113,57 @@ Currently covers: **Atom Colorizer**, **XYZ Editor**, **Settings Saver**.
 
 ---
 
-### `test_plugin_installer.py` — Plugin Installer unit tests (14 tests)
+### `test_plugin_<name>.py` — per-plugin test files
 
-Deep unit tests for the `Plugin_Installer` plugin specifically.
+Every visible plugin with non-trivial logic (pure functions, save/load
+handlers, dialog methods extracted via AST, etc.) gets its own flat file in
+`tests/`, named after its plugin: `test_plugin_atom_colorizer.py`,
+`test_plugin_paste_xyz.py`, `test_plugin_povray_export.py`, and so on. Each
+file typically:
 
-| Class / test | What it covers |
+- Loads the plugin module once at module scope inside `mock_optional_imports()`.
+- Defines any plugin-specific fakes it needs (widget stand-ins, fake rdkit
+  atoms/mols) — shared ones live in `conftest.py` (see below).
+- Groups tests into one `Test*` class per method/function under test.
+
+There is no 1:1 mapping to a single "kind" of test — a per-plugin file may
+mix `initialize()` registration checks, pure-function unit tests, and
+Qt-method extraction tests for the same plugin, since they all belong to the
+same plugin's coverage.
+
+`test_plugin_installer.py` is the deepest example: version comparison,
+settings round-trip, startup-check scheduling, dependency parsing, chunked
+downloads, folder-plugin overwrite logic, `populate_table` / `filter_plugins`
+UI logic, and app-version detection — all for the `Plugin_Installer` plugin.
+
+Shared helpers used across many per-plugin files, defined once in
+`conftest.py`:
+
+| Symbol | Purpose |
 |---|---|
-| `TestCompareVersions` (6) | Version comparison logic: greater, less, equal, mixed-length, date-style versions |
-| `TestSettings` (3) | `load_settings` / `save_settings` round-trip, missing file, corrupt JSON |
-| `TestInitialize` (5) | Startup check scheduling: `check_at_startup=True/False`, first-run flow, deduplication |
-| `test_plugin_version_constant_present` | `PLUGIN_VERSION` constant exists and is non-empty |
-| `test_plugin_version_matches_registry` | Source version matches registry entry |
+| `mocks_with_real_numpy()` | Like `mock_optional_imports()` but keeps real numpy in `sys.modules` (for export/parser generators doing real vector math) |
+| `P3`, `FakeAtom`, `FakeBond`, `FakeConf`, `FakeMol` | Minimal fake rdkit bond-graph objects |
+| `extract_function(path, class_name, fn_name, extra_globals=None)` | AST-based method/function extractor for methods on Qt-derived (mocked-base) classes |
+
+Some plugin-specific fake-widget sets (e.g. `FakeSpin`/`FakeCombo`/`FakeCheck`
+for QM input-generator dialogs) are *not* centralised — they differ enough
+between plugins that each per-plugin file keeps its own copy.
+
+---
+
+### `test_shared_<topic>.py` — cross-plugin contract/regression files
+
+A small number of test classes are genuinely about more than one plugin at
+once (parametrized across the three Chat-with-Molecule-Neo variants, or a
+regression that must hold for every legacy QM input generator). These live
+in `tests/test_shared_<topic>.py` instead of being duplicated per plugin:
+
+| File | Covers |
+|---|---|
+| `test_shared_chat_variants.py` | Chat Neo ChatGPT + Local: settings round-trip, `latex_to_html` fallback, `PubChemResolver` guards, `run()` smoke |
+| `test_shared_ai_tool_parsing.py` | Chat Neo Gemini/ChatGPT/Local: tool-call regex, `collect_tools`, SMILES links, module constants, `append_log` — parametrized across all three variants |
+| `test_shared_chat_optimizer.py` | Chat Neo Gemini/ChatGPT/Local: history-pruning regressions, Local `log_usage` |
+| `test_shared_input_generator_guards.py` | All five legacy QM input generators (MOPAC/GAMESS/PySCF/Psi4/NWChem): `run(mw)` no-molecule warning guard |
 
 ---
 
@@ -144,223 +187,6 @@ Recognised registration methods: `add_menu_action`, `add_export_action`,
 | Complex Molecule Untangler | same |
 | PubChem Name Resolver | same |
 | Vector Viewer | same; `initialize()` calls `show_status_message()` but no menu |
-
----
-
-### `test_plugin_cube_parsers.py` — Cube file parser tests (29 tests)
-
-Pure-function tests for the three Cube viewer plugins.
-
-| Area | What it covers |
-|---|---|
-| `parse_cube_data` | Valid files, short-file `ValueError`, excess-line trim, zero-pad, Angstrom header flag, multi-atom |
-| `build_grid_from_meta` | Grid shape from metadata dict |
-| `read_cube` | End-to-end read returning atom list + flat data array |
-| `initialize()` | File-opener registration for `.cube` for all three plugins |
-
-Plugins covered: **Cube File Viewer**, **Cube File Viewer Advanced**, **Mapped Cube Viewer**.
-
----
-
-### `test_plugin_parsers_exports.py` — Parser and export-script tests (49 tests)
-
-| Area | Plugin | What it covers |
-|---|---|---|
-| `is_valid_orca_file` | ORCA Freq Analyzer | Keyword variants, 500-line boundary, empty/missing files, case sensitivity |
-| `OrcaParser.parse` | ORCA Freq Analyzer | Atom symbols/coords, frequency extraction, multi-block geometry, edge cases |
-| `FCHKParser.parse` | Gaussian Freq Analyzer | Atomic numbers, Bohr→Å conversion, Vib-E2 frequency/intensity |
-| `find_file_recursive` | Gaussian FCHK Loader | Exact match, wildcard, nested dirs, not found |
-| `find_mo_analyzer_module` | Gaussian FCHK Loader | Found, missing `__init__.py`, not found |
-| `initialize()` | Blender Export | Export action registered with correct label |
-| `initialize()` | POV-Ray Export | Same |
-| `initialize()` | ORCA / Gaussian Freq | File-opener registration |
-
----
-
-### `test_plugin_optimize_resolvers.py` — Optimizer / resolver / viewer tests (≈30 tests)
-
-| Class | Plugin | What it covers |
-|---|---|---|
-| `TestAllTransOptimizer` | All-Trans Optimizer | `_launch_fn` set by `initialize()`; `run_plugin(mol=None)` shows warning |
-| `TestComplexMoleculeUntangler` | Complex Molecule Untangler | `PLUGIN_CONTEXT` and `_launch_fn` set; window reuse; `register_window` called |
-| `TestConformationalSearch` | Conformational Search | Menu action registered; `run_plugin(mol=None)` warns; dialog accept; window registered |
-| `TestPubChemNameResolver` | PubChem Name Resolver | `initialize()` doesn't raise; `run_search("")` short-circuits; `run(mw)` doesn't raise |
-| `TestVectorViewer` | Vector Viewer | `_launch_fn` set; `show_status_message` called |
-| `TestMoleculeComparator` | Molecule Comparator | `register_document_reset_handler` called; luminance text-colour formula |
-
----
-
-### `test_plugin_ui_misc.py` — UI helpers and settings round-trips (48 tests)
-
-| Area | Plugin | What it covers |
-|---|---|---|
-| `ConsoleInput.append_history` | Python Console | Deduplication, empty-string skip, index tracking |
-| `GUIHelp.__repr__` / `__call__` | Python Console | Help text content |
-| `MSSpectrumDialog.parse_formula_str` | MS Spectrum Simulation Neo | H₂O, glucose, parentheses, invalid chars |
-| `to_subscript` / `to_superscript` | MS Spectrum Simulation Neo | Unicode conversion |
-| `get_adduct_delta` | MS Spectrum Simulation Neo | Positive/negative mode, multi-charge adducts |
-| `load_settings` / `save_settings` | VDW Radii Overlay | Round-trip, missing file, corrupt JSON |
-| `load_library` / `save_library` | Settings Saver | Round-trip, empty library |
-| `load_settings` / `save_settings` | Chat with Molecule Neo | Round-trip |
-| `latex_to_html` | Chat with Molecule Neo | LaTeX → HTML conversion |
-| `reconstruct_from_flat_text` | Paste from ChemDraw | Edge cases: empty, single atom, malformed |
-
----
-
-### `test_plugin_chat_variants.py` — Chat Neo ChatGPT + Local tests (27 tests)
-
-| Class | What it covers |
-|---|---|
-| `TestChatGPTSettings` (6) | `load_settings`/`save_settings` round-trip, missing file, corrupt JSON, DEMO_MODE guard, valid JSON output |
-| `TestChatGPTLatexToHtml` (5) | No-matplotlib fallback returns `<i>text</i>`; empty string; mocked-matplotlib path; cache hit |
-| `TestChatGPTPubChemResolver` (2) | Empty string and `None` → immediate error, no network call |
-| `test_chatgpt_run_does_not_raise` (1) | `run(mw)` smoke |
-| `TestLocalSettings` (6) | Same battery for the Local variant |
-| `TestLocalLatexToHtml` (4) | Fallback + mocked + cache |
-| `TestLocalPubChemResolver` (2) | Empty/None guard |
-| `test_local_run_does_not_raise` (1) | `run(mw)` smoke |
-
----
-
-### `test_plugin_pubchem_and_paste.py` — PubChem utilities & Paste XYZ tests (33 tests)
-
-| Class | Plugin | What it covers |
-|---|---|---|
-| `TestPubChemResolver` (9) | PubChem Structure Identifier | Early-exit on empty/None name+InChIKey; mocked HTTP 200 success; HTTP 404 "not found"; empty properties; network error; `run(mw)` smoke |
-| `TestPubChemFetcher` (14) | Compound Info Report | Early-exit on empty/None InChIKey for `get_synonyms`/`get_cid`; mocked success paths; `extract_cas` valid/filtered/capped; `initialize()` registers action |
-| `TestPasteXYZParser` (9) | Paste XYZ | Valid 3-atom block; header lines skipped; short lines skipped; non-float coords skipped; non-alpha symbol skipped; empty input; blank lines; fractional coords; mixed-case elements |
-| `TestPasteXYZSmoke` (1) | Paste XYZ | `run(mw)` exits cleanly when dialog returns non-Accepted result |
-
----
-
-### `test_plugin_ai_tool_parsing.py` — AI/LLM tool-call parsing tests (84 tests)
-
-| Class | Tests | What it verifies |
-|---|---|---|
-| `TestToolRegex` | 7 | Regex extracts single/array/multi-block tool JSON; non-tool JSON found but lacks "tool" key; invalid JSON matched but unparseable; no blocks → empty |
-| `TestCollectTools` | 8 | Collection logic: single tool, array of 3, two separate blocks merged, invalid block silently dropped, non-tool JSON and missing "params" excluded |
-| `TestSmilesLinkPattern` | 6 | `[Name](smiles:...)` → `<a href=...>`; multiple links; `https://` links not converted; no-link text unchanged |
-| `TestLatexToHtmlFallback` | 15 | Fallback (`HAS_MATPLOTLIB=False`) returns `<i>text</i>`; mocked-matplotlib path returns non-empty string — all 3 Chat Neo variants |
-| `TestPubChemResolverEarlyReturn` | 12 | `resolve_inchikey_to_name("")/None` and `resolve_name_to_smiles("")/None` return `(None, msg)` without network — all 3 variants |
-| `TestModuleConstants` | 24 | `MAX_HISTORY` is even int ≥ 2; `DEMO_MODE=False`; `SYSTEM_PROMPT` non-empty and contains "tool"; `GENERATION_CONFIG` has `temperature` — all 3 variants |
-| `TestAppendLog` | 12 | Creates file, writes sender+text, appends across calls, bad path doesn't raise — all 3 variants |
-
----
-
-### `test_plugin_settings_saver_extended.py` — Settings Saver extended tests (26 tests)
-
-| Class | What it covers |
-|---|---|
-| `TestGetPluginDataPath` (3) | Returns a string ending in `"settings_saver.json"`; parent dir exists on disk |
-| `TestGetLiveSettings` (3) | Returns `mw.init_manager.settings` when present; `None` when `init_manager` absent or has no `settings` |
-| `TestSyncLegacySettingsAlias` (5) | Clears+updates distinct dict; same-object no-op; no `init_manager` no-op; non-dict `settings` no-op; exception silently swallowed |
-| `TestSaveLoadProject` (6) | `on_save_project` returns `None` when disabled; returns dict when live settings present; `on_load_project` handles empty dict, `"settings"` key, preset storage, non-dict input |
-| `TestProjectMode` (5) | `enable_project_mode` sets `EMBED_SETTINGS["enabled"]=True`; `disable_project_mode` sets it `False`; both don't raise; round-trip |
-| `TestOnDocumentReset` (4) | No context; mock context; clears `PROJECT_PRESETS`; disables embed when `always_save_to_project=False` |
-
----
-
-### `test_plugin_encrypted_and_structural.py` — Encrypted Project & Structural Updater tests (33 tests)
-
-| Class | Plugin | What it covers |
-|---|---|---|
-| `TestEncryptedProjectOnDrop` (7) | Encrypted Project | `on_drop()` returns True for `.pmeenc`/`.PMEENC`, False for other extensions and empty string |
-| `TestEncryptedProjectDocumentReset` (2) | Encrypted Project | `on_document_reset()` clears `current_key`/`current_salt`; no-op from None state |
-| `TestEncryptedProjectPatchMethod` (6) | Encrypted Project | `_patch_method` replaces `mw` method and marks it with `._is_pmeenc_patch=True`; `_unpatch_method` restores original; double-patch guard; missing-method no-raise |
-| `TestEncryptedProjectInitialize` (4) | Encrypted Project | `initialize()` registers file opener for `.pmeenc`, export action, document-reset handler, drop handler |
-| `TestStructuralUpdaterInitialize` (4) | Structural Updater | `initialize()` sets `_PLUGIN_INSTANCE`, calls `add_menu_action` with "Structural Updater" in path; `finalize()` does not raise |
-| `TestStructuralUpdaterSettings` (8) | Structural Updater | `save_settings`/`load_settings` round-trip; default `enabled=True`; missing file creates default; JSON content verified |
-| `TestStructuralUpdaterCheckState` (2) | Structural Updater | `check_state()` exits early when disabled; runs without raise when enabled |
-
----
-
-### `test_plugin_advanced_and_misc.py` — Advanced rendering, misc visible plugins (42 tests)
-
-| Class | Plugin | What it covers |
-|---|---|---|
-| `TestParseMultiFrameXYZ` (9) | Animated XYZ Giffer | `parse_multi_frame_xyz`: single/multi-frame files, empty file, blank lines, incomplete frame at EOF, bad coord skipped, non-integer atom count skipped, `run(mw)` no-raise smoke |
-| `TestAdvancedRendering` (5) | Advanced Rendering | `get_icon()→None`; `initialize()` registers exactly 4 × `register_3d_style` + 1 × `add_menu_action`; menu path and style key names verified |
-| `TestDummyAtomMode` (4) | Dummy Atom Mode | `initialize()` calls `add_toolbar_action` with text `"Dummy Atom *"` and tooltip containing "dummy"; does NOT call `add_menu_action` |
-| `TestOpenBabelConversionTool` (6) | OpenBabel Conversion Tool | `initialize()` with mocked openbabel (available): registers export + drop handler; with `OBABEL_AVAILABLE=False`: returns early, no registrations; `open_file_with_openbabel` extensionless path warns and returns |
-| `TestHighResolutionImager` (4) | High Resolution Imager | `initialize()` registers export action with "Screenshot" in label; stores `PLUGIN_CONTEXT`; does not call `add_menu_action` |
-| `TestXYZEditor` (8) | XYZ Editor | `initialize()` registers menu action, save/load/document-reset handlers; stores `PLUGIN_CONTEXT`; save handler returns `{}` when `current_molecule=None`; load handler tolerates `{}` |
-| `TestSymmetryAnalyzer` (6) | Symmetry Analyzer | `initialize()` registers menu action with "Symmetr" in path; stores `PLUGIN_CONTEXT`; `SymmetryAnalysisWorker.run()` always emits `finished(dict, bool)`, `found_any=False` when pymatgen loop runs 0 iterations |
-
-**Technique note:** `SymmetryAnalysisWorker` and `AnimatedXYZPlayer` inherit from Qt classes (mocked → MagicMock metaclass → class body becomes MagicMock). Pure methods are extracted via `ast.get_source_segment` + `exec` into an isolated namespace to avoid the `object.__new__` limitation.
-
----
-
-### `test_plugin_input_generators_extended.py` — QM input generators (84 tests)
-
-Deep content tests for the MOPAC, GAMESS, PySCF, Psi4 and NWChem input
-generators: generated input text (keywords, charge/multiplicity, coordinate
-blocks), preset save/load round-trips, save-file rewrite logic, the legacy
-`run(mw)` no-molecule warning guard, and NWChem `_scf_spin_lines`
-(rhf/uhf + multiplicity keyword selection, parametrized over mult 1–9).
-
----
-
-### `test_plugin_visualization_extended.py` — Visualization plugins (~50 tests)
-
-Dark Mode stylesheet content and `autorun()`, Atom Colorizer save/load/reset
-handlers and color application, Vector Viewer center-of-mass and visualization
-update, High Resolution Imager `run()`, VDW Radii Overlay settings edge cases
-and `initialize()` detail.
-
----
-
-### `test_plugin_analysis_extended.py` — Analysis plugins (~70 tests)
-
-ORCA Freq Analyzer final-mode parsing and the `self.context` →
-`PLUGIN_CONTEXT` regression; Gaussian Freq Analyzer FCHK parser edge cases
-including the inline-scalar (`Charge  I  -2`) regression; Gaussian MO Analyzer
-FCHK reader, normalization prefactor and cube writer; Symmetry Analyzer
-sort-key/op-label/symbol helpers; Molecule Comparator reset handler;
-MS Spectrum Neo gaussian broadening; Compound Info Report property fetch.
-
----
-
-### `test_plugin_io_export_extended.py` — Export script generation (~40 tests)
-
-Blender and POV-Ray script/scene content generation (materials, cylinders,
-per-bond splitting), `_calculate_double_bond_offset` math, and the POV-Ray
-triple-bond `off_dir` UnboundLocalError regression.
-
-**Technique note:** uses `mocks_with_real_numpy()`, which restores real numpy
-(including *all* `numpy.*` submodules — restoring only the top-level package
-lets the mocking MetaPathFinder corrupt numpy process-wide) while keeping
-rdkit/PyQt6 mocked.
-
----
-
-### `test_plugin_chat_optimizer_extended.py` — Chat history management (~15 tests)
-
-History-pruning regressions for all three Chat Neo variants (system prompt
-must survive pruning; Local variant must prune `chat_history_state`, not a
-nonexistent Gemini `chat_session`) and Local `log_usage`.
-
----
-
-### `test_plugin_neo_and_data_extended.py` — Gaussian Neo & data IO (126 tests)
-
-Gaussian Input Generator Neo content generation (Link0/%chk auto-naming,
-route prefixing, charge/mult validation, save-file %chk/%wfn rewrite,
-RouteBuilder preview/parse); Paste from ChemDraw flat-text→MolBlock
-reconstruction; XYZ Editor signatures and custom-symbol persistence;
-Animated XYZ Giffer playback/timer logic; Structural Updater conversion
-dispatch and the `finalize()` unpatch regression; Encrypted Project
-PBKDF2 parameters, `[salt16][ciphertext]` layout and import/export paths.
-
----
-
-### `test_plugin_installer_misc_extended.py` — Installer & misc utilities (65 tests)
-
-Plugin Installer `populate_table` status logic, filtering and app-version
-detection; PubChem Name Resolver mocked-HTTP success/404/error paths;
-Python Console `run_code` with a real `InteractiveInterpreter`;
-Conformational Search energy-window dedup; All-Trans Optimizer torsions;
-Complex Molecule Untangler Monte Carlo worker; Advanced Rendering style
-callbacks and the unguarded `view_3d_manager` regression.
 
 ---
 

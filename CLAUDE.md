@@ -96,6 +96,9 @@ Full API: `python_molecular_editor/docs/PLUGIN_DEVELOPMENT_MANUAL_V4.md`
 | `load_plugin(path)` | Load a plugin `.py` as an isolated module — call inside `mock_optional_imports()` |
 | `make_context()` | Return a stub `PluginContext` (`MagicMock` with a non-None main window) |
 | `visible_py_plugins(entry_point)` | Iterate visible single-file `.py` plugins from the registry, optionally filtered by entry-point name |
+| `mocks_with_real_numpy()` | Like `mock_optional_imports()` but keeps real numpy in `sys.modules`, for generators/parsers doing real vector math |
+| `P3`, `FakeAtom`, `FakeBond`, `FakeConf`, `FakeMol` | Shared fake rdkit bond-graph objects |
+| `extract_function(path, class_name, fn_name, extra_globals=None)` | AST-based method/function extractor for methods on Qt-derived (mocked-base) classes |
 
 ### Writing new tests
 
@@ -131,24 +134,11 @@ MY_FUNC = mod.my_function
 | `test_run.py` | `run(mw)` / `autorun(mw)` smoke for legacy plugins |
 | `test_save_load.py` | Save/load handler round-trips |
 | `test_menu_registration.py` | Verifies `add_menu_action` / `add_export_action` / etc. are called for plugins that need them |
-| `test_plugin_installer.py` | Deep unit tests for Plugin Installer (version compare, settings, initialize, API compat) |
-| `test_plugin_cube_parsers.py` | `parse_cube_data`, `build_grid_from_meta`, `read_cube` for Cube viewer plugins |
-| `test_plugin_parsers_exports.py` | `OrcaParser`, `FCHKParser`, `find_file_recursive`, Blender/POV-Ray export init |
-| `test_plugin_optimize_resolvers.py` | All-Trans Optimizer, Complex Untangler, PubChem Resolver, and related plugins |
-| `test_plugin_ui_misc.py` | Remaining visible plugins: settings, helpers, save/load |
-| `test_plugin_chat_variants.py` | Chat Neo ChatGPT + Local: settings round-trip, latex_to_html fallback, PubChemResolver guards, run() smoke |
-| `test_plugin_pubchem_and_paste.py` | PubChem Structure Identifier, Compound Info Report, Paste XYZ: early-exit guards, mocked HTTP, parse logic |
-| `test_plugin_ai_tool_parsing.py` | Chat Neo Gemini/ChatGPT/Local: tool-call regex, collect_tools, SMILES links, module constants, append_log |
-| `test_plugin_settings_saver_extended.py` | Settings Saver: data path, live settings, sync alias, save/load project, project mode, document reset |
-| `test_plugin_encrypted_and_structural.py` | Encrypted Project: on_drop, document reset, patch/unpatch; Structural Updater: initialize, finalize, settings |
-| `test_plugin_advanced_and_misc.py` | Animated XYZ Giffer (parse_multi_frame_xyz), Advanced Rendering, Dummy Atom, OpenBabel, Hi-Res Imager, XYZ Editor, Symmetry Analyzer |
-| `test_plugin_input_generators_extended.py` | MOPAC/GAMESS/PySCF/Psi4/NWChem input generators: content generation, presets, save-file rewrite, no-molecule guards, NWChem scf spin lines |
-| `test_plugin_visualization_extended.py` | Dark Mode stylesheet/autorun, Atom Colorizer handlers, Vector Viewer COM/visualization, Hi-Res Imager run, VDW Overlay settings/init |
-| `test_plugin_analysis_extended.py` | ORCA final modes + context regression, FCHK parser edge cases, Gaussian MO Analyzer (reader/normalization/cube writer), Symmetry label helpers, Comparator reset, MS Spectrum broadening, Compound Info fetch |
-| `test_plugin_io_export_extended.py` | Blender/POV-Ray script generation content, double-bond offset math, triple-bond regression (uses numpy-passthrough mock helper) |
-| `test_plugin_chat_optimizer_extended.py` | Chat Neo (all 3 variants) history pruning regressions, Local variant log_usage |
-| `test_plugin_neo_and_data_extended.py` | Gaussian Input Generator Neo (route/Link0/charge-mult/save rewrite), ChemDraw MolBlock reconstruction, XYZ Editor signatures/handlers, Giffer playback, Structural Updater dispatch/finalize, Encrypted Project key/export/import |
-| `test_plugin_installer_misc_extended.py` | Plugin Installer table/filter/app-version, PubChem Name Resolver HTTP paths, Python Console run_code, Conformational Search dedup, All-Trans/Untangler workers, Advanced Rendering style callbacks |
+| `test_plugin_<name>.py` | One file per plugin with non-trivial logic (e.g. `test_plugin_atom_colorizer.py`, `test_plugin_povray_export.py`, `test_plugin_installer.py`) — pure-function tests, `initialize()` registration checks, save/load handlers, and Qt-method-extraction tests all live together for that plugin |
+| `test_shared_chat_variants.py` | Chat Neo ChatGPT + Local: settings round-trip, latex_to_html fallback, PubChemResolver guards, run() smoke |
+| `test_shared_ai_tool_parsing.py` | Chat Neo Gemini/ChatGPT/Local: tool-call regex, collect_tools, SMILES links, module constants, append_log — parametrized across all 3 variants |
+| `test_shared_chat_optimizer.py` | Chat Neo (all 3 variants) history pruning regressions, Local variant log_usage |
+| `test_shared_input_generator_guards.py` | MOPAC/GAMESS/PySCF/Psi4/NWChem: shared no-molecule `run(mw)` warning guard |
 | `test_api.py` | Static `mw.attr` compatibility scan against the main app (skipped if main app absent) |
 
 ## CI
