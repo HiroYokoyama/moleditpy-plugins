@@ -74,7 +74,7 @@
       "Visualization"
     ],
     "dependencies": [],
-    "downloadUrl": "../plugins/Animated_XYZ_Player/animated_xyz.py",
+    "downloadUrl": "../plugins/_old/Animated_XYZ_Player/animated_xyz.py",
     "lastUpdated": "2025-12-15",
     "sha256": "125d4389cbdb690f423b61fd7a5a7d2588eb46b6c0e8a829d1df8cc7558b0413",
     "firstAppeared": "2025-12-15"
