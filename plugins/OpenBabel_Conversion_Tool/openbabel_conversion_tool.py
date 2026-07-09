@@ -30,7 +30,7 @@ except ImportError:
         OBABEL_AVAILABLE = False
 
 PLUGIN_NAME = "OpenBabel Conversion Tool"
-PLUGIN_VERSION = "2026.07.04"
+PLUGIN_VERSION = "2026.07.10"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -340,7 +340,7 @@ def export_with_openbabel(context):
         # Save
         pybel_mol.write(fmt, path, overwrite=True)
 
-        PLUGIN_CONTEXT.show_status_message(f"Exported to {path}", 3000)
+        context.show_status_message(f"Exported to {path}", 3000)
 
     except Exception as e:
         logging.exception("Export error: %s", e)
