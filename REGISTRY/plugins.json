@@ -557,7 +557,7 @@
       "markdown",
       "matplotlib"
     ],
-    "downloadUrl": "../plugins/Chat_with_Molecule/chat_with_molecule.py",
+    "downloadUrl": "../plugins/_old/Chat_with_Molecule/chat_with_molecule.py",
     "lastUpdated": "2025-12-27",
     "sha256": "41bb6109a357fc6961a06bc4e3470b90b135c91a55824ede88e6cb82323867f2",
     "firstAppeared": "2025-12-26"
