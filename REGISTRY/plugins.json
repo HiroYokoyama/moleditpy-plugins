@@ -171,7 +171,7 @@
       "Sample"
     ],
     "dependencies": [],
-    "downloadUrl": "../plugins/Hello_World/hello.py",
+    "downloadUrl": "../plugins/_old/Hello_World/hello.py",
     "lastUpdated": "2026-12-12",
     "sha256": "393343a34ca8756139430ace93e89082796bce019ffb2072ce320b2b91c3223c",
     "firstAppeared": "2025-12-15"
