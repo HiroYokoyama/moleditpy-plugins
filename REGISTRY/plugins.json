@@ -208,7 +208,7 @@
       "Generator"
     ],
     "dependencies": [],
-    "downloadUrl": "../plugins/ORCA_Input_Generator/orca_input_generator.py",
+    "downloadUrl": "../plugins/_old/ORCA_Input_Generator/orca_input_generator.py",
     "lastUpdated": "2025-12-15",
     "sha256": "2fe7bb274dc0c9ee829cc2dd51ec22d4c78013fdc778a7c6d2cafe33b33ee670",
     "firstAppeared": "2025-12-15"
