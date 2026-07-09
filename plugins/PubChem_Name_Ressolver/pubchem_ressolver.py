@@ -17,7 +17,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 from rdkit import Chem
 
-PLUGIN_VERSION = "2026.06.20"
+PLUGIN_VERSION = "2026.07.09"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Resolve chemical names to structures via PubChem REST API."
@@ -129,7 +129,9 @@ class MoleculeResolverDialog(QDialog):
                     raise ValueError("Invalid SMILES string.")
 
             else:  # Auto (PubChem API)
-                url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{query}/property/IsomericSMILES,CanonicalSMILES,MolecularFormula,Title/JSON"
+                # PubChem's 2025 PUG-REST update renamed IsomericSMILES to SMILES
+                # and CanonicalSMILES to ConnectivitySMILES.
+                url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{query}/property/SMILES,ConnectivitySMILES,MolecularFormula,Title/JSON"
 
                 response = requests.get(url, timeout=10)
 
@@ -137,7 +139,9 @@ class MoleculeResolverDialog(QDialog):
                     data = response.json()
                     props = data.get("PropertyTable", {}).get("Properties", [])
                     for p in props:
-                        smiles = p.get("IsomericSMILES", None)
+                        smiles = p.get("SMILES", None)
+                        if not smiles:
+                            smiles = p.get("IsomericSMILES", None)
                         if not smiles:
                             smiles = p.get("CanonicalSMILES", None)
 

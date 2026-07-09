@@ -218,7 +218,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "PubChem Name Resolver",
-    "version": "2026.06.20",
+    "version": "2026.07.09",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Resolves chemical names and identifiers to structures using the PubChem PUG REST API.",
@@ -230,8 +230,8 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/PubChem_Name_Ressolver/pubchem_ressolver.py",
-    "lastUpdated": "2026-06-20",
-    "sha256": "9542b3d2e6410dc09faae6fbba56523344478be667cd6bcc18652667d4be0159",
+    "lastUpdated": "2026-07-09",
+    "sha256": "2db28c29cd5d1b98b5c9d156cc66f5afcd62b7e0478559832db4f5b5e6ab72a7",
     "firstAppeared": "2025-12-15"
   },
   {
@@ -591,7 +591,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "PubChem Structure Identifier",
-    "version": "2026.06.26",
+    "version": "2026.07.09",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Resolve chemical names and fetch molecular properties (Name, Formula, Weight) via PubChem.",
@@ -603,8 +603,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/PubChem_Structure_Identifier/pubchem_structure_identifier.py",
-    "lastUpdated": "2026-06-26",
-    "sha256": "024b2412e2e05c1efbde45d6ae4ebcea84cf669f45220e9f0e4c046069f2a04c",
+    "lastUpdated": "2026-07-09",
+    "sha256": "9697e225b05b3fc9bfe449eef7650b42822b6e58708e5dc56ad0503ca2deb746",
     "firstAppeared": "2025-12-28"
   },
   {

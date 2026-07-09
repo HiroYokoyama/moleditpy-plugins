@@ -21,7 +21,7 @@ from PyQt6.QtCore import Qt
 
 # --- Metadata ---
 PLUGIN_NAME = "PubChem Structure Identifier"
-PLUGIN_VERSION = "2026.06.26"
+PLUGIN_VERSION = "2026.07.09"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Resolve chemical names and fetch molecular properties (Name, Formula, Weight) via PubChem."
@@ -49,7 +49,9 @@ class PubChemResolver:
 
         try:
             encoded_name = urllib.parse.quote(name)
-            url = f"{PubChemResolver.BASE_URL}/compound/name/{encoded_name}/property/IsomericSMILES/JSON"
+            # PubChem's 2025 PUG-REST update renamed IsomericSMILES to SMILES
+            # (both in the request and the response JSON).
+            url = f"{PubChemResolver.BASE_URL}/compound/name/{encoded_name}/property/SMILES/JSON"
 
             with urllib.request.urlopen(url) as response:
                 if response.status != 200:
@@ -58,7 +60,9 @@ class PubChemResolver:
                 data = json.loads(response.read().decode("utf-8"))
                 properties = data.get("PropertyTable", {}).get("Properties", [])
                 if properties:
-                    smiles = properties[0].get("IsomericSMILES", None)
+                    smiles = properties[0].get("SMILES") or properties[0].get(
+                        "IsomericSMILES"
+                    )
                     if smiles:
                         return smiles, None
 

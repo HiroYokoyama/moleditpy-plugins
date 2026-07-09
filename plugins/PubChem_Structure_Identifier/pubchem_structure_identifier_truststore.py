@@ -29,7 +29,7 @@ from PyQt6.QtCore import Qt
 
 # --- Metadata ---
 PLUGIN_NAME = "PubChem Structure Identifier (truststore)"
-PLUGIN_VERSION = "2026.06.20"
+PLUGIN_VERSION = "2026.07.09"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Resolve chemical names and fetch molecular properties (Name, Formula, Weight) via PubChem."
@@ -61,7 +61,7 @@ class PubChemResolver:
         else:
             ctx = ssl.create_default_context()
         try:
-            ctx.set_ciphers("DEFAULT@SECLEVEL=1")
+            ctx.set_ciphers('DEFAULT@SECLEVEL=1')
         except (ssl.SSLError, AttributeError):
             pass
         return ctx
@@ -77,18 +77,20 @@ class PubChemResolver:
 
         try:
             encoded_name = urllib.parse.quote(name)
-            url = f"{PubChemResolver.BASE_URL}/compound/name/{encoded_name}/property/IsomericSMILES/JSON"
+            # PubChem's 2025 PUG-REST update renamed IsomericSMILES to SMILES
+            # (both in the request and the response JSON).
+            url = f"{PubChemResolver.BASE_URL}/compound/name/{encoded_name}/property/SMILES/JSON"
 
-            with urllib.request.urlopen(
-                url, context=PubChemResolver._create_ssl_context()
-            ) as response:
+            with urllib.request.urlopen(url, context=PubChemResolver._create_ssl_context()) as response:
                 if response.status != 200:
                     return None, f"HTTP Error: {response.status}"
 
                 data = json.loads(response.read().decode("utf-8"))
                 properties = data.get("PropertyTable", {}).get("Properties", [])
                 if properties:
-                    smiles = properties[0].get("IsomericSMILES", None)
+                    smiles = properties[0].get("SMILES") or properties[0].get(
+                        "IsomericSMILES"
+                    )
                     if smiles:
                         return smiles, None
 
@@ -117,9 +119,7 @@ class PubChemResolver:
             # 1. Get Common Name (Title)
             desc_url = f"{PubChemResolver.BASE_URL}/compound/inchikey/{inchikey}/description/JSON"
             try:
-                with urllib.request.urlopen(
-                    desc_url, context=PubChemResolver._create_ssl_context()
-                ) as response:
+                with urllib.request.urlopen(desc_url, context=PubChemResolver._create_ssl_context()) as response:
                     if response.status == 200:
                         data = json.loads(response.read().decode("utf-8"))
                         info_list = data.get("InformationList", {}).get(
@@ -130,16 +130,14 @@ class PubChemResolver:
                             if title:
                                 details["Common Name"] = title
                                 break
-            except:
+            except Exception:
                 details["Common Name"] = "Unknown"
 
             # 2. Get Physical Properties (No SMILES, No XLogP, No TPSA)
             props_to_fetch = "MolecularFormula,MolecularWeight,IUPACName"
             prop_url = f"{PubChemResolver.BASE_URL}/compound/inchikey/{inchikey}/property/{props_to_fetch}/JSON"
 
-            with urllib.request.urlopen(
-                prop_url, context=PubChemResolver._create_ssl_context()
-            ) as response:
+            with urllib.request.urlopen(prop_url, context=PubChemResolver._create_ssl_context()) as response:
                 if response.status != 200:
                     return None, f"HTTP Error: {response.status}"
 
