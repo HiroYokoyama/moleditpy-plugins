@@ -514,7 +514,7 @@
     "dependencies": [
       "PyQt6"
     ],
-    "downloadUrl": "../plugins/Version_Checker/version_checker.py",
+    "downloadUrl": "../plugins/_old/Version_Checker/version_checker.py",
     "lastUpdated": "2025-12-26",
     "sha256": "c658a92b1dcaa0fe7ef90d502174027aecd7a1ef122517c013f6ef9fd01eb950",
     "firstAppeared": "2025-12-26"
