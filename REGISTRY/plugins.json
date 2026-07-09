@@ -154,7 +154,7 @@
       "Generator"
     ],
     "dependencies": [],
-    "downloadUrl": "../plugins/Gaussian_Input_Generator/gaussian_input_generator.py",
+    "downloadUrl": "../plugins/_old/Gaussian_Input_Generator/gaussian_input_generator.py",
     "lastUpdated": "2025-12-15",
     "sha256": "712452a58769557a05579e74d3c9f7916c8a8e670926dc1720f33d3fb620d669",
     "firstAppeared": "2025-12-15"
