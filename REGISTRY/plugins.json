@@ -190,7 +190,7 @@
     "dependencies": [
       "rdkit"
     ],
-    "downloadUrl": "../plugins/MS_Spectrum_Simulation/ms_spectrum.py",
+    "downloadUrl": "../plugins/_old/MS_Spectrum_Simulation/ms_spectrum.py",
     "lastUpdated": "2025-12-25",
     "sha256": "73fbf2ba40b33623d7416812cd64b1ee704a5ce52f47f1731e82f36cea69441d",
     "firstAppeared": "2025-12-15"
