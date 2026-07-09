@@ -382,7 +382,7 @@
       "rdkit",
       "PyQt6"
     ],
-    "downloadUrl": "../plugins/Orca_Input_Generator_Neo/orca_input_generator_neo.py",
+    "downloadUrl": "../plugins/_old/Orca_Input_Generator_Neo/orca_input_generator_neo.py",
     "lastUpdated": "2026-01-04",
     "sha256": "3c786c12ab3d8881c21f78938affba408b2ee63d386a1e249a3914fab7e18379",
     "firstAppeared": "2026-01-03"
