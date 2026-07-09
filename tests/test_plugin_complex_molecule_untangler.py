@@ -207,3 +207,89 @@ class TestUntangleWorkerRun:
         new_mol, msg = s.finished.emit.call_args[0]
         assert new_mol is None
         assert msg == "boom"
+
+
+# ---------------------------------------------------------------------------
+# UntanglerDialog.run_untangle() / on_finished()
+# ---------------------------------------------------------------------------
+
+
+class TestRunUntangle:
+    def _fn(self, worker_cls=None):
+        return extract_function(
+            UNTANGLER_PATH,
+            "UntanglerDialog",
+            "run_untangle",
+            extra_globals={
+                "QMessageBox": MagicMock(),
+                "UntangleWorker": worker_cls or MagicMock(),
+                "PLUGIN_NAME": "Complex Molecule Untangler",
+            },
+        )
+
+    def test_no_molecule_warns_and_does_not_start_worker(self):
+        worker_cls = MagicMock()
+        fn = self._fn(worker_cls)
+        self_stub = SimpleNamespace(
+            context=SimpleNamespace(current_mol=None),
+            btn_run=MagicMock(),
+            spin_iter=MagicMock(),
+            combo_ff=MagicMock(),
+            pbar=MagicMock(),
+        )
+        fn(self_stub)
+        worker_cls.assert_not_called()
+        self_stub.btn_run.setEnabled.assert_not_called()
+
+    def test_valid_molecule_starts_worker_and_disables_button(self):
+        worker_cls = MagicMock()
+        worker_instance = worker_cls.return_value
+        fn = self._fn(worker_cls)
+        spin_iter = MagicMock()
+        spin_iter.value.return_value = 250
+        combo_ff = MagicMock()
+        combo_ff.currentText.return_value = "UFF"
+        self_stub = SimpleNamespace(
+            context=SimpleNamespace(current_mol="MOL"),
+            btn_run=MagicMock(),
+            spin_iter=spin_iter,
+            combo_ff=combo_ff,
+            pbar=MagicMock(),
+            on_finished=MagicMock(),
+        )
+        fn(self_stub)
+        worker_cls.assert_called_once_with("MOL", max_iter=250, force_field="UFF")
+        self_stub.btn_run.setEnabled.assert_called_once_with(False)
+        worker_instance.start.assert_called_once()
+        assert self_stub.worker is worker_instance
+
+
+class TestOnFinished:
+    def _fn(self):
+        return extract_function(
+            UNTANGLER_PATH, "UntanglerDialog", "on_finished",
+            extra_globals={"QMessageBox": MagicMock(), "PLUGIN_NAME": "Complex Molecule Untangler"},
+        )
+
+    def test_success_updates_context_and_view(self):
+        fn = self._fn()
+        ctx = MagicMock()
+        self_stub = SimpleNamespace(
+            btn_run=MagicMock(), pbar=MagicMock(), context=ctx,
+        )
+        fn(self_stub, "NEWMOL", "Processed 3 bonds.")
+        assert ctx.current_mol == "NEWMOL"
+        ctx.refresh_3d_view.assert_called_once()
+        ctx.push_undo_checkpoint.assert_called_once()
+        self_stub.btn_run.setEnabled.assert_called_once_with(True)
+
+    def test_failure_does_not_touch_context(self):
+        fn = self._fn()
+        ctx = MagicMock()
+        self_stub = SimpleNamespace(
+            btn_run=MagicMock(), pbar=MagicMock(), context=ctx,
+        )
+        fn(self_stub, None, "No rotatable bonds found.")
+        ctx.refresh_3d_view.assert_not_called()
+        ctx.push_undo_checkpoint.assert_not_called()
+        self_stub.btn_run.setEnabled.assert_called_once_with(True)
