@@ -903,7 +903,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "OpenBabel Conversion Tool",
-    "version": "2026.07.04",
+    "version": "2026.07.10",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Import various chemical file formats using OpenBabel with multi-molecule support.",
@@ -915,8 +915,8 @@
       "openbabel-wheel"
     ],
     "downloadUrl": "../plugins/OpenBabel_Conversion_Tool/openbabel_conversion_tool.py",
-    "lastUpdated": "2026-07-04",
-    "sha256": "98bcddbaa36d82acac7cdbb4ff23d9d2c5fe6e5fa6bca1c390ce7ea40a9fbce1",
+    "lastUpdated": "2026-07-10",
+    "sha256": "c5020056dd6909da015a06350ca2e21536e1599bc2a4c94665eb585fe5ffb016",
     "firstAppeared": "2026-01-10"
   },
   {
