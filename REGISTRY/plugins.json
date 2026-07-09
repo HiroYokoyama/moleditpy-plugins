@@ -74,7 +74,7 @@
       "Visualization"
     ],
     "dependencies": [],
-    "downloadUrl": "../plugins/Animated_XYZ_Player/animated_xyz.py",
+    "downloadUrl": "../plugins/_old/Animated_XYZ_Player/animated_xyz.py",
     "lastUpdated": "2025-12-15",
     "sha256": "125d4389cbdb690f423b61fd7a5a7d2588eb46b6c0e8a829d1df8cc7558b0413",
     "firstAppeared": "2025-12-15"
@@ -154,7 +154,7 @@
       "Generator"
     ],
     "dependencies": [],
-    "downloadUrl": "../plugins/Gaussian_Input_Generator/gaussian_input_generator.py",
+    "downloadUrl": "../plugins/_old/Gaussian_Input_Generator/gaussian_input_generator.py",
     "lastUpdated": "2025-12-15",
     "sha256": "712452a58769557a05579e74d3c9f7916c8a8e670926dc1720f33d3fb620d669",
     "firstAppeared": "2025-12-15"
@@ -171,7 +171,7 @@
       "Sample"
     ],
     "dependencies": [],
-    "downloadUrl": "../plugins/Hello_World/hello.py",
+    "downloadUrl": "../plugins/_old/Hello_World/hello.py",
     "lastUpdated": "2026-12-12",
     "sha256": "393343a34ca8756139430ace93e89082796bce019ffb2072ce320b2b91c3223c",
     "firstAppeared": "2025-12-15"
@@ -190,7 +190,7 @@
     "dependencies": [
       "rdkit"
     ],
-    "downloadUrl": "../plugins/MS_Spectrum_Simulation/ms_spectrum.py",
+    "downloadUrl": "../plugins/_old/MS_Spectrum_Simulation/ms_spectrum.py",
     "lastUpdated": "2025-12-25",
     "sha256": "73fbf2ba40b33623d7416812cd64b1ee704a5ce52f47f1731e82f36cea69441d",
     "firstAppeared": "2025-12-15"
@@ -208,7 +208,7 @@
       "Generator"
     ],
     "dependencies": [],
-    "downloadUrl": "../plugins/ORCA_Input_Generator/orca_input_generator.py",
+    "downloadUrl": "../plugins/_old/ORCA_Input_Generator/orca_input_generator.py",
     "lastUpdated": "2025-12-15",
     "sha256": "2fe7bb274dc0c9ee829cc2dd51ec22d4c78013fdc778a7c6d2cafe33b33ee670",
     "firstAppeared": "2025-12-15"
@@ -382,7 +382,7 @@
       "rdkit",
       "PyQt6"
     ],
-    "downloadUrl": "../plugins/Orca_Input_Generator_Neo/orca_input_generator_neo.py",
+    "downloadUrl": "../plugins/_old/Orca_Input_Generator_Neo/orca_input_generator_neo.py",
     "lastUpdated": "2026-01-04",
     "sha256": "3c786c12ab3d8881c21f78938affba408b2ee63d386a1e249a3914fab7e18379",
     "firstAppeared": "2026-01-03"
@@ -514,7 +514,7 @@
     "dependencies": [
       "PyQt6"
     ],
-    "downloadUrl": "../plugins/Version_Checker/version_checker.py",
+    "downloadUrl": "../plugins/_old/Version_Checker/version_checker.py",
     "lastUpdated": "2025-12-26",
     "sha256": "c658a92b1dcaa0fe7ef90d502174027aecd7a1ef122517c013f6ef9fd01eb950",
     "firstAppeared": "2025-12-26"
@@ -557,7 +557,7 @@
       "markdown",
       "matplotlib"
     ],
-    "downloadUrl": "../plugins/Chat_with_Molecule/chat_with_molecule.py",
+    "downloadUrl": "../plugins/_old/Chat_with_Molecule/chat_with_molecule.py",
     "lastUpdated": "2025-12-27",
     "sha256": "41bb6109a357fc6961a06bc4e3470b90b135c91a55824ede88e6cb82323867f2",
     "firstAppeared": "2025-12-26"
@@ -867,7 +867,7 @@
       "Sample"
     ],
     "dependencies": [],
-    "downloadUrl": "../plugins/Hello_World_Folder_Plugin/HelloWorldFolderPlugin.zip",
+    "downloadUrl": "../plugins/_old/Hello_World_Folder_Plugin/HelloWorldFolderPlugin.zip",
     "lastUpdated": "2025-01-05",
     "sha256": "ced69c06a80f8965990e0622695efb2e350872e2cc2035848d359ce64a1a9ad3",
     "firstAppeared": "2026-01-04"
