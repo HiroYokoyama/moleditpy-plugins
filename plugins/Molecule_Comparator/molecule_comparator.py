@@ -24,11 +24,16 @@ from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
 from PyQt6.QtGui import QColor, QAction
 from rdkit import Chem
 from rdkit.Chem import AllChem
+
+try:
+    from rdkit.Chem import rdDetermineBonds
+except ImportError:
+    rdDetermineBonds = None
 import copy
 import logging
 
 PLUGIN_NAME = "Molecule Comparator"
-PLUGIN_VERSION = "2026.06.27"
+PLUGIN_VERSION = "2026.07.10"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Side-by-side comparison and alignment of multiple molecules."
@@ -554,6 +559,22 @@ class MoleculeComparator(QWidget):
                 mol = Chem.MolFromMolFile(file_path, removeHs=False)
             elif ext == ".pdb":
                 mol = Chem.MolFromPDBFile(file_path, removeHs=False)
+            elif ext == ".xyz":
+                # Bug fix (2026.07.10): the file dialog advertises *.xyz but
+                # this branch was previously missing entirely, so XYZ files
+                # always failed to load with "Failed to load molecule".
+                with open(file_path, "r") as f:
+                    xyz_content = f.read()
+                mol = Chem.MolFromXYZBlock(xyz_content)
+                if mol is not None and mol.GetNumBonds() == 0 and rdDetermineBonds is not None:
+                    try:
+                        rdDetermineBonds.DetermineConnectivity(mol)
+                        rdDetermineBonds.DetermineBondOrders(mol)
+                    except Exception as _e:
+                        logging.warning(
+                            "[molecule_comparator.py] XYZ bond perception failed: %s",
+                            _e,
+                        )
 
             if not mol:
                 QMessageBox.warning(

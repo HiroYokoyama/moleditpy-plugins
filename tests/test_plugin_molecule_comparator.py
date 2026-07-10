@@ -461,3 +461,109 @@ class TestSaveResultsToFile:
         assert '"Mol, A",2.0000' in content
         assert "Mol B,-" in content
         fake_qmb.information.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# add_molecule_from_path — real rdkit parsing (.mol/.pdb/.xyz + error paths)
+#
+# Regression (2026.07.10): the file-open dialog advertises "*.xyz" in its
+# filter, but add_molecule_from_path had no ".xyz" branch at all, so every
+# XYZ file failed to load with "Failed to load molecule from ...". Fixed by
+# adding an .xyz branch that parses via Chem.MolFromXYZBlock + rdDetermineBonds.
+# ---------------------------------------------------------------------------
+
+from rdkit import Chem as _real_Chem
+from rdkit.Chem import rdDetermineBonds as _real_rdDetermineBonds
+
+DEFAULT_COLORS = None
+with mock_optional_imports():
+    _mc_mod_for_colors = load_plugin(MOLECULE_COMPARATOR_PATH)
+DEFAULT_COLORS = _mc_mod_for_colors.DEFAULT_COLORS
+
+_WATER_XYZ = """3
+water
+O 0.000000 0.000000 0.000000
+H 0.000000 0.000000 0.960000
+H 0.930000 0.000000 -0.240000
+"""
+
+
+def _add_molecule_from_path_fn():
+    globs = {
+        "os": __import__("os"),
+        "Chem": _real_Chem,
+        "rdDetermineBonds": _real_rdDetermineBonds,
+        "QMessageBox": MagicMock(),
+        "logging": __import__("logging"),
+        "DEFAULT_COLORS": DEFAULT_COLORS,
+    }
+    fn = extract_function(
+        MOLECULE_COMPARATOR_PATH, "MoleculeComparator", "add_molecule_from_path", globs
+    )
+    return fn, globs
+
+
+def _comparator_stub():
+    return SimpleNamespace(
+        molecules=[],
+        mw=MagicMock(),
+        update_list=MagicMock(),
+        update_visualization=MagicMock(),
+        update_wireframe_lighting=MagicMock(),
+        reset_view=MagicMock(),
+    )
+
+
+class TestAddMoleculeFromPath:
+    def test_loads_xyz_file_and_perceives_bonds(self, tmp_path):
+        fn, globs = _add_molecule_from_path_fn()
+        xyz_file = tmp_path / "water.xyz"
+        xyz_file.write_text(_WATER_XYZ)
+        stub = _comparator_stub()
+
+        fn(stub, str(xyz_file))
+
+        globs["QMessageBox"].warning.assert_not_called()
+        globs["QMessageBox"].critical.assert_not_called()
+        assert len(stub.molecules) == 1
+        entry = stub.molecules[0]
+        assert entry["name"] == "water.xyz"
+        assert entry["mol"].GetNumAtoms() == 3
+        assert entry["mol"].GetNumBonds() == 2  # O-H, O-H perceived
+        stub.update_list.assert_called_once()
+        stub.update_visualization.assert_called_once()
+
+    def test_missing_file_shows_critical_not_warning(self, tmp_path):
+        fn, globs = _add_molecule_from_path_fn()
+        stub = _comparator_stub()
+        fn(stub, str(tmp_path / "does_not_exist.xyz"))
+        globs["QMessageBox"].critical.assert_called_once()
+        globs["QMessageBox"].warning.assert_not_called()
+        assert stub.molecules == []
+
+    def test_unparseable_mol_file_shows_warning(self, tmp_path):
+        fn, globs = _add_molecule_from_path_fn()
+        bad_mol = tmp_path / "bad.mol"
+        bad_mol.write_text("not a real mol file\ngarbage\n")
+        stub = _comparator_stub()
+        fn(stub, str(bad_mol))
+        globs["QMessageBox"].warning.assert_called_once()
+        assert stub.molecules == []
+
+    def test_unsupported_extension_shows_warning(self, tmp_path):
+        fn, globs = _add_molecule_from_path_fn()
+        odd_file = tmp_path / "data.foobar"
+        odd_file.write_text("irrelevant")
+        stub = _comparator_stub()
+        fn(stub, str(odd_file))
+        globs["QMessageBox"].warning.assert_called_once()
+        assert stub.molecules == []
+
+    def test_color_cycles_with_existing_molecules(self, tmp_path):
+        fn, globs = _add_molecule_from_path_fn()
+        xyz_file = tmp_path / "water.xyz"
+        xyz_file.write_text(_WATER_XYZ)
+        stub = _comparator_stub()
+        stub.molecules = [{"name": "existing", "mol": None, "color": "x", "rms": None}]
+        fn(stub, str(xyz_file))
+        assert stub.molecules[1]["color"] == DEFAULT_COLORS[1 % len(DEFAULT_COLORS)]
