@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import math
 import numpy as _ensure_real_numpy_imported  # noqa: F401  (see mocks_with_real_numpy note below)
+import pytest
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -472,8 +473,12 @@ class TestSaveResultsToFile:
 # adding an .xyz branch that parses via Chem.MolFromXYZBlock + rdDetermineBonds.
 # ---------------------------------------------------------------------------
 
-from rdkit import Chem as _real_Chem
-from rdkit.Chem import rdDetermineBonds as _real_rdDetermineBonds
+try:
+    from rdkit import Chem as _real_Chem
+    from rdkit.Chem import rdDetermineBonds as _real_rdDetermineBonds
+except ImportError:  # CI runs without rdkit installed
+    _real_Chem = None
+    _real_rdDetermineBonds = None
 
 DEFAULT_COLORS = None
 with mock_optional_imports():
@@ -514,6 +519,7 @@ def _comparator_stub():
     )
 
 
+@pytest.mark.skipif(_real_Chem is None, reason="requires real rdkit")
 class TestAddMoleculeFromPath:
     def test_loads_xyz_file_and_perceives_bonds(self, tmp_path):
         fn, globs = _add_molecule_from_path_fn()
