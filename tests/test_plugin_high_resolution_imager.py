@@ -79,3 +79,180 @@ class TestHighResImagerRun:
             mod.take_screenshot(ctx)
             assert mod.QFileDialog.getSaveFileName.call_count == 0
             ctx.plotter.screenshot.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Full "accepted" dialog flow — driven with controllable fake Qt widgets so
+# the radio-button / spinbox / file-dialog interactions are deterministic
+# (the default MagicMock-based widgets are indistinguishable singletons).
+# ---------------------------------------------------------------------------
+
+
+class _FakeSignal:
+    def __init__(self):
+        self._slots = []
+
+    def connect(self, slot):
+        self._slots.append(slot)
+
+    def emit(self, *a):
+        for s in self._slots:
+            s(*a)
+
+
+class _FakeRadioButton:
+    def __init__(self, text=""):
+        self.text = text
+        self._checked = False
+
+    def setChecked(self, v):
+        self._checked = v
+
+    def isChecked(self):
+        return self._checked
+
+
+class _FakeButtonGroup:
+    def __init__(self, parent=None):
+        self.buttons = []
+        self.buttonClicked = _FakeSignal()
+
+    def addButton(self, b):
+        self.buttons.append(b)
+
+
+class _FakeSpinBox:
+    def __init__(self):
+        self._v = 0
+
+    def setRange(self, *a):
+        pass
+
+    def setValue(self, v):
+        self._v = v
+
+    def value(self):
+        return self._v
+
+
+class _FakeButton:
+    def __init__(self, text=""):
+        self.text = text
+        self.clicked = _FakeSignal()
+
+    def setEnabled(self, v):
+        pass
+
+
+class _FakeLayout:
+    def addWidget(self, *a, **k):
+        pass
+
+    def addLayout(self, *a, **k):
+        pass
+
+    def addStretch(self, *a, **k):
+        pass
+
+
+class _FakeLabel:
+    def __init__(self, *a, **k):
+        pass
+
+    def setFixedSize(self, *a):
+        pass
+
+    def setStyleSheet(self, *a):
+        pass
+
+
+class _FakeDialog:
+    class DialogCode:
+        Accepted = 1
+        Rejected = 0
+
+    result = DialogCode.Accepted  # overridable default
+
+    def __init__(self, parent=None):
+        self.accept = MagicMock()
+        self.reject = MagicMock()
+
+    def setWindowTitle(self, *a):
+        pass
+
+    def setLayout(self, *a):
+        pass
+
+    def exec(self):
+        return _FakeDialog.result
+
+
+def _patch_fake_widgets(mod):
+    """Replace the module-level Qt widget classes with lightweight, fully
+    controllable fakes so take_screenshot()'s accepted-dialog branch can be
+    driven end to end."""
+    mod.QDialog = _FakeDialog
+    mod.QVBoxLayout = lambda *a, **k: _FakeLayout()
+    mod.QHBoxLayout = lambda *a, **k: _FakeLayout()
+    mod.QLabel = _FakeLabel
+    mod.QSpinBox = _FakeSpinBox
+    mod.QPushButton = _FakeButton
+
+    import PyQt6.QtWidgets as qtw  # same shared mocked module as the plugin
+
+    qtw.QRadioButton = _FakeRadioButton
+    qtw.QButtonGroup = _FakeButtonGroup
+
+
+class TestTakeScreenshotAcceptedFlow:
+    def _run(self, tmp_path, filename, raise_on_screenshot=False):
+        """Drive take_screenshot() through the accepted-dialog branch.
+
+        The plugin itself calls ``rb_trans.setChecked(True)`` right after
+        constructing the radio buttons, so the default (untouched) run
+        exercises the "Transparent Background" path — matching the dialog's
+        real default.
+        """
+        with mock_optional_imports():
+            mod = load_plugin(HIRES_PATH)
+            _patch_fake_widgets(mod)
+            _FakeDialog.result = _FakeDialog.DialogCode.Accepted
+            mod.QFileDialog.getSaveFileName = MagicMock(return_value=(filename, ""))
+            mod.QMessageBox.information = MagicMock()
+            mod.QMessageBox.critical = MagicMock()
+
+            ctx = make_context()
+            ctx.plotter = MagicMock()
+            mw = ctx.get_main_window.return_value
+            mw.init_manager.settings.get.return_value = "#4f4f4f"
+
+            if raise_on_screenshot:
+                ctx.plotter.screenshot.side_effect = RuntimeError("gpu oom")
+
+            mod.take_screenshot(ctx)
+        return mod, ctx, mw
+
+    def test_empty_filename_skips_screenshot(self, tmp_path):
+        mod, ctx, mw = self._run(tmp_path, filename="")
+        ctx.plotter.screenshot.assert_not_called()
+        ctx.plotter.save_graphic.assert_not_called()
+
+    def test_raster_screenshot_called_with_window_size(self, tmp_path):
+        out = str(tmp_path / "shot.png")
+        mod, ctx, mw = self._run(tmp_path, filename=out)
+        ctx.plotter.screenshot.assert_called_once()
+        args, kwargs = ctx.plotter.screenshot.call_args
+        assert args[0] == out
+        assert "window_size" in kwargs
+
+    def test_svg_export_uses_save_graphic_not_screenshot(self, tmp_path):
+        out = str(tmp_path / "shot.svg")
+        mod, ctx, mw = self._run(tmp_path, filename=out)
+        ctx.plotter.save_graphic.assert_called_once_with(out)
+        ctx.plotter.screenshot.assert_not_called()
+
+    def test_screenshot_exception_shows_critical_not_raise(self, tmp_path):
+        out = str(tmp_path / "shot.png")
+        mod, ctx, mw = self._run(tmp_path, filename=out, raise_on_screenshot=True)
+        mod.QMessageBox.critical.assert_called_once()
+        mod.QMessageBox.information.assert_not_called()
