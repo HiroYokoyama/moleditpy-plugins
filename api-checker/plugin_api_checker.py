@@ -57,7 +57,7 @@ from typing import Optional
 # Master copy lives in moleditpy-plugins/api-checker/; external plugin repos
 # carry copies as tests/plugin_api_checker.py. Bump on every change so
 # divergence between copies is detectable.
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 
 # Ensure Unicode output works on Windows terminals with narrow code pages.
 if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf-16"):
@@ -811,7 +811,7 @@ def _collect_safe_positions(tree: ast.Module) -> set[int]:
             safe.add(id(first))
             # Also suppress the inner attribute of e.g. hasattr(mw.view_3d_manager, "x")
             if isinstance(first, ast.Attribute):
-                safe.add(id(first))
+                safe.add(id(first.value))
     return safe
 
 
