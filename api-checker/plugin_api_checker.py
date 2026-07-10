@@ -54,6 +54,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
+# Master copy lives in moleditpy-plugins/api-checker/; external plugin repos
+# carry copies as tests/plugin_api_checker.py. Bump on every change so
+# divergence between copies is detectable.
+__version__ = "1.1.0"
+
 # Ensure Unicode output works on Windows terminals with narrow code pages.
 if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf-16"):
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -847,6 +852,7 @@ def run(args) -> int:
     if not plugin_path.exists():
         _die(f"Plugin path does not exist: {plugin_path}")
 
+    print(f"plugin_api_checker {__version__}")
     print(f"App root  : {app_root}")
     print(f"Plugin(s) : {plugin_path}")
     print()
@@ -953,6 +959,9 @@ def main():
         description="Find API disconnections between MoleditPy plugins and the main app.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
+    )
+    parser.add_argument(
+        "--version", action="version", version=f"%(prog)s {__version__}"
     )
     parser.add_argument(
         "--app", required=True,
