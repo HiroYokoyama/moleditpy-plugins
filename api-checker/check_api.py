@@ -723,9 +723,11 @@ def _repr(node: ast.expr) -> str:
 def collect_plugin_files(plugin_path: Path) -> list[Path]:
     if plugin_path.is_file():
         return [plugin_path]
+    # "_old" holds retired hidden plugins kept only for download-URL
+    # integrity; they are frozen and exempt from API checks.
     return [
         f for f in sorted(plugin_path.rglob("*.py"))
-        if "__pycache__" not in str(f)
+        if "__pycache__" not in str(f) and "_old" not in f.parts
     ]
 
 
