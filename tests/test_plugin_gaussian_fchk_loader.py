@@ -7,8 +7,10 @@ All heavy deps (PyQt6, rdkit, numpy) are stubbed via mock_optional_imports().
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
-from conftest import load_plugin, mock_optional_imports
+from conftest import extract_function, load_plugin, mock_optional_imports
 
 PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
 FCHK_LOADER_PATH = PLUGINS_DIR / "Gaussian_FCHK_Loader" / "gaussian_fchk_loader.py"
@@ -151,3 +153,269 @@ class TestFCHKLoaderInitialize:
     def test_drop_handler_priority_100(self):
         ctx = self._init()
         assert ctx.register_drop_handler.call_args.kwargs.get("priority") == 100
+
+
+# ---------------------------------------------------------------------------
+# open_fchk()'s deferred run_dialog() auto-launch decision logic
+# ---------------------------------------------------------------------------
+
+
+class _FakeFCHKDialog:
+    """Stand-in for FCHKLoaderDialog controlling can_freq/can_mo."""
+
+    can_freq = True
+    can_mo = False
+
+    def __init__(self, mw, context, path):
+        self.mw, self.context, self.path = mw, context, path
+        self.btn_freq = SimpleNamespace(isEnabled=lambda: _FakeFCHKDialog.can_freq)
+        self.btn_mo = SimpleNamespace(isEnabled=lambda: _FakeFCHKDialog.can_mo)
+        self.launch_freq = MagicMock()
+        self.launch_mo = MagicMock()
+        self.exec = MagicMock()
+
+
+class TestOpenFchkAutoLaunch:
+    def test_both_available_shows_dialog(self):
+        captured = {}
+
+        class _CapDlg(_FakeFCHKDialog):
+            def __init__(self, mw, context, path):
+                super().__init__(mw, context, path)
+                captured["dlg"] = self
+
+        with mock_optional_imports():
+            mod = load_plugin(FCHK_LOADER_PATH)
+            mod.FCHKLoaderDialog = _CapDlg
+            _FakeFCHKDialog.can_freq = True
+            _FakeFCHKDialog.can_mo = True
+            ctx = make_context()
+            mod.initialize(ctx)
+            open_fchk = ctx.register_file_opener.call_args_list[0][0][1]
+            open_fchk("C:/data/out.fchk")
+            run_dialog = mod.QTimer.singleShot.call_args[0][1]
+            run_dialog()
+
+        captured["dlg"].exec.assert_called_once()
+        captured["dlg"].launch_freq.assert_not_called()
+        captured["dlg"].launch_mo.assert_not_called()
+
+    def test_only_freq_available_calls_launch_freq(self):
+        captured = {}
+
+        class _CapDlg(_FakeFCHKDialog):
+            def __init__(self, mw, context, path):
+                super().__init__(mw, context, path)
+                captured["dlg"] = self
+
+        with mock_optional_imports():
+            mod = load_plugin(FCHK_LOADER_PATH)
+            mod.FCHKLoaderDialog = _CapDlg
+            _FakeFCHKDialog.can_freq = True
+            _FakeFCHKDialog.can_mo = False
+            ctx = make_context()
+            mod.initialize(ctx)
+            open_fchk = ctx.register_file_opener.call_args_list[0][0][1]
+            open_fchk("C:/data/out.fchk")
+            run_dialog = mod.QTimer.singleShot.call_args[0][1]
+            run_dialog()
+
+        captured["dlg"].launch_freq.assert_called_once()
+        captured["dlg"].launch_mo.assert_not_called()
+        captured["dlg"].exec.assert_not_called()
+
+    def test_only_mo_available_calls_launch_mo(self):
+        captured = {}
+
+        class _CapDlg(_FakeFCHKDialog):
+            def __init__(self, mw, context, path):
+                super().__init__(mw, context, path)
+                captured["dlg"] = self
+
+        with mock_optional_imports():
+            mod = load_plugin(FCHK_LOADER_PATH)
+            mod.FCHKLoaderDialog = _CapDlg
+            _FakeFCHKDialog.can_freq = False
+            _FakeFCHKDialog.can_mo = True
+            ctx = make_context()
+            mod.initialize(ctx)
+            open_fchk = ctx.register_file_opener.call_args_list[0][0][1]
+            open_fchk("C:/data/out.fchk")
+            run_dialog = mod.QTimer.singleShot.call_args[0][1]
+            run_dialog()
+
+        captured["dlg"].launch_mo.assert_called_once()
+        captured["dlg"].launch_freq.assert_not_called()
+
+    def test_neither_available_shows_warning(self):
+        with mock_optional_imports():
+            mod = load_plugin(FCHK_LOADER_PATH)
+            mod.FCHKLoaderDialog = _FakeFCHKDialog
+            _FakeFCHKDialog.can_freq = False
+            _FakeFCHKDialog.can_mo = False
+            mod.QMessageBox.warning = MagicMock()
+            ctx = make_context()
+            mod.initialize(ctx)
+            open_fchk = ctx.register_file_opener.call_args_list[0][0][1]
+            open_fchk("C:/data/out.fchk")
+            run_dialog = mod.QTimer.singleShot.call_args[0][1]
+            run_dialog()
+            mod.QMessageBox.warning.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# run(mw) — legacy entry point guards
+# ---------------------------------------------------------------------------
+
+
+class TestRunEntryPoint:
+    def test_empty_path_returns_without_queuing(self):
+        with mock_optional_imports():
+            mod = load_plugin(FCHK_LOADER_PATH)
+            mod.PLUGIN_CONTEXT = make_context()
+            from PyQt6.QtWidgets import QFileDialog
+
+            QFileDialog.getOpenFileName = MagicMock(return_value=("", ""))
+            mod.run(MagicMock())
+            mod.QTimer.singleShot.assert_not_called()
+
+    def test_no_plugin_context_returns_without_queuing(self):
+        with mock_optional_imports():
+            mod = load_plugin(FCHK_LOADER_PATH)
+            assert mod.PLUGIN_CONTEXT is None
+            from PyQt6.QtWidgets import QFileDialog
+
+            QFileDialog.getOpenFileName = MagicMock(return_value=("C:/x.fchk", ""))
+            mod.run(MagicMock())
+            mod.QTimer.singleShot.assert_not_called()
+
+    def test_valid_path_and_context_queues_run_dialog(self):
+        with mock_optional_imports():
+            mod = load_plugin(FCHK_LOADER_PATH)
+            mod.PLUGIN_CONTEXT = make_context()
+            mod.FCHKLoaderDialog = _FakeFCHKDialog
+            _FakeFCHKDialog.can_freq = False
+            _FakeFCHKDialog.can_mo = False
+            mod.QMessageBox.warning = MagicMock()
+            from PyQt6.QtWidgets import QFileDialog
+
+            QFileDialog.getOpenFileName = MagicMock(return_value=("C:/x.fchk", ""))
+            mod.run(MagicMock())
+            mod.QTimer.singleShot.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# FCHKLoaderDialog.launch_freq / launch_mo / close_existing_analyzers
+# ---------------------------------------------------------------------------
+
+
+def _launch_freq_fn():
+    globs = {
+        "load_module_from_path": lambda name, path: SimpleNamespace(
+            GaussianFCHKFreqAnalyzer=lambda context, dock_widget: SimpleNamespace(
+                load_file=MagicMock()
+            )
+        ),
+        "QDockWidget": lambda title, mw: SimpleNamespace(
+            setAllowedAreas=MagicMock(),
+            setAttribute=MagicMock(),
+            setWidget=MagicMock(),
+            show=MagicMock(),
+        ),
+        "Qt": SimpleNamespace(
+            DockWidgetArea=SimpleNamespace(
+                AllDockWidgetAreas=1, RightDockWidgetArea=2
+            ),
+            WidgetAttribute=SimpleNamespace(WA_DeleteOnClose=3),
+        ),
+        "QMessageBox": MagicMock(),
+    }
+    return extract_function(
+        FCHK_LOADER_PATH, "FCHKLoaderDialog", "launch_freq", globs
+    ), globs
+
+
+def _make_dialog_self(freq_path="C:/freq.py", mo_pkg=None):
+    mw = MagicMock()
+    return SimpleNamespace(
+        freq_analyzer_path=freq_path,
+        mo_analyzer_pkg=mo_pkg,
+        btn_freq=SimpleNamespace(setEnabled=MagicMock()),
+        btn_mo=SimpleNamespace(setEnabled=MagicMock()),
+        close_existing_analyzers=MagicMock(),
+        context=MagicMock(),
+        mw=mw,
+        fchk_path="C:/data/mol.fchk",
+        accept=MagicMock(),
+    )
+
+
+class TestLaunchFreq:
+    def test_missing_path_is_noop(self):
+        fn, globs = _launch_freq_fn()
+        self_ = _make_dialog_self(freq_path=None)
+        fn(self_)
+        self_.close_existing_analyzers.assert_not_called()
+
+    def test_success_calls_load_file_and_accepts(self):
+        fn, globs = _launch_freq_fn()
+        self_ = _make_dialog_self()
+        fn(self_)
+        self_.close_existing_analyzers.assert_called_once()
+        self_.accept.assert_called_once()
+
+    def test_exception_reenables_buttons_and_shows_error(self):
+        globs = {
+            "load_module_from_path": lambda name, path: (_ for _ in ()).throw(
+                RuntimeError("boom")
+            ),
+            "QDockWidget": MagicMock(),
+            "Qt": SimpleNamespace(
+                DockWidgetArea=SimpleNamespace(
+                    AllDockWidgetAreas=1, RightDockWidgetArea=2
+                ),
+                WidgetAttribute=SimpleNamespace(WA_DeleteOnClose=3),
+            ),
+            "QMessageBox": MagicMock(),
+        }
+        fn = extract_function(FCHK_LOADER_PATH, "FCHKLoaderDialog", "launch_freq", globs)
+        self_ = _make_dialog_self()
+        fn(self_)
+        self_.btn_freq.setEnabled.assert_called_with(True)
+        self_.btn_mo.setEnabled.assert_called_with(True)
+        globs["QMessageBox"].critical.assert_called_once()
+        self_.accept.assert_not_called()
+
+
+def _close_existing_analyzers_fn():
+    globs = {"QDockWidget": object}
+    return extract_function(
+        FCHK_LOADER_PATH, "FCHKLoaderDialog", "close_existing_analyzers", globs
+    )
+
+
+class TestCloseExistingAnalyzers:
+    def test_closes_matching_docks_only(self):
+        fn = _close_existing_analyzers_fn()
+        freq_dock = SimpleNamespace(
+            windowTitle=lambda: "Gaussian Freq Analyzer",
+            close=MagicMock(),
+            deleteLater=MagicMock(),
+        )
+        mo_dock = SimpleNamespace(
+            windowTitle=lambda: "Gaussian MO Analyzer",
+            close=MagicMock(),
+            deleteLater=MagicMock(),
+        )
+        other_dock = SimpleNamespace(
+            windowTitle=lambda: "Something Else",
+            close=MagicMock(),
+            deleteLater=MagicMock(),
+        )
+        docks = [freq_dock, mo_dock, other_dock]
+        mw = SimpleNamespace(findChildren=lambda cls: docks)
+        self_ = SimpleNamespace(mw=mw)
+        fn(self_)
+        freq_dock.close.assert_called_once()
+        mo_dock.close.assert_called_once()
+        other_dock.close.assert_not_called()
