@@ -23,7 +23,7 @@ from rdkit import Chem
 import logging
 
 PLUGIN_NAME = "PySCF Input Generator"
-PLUGIN_VERSION = "2026.06.26"
+PLUGIN_VERSION = "2026.07.11"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Generate Python scripts for PySCF quantum chemistry calculations."
@@ -260,10 +260,12 @@ class PyscfSetupDialog(QDialog):
                 lines.append("mycc = cc.CCSD(mf)")
                 lines.append("mycc.kernel()")
             elif phf == "CCSD(T)":
-                lines.append("from pyscf.cc import ccsd_t")
                 lines.append("mycc = cc.CCSD(mf)")
                 lines.append("mycc.kernel()")
-                lines.append("e_t = ccsd_t.kernel(mycc, mycc.ao2mo())")
+                # mycc.ccsd_t() dispatches to the restricted or unrestricted
+                # (T) code by itself; the manual pyscf.cc.ccsd_t.kernel(...)
+                # call is RHF-only and crashes for UHF/ROHF references.
+                lines.append("e_t = mycc.ccsd_t()")
                 lines.append("print('CCSD(T) correction =', e_t)")
                 lines.append("print('Total CCSD(T) energy =', mycc.e_tot + e_t)")
 

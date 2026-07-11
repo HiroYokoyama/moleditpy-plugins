@@ -749,7 +749,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "PySCF Input Generator",
-    "version": "2026.06.26",
+    "version": "2026.07.11",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates Python scripts for PySCF quantum chemistry calculations.",
@@ -763,8 +763,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/PySCF_Input_Generator/pyscf_input_generator.py",
-    "lastUpdated": "2026-06-26",
-    "sha256": "026f329f5b7274c0d01432911969ba3510444557e4f969e395bde8e2c678bd1e",
+    "lastUpdated": "2026-07-11",
+    "sha256": "d525445d15352752281c4d1672568f45765c653c372a8435933036b7ed748ab7",
     "firstAppeared": "2026-01-03"
   },
   {

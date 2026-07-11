@@ -245,12 +245,28 @@ class TestPyscfGenerateContent:
         assert "pt.kernel()" in content
 
     def test_ccsd_t_block(self):
+        # v2026.07.11: the script must use mycc.ccsd_t(), which dispatches to
+        # the R/U implementation itself. The old ccsd_t.kernel(mycc, ...) call
+        # was RHF-only and crashed for UHF/ROHF references.
         content = _pyscf_generate(
             _pyscf_self(category="Post-HF (MP2, CCSD)", post_hf="CCSD(T)")
         )
-        assert "from pyscf.cc import ccsd_t" in content
-        assert "e_t = ccsd_t.kernel(mycc, mycc.ao2mo())" in content
+        assert "e_t = mycc.ccsd_t()" in content
+        assert "ccsd_t.kernel" not in content
+        assert "from pyscf.cc import ccsd_t" not in content
         assert "mycc.e_tot + e_t" in content
+
+    @pytest.mark.parametrize("ref", ["RHF", "UHF", "ROHF"])
+    def test_ccsd_t_block_valid_for_all_references(self, ref):
+        # Regression for the RHF-only (T) bug: every reference choice must
+        # produce the self-dispatching idiom.
+        content = _pyscf_generate(
+            _pyscf_self(
+                category="Post-HF (MP2, CCSD)", post_hf="CCSD(T)", post_hf_ref=ref
+            )
+        )
+        assert f"mf = scf.{ref}(mol)" in content
+        assert "e_t = mycc.ccsd_t()" in content
 
     def test_chkfile_uses_filename_hint(self):
         content = _pyscf_generate(_pyscf_self(), filename_hint="myjob")
