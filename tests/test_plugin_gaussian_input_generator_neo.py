@@ -26,7 +26,11 @@ from conftest import load_plugin, make_context, mock_optional_imports
 
 PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
 GAUSSIAN_PATH = (
-    PLUGINS_DIR / "Gaussian_Input_Generator_Neo" / "gaussian_input_generator_neo.py"
+    PLUGINS_DIR / "_old" / "Gaussian_Input_Generator_Neo" / "gaussian_input_generator_neo.py"
+)
+
+pytestmark = pytest.mark.skip(
+    reason="Gaussian Input Generator Neo retired; replaced by Gaussian Input Generator Pro"
 )
 
 

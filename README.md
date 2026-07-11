@@ -23,10 +23,12 @@ Advanced Gaussian 16 input generator with real-time preview, route builder, and 
 - **Repo**: [moleditpy_gaussian_input_generator_pro](https://github.com/HiroYokoyama/moleditpy_gaussian_input_generator_pro)
 
 
-### 2. ORCA Input Generator Neo (`orca_input_generator_neo.py`)
-High-functionality setting dialog for ORCA input creation.
-- **Features**: Supports Link 0, Route, Block Builder, and Validations.
-- **Dependencies**: `rdkit`, `PyQt6`
+### 2. ORCA Input Generator Pro (`orca_input_generator_pro/`)
+Advanced ORCA 5/6 input generator with real-time preview, keyword builder, and 22 block templates.
+- **Features**: Keyword Builder GUI (method/basis/solvation/TD-DFT/constraints/NEB), interactive 3D atom picking for constraints & scans, DLPNO/CASSCF/NEVPT2/MRCI support, broken-symmetry DFT, 22 annotated block templates, round-trip `.inp` parsing, session persistence, syntax highlighting.
+- **Dependencies**: `rdkit`, `PyQt6`, `numpy`
+- **Repo**: [moleditpy_orca_input_generator_pro](https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro)
+
 
 ### 3. Gaussian Freq Analyzer (`gaussian_fchk_freq_analyzer.py`)
 Analyzes vibrational frequencies from Gaussian FCHK files.
