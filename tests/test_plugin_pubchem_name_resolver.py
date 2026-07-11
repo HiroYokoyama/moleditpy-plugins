@@ -17,7 +17,7 @@ PUBCHEM_PATH = PLUGINS_DIR / "PubChem_Name_Ressolver" / "pubchem_ressolver.py"
 
 class TestPubChemNameResolver:
     def test_initialize_does_not_raise(self):
-        """initialize() defines run_resolver locally; run(mw) handles auto-registration."""
+        """initialize() only stores the context; run(mw) handles auto-registration."""
         with mock_optional_imports():
             mod = load_plugin(PUBCHEM_PATH)
             ctx = make_context()

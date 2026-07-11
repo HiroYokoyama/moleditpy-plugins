@@ -17,7 +17,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 from rdkit import Chem
 
-PLUGIN_VERSION = "2026.07.09"
+PLUGIN_VERSION = "2026.07.11"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Resolve chemical names to structures via PubChem REST API."
@@ -265,20 +265,11 @@ class MoleculeResolverDialog(QDialog):
 
 
 def initialize(context):
+    # Launching happens through the legacy run(mw) entry point below, which
+    # the host auto-registers in the Plugin menu; initialize only stores the
+    # context for it.
     global PLUGIN_CONTEXT
     PLUGIN_CONTEXT = context
-
-    def run_resolver():
-        win = context.get_window("main_panel")
-        if win is None:
-            win = MoleculeResolverDialog(context)
-
-        if win.isVisible():
-            win.hide()
-        else:
-            win.show()
-            win.raise_()
-            win.activateWindow()
 
 
 def run(mw):

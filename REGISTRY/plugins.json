@@ -218,7 +218,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "PubChem Name Resolver",
-    "version": "2026.07.09",
+    "version": "2026.07.11",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Resolves chemical names and identifiers to structures using the PubChem PUG REST API.",
@@ -230,8 +230,8 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/PubChem_Name_Ressolver/pubchem_ressolver.py",
-    "lastUpdated": "2026-07-09",
-    "sha256": "2db28c29cd5d1b98b5c9d156cc66f5afcd62b7e0478559832db4f5b5e6ab72a7",
+    "lastUpdated": "2026-07-11",
+    "sha256": "230f1b3b08076b3cc986430f51a6122fd52c5cda3d6b230610c5ef63658d170a",
     "firstAppeared": "2025-12-15"
   },
   {
