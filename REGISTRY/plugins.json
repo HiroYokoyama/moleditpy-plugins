@@ -1532,7 +1532,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Gaussian Input Generator Pro",
-    "version": "1.0.4",
+    "version": "1.1.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Advanced Gaussian Input Generator with Preview and Presets.",
@@ -1541,10 +1541,10 @@
       "export"
     ],
     "dependencies": [],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_gaussian_input_generator_pro/releases/download/v1.0.4/gaussian_input_generator_pro_1.0.4.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_gaussian_input_generator_pro/releases/download/v1.1.0/gaussian_input_generator_pro_1.1.0.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_gaussian_input_generator_pro",
     "lastUpdated": "2026-07-11",
-    "sha256": "d444db48c9633726cc56922ed7f4e4adf31a1f69e8c29dac7913f77a89e6dd92",
+    "sha256": "21794d43a72670a389bd849c58bd981a24a3b14ac5aebb775a9c05246ba1457e",
     "firstAppeared": "2026-07-11"
   }
 ]
