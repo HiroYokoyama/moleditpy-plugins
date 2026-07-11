@@ -16,10 +16,12 @@ We believe in the power of community! If you have created a useful plugin, we wo
 
 ## Featured Plugins
 
-### 1. Gaussian Input Generator Neo (`gaussian_input_generator_neo.py`)
-High-functionality setting dialog for Gaussian input creation.
-- **Features**: Supports Link 0, Route, Title, Charge/Mult, and appended data.
+### 1. Gaussian Input Generator Pro (`gaussian_input_generator_pro/`)
+Advanced Gaussian 16 input generator with real-time preview, route builder, and preset management.
+- **Features**: Route Builder GUI (method/basis/solvation/TD-DFT/constraints), Z-matrix output, interactive 3D atom picking for ModRedundant scans, two-way constraint sync, `--Link1--` chained jobs, session persistence, syntax highlighting.
 - **Dependencies**: `rdkit`, `PyQt6`
+- **Repo**: [moleditpy_gaussian_input_generator_pro](https://github.com/HiroYokoyama/moleditpy_gaussian_input_generator_pro)
+
 
 ### 2. ORCA Input Generator Neo (`orca_input_generator_neo.py`)
 High-functionality setting dialog for ORCA input creation.

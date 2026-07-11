@@ -24,9 +24,7 @@ from conftest import load_plugin_for_gui, mock_chemistry_imports
 PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
 
 PASTE_XYZ_PATH = PLUGINS_DIR / "Paste_XYZ" / "paste_xyz.py"
-GAUSSIAN_NEO_PATH = (
-    PLUGINS_DIR / "Gaussian_Input_Generator_Neo" / "gaussian_input_generator_neo.py"
-)
+
 MS_NEO_PATH = PLUGINS_DIR / "MS_Spectrum_Simulation_Neo" / "ms_spectrum_neo.py"
 MOPAC_PATH = PLUGINS_DIR / "Mopac_Input_Generator" / "mopac_input_generator.py"
 GAMESS_PATH = PLUGINS_DIR / "Gamess_Input_Generator" / "gamess_input_generator.py"
@@ -43,7 +41,6 @@ CONSOLE_PATH = PLUGINS_DIR / "Python_Console" / "console.py"
 
 with mock_chemistry_imports():
     _paste_xyz = load_plugin_for_gui(PASTE_XYZ_PATH)
-    _gaussian = load_plugin_for_gui(GAUSSIAN_NEO_PATH)
     _ms_neo = load_plugin_for_gui(MS_NEO_PATH)
     _mopac = load_plugin_for_gui(MOPAC_PATH)
     _gamess = load_plugin_for_gui(GAMESS_PATH)
