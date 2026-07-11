@@ -15,6 +15,7 @@ import urllib.parse
 import urllib.request
 import urllib.error
 import ast
+import html
 import logging
 from PyQt6.QtCore import QThread, pyqtSignal, Qt, QTimer
 from PyQt6.QtWidgets import (
@@ -44,7 +45,7 @@ import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.07.04"
+PLUGIN_VERSION = "2026.07.12"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -424,7 +425,9 @@ class PluginDetailsDialog(QDialog):
         lbl_name = QLabel(f"<h2>{name}</h2>")
         lbl_author = QLabel(f"<b>Author:</b> {author}")
         lbl_ver = QLabel(f"<b>Version:</b> {version}")
-        lbl_supported = QLabel(f"<b>Supported MoleditPy:</b> {supported_version}")
+        lbl_supported = QLabel(
+            f"<b>Supported MoleditPy:</b> {html.escape(str(supported_version))}"
+        )
         lbl_desc = QLabel(f"<b>Description:</b><br>{description}")
         lbl_desc.setWordWrap(True)
 
