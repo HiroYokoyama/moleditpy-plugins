@@ -203,7 +203,10 @@ class TestDropHandler:
         mod, handler = self._get_handler({"pdb": "PDB"})
         assert handler("notes.foo") is False
 
-    def test_sdf_special_case_handled_even_if_missing_from_informats(self):
+    def test_sdf_always_claimed_even_if_missing_from_informats(self):
+        # INTENTIONAL special case, do not "clean up": this plugin must always
+        # claim dropped .sdf files (multi-structure SDF selection dialog) —
+        # the main app cannot handle multi-structure SDF itself.
         mod, handler = self._get_handler({"pdb": "PDB"})
         assert handler("multi.sdf") is True
         mod.open_file_with_openbabel.assert_called_once()

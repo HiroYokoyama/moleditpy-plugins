@@ -280,3 +280,172 @@ class TestPasteXYZSmoke:
             PASTE_XYZ_MOD.initialize(ctx)
         callback = ctx.add_menu_action.call_args[0][1]
         assert callable(callback)
+
+
+class _CapturedSignal:
+    def __init__(self):
+        self.callbacks = []
+
+    def connect(self, cb):
+        self.callbacks.append(cb)
+
+    def fire(self):
+        for cb in self.callbacks:
+            cb()
+
+
+class _PromptLineEdit:
+    def __init__(self, parent=None):
+        self._text = "0"
+        _PromptHarness.line_edit = self
+
+    def setText(self, t):
+        self._text = t
+
+    def text(self):
+        return self._text
+
+    def selectAll(self):
+        pass
+
+    def setFocus(self):
+        pass
+
+
+class _PromptLabel:
+    def __init__(self, text=""):
+        self._text = text
+        _PromptHarness.labels.append(self)
+
+    def setText(self, t):
+        self._text = t
+
+    def setStyleSheet(self, *a):
+        pass
+
+
+class _PromptButtonBox:
+    def __init__(self, *a, **k):
+        self.accepted = _CapturedSignal()
+        self.rejected = _CapturedSignal()
+        _PromptHarness.btn_box = self
+
+    class StandardButton:
+        Ok = 1
+        Cancel = 2
+
+
+class _PromptButton:
+    def __init__(self, *a, **k):
+        self.clicked = _CapturedSignal()
+        _PromptHarness.skip_btn = self
+
+
+class _PromptLayout:
+    def __init__(self, *a, **k):
+        pass
+
+    def addWidget(self, *a):
+        pass
+
+    def addLayout(self, *a):
+        pass
+
+
+class _PromptDialog:
+    class DialogCode:
+        Accepted = 1
+        Rejected = 0
+
+    def __init__(self, parent=None):
+        self.accepted_flag = False
+        _PromptHarness.dialog = self
+
+    def setWindowTitle(self, *a):
+        pass
+
+    def accept(self):
+        self.accepted_flag = True
+
+    def reject(self):
+        self.accepted_flag = False
+
+    def exec(self):
+        _PromptHarness.script()
+        return self.DialogCode.Accepted if self.accepted_flag else self.DialogCode.Rejected
+
+
+class _PromptHarness:
+    """Holds widget handles created during one _prompt_charge run."""
+
+    dialog = None
+    line_edit = None
+    btn_box = None
+    skip_btn = None
+    labels = []
+    script = staticmethod(lambda: None)
+
+
+def _run_prompt(script):
+    _PromptHarness.dialog = None
+    _PromptHarness.line_edit = None
+    _PromptHarness.btn_box = None
+    _PromptHarness.skip_btn = None
+    _PromptHarness.labels = []
+    _PromptHarness.script = staticmethod(script)
+    fn = extract_function(
+        PASTE_XYZ_PATH, None, "_prompt_charge",
+        extra_globals={
+            "QDialog": _PromptDialog,
+            "QVBoxLayout": _PromptLayout,
+            "QHBoxLayout": _PromptLayout,
+            "QLabel": _PromptLabel,
+            "QLineEdit": _PromptLineEdit,
+            "QDialogButtonBox": _PromptButtonBox,
+            "QPushButton": _PromptButton,
+        },
+    )
+    return fn(MagicMock())
+
+
+class TestPromptChargeValidation:
+    """v2026.07.11: a non-integer charge must keep the dialog open with an
+    inline error instead of silently becoming charge 0."""
+
+    def test_valid_integer_accepted(self):
+        def script():
+            _PromptHarness.line_edit.setText("-2")
+            _PromptHarness.btn_box.accepted.fire()
+
+        assert _run_prompt(script) == (-2, True, False)
+
+    def test_invalid_text_keeps_dialog_open_then_valid_accepted(self):
+        def script():
+            _PromptHarness.line_edit.setText("abc")
+            _PromptHarness.btn_box.accepted.fire()  # rejected inline
+            assert not _PromptHarness.dialog.accepted_flag
+            error_label = _PromptHarness.labels[-1]
+            assert "integer" in error_label._text
+            _PromptHarness.line_edit.setText("1")
+            _PromptHarness.btn_box.accepted.fire()
+
+        assert _run_prompt(script) == (1, True, False)
+
+    def test_cancel_returns_not_ok(self):
+        def script():
+            _PromptHarness.btn_box.rejected.fire()
+
+        assert _run_prompt(script) == (0, False, False)
+
+    def test_skip_button_returns_skip(self):
+        def script():
+            _PromptHarness.skip_btn.clicked.fire()
+
+        assert _run_prompt(script) == (0, True, True)
+
+    def test_whitespace_around_integer_tolerated(self):
+        def script():
+            _PromptHarness.line_edit.setText("  3 ")
+            _PromptHarness.btn_box.accepted.fire()
+
+        assert _run_prompt(script) == (3, True, False)

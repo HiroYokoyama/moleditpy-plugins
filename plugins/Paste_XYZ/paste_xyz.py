@@ -102,6 +102,10 @@ def _prompt_charge(mw) -> tuple:
     line_edit.setText("0")
     layout.addWidget(line_edit)
 
+    error_label = QLabel("")
+    error_label.setStyleSheet("color: red;")
+    layout.addWidget(error_label)
+
     btn_box = QDialogButtonBox(
         QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
         parent=dialog,
@@ -112,9 +116,17 @@ def _prompt_charge(mw) -> tuple:
     hl.addWidget(skip_btn)
     layout.addLayout(hl)
 
-    result = {"accepted": False, "skip": False}
+    result = {"accepted": False, "skip": False, "charge": 0}
 
     def _on_ok():
+        # Validate inline: a non-integer must not silently become charge 0.
+        try:
+            result["charge"] = int(line_edit.text().strip())
+        except ValueError:
+            error_label.setText("Enter an integer charge (e.g. 0, -1, 2).")
+            line_edit.selectAll()
+            line_edit.setFocus()
+            return
         result["accepted"] = True
         dialog.accept()
 
@@ -130,10 +142,7 @@ def _prompt_charge(mw) -> tuple:
         return 0, False, False
     if result["skip"]:
         return 0, True, True
-    try:
-        return int(line_edit.text().strip()), True, False
-    except ValueError:
-        return 0, True, False
+    return result["charge"], True, False
 
 
 # ---------------------------------------------------------------------------
