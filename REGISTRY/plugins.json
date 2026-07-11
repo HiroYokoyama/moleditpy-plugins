@@ -25,7 +25,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "All-Trans Optimizer",
-    "version": "2026.06.20",
+    "version": "2026.07.11",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A geometric tool for straightening alkyl chains.",
@@ -36,8 +36,8 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/All-Trans_Optimizer/all-trans_optimizer.py",
-    "lastUpdated": "2026-06-20",
-    "sha256": "2f72c8f49bff6e1d0df0707fd9805494c9aaf3ada36c6f16439ec5955f7b1af3",
+    "lastUpdated": "2026-07-11",
+    "sha256": "8876f622a22eacf3cb2551b3745432133802f88a41f0b033aa49ab4addd4246d",
     "firstAppeared": "2025-12-15"
   },
   {

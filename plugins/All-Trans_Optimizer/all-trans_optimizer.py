@@ -2,16 +2,56 @@ from PyQt6.QtWidgets import QMessageBox
 from rdkit import Chem
 from rdkit.Chem import rdMolTransforms
 
-PLUGIN_VERSION = "2026.06.20"
+PLUGIN_VERSION = "2026.07.11"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
-PLUGIN_DESCRIPTION = "Convert alkyl chain torsions to all-trans conformation."
+PLUGIN_DESCRIPTION = (
+    "Convert non-cyclic chain torsions (including heteroatoms such as O, N, S) "
+    "to an all-trans conformation."
+)
 PLUGIN_NAME = "All-Trans Optimizer"
+
+# Backbone atoms allowed in the chain being straightened.
+# C, N, O, F(as terminal only), P, S, Si, Cl/Br/I are common in organic backbones.
+# The central (rotated) atoms are restricted to elements that actually form chains;
+# terminal reference atoms may be any heavy atom.
+_CENTRAL_ELEMENTS = "#6,#7,#8,#15,#16,#14"
+
+# Central atom: a chain-forming element that is NOT part of a double/triple bond
+# (excludes carbonyls, imines, nitro, etc. so we only rotate genuine single bonds).
+_CENTRAL_ATOM = f"[{_CENTRAL_ELEMENTS};!$([*]=*);!$([*]#*)]"
+
+# terminal - central -!@ central - terminal
+# The central bond must be a single, acyclic bond (a rotatable backbone bond).
+_ALL_TRANS_SMARTS = f"[!#1]-{_CENTRAL_ATOM}-;!@{_CENTRAL_ATOM}-[!#1]"
+
+
+def _select_torsions(matches):
+    """Keep exactly one torsion quartet per rotatable central bond.
+
+    A branched backbone atom produces several matches that share the same
+    central bond (idx2-idx3). Applying all of them would make each
+    SetDihedralDeg undo the previous one for that bond, so we keep only the
+    first quartet seen for each central bond. Order is preserved for
+    determinism.
+    """
+    seen_bonds = set()
+    selected = []
+    for match in matches:
+        idx1, idx2, idx3, idx4 = match
+        bond_key = (idx2, idx3) if idx2 <= idx3 else (idx3, idx2)
+        if bond_key in seen_bonds:
+            continue
+        seen_bonds.add(bond_key)
+        selected.append(match)
+    return selected
 
 
 def run_plugin(context):
-    """
-    現在の分子のアルキル鎖（非環状C-C結合）をAll-Trans配座に整形する
+    """Straighten the acyclic chains of the current molecule to all-trans.
+
+    Supports carbon chains as well as chains containing heteroatoms
+    (ethers, alcohols, amines, thioethers, phosphates, ...).
     """
     mw = context.get_main_window()
     mol = context.current_mol
@@ -21,44 +61,40 @@ def run_plugin(context):
         return
 
     try:
-        # 3Dコンフォマーの取得 (存在しない場合は作成しない)
+        # Require existing 3D coordinates; do not fabricate them.
         if mol.GetNumConformers() == 0:
             QMessageBox.warning(mw, PLUGIN_NAME, "Molecule has no 3D coordinates.")
             return
 
         conf = mol.GetConformer()
 
-        # SMARTSパターン: 炭素-炭素(非環状)-炭素-炭素
-        # 中央の結合(!@)が環に含まれていない4連続の炭素を検索
-        # [#6]は炭素原子を表します
-        patt = Chem.MolFromSmarts("[#6]-[#6]!@[#6]-[#6]")
+        patt = Chem.MolFromSmarts(_ALL_TRANS_SMARTS)
         matches = mol.GetSubstructMatches(patt)
+        torsions = _select_torsions(matches)
+
+        if not torsions:
+            QMessageBox.information(
+                mw, PLUGIN_NAME, "No rotatable chain torsions found."
+            )
+            return
 
         count = 0
-        if matches:
-            # マッチしたすべてのねじれ角を180(Trans)に設定
-            # 順番によっては後続の変更が前の変更に影響を与える可能性がありますが、
-            # 単純な適用でも直鎖構造には効果的です。
-            for match in matches:
-                idx1, idx2, idx3, idx4 = match
+        for idx1, idx2, idx3, idx4 in torsions:
+            # Set the backbone dihedral to 180 degrees (anti / trans).
+            rdMolTransforms.SetDihedralDeg(conf, idx1, idx2, idx3, idx4, 180.0)
+            count += 1
 
-                # 二面角を180度(Trans)に設定
-                rdMolTransforms.SetDihedralDeg(conf, idx1, idx2, idx3, idx4, 180.0)
-                count += 1
+        # Push updated molecule back so 3D view redraws with new coordinates
+        context.current_mol = mol
+        context.refresh_3d_view()
 
-            # Push updated molecule back so 3D view redraws with new coordinates
-            context.current_mol = mol
-            context.refresh_3d_view()
+        # Push undo state via V3 API
+        context.push_undo_checkpoint()
 
-            # Push undo state via V3 API
-            context.push_undo_checkpoint()
-
-            context.show_status_message(f"Applied All-Trans to {count} torsions.")
-            QMessageBox.information(
-                mw, PLUGIN_NAME, f"Applied All-Trans to {count} torsions."
-            )
-        else:
-            QMessageBox.information(mw, PLUGIN_NAME, "No alkyl chains found.")
+        context.show_status_message(f"Applied All-Trans to {count} torsions.")
+        QMessageBox.information(
+            mw, PLUGIN_NAME, f"Applied All-Trans to {count} torsions."
+        )
 
     except Exception as e:
         QMessageBox.critical(mw, PLUGIN_NAME, f"Error: {str(e)}")

@@ -118,3 +118,55 @@ class TestAllTransRunPlugin:
         mod.rdMolTransforms.SetDihedralDeg.assert_not_called()
         ctx.refresh_3d_view.assert_not_called()
         ctx.push_undo_checkpoint.assert_not_called()
+
+    def test_duplicate_central_bond_applied_only_once(self):
+        """A branched backbone atom yields several matches sharing one central
+        bond; only one dihedral must be set for that bond so later calls do not
+        undo earlier ones."""
+        mod = self._load()
+        mol = MagicMock()
+        mol.GetNumConformers.return_value = 1
+        conf = MagicMock()
+        mol.GetConformer.return_value = conf
+        # Three matches, first two share the central bond (1, 2).
+        mol.GetSubstructMatches.return_value = [
+            (0, 1, 2, 3),
+            (9, 1, 2, 8),  # same central bond (1, 2) - must be dropped
+            (4, 5, 6, 7),
+        ]
+        ctx = self._context(mol)
+        mod.rdMolTransforms.reset_mock()
+        mod.QMessageBox.reset_mock()
+
+        mod.run_plugin(ctx)
+
+        calls = mod.rdMolTransforms.SetDihedralDeg.call_args_list
+        assert len(calls) == 2
+        assert calls[0].args == (conf, 0, 1, 2, 3, 180.0)
+        assert calls[1].args == (conf, 4, 5, 6, 7, 180.0)
+        assert "2" in ctx.show_status_message.call_args[0][0]
+
+    def test_reversed_central_bond_treated_as_duplicate(self):
+        """Central bond (2, 1) and (1, 2) are the same rotatable bond."""
+        mod = self._load()
+        matches = [(0, 1, 2, 3), (9, 2, 1, 8)]
+        selected = mod._select_torsions(matches)
+        assert selected == [(0, 1, 2, 3)]
+
+
+class TestAllTransSmarts:
+    def _load(self):
+        with mock_optional_imports():
+            mod = load_plugin(ALL_TRANS_PATH)
+        return mod
+
+    def test_smarts_includes_heteroatoms(self):
+        """Backbone SMARTS must accept O/N/S/P/Si, not just carbon."""
+        mod = self._load()
+        smarts = mod._ALL_TRANS_SMARTS
+        for atomic_num in ("#7", "#8", "#15", "#16", "#14"):
+            assert atomic_num in smarts, f"{atomic_num} missing from backbone SMARTS"
+
+    def test_smarts_central_bond_is_acyclic_single(self):
+        mod = self._load()
+        assert "-;!@" in mod._ALL_TRANS_SMARTS
