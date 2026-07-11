@@ -302,3 +302,61 @@ class TestChemDrawDrawingLoop:
         source = CHEMDRAW_PATH.read_text(encoding="utf-8")
         assert 'data.atoms[a_id]["item"]' not in source
         assert "context.scene.atom_items[a_id]" in source
+
+
+class TestChemDrawReconstructEdgeCases:
+    def test_truncated_atom_record_returns_none_not_raise(self):
+        # Token stream ends mid-atom-record: broad except must return None
+        tokens = ["0.0", "0.0"]  # missing z, symbol, fields
+        result, block = _reconstruct(_flat(2, 0, tokens))
+        assert result is None
+
+    def test_two_bonds_with_trailing_zero_padding(self):
+        # The zero-skip after a bond must not eat the next bond's atom indices
+        tokens = (
+            ["0.0", "0.0", "0.0", "C"] + ["0"] * 12
+            + ["1.0", "0.0", "0.0", "C"] + ["0"] * 12
+            + ["2.0", "0.0", "0.0", "O"] + ["0"] * 12
+            + ["1", "2", "1", "0"] + ["0"] * 3
+            + ["2", "3", "2", "0"]
+        )
+        _, block = _reconstruct(_flat(3, 2, tokens))
+        assert "  1  2  1  0  0  0  0" in block
+        assert "  2  3  2  0  0  0  0" in block
+
+    def test_multiple_m_property_lines_preserved_in_order(self):
+        tokens = (
+            ["0.0", "0.0", "0.0", "N"] + ["0"] * 12
+            + ["M", "CHG", "1", "1", "1", "M", "ISO", "1", "1", "15", "M", "END"]
+        )
+        _, block = _reconstruct(_flat(1, 0, tokens))
+        lines = block.splitlines()
+        chg_idx = next(i for i, l in enumerate(lines) if l.startswith("M  CHG"))
+        iso_idx = next(i for i, l in enumerate(lines) if l.startswith("M  ISO"))
+        end_idx = next(i for i, l in enumerate(lines) if l == "M  END")
+        assert chg_idx < iso_idx < end_idx
+
+    def test_negative_coordinates_width(self):
+        tokens = ["-10.1234", "-0.5", "99.9999", "Cl"] + ["0"] * 12
+        _, block = _reconstruct(_flat(1, 0, tokens))
+        atom_line = block.splitlines()[4]
+        assert "-10.1234" in atom_line
+        assert "Cl" in atom_line
+
+    def test_windows_newlines_and_nul_bytes_tolerated(self):
+        text = _flat(1, 0, ["0.0", "0.0", "0.0", "C"] + ["0"] * 12)
+        noisy = text.replace(" ", " \r\n", 3) + "\x00\x01"
+        result, block = _reconstruct(noisy)
+        assert result == "MOL_SENTINEL"
+
+    def test_block_line_count_matches_counts(self):
+        tokens = (
+            ["0.0", "0.0", "0.0", "C"] + ["0"] * 12
+            + ["1.0", "0.0", "0.0", "C"] + ["0"] * 12
+            + ["1", "2", "1", "0"]
+        )
+        _, block = _reconstruct(_flat(2, 1, tokens))
+        lines = block.splitlines()
+        # header(3) + counts + 2 atoms + 1 bond + M END
+        assert len(lines) == 3 + 1 + 2 + 1 + 1
+        assert lines[-1] == "M  END"
