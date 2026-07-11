@@ -298,3 +298,109 @@ class TestMopacPresets:
         reader = MagicMock()
         load(reader)
         assert reader.presets_data == {}
+
+
+# ---------------------------------------------------------------------------
+# apply_template / calc_initial_charge_mult
+# ---------------------------------------------------------------------------
+
+import pytest
+from conftest import extract_function as _cf_extract
+
+
+class _TextRecorder:
+    def __init__(self, text=""):
+        self._text = text
+        self.set_texts = []
+
+    def text(self):
+        return self._text
+
+    def setText(self, t):
+        self.set_texts.append(t)
+        self._text = t
+
+
+class _ValueRecorder:
+    def __init__(self, value=0):
+        self._value = value
+        self.set_values = []
+
+    def value(self):
+        return self._value
+
+    def setValue(self, v):
+        self.set_values.append(v)
+        self._value = v
+
+
+class TestMopacApplyTemplate:
+    def _run(self, template_text):
+        fn = _cf_extract(MOPAC_PATH, "MopacSetupDialog", "apply_template")
+        fake = MagicMock()
+        fake.template_combo = FakeCombo(template_text)
+        fake.keywords_edit = _TextRecorder("OLD")
+        fn(fake)
+        return fake.keywords_edit
+
+    @pytest.mark.parametrize(
+        "template, keywords",
+        [
+            ("Optimization (PM7)", "PM7 PRECISE"),
+            ("Optimization (PM6)", "PM6 PRECISE"),
+            ("Optimization (AM1)", "AM1 PRECISE"),
+            ("Single Point (PM7)", "PM7 1SCF"),
+            ("Thermodynamics (PM7)", "PM7 THERMO"),
+            ("Transition State (PM7 TS)", "PM7 TS PRECISE"),
+        ],
+    )
+    def test_template_sets_keywords(self, template, keywords):
+        edit = self._run(template)
+        assert edit.set_texts == [keywords]
+
+    def test_placeholder_leaves_keywords_untouched(self):
+        edit = self._run("Select Template...")
+        assert edit.set_texts == []
+
+
+class _MolWithAtoms:
+    def __init__(self, atomic_nums):
+        self._nums = atomic_nums
+
+    def GetAtoms(self):
+        return [FakeAtom("X", n) for n in self._nums]
+
+
+class TestMopacInitialChargeMult:
+    def _run(self, mol, formal_charge):
+        chem = MagicMock()
+        chem.GetFormalCharge.return_value = formal_charge
+        fn = _cf_extract(
+            MOPAC_PATH, "MopacSetupDialog", "calc_initial_charge_mult",
+            extra_globals={"Chem": chem, "logging": __import__("logging")},
+        )
+        fake = MagicMock()
+        fake.mol = mol
+        fake.charge_spin = _ValueRecorder()
+        fake.mult_spin = _ValueRecorder()
+        fn(fake)
+        return fake
+
+    def test_even_electrons_singlet(self):
+        fake = self._run(_MolWithAtoms([8, 1, 1]), 0)
+        assert fake.charge_spin.set_values == [0]
+        assert fake.mult_spin.set_values == [1]
+
+    def test_odd_electrons_doublet(self):
+        fake = self._run(_MolWithAtoms([8, 1]), 0)
+        assert fake.mult_spin.set_values == [2]
+
+    def test_anion_charge_shifts_parity(self):
+        # OH- : 9 + 1 = 10 electrons -> singlet
+        fake = self._run(_MolWithAtoms([8, 1]), -1)
+        assert fake.charge_spin.set_values == [-1]
+        assert fake.mult_spin.set_values == [1]
+
+    def test_no_molecule_is_noop(self):
+        fake = self._run(None, 0)
+        assert fake.charge_spin.set_values == []
