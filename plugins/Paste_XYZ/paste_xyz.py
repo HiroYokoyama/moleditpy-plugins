@@ -20,7 +20,7 @@ except ImportError:
     Chem = None
 
 PLUGIN_NAME = "Paste XYZ"
-PLUGIN_VERSION = "2026.07.04"
+PLUGIN_VERSION = "2026.07.11"
 PLUGIN_CATEGORY = "File"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
@@ -227,7 +227,6 @@ def run_plugin(context) -> None:
             )
             return
 
-        context.clear_canvas(push_to_undo=False)
         rwmol = _build_rwmol(atoms_data)
 
         skip_checks = context.get_setting("skip_chemistry_checks", False)
@@ -245,6 +244,9 @@ def run_plugin(context) -> None:
         if final_mol is None:
             return
 
+        # Clear only once a molecule is resolved: cancelling the charge
+        # prompt must not wipe the user's current document.
+        context.clear_canvas(push_to_undo=False)
         context.current_molecule = final_mol
         context.push_undo_checkpoint()
         context.check_chemistry_problems()

@@ -487,7 +487,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Paste XYZ",
-    "version": "2026.07.04",
+    "version": "2026.07.11",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Paste XYZ to view in 3D.",
@@ -496,8 +496,8 @@
     ],
     "dependencies": [],
     "downloadUrl": "../plugins/Paste_XYZ/paste_xyz.py",
-    "lastUpdated": "2026-07-04",
-    "sha256": "83cc900fae28101888b9f91fa467fda2be0c76c048519b7ccac0d0533b35ba35",
+    "lastUpdated": "2026-07-11",
+    "sha256": "b40a742e1dbb266b21fc4be2500c2e331f65addc52b7e840b157e3038057fcd2",
     "firstAppeared": "2025-12-20"
   },
   {
