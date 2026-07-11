@@ -300,7 +300,7 @@
   },
   {
     "id": "gaussian_input_generator_neo",
-    "visible": true,
+    "visible": false,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Gaussian Input Generator Neo",
     "version": "2026.06.26",
@@ -315,7 +315,7 @@
       "rdkit",
       "PyQt6"
     ],
-    "downloadUrl": "../plugins/Gaussian_Input_Generator_Neo/gaussian_input_generator_neo.py",
+    "downloadUrl": "../plugins/_old/Gaussian_Input_Generator_Neo/gaussian_input_generator_neo.py",
     "lastUpdated": "2026-06-26",
     "sha256": "93619cf409141ea20e29f6aaf247cf4570d2d7fc22a7f5c00a9d670e104119f5",
     "firstAppeared": "2025-12-16"
