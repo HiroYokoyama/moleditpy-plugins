@@ -150,3 +150,102 @@ class TestExportWithOpenBabel:
         pybel_mol.write.assert_called_once_with("xyz", "out.xyz", overwrite=True)
         ctx.show_status_message.assert_called_once_with("Exported to out.xyz", 3000)
         mock_critical.assert_not_called()
+
+
+class TestFileOpenerRegistration:
+    def _init_with_formats(self, informats):
+        with mock_optional_imports():
+            mod = load_plugin(OBABEL_PATH)
+            mod.pybel.informats = informats
+            ctx = make_context()
+            mod.initialize(ctx)
+        return mod, ctx
+
+    def test_registers_opener_per_format_except_native(self):
+        mod, ctx = self._init_with_formats(
+            {"sdf": "MDL SDF", "pdb": "PDB", "mol": "MDL MOL", "xyz": "XYZ"}
+        )
+        registered = {call[0][0] for call in ctx.register_file_opener.call_args_list}
+        assert registered == {".sdf", ".pdb"}  # .mol/.xyz left to the native loader
+
+    def test_openers_registered_with_low_priority(self):
+        mod, ctx = self._init_with_formats({"sdf": "MDL SDF"})
+        for call in ctx.register_file_opener.call_args_list:
+            assert call[1].get("priority") == -1
+
+
+class TestDropHandler:
+    def _get_handler(self, informats):
+        with mock_optional_imports():
+            mod = load_plugin(OBABEL_PATH)
+            mod.pybel.informats = informats
+            ctx = make_context()
+            mod.initialize(ctx)
+        mod.open_file_with_openbabel = MagicMock()
+        handler = ctx.register_drop_handler.call_args[0][0]
+        return mod, handler
+
+    def test_supported_extension_handled(self):
+        mod, handler = self._get_handler({"pdb": "PDB"})
+        assert handler("protein.pdb") is True
+        mod.open_file_with_openbabel.assert_called_once()
+
+    def test_extension_case_insensitive(self):
+        mod, handler = self._get_handler({"pdb": "PDB"})
+        assert handler("PROTEIN.PDB") is True
+
+    def test_native_mol_extension_not_handled(self):
+        mod, handler = self._get_handler({"mol": "MDL MOL"})
+        assert handler("thing.mol") is False
+        mod.open_file_with_openbabel.assert_not_called()
+
+    def test_unknown_extension_not_handled(self):
+        mod, handler = self._get_handler({"pdb": "PDB"})
+        assert handler("notes.foo") is False
+
+    def test_sdf_special_case_handled_even_if_missing_from_informats(self):
+        mod, handler = self._get_handler({"pdb": "PDB"})
+        assert handler("multi.sdf") is True
+        mod.open_file_with_openbabel.assert_called_once()
+
+
+class TestMoleculeSelectionDialog:
+    def test_get_selected_index_none_when_no_selection(self):
+        from conftest import extract_function
+
+        fn = extract_function(
+            OBABEL_PATH, "MoleculeSelectionDialog", "get_selected_index"
+        )
+        fake = MagicMock()
+        fake.list_widget.selectedIndexes.return_value = []
+        assert fn(fake) is None
+
+    def test_get_selected_index_returns_row(self):
+        from conftest import extract_function
+
+        fn = extract_function(
+            OBABEL_PATH, "MoleculeSelectionDialog", "get_selected_index"
+        )
+        fake = MagicMock()
+        row = MagicMock()
+        row.row.return_value = 3
+        fake.list_widget.selectedIndexes.return_value = [row]
+        assert fn(fake) == 3
+
+
+class TestExportExtensionHandling:
+    def test_uppercase_extension_lowercased_and_accepted(self):
+        with mock_optional_imports():
+            mod = load_plugin(OBABEL_PATH)
+            mod.pybel.outformats = {"xyz": "XYZ format"}
+            ctx = make_context()
+            ctx.current_molecule = MagicMock()
+            with patch.object(
+                mod.QFileDialog, "getSaveFileName", return_value=("out.XYZ", "")
+            ), patch.object(mod.QMessageBox, "warning") as warn, patch.object(
+                mod.QMessageBox, "critical"
+            ) as crit:
+                mod.export_with_openbabel(ctx)
+            warn.assert_not_called()
+            crit.assert_not_called()
+            ctx.show_status_message.assert_called_once()
