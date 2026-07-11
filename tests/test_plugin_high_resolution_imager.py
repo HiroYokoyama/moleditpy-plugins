@@ -256,3 +256,44 @@ class TestTakeScreenshotAcceptedFlow:
         mod, ctx, mw = self._run(tmp_path, filename=out, raise_on_screenshot=True)
         mod.QMessageBox.critical.assert_called_once()
         mod.QMessageBox.information.assert_not_called()
+
+
+class TestTakeScreenshotBackgroundHandling:
+    def _run(self, tmp_path, filename, raise_on_save_graphic=False):
+        with mock_optional_imports():
+            mod = load_plugin(HIRES_PATH)
+            _patch_fake_widgets(mod)
+            _FakeDialog.result = _FakeDialog.DialogCode.Accepted
+            mod.QFileDialog.getSaveFileName = MagicMock(return_value=(filename, ""))
+            mod.QMessageBox.information = MagicMock()
+            mod.QMessageBox.critical = MagicMock()
+
+            ctx = make_context()
+            ctx.plotter = MagicMock()
+            mw = ctx.get_main_window.return_value
+            mw.init_manager.settings.get.return_value = "#4f4f4f"
+            if raise_on_save_graphic:
+                ctx.plotter.save_graphic.side_effect = RuntimeError("gl2ps fail")
+            mod.take_screenshot(ctx)
+        return mod, ctx
+
+    def test_transparent_vector_forces_white_then_restores(self, tmp_path):
+        # GL2PS transparency is unreliable: vector export under the default
+        # "Transparent" mode must set a white background and restore afterwards.
+        out = str(tmp_path / "shot.svg")
+        mod, ctx = self._run(tmp_path, filename=out)
+        bg_calls = [c.args[0] for c in ctx.plotter.set_background.call_args_list]
+        assert bg_calls == ["white", "#4f4f4f"]
+
+    def test_transparent_raster_leaves_background_alone(self, tmp_path):
+        out = str(tmp_path / "shot.png")
+        mod, ctx = self._run(tmp_path, filename=out)
+        ctx.plotter.set_background.assert_not_called()
+        assert ctx.plotter.screenshot.call_args[1].get("transparent_background") is True
+
+    def test_vector_failure_still_restores_background(self, tmp_path):
+        out = str(tmp_path / "shot.svg")
+        mod, ctx = self._run(tmp_path, filename=out, raise_on_save_graphic=True)
+        bg_calls = [c.args[0] for c in ctx.plotter.set_background.call_args_list]
+        assert bg_calls == ["white", "#4f4f4f"]  # finally-block restore
+        mod.QMessageBox.critical.assert_called_once()
