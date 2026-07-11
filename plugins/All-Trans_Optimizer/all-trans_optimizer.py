@@ -100,16 +100,7 @@ def run_plugin(context):
         QMessageBox.critical(mw, PLUGIN_NAME, f"Error: {str(e)}")
 
 
-_launch_fn = None
-
-
 def initialize(context):
-    global _launch_fn
-    _launch_fn = lambda: run_plugin(context)
-
-
-def run(mw):
-    if hasattr(mw, "host"):
-        mw = mw.host
-    if _launch_fn:
-        _launch_fn()
+    context.add_menu_action(
+        "3D Edit/All-Trans Optimizer", lambda: run_plugin(context)
+    )

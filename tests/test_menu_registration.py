@@ -45,16 +45,14 @@ _REGISTRATION_ATTRS: frozenset[str] = frozenset({
 #
 #   - "Dark Mode Theme":              autorun() applies a stylesheet at load time;
 #                                     no menu entry is expected.
-#   - "All-Trans Optimizer":          run(mw) auto-registered; initialize() stores
+#   - "Complex Molecule Untangler":   run(mw) auto-registered; initialize() stores
 #                                     the launch function, nothing more.
-#   - "Complex Molecule Untangler":   same as above.
 #   - "PubChem Name Resolver":        same as above.
 #   - "Vector Viewer":                same as above; initialize() calls
 #                                     show_status_message() but no menu registration.
 #   - "Python Console":               run(mw) auto-registered; initialize() only stores context.
 _EXEMPT: frozenset[str] = frozenset({
     "Dark Mode Theme",
-    "All-Trans Optimizer",
     "Complex Molecule Untangler",
     "PubChem Name Resolver",
     "Vector Viewer",

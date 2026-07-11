@@ -19,13 +19,26 @@ ALL_TRANS_PATH = PLUGINS_DIR / "All-Trans_Optimizer" / "all-trans_optimizer.py"
 
 
 class TestAllTransOptimizer:
-    def test_initialize_sets_launch_fn(self):
-        """initialize() stores the launch closure in _launch_fn; run() uses it."""
+    def test_initialize_registers_3d_edit_menu_action(self):
+        """initialize() registers exactly one menu action in the 3D Edit menu."""
         with mock_optional_imports():
             mod = load_plugin(ALL_TRANS_PATH)
             ctx = make_context()
             mod.initialize(ctx)
-            assert mod._launch_fn is not None, "_launch_fn must be set by initialize()"
+            ctx.add_menu_action.assert_called_once()
+            path = ctx.add_menu_action.call_args[0][0]
+            assert path == "3D Edit/All-Trans Optimizer"
+
+    def test_initialize_menu_action_invokes_run_plugin(self):
+        """The registered callback runs run_plugin(context) without raising."""
+        with mock_optional_imports():
+            mod = load_plugin(ALL_TRANS_PATH)
+            ctx = make_context()
+            ctx.current_mol = None
+            mod.initialize(ctx)
+            callback = ctx.add_menu_action.call_args[0][1]
+            with patch.object(mod.QMessageBox, "warning"):
+                callback()
 
     def test_run_plugin_no_mol_does_not_raise(self):
         """run_plugin with mol=None should show a warning, not raise."""
@@ -47,16 +60,11 @@ class TestAllTransOptimizer:
             args = mock_warn.call_args[0]
             assert "molecule" in args[2].lower() or "No molecule" in args[2]
 
-    def test_initialize_then_run_calls_launch(self):
-        """After initialize(), calling run(mw) invokes the launch function."""
+    def test_module_has_no_legacy_run_entry_point(self):
+        """Pure V4 plugin: run() must not exist (would duplicate the Plugin menu entry)."""
         with mock_optional_imports():
             mod = load_plugin(ALL_TRANS_PATH)
-            ctx = make_context()
-            mod.initialize(ctx)
-            # run() should not raise even without a real molecule
-            ctx.current_mol = None
-            with patch.object(mod.QMessageBox, "warning"):
-                mod.run(ctx.get_main_window())
+            assert not hasattr(mod, "run")
 
 
 class TestAllTransRunPlugin:
