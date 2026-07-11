@@ -1546,5 +1546,25 @@
     "lastUpdated": "2026-07-11",
     "sha256": "21794d43a72670a389bd849c58bd981a24a3b14ac5aebb775a9c05246ba1457e",
     "firstAppeared": "2026-07-11"
+  },
+  {
+    "id": "step_optimizer",
+    "visible": true,
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
+    "name": "Step Optimizer",
+    "version": "2026.07.12",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Interactive step-by-step force-field optimization with live 3D animation.",
+    "tags": [
+      "Optimization"
+    ],
+    "dependencies": [
+      "rdkit"
+    ],
+    "downloadUrl": "../plugins/Step_Optimizer/step_optimizer.py",
+    "lastUpdated": "2026-07-12",
+    "sha256": "518255313d582f9cf542540f3b2550a1b5059fe319b5f1d55eaa97647f874c10",
+    "firstAppeared": "2026-07-12"
   }
 ]
