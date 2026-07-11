@@ -297,3 +297,112 @@ class TestGamessPresets:
         reader = MagicMock()
         load(reader)
         assert reader.presets_data == {}
+
+
+# ---------------------------------------------------------------------------
+# calc_initial_charge_mult / update_basis_options
+# ---------------------------------------------------------------------------
+
+from conftest import extract_function as _cf_extract
+
+
+class _Recorder:
+    """Records setValue/setCurrentText/setEnabled calls; readable via value()."""
+
+    def __init__(self, value=0):
+        self._value = value
+        self.set_values = []
+        self.set_texts = []
+        self.enabled = []
+
+    def value(self):
+        return self._value
+
+    def setValue(self, v):
+        self.set_values.append(v)
+        self._value = v
+
+    def currentText(self):
+        return self._value
+
+    def setCurrentText(self, t):
+        self.set_texts.append(t)
+
+    def setEnabled(self, flag):
+        self.enabled.append(flag)
+
+
+class _MolWithAtoms:
+    """calc_initial_charge_mult iterates GetAtoms(), which FakeMol lacks."""
+
+    def __init__(self, atomic_nums):
+        self._nums = atomic_nums
+
+    def GetAtoms(self):
+        return [FakeAtom("X", n) for n in self._nums]
+
+
+class TestGamessInitialChargeMult:
+    def _run(self, mol, formal_charge):
+        chem = MagicMock()
+        chem.GetFormalCharge.return_value = formal_charge
+        fn = _cf_extract(
+            GAMESS_PATH, "GamessSetupDialog", "calc_initial_charge_mult",
+            extra_globals={"Chem": chem, "logging": __import__("logging")},
+        )
+        fake = MagicMock()
+        fake.mol = mol
+        fake.charge_spin = _Recorder()
+        fake.mult_spin = _Recorder()
+        fake.scf_type = _Recorder()
+        fn(fake)
+        return fake
+
+    def test_water_is_singlet_rhf(self):
+        fake = self._run(_MolWithAtoms([8, 1, 1]), 0)
+        assert fake.charge_spin.set_values == [0]
+        assert fake.mult_spin.set_values == [1]
+        assert fake.scf_type.set_texts == ["RHF"]
+
+    def test_odd_electron_radical_is_doublet_rohf(self):
+        # OH radical: 9 electrons
+        fake = self._run(_MolWithAtoms([8, 1]), 0)
+        assert fake.mult_spin.set_values == [2]
+        assert fake.scf_type.set_texts == ["ROHF"]
+
+    def test_cation_charge_shifts_electron_count(self):
+        # H2O+ : 10 - 1 = 9 electrons -> doublet
+        fake = self._run(_MolWithAtoms([8, 1, 1]), 1)
+        assert fake.charge_spin.set_values == [1]
+        assert fake.mult_spin.set_values == [2]
+
+    def test_no_molecule_is_noop(self):
+        fake = self._run(None, 0)
+        assert fake.charge_spin.set_values == []
+
+
+class TestGamessBasisOptions:
+    def _run(self, gbasis):
+        fn = _cf_extract(GAMESS_PATH, "GamessSetupDialog", "update_basis_options")
+        fake = MagicMock()
+        fake.basis_gbasis = FakeCombo(gbasis)
+        fake.basis_ngauss = _Recorder(6)
+        fn(fake)
+        return fake
+
+    def test_sto_defaults_to_3_gaussians(self):
+        fake = self._run("STO")
+        assert fake.basis_ngauss.set_values == [3]
+
+    def test_pople_defaults_to_6_gaussians(self):
+        for g in ("N21", "N31"):
+            fake = self._run(g)
+            assert fake.basis_ngauss.set_values == [6]
+
+    def test_tzv_forces_1(self):
+        fake = self._run("TZV")
+        assert fake.basis_ngauss.set_values == [1]
+
+    def test_mini_leaves_ngauss_untouched(self):
+        fake = self._run("MINI")
+        assert fake.basis_ngauss.set_values == []
