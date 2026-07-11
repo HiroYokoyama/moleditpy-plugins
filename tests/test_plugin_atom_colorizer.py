@@ -140,3 +140,113 @@ class TestAtomColorizerApplyColor:
         fn(s)
         controller = s.context.get_3d_controller.return_value
         controller.set_atom_color.assert_called_once_with(1, "#112233")
+
+
+class _FakeLineEdit:
+    def __init__(self, text="", focused=False):
+        self._text = text
+        self._focused = focused
+        self.set_calls = []
+
+    def text(self):
+        return self._text
+
+    def setText(self, value):
+        self.set_calls.append(value)
+        self._text = value
+
+    def hasFocus(self):
+        return self._focused
+
+
+class TestGetSelectionFromViewer:
+    """get_selection_from_viewer merges 2D + 3D + measurement picks,
+    deduplicated and sorted, into the indices field."""
+
+    def _fn(self):
+        return extract_function(
+            COLORIZER_PATH, "AtomColorizerWindow", "get_selection_from_viewer"
+        )
+
+    def _self(self, sel_2d, sel_3d=None, picked=None, field_text=""):
+        fake = MagicMock()
+        fake.context.get_selected_atom_indices.return_value = sel_2d
+        mw = MagicMock()
+        mw.edit_3d_manager.selected_atoms_3d = sel_3d if sel_3d is not None else set()
+        mw.edit_3d_manager.selected_atoms_for_measurement = picked if picked is not None else []
+        fake.context.get_main_window.return_value = mw
+        fake.le_indices = _FakeLineEdit(field_text)
+        return fake
+
+    def test_merges_sorts_and_dedups_all_sources(self):
+        fake = self._self([0, 2], sel_3d={2, 5}, picked=(7, 5))
+        self._fn()(fake)
+        assert fake.le_indices.text() == "0,2,5,7"
+
+    def test_no_settext_when_selection_unchanged(self):
+        fake = self._self([1, 3], field_text="1,3")
+        self._fn()(fake)
+        assert fake.le_indices.set_calls == []
+
+    def test_non_collection_3d_attribute_ignored(self):
+        fake = self._self([4], sel_3d="garbage", picked=None)
+        self._fn()(fake)
+        assert fake.le_indices.text() == "4"
+
+    def test_no_main_window_uses_2d_only(self):
+        fake = self._self([9, 1])
+        fake.context.get_main_window.return_value = None
+        self._fn()(fake)
+        assert fake.le_indices.text() == "1,9"
+
+
+class TestAutoUpdateSelection:
+    def _fn(self):
+        return extract_function(
+            COLORIZER_PATH, "AtomColorizerWindow", "_auto_update_selection"
+        )
+
+    def test_skips_update_while_field_focused(self):
+        fake = MagicMock()
+        fake.le_indices.hasFocus.return_value = True
+        self._fn()(fake)
+        fake.get_selection_from_viewer.assert_not_called()
+
+    def test_updates_when_not_focused(self):
+        fake = MagicMock()
+        fake.le_indices.hasFocus.return_value = False
+        self._fn()(fake)
+        fake.get_selection_from_viewer.assert_called_once()
+
+
+class TestAtomColorizerLoadRefresh:
+    def _handlers(self, ctx):
+        with mock_optional_imports():
+            mod = load_plugin(COLORIZER_PATH)
+            mod.initialize(ctx)
+        return (
+            ctx.register_save_handler.call_args[0][0],
+            ctx.register_load_handler.call_args[0][0],
+            ctx.register_document_reset_handler.call_args[0][0],
+        )
+
+    def test_load_refreshes_view_even_with_empty_color_map(self):
+        ctx = make_context()
+        _, load, _ = self._handlers(ctx)
+        load({"atom_colors": {}})
+        ctx.refresh_3d_view.assert_called_once()
+
+    def test_load_none_data_does_not_refresh(self):
+        ctx = make_context()
+        _, load, _ = self._handlers(ctx)
+        load(None)
+        ctx.refresh_3d_view.assert_not_called()
+
+    def test_reset_without_window_does_not_raise(self):
+        ctx = make_context()
+        _, _, reset = self._handlers(ctx)
+        ctx.get_window.return_value = None
+        mw = ctx.get_main_window.return_value
+        mw.view_3d_manager._plugin_color_overrides = {0: "#ff0000"}
+        reset()
+        assert mw.view_3d_manager._plugin_color_overrides == {}
