@@ -295,3 +295,95 @@ class TestPyscfSaveFile:
         content = "print('hello')"
         saved = self._save(tmp_path, content, "abc.py")
         assert "mf.chkfile = 'abc.chk'" in saved
+
+
+# ---------------------------------------------------------------------------
+# update_method_options / calc_initial_charge_mult
+# ---------------------------------------------------------------------------
+
+import pytest
+from conftest import extract_function as _cf_extract
+
+
+class _EnableRecorder:
+    def __init__(self):
+        self.enabled = []
+
+    def setEnabled(self, flag):
+        self.enabled.append(flag)
+
+
+class _ValueRecorder:
+    def __init__(self, value=0):
+        self._value = value
+        self.set_values = []
+
+    def value(self):
+        return self._value
+
+    def setValue(self, v):
+        self.set_values.append(v)
+        self._value = v
+
+
+class TestPyscfMethodOptions:
+    def _run(self, category):
+        fn = _cf_extract(PYSCF_PATH, "PyscfSetupDialog", "update_method_options")
+        fake = MagicMock()
+        fake.category_combo = FakeCombo(category)
+        fake.functional_combo = _EnableRecorder()
+        fake.post_hf_combo = _EnableRecorder()
+        fake.post_hf_ref_combo = _EnableRecorder()
+        fn(fake)
+        return fake
+
+    @pytest.mark.parametrize(
+        "category, functional, post_hf",
+        [
+            ("Hartree-Fock", False, False),
+            ("DFT", True, False),
+            ("Post-HF (MP2, CCSD)", False, True),
+        ],
+    )
+    def test_widget_enabling_matches_category(self, category, functional, post_hf):
+        fake = self._run(category)
+        assert fake.functional_combo.enabled == [functional]
+        assert fake.post_hf_combo.enabled == [post_hf]
+        assert fake.post_hf_ref_combo.enabled == [post_hf]
+
+
+class _MolWithAtoms:
+    def __init__(self, atomic_nums):
+        self._nums = atomic_nums
+
+    def GetAtoms(self):
+        return [FakeAtom("X", n) for n in self._nums]
+
+
+class TestPyscfInitialChargeMult:
+    def _run(self, mol, formal_charge):
+        chem = MagicMock()
+        chem.GetFormalCharge.return_value = formal_charge
+        fn = _cf_extract(
+            PYSCF_PATH, "PyscfSetupDialog", "calc_initial_charge_mult",
+            extra_globals={"Chem": chem, "logging": __import__("logging")},
+        )
+        fake = MagicMock()
+        fake.mol = mol
+        fake.charge_spin = _ValueRecorder()
+        fake.mult_spin = _ValueRecorder()
+        fn(fake)
+        return fake
+
+    def test_even_electrons_singlet(self):
+        fake = self._run(_MolWithAtoms([8, 1, 1]), 0)
+        assert fake.charge_spin.set_values == [0]
+        assert fake.mult_spin.set_values == [1]
+
+    def test_odd_electrons_doublet(self):
+        fake = self._run(_MolWithAtoms([6, 1, 1, 1]), 0)  # CH3 radical
+        assert fake.mult_spin.set_values == [2]
+
+    def test_no_molecule_is_noop(self):
+        fake = self._run(None, 0)
+        assert fake.charge_spin.set_values == []
