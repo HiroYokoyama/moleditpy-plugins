@@ -293,3 +293,25 @@ class TestOnFinished:
         ctx.refresh_3d_view.assert_not_called()
         ctx.push_undo_checkpoint.assert_not_called()
         self_stub.btn_run.setEnabled.assert_called_once_with(True)
+
+
+class _TwoAtomWorkMol(_FakeWorkMol):
+    """Single bond 0-1 with no flanking atoms: rotatable match exists but no
+    dihedral quartet can be built."""
+
+    def __init__(self):
+        super().__init__(matches=((0, 1),))
+
+    def GetAtomWithIdx(self, idx):
+        neighbors = {0: [1], 1: [0]}
+        return _FakeAtom2(idx, neighbors[idx])
+
+
+class TestUntangleWorkerDihedralGuard:
+    def test_match_without_flanking_atoms_reports_dihedral_error(self):
+        fn, _, _, _ = _untangle_env(_TwoAtomWorkMol(), [100.0])
+        s = _untangle_self()
+        fn(s)
+        new_mol, msg = s.finished.emit.call_args[0]
+        assert new_mol is None
+        assert msg == "Could not define dihedrals."
