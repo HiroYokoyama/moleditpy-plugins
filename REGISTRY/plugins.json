@@ -325,7 +325,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "VDW Radii Overlay",
-    "version": "2026.06.30",
+    "version": "2026.07.11",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes Van der Waals radii as a merged surface overlay using PyVista.",
@@ -338,8 +338,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/VDW_Radii_Overlay/vdw_radii_overlay.py",
-    "lastUpdated": "2026-06-30",
-    "sha256": "f1452b086eadfd0e91ca08cc4f3873f0afe66d227b6ce6ec537b8f30aa6ba055",
+    "lastUpdated": "2026-07-11",
+    "sha256": "ffc62fe7f7847aef8ac662a183ea60506edfaf71d5dd375f806239065f8edd95",
     "firstAppeared": "2025-12-17"
   },
   {
