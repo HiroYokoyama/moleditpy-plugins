@@ -120,6 +120,7 @@ class TestPasteXYZDialog:
 # ===========================================================================
 
 
+@pytest.mark.skip(reason="Gaussian Input Generator Neo retired; replaced by Gaussian Input Generator Pro")
 class TestRouteBuilderDialog:
     """RouteBuilderDialog — tabbed QDialog with combo-driven route preview."""
 
