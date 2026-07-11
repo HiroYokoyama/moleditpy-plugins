@@ -7,10 +7,13 @@ from PyQt6.QtWidgets import (
     QLabel,
     QComboBox,
     QSpinBox,
+    QDoubleSpinBox,
 )
 from PyQt6.QtCore import QTimer
 from rdkit.Chem import AllChem
+from rdkit import Geometry
 import logging
+import math
 
 PLUGIN_NAME = "Step Optimizer"
 PLUGIN_VERSION = "2026.07.12"
@@ -75,6 +78,19 @@ class StepOptimizerDialog(QDialog):
         hbox_steps.addWidget(self.spin_steps)
         hbox_steps.addStretch()
         layout.addLayout(hbox_steps)
+
+        # Max move per cycle (clamp on per-atom displacement per tick)
+        hbox_move = QHBoxLayout()
+        hbox_move.addWidget(QLabel("Max move/cycle (Å):"))
+        self.spin_max_move = QDoubleSpinBox()
+        self.spin_max_move.setRange(0.00, 10.00)
+        self.spin_max_move.setDecimals(2)
+        self.spin_max_move.setSingleStep(0.05)
+        self.spin_max_move.setValue(0.50)
+        self.spin_max_move.setSpecialValueText("Off")
+        hbox_move.addWidget(self.spin_max_move)
+        hbox_move.addStretch()
+        layout.addLayout(hbox_move)
 
         # Status labels
         self.lbl_step = QLabel("Step: 0")
@@ -168,7 +184,32 @@ class StepOptimizerDialog(QDialog):
                 return
 
             n_steps = self.spin_steps.value()
+            max_move = self.spin_max_move.value()
+
+            conf = self.target_mol.GetConformer()
+            snapshot = None
+            if max_move > 0:
+                snapshot = [
+                    (lambda p: (p.x, p.y, p.z))(conf.GetAtomPosition(i))
+                    for i in range(self.target_mol.GetNumAtoms())
+                ]
+
             res = self.ff.Minimize(maxIts=n_steps)
+
+            if snapshot is not None:
+                for i, (ox, oy, oz) in enumerate(snapshot):
+                    p = conf.GetAtomPosition(i)
+                    dx, dy, dz = p.x - ox, p.y - oy, p.z - oz
+                    dist = math.sqrt(dx * dx + dy * dy + dz * dz)
+                    if dist > max_move:
+                        scale = max_move / dist
+                        conf.SetAtomPosition(
+                            i,
+                            Geometry.Point3D(
+                                ox + dx * scale, oy + dy * scale, oz + dz * scale
+                            ),
+                        )
+
             self.step_count += n_steps
             self.steps_since_checkpoint += n_steps
 
@@ -177,12 +218,10 @@ class StepOptimizerDialog(QDialog):
             self.lbl_energy.setText(f"Energy: {energy:.4f} kcal/mol")
             self.context.refresh_3d_view()
 
-            if res == 0:
-                self._pause_timer()
-                self.lbl_state.setText("State: Converged")
-                self.context.push_undo_checkpoint()
-                self.steps_since_checkpoint = 0
-                self._reenable_controls()
+            # `res` (Minimize's return code) is intentionally not surfaced in
+            # the UI: the run continues regardless of convergence so the user
+            # can keep pulling atoms and watch the structure re-relax. The
+            # state label stays "State: Running" for the whole run.
         except Exception:
             logging.exception("Step Optimizer: error during optimization tick")
             self._pause_timer()

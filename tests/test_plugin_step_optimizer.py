@@ -12,10 +12,13 @@ Covers:
 
 from __future__ import annotations
 
+import math
 import re
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from conftest import extract_function, load_plugin, make_context, mock_optional_imports
 
@@ -153,13 +156,57 @@ class _FakeFF:
         return self.energy
 
 
+class _FakePoint:
+    """Plain (x, y, z) holder mimicking rdkit.Geometry.Point3D's attributes."""
+
+    def __init__(self, x, y, z):
+        self.x, self.y, self.z = x, y, z
+
+
+def _fake_point3d(x, y, z):
+    return _FakePoint(x, y, z)
+
+
 def _tick_fn():
     return extract_function(
-        STEP_OPT_PATH, "StepOptimizerDialog", "_tick", {"logging": MagicMock()}
+        STEP_OPT_PATH,
+        "StepOptimizerDialog",
+        "_tick",
+        {
+            "logging": MagicMock(),
+            "math": math,
+            "Geometry": SimpleNamespace(Point3D=_fake_point3d),
+        },
     )
 
 
-def _tick_self(mol, ff, steps=5, current_mol=None):
+class _FakeConf:
+    """Fake rdkit Conformer: positions list + SetAtomPosition call recording."""
+
+    def __init__(self, positions):
+        self.positions = list(positions)
+        self.set_calls = []
+
+    def GetAtomPosition(self, i):
+        return self.positions[i]
+
+    def SetAtomPosition(self, i, point):
+        self.set_calls.append((i, point))
+        self.positions[i] = point
+
+
+class _FakeTickMol:
+    def __init__(self, conf):
+        self._conf = conf
+
+    def GetConformer(self):
+        return self._conf
+
+    def GetNumAtoms(self):
+        return len(self._conf.positions)
+
+
+def _tick_self(mol, ff, steps=5, current_mol=None, max_move=0.0):
     if current_mol is None:
         current_mol = mol
     return SimpleNamespace(
@@ -171,6 +218,7 @@ def _tick_self(mol, ff, steps=5, current_mol=None):
         target_mol=mol,
         ff=ff,
         spin_steps=MagicMock(value=lambda: steps),
+        spin_max_move=MagicMock(value=lambda: max_move),
         step_count=0,
         steps_since_checkpoint=0,
         lbl_step=MagicMock(),
@@ -204,17 +252,21 @@ def _wire_helpers(self_):
 
 
 class TestStepOptimizerTick:
-    def test_converged_stops_timer_and_pushes_checkpoint(self):
+    # Continuous-run redesign (2026-07-12): the run must keep going when
+    # Minimize() reports convergence (res == 0), so the user can pull atoms
+    # mid-run and watch the structure re-relax. The timer is only ever
+    # stopped by Stop, Close, the molecule-changed guard, or an error - never
+    # by convergence - and no undo checkpoint is pushed from _tick anymore.
+    def test_converged_minimize_does_not_stop_the_run(self):
         fn = _tick_fn()
         mol = MagicMock()
         ff = _FakeFF(minimize_result=0, energy=3.14159)
         self_ = _wire_helpers(_tick_self(mol, ff, steps=5))
         fn(self_)
-        self_.timer.stop.assert_called_once()
-        self_.context.push_undo_checkpoint.assert_called_once()
+        self_.timer.stop.assert_not_called()
+        self_.context.push_undo_checkpoint.assert_not_called()
         assert self_.step_count == 5
-        assert self_.running is False
-        assert "Converged" in self_.lbl_state.setText.call_args[0][0]
+        assert self_.running is True
 
     def test_non_converged_keeps_running_and_refreshes_view(self):
         fn = _tick_fn()
@@ -226,6 +278,18 @@ class TestStepOptimizerTick:
         self_.context.push_undo_checkpoint.assert_not_called()
         self_.context.refresh_3d_view.assert_called_once()
         assert self_.step_count == 3
+
+    def test_state_label_untouched_regardless_of_convergence(self):
+        # No "converged" indication anywhere: the state label is left as
+        # whatever _start already set ("State: Running") for the whole run,
+        # on both a converged (res == 0) and non-converged (res == 1) tick.
+        for res in (0, 1):
+            fn = _tick_fn()
+            mol = MagicMock()
+            ff = _FakeFF(minimize_result=res, energy=1.0)
+            self_ = _wire_helpers(_tick_self(mol, ff, steps=1))
+            fn(self_)
+            self_.lbl_state.setText.assert_not_called()
 
     def test_molecule_changed_guard_stops_without_minimize(self):
         fn = _tick_fn()
@@ -262,12 +326,70 @@ class TestStepOptimizerTick:
         assert "Error" in self_.lbl_state.setText.call_args[0][0]
 
 
+class _MovingFF(_FakeFF):
+    """Fake force field whose Minimize() actually displaces conformer atoms,
+    so the max-move clamp has real displacement vectors to rescale."""
+
+    def __init__(self, conf, moves, **kwargs):
+        super().__init__(**kwargs)
+        self.conf = conf
+        self.moves = moves  # list of (dx, dy, dz) applied to each atom
+
+    def Minimize(self, maxIts=None):
+        self.minimize_calls.append(maxIts)
+        for i, (dx, dy, dz) in enumerate(self.moves):
+            p = self.conf.positions[i]
+            self.conf.positions[i] = _FakePoint(p.x + dx, p.y + dy, p.z + dz)
+        return self.minimize_result
+
+
+class TestStepOptimizerMaxMoveClamp:
+    def test_large_displacement_rescaled_to_exactly_max_move(self):
+        conf = _FakeConf([_FakePoint(0.0, 0.0, 0.0)])
+        mol = _FakeTickMol(conf)
+        # atom 0 moves 3.0 A along x; clamp is 0.5 A
+        ff = _MovingFF(conf, moves=[(3.0, 0.0, 0.0)])
+        self_ = _wire_helpers(_tick_self(mol, ff, steps=1, max_move=0.5))
+        fn = _tick_fn()
+        fn(self_)
+
+        assert len(conf.set_calls) == 1
+        i, point = conf.set_calls[0]
+        assert i == 0
+        dist = math.sqrt(point.x**2 + point.y**2 + point.z**2)
+        assert math.isclose(dist, 0.5, rel_tol=1e-9, abs_tol=1e-9)
+
+    def test_small_displacement_left_untouched(self):
+        conf = _FakeConf([_FakePoint(0.0, 0.0, 0.0)])
+        mol = _FakeTickMol(conf)
+        # atom 0 moves only 0.1 A; clamp is 0.5 A -> no rescale needed
+        ff = _MovingFF(conf, moves=[(0.1, 0.0, 0.0)])
+        self_ = _wire_helpers(_tick_self(mol, ff, steps=1, max_move=0.5))
+        fn = _tick_fn()
+        fn(self_)
+
+        assert conf.set_calls == []
+        assert conf.positions[0].x == pytest.approx(0.1)
+
+    def test_clamp_off_skips_snapshot_and_set_position(self):
+        conf = _FakeConf([_FakePoint(0.0, 0.0, 0.0)])
+        mol = _FakeTickMol(conf)
+        ff = _MovingFF(conf, moves=[(5.0, 0.0, 0.0)])
+        self_ = _wire_helpers(_tick_self(mol, ff, steps=1, max_move=0.0))
+        fn = _tick_fn()
+        fn(self_)
+
+        assert ff.minimize_calls == [1]
+        assert conf.set_calls == []
+        assert conf.positions[0].x == pytest.approx(5.0)
+
+
 # ---------------------------------------------------------------------------
 # _start
 # ---------------------------------------------------------------------------
 
 
-class _FakeConf:
+class _FakeStartConf:
     def __init__(self, n):
         self.n = n
 
@@ -287,7 +409,7 @@ class _FakeStartMol:
         return self.n
 
     def GetConformer(self):
-        return _FakeConf(self.n)
+        return _FakeStartConf(self.n)
 
 
 _UNSET = object()
