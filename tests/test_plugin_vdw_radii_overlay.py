@@ -106,12 +106,86 @@ class TestVDWSettingsEdgeCases:
         mod._vdw_settings["resolution"] = 0.2
         mod.save_settings()
         on_disk = json.loads(Path(mod.SETTINGS_FILE).read_text())
-        assert on_disk == {"occupancy": 0.9, "resolution": 0.2}
+        assert on_disk == {
+            "occupancy": 0.9,
+            "resolution": 0.2,
+            "base_style": "default",
+        }
 
     def test_defaults(self, tmp_path):
         mod = self._mod(tmp_path)
         assert mod._vdw_settings["occupancy"] == pytest.approx(0.3)
         assert mod._vdw_settings["resolution"] == pytest.approx(0.125)
+        assert mod._vdw_settings["base_style"] == "default"
+
+
+class TestVDWBaseStyleSetting:
+    def _mod(self, tmp_path):
+        with mock_optional_imports():
+            mod = load_plugin(VDW_PATH)
+        mod.SETTINGS_FILE = str(tmp_path / "vdw.json")
+        return mod
+
+    def test_round_trip_base_style_stick(self, tmp_path):
+        mod = self._mod(tmp_path)
+        mod._vdw_settings["base_style"] = "stick"
+        mod.save_settings()
+        mod._vdw_settings["base_style"] = "default"
+        mod.load_settings()
+        assert mod._vdw_settings["base_style"] == "stick"
+
+    def test_invalid_base_style_in_file_ignored(self, tmp_path):
+        mod = self._mod(tmp_path)
+        Path(mod.SETTINGS_FILE).write_text(json.dumps({"base_style": "bogus"}))
+        mod.load_settings()
+        assert mod._vdw_settings["base_style"] == "default"
+
+    def test_missing_base_style_key_keeps_default(self, tmp_path):
+        mod = self._mod(tmp_path)
+        Path(mod.SETTINGS_FILE).write_text(json.dumps({"occupancy": 0.6}))
+        mod.load_settings()
+        assert mod._vdw_settings["base_style"] == "default"
+
+    def test_base_style_to_override_map(self, tmp_path):
+        mod = self._mod(tmp_path)
+        assert mod._BASE_STYLE_TO_OVERRIDE["default"] == "ball_and_stick"
+        assert mod._BASE_STYLE_TO_OVERRIDE["stick"] == "stick"
+
+
+# ---------------------------------------------------------------------------
+# draw_vdw_overlay: base model style_override selection
+# ---------------------------------------------------------------------------
+
+
+class TestDrawVdwOverlayBaseStyle:
+    def _make_mw_and_mol(self):
+        mw = MagicMock()
+        mw.view_3d_manager._plugin_color_overrides = {}
+        mol = MagicMock()
+        mol.GetNumAtoms.return_value = 0  # skip the heavy overlay path
+        return mw, mol
+
+    def test_default_base_style_uses_ball_and_stick(self, tmp_path):
+        with mock_optional_imports():
+            mod = load_plugin(VDW_PATH)
+        mod.SETTINGS_FILE = str(tmp_path / "vdw.json")
+        mod._vdw_settings["base_style"] = "default"
+        mw, mol = self._make_mw_and_mol()
+        mod.draw_vdw_overlay(mw, mol)
+        mw.view_3d_manager.draw_standard_3d_style.assert_called_once_with(
+            mol, style_override="ball_and_stick"
+        )
+
+    def test_stick_base_style_uses_stick_override(self, tmp_path):
+        with mock_optional_imports():
+            mod = load_plugin(VDW_PATH)
+        mod.SETTINGS_FILE = str(tmp_path / "vdw.json")
+        mod._vdw_settings["base_style"] = "stick"
+        mw, mol = self._make_mw_and_mol()
+        mod.draw_vdw_overlay(mw, mol)
+        mw.view_3d_manager.draw_standard_3d_style.assert_called_once_with(
+            mol, style_override="stick"
+        )
 
 
 class TestVDWInitialize:

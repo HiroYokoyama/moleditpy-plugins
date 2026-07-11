@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QPushButton,
     QDoubleSpinBox,
+    QComboBox,
 )
 from PyQt6.QtGui import QColor
 from PyQt6.QtCore import Qt
@@ -31,7 +32,7 @@ except ImportError:
 
 # Plugin Metadata
 PLUGIN_NAME = "VDW Radii Overlay"
-PLUGIN_VERSION = "2026.06.30"
+PLUGIN_VERSION = "2026.07.11"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Visualizes VDW radii as a translucent surface overlay using PyVista. Refactored for V3 API."
@@ -41,10 +42,20 @@ SETTINGS_FILE = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "vdw_radii_overlay.json"
 )
 
+# Base model style shown underneath the translucent VDW overlay.
+# "default" -> ball_and_stick (the plugin's original behavior)
+# "stick"   -> thin sticks, so the overlay reads more clearly.
+BASE_STYLE_OPTIONS = ["Default", "Stick"]
+_BASE_STYLE_TO_OVERRIDE = {
+    "default": "ball_and_stick",
+    "stick": "stick",
+}
+
 # Global Settings (State)
 _vdw_settings = {
     "occupancy": 0.3,  # Opacity (0.0 - 1.0)
     "resolution": 0.125,  # Voxel spacing in Angstroms
+    "base_style": "default",  # "default" or "stick"
 }
 
 
@@ -57,6 +68,8 @@ def load_settings():
                     _vdw_settings["occupancy"] = float(saved["occupancy"])
                 if "resolution" in saved:
                     _vdw_settings["resolution"] = float(saved["resolution"])
+                if "base_style" in saved and saved["base_style"] in _BASE_STYLE_TO_OVERRIDE:
+                    _vdw_settings["base_style"] = saved["base_style"]
     except Exception as e:
         logging.warning("Error loading VDW settings: %s", e)
 
@@ -128,6 +141,20 @@ class VDWConfigWindow(QDialog):
 
         layout.addLayout(res_layout)
 
+        # Base Model Style
+        base_layout = QHBoxLayout()
+        base_layout.addWidget(QLabel("Base model:"))
+        self.combo_base_style = QComboBox()
+        self.combo_base_style.addItems(BASE_STYLE_OPTIONS)
+        current_base = _vdw_settings.get("base_style", "default")
+        idx = 1 if current_base == "stick" else 0
+        self.combo_base_style.setCurrentIndex(idx)
+        self.combo_base_style.currentIndexChanged.connect(
+            self.on_base_style_changed
+        )
+        base_layout.addWidget(self.combo_base_style)
+        layout.addLayout(base_layout)
+
         # Reset Button
         btn_reset = QPushButton("Reset to Defaults")
         btn_reset.clicked.connect(self.reset_defaults)
@@ -178,32 +205,43 @@ class VDWConfigWindow(QDialog):
         save_settings()
         self.update_view()
 
+    def on_base_style_changed(self, index):
+        base_style = "stick" if index == 1 else "default"
+        _vdw_settings["base_style"] = base_style
+        save_settings()
+        self.update_view()
+
     def reset_defaults(self):
         # Default values
         def_occ = 0.3
         def_res = 0.125
+        def_base = "default"
 
         # Block signals to prevent redundant updates/saves during setting
         self.slider_occ.blockSignals(True)
         self.spin_occ.blockSignals(True)
         self.slider_res.blockSignals(True)
         self.spin_res.blockSignals(True)
+        self.combo_base_style.blockSignals(True)
 
         # Set values
         self.slider_occ.setValue(int(def_occ * 100))
         self.spin_occ.setValue(def_occ)
         self.slider_res.setValue(int(def_res * 100))
         self.spin_res.setValue(def_res)
+        self.combo_base_style.setCurrentIndex(0)
 
         # Unblock
         self.slider_occ.blockSignals(False)
         self.spin_occ.blockSignals(False)
         self.slider_res.blockSignals(False)
         self.spin_res.blockSignals(False)
+        self.combo_base_style.blockSignals(False)
 
         # Update settings and view once
         _vdw_settings["occupancy"] = def_occ
         _vdw_settings["resolution"] = def_res
+        _vdw_settings["base_style"] = def_base
         save_settings()
         self.update_view()
 
@@ -211,21 +249,25 @@ class VDWConfigWindow(QDialog):
         """Update UI elements from global settings."""
         occ = _vdw_settings.get("occupancy", 0.3)
         res = _vdw_settings.get("resolution", 0.125)
+        base_style = _vdw_settings.get("base_style", "default")
 
         self.slider_occ.blockSignals(True)
         self.spin_occ.blockSignals(True)
         self.slider_res.blockSignals(True)
         self.spin_res.blockSignals(True)
+        self.combo_base_style.blockSignals(True)
 
         self.slider_occ.setValue(int(occ * 100))
         self.spin_occ.setValue(occ)
         self.slider_res.setValue(int(res * 100))
         self.spin_res.setValue(res)
+        self.combo_base_style.setCurrentIndex(1 if base_style == "stick" else 0)
 
         self.slider_occ.blockSignals(False)
         self.spin_occ.blockSignals(False)
         self.slider_res.blockSignals(False)
         self.spin_res.blockSignals(False)
+        self.combo_base_style.blockSignals(False)
 
     def update_view(self):
         # Trigger redraw via context (modern V3 pattern)
@@ -237,15 +279,18 @@ def draw_vdw_overlay(mw, mol):
     3D Rendering Callback for VDW Overlay Style.
     Receives (mw, mol) from the engine.
     """
-    # 1. Draw standard Ball & Stick first
+    # 1. Draw the base model first (Ball & Stick by default, or Stick when
+    # the user picked "Stick" in the settings dialog -- see BASE_STYLE_OPTIONS).
+    base_style = _vdw_settings.get("base_style", "default")
+    base_override = _BASE_STYLE_TO_OVERRIDE.get(base_style, "ball_and_stick")
     # # [DIRECT ACCESS] to manager
     if hasattr(mw, "view_3d_manager"):
-        mw.view_3d_manager.draw_standard_3d_style(mol, style_override="ball_and_stick")
+        mw.view_3d_manager.draw_standard_3d_style(mol, style_override=base_override)
     else:
         # Emergency fallback for legacy systems
         print("VDW Warning: view_3d_manager not found, using legacy draw path.")
         if hasattr(mw, "view3d"):
-            mw.view3d.draw_standard_3d_style(mol, style_override="ball_and_stick")
+            mw.view3d.draw_standard_3d_style(mol, style_override=base_override)
 
     # 2. Draw VDW Surface Overlay
     if mol and mol.GetNumAtoms() > 0:
