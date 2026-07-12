@@ -260,7 +260,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Atom Colorizer",
-    "version": "2026.06.26",
+    "version": "2026.07.12",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Select atoms in the 3D viewer and apply color.",
@@ -274,8 +274,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Atom_Colorizer/atom_colorizer.py",
-    "lastUpdated": "2026-06-26",
-    "sha256": "533ff5bf52bca7b0c6998654c6b9056d385fef4e221e263ae78134d8ef21f06e",
+    "lastUpdated": "2026-07-12",
+    "sha256": "db95b938198ee86f2084e719b64ea39dc04aa2a2652d6f31b6e8f5343a2f92d9",
     "firstAppeared": "2025-12-16"
   },
   {
@@ -298,7 +298,7 @@
     ],
     "downloadUrl": "../plugins/Bond_Colorizer/bond_colorizer.py",
     "lastUpdated": "2026-07-12",
-    "sha256": "86cda3c3891af9af92f79535df3bcda2e1801b01a40bc25f2a5df111f8764b70",
+    "sha256": "2048dad49a5f596446060c13deb6be18557ecac6ce224d0dd617257fb8b656f1",
     "firstAppeared": "2026-07-12"
   },
   {

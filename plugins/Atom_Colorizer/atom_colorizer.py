@@ -26,7 +26,7 @@ except ImportError:
 
 # Plugin Metadata
 PLUGIN_NAME = "Atom Colorizer"
-PLUGIN_VERSION = "2026.06.26"
+PLUGIN_VERSION = "2026.07.12"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -59,30 +59,66 @@ class AtomColorizerWindow(QDialog):
         # Register window for V3 lifecycle management
         self.context.register_window("main_panel", self)
 
-        # Ensure 3D picking is active while this window is open.
-        mw = self.context.get_main_window()
-        if mw:
-            try:
-                if hasattr(mw, "edit_3d_manager"):
-                    self._restore_measurement_mode = bool(
-                        getattr(mw.edit_3d_manager, "measurement_mode", False)
-                    )
-                    self._restore_edit_mode = bool(
-                        getattr(mw.edit_3d_manager, "is_3d_edit_mode", False)
-                    )
-                if hasattr(mw, "edit_3d_manager") and not getattr(
-                    mw.edit_3d_manager, "measurement_mode", False
-                ):
-                    if hasattr(mw, "init_manager") and hasattr(
-                        mw.init_manager, "measurement_action"
-                    ):
-                        mw.init_manager.measurement_action.setChecked(True)
-                    mw.edit_3d_manager.toggle_measurement_mode(True)
-                    self._forced_measurement_mode = True
-            except Exception as _e:
-                logging.warning("[atom_colorizer.py:65] silenced: %s", _e)
+        # Ensure the host "3D Select" (measurement) mode is active while this
+        # window is open, so clicking atoms in the viewer populates a selection.
+        self._enter_select_mode()
 
         self.context.show_status_message("Atom Colorizer: 3D picking enabled.")
+
+    def _enter_select_mode(self):
+        """Remember the current 3D interaction mode and switch to select mode."""
+        mw = self.context.get_main_window()
+        if not mw or not hasattr(mw, "edit_3d_manager"):
+            return
+        try:
+            e3d = mw.edit_3d_manager
+            self._restore_measurement_mode = bool(
+                getattr(e3d, "measurement_mode", False)
+            )
+            self._restore_edit_mode = bool(getattr(e3d, "is_3d_edit_mode", False))
+            if not self._restore_measurement_mode:
+                if hasattr(mw, "init_manager") and hasattr(
+                    mw.init_manager, "measurement_action"
+                ):
+                    mw.init_manager.measurement_action.setChecked(True)
+                e3d.toggle_measurement_mode(True)
+                self._forced_measurement_mode = True
+        except Exception as _e:
+            logging.warning("[atom_colorizer] enter select mode silenced: %s", _e)
+
+    def _restore_select_mode(self):
+        """Clear any selection this window drove and restore the prior 3D mode.
+
+        Runs unconditionally on close so the viewer never gets stuck in a
+        half-selected / non-interactive state (VTK interactor reset happens
+        inside toggle_measurement_mode / toggle_3d_edit_mode).
+        """
+        mw = self.context.get_main_window()
+        if not mw or not hasattr(mw, "edit_3d_manager"):
+            return
+        e3d = mw.edit_3d_manager
+        try:
+            # Always drop the picked-atom selection and its 3D highlight.
+            if hasattr(e3d, "clear_measurement_selection"):
+                e3d.clear_measurement_selection()
+            if hasattr(e3d, "selected_atoms_3d"):
+                e3d.selected_atoms_3d.clear()
+                if hasattr(e3d, "update_3d_selection_display"):
+                    e3d.update_3d_selection_display()
+        except Exception as _e:
+            logging.warning("[atom_colorizer] clear selection silenced: %s", _e)
+        try:
+            if hasattr(mw, "init_manager") and hasattr(
+                mw.init_manager, "measurement_action"
+            ):
+                mw.init_manager.measurement_action.setChecked(
+                    self._restore_measurement_mode
+                )
+            e3d.toggle_measurement_mode(self._restore_measurement_mode)
+            if hasattr(mw, "ui_manager"):
+                mw.ui_manager.toggle_3d_edit_mode(self._restore_edit_mode)
+        except Exception as _e:
+            logging.warning("[atom_colorizer] restore mode silenced: %s", _e)
 
     def init_ui(self):
         layout = QVBoxLayout()
@@ -149,26 +185,33 @@ class AtomColorizerWindow(QDialog):
         self.resize(300, 400)
 
     def get_selection_from_viewer(self):
-        """Get selected atom indices from the context (2D) and Edit3DManager (3D)."""
-        # Fetch 2D indices from core API
-        indices = set(self.context.get_selected_atom_indices())
+        """Get selected atom indices from the context (2D) and Edit3DManager (3D).
 
-        # Fetch 3D indices directly from Edit3DManager due to "JUST PLUGIN" constraint
-        mw = self.context.get_main_window()
-        if mw and hasattr(mw, "edit_3d_manager"):
-            indices_3d = getattr(mw.edit_3d_manager, "selected_atoms_3d", set())
-            if isinstance(indices_3d, (set, list)):
-                indices.update(indices_3d)
-            picked_for_measurement = getattr(
-                mw.edit_3d_manager, "selected_atoms_for_measurement", []
-            )
-            if isinstance(picked_for_measurement, (set, list, tuple)):
-                indices.update(int(i) for i in picked_for_measurement)
+        Wrapped defensively: a transient error here must never propagate out of
+        the polling timer, otherwise selection sync would stop for good.
+        """
+        try:
+            # Fetch 2D indices from core API
+            indices = set(self.context.get_selected_atom_indices())
 
-        sorted_indices = sorted(list(indices))
-        new_text = ",".join(map(str, sorted_indices))
-        if self.le_indices.text() != new_text:
-            self.le_indices.setText(new_text)
+            # Fetch 3D indices directly from Edit3DManager (measurement + select).
+            mw = self.context.get_main_window()
+            if mw and hasattr(mw, "edit_3d_manager"):
+                indices_3d = getattr(mw.edit_3d_manager, "selected_atoms_3d", set())
+                if isinstance(indices_3d, (set, list)):
+                    indices.update(indices_3d)
+                picked_for_measurement = getattr(
+                    mw.edit_3d_manager, "selected_atoms_for_measurement", []
+                )
+                if isinstance(picked_for_measurement, (set, list, tuple)):
+                    indices.update(int(i) for i in picked_for_measurement)
+
+            sorted_indices = sorted(int(i) for i in indices)
+            new_text = ",".join(map(str, sorted_indices))
+            if self.le_indices.text() != new_text:
+                self.le_indices.setText(new_text)
+        except Exception as _e:
+            logging.warning("[atom_colorizer] selection sync silenced: %s", _e)
 
     def _auto_update_selection(self):
         """Timer slot to auto-update selection."""
@@ -236,31 +279,16 @@ class AtomColorizerWindow(QDialog):
             QMessageBox.critical(self, "Error", f"Failed to reset colors: {e}")
 
     def closeEvent(self, event: QCloseEvent):
-        """Restore previous 3D interaction mode when the panel closes."""
+        """Reset selection and restore the prior 3D interaction mode on close."""
         try:
             if self.sel_timer.isActive():
                 self.sel_timer.stop()
         except Exception as _e:
-            logging.warning("[atom_colorizer.py:216] silenced: %s", _e)
+            logging.warning("[atom_colorizer] stop timer silenced: %s", _e)
 
-        mw = self.context.get_main_window()
-        if mw and hasattr(mw, "edit_3d_manager"):
-            try:
-                if self._forced_measurement_mode:
-                    mw.edit_3d_manager.clear_measurement_selection()
-                    if hasattr(mw, "init_manager") and hasattr(
-                        mw.init_manager, "measurement_action"
-                    ):
-                        mw.init_manager.measurement_action.setChecked(
-                            self._restore_measurement_mode
-                        )
-                    mw.edit_3d_manager.toggle_measurement_mode(
-                        self._restore_measurement_mode
-                    )
-                if hasattr(mw, "ui_manager"):
-                    mw.ui_manager.toggle_3d_edit_mode(self._restore_edit_mode)
-            except Exception as _e:
-                logging.warning("[atom_colorizer.py:229] silenced: %s", _e)
+        # Always reset — even if this window did not force select mode — so the
+        # viewer is never left stuck with a stale selection / interactor state.
+        self._restore_select_mode()
         super().closeEvent(event)
 
 
