@@ -22,7 +22,7 @@ except ImportError:
     CRYPTOGRAPHY_AVAILABLE = False
 
 PLUGIN_NAME = "Encrypted Project"
-PLUGIN_VERSION = "2026.07.04"
+PLUGIN_VERSION = "2026.07.12"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -386,10 +386,10 @@ class PmeencPlugin:
 
             except Exception as e:
                 if not isinstance(e, ValueError):
+                    logging.exception("Decryption error: %s", e)
                     QMessageBox.critical(
                         self.mw, "Decryption Error", f"Failed to decrypt: {e}"
                     )
-                    logging.exception("Decryption error: %s", e)
                 raise  # Re-raise to signal failure to load_command_line_file
 
 

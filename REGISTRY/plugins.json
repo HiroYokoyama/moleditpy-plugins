@@ -1268,7 +1268,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Encrypted Project",
-    "version": "2026.07.04",
+    "version": "2026.07.12",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Securely saves molecular data using AES-128 encryption with password protection (.pmeenc file).",
@@ -1280,8 +1280,8 @@
       "cryptography"
     ],
     "downloadUrl": "../plugins/Encrypted_Project/encrypted_project.py",
-    "lastUpdated": "2026-07-04",
-    "sha256": "637ff54365f13475cf92b5078c757244e60e2b569a505a61cf2d36298a85d9a7",
+    "lastUpdated": "2026-07-12",
+    "sha256": "28048ef1846109ff5483d97ff217fec72bb6b7e516b2d7aeedfe438f4208c534",
     "firstAppeared": "2026-02-12"
   },
   {
