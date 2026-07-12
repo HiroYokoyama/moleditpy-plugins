@@ -340,6 +340,10 @@ class BondColorizerWindow(QDialog):
         # viewer is never left stuck with a stale selection / interactor state.
         self._restore_select_mode()
         super().closeEvent(event)
+        # Unregister so the next open builds a fresh dialog that re-enters select
+        # mode and restarts the picking timer; reusing the closed one left the
+        # viewer non-selectable.
+        self.context.register_window("main_panel", None)
 
 
 def launch(context):

@@ -370,3 +370,22 @@ class TestBondColorizerLoadRefresh:
         mw.view_3d_manager._plugin_bond_color_overrides = {0: "#ff0000"}
         reset()
         assert mw.view_3d_manager._plugin_bond_color_overrides == {}
+
+
+class TestBondColorizerClose:
+    def test_close_unregisters_window_so_reopen_is_fresh(self):
+        """closeEvent must unregister 'main_panel' so the next open builds a
+        fresh dialog (re-entering select mode); reusing the closed one left the
+        viewer non-selectable."""
+        fn = extract_function(
+            COLORIZER_PATH, "BondColorizerWindow", "closeEvent",
+            extra_globals={
+                "super": lambda *a: MagicMock(),
+                "logging": MagicMock(),
+            },
+        )
+        self_ = MagicMock()
+        self_.sel_timer.isActive.return_value = True
+        fn(self_, MagicMock())
+        self_._restore_select_mode.assert_called_once()
+        self_.context.register_window.assert_called_with("main_panel", None)
