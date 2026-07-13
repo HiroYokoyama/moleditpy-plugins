@@ -126,11 +126,7 @@
             text-align: center;
             margin-bottom: 2.5rem;
             padding: 8px;
-            position: sticky;
-            top: 20px;
-            z-index: 50;
             background: var(--bg-color);
-            border-bottom: 1px solid #1e293b;
             width: fit-content;
             margin-left: auto;
             margin-right: auto;
@@ -155,11 +151,16 @@
             border-color: var(--text-sub);
         }
 
-        .filter-btn.active,
         .filter-btn.active-all {
             background: var(--primary);
             color: #ffffff;
             border-color: var(--primary);
+        }
+
+        .filter-btn.active {
+            background: #475569;
+            color: #ffffff;
+            border-color: #475569;
         }
 
         .container {
