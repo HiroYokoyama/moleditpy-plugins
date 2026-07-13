@@ -134,6 +134,12 @@ ALL_FIELDS: list[dict] = [
         "default": True,
     },
     {
+        "key": "installed_plugins",
+        "label": "Installed Plugins",
+        "description": "List of currently installed plugins and their versions.",
+        "default": False,
+    },
+    {
         "key": "note",
         "label": "Custom Note",
         "description": "User-defined free-text note attached to each save.",
@@ -220,12 +226,12 @@ def _collect_field(key: str, mw) -> str:
 
         if key == "saved_path":
             if mw is not None:
-                val = _try_getattr_chain(
-                    mw,
-                    "state_manager.current_file_path",
-                    "io_manager.current_project_path",
-                    "current_file_path",
-                )
+                val = None
+                if hasattr(mw, "get_current_file_path"):
+                    val = mw.get_current_file_path()
+                if not val and hasattr(mw, "init_manager") and hasattr(mw.init_manager, "current_file_path"):
+                    val = mw.init_manager.current_file_path
+                
                 if val:
                     return os.path.abspath(val)
             return "(unknown — save path not yet available)"
@@ -255,16 +261,24 @@ def _collect_field(key: str, mw) -> str:
             return platform.python_version()
 
         if key == "app_version":
-            if mw is not None:
-                val = _try_getattr_chain(
-                    mw,
-                    "MOLEDITPY_VERSION",
-                    "init_manager.app_version",
-                    "app_version",
-                )
-                if val:
-                    return val
+            try:
+                from moleditpy.utils.constants import VERSION
+                return str(VERSION)
+            except ImportError:
+                pass
+            try:
+                from moleditpy_linux.utils.constants import VERSION
+                return str(VERSION)
+            except ImportError:
+                pass
             return "(unknown)"
+
+        if key == "installed_plugins":
+            if mw is not None and hasattr(mw, "plugin_manager"):
+                plugins = getattr(mw.plugin_manager, "plugins", [])
+                if plugins:
+                    return ", ".join(f"{p.get('name', 'Unknown')} v{p.get('version', 'Unknown')}" for p in plugins)
+            return "(none/unknown)"
 
     except Exception:
         logging.debug(

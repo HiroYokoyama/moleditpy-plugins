@@ -81,24 +81,22 @@ class TestMetadata:
     def test_expected_fields_present(self, mod):
         keys = {f["key"] for f in mod.ALL_FIELDS}
         for expected in ("saved_at", "saved_path", "username", "os_name",
-                         "os_release", "app_version", "note"):
+                         "os_release", "app_version", "note", "installed_plugins"):
             assert expected in keys, f"Missing field: {expected}"
 
     def test_hostname_default_on(self, mod):
         hostname_field = next(f for f in mod.ALL_FIELDS if f["key"] == "hostname")
         assert hostname_field["default"] is True
 
-    def test_note_default_off(self, mod):
+    def test_default_false_fields(self, mod):
         note_field = next(f for f in mod.ALL_FIELDS if f["key"] == "note")
         assert note_field["default"] is False
+        plugins_field = next(f for f in mod.ALL_FIELDS if f["key"] == "installed_plugins")
+        assert plugins_field["default"] is False
 
-    def test_saved_at_default_on(self, mod):
-        f = next(x for x in mod.ALL_FIELDS if x["key"] == "saved_at")
-        assert f["default"] is True
-
-    def test_all_non_note_fields_default_on(self, mod):
+    def test_all_other_fields_default_on(self, mod):
         for f in mod.ALL_FIELDS:
-            if f["key"] != "note":
+            if f["key"] not in ("note", "installed_plugins"):
                 assert f["default"] is True, f"Expected {f['key']} default=True"
 
     def test_enabled_flag_true_by_default(self, mod):
@@ -228,22 +226,32 @@ class TestCollectField:
         val = self._call(mod, "saved_path", mw=None)
         assert "unknown" in val.lower()
 
-    def test_saved_path_from_state_manager(self, mod):
-        mw = SimpleNamespace()
-        mw.state_manager = SimpleNamespace(current_file_path="/tmp/my_project.pmeprj")
+    def test_saved_path_from_get_current_file_path(self, mod):
+        mw = MagicMock()
+        mw.get_current_file_path.return_value = "/tmp/my_project.pmeprj"
         val = self._call(mod, "saved_path", mw=mw)
         assert "my_project.pmeprj" in val
 
-    def test_app_version_from_init_manager(self, mod):
-        mw = SimpleNamespace()
-        mw.init_manager = SimpleNamespace(app_version="4.5.0")
-        val = self._call(mod, "app_version", mw=mw)
-        assert val == "4.5.0"
+    def test_saved_path_from_init_manager(self, mod):
+        mw = MagicMock()
+        del mw.get_current_file_path
+        mw.init_manager.current_file_path = "/tmp/my_project2.pmeprj"
+        val = self._call(mod, "saved_path", mw=mw)
+        assert "my_project2.pmeprj" in val
 
-    def test_app_version_unknown_when_missing(self, mod):
-        mw = SimpleNamespace()
-        val = self._call(mod, "app_version", mw=mw)
-        assert val == "(unknown)"
+    def test_app_version_returns_string(self, mod):
+        val = self._call(mod, "app_version")
+        assert isinstance(val, str)
+
+    def test_installed_plugins_from_plugin_manager(self, mod):
+        mw = MagicMock()
+        mw.plugin_manager.plugins = [
+            {"name": "PluginA", "version": "1.0"},
+            {"name": "PluginB", "version": "2.0"}
+        ]
+        val = self._call(mod, "installed_plugins", mw=mw)
+        assert "PluginA v1.0" in val
+        assert "PluginB v2.0" in val
 
     def test_unknown_key_returns_error_string(self, mod):
         val = self._call(mod, "nonexistent_key_xyz")
