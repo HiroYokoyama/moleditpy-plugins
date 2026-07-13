@@ -1580,8 +1580,8 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Advanced Gaussian Input Generator with Preview and Presets.",
     "tags": [
-      "input generator",
-      "export"
+      "Generator",
+      "Export"
     ],
     "dependencies": [],
     "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_gaussian_input_generator_pro/releases/download/v1.1.0/gaussian_input_generator_pro_1.1.0.zip",
