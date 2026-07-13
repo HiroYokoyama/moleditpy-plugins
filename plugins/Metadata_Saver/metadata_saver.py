@@ -161,6 +161,7 @@ def _config_path() -> str:
 def _default_config() -> dict:
     return {
         "enabled": True,
+        "silence_notice": False,
         "enabled_fields": {f["key"]: f["default"] for f in ALL_FIELDS},
         "custom_note": "",
     }
@@ -175,6 +176,7 @@ def load_config() -> dict:
                 data = json.load(fh)
             cfg = _default_config()
             cfg["enabled"] = bool(data.get("enabled", True))
+            cfg["silence_notice"] = bool(data.get("silence_notice", False))
             if "enabled_fields" in data and isinstance(data["enabled_fields"], dict):
                 cfg["enabled_fields"].update(data["enabled_fields"])
             cfg["custom_note"] = data.get("custom_note", "")
@@ -326,7 +328,9 @@ def initialize(context) -> None:
     context.register_load_handler(on_load_project)
     context.register_document_reset_handler(on_document_reset)
 
-    logging.info("Metadata Saver: initialized (v%s).", PLUGIN_VERSION)
+    cfg = load_config()
+    if not cfg.get("silence_notice", False):
+        logging.info("Metadata Saver: initialized (v%s).", PLUGIN_VERSION)
 
 
 # ---------------------------------------------------------------------------
@@ -354,11 +358,12 @@ def on_save_project() -> dict | None:
         if not metadata:
             return None
 
-        logging.info(
-            "Metadata Saver: embedding %d metadata field(s) in project. "
-            "NOTE — this data is personal; do not share with anonymous users.",
-            len(metadata),
-        )
+        if not cfg.get("silence_notice", False):
+            logging.info(
+                "Metadata Saver: embedding %d metadata field(s) in project. "
+                "NOTE — this data is personal; do not share with anonymous users.",
+                len(metadata),
+            )
         return {
             "metadata": metadata,
             "plugin_version": PLUGIN_VERSION,
@@ -450,6 +455,10 @@ class MetadataSaverDialog(QDialog):
         self._chk_master.setStyleSheet("font-weight: bold; font-size: 12px;")
         self._chk_master.toggled.connect(self._on_master_toggled)
         root.addWidget(self._chk_master)
+
+        self._chk_silence = QCheckBox("Silence privacy notice in console on save")
+        self._chk_silence.setChecked(self._cfg.get("silence_notice", False))
+        root.addWidget(self._chk_silence)
 
         # Privacy banner
         banner = QLabel(
@@ -579,6 +588,7 @@ class MetadataSaverDialog(QDialog):
         )
         return {
             "enabled": self._chk_master.isChecked(),
+            "silence_notice": self._chk_silence.isChecked(),
             "enabled_fields": enabled,
             "custom_note": custom_note,
         }
