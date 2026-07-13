@@ -379,10 +379,12 @@ def on_load_project(data: dict) -> None:
     try:
         if isinstance(data, dict) and "metadata" in data:
             _LOADED_METADATA = dict(data["metadata"])
-            logging.info(
-                "Metadata Saver: loaded %d metadata field(s) from project.",
-                len(_LOADED_METADATA),
-            )
+            cfg = load_config()
+            if not cfg.get("silence_notice", False):
+                logging.info(
+                    "Metadata Saver: loaded %d metadata field(s) from project.",
+                    len(_LOADED_METADATA),
+                )
         else:
             _LOADED_METADATA = {}
     except Exception:
