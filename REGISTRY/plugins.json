@@ -27,7 +27,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Geometry optimization using semiempirical xTB methods (GFN2-xTB, GFN1-xTB) via the tblite package. Runs on a background thread.",
     "tags": [
-      "Analysis"
+      "Optimization"
     ],
     "dependencies": [
       "tblite",
@@ -48,7 +48,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A geometric tool for straightening alkyl chains.",
     "tags": [
-      "Analysis"
+      "Optimization"
     ],
     "dependencies": [
       "rdkit"
@@ -68,7 +68,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A player for viewing multi-frame XYZ files and recording GIF animations using PIL.",
     "tags": [
-      "IO",
+      "File",
       "Visualization"
     ],
     "dependencies": [
@@ -88,7 +88,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A player for viewing multi-frame XYZ files, such as molecular dynamics trajectories.",
     "tags": [
-      "IO",
+      "File",
       "Visualization"
     ],
     "dependencies": [],
@@ -107,7 +107,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A Monte Carlo-based tool to resolve steric clashes in complex or roughly drawn molecules.",
     "tags": [
-      "Analysis"
+      "Optimization"
     ],
     "dependencies": [
       "rdkit"
@@ -127,7 +127,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Performs conformational sampling and energy minimization.",
     "tags": [
-      "Analysis"
+      "Optimization"
     ],
     "dependencies": [
       "rdkit"
@@ -147,7 +147,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes Gaussian Cube files (.cube) containing volumetric data (e.g., orbitals, densities).",
     "tags": [
-      "IO"
+      "File"
     ],
     "dependencies": [
       "rdkit",
@@ -168,6 +168,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A comprehensive tool to generate input files for Gaussian quantum chemistry calculations.",
     "tags": [
+      "DFT",
       "Generator"
     ],
     "dependencies": [],
@@ -221,6 +222,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates input files for the ORCA quantum chemistry package.",
     "tags": [
+      "DFT",
       "Generator"
     ],
     "dependencies": [],
@@ -347,6 +349,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "High-functionality setting dialog for Gaussian input creation. Supports Link 0, Route, Title, Charge/Mult, and appended data.",
     "tags": [
+      "DFT",
       "Generator"
     ],
     "dependencies": [
@@ -391,7 +394,7 @@
     "description": "Visualizes a property (e.g. ESP) mapped onto an isosurface (e.g. electron density) from two Cube files.",
     "tags": [
       "Analysis",
-      "IO"
+      "File"
     ],
     "dependencies": [
       "numpy",
@@ -413,6 +416,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "High-functionality setting dialog for ORCA input creation. Supports Route, Block Builder, and Validations.",
     "tags": [
+      "DFT",
       "Generator"
     ],
     "dependencies": [
@@ -434,8 +438,9 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "GUI for generating ORCA input files from XYZ data with templates.",
     "tags": [
-      "Generator",
-      "IO"
+      "DFT",
+      "File",
+      "Generator"
     ],
     "dependencies": [
       "rdkit",
@@ -479,8 +484,8 @@
     "description": "Analyzes vibrational frequencies from Gaussian FCHK files. View IR spectrum, animate normal modes, and export GIF animations.",
     "tags": [
       "Analysis",
-      "Generator",
-      "IO"
+      "DFT",
+      "File"
     ],
     "dependencies": [
       "rdkit",
@@ -504,8 +509,8 @@
     "description": "Analyzes vibrational frequencies from ORCA output files. View IR spectrum, animate normal modes, and export GIF animations.",
     "tags": [
       "Analysis",
-      "Generator",
-      "IO"
+      "DFT",
+      "File"
     ],
     "dependencies": [
       "rdkit",
@@ -528,7 +533,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Paste XYZ to view in 3D.",
     "tags": [
-      "IO"
+      "File"
     ],
     "dependencies": [],
     "downloadUrl": "../plugins/Paste_XYZ/paste_xyz.py",
@@ -746,6 +751,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates input files for MOPAC semi-empirical quantum chemistry calculations.",
     "tags": [
+      "DFT",
       "Generator"
     ],
     "dependencies": [
@@ -767,6 +773,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates input files for GAMESS (US) quantum chemistry calculations.",
     "tags": [
+      "DFT",
       "Generator"
     ],
     "dependencies": [
@@ -788,6 +795,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates Python scripts for PySCF quantum chemistry calculations.",
     "tags": [
+      "DFT",
       "Generator",
       "Utility"
     ],
@@ -810,6 +818,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates input files for Psi4 quantum chemistry calculations.",
     "tags": [
+      "DFT",
       "Generator"
     ],
     "dependencies": [
@@ -853,6 +862,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates input files for NWChem quantum chemistry calculations.",
     "tags": [
+      "DFT",
       "Generator"
     ],
     "dependencies": [
@@ -913,8 +923,8 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Perform PySCF quantum chemistry calculations directly in MoleditPy. Features: Single Point Energy (RHF/UHF/DFT), Geometry Optimization (GeomeTRIC/Berny), Frequency Analysis, and interactive 3D visualization of Molecular Orbitals (HOMO/LUMO) and Electrostatic Potential (ESP) mapped on Density surfaces.",
     "tags": [
-      "Analysis",
-      "Generator",
+      "DFT",
+      "Optimization",
       "Visualization"
     ],
     "dependencies": [
@@ -939,7 +949,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Import various chemical file formats using OpenBabel with multi-molecule support.",
     "tags": [
-      "IO",
+      "File",
       "Utility"
     ],
     "dependencies": [
@@ -960,7 +970,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Paste chemical structures from ChemDraw clipboard data. Developed on ChemDraw version 25.5.",
     "tags": [
-      "IO",
+      "File",
       "Utility"
     ],
     "dependencies": [
@@ -1003,8 +1013,8 @@
     "description": "Visualizes Molecular Orbitals from Gaussian FCHK files by generating Cube files. The current implementation supports S, P, D, and F shells",
     "tags": [
       "Analysis",
-      "Generator",
-      "IO",
+      "DFT",
+      "File",
       "Visualization"
     ],
     "dependencies": [
@@ -1028,7 +1038,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Smart loader for FCHK, FCH, and FCK files. Dispatches to Frequency or MO Analyzer with priority handling.",
     "tags": [
-      "Generator",
+      "DFT",
       "Utility"
     ],
     "dependencies": [
@@ -1091,8 +1101,8 @@
     "description": "Comprehensive analyzer for ORCA output files (.out). Includes Vibrational, MO, TDDFT, and NMR analysis.",
     "tags": [
       "Analysis",
-      "Generator",
-      "IO"
+      "DFT",
+      "File"
     ],
     "dependencies": [
       "rdkit",
@@ -1143,7 +1153,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Advanced 3D visualization for Gaussian Cube files with PBR, SSAO, and other effects.",
     "tags": [
-      "IO",
+      "File",
       "Visualization"
     ],
     "dependencies": [
@@ -1211,7 +1221,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Export molecular structures as Blender Python scripts that create 3D visualizations",
     "tags": [
-      "IO",
+      "File",
       "Visualization"
     ],
     "dependencies": [
@@ -1234,7 +1244,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Export molecular structures as POV-Ray scene files for professional ray-traced rendering",
     "tags": [
-      "IO",
+      "File",
       "Visualization"
     ],
     "dependencies": [
@@ -1257,7 +1267,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Adds 2D reaction drawing tools (Arrows, Plus, Text) with a dedicated toolbar.",
     "tags": [
-      "IO",
+      "File",
       "Utility",
       "Visualization"
     ],
@@ -1281,7 +1291,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Securely saves molecular data using AES-128 encryption with password protection (.pmeenc file).",
     "tags": [
-      "IO",
+      "File",
       "Utility"
     ],
     "dependencies": [
@@ -1302,7 +1312,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Integrated 3D depth cues, rotation, and 3D-aware Mol export.",
     "tags": [
-      "IO",
+      "File",
       "Visualization"
     ],
     "dependencies": [
@@ -1326,6 +1336,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "High-functionality setting dialog for ORCA input creation. Supports Keywords, Block Builder, and Validations.",
     "tags": [
+      "DFT",
       "Generator"
     ],
     "dependencies": [
@@ -1349,7 +1360,7 @@
     "description": "Detect rings and place Bq ghost atoms at NICS(0)/NICS(1) probe positions. Compatible with ORCA Input Generator Pro via the custom_symbol property.",
     "tags": [
       "Analysis",
-      "Generator"
+      "DFT"
     ],
     "dependencies": [
       "rdkit",
@@ -1372,7 +1383,7 @@
     "projectUrl": "https://github.com/HiroYokoyama/chem_db_web",
     "description": "Standalone intranet chemistry structure and protocol database. Connects MoleditPy to a local Molibrary server for structure searching and importing.",
     "tags": [
-      "IO"
+      "File"
     ],
     "dependencies": [
       "rdkit",
@@ -1394,7 +1405,7 @@
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_cif_viewer",
     "description": "Visualization-only CIF crystal structure viewer with unit-cell and supercell rendering for MoleditPy.",
     "tags": [
-      "IO"
+      "File"
     ],
     "dependencies": [
       "rdkit",
@@ -1418,7 +1429,7 @@
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_rotation_giffer",
     "description": "Creates a rotating GIF around global or view axes by orbiting the camera.",
     "tags": [
-      "IO"
+      "File"
     ],
     "dependencies": [
       "pyvista",
@@ -1440,7 +1451,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Detect strain-molecule bonding environments and build a draft homodesmotic reaction balance.",
     "tags": [
-      "Generator"
+      "DFT"
     ],
     "dependencies": [
       "numpy",
@@ -1483,7 +1494,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Import chemical structures from PNG/JPG/JPEG images using the DECIMER deep learning model (SMILES prediction from chemical structure drawings).",
     "tags": [
-      "IO",
+      "File",
       "Visualization"
     ],
     "dependencies": [
@@ -1525,7 +1536,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "PMEFF (Python Molecular Editor Force Field) — a self-contained universal force field covering the entire periodic table (Z=1..118). Adds a geometry optimizer, a single-point energy tool with per-term decomposition, and a vibrational minimum check. No external QM binary required.",
     "tags": [
-      "Analysis"
+      "Optimization"
     ],
     "dependencies": [
       "numpy",
@@ -1566,8 +1577,8 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Advanced Gaussian Input Generator with Preview and Presets.",
     "tags": [
-      "Generator",
-      "IO"
+      "File",
+      "Generator"
     ],
     "dependencies": [],
     "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_gaussian_input_generator_pro/releases/download/v1.1.0/gaussian_input_generator_pro_1.1.0.zip",
@@ -1586,7 +1597,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Interactive step-by-step force-field optimization with live 3D animation.",
     "tags": [
-      "Analysis"
+      "Optimization"
     ],
     "dependencies": [
       "rdkit"
