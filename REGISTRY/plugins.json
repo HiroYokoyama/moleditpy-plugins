@@ -1,5 +1,25 @@
 [
   {
+    "id": "metadata_saver",
+    "visible": true,
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
+    "name": "Metadata Saver",
+    "version": "2026.07.13",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Saves debug/trace metadata (timestamp, file path, username, OS info, …) into the .pmeprj project file. For debugging and tracing only — do not share project files containing this data with anonymous users.",
+    "tags": [
+      "Debug",
+      "Tracing",
+      "Utility"
+    ],
+    "dependencies": [],
+    "downloadUrl": "../plugins/Metadata_Saver/metadata_saver.py",
+    "lastUpdated": "2026-07-13",
+    "sha256": "0e7a2a5bd2e4a13a0ea265a429f6a29992ad9ba87c421d4c16794098f4af403d",
+    "firstAppeared": "2026-07-13"
+  },
+  {
     "id": "xtb_optimizer",
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
