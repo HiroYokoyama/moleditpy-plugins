@@ -1617,8 +1617,7 @@
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A table-based bond editor: add/delete bonds, change bond order, and set bond lengths by moving one side of the bond. Click atoms in the 3D view to pick bond endpoints.",
     "tags": [
-      "Utility",
-      "3D Edit"
+      "Utility"
     ],
     "dependencies": [
       "rdkit",
