@@ -143,12 +143,12 @@ class XYZEditorWindow(QWidget):
         self.add_btn.clicked.connect(self.add_atom_row)
         edit_layout.addWidget(self.add_btn)
 
-        self.add_h_btn = QPushButton("Add H")
+        self.add_h_btn = QPushButton("Adjust H")
         self.add_h_btn.setToolTip(
-            "Add missing hydrogens with 3D coordinates "
-            "(to selected atoms, or the whole molecule if nothing is selected)"
+            "Add missing and remove excess hydrogens (with 3D coordinates) "
+            "on the selected atoms, or the whole molecule if nothing is selected"
         )
-        self.add_h_btn.clicked.connect(self.add_missing_hydrogens)
+        self.add_h_btn.clicked.connect(self.adjust_hydrogens)
         edit_layout.addWidget(self.add_h_btn)
 
         self.remove_btn = QPushButton("Remove Selected")
@@ -548,12 +548,45 @@ class XYZEditorWindow(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to duplicate: {str(e)}")
 
-    def add_missing_hydrogens(self):
-        """Add missing hydrogens (with coordinates) to the selected atoms, or
-        to the whole molecule when nothing is selected."""
+    def _excess_hydrogen_indices(self, mol, scope):
+        """Indices of terminal H atoms whose removal brings over-valent heavy
+        atoms in scope back to their allowed valence (default valence,
+        charge-adjusted for N/P/O/S)."""
+        pt = Chem.GetPeriodicTable()
+        to_remove = set()
+        for atom in mol.GetAtoms():
+            num = atom.GetAtomicNum()
+            if num <= 1 or atom.GetIdx() not in scope:
+                continue
+            try:
+                allowed = pt.GetDefaultValence(num)
+            except Exception:
+                continue
+            if allowed <= 0:
+                continue
+            if num in (7, 8, 15, 16):
+                allowed += atom.GetFormalCharge()
+            valence = round(
+                sum(b.GetBondTypeAsDouble() for b in atom.GetBonds())
+            )
+            excess = valence - allowed
+            if excess <= 0:
+                continue
+            h_neighbors = [
+                n.GetIdx()
+                for n in atom.GetNeighbors()
+                if n.GetAtomicNum() == 1 and n.GetDegree() == 1
+            ]
+            to_remove.update(h_neighbors[len(h_neighbors) - excess:])
+        return sorted(to_remove)
+
+    def adjust_hydrogens(self):
+        """Make hydrogen counts consistent on the selected atoms (or the whole
+        molecule): remove excess Hs from over-valent atoms, then add missing
+        Hs with 3D coordinates."""
         mol = self.context.current_molecule
         if not mol or not mol.GetNumAtoms() or not mol.GetNumConformers():
-            self.context.show_status_message("No molecule to add hydrogens to.")
+            self.context.show_status_message("No molecule to adjust hydrogens on.")
             return
 
         had_selection = bool(self.table.selectedIndexes())
@@ -563,9 +596,23 @@ class XYZEditorWindow(QWidget):
                 "Selected rows are not applied yet — press Apply first."
             )
             return
+        scope = sel if sel else set(range(mol.GetNumAtoms()))
 
         try:
             rw = Chem.RWMol(mol)
+            rw.UpdatePropertyCache(strict=False)
+
+            removed = self._excess_hydrogen_indices(rw, scope)
+            for idx in sorted(removed, reverse=True):
+                rw.RemoveAtom(idx)
+            if removed:
+                # surviving atoms shift down past each removed index
+                scope = {
+                    i - sum(1 for r in removed if r < i)
+                    for i in scope
+                    if i not in removed
+                }
+
             try:
                 Chem.SanitizeMol(rw)
             except Exception:
@@ -573,12 +620,12 @@ class XYZEditorWindow(QWidget):
 
             kwargs = {"addCoords": True}
             if sel:
-                kwargs["onlyOnAtoms"] = sorted(sel)
+                kwargs["onlyOnAtoms"] = sorted(scope)
             new_mol = Chem.AddHs(rw, **kwargs)
 
-            added = new_mol.GetNumAtoms() - mol.GetNumAtoms()
-            if added <= 0:
-                self.context.show_status_message("No missing hydrogens.")
+            added = new_mol.GetNumAtoms() - (mol.GetNumAtoms() - len(removed))
+            if added <= 0 and not removed:
+                self.context.show_status_message("Hydrogens are already consistent.")
                 return
 
             self.context.current_molecule = new_mol
@@ -592,9 +639,13 @@ class XYZEditorWindow(QWidget):
             else:
                 self.context.reset_3d_camera()
             self.load_molecule()
-            self.context.show_status_message(f"Added {added} hydrogen(s).")
+            self.context.show_status_message(
+                f"Hydrogens adjusted: +{max(added, 0)}, -{len(removed)}."
+            )
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to add hydrogens: {str(e)}")
+            QMessageBox.critical(
+                self, "Error", f"Failed to adjust hydrogens: {str(e)}"
+            )
 
     def unselect_all(self):
         self.table.clearSelection()

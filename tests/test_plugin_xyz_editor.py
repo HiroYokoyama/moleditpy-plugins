@@ -1214,7 +1214,7 @@ class TestXYZDuplicateAtoms:
 
 
 # ---------------------------------------------------------------------------
-# add missing hydrogens
+# adjust hydrogens (add missing / remove excess)
 # ---------------------------------------------------------------------------
 
 
@@ -1229,16 +1229,21 @@ class _FakeAddHMol:
         return 1
 
 
-def _add_h_fn(added=2, sanitize_raises=False, record=None):
+def _adjust_h_fn(added=2, sanitize_raises=False, record=None):
     """Fake Chem where AddHs returns a mol with `added` extra atoms and
-    records the kwargs it was called with."""
+    records the kwargs and removals."""
 
     class _RW:
         def __init__(self, base):
-            self._base = base
+            self._n = base.GetNumAtoms()
 
         def GetNumAtoms(self):
-            return self._base.GetNumAtoms()
+            return self._n
+
+        def RemoveAtom(self, idx):
+            self._n -= 1
+            if record is not None:
+                record.setdefault("removed", []).append(idx)
 
         def UpdatePropertyCache(self, strict=False):
             if record is not None:
@@ -1257,12 +1262,12 @@ def _add_h_fn(added=2, sanitize_raises=False, record=None):
     return _extract_method_as_fn(
         XYZ_EDITOR_PATH,
         "XYZEditorWindow",
-        "add_missing_hydrogens",
+        "adjust_hydrogens",
         extra_globals={"Chem": chem_ns, "QMessageBox": MagicMock()},
     )
 
 
-def _add_h_self(mol, selected_atom_indices=(), selected_rows=None):
+def _adjust_h_self(mol, selected_atom_indices=(), selected_rows=None, excess=()):
     if selected_rows is None:
         selected_rows = sorted(selected_atom_indices)
     ctx = SimpleNamespace(
@@ -1276,24 +1281,25 @@ def _add_h_self(mol, selected_atom_indices=(), selected_rows=None):
         context=ctx,
         table=SimpleNamespace(selectedIndexes=lambda: [_Idx(r) for r in selected_rows]),
         _selected_atom_indices=lambda: set(selected_atom_indices),
+        _excess_hydrogen_indices=lambda mol, scope: sorted(excess),
         get_mol_signature=lambda m: "sig",
         load_molecule=MagicMock(),
         last_seen_signature=None,
     )
 
 
-class TestXYZAddMissingHydrogens:
+class TestXYZAdjustHydrogens:
     def test_no_molecule_shows_message(self):
-        fn = _add_h_fn()
-        self_ = _add_h_self(None)
+        fn = _adjust_h_fn()
+        self_ = _adjust_h_self(None)
         fn(self_)
         self_.context.show_status_message.assert_called_once()
         self_.context.push_undo_checkpoint.assert_not_called()
 
     def test_whole_molecule_no_only_on_atoms(self):
         record = {}
-        fn = _add_h_fn(added=6, record=record)
-        self_ = _add_h_self(_FakeAddHMol(2))
+        fn = _adjust_h_fn(added=6, record=record)
+        self_ = _adjust_h_self(_FakeAddHMol(2))
         fn(self_)
         assert record["kwargs"] == {"addCoords": True}
         assert self_.context.current_molecule.GetNumAtoms() == 8
@@ -1301,19 +1307,40 @@ class TestXYZAddMissingHydrogens:
         self_.context.refresh_3d_view.assert_called_once()
         self_.load_molecule.assert_called_once()
         msg = self_.context.show_status_message.call_args[0][0]
-        assert "6" in msg
+        assert "+6" in msg and "-0" in msg
 
     def test_selection_passes_sorted_only_on_atoms(self):
         record = {}
-        fn = _add_h_fn(added=1, record=record)
-        self_ = _add_h_self(_FakeAddHMol(5), selected_atom_indices=[3, 0])
+        fn = _adjust_h_fn(added=1, record=record)
+        self_ = _adjust_h_self(_FakeAddHMol(5), selected_atom_indices=[3, 0])
         fn(self_)
         assert record["kwargs"] == {"addCoords": True, "onlyOnAtoms": [0, 3]}
 
-    def test_no_missing_hydrogens_does_not_push_undo(self):
-        fn = _add_h_fn(added=0)
+    def test_excess_hydrogens_removed_descending(self):
+        record = {}
+        fn = _adjust_h_fn(added=0, record=record)
+        self_ = _adjust_h_self(_FakeAddHMol(6), excess=[1, 4])
+        fn(self_)
+        assert record["removed"] == [4, 1]
+        assert self_.context.current_molecule.GetNumAtoms() == 4
+        msg = self_.context.show_status_message.call_args[0][0]
+        assert "+0" in msg and "-2" in msg
+        self_.context.push_undo_checkpoint.assert_called_once()
+
+    def test_removal_remaps_only_on_atoms_indices(self):
+        record = {}
+        # selected heavy atoms 0, 2, 5; H at index 1 removed -> 2 becomes 1, 5 becomes 4
+        fn = _adjust_h_fn(added=1, record=record)
+        self_ = _adjust_h_self(
+            _FakeAddHMol(6), selected_atom_indices=[0, 2, 5], excess=[1]
+        )
+        fn(self_)
+        assert record["kwargs"]["onlyOnAtoms"] == [0, 1, 4]
+
+    def test_already_consistent_does_not_push_undo(self):
+        fn = _adjust_h_fn(added=0)
         mol = _FakeAddHMol(4)
-        self_ = _add_h_self(mol)
+        self_ = _adjust_h_self(mol)
         fn(self_)
         assert self_.context.current_molecule is mol
         self_.context.push_undo_checkpoint.assert_not_called()
@@ -1321,16 +1348,110 @@ class TestXYZAddMissingHydrogens:
 
     def test_sanitize_failure_falls_back_to_property_cache(self):
         record = {}
-        fn = _add_h_fn(added=1, sanitize_raises=True, record=record)
-        self_ = _add_h_self(_FakeAddHMol(2))
+        fn = _adjust_h_fn(added=1, sanitize_raises=True, record=record)
+        self_ = _adjust_h_self(_FakeAddHMol(2))
         fn(self_)
         assert record.get("upc") is True
         self_.context.push_undo_checkpoint.assert_called_once()
 
     def test_only_unapplied_rows_selected_aborts(self):
-        fn = _add_h_fn()
+        fn = _adjust_h_fn()
         mol = _FakeAddHMol(2)
-        self_ = _add_h_self(mol, selected_atom_indices=[], selected_rows=[0])
+        self_ = _adjust_h_self(mol, selected_atom_indices=[], selected_rows=[0])
         fn(self_)
         self_.context.push_undo_checkpoint.assert_not_called()
         assert self_.context.current_molecule is mol
+
+
+class _FakeValenceAtom:
+    def __init__(self, num, idx, bond_orders=(), h_neighbor_idxs=(), charge=0):
+        self._num, self._idx, self._charge = num, idx, charge
+        self._bond_orders = bond_orders
+        self._h_idxs = h_neighbor_idxs
+
+    def GetAtomicNum(self):
+        return self._num
+
+    def GetIdx(self):
+        return self._idx
+
+    def GetFormalCharge(self):
+        return self._charge
+
+    def GetBonds(self):
+        return [
+            SimpleNamespace(GetBondTypeAsDouble=lambda o=o: o)
+            for o in self._bond_orders
+        ]
+
+    def GetNeighbors(self):
+        return [
+            SimpleNamespace(
+                GetIdx=lambda i=i: i,
+                GetAtomicNum=lambda: 1,
+                GetDegree=lambda: 1,
+            )
+            for i in self._h_idxs
+        ]
+
+
+def _excess_h_fn(default_valences):
+    pt = SimpleNamespace(GetDefaultValence=lambda num: default_valences[num])
+    chem_ns = SimpleNamespace(GetPeriodicTable=lambda: pt)
+    return _extract_method_as_fn(
+        XYZ_EDITOR_PATH,
+        "XYZEditorWindow",
+        "_excess_hydrogen_indices",
+        extra_globals={"Chem": chem_ns},
+    )
+
+
+class TestXYZExcessHydrogenIndices:
+    _VAL = {6: 4, 7: 3, 8: 2}
+
+    def _mol(self, atoms):
+        return SimpleNamespace(GetAtoms=lambda: atoms)
+
+    def test_pentavalent_carbon_marks_one_h(self):
+        fn = _excess_h_fn(self._VAL)
+        c = _FakeValenceAtom(6, 0, bond_orders=(1, 1, 1, 1, 1), h_neighbor_idxs=(1, 2, 3, 4, 5))
+        out = fn(SimpleNamespace(), self._mol([c]), {0})
+        assert out == [5]
+
+    def test_two_excess_marks_last_two(self):
+        fn = _excess_h_fn(self._VAL)
+        c = _FakeValenceAtom(6, 0, bond_orders=(1,) * 6, h_neighbor_idxs=(1, 2, 3, 4, 5))
+        out = fn(SimpleNamespace(), self._mol([c]), {0})
+        assert out == [4, 5]
+
+    def test_correct_valence_untouched(self):
+        fn = _excess_h_fn(self._VAL)
+        c = _FakeValenceAtom(6, 0, bond_orders=(1, 1, 1, 1), h_neighbor_idxs=(1, 2, 3, 4))
+        assert fn(SimpleNamespace(), self._mol([c]), {0}) == []
+
+    def test_positive_nitrogen_allows_four_bonds(self):
+        fn = _excess_h_fn(self._VAL)
+        n = _FakeValenceAtom(7, 0, bond_orders=(1, 1, 1, 1), h_neighbor_idxs=(1, 2, 3, 4), charge=1)
+        assert fn(SimpleNamespace(), self._mol([n]), {0}) == []
+
+    def test_neutral_nitrogen_with_four_h_marks_one(self):
+        fn = _excess_h_fn(self._VAL)
+        n = _FakeValenceAtom(7, 0, bond_orders=(1, 1, 1, 1), h_neighbor_idxs=(1, 2, 3, 4))
+        assert fn(SimpleNamespace(), self._mol([n]), {0}) == [4]
+
+    def test_out_of_scope_atom_ignored(self):
+        fn = _excess_h_fn(self._VAL)
+        c = _FakeValenceAtom(6, 0, bond_orders=(1,) * 5, h_neighbor_idxs=(1, 2, 3, 4, 5))
+        assert fn(SimpleNamespace(), self._mol([c]), {7}) == []
+
+    def test_hydrogen_and_dummy_atoms_skipped(self):
+        fn = _excess_h_fn(self._VAL)
+        h = _FakeValenceAtom(1, 0, bond_orders=(1, 1))
+        dummy = _FakeValenceAtom(0, 1, bond_orders=(1,) * 9)
+        assert fn(SimpleNamespace(), self._mol([h, dummy]), {0, 1}) == []
+
+    def test_aromatic_bonds_rounded(self):
+        fn = _excess_h_fn(self._VAL)
+        # benzene carbon: 1.5 + 1.5 + 1.0 = 4.0 -> no excess
+        c = _FakeValenceAtom(6, 0, bond_orders=(1.5, 1.5, 1.0), h_neighbor_idxs=(1,))
+        assert fn(SimpleNamespace(), self._mol([c]), {0}) == []
