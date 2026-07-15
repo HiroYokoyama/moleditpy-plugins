@@ -1211,3 +1211,126 @@ class TestXYZDuplicateAtoms:
         self_.context.show_status_message.assert_called_once()
         self_.context.push_undo_checkpoint.assert_not_called()
         assert self_.context.current_molecule is mol
+
+
+# ---------------------------------------------------------------------------
+# add missing hydrogens
+# ---------------------------------------------------------------------------
+
+
+class _FakeAddHMol:
+    def __init__(self, n):
+        self._n = n
+
+    def GetNumAtoms(self):
+        return self._n
+
+    def GetNumConformers(self):
+        return 1
+
+
+def _add_h_fn(added=2, sanitize_raises=False, record=None):
+    """Fake Chem where AddHs returns a mol with `added` extra atoms and
+    records the kwargs it was called with."""
+
+    class _RW:
+        def __init__(self, base):
+            self._base = base
+
+        def GetNumAtoms(self):
+            return self._base.GetNumAtoms()
+
+        def UpdatePropertyCache(self, strict=False):
+            if record is not None:
+                record["upc"] = True
+
+    def sanitize(m):
+        if sanitize_raises:
+            raise RuntimeError("bad valence")
+
+    def add_hs(m, **kwargs):
+        if record is not None:
+            record["kwargs"] = kwargs
+        return _FakeAddHMol(m.GetNumAtoms() + added)
+
+    chem_ns = SimpleNamespace(RWMol=_RW, SanitizeMol=sanitize, AddHs=add_hs)
+    return _extract_method_as_fn(
+        XYZ_EDITOR_PATH,
+        "XYZEditorWindow",
+        "add_missing_hydrogens",
+        extra_globals={"Chem": chem_ns, "QMessageBox": MagicMock()},
+    )
+
+
+def _add_h_self(mol, selected_atom_indices=(), selected_rows=None):
+    if selected_rows is None:
+        selected_rows = sorted(selected_atom_indices)
+    ctx = SimpleNamespace(
+        current_molecule=mol,
+        push_undo_checkpoint=MagicMock(),
+        refresh_3d_view=MagicMock(),
+        reset_3d_camera=MagicMock(),
+        show_status_message=MagicMock(),
+    )
+    return SimpleNamespace(
+        context=ctx,
+        table=SimpleNamespace(selectedIndexes=lambda: [_Idx(r) for r in selected_rows]),
+        _selected_atom_indices=lambda: set(selected_atom_indices),
+        get_mol_signature=lambda m: "sig",
+        load_molecule=MagicMock(),
+        last_seen_signature=None,
+    )
+
+
+class TestXYZAddMissingHydrogens:
+    def test_no_molecule_shows_message(self):
+        fn = _add_h_fn()
+        self_ = _add_h_self(None)
+        fn(self_)
+        self_.context.show_status_message.assert_called_once()
+        self_.context.push_undo_checkpoint.assert_not_called()
+
+    def test_whole_molecule_no_only_on_atoms(self):
+        record = {}
+        fn = _add_h_fn(added=6, record=record)
+        self_ = _add_h_self(_FakeAddHMol(2))
+        fn(self_)
+        assert record["kwargs"] == {"addCoords": True}
+        assert self_.context.current_molecule.GetNumAtoms() == 8
+        self_.context.push_undo_checkpoint.assert_called_once()
+        self_.context.refresh_3d_view.assert_called_once()
+        self_.load_molecule.assert_called_once()
+        msg = self_.context.show_status_message.call_args[0][0]
+        assert "6" in msg
+
+    def test_selection_passes_sorted_only_on_atoms(self):
+        record = {}
+        fn = _add_h_fn(added=1, record=record)
+        self_ = _add_h_self(_FakeAddHMol(5), selected_atom_indices=[3, 0])
+        fn(self_)
+        assert record["kwargs"] == {"addCoords": True, "onlyOnAtoms": [0, 3]}
+
+    def test_no_missing_hydrogens_does_not_push_undo(self):
+        fn = _add_h_fn(added=0)
+        mol = _FakeAddHMol(4)
+        self_ = _add_h_self(mol)
+        fn(self_)
+        assert self_.context.current_molecule is mol
+        self_.context.push_undo_checkpoint.assert_not_called()
+        self_.context.show_status_message.assert_called_once()
+
+    def test_sanitize_failure_falls_back_to_property_cache(self):
+        record = {}
+        fn = _add_h_fn(added=1, sanitize_raises=True, record=record)
+        self_ = _add_h_self(_FakeAddHMol(2))
+        fn(self_)
+        assert record.get("upc") is True
+        self_.context.push_undo_checkpoint.assert_called_once()
+
+    def test_only_unapplied_rows_selected_aborts(self):
+        fn = _add_h_fn()
+        mol = _FakeAddHMol(2)
+        self_ = _add_h_self(mol, selected_atom_indices=[], selected_rows=[0])
+        fn(self_)
+        self_.context.push_undo_checkpoint.assert_not_called()
+        assert self_.context.current_molecule is mol

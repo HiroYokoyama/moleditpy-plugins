@@ -143,6 +143,14 @@ class XYZEditorWindow(QWidget):
         self.add_btn.clicked.connect(self.add_atom_row)
         edit_layout.addWidget(self.add_btn)
 
+        self.add_h_btn = QPushButton("Add H")
+        self.add_h_btn.setToolTip(
+            "Add missing hydrogens with 3D coordinates "
+            "(to selected atoms, or the whole molecule if nothing is selected)"
+        )
+        self.add_h_btn.clicked.connect(self.add_missing_hydrogens)
+        edit_layout.addWidget(self.add_h_btn)
+
         self.remove_btn = QPushButton("Remove Selected")
         self.remove_btn.setToolTip("Remove rows from the table only (press Apply to commit)")
         self.remove_btn.clicked.connect(self.remove_selected_rows)
@@ -539,6 +547,54 @@ class XYZEditorWindow(QWidget):
             self.context.show_status_message(f"Duplicated {len(mapping)} atom(s).")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to duplicate: {str(e)}")
+
+    def add_missing_hydrogens(self):
+        """Add missing hydrogens (with coordinates) to the selected atoms, or
+        to the whole molecule when nothing is selected."""
+        mol = self.context.current_molecule
+        if not mol or not mol.GetNumAtoms() or not mol.GetNumConformers():
+            self.context.show_status_message("No molecule to add hydrogens to.")
+            return
+
+        had_selection = bool(self.table.selectedIndexes())
+        sel = self._selected_atom_indices()
+        if had_selection and not sel:
+            self.context.show_status_message(
+                "Selected rows are not applied yet — press Apply first."
+            )
+            return
+
+        try:
+            rw = Chem.RWMol(mol)
+            try:
+                Chem.SanitizeMol(rw)
+            except Exception:
+                rw.UpdatePropertyCache(strict=False)
+
+            kwargs = {"addCoords": True}
+            if sel:
+                kwargs["onlyOnAtoms"] = sorted(sel)
+            new_mol = Chem.AddHs(rw, **kwargs)
+
+            added = new_mol.GetNumAtoms() - mol.GetNumAtoms()
+            if added <= 0:
+                self.context.show_status_message("No missing hydrogens.")
+                return
+
+            self.context.current_molecule = new_mol
+            self.context.push_undo_checkpoint()
+            self.last_seen_signature = self.get_mol_signature(
+                self.context.current_molecule
+            )
+            refresh = getattr(self.context, "refresh_3d_view", None)
+            if callable(refresh):
+                refresh()
+            else:
+                self.context.reset_3d_camera()
+            self.load_molecule()
+            self.context.show_status_message(f"Added {added} hydrogen(s).")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to add hydrogens: {str(e)}")
 
     def unselect_all(self):
         self.table.clearSelection()
