@@ -9,8 +9,17 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QHeaderView,
     QFileDialog,
+    QCheckBox,
 )
-from PyQt6.QtCore import Qt, QTimer, QObject, QEvent
+from PyQt6.QtCore import (
+    Qt,
+    QTimer,
+    QObject,
+    QEvent,
+    QItemSelection,
+    QItemSelectionModel,
+)
+from PyQt6.QtGui import QShortcut, QKeySequence
 from rdkit import Chem
 from rdkit.Geometry import Point3D
 import pyvista as pv
@@ -18,7 +27,7 @@ import logging
 
 
 PLUGIN_NAME = "XYZ Editor"
-PLUGIN_VERSION = "2026.07.08"
+PLUGIN_VERSION = "2026.07.15"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "A table-based editor for atom coordinates and symbols, supporting ghost atoms. Refactored for V3 API."
@@ -133,8 +142,14 @@ class XYZEditorWindow(QWidget):
         edit_layout.addWidget(self.add_btn)
 
         self.remove_btn = QPushButton("Remove Selected")
+        self.remove_btn.setToolTip("Remove rows from the table only (press Apply to commit)")
         self.remove_btn.clicked.connect(self.remove_selected_rows)
         edit_layout.addWidget(self.remove_btn)
+
+        self.delete_btn = QPushButton("Delete Atoms")
+        self.delete_btn.setToolTip("Delete selected atoms from the molecule immediately")
+        self.delete_btn.clicked.connect(self.delete_selected_atoms)
+        edit_layout.addWidget(self.delete_btn)
 
         self.copy_btn = QPushButton("Copy to Clipboard")
         self.copy_btn.clicked.connect(self.copy_to_clipboard)
@@ -145,6 +160,20 @@ class XYZEditorWindow(QWidget):
         edit_layout.addWidget(self.unselect_btn)
 
         layout.addLayout(edit_layout)
+
+        select_layout = QHBoxLayout()
+        self.whole_mol_cb = QCheckBox("Select whole molecule on 3D click")
+        self.whole_mol_cb.setToolTip(
+            "Clicking an atom in the 3D view selects its entire connected fragment. "
+            "Hold Ctrl to add/remove fragments or atoms from the selection."
+        )
+        select_layout.addWidget(self.whole_mol_cb)
+        select_layout.addStretch()
+        layout.addLayout(select_layout)
+
+        self._del_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Delete), self.table)
+        self._del_shortcut.setContext(Qt.ShortcutContext.WidgetShortcut)
+        self._del_shortcut.activated.connect(self.remove_selected_rows)
 
     def _enable_plotter_picking(self):
         """Install Qt event filter on the 3D plotter interactor widget for atom click detection."""
@@ -218,31 +247,71 @@ class XYZEditorWindow(QWidget):
             if best_idx < 0:
                 return
 
-            # Find the matching table row
-            target_row = -1
-            for row in range(self.table.rowCount()):
-                item = self.table.item(row, 0)
-                if item and item.text() not in ("", "+"):
-                    try:
-                        if int(item.text()) == best_idx:
-                            target_row = row
-                            break
-                    except ValueError as _e:
-                        logging.warning("[xyz_editor.py:209] silenced: %s", _e)
+            atom_indices = {best_idx}
+            if self.whole_mol_cb.isChecked():
+                atom_indices = self._fragment_atom_indices(mol, best_idx)
 
-            if target_row < 0:
+            row_map = self._atom_index_to_row_map()
+            rows = {row_map[i] for i in atom_indices if i in row_map}
+            if not rows:
                 return
+            target_row = row_map.get(best_idx, min(rows))
 
             ctrl_held = bool(modifiers & Qt.KeyboardModifier.ControlModifier)
-            self.table.blockSignals(True)
-            if not ctrl_held:
-                self.table.clearSelection()
-            self.table.selectRow(target_row)
-            self.table.blockSignals(False)
+            self._select_rows(rows, ctrl_held, target_row)
             self.table.scrollTo(self.table.model().index(target_row, 0))
             self.highlight_selected_atoms()
         except Exception as _e:
             logging.warning("[xyz_editor.py:223] silenced: %s", _e)
+
+    def _fragment_atom_indices(self, mol, atom_idx):
+        """Return the set of atom indices in the connected fragment containing atom_idx."""
+        try:
+            frags = Chem.GetMolFrags(mol, asMols=False, sanitizeFrags=False)
+            for frag in frags:
+                if atom_idx in frag:
+                    return set(frag)
+        except Exception as _e:
+            logging.warning("[xyz_editor.py:_fragment_atom_indices] silenced: %s", _e)
+        return {atom_idx}
+
+    def _atom_index_to_row_map(self):
+        """Map molecule atom indices (column 0) to table row numbers."""
+        row_map = {}
+        for row in range(self.table.rowCount()):
+            item = self.table.item(row, 0)
+            if item and item.text() not in ("", "+"):
+                try:
+                    row_map[int(item.text())] = row
+                except ValueError as _e:
+                    logging.warning("[xyz_editor.py:_atom_index_to_row_map] silenced: %s", _e)
+        return row_map
+
+    def _select_rows(self, rows, ctrl_held, anchor_row):
+        """Select the given table rows. Without Ctrl the selection is replaced;
+        with Ctrl the rows are added, or removed if the anchor row was already selected."""
+        model = self.table.model()
+        sm = self.table.selectionModel()
+        last_col = self.table.columnCount() - 1
+        selection = QItemSelection()
+        for r in sorted(rows):
+            selection.select(model.index(r, 0), model.index(r, last_col))
+
+        if ctrl_held:
+            anchor_selected = anchor_row in {
+                i.row() for i in self.table.selectedIndexes()
+            }
+            flag = (
+                QItemSelectionModel.SelectionFlag.Deselect
+                if anchor_selected
+                else QItemSelectionModel.SelectionFlag.Select
+            )
+        else:
+            flag = QItemSelectionModel.SelectionFlag.ClearAndSelect
+
+        self.table.blockSignals(True)
+        sm.select(selection, flag)
+        self.table.blockSignals(False)
 
     def closeEvent(self, event):
         self._disable_plotter_picking()
@@ -347,6 +416,15 @@ class XYZEditorWindow(QWidget):
         )
         for row in rows:
             self.table.removeRow(row)
+
+    def delete_selected_atoms(self):
+        """Remove the selected rows and immediately apply the result to the molecule."""
+        rows = set(index.row() for index in self.table.selectedIndexes())
+        if not rows:
+            self.context.show_status_message("No atoms selected to delete.")
+            return
+        self.remove_selected_rows()
+        self.apply_changes()
 
     def unselect_all(self):
         self.table.clearSelection()

@@ -795,3 +795,176 @@ class TestXYZApplyChangesElementValidation:
         fn(self_)
         new_mol = self_.context.current_molecule
         assert new_mol.bonds == [(0, 1, "SINGLE")]
+
+
+# ---------------------------------------------------------------------------
+# whole-molecule selection, multi-select, delete atoms
+# ---------------------------------------------------------------------------
+
+
+class TestXYZFragmentAtomIndices:
+    def _fn(self, frags=None, raises=False):
+        def get_frags(mol, asMols=False, sanitizeFrags=False):
+            if raises:
+                raise RuntimeError("no ring info")
+            return frags
+
+        chem_ns = SimpleNamespace(GetMolFrags=get_frags)
+        return _extract_method_as_fn(
+            XYZ_EDITOR_PATH,
+            "XYZEditorWindow",
+            "_fragment_atom_indices",
+            extra_globals={"Chem": chem_ns},
+        )
+
+    def test_returns_fragment_containing_atom(self):
+        fn = self._fn(frags=((0, 1, 2), (3, 4)))
+        assert fn(SimpleNamespace(), "mol", 4) == {3, 4}
+
+    def test_single_fragment_whole_molecule(self):
+        fn = self._fn(frags=((0, 1, 2, 3),))
+        assert fn(SimpleNamespace(), "mol", 0) == {0, 1, 2, 3}
+
+    def test_atom_not_in_any_fragment_falls_back_to_self(self):
+        fn = self._fn(frags=((0, 1),))
+        assert fn(SimpleNamespace(), "mol", 7) == {7}
+
+    def test_getmolfrags_exception_falls_back_to_self(self):
+        fn = self._fn(raises=True)
+        assert fn(SimpleNamespace(), "mol", 2) == {2}
+
+
+class TestXYZAtomIndexToRowMap:
+    def _fn(self):
+        return _extract_method_as_fn(
+            XYZ_EDITOR_PATH, "XYZEditorWindow", "_atom_index_to_row_map"
+        )
+
+    def _table(self, col0_texts):
+        return SimpleNamespace(
+            rowCount=lambda: len(col0_texts),
+            item=lambda row, col: _FakeItem(col0_texts[row]),
+        )
+
+    def test_maps_indices_to_rows(self):
+        fn = self._fn()
+        self_ = SimpleNamespace(table=self._table(["0", "1", "2"]))
+        assert fn(self_) == {0: 0, 1: 1, 2: 2}
+
+    def test_skips_placeholder_and_empty_rows(self):
+        fn = self._fn()
+        self_ = SimpleNamespace(table=self._table(["0", "+", "", "5"]))
+        assert fn(self_) == {0: 0, 5: 3}
+
+    def test_skips_non_integer_text(self):
+        fn = self._fn()
+        self_ = SimpleNamespace(table=self._table(["abc", "1"]))
+        assert fn(self_) == {1: 1}
+
+
+class _FakeSelectionFlag:
+    Select = "Select"
+    Deselect = "Deselect"
+    ClearAndSelect = "ClearAndSelect"
+
+
+class _RecordingSelection:
+    def __init__(self):
+        self.ranges = []
+
+    def select(self, top_left, bottom_right):
+        self.ranges.append((top_left, bottom_right))
+
+
+class _SelectRowsHarness:
+    """Build a fake self for _select_rows and record the selection call."""
+
+    def __init__(self, selected_rows=(), column_count=5):
+        self.sm_calls = []
+        sm = SimpleNamespace(select=lambda sel, flag: self.sm_calls.append((sel, flag)))
+        model = SimpleNamespace(index=lambda r, c: (r, c))
+        self.fake_self = SimpleNamespace(
+            table=SimpleNamespace(
+                model=lambda: model,
+                selectionModel=lambda: sm,
+                columnCount=lambda: column_count,
+                selectedIndexes=lambda: [_Idx(r) for r in selected_rows],
+                blockSignals=lambda b: None,
+            )
+        )
+
+
+def _select_rows_fn():
+    return _extract_method_as_fn(
+        XYZ_EDITOR_PATH,
+        "XYZEditorWindow",
+        "_select_rows",
+        extra_globals={
+            "QItemSelection": _RecordingSelection,
+            "QItemSelectionModel": SimpleNamespace(SelectionFlag=_FakeSelectionFlag),
+        },
+    )
+
+
+class TestXYZSelectRows:
+    def test_plain_click_clears_and_selects(self):
+        fn = _select_rows_fn()
+        h = _SelectRowsHarness(selected_rows=(3,))
+        fn(h.fake_self, {1, 2}, False, 1)
+        assert len(h.sm_calls) == 1
+        sel, flag = h.sm_calls[0]
+        assert flag == "ClearAndSelect"
+        assert sel.ranges == [((1, 0), (1, 4)), ((2, 0), (2, 4))]
+
+    def test_ctrl_click_adds_when_anchor_not_selected(self):
+        fn = _select_rows_fn()
+        h = _SelectRowsHarness(selected_rows=(0,))
+        fn(h.fake_self, {2}, True, 2)
+        _, flag = h.sm_calls[0]
+        assert flag == "Select"
+
+    def test_ctrl_click_deselects_when_anchor_already_selected(self):
+        fn = _select_rows_fn()
+        h = _SelectRowsHarness(selected_rows=(2, 3))
+        fn(h.fake_self, {2, 3}, True, 2)
+        _, flag = h.sm_calls[0]
+        assert flag == "Deselect"
+
+    def test_rows_selected_full_width_in_sorted_order(self):
+        fn = _select_rows_fn()
+        h = _SelectRowsHarness(column_count=3)
+        fn(h.fake_self, {5, 1}, False, 1)
+        sel, _ = h.sm_calls[0]
+        assert sel.ranges == [((1, 0), (1, 2)), ((5, 0), (5, 2))]
+
+
+class TestXYZDeleteSelectedAtoms:
+    def _fn(self):
+        return _extract_method_as_fn(
+            XYZ_EDITOR_PATH, "XYZEditorWindow", "delete_selected_atoms"
+        )
+
+    def test_no_selection_shows_message_and_does_nothing(self):
+        fn = self._fn()
+        self_ = SimpleNamespace(
+            table=SimpleNamespace(selectedIndexes=lambda: []),
+            context=SimpleNamespace(show_status_message=MagicMock()),
+            remove_selected_rows=MagicMock(),
+            apply_changes=MagicMock(),
+        )
+        fn(self_)
+        self_.context.show_status_message.assert_called_once()
+        self_.remove_selected_rows.assert_not_called()
+        self_.apply_changes.assert_not_called()
+
+    def test_selection_removes_rows_then_applies(self):
+        fn = self._fn()
+        calls = []
+        self_ = SimpleNamespace(
+            table=SimpleNamespace(selectedIndexes=lambda: [_Idx(0), _Idx(2)]),
+            context=SimpleNamespace(show_status_message=MagicMock()),
+            remove_selected_rows=lambda: calls.append("remove"),
+            apply_changes=lambda: calls.append("apply"),
+        )
+        fn(self_)
+        assert calls == ["remove", "apply"]
