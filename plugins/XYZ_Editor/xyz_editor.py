@@ -29,7 +29,7 @@ import logging
 
 
 PLUGIN_NAME = "XYZ Editor"
-PLUGIN_VERSION = "2026.07.15"
+PLUGIN_VERSION = "2026.07.16"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "A table-based editor for atom coordinates and symbols, supporting ghost atoms. Refactored for V3 API."
@@ -243,13 +243,20 @@ class XYZEditorWindow(QWidget):
             if not v3d or not plotter:
                 return
 
-            # Convert Qt (top-left origin) → VTK (bottom-left origin)
-            # widget here is the interactor (QVTKRenderWindowInteractor)
-            vtk_y = widget.height() - y
+            # Convert Qt (top-left, logical pixels) → VTK (bottom-left, physical
+            # pixels). Qt reports clicks in logical pixels while VTK's picker works
+            # in physical device pixels; on HiDPI/Retina displays (notably macOS,
+            # where devicePixelRatio == 2) they differ, so scale by the ratio.
+            # Without this the pick lands at half the coordinates (toward the
+            # bottom-left) and you have to click up and to the right of the atom to
+            # hit it. On Windows/Linux the ratio is 1.0, so this is a no-op there.
+            ratio = widget.devicePixelRatioF()
+            px = x * ratio
+            vtk_y = (widget.height() - y) * ratio
 
             picker = vtk.vtkCellPicker()
             picker.SetTolerance(0.005)
-            picker.Pick(x, vtk_y, 0, plotter.renderer)
+            picker.Pick(px, vtk_y, 0, plotter.renderer)
             picked_actor = picker.GetActor()
 
             atom_actor = getattr(v3d, "atom_actor", None)

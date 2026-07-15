@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QComboBox,
     QSpinBox,
+    QCheckBox,
     QLabel,
     QHeaderView,
     QMessageBox,
@@ -22,13 +23,13 @@ from functools import partial
 
 
 PLUGIN_NAME = "Bond Editor"
-PLUGIN_VERSION = "2026.07.15"
+PLUGIN_VERSION = "2026.07.16"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
     "A table-based bond editor: add/delete bonds, change bond order, and set "
     "bond lengths by moving one side of the bond. Click atoms in the 3D view "
-    "to pick bond endpoints."
+    "to pick bond endpoints, or click a bond directly to select it."
 )
 PLUGIN_CONTEXT = None
 
@@ -144,6 +145,13 @@ class BondEditorWindow(QWidget):
         self.add_btn.clicked.connect(self.add_bond)
         add_layout.addWidget(self.add_btn)
         add_layout.addStretch()
+        self.endpoint_mode_cb = QCheckBox("Endpoint pick mode")
+        self.endpoint_mode_cb.setToolTip(
+            "When on, clicking atoms in the 3D view fills Atom 1 / Atom 2 "
+            "(for Add Bond). When off, clicking selects the nearest bond."
+        )
+        self.endpoint_mode_cb.toggled.connect(self._on_endpoint_mode_toggled)
+        add_layout.addWidget(self.endpoint_mode_cb)
         layout.addLayout(add_layout)
 
         btn_layout = QHBoxLayout()
@@ -203,42 +211,68 @@ class BondEditorWindow(QWidget):
             if not v3d or not plotter:
                 return
 
-            vtk_y = widget.height() - y
+            # Qt reports click positions in logical pixels, but VTK's picker works
+            # in physical device pixels. On HiDPI/Retina displays (notably macOS,
+            # where devicePixelRatio == 2) the two differ, so scale by the ratio —
+            # otherwise the pick lands at half the coordinates (toward the bottom-
+            # left) and you have to click up and to the right of the target to hit
+            # it. On Windows/Linux the ratio is 1.0, so this is a no-op there.
+            ratio = widget.devicePixelRatioF()
+            px = x * ratio
+            vtk_y = (widget.height() - y) * ratio
+
             picker = vtk.vtkCellPicker()
             picker.SetTolerance(0.005)
-            picker.Pick(x, vtk_y, 0, plotter.renderer)
-            picked_actor = picker.GetActor()
-
-            atom_actor = getattr(v3d, "atom_actor", None)
-            if picked_actor is None or picked_actor is not atom_actor:
+            picker.Pick(px, vtk_y, 0, plotter.renderer)
+            if picker.GetActor() is None:
                 return
 
-            pick_pos = picker.GetPickPosition()
             mol = self.context.current_mol
             if not mol or not mol.GetNumConformers():
                 return
 
-            conf = mol.GetConformer()
-            best_idx = -1
-            best_dist = float("inf")
-            for atom in mol.GetAtoms():
-                idx = atom.GetIdx()
-                pos = conf.GetAtomPosition(idx)
-                dx = pos.x - pick_pos[0]
-                dy = pos.y - pick_pos[1]
-                dz = pos.z - pick_pos[2]
-                dist = dx * dx + dy * dy + dz * dz
-                if dist < best_dist:
-                    best_dist = dist
-                    best_idx = idx
-
-            if best_idx < 0:
+            pick_pos = picker.GetPickPosition()
+            if self.endpoint_mode_cb.isChecked():
+                # Endpoint mode: click atoms to fill the Atom 1 / Atom 2 pickers.
+                idx = self._nearest_atom_to_point(mol, pick_pos)
+                if idx is not None:
+                    self._assign_picked_atom(idx)
                 return
 
-            self._assign_picked_atom(best_idx)
-            self._select_bond_rows_of_atom(best_idx)
+            # Default: resolve the click to the nearest bond axis, whether the
+            # user clicked the bond cylinder or one of its atoms.
+            pair = self._nearest_bond_to_point(mol, pick_pos)
+            if pair is not None:
+                self._select_bond_row_by_pair(pair)
         except Exception as _e:
             logging.warning("[bond_editor.py:_on_plotter_click] silenced: %s", _e)
+
+    def _on_endpoint_mode_toggled(self, checked):
+        """Reset the Atom 1/Atom 2 alternation when entering endpoint mode."""
+        self._pick_second = False
+        if checked:
+            self.context.show_status_message(
+                "Endpoint mode: click two atoms to set Atom 1 and Atom 2."
+            )
+        else:
+            self.context.show_status_message("Bond selection mode: click a bond.")
+
+    def _nearest_atom_to_point(self, mol, pick_pos):
+        """Return the index of the atom nearest the 3D *pick_pos*, or None."""
+        conf = mol.GetConformer()
+        best_idx = None
+        best = float("inf")
+        for atom in mol.GetAtoms():
+            idx = atom.GetIdx()
+            pos = conf.GetAtomPosition(idx)
+            dx = pos.x - pick_pos[0]
+            dy = pos.y - pick_pos[1]
+            dz = pos.z - pick_pos[2]
+            dist = dx * dx + dy * dy + dz * dz
+            if dist < best:
+                best = dist
+                best_idx = idx
+        return best_idx
 
     def _assign_picked_atom(self, atom_idx):
         """Alternate clicked atoms into the Atom 1 / Atom 2 pickers."""
@@ -248,18 +282,50 @@ class BondEditorWindow(QWidget):
         self._pick_second = not self._pick_second
         self.context.show_status_message(f"{which} set to atom {atom_idx}.")
 
-    def _select_bond_rows_of_atom(self, atom_idx):
-        """Select all table rows whose bond involves the given atom."""
+    def _nearest_bond_to_point(self, mol, pick_pos, max_dist=0.8):
+        """Return the (begin, end) atom pair of the bond whose axis is closest to
+        the 3D *pick_pos*, or None if no bond is within *max_dist* angstrom."""
+        conf = mol.GetConformer()
+        q = np.array([pick_pos[0], pick_pos[1], pick_pos[2]])
+        best_pair = None
+        best = max_dist * max_dist
+        for bond in mol.GetBonds():
+            b = bond.GetBeginAtomIdx()
+            e = bond.GetEndAtomIdx()
+            p1 = conf.GetAtomPosition(b)
+            p2 = conf.GetAtomPosition(e)
+            a = np.array([p1.x, p1.y, p1.z])
+            c = np.array([p2.x, p2.y, p2.z])
+            ab = c - a
+            denom = float(ab @ ab)
+            t = 0.0 if denom < 1e-12 else float((q - a) @ ab / denom)
+            t = max(0.0, min(1.0, t))
+            proj = a + t * ab
+            dist = float((q - proj) @ (q - proj))
+            if dist < best:
+                best = dist
+                best_pair = (b, e)
+        return best_pair
+
+    def _select_bond_row_by_pair(self, pair):
+        """Select the single table row matching the given (begin, end) atom pair."""
+        want = set(pair)
+        target = None
         self.table.blockSignals(True)
         self.table.clearSelection()
         for row in range(self.table.rowCount()):
-            pair = self._row_bond_atoms(row)
-            if pair and atom_idx in pair:
+            rp = self._row_bond_atoms(row)
+            if rp and set(rp) == want:
                 for col in range(self.table.columnCount()):
                     item = self.table.item(row, col)
                     if item:
                         item.setSelected(True)
+                target = row
+                break
         self.table.blockSignals(False)
+        if target is not None:
+            self.table.scrollTo(self.table.model().index(target, 0))
+            self.context.show_status_message(f"Selected bond {pair[0]}-{pair[1]}.")
         self.highlight_selected_bonds()
 
     # ------------------------------------------------------------------
