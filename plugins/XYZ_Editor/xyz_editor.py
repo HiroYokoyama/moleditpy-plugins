@@ -10,6 +10,8 @@ from PyQt6.QtWidgets import (
     QHeaderView,
     QFileDialog,
     QCheckBox,
+    QDoubleSpinBox,
+    QLabel,
 )
 from PyQt6.QtCore import (
     Qt,
@@ -170,6 +172,28 @@ class XYZEditorWindow(QWidget):
         select_layout.addWidget(self.whole_mol_cb)
         select_layout.addStretch()
         layout.addLayout(select_layout)
+
+        dup_layout = QHBoxLayout()
+        self.duplicate_btn = QPushButton("Duplicate")
+        self.duplicate_btn.setToolTip(
+            "Duplicate the selected atoms (whole molecule if nothing is selected), "
+            "offset by the values on the right"
+        )
+        self.duplicate_btn.clicked.connect(self.duplicate_atoms)
+        dup_layout.addWidget(self.duplicate_btn)
+        dup_layout.addWidget(QLabel("Offset:"))
+        self.dup_offset = []
+        for axis in ("X", "Y", "Z"):
+            spin = QDoubleSpinBox()
+            spin.setRange(-1000.0, 1000.0)
+            spin.setDecimals(3)
+            spin.setSingleStep(0.5)
+            spin.setValue(1.0)
+            spin.setPrefix(f"{axis}: ")
+            dup_layout.addWidget(spin)
+            self.dup_offset.append(spin)
+        dup_layout.addStretch()
+        layout.addLayout(dup_layout)
 
         self._del_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Delete), self.table)
         self._del_shortcut.setContext(Qt.ShortcutContext.WidgetShortcut)
@@ -425,6 +449,96 @@ class XYZEditorWindow(QWidget):
             return
         self.remove_selected_rows()
         self.apply_changes()
+
+    def _selected_atom_indices(self):
+        """Atom indices (column 0) of the selected rows; unapplied '+' rows are skipped."""
+        indices = set()
+        for row in set(index.row() for index in self.table.selectedIndexes()):
+            item = self.table.item(row, 0)
+            if item and item.text() not in ("", "+"):
+                try:
+                    indices.add(int(item.text()))
+                except ValueError as _e:
+                    logging.warning(
+                        "[xyz_editor.py:_selected_atom_indices] silenced: %s", _e
+                    )
+        return indices
+
+    def duplicate_atoms(self):
+        """Duplicate the selected atoms (or the whole molecule if nothing is
+        selected) with the configured coordinate offset, preserving bonds
+        between duplicated atoms. The new copy is left selected."""
+        mol = self.context.current_molecule
+        if not mol or not mol.GetNumAtoms() or not mol.GetNumConformers():
+            self.context.show_status_message("No molecule to duplicate.")
+            return
+
+        had_selection = bool(self.table.selectedIndexes())
+        sel = self._selected_atom_indices()
+        if had_selection and not sel:
+            self.context.show_status_message(
+                "Selected rows are not applied yet — press Apply first."
+            )
+            return
+        if not sel:
+            sel = set(range(mol.GetNumAtoms()))
+        dx, dy, dz = (spin.value() for spin in self.dup_offset)
+
+        try:
+            rw = Chem.RWMol(mol)
+            src_conf = mol.GetConformer()
+            mapping = {}
+            for idx in sorted(sel):
+                src = mol.GetAtomWithIdx(idx)
+                atom = Chem.Atom(src.GetAtomicNum())
+                atom.SetFormalCharge(src.GetFormalCharge())
+                atom.SetNoImplicit(src.GetNoImplicit())
+                atom.SetIsAromatic(src.GetIsAromatic())
+                atom.SetNumRadicalElectrons(src.GetNumRadicalElectrons())
+                if src.HasProp("custom_symbol"):
+                    atom.SetProp("custom_symbol", src.GetProp("custom_symbol"))
+                mapping[idx] = rw.AddAtom(atom)
+
+            conf = rw.GetConformer()
+            for idx, new_idx in mapping.items():
+                pos = src_conf.GetAtomPosition(idx)
+                conf.SetAtomPosition(
+                    new_idx, Point3D(pos.x + dx, pos.y + dy, pos.z + dz)
+                )
+
+            for bond in mol.GetBonds():
+                b = bond.GetBeginAtomIdx()
+                e = bond.GetEndAtomIdx()
+                if b in mapping and e in mapping:
+                    rw.AddBond(mapping[b], mapping[e], bond.GetBondType())
+
+            try:
+                Chem.SanitizeMol(rw)
+            except Exception:
+                rw.UpdatePropertyCache(strict=False)
+                Chem.GetSSSR(rw)
+
+            self.context.current_molecule = rw.GetMol()
+            self.context.push_undo_checkpoint()
+            self.last_seen_signature = self.get_mol_signature(
+                self.context.current_molecule
+            )
+            refresh = getattr(self.context, "refresh_3d_view", None)
+            if callable(refresh):
+                refresh()
+            else:
+                self.context.reset_3d_camera()
+            self.load_molecule()
+
+            row_map = self._atom_index_to_row_map()
+            new_rows = {row_map[i] for i in mapping.values() if i in row_map}
+            if new_rows:
+                self._select_rows(new_rows, False, min(new_rows))
+                self.highlight_selected_atoms()
+
+            self.context.show_status_message(f"Duplicated {len(mapping)} atom(s).")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to duplicate: {str(e)}")
 
     def unselect_all(self):
         self.table.clearSelection()

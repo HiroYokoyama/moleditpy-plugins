@@ -968,3 +968,246 @@ class TestXYZDeleteSelectedAtoms:
         )
         fn(self_)
         assert calls == ["remove", "apply"]
+
+
+# ---------------------------------------------------------------------------
+# duplicate molecule / selected atoms
+# ---------------------------------------------------------------------------
+
+
+class TestXYZSelectedAtomIndices:
+    def _fn(self):
+        return _extract_method_as_fn(
+            XYZ_EDITOR_PATH, "XYZEditorWindow", "_selected_atom_indices"
+        )
+
+    def _self(self, selected_rows, col0_texts):
+        return SimpleNamespace(
+            table=SimpleNamespace(
+                selectedIndexes=lambda: [_Idx(r) for r in selected_rows],
+                item=lambda row, col: _FakeItem(col0_texts[row]),
+            )
+        )
+
+    def test_collects_indices_of_selected_rows(self):
+        fn = self._fn()
+        assert fn(self._self([0, 2], ["0", "1", "5"])) == {0, 5}
+
+    def test_skips_placeholder_rows(self):
+        fn = self._fn()
+        assert fn(self._self([0, 1], ["3", "+"])) == {3}
+
+    def test_empty_selection(self):
+        fn = self._fn()
+        assert fn(self._self([], ["0"])) == set()
+
+
+class _FakeDupAtom:
+    def __init__(self, num, idx, props=None):
+        self._num, self._idx = num, idx
+        self._props = props or {}
+
+    def GetAtomicNum(self):
+        return self._num
+
+    def GetFormalCharge(self):
+        return 0
+
+    def GetNoImplicit(self):
+        return True
+
+    def GetIsAromatic(self):
+        return False
+
+    def GetNumRadicalElectrons(self):
+        return 0
+
+    def HasProp(self, key):
+        return key in self._props
+
+    def GetProp(self, key):
+        return self._props[key]
+
+
+class _FakeDupMol:
+    def __init__(self, coords, bonds=(), props_by_idx=None):
+        self._coords = coords
+        self._bonds = bonds
+        self._props = props_by_idx or {}
+
+    def GetNumAtoms(self):
+        return len(self._coords)
+
+    def GetNumConformers(self):
+        return 1
+
+    def GetAtomWithIdx(self, i):
+        return _FakeDupAtom(6, i, self._props.get(i))
+
+    def GetConformer(self):
+        return FakeConf(self._coords)
+
+    def GetBonds(self):
+        return [
+            SimpleNamespace(
+                GetBeginAtomIdx=lambda b=b: b,
+                GetEndAtomIdx=lambda e=e: e,
+                GetBondType=lambda: "SINGLE",
+            )
+            for b, e in self._bonds
+        ]
+
+
+class _FakeDupRW:
+    """RWMol stand-in: AddAtom appends after the base mol's atoms and the
+    conformer records SetAtomPosition calls (mirrors RDKit's auto-extend)."""
+
+    def __init__(self, base):
+        self._base_n = base.GetNumAtoms()
+        self.added_atoms = []
+        self.added_bonds = []
+        self.positions = {}
+        self.conf = SimpleNamespace(
+            SetAtomPosition=lambda i, p: self.positions.__setitem__(i, p)
+        )
+
+    def AddAtom(self, atom):
+        self.added_atoms.append(atom)
+        return self._base_n + len(self.added_atoms) - 1
+
+    def GetConformer(self):
+        return self.conf
+
+    def AddBond(self, b, e, t):
+        self.added_bonds.append((b, e, t))
+
+    def GetMol(self):
+        return self
+
+
+class _FakeDupRDAtom:
+    def __init__(self, num):
+        self.num = num
+        self.props = {}
+
+    def SetFormalCharge(self, v):
+        self.charge = v
+
+    def SetNoImplicit(self, v):
+        self.no_implicit = v
+
+    def SetIsAromatic(self, v):
+        self.aromatic = v
+
+    def SetNumRadicalElectrons(self, v):
+        self.radicals = v
+
+    def SetProp(self, k, v):
+        self.props[k] = v
+
+
+def _duplicate_fn():
+    chem_ns = SimpleNamespace(
+        RWMol=_FakeDupRW,
+        Atom=_FakeDupRDAtom,
+        SanitizeMol=lambda m: None,
+        GetSSSR=lambda m: None,
+    )
+    return _extract_method_as_fn(
+        XYZ_EDITOR_PATH,
+        "XYZEditorWindow",
+        "duplicate_atoms",
+        extra_globals={
+            "Chem": chem_ns,
+            "Point3D": _FakePoint3D,
+            "QMessageBox": MagicMock(),
+        },
+    )
+
+
+def _duplicate_self(mol, selected_atom_indices, selected_rows=None, offsets=(1.0, 1.0, 1.0)):
+    if selected_rows is None:
+        selected_rows = sorted(selected_atom_indices)
+    ctx = SimpleNamespace(
+        current_molecule=mol,
+        push_undo_checkpoint=MagicMock(),
+        refresh_3d_view=MagicMock(),
+        reset_3d_camera=MagicMock(),
+        show_status_message=MagicMock(),
+    )
+    return SimpleNamespace(
+        context=ctx,
+        table=SimpleNamespace(selectedIndexes=lambda: [_Idx(r) for r in selected_rows]),
+        dup_offset=[SimpleNamespace(value=lambda v=v: v) for v in offsets],
+        _selected_atom_indices=lambda: set(selected_atom_indices),
+        get_mol_signature=lambda m: "sig",
+        load_molecule=MagicMock(),
+        _atom_index_to_row_map=lambda: {},
+        _select_rows=MagicMock(),
+        highlight_selected_atoms=MagicMock(),
+        last_seen_signature=None,
+    )
+
+
+class TestXYZDuplicateAtoms:
+    def test_no_molecule_shows_message(self):
+        fn = _duplicate_fn()
+        self_ = _duplicate_self(None, [])
+        fn(self_)
+        self_.context.show_status_message.assert_called_once()
+        self_.context.push_undo_checkpoint.assert_not_called()
+
+    def test_no_selection_duplicates_whole_molecule_with_default_offset(self):
+        fn = _duplicate_fn()
+        mol = _FakeDupMol([(0.0, 0.0, 0.0), (1.5, 0.0, 0.0)], bonds=[(0, 1)])
+        self_ = _duplicate_self(mol, [], selected_rows=[])
+        fn(self_)
+        new_mol = self_.context.current_molecule
+        assert len(new_mol.added_atoms) == 2
+        # copies land at original + (1, 1, 1)
+        assert (new_mol.positions[2].x, new_mol.positions[2].y, new_mol.positions[2].z) == (1.0, 1.0, 1.0)
+        assert (new_mol.positions[3].x, new_mol.positions[3].y, new_mol.positions[3].z) == (2.5, 1.0, 1.0)
+        # bond between the two copies preserved with remapped indices
+        assert new_mol.added_bonds == [(2, 3, "SINGLE")]
+        self_.context.push_undo_checkpoint.assert_called_once()
+        self_.context.refresh_3d_view.assert_called_once()
+        self_.load_molecule.assert_called_once()
+
+    def test_partial_selection_duplicates_subset_only(self):
+        fn = _duplicate_fn()
+        mol = _FakeDupMol(
+            [(0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (9.0, 9.0, 9.0)],
+            bonds=[(0, 1), (1, 2)],
+        )
+        self_ = _duplicate_self(mol, [0, 1])
+        fn(self_)
+        new_mol = self_.context.current_molecule
+        assert len(new_mol.added_atoms) == 2
+        # only the bond internal to the selection is copied
+        assert new_mol.added_bonds == [(3, 4, "SINGLE")]
+
+    def test_custom_offset_applied(self):
+        fn = _duplicate_fn()
+        mol = _FakeDupMol([(1.0, 2.0, 3.0)])
+        self_ = _duplicate_self(mol, [0], offsets=(-0.5, 0.0, 2.0))
+        fn(self_)
+        p = self_.context.current_molecule.positions[1]
+        assert (p.x, p.y, p.z) == (0.5, 2.0, 5.0)
+
+    def test_custom_symbol_copied_to_duplicate(self):
+        fn = _duplicate_fn()
+        mol = _FakeDupMol([(0.0, 0.0, 0.0)], props_by_idx={0: {"custom_symbol": "C13"}})
+        self_ = _duplicate_self(mol, [0])
+        fn(self_)
+        atom = self_.context.current_molecule.added_atoms[0]
+        assert atom.props == {"custom_symbol": "C13"}
+
+    def test_only_unapplied_rows_selected_aborts_with_message(self):
+        fn = _duplicate_fn()
+        mol = _FakeDupMol([(0.0, 0.0, 0.0)])
+        # a row is selected but maps to no applied atom index ('+' row)
+        self_ = _duplicate_self(mol, [], selected_rows=[1])
+        fn(self_)
+        self_.context.show_status_message.assert_called_once()
+        self_.context.push_undo_checkpoint.assert_not_called()
+        assert self_.context.current_molecule is mol
