@@ -55,7 +55,16 @@ def _load_module():
         def __init__(self, parent=None, *a, **kw):
             pass
 
-    if "PyQt6" not in sys.modules:
+    # Always install the stub PyQt6 while loading the plugin, even if pytest-qt
+    # has already imported the real PyQt6 during collection. Otherwise the plugin
+    # subclasses the real QDialog and object.__new__() on a sip type is unsafe
+    # (this is why the suite passed in CI, where PyQt6 is absent, but failed
+    # locally with PyQt6 installed). The real modules are restored afterwards.
+    _saved_pyqt6 = {
+        key: sys.modules.get(key)
+        for key in ("PyQt6", "PyQt6.QtWidgets", "PyQt6.QtGui", "PyQt6.QtCore")
+    }
+    if True:  # force the stub regardless of any real PyQt6 already imported
         pyqt6 = types.ModuleType("PyQt6")
         pyqt6.QtWidgets = types.ModuleType("PyQt6.QtWidgets")
         pyqt6.QtGui = types.ModuleType("PyQt6.QtGui")
