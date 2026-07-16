@@ -270,6 +270,44 @@ class BondEditorWindow(QWidget):
         }
         self.context.show_status_message(msgs.get(mode, ""))
         self._update_mode_overlay()
+        self._update_atom_labels()
+
+    def _update_atom_labels(self):
+        """Show per-atom index labels in the 3D view while an atom-click mode
+        (Pick endpoints / Create bond) is active, so the atom to click is
+        identifiable; hidden in Select bond mode."""
+        plotter = self.context.plotter
+        if not plotter:
+            return
+        try:
+            mode = self.click_mode_combo.currentText()
+            mol = self.context.current_mol
+            if (
+                mode not in ("Pick endpoints", "Create bond")
+                or not mol
+                or not mol.GetNumAtoms()
+                or not mol.GetNumConformers()
+            ):
+                plotter.remove_actor("bond_editor_atom_labels")
+                plotter.render()
+                return
+            points = mol.GetConformer().GetPositions()
+            labels = [self._atom_label(mol, i) for i in range(mol.GetNumAtoms())]
+            plotter.add_point_labels(
+                points,
+                labels,
+                name="bond_editor_atom_labels",
+                font_size=14,
+                text_color="orange",
+                shape=None,
+                show_points=False,
+                always_visible=True,
+                pickable=False,
+                reset_camera=False,
+            )
+            plotter.render()
+        except Exception as _e:
+            logging.warning("[bond_editor.py:_update_atom_labels] silenced: %s", _e)
 
     def _update_mode_overlay(self):
         """Show the 3D click mode and pick progress as a text overlay in the viewer."""
@@ -422,6 +460,7 @@ class BondEditorWindow(QWidget):
             current_sig = self.get_mol_signature(self.context.current_molecule)
             if current_sig != self.last_seen_signature:
                 self.load_molecule()
+                self._update_atom_labels()
         except Exception as _e:
             logging.warning("[bond_editor.py:check_molecule_update] silenced: %s", _e)
 
@@ -723,6 +762,7 @@ class BondEditorWindow(QWidget):
         if plotter:
             plotter.remove_actor("bond_editor_selection")
             plotter.remove_actor("bond_editor_mode_label")
+            plotter.remove_actor("bond_editor_atom_labels")
             plotter.render()
         super().closeEvent(event)
         # Unregister so the next open builds a fresh window that reinstalls the

@@ -566,3 +566,61 @@ class TestModeOverlay:
 
     def test_no_plotter_is_noop(self):
         self._fn()(self._self("Create bond", plotter=None))
+
+
+class TestAtomLabels:
+    def _fn(self):
+        import logging as real_logging
+
+        return extract_function(
+            BOND_EDITOR_PATH,
+            "BondEditorWindow",
+            "_update_atom_labels",
+            extra_globals={"logging": real_logging},
+        )
+
+    @staticmethod
+    def _mol(n=2):
+        return SimpleNamespace(
+            GetNumAtoms=lambda: n,
+            GetNumConformers=lambda: 1,
+            GetConformer=lambda: SimpleNamespace(
+                GetPositions=lambda: real_numpy.zeros((n, 3))
+            ),
+        )
+
+    def _self(self, mode, mol, plotter):
+        return SimpleNamespace(
+            context=SimpleNamespace(plotter=plotter, current_mol=mol),
+            click_mode_combo=SimpleNamespace(currentText=lambda: mode),
+            _atom_label=lambda m, i: f"{i} (C)",
+        )
+
+    def test_create_bond_mode_adds_labels_for_all_atoms(self):
+        plotter = MagicMock()
+        self._fn()(self._self("Create bond", self._mol(3), plotter))
+        args, kwargs = plotter.add_point_labels.call_args
+        assert args[1] == ["0 (C)", "1 (C)", "2 (C)"]
+        assert kwargs["name"] == "bond_editor_atom_labels"
+        assert kwargs["pickable"] is False
+        assert kwargs["reset_camera"] is False
+
+    def test_pick_endpoints_mode_adds_labels(self):
+        plotter = MagicMock()
+        self._fn()(self._self("Pick endpoints", self._mol(1), plotter))
+        plotter.add_point_labels.assert_called_once()
+
+    def test_select_mode_removes_labels(self):
+        plotter = MagicMock()
+        self._fn()(self._self("Select bond", self._mol(2), plotter))
+        plotter.remove_actor.assert_called_once_with("bond_editor_atom_labels")
+        plotter.add_point_labels.assert_not_called()
+
+    def test_no_molecule_removes_labels(self):
+        plotter = MagicMock()
+        self._fn()(self._self("Create bond", None, plotter))
+        plotter.remove_actor.assert_called_once_with("bond_editor_atom_labels")
+        plotter.add_point_labels.assert_not_called()
+
+    def test_no_plotter_is_noop(self):
+        self._fn()(self._self("Create bond", self._mol(1), None))
