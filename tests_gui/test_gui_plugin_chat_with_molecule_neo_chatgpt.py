@@ -43,7 +43,13 @@ class TestChatMoleculeWindowChatGPT:
     """ChatMoleculeWindow — Chat with Molecule Neo (ChatGPT)."""
 
     @pytest.fixture
-    def win(self, qapp):
+    def win(self, qapp, monkeypatch):
+        # The 100ms singleShot in __init__ would fire initialize_session on
+        # a dead widget during a later test's event loop (and it crashes on
+        # mocked markdown anyway) — neutralize it before construction.
+        monkeypatch.setattr(
+            _chatgpt.ChatMoleculeWindow, "initialize_session", lambda self: None
+        )
         ctx = _no_window_context()
         w = _chatgpt.ChatMoleculeWindow(context=ctx)
         yield w

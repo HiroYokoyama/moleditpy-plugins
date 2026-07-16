@@ -457,7 +457,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "MS Spectrum Simulation Neo",
-    "version": "2026.06.26",
+    "version": "2026.07.17",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Simulates the Mass Spectrum for the currently loaded molecule using RDKit descriptors. Includes Gaussian broadening and interactive zoom/pan.",
@@ -469,8 +469,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/MS_Spectrum_Simulation_Neo/ms_spectrum_neo.py",
-    "lastUpdated": "2026-06-26",
-    "sha256": "338ca65738dd31b2e5acc2be0304a83706e25931914678e33c2c92472e36f8c0",
+    "lastUpdated": "2026-07-17",
+    "sha256": "a2bd0c46744b19e77c669e55d3d60b193b35dbd356ed8ae8bd538c20fb502034",
     "firstAppeared": "2025-12-18"
   },
   {

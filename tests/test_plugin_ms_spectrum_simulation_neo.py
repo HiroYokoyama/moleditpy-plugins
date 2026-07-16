@@ -160,6 +160,30 @@ class TestGaussianBroadening:
         assert near_100 == pytest.approx(100.0, abs=1e-6)
         assert near_101 == pytest.approx(50.0, rel=0.02)
 
+    def test_apex_exactly_at_stick_mass(self):
+        """v2026.07.17: the grid contains the exact stick masses, so an
+        isolated peak's apex is exactly the theoretical m/z at 100%
+        (previously the apex was the nearest arange point)."""
+        result = self._fn()(None, [(123.4567, 100.0)], 0.03)
+        apex_x, apex_y = max(result, key=lambda p: p[1])
+        assert apex_x == 123.4567
+        assert apex_y == pytest.approx(100.0, abs=1e-9)
+
+    def test_every_stick_mass_is_a_grid_point(self):
+        sticks = [(100.0123, 100.0), (101.0156, 32.0), (102.0189, 5.0)]
+        result = self._fn()(None, sticks, 0.02)
+        xs = {x for x, _ in result}
+        for s_mass, _ in sticks:
+            assert s_mass in xs
+
+    def test_overlapping_sticks_merge_to_single_apex_between(self):
+        # 0.5 sigma apart: broadened components merge into one hump whose
+        # apex lies between the sticks (the "real" observed peak).
+        sigma = 0.05
+        result = self._fn()(None, [(100.00, 100.0), (100.025, 100.0)], sigma)
+        apex_x, _ = max(result, key=lambda p: p[1])
+        assert 100.00 < apex_x < 100.025
+
 
 # ---------------------------------------------------------------------------
 # _calculate_peaks — isotope-pattern convolution, formula/adduct integration
@@ -439,6 +463,11 @@ class _FakeHistogramWidget:
 
     def width(self):
         return self._width
+
+    def _scaled_x_margins(self):
+        # mirrors HistogramWidget._scaled_x_margins (v2026.07.17)
+        scale = self.width() / 600.0
+        return int(60 * scale), int(40 * scale)
 
     def update(self):
         self.update_calls += 1

@@ -285,6 +285,98 @@ class TestMSHistogramWidget:
 # ===========================================================================
 
 
+class TestMSBroadeningZoomPreserved:
+    def test_gauss_toggle_keeps_zoom(self, qapp):
+        """Regression (v2026.07.17): gauss_check was double-connected and the
+        direct connect passed the Qt state as reset= -> zoom wiped."""
+        d, ctx = _make_dlg()
+        d.plot_widget.view_min, d.plot_widget.view_max = 10.0, 20.0
+        d.gauss_check.setChecked(True)
+        assert (d.plot_widget.view_min, d.plot_widget.view_max) == (10.0, 20.0)
+        d.destroy()
+
+    def test_width_change_keeps_zoom(self, qapp):
+        d, ctx = _make_dlg()
+        d.plot_widget.view_min, d.plot_widget.view_max = 10.0, 20.0
+        d.width_spin.setValue(0.5)
+        assert (d.plot_widget.view_min, d.plot_widget.view_max) == (10.0, 20.0)
+        d.destroy()
+
+
+class TestMSProfileLocalMaxima:
+    def test_single_apex_found(self, qapp):
+        h = _ms_neo.HistogramWidget(
+            [(100.0, 0.0), (100.1, 50.0), (100.2, 100.0), (100.3, 50.0), (100.4, 0.0)]
+        )
+        assert h._profile_local_maxima() == [(100.2, 100.0)]
+        h.destroy()
+
+    def test_two_separate_apexes_found(self, qapp):
+        h = _ms_neo.HistogramWidget(
+            [
+                (100.0, 0.0),
+                (100.1, 100.0),
+                (100.2, 5.0),
+                (100.3, 60.0),
+                (100.4, 0.0),
+            ]
+        )
+        assert h._profile_local_maxima() == [(100.1, 100.0), (100.3, 60.0)]
+        h.destroy()
+
+    def test_merged_curve_gives_single_apex(self, qapp):
+        # Two overlapping components already summed into one hump
+        h = _ms_neo.HistogramWidget(
+            [(100.0, 10.0), (100.1, 80.0), (100.15, 100.0), (100.2, 80.0), (100.3, 10.0)]
+        )
+        assert h._profile_local_maxima() == [(100.15, 100.0)]
+        h.destroy()
+
+    def test_threshold_filters_noise(self, qapp):
+        h = _ms_neo.HistogramWidget(
+            [(100.0, 0.0), (100.1, 0.01), (100.2, 0.0), (100.3, 50.0), (100.4, 0.0)]
+        )
+        assert h._profile_local_maxima() == [(100.3, 50.0)]
+        h.destroy()
+
+    def test_flat_plateau_labelled_once(self, qapp):
+        h = _ms_neo.HistogramWidget(
+            [(100.0, 0.0), (100.1, 100.0), (100.2, 100.0), (100.3, 0.0)]
+        )
+        assert h._profile_local_maxima() == [(100.2, 100.0)]
+        h.destroy()
+
+    def test_empty_profile_has_no_maxima(self, qapp):
+        h = _ms_neo.HistogramWidget([])
+        assert h._profile_local_maxima() == []
+        h.destroy()
+
+
+class TestMSProfileRendering:
+    def test_profile_mode_with_stick_labels_renders(self, qapp):
+        # Executes the broadened-peak-top label path end to end.
+        h = _ms_neo.HistogramWidget(
+            [(100.0 + 0.01 * i, min(100.0, 10.0 * i)) for i in range(30)]
+        )
+        h.draw_mode = "profile"
+        h.stick_peaks = [(100.1, 80.0), (100.2, 100.0), (100.25, 0.01)]
+        h.resize(600, 400)
+        h.reset_view()
+        pixmap = h.grab()
+        assert not pixmap.isNull()
+        h.destroy()
+
+
+class TestMSScaledMargins:
+    def test_margins_scale_with_width(self, qapp):
+        """Regression: wheel/pan used fixed 60/40 margins while the painter
+        scales them, so the zoom anchor drifted on resized windows."""
+        h = _ms_neo.HistogramWidget([])
+        h.resize(1200, 400)
+        assert h._scaled_x_margins() == (120, 80)
+        h.destroy()
+
+
 class TestMSExport:
     def test_export_csv_cancel_is_noop(self, qapp, tmp_path, monkeypatch):
         d, ctx = _make_dlg()

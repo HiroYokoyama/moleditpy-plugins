@@ -48,7 +48,7 @@ except ImportError:
     Descriptors = None
     Draw = None
 
-PLUGIN_VERSION = "2026.06.26"
+PLUGIN_VERSION = "2026.07.17"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 
@@ -177,9 +177,10 @@ class MSSpectrumDialog(QDialog):
         spectrum_layout = QVBoxLayout(spectrum_group)
 
         # Gaussian Options
+        # (connected below with reset=False — a direct connect here would
+        # pass the signal payload as `reset` and wipe the zoom)
         self.gauss_check = QCheckBox("Gaussian Broadening")
         self.gauss_check.setChecked(False)
-        self.gauss_check.stateChanged.connect(self.recalc_peaks)
 
         self.width_spin = QDoubleSpinBox()
         self.width_spin.setRange(0.001, 5.0)
@@ -187,7 +188,6 @@ class MSSpectrumDialog(QDialog):
         self.width_spin.setValue(0.04)
         self.width_spin.setSuffix(" Da")
         self.width_spin.setToolTip("Peak width (Sigma)")
-        self.width_spin.valueChanged.connect(self.recalc_peaks)
 
         # Layout for Gaussian
         gauss_layout = QHBoxLayout()
@@ -510,7 +510,7 @@ class MSSpectrumDialog(QDialog):
             return
 
         try:
-            with open(filename, "w") as f:
+            with open(filename, "w", encoding="utf-8") as f:
                 f.write("m/z,Intensity\n")
                 data = self.plot_widget.peaks
                 for m, i in data:
@@ -543,7 +543,7 @@ class MSSpectrumDialog(QDialog):
         # Prepare Info Text for Graph
         formula_raw = self.formula_input.text().strip()
 
-        # Format formula (C6H6 -> C₁E₁E
+        # Format formula (C6H6 -> C₆H₆)
         sub_map = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
         formula_formatted = formula_raw.translate(sub_map)
 
@@ -589,6 +589,10 @@ class MSSpectrumDialog(QDialog):
         # 10 points per sigma is better for appearance, 20 is good for peak top approx
         step = min(0.005, sigma / 10.0)
         x_vals = np.arange(min_mz, max_mz, step)
+        # Insert the exact stick masses: an isolated peak's apex (and the
+        # normalization max) then falls exactly on the theoretical m/z
+        # instead of the nearest grid point.
+        x_vals = np.union1d(x_vals, np.array([p[0] for p in peaks]))
         y_vals = np.zeros_like(x_vals)
 
         # Sum Gaussians
@@ -1095,6 +1099,25 @@ class HistogramWidget(QWidget):
 
         self.update()
 
+    def _scaled_x_margins(self):
+        scale = self.width() / 600.0
+        return int(60 * scale), int(40 * scale)
+
+    def _profile_local_maxima(self, threshold=0.05):
+        """Real peaks of the broadened curve: its local maxima.
+
+        The broadening grid contains the exact stick masses, so an
+        isolated peak's maximum IS the theoretical m/z; overlapping
+        peaks that merge yield the true apex of the merged curve.
+        """
+        pts = self.peaks
+        maxima = []
+        for i in range(1, len(pts) - 1):
+            y = pts[i][1]
+            if y >= threshold and y >= pts[i - 1][1] and y > pts[i + 1][1]:
+                maxima.append(pts[i])
+        return maxima
+
     def wheelEvent(self, event):
         if self.view_min is None or self.view_max is None:
             return
@@ -1109,8 +1132,10 @@ class HistogramWidget(QWidget):
         factor = 0.9 if angle > 0 else 1.1
 
         # Mouse Position Ratio (0.0 to 1.0) relative to plot area
+        # (margins must scale like draw_spectrum's, or the zoom anchor
+        # drifts away from the cursor on resized windows)
         w = self.width()
-        ml, mr = 60, 40
+        ml, mr = self._scaled_x_margins()
         plot_w = w - ml - mr
         if plot_w <= 0:
             return
@@ -1146,7 +1171,7 @@ class HistogramWidget(QWidget):
             dx = event.position().x() - self.last_mouse_x
 
             w = self.width()
-            ml, mr = 60, 40
+            ml, mr = self._scaled_x_margins()
             plot_w = w - ml - mr
 
             if plot_w > 0:
@@ -1320,41 +1345,35 @@ class HistogramWidget(QWidget):
 
             painter.restore()  # Unclip for labels
 
-            # 2. Peak Labels (Theoretical Stick Peaks) - UNCLIPPED
+            # 2. Peak Labels — real maxima of the broadened curve, UNCLIPPED.
+            # An isolated peak's maximum coincides exactly with its stick
+            # m/z (the grid contains the stick masses); merged peaks get
+            # one label at the true apex of the merged curve.
             painter.setPen(QPen(QColor("#007bff")))
 
-            if self.stick_peaks:
-                for s_mass, s_int in self.stick_peaks:
-                    # Filter very low intensity theoretical peaks
-                    if s_int < 0.05:
-                        continue
+            for p_mass, p_int in self._profile_local_maxima():
+                if p_mass < min_mass or p_mass > max_mass:
+                    continue
 
-                    if s_mass < min_mass or s_mass > max_mass:
-                        continue
+                x_ratio = (p_mass - min_mass) / mass_range if mass_range > 0 else 0.5
+                y_ratio = p_int / max_intensity
 
-                    x_ratio = (
-                        (s_mass - min_mass) / mass_range if mass_range > 0 else 0.5
-                    )
-                    y_ratio = s_int / max_intensity
+                x_pos = ml + x_ratio * plot_w
+                y_pos = (h - mb) - (y_ratio * plot_h)
 
-                    x_pos = ml + x_ratio * plot_w
-                    y_pos = (h - mb) - (y_ratio * plot_h)
+                if not (ml <= x_pos <= w - mr):
+                    continue
 
-                    if not (ml <= x_pos <= w - mr):
-                        continue
-
-                    # Mass Label - Higher Position over stick peak
-                    # NOTE: We draw label at STICK height, not PROFILE height
-                    label_rect = QRectF(
-                        x_pos - (40 * scale),
-                        y_pos - (25 * scale),
-                        80 * scale,
-                        20 * scale,
-                    )
-                    painter.setPen(QColor("#000000"))
-                    painter.drawText(
-                        label_rect, Qt.AlignmentFlag.AlignCenter, f"{s_mass:.4f}"
-                    )
+                label_rect = QRectF(
+                    x_pos - (40 * scale),
+                    y_pos - (25 * scale),
+                    80 * scale,
+                    20 * scale,
+                )
+                painter.setPen(QColor("#000000"))
+                painter.drawText(
+                    label_rect, Qt.AlignmentFlag.AlignCenter, f"{p_mass:.4f}"
+                )
 
         else:
             # STICK MODE

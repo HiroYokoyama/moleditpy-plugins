@@ -148,6 +148,13 @@ def _make_viewer(data_max=2.0, mol=None):
     dock = MagicMock()
     grid = MagicMock()
     w = _cube_adv.CubeViewerWidget(ctx, dock, grid, data_max=data_max)
+    # Keep test-triggered saves (closeEvent, aboutToQuit) out of plugins/
+    import os
+    import tempfile
+
+    w.get_settings_path = lambda: os.path.join(
+        tempfile.gettempdir(), "cube_viewer_advanced_test.json"
+    )
     return w, ctx, mw, dock, grid
 
 
