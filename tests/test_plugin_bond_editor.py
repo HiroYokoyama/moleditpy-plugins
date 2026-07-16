@@ -295,15 +295,13 @@ def _add_bond_fn():
     )
 
 
-def _add_bond_self(mol, a1, a2, type_label="Single"):
+def _add_bond_self(mol, type_label="Single"):
     committed = []
     return (
         SimpleNamespace(
             context=SimpleNamespace(
                 current_molecule=mol, show_status_message=MagicMock()
             ),
-            spin_a1=SimpleNamespace(value=lambda: a1),
-            spin_a2=SimpleNamespace(value=lambda: a2),
             add_type_combo=SimpleNamespace(currentText=lambda: type_label),
             _commit=lambda rw, msg: committed.append((rw, msg)),
         ),
@@ -324,27 +322,27 @@ def _bond_mol(n, existing_pairs=()):
 class TestAddBond:
     def test_adds_bond_and_commits(self):
         fn = _add_bond_fn()
-        self_, committed = _add_bond_self(_bond_mol(3), 0, 2, "Double")
-        fn(self_)
+        self_, committed = _add_bond_self(_bond_mol(3), "Double")
+        fn(self_, 0, 2)
         assert committed[0][0].added == [(0, 2, "DOUBLE")]
 
     def test_self_bond_refused(self):
         fn = _add_bond_fn()
-        self_, committed = _add_bond_self(_bond_mol(3), 1, 1)
-        fn(self_)
+        self_, committed = _add_bond_self(_bond_mol(3))
+        fn(self_, 1, 1)
         assert committed == []
         self_.context.show_status_message.assert_called_once()
 
     def test_existing_bond_refused(self):
         fn = _add_bond_fn()
-        self_, committed = _add_bond_self(_bond_mol(3, [(0, 1)]), 1, 0)
-        fn(self_)
+        self_, committed = _add_bond_self(_bond_mol(3, [(0, 1)]))
+        fn(self_, 1, 0)
         assert committed == []
 
     def test_no_molecule_refused(self):
         fn = _add_bond_fn()
-        self_, committed = _add_bond_self(None, 0, 1)
-        fn(self_)
+        self_, committed = _add_bond_self(None)
+        fn(self_, 0, 1)
         assert committed == []
 
 
@@ -525,11 +523,11 @@ class TestModeOverlay:
         )
 
     @staticmethod
-    def _self(mode, pick_second=False, first_idx=None, plotter=None):
+    def _self(mode, first_idx=None, plotter=None, type_label="Single"):
         return SimpleNamespace(
             context=SimpleNamespace(plotter=plotter),
             click_mode_combo=SimpleNamespace(currentText=lambda: mode),
-            _pick_second=pick_second,
+            add_type_combo=SimpleNamespace(currentText=lambda: type_label),
             _first_pick_idx=first_idx,
         )
 
@@ -540,42 +538,33 @@ class TestModeOverlay:
         plotter.add_text.assert_not_called()
         plotter.render.assert_called_once()
 
-    def test_create_bond_first_click_prompt(self):
+    def test_create_bond_first_click_prompt_includes_type(self):
         plotter = MagicMock()
-        self._fn()(self._self("Create bond", plotter=plotter))
+        self._fn()(self._self("Create bond", plotter=plotter, type_label="Double"))
         text = plotter.add_text.call_args[0][0]
         assert "first atom" in text
+        assert "double" in text
         assert plotter.add_text.call_args[1]["name"] == "bond_editor_mode_label"
 
     def test_create_bond_second_click_shows_picked_atom(self):
         plotter = MagicMock()
-        self._fn()(
-            self._self("Create bond", pick_second=True, first_idx=7, plotter=plotter)
-        )
+        self._fn()(self._self("Create bond", first_idx=7, plotter=plotter))
         text = plotter.add_text.call_args[0][0]
         assert "atom 7" in text
         assert "second atom" in text
-
-    def test_pick_endpoints_alternates_target(self):
-        plotter = MagicMock()
-        fn = self._fn()
-        fn(self._self("Pick endpoints", pick_second=False, plotter=plotter))
-        assert "Atom 1" in plotter.add_text.call_args[0][0]
-        fn(self._self("Pick endpoints", pick_second=True, plotter=plotter))
-        assert "Atom 2" in plotter.add_text.call_args[0][0]
 
     def test_no_plotter_is_noop(self):
         self._fn()(self._self("Create bond", plotter=None))
 
 
-class TestAtomLabels:
+class TestPickedAtomLabels:
     def _fn(self):
         import logging as real_logging
 
         return extract_function(
             BOND_EDITOR_PATH,
             "BondEditorWindow",
-            "_update_atom_labels",
+            "_update_picked_atom_labels",
             extra_globals={"logging": real_logging},
         )
 
@@ -585,42 +574,86 @@ class TestAtomLabels:
             GetNumAtoms=lambda: n,
             GetNumConformers=lambda: 1,
             GetConformer=lambda: SimpleNamespace(
-                GetPositions=lambda: real_numpy.zeros((n, 3))
+                GetAtomPosition=lambda i: SimpleNamespace(x=float(i), y=0.0, z=0.0)
             ),
         )
 
-    def _self(self, mode, mol, plotter):
+    def _self(self, mol, picked, plotter):
         return SimpleNamespace(
             context=SimpleNamespace(plotter=plotter, current_mol=mol),
-            click_mode_combo=SimpleNamespace(currentText=lambda: mode),
+            _picked_atoms=picked,
             _atom_label=lambda m, i: f"{i} (C)",
         )
 
-    def test_create_bond_mode_adds_labels_for_all_atoms(self):
+    def test_picked_atom_gets_label(self):
         plotter = MagicMock()
-        self._fn()(self._self("Create bond", self._mol(3), plotter))
+        self._fn()(self._self(self._mol(3), {"Atom 1": 2}, plotter))
         args, kwargs = plotter.add_point_labels.call_args
-        assert args[1] == ["0 (C)", "1 (C)", "2 (C)"]
+        assert args[0] == [[2.0, 0.0, 0.0]]
+        assert args[1] == ["Atom 1: 2 (C)"]
         assert kwargs["name"] == "bond_editor_atom_labels"
         assert kwargs["pickable"] is False
         assert kwargs["reset_camera"] is False
 
-    def test_pick_endpoints_mode_adds_labels(self):
+    def test_no_pick_removes_labels(self):
         plotter = MagicMock()
-        self._fn()(self._self("Pick endpoints", self._mol(1), plotter))
-        plotter.add_point_labels.assert_called_once()
+        self._fn()(self._self(self._mol(2), {}, plotter))
+        plotter.remove_actor.assert_called_once_with("bond_editor_atom_labels")
+        plotter.add_point_labels.assert_not_called()
 
-    def test_select_mode_removes_labels(self):
+    def test_stale_index_ignored(self):
         plotter = MagicMock()
-        self._fn()(self._self("Select bond", self._mol(2), plotter))
+        self._fn()(self._self(self._mol(2), {"Atom 1": 9}, plotter))
         plotter.remove_actor.assert_called_once_with("bond_editor_atom_labels")
         plotter.add_point_labels.assert_not_called()
 
     def test_no_molecule_removes_labels(self):
         plotter = MagicMock()
-        self._fn()(self._self("Create bond", None, plotter))
+        self._fn()(self._self(None, {"Atom 1": 0}, plotter))
         plotter.remove_actor.assert_called_once_with("bond_editor_atom_labels")
         plotter.add_point_labels.assert_not_called()
 
     def test_no_plotter_is_noop(self):
-        self._fn()(self._self("Create bond", self._mol(1), None))
+        self._fn()(self._self(self._mol(1), {"Atom 1": 0}, None))
+
+
+class TestCreateBondPick:
+    def _fn(self):
+        return extract_function(
+            BOND_EDITOR_PATH, "BondEditorWindow", "_create_bond_pick"
+        )
+
+    @staticmethod
+    def _self(first_idx=None):
+        return SimpleNamespace(
+            _first_pick_idx=first_idx,
+            _picked_atoms={},
+            context=SimpleNamespace(show_status_message=MagicMock()),
+            add_bond=MagicMock(),
+            _update_mode_overlay=MagicMock(),
+            _update_picked_atom_labels=MagicMock(),
+        )
+
+    def test_first_click_stores_pick(self):
+        self_ = self._self()
+        self._fn()(self_, 3)
+        assert self_._first_pick_idx == 3
+        assert self_._picked_atoms == {"Atom 1": 3}
+        self_.add_bond.assert_not_called()
+        self_._update_picked_atom_labels.assert_called_once()
+
+    def test_second_click_creates_bond(self):
+        self_ = self._self(first_idx=3)
+        self_._picked_atoms = {"Atom 1": 3}
+        self._fn()(self_, 5)
+        self_.add_bond.assert_called_once_with(3, 5)
+        assert self_._first_pick_idx is None
+        assert self_._picked_atoms == {}
+
+    def test_same_atom_click_cancels(self):
+        self_ = self._self(first_idx=3)
+        self_._picked_atoms = {"Atom 1": 3}
+        self._fn()(self_, 3)
+        self_.add_bond.assert_not_called()
+        assert self_._first_pick_idx is None
+        assert self_._picked_atoms == {}

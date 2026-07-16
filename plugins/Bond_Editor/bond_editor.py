@@ -7,7 +7,6 @@ from PyQt6.QtWidgets import (
     QTableWidgetItem,
     QPushButton,
     QComboBox,
-    QSpinBox,
     QLabel,
     QHeaderView,
     QMessageBox,
@@ -22,7 +21,7 @@ from functools import partial
 
 
 PLUGIN_NAME = "Bond Editor"
-PLUGIN_VERSION = "2026.07.17"
+PLUGIN_VERSION = "2026.07.18"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -95,8 +94,8 @@ class BondEditorWindow(QWidget):
         self.setWindowTitle("Bond Editor")
         self.resize(560, 420)
         self._click_filter = None
-        self._pick_second = False
         self._first_pick_idx = None
+        self._picked_atoms = {}
         self.init_ui()
 
         self.context.register_window("main_panel", self)
@@ -126,37 +125,24 @@ class BondEditorWindow(QWidget):
         layout.addWidget(self.table)
 
         add_layout = QHBoxLayout()
-        add_layout.addWidget(QLabel("Atom 1:"))
-        self.spin_a1 = QSpinBox()
-        self.spin_a1.setRange(0, 0)
-        add_layout.addWidget(self.spin_a1)
-        add_layout.addWidget(QLabel("Atom 2:"))
-        self.spin_a2 = QSpinBox()
-        self.spin_a2.setRange(0, 0)
-        add_layout.addWidget(self.spin_a2)
-        self.add_type_combo = QComboBox()
-        self.add_type_combo.addItems(BOND_TYPE_LABELS)
-        add_layout.addWidget(self.add_type_combo)
-        self.add_btn = QPushButton("Add Bond")
-        self.add_btn.setToolTip(
-            "Add a bond between Atom 1 and Atom 2 "
-            "(click atoms in the 3D view to fill the fields)"
-        )
-        self.add_btn.clicked.connect(self.add_bond)
-        add_layout.addWidget(self.add_btn)
-        add_layout.addStretch()
         add_layout.addWidget(QLabel("3D click:"))
         self.click_mode_combo = QComboBox()
-        self.click_mode_combo.addItems(
-            ["Select bond", "Pick endpoints", "Create bond"]
-        )
+        self.click_mode_combo.addItems(["Select bond", "Create bond"])
         self.click_mode_combo.setToolTip(
-            "Select bond: click a bond to select it.\n"
-            "Pick endpoints: click atoms to fill Atom 1 / Atom 2.\n"
+            "Select bond: click a bond to select its row.\n"
             "Create bond: click two atoms to create a bond between them."
         )
         self.click_mode_combo.currentTextChanged.connect(self._on_click_mode_changed)
         add_layout.addWidget(self.click_mode_combo)
+        add_layout.addWidget(QLabel("New bond type:"))
+        self.add_type_combo = QComboBox()
+        self.add_type_combo.addItems(BOND_TYPE_LABELS)
+        self.add_type_combo.setToolTip("Bond type used when creating a bond by clicking")
+        self.add_type_combo.currentTextChanged.connect(
+            lambda _t: self._update_mode_overlay()
+        )
+        add_layout.addWidget(self.add_type_combo)
+        add_layout.addStretch()
         layout.addLayout(add_layout)
 
         btn_layout = QHBoxLayout()
@@ -238,12 +224,6 @@ class BondEditorWindow(QWidget):
 
             pick_pos = picker.GetPickPosition()
             mode = self.click_mode_combo.currentText()
-            if mode == "Pick endpoints":
-                # Click atoms to fill the Atom 1 / Atom 2 pickers (manual add).
-                idx = self._nearest_atom_to_point(mol, pick_pos)
-                if idx is not None:
-                    self._assign_picked_atom(idx)
-                return
             if mode == "Create bond":
                 # Click two atoms to create the bond between them.
                 idx = self._nearest_atom_to_point(mol, pick_pos)
@@ -260,39 +240,40 @@ class BondEditorWindow(QWidget):
             logging.warning("[bond_editor.py:_on_plotter_click] silenced: %s", _e)
 
     def _on_click_mode_changed(self, mode):
-        """Reset the Atom 1/Atom 2 alternation when the 3D click mode changes."""
-        self._pick_second = False
+        """Reset the two-click pick state when the 3D click mode changes."""
         self._first_pick_idx = None
+        self._picked_atoms = {}
         msgs = {
             "Select bond": "Click a bond in the 3D view to select it.",
-            "Pick endpoints": "Click atoms to fill Atom 1 / Atom 2, then Add Bond.",
             "Create bond": "Click two atoms to create a bond between them.",
         }
         self.context.show_status_message(msgs.get(mode, ""))
         self._update_mode_overlay()
-        self._update_atom_labels()
+        self._update_picked_atom_labels()
 
-    def _update_atom_labels(self):
-        """Show per-atom index labels in the 3D view while an atom-click mode
-        (Pick endpoints / Create bond) is active, so the atom to click is
-        identifiable; hidden in Select bond mode."""
+    def _update_picked_atom_labels(self):
+        """Label only the atom(s) picked by 3D clicks (Atom 1 / Atom 2) in the
+        viewer; the label is removed when nothing is picked."""
         plotter = self.context.plotter
         if not plotter:
             return
         try:
-            mode = self.click_mode_combo.currentText()
             mol = self.context.current_mol
-            if (
-                mode not in ("Pick endpoints", "Create bond")
-                or not mol
-                or not mol.GetNumAtoms()
-                or not mol.GetNumConformers()
-            ):
+            points = []
+            labels = []
+            if mol and mol.GetNumConformers():
+                conf = mol.GetConformer()
+                n = mol.GetNumAtoms()
+                for slot in ("Atom 1", "Atom 2"):
+                    idx = self._picked_atoms.get(slot)
+                    if idx is not None and 0 <= idx < n:
+                        pos = conf.GetAtomPosition(idx)
+                        points.append([pos.x, pos.y, pos.z])
+                        labels.append(f"{slot}: {self._atom_label(mol, idx)}")
+            if not points:
                 plotter.remove_actor("bond_editor_atom_labels")
                 plotter.render()
                 return
-            points = mol.GetConformer().GetPositions()
-            labels = [self._atom_label(mol, i) for i in range(mol.GetNumAtoms())]
             plotter.add_point_labels(
                 points,
                 labels,
@@ -307,7 +288,9 @@ class BondEditorWindow(QWidget):
             )
             plotter.render()
         except Exception as _e:
-            logging.warning("[bond_editor.py:_update_atom_labels] silenced: %s", _e)
+            logging.warning(
+                "[bond_editor.py:_update_picked_atom_labels] silenced: %s", _e
+            )
 
     def _update_mode_overlay(self):
         """Show the 3D click mode and pick progress as a text overlay in the viewer."""
@@ -316,16 +299,14 @@ class BondEditorWindow(QWidget):
             return
         mode = self.click_mode_combo.currentText()
         if mode == "Create bond":
-            if self._pick_second:
+            kind = self.add_type_combo.currentText().lower()
+            if self._first_pick_idx is not None:
                 text = (
-                    f"Create bond: atom {self._first_pick_idx} picked - "
-                    "click the second atom"
+                    f"Create {kind} bond: atom {self._first_pick_idx} picked - "
+                    "click the second atom (same atom cancels)"
                 )
             else:
-                text = "Create bond: click the first atom"
-        elif mode == "Pick endpoints":
-            which = "Atom 2" if self._pick_second else "Atom 1"
-            text = f"Pick endpoints: click an atom to set {which}"
+                text = f"Create {kind} bond: click the first atom"
         else:
             text = None
         try:
@@ -360,33 +341,25 @@ class BondEditorWindow(QWidget):
                 best_idx = idx
         return best_idx
 
-    def _assign_picked_atom(self, atom_idx):
-        """Pick-endpoints mode: alternate clicked atoms into the Atom 1 / Atom 2
-        pickers (the bond is created when the user presses Add Bond)."""
-        spin = self.spin_a2 if self._pick_second else self.spin_a1
-        spin.setValue(atom_idx)
-        which = "Atom 2" if self._pick_second else "Atom 1"
-        self._pick_second = not self._pick_second
-        self.context.show_status_message(f"{which} set to atom {atom_idx}.")
-        self._update_mode_overlay()
-
     def _create_bond_pick(self, atom_idx):
-        """Create-bond mode: the first click sets Atom 1, the second sets Atom 2
-        and immediately creates the bond between the two picked atoms."""
-        if not self._pick_second:
-            self.spin_a1.setValue(atom_idx)
-            self._pick_second = True
+        """Create-bond mode: first click picks the atom, second click creates
+        the bond with the chosen type; clicking the same atom again cancels."""
+        if self._first_pick_idx is None:
             self._first_pick_idx = atom_idx
+            self._picked_atoms = {"Atom 1": atom_idx}
             self.context.show_status_message(
-                f"Atom 1 = {atom_idx}. Click the second atom to create the bond."
+                f"Atom {atom_idx} picked. Click the second atom to create the bond."
             )
-        else:
-            self.spin_a2.setValue(atom_idx)
-            self._pick_second = False
+        elif atom_idx == self._first_pick_idx:
             self._first_pick_idx = None
-            self.context.show_status_message(f"Atom 2 = {atom_idx}.")
-            self.add_bond()
+            self._picked_atoms = {}
+            self.context.show_status_message("Bond creation cancelled.")
+        else:
+            a1, self._first_pick_idx = self._first_pick_idx, None
+            self._picked_atoms = {}
+            self.add_bond(a1, atom_idx)
         self._update_mode_overlay()
+        self._update_picked_atom_labels()
 
     def _nearest_bond_to_point(self, mol, pick_pos, max_dist=0.8):
         """Return the (begin, end) atom pair of the bond whose axis is closest to
@@ -460,7 +433,7 @@ class BondEditorWindow(QWidget):
             current_sig = self.get_mol_signature(self.context.current_molecule)
             if current_sig != self.last_seen_signature:
                 self.load_molecule()
-                self._update_atom_labels()
+                self._update_picked_atom_labels()
         except Exception as _e:
             logging.warning("[bond_editor.py:check_molecule_update] silenced: %s", _e)
 
@@ -479,14 +452,8 @@ class BondEditorWindow(QWidget):
         self.last_seen_signature = self.get_mol_signature(mol)
 
         if not mol or not mol.GetNumAtoms():
-            self.spin_a1.setRange(0, 0)
-            self.spin_a2.setRange(0, 0)
             self.table.blockSignals(False)
             return
-
-        n = mol.GetNumAtoms()
-        self.spin_a1.setRange(0, n - 1)
-        self.spin_a2.setRange(0, n - 1)
 
         conf = mol.GetConformer() if mol.GetNumConformers() else None
         for bond in mol.GetBonds():
@@ -558,13 +525,11 @@ class BondEditorWindow(QWidget):
         self.load_molecule()
         self.context.show_status_message(message)
 
-    def add_bond(self):
+    def add_bond(self, a1, a2):
         mol = self.context.current_molecule
         if not mol or not mol.GetNumAtoms():
             self.context.show_status_message("No molecule loaded.")
             return
-        a1 = self.spin_a1.value()
-        a2 = self.spin_a2.value()
         if a1 == a2:
             self.context.show_status_message("Cannot bond an atom to itself.")
             return
