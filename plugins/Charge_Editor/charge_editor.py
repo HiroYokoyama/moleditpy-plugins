@@ -423,6 +423,20 @@ class ChargeEditorWindow(QWidget):
     # 3D highlight of selected atoms
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _highlight_radius(mol, atom_idx):
+        """Halo radius for an atom: 1.2x the app's 0.3-scaled VDW display radius."""
+        try:
+            atomic_num = mol.GetAtomWithIdx(atom_idx).GetAtomicNum()
+            if atomic_num > 0:
+                pt = Chem.GetPeriodicTable()
+                return pt.GetRvdw(atomic_num) * 1.2 * 0.3
+        except Exception as _e:
+            logging.warning(
+                "[charge_editor.py:_highlight_radius] silenced: %s", _e
+            )
+        return 1.5 * 0.3  # ghost/unknown atoms keep the old fixed size
+
     def highlight_selected_atoms(self):
         plotter = self.context.plotter
         if not plotter:
@@ -435,6 +449,7 @@ class ChargeEditorWindow(QWidget):
         rows = sorted(set(index.row() for index in self.table.selectedIndexes()))
         mol = self.context.current_molecule
         centers = []
+        radii = []
         if mol and mol.GetNumConformers():
             conf = mol.GetConformer()
             for row in rows:
@@ -443,12 +458,16 @@ class ChargeEditorWindow(QWidget):
                     continue
                 p = conf.GetAtomPosition(idx)
                 centers.append([p.x, p.y, p.z])
+                radii.append(self._highlight_radius(mol, idx))
 
         if not centers:
             plotter.remove_actor("charge_editor_selection")
         else:
             cloud = pv.PolyData(np.array(centers))
-            glyph = cloud.glyph(scale=False, geom=pv.Sphere(radius=0.45))
+            cloud["radii"] = radii
+            glyph = cloud.glyph(
+                geom=pv.Sphere(radius=1.0), scale="radii", orient=False
+            )
             plotter.add_mesh(
                 glyph,
                 name="charge_editor_selection",

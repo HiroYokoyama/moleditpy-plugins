@@ -283,3 +283,62 @@ class TestNearestAtom:
         mol = _ConfMol([(0.0, 0.0, 0.0), (5.0, 0.0, 0.0), (10.0, 0.0, 0.0)])
         assert fn(SimpleNamespace(), mol, (4.6, 0.0, 0.0)) == 1
         assert fn(SimpleNamespace(), mol, (0.1, 0.1, 0.0)) == 0
+
+
+# ---------------------------------------------------------------------------
+# _highlight_radius (VDW-scaled selection halo)
+# ---------------------------------------------------------------------------
+
+
+class _NumAtom:
+    def __init__(self, atomic_num):
+        self._num = atomic_num
+
+    def GetAtomicNum(self):
+        return self._num
+
+
+class _NumMol:
+    def __init__(self, atomic_nums):
+        self._atoms = [_NumAtom(n) for n in atomic_nums]
+
+    def GetAtomWithIdx(self, i):
+        return self._atoms[i]
+
+
+_RVDW = {1: 1.2, 6: 1.7, 16: 1.8}
+
+
+def _highlight_fn(rvdw=None):
+    pt = SimpleNamespace(GetRvdw=rvdw or _RVDW.__getitem__)
+    return extract_function(
+        CHARGE_EDITOR_PATH,
+        "ChargeEditorWindow",
+        "_highlight_radius",
+        extra_globals={
+            "Chem": SimpleNamespace(GetPeriodicTable=lambda: pt),
+            "logging": __import__("logging"),
+        },
+    )
+
+
+class TestHighlightRadius:
+    def test_scales_with_vdw_radius(self):
+        fn = _highlight_fn()
+        mol = _NumMol([6, 1, 16])
+        assert abs(fn(mol, 0) - 1.7 * 1.2 * 0.3) < 1e-9  # C
+        assert abs(fn(mol, 1) - 1.2 * 1.2 * 0.3) < 1e-9  # H
+        assert fn(mol, 1) < fn(mol, 0) < fn(mol, 2)  # H < C < S
+
+    def test_ghost_atom_uses_fixed_fallback(self):
+        fn = _highlight_fn()
+        mol = _NumMol([0])  # dummy atom, atomic number 0
+        assert abs(fn(mol, 0) - 0.45) < 1e-9
+
+    def test_rvdw_failure_uses_fixed_fallback(self):
+        def boom(_n):
+            raise RuntimeError("no such element")
+
+        fn = _highlight_fn(rvdw=boom)
+        mol = _NumMol([6])
+        assert abs(fn(mol, 0) - 0.45) < 1e-9
