@@ -8,7 +8,6 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QComboBox,
     QSpinBox,
-    QCheckBox,
     QLabel,
     QHeaderView,
     QMessageBox,
@@ -28,8 +27,8 @@ PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
     "A table-based bond editor: add/delete bonds, change bond order, and set "
-    "bond lengths by moving one side of the bond. Click atoms in the 3D view "
-    "to pick bond endpoints, or click a bond directly to select it."
+    "bond lengths by moving one side of the bond. In the 3D view pick a mode to "
+    "select a bond by clicking it, or create a bond by clicking two atoms."
 )
 PLUGIN_CONTEXT = None
 
@@ -145,13 +144,18 @@ class BondEditorWindow(QWidget):
         self.add_btn.clicked.connect(self.add_bond)
         add_layout.addWidget(self.add_btn)
         add_layout.addStretch()
-        self.endpoint_mode_cb = QCheckBox("Endpoint pick mode")
-        self.endpoint_mode_cb.setToolTip(
-            "When on, clicking atoms in the 3D view fills Atom 1 / Atom 2 "
-            "(for Add Bond). When off, clicking selects the nearest bond."
+        add_layout.addWidget(QLabel("3D click:"))
+        self.click_mode_combo = QComboBox()
+        self.click_mode_combo.addItems(
+            ["Select bond", "Pick endpoints", "Create bond"]
         )
-        self.endpoint_mode_cb.toggled.connect(self._on_endpoint_mode_toggled)
-        add_layout.addWidget(self.endpoint_mode_cb)
+        self.click_mode_combo.setToolTip(
+            "Select bond: click a bond to select it.\n"
+            "Pick endpoints: click atoms to fill Atom 1 / Atom 2.\n"
+            "Create bond: click two atoms to create a bond between them."
+        )
+        self.click_mode_combo.currentTextChanged.connect(self._on_click_mode_changed)
+        add_layout.addWidget(self.click_mode_combo)
         layout.addLayout(add_layout)
 
         btn_layout = QHBoxLayout()
@@ -232,30 +236,37 @@ class BondEditorWindow(QWidget):
                 return
 
             pick_pos = picker.GetPickPosition()
-            if self.endpoint_mode_cb.isChecked():
-                # Endpoint mode: click atoms to fill the Atom 1 / Atom 2 pickers.
+            mode = self.click_mode_combo.currentText()
+            if mode == "Pick endpoints":
+                # Click atoms to fill the Atom 1 / Atom 2 pickers (manual add).
                 idx = self._nearest_atom_to_point(mol, pick_pos)
                 if idx is not None:
                     self._assign_picked_atom(idx)
                 return
+            if mode == "Create bond":
+                # Click two atoms to create the bond between them.
+                idx = self._nearest_atom_to_point(mol, pick_pos)
+                if idx is not None:
+                    self._create_bond_pick(idx)
+                return
 
-            # Default: resolve the click to the nearest bond axis, whether the
-            # user clicked the bond cylinder or one of its atoms.
+            # Default (Select bond): resolve the click to the nearest bond axis,
+            # whether the user clicked the bond cylinder or one of its atoms.
             pair = self._nearest_bond_to_point(mol, pick_pos)
             if pair is not None:
                 self._select_bond_row_by_pair(pair)
         except Exception as _e:
             logging.warning("[bond_editor.py:_on_plotter_click] silenced: %s", _e)
 
-    def _on_endpoint_mode_toggled(self, checked):
-        """Reset the Atom 1/Atom 2 alternation when entering endpoint mode."""
+    def _on_click_mode_changed(self, mode):
+        """Reset the Atom 1/Atom 2 alternation when the 3D click mode changes."""
         self._pick_second = False
-        if checked:
-            self.context.show_status_message(
-                "Endpoint mode: click two atoms to set Atom 1 and Atom 2."
-            )
-        else:
-            self.context.show_status_message("Bond selection mode: click a bond.")
+        msgs = {
+            "Select bond": "Click a bond in the 3D view to select it.",
+            "Pick endpoints": "Click atoms to fill Atom 1 / Atom 2, then Add Bond.",
+            "Create bond": "Click two atoms to create a bond between them.",
+        }
+        self.context.show_status_message(msgs.get(mode, ""))
 
     def _nearest_atom_to_point(self, mol, pick_pos):
         """Return the index of the atom nearest the 3D *pick_pos*, or None."""
@@ -275,12 +286,28 @@ class BondEditorWindow(QWidget):
         return best_idx
 
     def _assign_picked_atom(self, atom_idx):
-        """Alternate clicked atoms into the Atom 1 / Atom 2 pickers."""
+        """Pick-endpoints mode: alternate clicked atoms into the Atom 1 / Atom 2
+        pickers (the bond is created when the user presses Add Bond)."""
         spin = self.spin_a2 if self._pick_second else self.spin_a1
         spin.setValue(atom_idx)
         which = "Atom 2" if self._pick_second else "Atom 1"
         self._pick_second = not self._pick_second
         self.context.show_status_message(f"{which} set to atom {atom_idx}.")
+
+    def _create_bond_pick(self, atom_idx):
+        """Create-bond mode: the first click sets Atom 1, the second sets Atom 2
+        and immediately creates the bond between the two picked atoms."""
+        if not self._pick_second:
+            self.spin_a1.setValue(atom_idx)
+            self._pick_second = True
+            self.context.show_status_message(
+                f"Atom 1 = {atom_idx}. Click the second atom to create the bond."
+            )
+        else:
+            self.spin_a2.setValue(atom_idx)
+            self._pick_second = False
+            self.context.show_status_message(f"Atom 2 = {atom_idx}.")
+            self.add_bond()
 
     def _nearest_bond_to_point(self, mol, pick_pos, max_dist=0.8):
         """Return the (begin, end) atom pair of the bond whose axis is closest to

@@ -1615,7 +1615,7 @@
     "version": "2026.07.16",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "A table-based bond editor: add/delete bonds, change bond order, and set bond lengths by moving one side of the bond. Click a bond in the 3D view to select it, or use endpoint mode to pick atoms for Add Bond.",
+    "description": "A table-based bond editor: add/delete bonds, change bond order, and set bond lengths by moving one side of the bond. In the 3D view pick a mode to select a bond by clicking it, or create a bond by clicking two atoms.",
     "tags": [
       "Utility"
     ],
@@ -1627,7 +1627,7 @@
     ],
     "downloadUrl": "../plugins/Bond_Editor/bond_editor.py",
     "lastUpdated": "2026-07-16",
-    "sha256": "ccc02a1923b127c112a2e4496f88bf523b3856287cfc70f7bb21e1fe0a20a3e1",
+    "sha256": "315beb1514cb63650227a5caa1317dd6f3481cb6ff692e00415ac9fef554784b",
     "firstAppeared": "2026-07-15"
   },
   {
