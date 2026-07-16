@@ -54,6 +54,7 @@ PLUGIN_AUTHOR = "HiroYokoyama"
 
 PLUGIN_NAME = "MS Spectrum Simulation Neo"
 PLUGIN_DESCRIPTION = "Simulate and visualize mass spectra from molecular formula."
+PLUGIN_DEPENDENCIES = ["rdkit", "numpy", "PyQt6"]
 
 
 class MSSpectrumDialog(QDialog):
