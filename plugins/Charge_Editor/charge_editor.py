@@ -19,7 +19,7 @@ from functools import partial
 
 
 PLUGIN_NAME = "Charge Editor"
-PLUGIN_VERSION = "2026.07.16"
+PLUGIN_VERSION = "2026.07.17"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -484,12 +484,20 @@ class ChargeEditorWindow(QWidget):
         plotter.render()
 
     def closeEvent(self, event):
+        try:
+            if self.update_timer.isActive():
+                self.update_timer.stop()
+        except Exception as _e:
+            logging.warning("[charge_editor.py:closeEvent] stop timer silenced: %s", _e)
         self._disable_plotter_picking()
         plotter = self.context.plotter
         if plotter:
             plotter.remove_actor("charge_editor_selection")
             plotter.render()
         super().closeEvent(event)
+        # Unregister so the next open builds a fresh window that reinstalls the
+        # plotter click filter; reusing the closed one left 3D atoms unclickable.
+        self.context.register_window("main_panel", None)
 
 
 def initialize(context):

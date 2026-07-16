@@ -879,7 +879,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "XYZ Editor",
-    "version": "2026.07.16",
+    "version": "2026.07.17",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A table-based editor for atom coordinates and symbols, supporting ghost atoms, adding and deleting atoms.",
@@ -892,8 +892,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/XYZ_Editor/xyz_editor.py",
-    "lastUpdated": "2026-07-16",
-    "sha256": "e7ba99cd337d5a6fbe2f0b5bc8eb4c2f725e98e9f6e5a6578622d83524a5cdc7",
+    "lastUpdated": "2026-07-17",
+    "sha256": "26227a74ae94a9c7fd9e82e942a99d76bb59b89704bbe5e77cc805f30611f6f0",
     "firstAppeared": "2026-01-03"
   },
   {
@@ -1612,7 +1612,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Bond Editor",
-    "version": "2026.07.16",
+    "version": "2026.07.17",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A table-based bond editor: add/delete bonds, change bond order, and set bond lengths by moving one side of the bond. In the 3D view pick a mode to select a bond by clicking it, or create a bond by clicking two atoms.",
@@ -1626,8 +1626,8 @@
       "numpy"
     ],
     "downloadUrl": "../plugins/Bond_Editor/bond_editor.py",
-    "lastUpdated": "2026-07-16",
-    "sha256": "315beb1514cb63650227a5caa1317dd6f3481cb6ff692e00415ac9fef554784b",
+    "lastUpdated": "2026-07-17",
+    "sha256": "c1597014bffaf9206859deecbcefa95decc330ca70b2a36a6652ee06d322ebf5",
     "firstAppeared": "2026-07-15"
   },
   {
@@ -1635,7 +1635,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Charge Editor",
-    "version": "2026.07.16",
+    "version": "2026.07.17",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A table-based editor for per-atom formal charge and radical electrons. Click atoms in the 3D view to select them, and read off the total charge and spin multiplicity for DFT input preparation.",
@@ -1649,8 +1649,8 @@
       "numpy"
     ],
     "downloadUrl": "../plugins/Charge_Editor/charge_editor.py",
-    "lastUpdated": "2026-07-16",
-    "sha256": "599e69bb6df606bc4e95c2abeb933ba23ce92e774a9a5182bbf2c8809bd04a94",
+    "lastUpdated": "2026-07-17",
+    "sha256": "a9b62ecf69ed2667ce0df246fb218a5afefb77485d94ecaad219ca875c4e4971",
     "firstAppeared": "2026-07-16"
   }
 ]
