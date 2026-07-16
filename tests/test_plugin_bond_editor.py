@@ -657,3 +657,48 @@ class TestCreateBondPick:
         self_.add_bond.assert_not_called()
         assert self_._first_pick_idx is None
         assert self_._picked_atoms == {}
+
+
+class TestCancelBondPick:
+    def _fn(self):
+        return extract_function(
+            BOND_EDITOR_PATH, "BondEditorWindow", "_cancel_bond_pick"
+        )
+
+    def test_clears_pick_and_updates_view(self):
+        self_ = SimpleNamespace(
+            _first_pick_idx=4,
+            _picked_atoms={"Atom 1": 4},
+            context=SimpleNamespace(show_status_message=MagicMock()),
+            _update_mode_overlay=MagicMock(),
+            _update_picked_atom_labels=MagicMock(),
+        )
+        self._fn()(self_)
+        assert self_._first_pick_idx is None
+        assert self_._picked_atoms == {}
+        self_._update_mode_overlay.assert_called_once()
+        self_._update_picked_atom_labels.assert_called_once()
+
+    def test_noop_when_nothing_picked(self):
+        self_ = SimpleNamespace(
+            _first_pick_idx=None,
+            _picked_atoms={},
+            context=SimpleNamespace(show_status_message=MagicMock()),
+            _update_mode_overlay=MagicMock(),
+            _update_picked_atom_labels=MagicMock(),
+        )
+        self._fn()(self_)
+        self_.context.show_status_message.assert_not_called()
+        self_._update_mode_overlay.assert_not_called()
+
+
+class TestUnselectAll:
+    def test_clears_table_selection_and_pick(self):
+        fn = extract_function(BOND_EDITOR_PATH, "BondEditorWindow", "unselect_all")
+        self_ = SimpleNamespace(
+            table=MagicMock(),
+            _cancel_bond_pick=MagicMock(),
+        )
+        fn(self_)
+        self_.table.clearSelection.assert_called_once()
+        self_._cancel_bond_pick.assert_called_once()

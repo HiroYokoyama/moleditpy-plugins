@@ -150,7 +150,10 @@ class BondEditorWindow(QWidget):
         self.delete_btn.clicked.connect(self.delete_selected_bonds)
         btn_layout.addWidget(self.delete_btn)
         self.unselect_btn = QPushButton("Unselect")
-        self.unselect_btn.clicked.connect(self.table.clearSelection)
+        self.unselect_btn.setToolTip(
+            "Clear the bond selection and any in-progress bond-creation pick"
+        )
+        self.unselect_btn.clicked.connect(self.unselect_all)
         btn_layout.addWidget(self.unselect_btn)
         btn_layout.addStretch()
         layout.addLayout(btn_layout)
@@ -215,17 +218,29 @@ class BondEditorWindow(QWidget):
             picker = vtk.vtkCellPicker()
             picker.SetTolerance(0.005)
             picker.Pick(px, vtk_y, 0, plotter.renderer)
-            if picker.GetActor() is None:
-                return
+            picked_actor = picker.GetActor()
 
             mol = self.context.current_mol
             if not mol or not mol.GetNumConformers():
                 return
 
-            pick_pos = picker.GetPickPosition()
             mode = self.click_mode_combo.currentText()
+            if picked_actor is None:
+                # Clicked empty space: reset whatever is in progress.
+                if mode == "Create bond":
+                    self._cancel_bond_pick()
+                else:
+                    self.table.clearSelection()
+                return
+
+            pick_pos = picker.GetPickPosition()
             if mode == "Create bond":
-                # Click two atoms to create the bond between them.
+                # Click two atoms to create the bond between them; clicking
+                # anything that is not an atom cancels the pick.
+                atom_actor = getattr(v3d, "atom_actor", None)
+                if atom_actor is not None and picked_actor is not atom_actor:
+                    self._cancel_bond_pick()
+                    return
                 idx = self._nearest_atom_to_point(mol, pick_pos)
                 if idx is not None:
                     self._create_bond_pick(idx)
@@ -340,6 +355,21 @@ class BondEditorWindow(QWidget):
                 best = dist
                 best_idx = idx
         return best_idx
+
+    def _cancel_bond_pick(self):
+        """Drop the in-progress bond-creation pick (no-op if nothing picked)."""
+        if self._first_pick_idx is None:
+            return
+        self._first_pick_idx = None
+        self._picked_atoms = {}
+        self.context.show_status_message("Bond creation pick cleared.")
+        self._update_mode_overlay()
+        self._update_picked_atom_labels()
+
+    def unselect_all(self):
+        """Clear the table's bond selection and any in-progress creation pick."""
+        self.table.clearSelection()
+        self._cancel_bond_pick()
 
     def _create_bond_pick(self, atom_idx):
         """Create-bond mode: first click picks the atom, second click creates
