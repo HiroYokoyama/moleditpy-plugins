@@ -32,19 +32,64 @@ QT_QPA_PLATFORM=offscreen pytest tests_gui/ -v
 
 All registry-visible plugins and UI integrations are covered by headless GUI-tier tests.
 
-| Test File | Covered Plugins / Components | Key GUI Classes & Aspects Tested |
+Tests are laid out **one file per plugin**, mirroring `tests/test_plugin_<snake_name>.py`:
+`tests_gui/test_gui_plugin_<snake_name>.py`. Fakes/helpers shared by more than one plugin's
+tests (e.g. the rdkit-style `FakeAtom`/`FakeBond`/`FakeMol` used by both editor plugins) live
+in [`gui_test_helpers.py`](file:///e:/Research/Calculation/moleditpy/DEV_MAIN/moleditpy-plugins/tests_gui/gui_test_helpers.py) (a plain module, not collected as tests).
+
+| Plugin | Test File | Key GUI Classes & Aspects Tested |
 |---|---|---|
-| [`test_gui_dialogs.py`](file:///e:/Research/Calculation/moleditpy/DEV_MAIN/moleditpy-plugins/tests_gui/test_gui_dialogs.py) | Paste XYZ, Gaussian Input Generator Neo, MS Spectrum Simulation Neo, MOPAC / GAMESS / PSI4 input generators, Atom Colorizer, Plugin Installer, Python Console | `PasteXYZDialog`, `RouteBuilderDialog`, `MSSpectrumDialogNeo`, input/setup dialogs, `AtomColorizerWindow`, `PluginInstallerWindow`, `PythonConsoleDialog` (widgets, syntax highlighting, version checks) |
-| [`test_gui_analysis.py`](file:///e:/Research/Calculation/moleditpy/DEV_MAIN/moleditpy-plugins/tests_gui/test_gui_analysis.py) | XYZ Editor, Symmetry Analyzer, Molecule Comparator, Conformational Search | `XYZEditorWindow` (table rows, edits), `SymmetryAnalysisPlugin` (labels, layouts), `MoleculeComparator` (labels), `ConformerSearchDialog` (methods, settings) |
-| [`test_gui_chat_variants.py`](file:///e:/Research/Calculation/moleditpy/DEV_MAIN/moleditpy-plugins/tests_gui/test_gui_chat_variants.py) | Chat with Molecule Neo (ChatGPT, Gemini, Local) | `ChatMoleculeWindow` variants (API key field echo mode, placeholder text, model combo defaults, read-only displays, worker state initializations) |
-| [`test_gui_exporters.py`](file:///e:/Research/Calculation/moleditpy/DEV_MAIN/moleditpy-plugins/tests_gui/test_gui_exporters.py) | High-Res Imager, Blender Export, POV-Ray Export, Animated XYZ Player / Giffer | Module registrations, export callbacks, `AnimatedXYZPlayer` slider/playback controls, loop check state, multi-frame XYZ files parsing |
-| [`test_gui_freq_analyzers.py`](file:///e:/Research/Calculation/moleditpy/DEV_MAIN/moleditpy-plugins/tests_gui/test_gui_freq_analyzers.py) | ORCA & Gaussian Frequency Analyzers, ORCA & Gaussian Spectrum Dialogs | `OrcaOutFreqAnalyzer`, `GaussianFCHKFreqAnalyzer`, `SpectrumDialog` curve/range controls, vector overlays, and output parser integrity |
-| [`test_gui_openbabel_pubchem.py`](file:///e:/Research/Calculation/moleditpy/DEV_MAIN/moleditpy-plugins/tests_gui/test_gui_openbabel_pubchem.py) | OpenBabel Conversion Tool, PubChem Structure Identifier | `MoleculeSelectionDialog` (mols list, selection state), `MoleculeDetailsDialog` (html description, IUPAC copy-to-clipboard), and fallback resolvers |
-| [`test_gui_qchem_extras.py`](file:///e:/Research/Calculation/moleditpy/DEV_MAIN/moleditpy-plugins/tests_gui/test_gui_qchem_extras.py) | NWChem Input Generator, PySCF Input Generator | `NwchemSetupDialog`, `PyscfSetupDialog` (basis combos, input options, file save flow) |
-| [`test_gui_report_settings_fchk.py`](file:///e:/Research/Calculation/moleditpy/DEV_MAIN/moleditpy-plugins/tests_gui/test_gui_report_settings_fchk.py) | Compound Info Report, Settings Saver, Gaussian FCHK Loader | `ReportDialog` (calculations, HTML preview), `SettingsSaverDialog` (presets, export/import options), `FCHKLoaderDialog` (paths validation) |
-| [`test_gui_visualizers.py`](file:///e:/Research/Calculation/moleditpy/DEV_MAIN/moleditpy-plugins/tests_gui/test_gui_visualizers.py) | Cube File Viewer, Cube File Viewer Advanced, Mapped Cube Viewer, VDW Radii Overlay, Vector Viewer | `CubeViewerChargeDialog` (contours, limits), `CubeViewerAdvancedDialog` (isovalue, density maps), `VdwRadiiOverlayDialog`, `VectorViewerDialog` |
-| [`test_gui_no_dialog_plugins.py`](file:///e:/Research/Calculation/moleditpy/DEV_MAIN/moleditpy-plugins/tests_gui/test_gui_no_dialog_plugins.py) | Dark Mode Theme, Dummy Atom Mode, Paste from ChemDraw | Non-dialog integrations: application-wide stylesheet applications, status bar signals, CPK color updates, Chem.Atom monkey patching, ChemDraw clipboard data parsing |
-| [`test_integration_real_context.py`](file:///e:/Research/Calculation/moleditpy/DEV_MAIN/moleditpy-plugins/tests_gui/test_integration_real_context.py) | Plugin-to-Host Integration | Validates plugins against real `PluginContext` API contract, verifying menu paths, callbacks, file loaders, and document states |
+| Advanced Rendering | `test_gui_plugin_advanced_rendering.py` | `HideOnCloseDialog`, `AdvancedGraphicsWidget` (presets, sliders, PBR toggles) |
+| All-Trans Optimizer | `test_gui_plugin_all_trans_optimizer.py` | `_select_torsions`, `run_plugin` guards (no dialog class) |
+| Animated XYZ Giffer | `test_gui_plugin_animated_xyz_giffer.py` | `AnimatedXYZPlayer` (playback controls), `parse_multi_frame_xyz` |
+| Atom Colorizer | `test_gui_plugin_atom_colorizer.py` | `AtomColorizerWindow` |
+| Blender Export | `test_gui_plugin_blender_export.py` | Module constants, `initialize()`/`run()` (no dialog class) |
+| Bond Colorizer | `test_gui_plugin_bond_colorizer.py` | `BondColorizerWindow`, `initialize()` save/load handlers |
+| Bond Editor | `test_gui_plugin_bond_editor.py` | `BondEditorWindow`, `_ClickFilter`, bond-type label maps |
+| Charge Editor | `test_gui_plugin_charge_editor.py` | `ChargeEditorWindow` |
+| Chat with Molecule Neo (Gemini) | `test_gui_plugin_chat_with_molecule_neo.py` | `ChatMoleculeWindow` |
+| Chat with Molecule Neo (ChatGPT) | `test_gui_plugin_chat_with_molecule_neo_chatgpt.py` | `ChatMoleculeWindow` |
+| Chat with Molecule Neo (Local) | `test_gui_plugin_chat_with_molecule_neo_local.py` | `ChatMoleculeWindow` (real QWidget main window) |
+| Complex Molecule Untangler | `test_gui_plugin_complex_molecule_untangler.py` | `UntanglerDialog`, `run_plugin` |
+| Compound Info Report | `test_gui_plugin_compound_info_report.py` | `ReportDialog` |
+| Conformational Search | `test_gui_plugin_conformational_search.py` | `ConformerSearchDialog` |
+| Cube File Viewer | `test_gui_plugin_cube_file_viewer.py` | `ChargeDialog` |
+| Cube File Viewer Advanced | `test_gui_plugin_cube_file_viewer_advanced.py` | `ChargeDialog`, `FlexibleDoubleSpinBox` |
+| Dark Mode Theme | `test_gui_plugin_dark_mode_theme.py` | module constants, `autorun()` on a real `QWidget`, `initialize()` |
+| Dummy Atom Mode | `test_gui_plugin_dummy_atom_mode.py` | `initialize()` with a real `QColor` |
+| Encrypted Project | `test_gui_plugin_encrypted_project.py` | `PmeencPlugin` (patch/unpatch with real `QAction`s) |
+| GAMESS Input Generator | `test_gui_plugin_gamess_input_generator.py` | `GamessSetupDialog` |
+| Gaussian FCHK Loader | `test_gui_plugin_gaussian_fchk_loader.py` | `FCHKLoaderDialog` |
+| Gaussian Freq Analyzer | `test_gui_plugin_gaussian_freq_analyzer.py` | `GaussianFCHKFreqAnalyzer`, `SpectrumDialog`, `FCHKParser` |
+| Gaussian Input Generator Neo (retired) | `test_gui_plugin_gaussian_input_generator_neo.py` | `RouteBuilderDialog` — whole class skipped |
+| Gaussian MO Analyzer | `test_gui_plugin_gaussian_mo_analyzer.py` | `initialize()`, `OrbitalWidget` |
+| High Resolution Imager | `test_gui_plugin_high_resolution_imager.py` | Module constants, `initialize()` (no dialog class) |
+| MOPAC Input Generator | `test_gui_plugin_mopac_input_generator.py` | `MopacSetupDialog` |
+| MS Spectrum Simulation Neo | `test_gui_plugin_ms_spectrum_simulation_neo.py` | `MSSpectrumDialog` |
+| Mapped Cube Viewer | `test_gui_plugin_mapped_cube_viewer.py` | `MappedCubeSetupDialog` |
+| Metadata Saver | `test_gui_plugin_metadata_saver.py` | `MetadataSaverDialog` + save/load handlers |
+| Molecule Comparator | `test_gui_plugin_molecule_comparator.py` | `MoleculeComparator` |
+| NWChem Input Generator | `test_gui_plugin_nwchem_input_generator.py` | `NwchemSetupDialog` |
+| OpenBabel Conversion Tool | `test_gui_plugin_openbabel_conversion_tool.py` | `MoleculeSelectionDialog` |
+| ORCA Freq Analyzer | `test_gui_plugin_orca_freq_analyzer.py` | `OrcaOutFreqAnalyzer`, `SpectrumDialog`, `OrcaParser` |
+| Paste from ChemDraw | `test_gui_plugin_paste_from_chemdraw.py` | `reconstruct_from_flat_text()` extra edge cases |
+| Paste XYZ | `test_gui_plugin_paste_xyz.py` | `PasteXYZDialog` |
+| Plugin Installer | `test_gui_plugin_installer.py` | `PluginDetailsDialog`, `PluginInstallerWindow`, version/dependency parsing |
+| POV-Ray Export | `test_gui_plugin_povray_export.py` | Module constants, `initialize()`/`run()` |
+| Psi4 Input Generator | `test_gui_plugin_psi4_input_generator.py` | `Psi4SetupDialog` |
+| PubChem Name Resolver | `test_gui_plugin_pubchem_name_resolver.py` | `MoleculeResolverDialog` |
+| PubChem Structure Identifier | `test_gui_plugin_pubchem_structure_identifier.py` | `MoleculeDetailsDialog`, `PubChemResolver` |
+| PySCF Input Generator | `test_gui_plugin_pyscf_input_generator.py` | `PyscfSetupDialog` |
+| Python Console | `test_gui_plugin_python_console.py` | `PythonConsoleDialog`, entry points, `ConsoleInput`, `PythonHighlighter` |
+| Settings Saver | `test_gui_plugin_settings_saver.py` | `SettingsSaverDialog` |
+| Step Optimizer | `test_gui_plugin_step_optimizer.py` | `StepOptimizerDialog` |
+| Structural Updater | `test_gui_plugin_structural_updater.py` | `SettingsDialog`, `StructuralUpdaterPlugin` |
+| Symmetry Analyzer | `test_gui_plugin_symmetry_analyzer.py` | `SymmetryAnalysisPlugin` |
+| VDW Radii Overlay | `test_gui_plugin_vdw_radii_overlay.py` | `VDWConfigWindow` |
+| Vector Viewer | `test_gui_plugin_vector_viewer.py` | `VectorViewerPlugin` |
+| xTB Optimizer | `test_gui_plugin_xtb_optimizer.py` | `XtbOptimizerDialog`, `XtbWorker` |
+| XYZ Editor | `test_gui_plugin_xyz_editor.py` | `XYZEditorWindow` |
+| *(cross-plugin)* | [`test_integration_real_context.py`](file:///e:/Research/Calculation/moleditpy/DEV_MAIN/moleditpy-plugins/tests_gui/test_integration_real_context.py) | Validates every visible plugin's `initialize()` against the real `PluginContext` API contract (menu paths, callbacks, file loaders, document states) |
 
 ## Adding new tests
 
