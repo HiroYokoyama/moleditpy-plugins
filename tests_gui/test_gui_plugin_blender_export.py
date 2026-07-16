@@ -13,6 +13,8 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import pytest
+
 from conftest import load_plugin_for_gui, mock_chemistry_imports
 
 PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
@@ -73,3 +75,85 @@ class TestBlenderExportModule:
         _blender.PLUGIN_CONTEXT = None
         mw = MagicMock()  # has plugin_manager (MagicMock auto-attribute)
         _blender.run(mw)  # PLUGIN_CONTEXT is None → early return, no error
+
+
+# ===========================================================================
+# export_to_blender — control flow (guards / cancel / save / error)
+# ===========================================================================
+
+
+def _mol(n_atoms=3, n_confs=1):
+    mol = MagicMock()
+    mol.GetNumAtoms.return_value = n_atoms
+    mol.GetNumConformers.return_value = n_confs
+    return mol
+
+
+class TestBlenderExportFlow:
+    @pytest.fixture(autouse=True)
+    def _qt(self, qapp, monkeypatch):
+        from PyQt6.QtWidgets import QFileDialog, QMessageBox
+
+        self.warning = MagicMock()
+        self.info = MagicMock()
+        self.critical = MagicMock()
+        monkeypatch.setattr(QMessageBox, "warning", self.warning)
+        monkeypatch.setattr(QMessageBox, "information", self.info)
+        monkeypatch.setattr(QMessageBox, "critical", self.critical)
+        self._save_ret = ("", "")
+        monkeypatch.setattr(
+            QFileDialog, "getSaveFileName", lambda *a, **k: self._save_ret
+        )
+        monkeypatch.setattr(
+            _blender,
+            "generate_blender_script",
+            MagicMock(return_value="# blender script"),
+        )
+
+    def _ctx(self, mol):
+        ctx = MagicMock()
+        ctx.get_main_window.return_value = MagicMock()
+        ctx.current_molecule = mol
+        _blender.PLUGIN_CONTEXT = ctx
+        return ctx
+
+    def test_no_molecule_warns_and_skips_generate(self):
+        ctx = self._ctx(None)
+        _blender.export_to_blender(ctx)
+        self.warning.assert_called_once()
+        _blender.generate_blender_script.assert_not_called()
+
+    def test_empty_molecule_warns(self):
+        ctx = self._ctx(_mol(n_atoms=0))
+        _blender.export_to_blender(ctx)
+        self.warning.assert_called_once()
+
+    def test_no_conformer_warns_about_3d(self):
+        ctx = self._ctx(_mol(n_confs=0))
+        _blender.export_to_blender(ctx)
+        assert "3D" in self.warning.call_args.args[1]
+
+    def test_cancel_writes_nothing(self, tmp_path):
+        ctx = self._ctx(_mol())
+        self._save_ret = ("", "")
+        _blender.export_to_blender(ctx)
+        _blender.generate_blender_script.assert_not_called()
+        assert list(tmp_path.iterdir()) == []
+
+    def test_save_appends_py_extension_and_writes(self, tmp_path):
+        ctx = self._ctx(_mol())
+        target = tmp_path / "scene"
+        self._save_ret = (str(target), "")
+        _blender.export_to_blender(ctx)
+        written = tmp_path / "scene.py"
+        assert written.exists()
+        assert written.read_text(encoding="utf-8") == "# blender script"
+        self.info.assert_called_once()
+        ctx.show_status_message.assert_called()
+
+    def test_generation_error_shows_critical(self, tmp_path):
+        ctx = self._ctx(_mol())
+        self._save_ret = (str(tmp_path / "x.py"), "")
+        _blender.generate_blender_script.side_effect = RuntimeError("boom")
+        _blender.export_to_blender(ctx)
+        self.critical.assert_called_once()
