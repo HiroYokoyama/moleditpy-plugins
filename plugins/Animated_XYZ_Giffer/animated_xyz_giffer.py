@@ -153,6 +153,12 @@ class AnimatedXYZPlayer(QDialog):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.on_timer)
 
+        # Reload poll: the host sets the new file path only after the
+        # document reset handlers ran, so re-import must be deferred.
+        self._reload_timer = QTimer(self)
+        self._reload_timer.timeout.connect(self._on_reload_poll)
+        self._reload_attempts = 0
+
         # Bottom layout for actions
         bottom_layout = QHBoxLayout()
         bottom_layout.addStretch()
@@ -185,6 +191,7 @@ class AnimatedXYZPlayer(QDialog):
         """
         Loads the animated XYZ from the given file path.
         """
+        self._reload_timer.stop()
         try:
             frames = self.parse_multi_frame_xyz(file_path)
             if not frames:
@@ -724,11 +731,27 @@ class AnimatedXYZPlayer(QDialog):
         self.btn_next.setEnabled(False)
         self.btn_save_gif.setEnabled(False)
 
-        # If the host already has a new XYZ file open, pick it up right away
-        self.try_import_from_mainwindow()
+        # The host sets the new file path only after the reset handlers
+        # ran, so poll briefly for it instead of reading it now.
+        self._reload_attempts = 0
+        self._reload_timer.start(200)
+
+    def _on_reload_poll(self):
+        """Poll for the file the host opens right after a document reset."""
+        if not self.isVisible():
+            self._reload_timer.stop()
+            return
+        self._reload_attempts += 1
+        fp = getattr(self.mw.init_manager, "current_file_path", None)
+        if fp and fp.lower().endswith((".xyz", ".extxyz")):
+            self._reload_timer.stop()
+            self.load_from_path(fp)
+        elif self._reload_attempts >= 15:
+            self._reload_timer.stop()
 
     def closeEvent(self, event):
         self.timer.stop()
+        self._reload_timer.stop()
 
         # Push to current_molecule
         try:

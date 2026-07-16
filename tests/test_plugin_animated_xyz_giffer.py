@@ -384,6 +384,7 @@ def _load_path_self(parse_result):
     fake.parse_multi_frame_xyz = MagicMock(return_value=parse_result)
     fake.lbl_file = FakeLabel()
     fake.setWindowTitle = MagicMock()
+    fake._reload_timer = MagicMock()
     fake.slider = MagicMock()
     fake.btn_prev = MagicMock()
     fake.btn_play = MagicMock()
@@ -531,6 +532,7 @@ class TestGifferCloseEvent:
     def test_stops_timer(self):
         fake = SimpleNamespace()
         fake.timer = MagicMock()
+        fake._reload_timer = MagicMock()
         fake.context = MagicMock()
         fake.last_display_mol = None
         fake.base_mol = None
@@ -540,6 +542,7 @@ class TestGifferCloseEvent:
     def test_pushes_last_display_mol_when_present(self):
         fake = SimpleNamespace()
         fake.timer = MagicMock()
+        fake._reload_timer = MagicMock()
         fake.context = MagicMock()
         fake.last_display_mol = "LAST"
         fake.base_mol = "BASE"
@@ -550,6 +553,7 @@ class TestGifferCloseEvent:
     def test_falls_back_to_base_mol(self):
         fake = SimpleNamespace()
         fake.timer = MagicMock()
+        fake._reload_timer = MagicMock()
         fake.context = MagicMock()
         fake.last_display_mol = None
         fake.base_mol = "BASE"
@@ -559,6 +563,7 @@ class TestGifferCloseEvent:
     def test_exception_in_push_is_swallowed(self):
         fake = SimpleNamespace()
         fake.timer = MagicMock()
+        fake._reload_timer = MagicMock()
         fake.context = MagicMock()
         fake.context.push_undo_checkpoint.side_effect = RuntimeError("boom")
         fake.last_display_mol = None
@@ -572,6 +577,9 @@ class TestGifferCloseEvent:
 
 _g_doc_reset = _extract_method_as_fn(
     GIFFER_PATH, "AnimatedXYZPlayer", "on_document_reset"
+)
+_g_reload_poll = _extract_method_as_fn(
+    GIFFER_PATH, "AnimatedXYZPlayer", "_on_reload_poll"
 )
 
 
@@ -595,7 +603,8 @@ def _doc_reset_self():
     fake.btn_next = MagicMock()
     fake.btn_save_gif = MagicMock()
     fake.toggle_play = MagicMock()
-    fake.try_import_from_mainwindow = MagicMock()
+    fake._reload_timer = MagicMock()
+    fake._reload_attempts = 7
     return fake
 
 
@@ -626,10 +635,60 @@ class TestGifferDocumentReset:
         fake.btn_play.setText.assert_called_once_with("Play")
         fake.toggle_play.assert_not_called()
 
-    def test_reimports_from_mainwindow(self):
+    def test_starts_reload_poll(self):
+        """Re-import is deferred: the host sets the new path after handlers ran."""
         fake = _doc_reset_self()
         _g_doc_reset(fake)
-        fake.try_import_from_mainwindow.assert_called_once()
+        assert fake._reload_attempts == 0
+        fake._reload_timer.start.assert_called_once_with(200)
+
+
+class TestGifferReloadPoll:
+    @staticmethod
+    def _poll_self(visible=True, path=None, attempts=0):
+        fake = SimpleNamespace()
+        fake.isVisible = MagicMock(return_value=visible)
+        fake.mw = MagicMock()
+        fake.mw.init_manager.current_file_path = path
+        fake._reload_attempts = attempts
+        fake._reload_timer = MagicMock()
+        fake.load_from_path = MagicMock()
+        return fake
+
+    def test_loads_new_xyz_and_stops(self):
+        fake = self._poll_self(path="C:/data/new_traj.xyz")
+        _g_reload_poll(fake)
+        fake._reload_timer.stop.assert_called_once()
+        fake.load_from_path.assert_called_once_with("C:/data/new_traj.xyz")
+
+    def test_extxyz_also_loads(self):
+        fake = self._poll_self(path="run.extxyz")
+        _g_reload_poll(fake)
+        fake.load_from_path.assert_called_once_with("run.extxyz")
+
+    def test_keeps_polling_while_no_path(self):
+        fake = self._poll_self(path=None, attempts=3)
+        _g_reload_poll(fake)
+        fake._reload_timer.stop.assert_not_called()
+        fake.load_from_path.assert_not_called()
+        assert fake._reload_attempts == 4
+
+    def test_non_xyz_path_never_loaded(self):
+        fake = self._poll_self(path="molecule.pdb", attempts=3)
+        _g_reload_poll(fake)
+        fake.load_from_path.assert_not_called()
+
+    def test_gives_up_after_max_attempts(self):
+        fake = self._poll_self(path=None, attempts=14)
+        _g_reload_poll(fake)
+        fake._reload_timer.stop.assert_called_once()
+        fake.load_from_path.assert_not_called()
+
+    def test_stops_when_window_hidden(self):
+        fake = self._poll_self(visible=False, path="new.xyz")
+        _g_reload_poll(fake)
+        fake._reload_timer.stop.assert_called_once()
+        fake.load_from_path.assert_not_called()
 
 
 class TestGifferInitialize:
