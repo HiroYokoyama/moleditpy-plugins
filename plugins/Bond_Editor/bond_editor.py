@@ -96,6 +96,7 @@ class BondEditorWindow(QWidget):
         self.resize(560, 420)
         self._click_filter = None
         self._pick_second = False
+        self._first_pick_idx = None
         self.init_ui()
 
         self.context.register_window("main_panel", self)
@@ -261,12 +262,48 @@ class BondEditorWindow(QWidget):
     def _on_click_mode_changed(self, mode):
         """Reset the Atom 1/Atom 2 alternation when the 3D click mode changes."""
         self._pick_second = False
+        self._first_pick_idx = None
         msgs = {
             "Select bond": "Click a bond in the 3D view to select it.",
             "Pick endpoints": "Click atoms to fill Atom 1 / Atom 2, then Add Bond.",
             "Create bond": "Click two atoms to create a bond between them.",
         }
         self.context.show_status_message(msgs.get(mode, ""))
+        self._update_mode_overlay()
+
+    def _update_mode_overlay(self):
+        """Show the 3D click mode and pick progress as a text overlay in the viewer."""
+        plotter = self.context.plotter
+        if not plotter:
+            return
+        mode = self.click_mode_combo.currentText()
+        if mode == "Create bond":
+            if self._pick_second:
+                text = (
+                    f"Create bond: atom {self._first_pick_idx} picked - "
+                    "click the second atom"
+                )
+            else:
+                text = "Create bond: click the first atom"
+        elif mode == "Pick endpoints":
+            which = "Atom 2" if self._pick_second else "Atom 1"
+            text = f"Pick endpoints: click an atom to set {which}"
+        else:
+            text = None
+        try:
+            if text is None:
+                plotter.remove_actor("bond_editor_mode_label")
+            else:
+                plotter.add_text(
+                    text,
+                    name="bond_editor_mode_label",
+                    position="upper_left",
+                    font_size=10,
+                    color="orange",
+                )
+            plotter.render()
+        except Exception as _e:
+            logging.warning("[bond_editor.py:_update_mode_overlay] silenced: %s", _e)
 
     def _nearest_atom_to_point(self, mol, pick_pos):
         """Return the index of the atom nearest the 3D *pick_pos*, or None."""
@@ -293,6 +330,7 @@ class BondEditorWindow(QWidget):
         which = "Atom 2" if self._pick_second else "Atom 1"
         self._pick_second = not self._pick_second
         self.context.show_status_message(f"{which} set to atom {atom_idx}.")
+        self._update_mode_overlay()
 
     def _create_bond_pick(self, atom_idx):
         """Create-bond mode: the first click sets Atom 1, the second sets Atom 2
@@ -300,14 +338,17 @@ class BondEditorWindow(QWidget):
         if not self._pick_second:
             self.spin_a1.setValue(atom_idx)
             self._pick_second = True
+            self._first_pick_idx = atom_idx
             self.context.show_status_message(
                 f"Atom 1 = {atom_idx}. Click the second atom to create the bond."
             )
         else:
             self.spin_a2.setValue(atom_idx)
             self._pick_second = False
+            self._first_pick_idx = None
             self.context.show_status_message(f"Atom 2 = {atom_idx}.")
             self.add_bond()
+        self._update_mode_overlay()
 
     def _nearest_bond_to_point(self, mol, pick_pos, max_dist=0.8):
         """Return the (begin, end) atom pair of the bond whose axis is closest to
@@ -681,6 +722,7 @@ class BondEditorWindow(QWidget):
         plotter = self.context.plotter
         if plotter:
             plotter.remove_actor("bond_editor_selection")
+            plotter.remove_actor("bond_editor_mode_label")
             plotter.render()
         super().closeEvent(event)
         # Unregister so the next open builds a fresh window that reinstalls the

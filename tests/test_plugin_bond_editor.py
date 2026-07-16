@@ -511,3 +511,58 @@ class TestBondSignature:
         m1 = _SigMol(2, [_SigBond(0, 1, "SINGLE")], coords)
         m2 = _SigMol(2, [_SigBond(0, 1, "SINGLE")], coords)
         assert fn(SimpleNamespace(), m1)[1:] == fn(SimpleNamespace(), m2)[1:]
+
+
+class TestModeOverlay:
+    def _fn(self):
+        import logging as real_logging
+
+        return extract_function(
+            BOND_EDITOR_PATH,
+            "BondEditorWindow",
+            "_update_mode_overlay",
+            extra_globals={"logging": real_logging},
+        )
+
+    @staticmethod
+    def _self(mode, pick_second=False, first_idx=None, plotter=None):
+        return SimpleNamespace(
+            context=SimpleNamespace(plotter=plotter),
+            click_mode_combo=SimpleNamespace(currentText=lambda: mode),
+            _pick_second=pick_second,
+            _first_pick_idx=first_idx,
+        )
+
+    def test_select_mode_removes_label(self):
+        plotter = MagicMock()
+        self._fn()(self._self("Select bond", plotter=plotter))
+        plotter.remove_actor.assert_called_once_with("bond_editor_mode_label")
+        plotter.add_text.assert_not_called()
+        plotter.render.assert_called_once()
+
+    def test_create_bond_first_click_prompt(self):
+        plotter = MagicMock()
+        self._fn()(self._self("Create bond", plotter=plotter))
+        text = plotter.add_text.call_args[0][0]
+        assert "first atom" in text
+        assert plotter.add_text.call_args[1]["name"] == "bond_editor_mode_label"
+
+    def test_create_bond_second_click_shows_picked_atom(self):
+        plotter = MagicMock()
+        self._fn()(
+            self._self("Create bond", pick_second=True, first_idx=7, plotter=plotter)
+        )
+        text = plotter.add_text.call_args[0][0]
+        assert "atom 7" in text
+        assert "second atom" in text
+
+    def test_pick_endpoints_alternates_target(self):
+        plotter = MagicMock()
+        fn = self._fn()
+        fn(self._self("Pick endpoints", pick_second=False, plotter=plotter))
+        assert "Atom 1" in plotter.add_text.call_args[0][0]
+        fn(self._self("Pick endpoints", pick_second=True, plotter=plotter))
+        assert "Atom 2" in plotter.add_text.call_args[0][0]
+
+    def test_no_plotter_is_noop(self):
+        self._fn()(self._self("Create bond", plotter=None))
