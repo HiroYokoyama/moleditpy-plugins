@@ -383,6 +383,7 @@ def _load_path_self(parse_result):
     fake = SimpleNamespace()
     fake.parse_multi_frame_xyz = MagicMock(return_value=parse_result)
     fake.lbl_file = FakeLabel()
+    fake.setWindowTitle = MagicMock()
     fake.slider = MagicMock()
     fake.btn_prev = MagicMock()
     fake.btn_play = MagicMock()
@@ -400,6 +401,10 @@ class TestGifferLoadFromPath:
         fake = _load_path_self(frames)
         _g_load_from_path(fake, "/tmp/traj.xyz")
         assert fake.frames == frames
+        assert fake.lbl_file.text() == "traj.xyz"
+        fake.setWindowTitle.assert_called_once_with(
+            "Animated XYZ Player - traj.xyz"
+        )
         assert fake.current_frame_idx == 0
         assert fake.target_frame_idx == 0
         fake.slider.setRange.assert_called_once_with(0, 0)
@@ -559,6 +564,112 @@ class TestGifferCloseEvent:
         fake.last_display_mol = None
         fake.base_mol = None
         _g_close_event(fake, MagicMock())  # must not raise
+
+
+# ---------------------------------------------------------------------------
+# on_document_reset / initialize
+# ---------------------------------------------------------------------------
+
+_g_doc_reset = _extract_method_as_fn(
+    GIFFER_PATH, "AnimatedXYZPlayer", "on_document_reset"
+)
+
+
+def _doc_reset_self():
+    fake = SimpleNamespace()
+    fake.timer = MagicMock()
+    fake.is_playing = True
+    fake.frames = [{"coords": []}]
+    fake.current_frame_idx = 3
+    fake.target_frame_idx = 3
+    fake.base_mol = "BASE"
+    fake.original_topology = "TOPO"
+    fake.last_display_mol = "LAST"
+    fake.lbl_file = FakeLabel()
+    fake.lbl_comment = FakeLabel()
+    fake.lbl_status = FakeLabel()
+    fake.setWindowTitle = MagicMock()
+    fake.slider = MagicMock()
+    fake.btn_prev = MagicMock()
+    fake.btn_play = MagicMock()
+    fake.btn_next = MagicMock()
+    fake.btn_save_gif = MagicMock()
+    fake.toggle_play = MagicMock()
+    fake.try_import_from_mainwindow = MagicMock()
+    return fake
+
+
+class TestGifferDocumentReset:
+    def test_clears_state_and_ui(self):
+        fake = _doc_reset_self()
+        _g_doc_reset(fake)
+        assert fake.frames == []
+        assert fake.current_frame_idx == 0
+        assert fake.target_frame_idx == 0
+        assert fake.base_mol is None
+        assert fake.original_topology is None
+        assert fake.last_display_mol is None
+        assert fake.lbl_file.text() == "No file loaded"
+        assert fake.lbl_comment.text() == ""
+        assert fake.lbl_status.text() == "Frame: 0 / 0"
+        fake.setWindowTitle.assert_called_once_with("Animated XYZ Player")
+        fake.slider.setEnabled.assert_called_once_with(False)
+        for btn in (fake.btn_prev, fake.btn_play, fake.btn_next, fake.btn_save_gif):
+            btn.setEnabled.assert_called_once_with(False)
+
+    def test_stops_playback_without_toggle_play(self):
+        """toggle_play() would push the stale molecule into the cleared document."""
+        fake = _doc_reset_self()
+        _g_doc_reset(fake)
+        fake.timer.stop.assert_called_once()
+        assert fake.is_playing is False
+        fake.btn_play.setText.assert_called_once_with("Play")
+        fake.toggle_play.assert_not_called()
+
+    def test_reimports_from_mainwindow(self):
+        fake = _doc_reset_self()
+        _g_doc_reset(fake)
+        fake.try_import_from_mainwindow.assert_called_once()
+
+
+class TestGifferInitialize:
+    def test_registers_document_reset_handler(self):
+        with mock_optional_imports():
+            mod = load_plugin(GIFFER_PATH)
+            ctx = MagicMock()
+            mod.initialize(ctx)
+            ctx.register_document_reset_handler.assert_called_once()
+            ctx.add_menu_action.assert_not_called()  # run() auto-registers the menu
+
+    def test_handler_dispatches_to_visible_window(self):
+        with mock_optional_imports():
+            mod = load_plugin(GIFFER_PATH)
+            ctx = MagicMock()
+            mod.initialize(ctx)
+            handler = ctx.register_document_reset_handler.call_args[0][0]
+
+            win = MagicMock()
+            win.isVisible.return_value = True
+            ctx.get_window.return_value = win
+            handler()
+            win.on_document_reset.assert_called_once()
+            ctx.get_window.assert_called_with("main_panel")
+
+    def test_handler_skips_hidden_or_missing_window(self):
+        with mock_optional_imports():
+            mod = load_plugin(GIFFER_PATH)
+            ctx = MagicMock()
+            mod.initialize(ctx)
+            handler = ctx.register_document_reset_handler.call_args[0][0]
+
+            ctx.get_window.return_value = None
+            handler()  # must not raise
+
+            win = MagicMock()
+            win.isVisible.return_value = False
+            ctx.get_window.return_value = win
+            handler()
+            win.on_document_reset.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

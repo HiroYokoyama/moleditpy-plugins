@@ -37,7 +37,7 @@ try:
 except ImportError:
     rdDetermineBonds = None
 
-PLUGIN_VERSION = "2026.06.27"
+PLUGIN_VERSION = "2026.07.16"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_NAME = "Animated XYZ Giffer"
@@ -88,6 +88,14 @@ class AnimatedXYZPlayer(QDialog):
         # Status
         self.lbl_status = QLabel("Frame: 0 / 0")
         layout.addWidget(self.lbl_status)
+
+        # Frame title (XYZ comment line)
+        self.lbl_comment = QLabel("")
+        self.lbl_comment.setWordWrap(True)
+        self.lbl_comment.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        )
+        layout.addWidget(self.lbl_comment)
 
         # Slider
         self.slider = QSlider(Qt.Orientation.Horizontal)
@@ -187,6 +195,9 @@ class AnimatedXYZPlayer(QDialog):
             self.current_frame_idx = 0
             self.target_frame_idx = 0
             self.lbl_file.setText(os.path.basename(file_path))
+            self.setWindowTitle(
+                f"Animated XYZ Player - {os.path.basename(file_path)}"
+            )
             self.slider.setRange(0, len(frames) - 1)
             self.slider.setValue(0)
             self.slider.setEnabled(True)
@@ -444,6 +455,7 @@ class AnimatedXYZPlayer(QDialog):
                 # Push to current molecule and redraw
                 self.context.current_molecule = display_mol
                 # Update frame comment/title if possible
+                self.lbl_comment.setText(frame.get("comment", ""))
                 if "comment" in frame:
                     self.context.show_status_message(
                         f"Frame {self.current_frame_idx + 1}/{len(self.frames)}: {frame['comment']}"
@@ -679,6 +691,42 @@ class AnimatedXYZPlayer(QDialog):
             if was_playing:
                 self.toggle_play()
 
+    def on_document_reset(self):
+        """
+        Called when the host resets the document (File->New).
+        Clears the loaded trajectory and refreshes in place instead of
+        requiring the window to be closed and reopened.
+        """
+        # Stop playback without toggle_play(): that would push the stale
+        # molecule back into the freshly cleared document.
+        self.timer.stop()
+        self.is_playing = False
+        self.btn_play.setText("Play")
+
+        self.frames = []
+        self.current_frame_idx = 0
+        self.target_frame_idx = 0
+        self.base_mol = None
+        self.original_topology = None
+        self.last_display_mol = None
+
+        self.lbl_file.setText("No file loaded")
+        self.lbl_comment.setText("")
+        self.lbl_status.setText("Frame: 0 / 0")
+        self.setWindowTitle("Animated XYZ Player")
+
+        self.slider.blockSignals(True)
+        self.slider.setValue(0)
+        self.slider.blockSignals(False)
+        self.slider.setEnabled(False)
+        self.btn_prev.setEnabled(False)
+        self.btn_play.setEnabled(False)
+        self.btn_next.setEnabled(False)
+        self.btn_save_gif.setEnabled(False)
+
+        # If the host already has a new XYZ file open, pick it up right away
+        self.try_import_from_mainwindow()
+
     def closeEvent(self, event):
         self.timer.stop()
 
@@ -729,6 +777,20 @@ class AnimatedXYZPlayer(QDialog):
         """
 
         super().closeEvent(event)
+
+
+def initialize(context):
+    """
+    V4 init: registered once at plugin load so an open player window
+    refreshes in place on document reset. Menu entry comes from run().
+    """
+
+    def on_document_reset():
+        win = context.get_window("main_panel")
+        if win is not None and win.isVisible():
+            win.on_document_reset()
+
+    context.register_document_reset_handler(on_document_reset)
 
 
 def run_plugin(context):
