@@ -137,29 +137,18 @@ class XYZEditorWindow(QWidget):
 
         layout.addLayout(btn_layout)
 
-        # Add/Remove Buttons
+        # Table-only actions (staged; committed by Apply)
         edit_layout = QHBoxLayout()
+        edit_layout.addWidget(QLabel("Table:"))
+
         self.add_btn = QPushButton("Add Atom")
         self.add_btn.clicked.connect(self.add_atom_row)
         edit_layout.addWidget(self.add_btn)
-
-        self.add_h_btn = QPushButton("Adjust H")
-        self.add_h_btn.setToolTip(
-            "Add missing and remove excess hydrogens (with 3D coordinates) "
-            "on the selected atoms, or the whole molecule if nothing is selected"
-        )
-        self.add_h_btn.clicked.connect(self.adjust_hydrogens)
-        edit_layout.addWidget(self.add_h_btn)
 
         self.remove_btn = QPushButton("Remove Selected")
         self.remove_btn.setToolTip("Remove rows from the table only (press Apply to commit)")
         self.remove_btn.clicked.connect(self.remove_selected_rows)
         edit_layout.addWidget(self.remove_btn)
-
-        self.delete_btn = QPushButton("Delete Atoms")
-        self.delete_btn.setToolTip("Delete selected atoms from the molecule immediately")
-        self.delete_btn.clicked.connect(self.delete_selected_atoms)
-        edit_layout.addWidget(self.delete_btn)
 
         self.copy_btn = QPushButton("Copy to Clipboard")
         self.copy_btn.clicked.connect(self.copy_to_clipboard)
@@ -169,7 +158,28 @@ class XYZEditorWindow(QWidget):
         self.unselect_btn.clicked.connect(self.unselect_all)
         edit_layout.addWidget(self.unselect_btn)
 
+        edit_layout.addStretch()
         layout.addLayout(edit_layout)
+
+        # Immediate molecule actions (no Apply needed)
+        mol_layout = QHBoxLayout()
+        mol_layout.addWidget(QLabel("Molecule:"))
+
+        self.add_h_btn = QPushButton("Adjust H")
+        self.add_h_btn.setToolTip(
+            "Add missing and remove excess hydrogens (with 3D coordinates) "
+            "on the selected atoms, or the whole molecule if nothing is selected"
+        )
+        self.add_h_btn.clicked.connect(self.adjust_hydrogens)
+        mol_layout.addWidget(self.add_h_btn)
+
+        self.delete_btn = QPushButton("Delete Atoms")
+        self.delete_btn.setToolTip("Delete selected atoms from the molecule immediately")
+        self.delete_btn.clicked.connect(self.delete_selected_atoms)
+        mol_layout.addWidget(self.delete_btn)
+
+        mol_layout.addStretch()
+        layout.addLayout(mol_layout)
 
         select_layout = QHBoxLayout()
         self.whole_mol_cb = QCheckBox("Select whole molecule on 3D click")
@@ -940,8 +950,12 @@ class XYZEditorWindow(QWidget):
                 self.context.current_molecule
             )
 
-            # Refresh visualization
-            self.context.reset_3d_camera()
+            # Refresh visualization without moving the camera
+            refresh = getattr(self.context, "refresh_3d_view", None)
+            if callable(refresh):
+                refresh()
+            else:
+                self.context.reset_3d_camera()
 
             # Reload table to get clean indices and ensure properties stuck
             self.load_molecule()
