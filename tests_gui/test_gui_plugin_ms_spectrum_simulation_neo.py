@@ -84,3 +84,215 @@ class TestMSSpectrumDialogNeo:
     def test_formula_input_accepts_text(self, dlg):
         dlg.formula_input.setText("C6H12O6")
         assert dlg.formula_input.text() == "C6H12O6"
+
+
+def _make_dlg(qapp_unused=None):
+    ctx = _ms_context()
+    return _ms_neo.MSSpectrumDialog(context=ctx), ctx
+
+
+# ===========================================================================
+# Formula parsing (pure logic)
+# ===========================================================================
+
+
+class TestMSFormulaParsing:
+    def test_simple_formula(self, qapp):
+        d, ctx = _make_dlg()
+        assert d.parse_formula_str("C6H6") == {"C": 6, "H": 6}
+        d.destroy()
+
+    def test_parenthesized_group_with_multiplier(self, qapp):
+        d, ctx = _make_dlg()
+        assert d.parse_formula_str("Ca(OH)2") == {"Ca": 1, "O": 2, "H": 2}
+        d.destroy()
+
+    def test_nested_parentheses(self, qapp):
+        d, ctx = _make_dlg()
+        assert d.parse_formula_str("((CH3)2N)2") == {"C": 4, "H": 12, "N": 2}
+        d.destroy()
+
+    def test_charge_symbols_ignored(self, qapp):
+        d, ctx = _make_dlg()
+        assert d.parse_formula_str("C6H5+") == {"C": 6, "H": 5}
+        d.destroy()
+
+    def test_whitespace_allowed(self, qapp):
+        d, ctx = _make_dlg()
+        assert d.parse_formula_str("C6 H6") == {"C": 6, "H": 6}
+        d.destroy()
+
+    def test_invalid_characters_return_none(self, qapp):
+        d, ctx = _make_dlg()
+        assert d.parse_formula_str("C6H6$") is None
+        d.destroy()
+
+    def test_two_letter_elements(self, qapp):
+        d, ctx = _make_dlg()
+        assert d.parse_formula_str("NaCl") == {"Na": 1, "Cl": 1}
+        d.destroy()
+
+
+# ===========================================================================
+# Superscript / subscript / adduct deltas (pure logic)
+# ===========================================================================
+
+
+class TestMSAdductLogic:
+    def test_superscript_mapping(self, qapp):
+        d, ctx = _make_dlg()
+        assert d.to_superscript("2+") == "²⁺"
+        assert d.to_superscript("10-") == "¹⁰⁻"
+        d.destroy()
+
+    def test_subscript_mapping(self, qapp):
+        d, ctx = _make_dlg()
+        assert d.to_subscript("43") == "₄₃"
+        d.destroy()
+
+    def test_positive_deltas(self, qapp):
+        d, ctx = _make_dlg()
+        assert d.get_adduct_delta(0, "Positive", 1) == {}
+        assert d.get_adduct_delta(1, "Positive", 2) == {"H": 2}
+        assert d.get_adduct_delta(2, "Positive", 1) == {"Na": 1}
+        assert d.get_adduct_delta(4, "Positive", 1) == {"N": 1, "H": 4}
+        d.destroy()
+
+    def test_negative_deltas(self, qapp):
+        d, ctx = _make_dlg()
+        assert d.get_adduct_delta(1, "Negative", 1) == {"H": -1}
+        assert d.get_adduct_delta(2, "Negative", 1) == {"Cl": 1}
+        assert d.get_adduct_delta(3, "Negative", 1) == {"C": 1, "H": 1, "O": 2}
+        d.destroy()
+
+
+# ===========================================================================
+# Adduct combo reacts to charge
+# ===========================================================================
+
+
+class TestMSAdductOptions:
+    def test_neutral_charge_offers_neutral_items(self, qapp):
+        d, ctx = _make_dlg()
+        d.charge_spin.setValue(0)
+        assert [d.adduct_combo.itemText(i) for i in range(d.adduct_combo.count())] == [
+            "M (Neutral) [M]",
+            "None",
+        ]
+        d.destroy()
+
+    def test_positive_charge_offers_six_adducts(self, qapp):
+        d, ctx = _make_dlg()
+        d.charge_spin.setValue(1)
+        assert d.adduct_combo.count() == 6
+        assert d.adduct_combo.itemText(0) == "M [M]⁺"
+        assert d.adduct_combo.itemText(1) == "H (Proton) [M+H]⁺"
+        d.destroy()
+
+    def test_negative_charge_offers_five_adducts(self, qapp):
+        d, ctx = _make_dlg()
+        d.charge_spin.setValue(-1)
+        assert d.adduct_combo.count() == 5
+        assert d.adduct_combo.itemText(1) == "H (Deprotonation) [M-H]⁻"
+        d.destroy()
+
+    def test_multiple_charge_shows_count_and_superscript(self, qapp):
+        d, ctx = _make_dlg()
+        d.charge_spin.setValue(2)
+        assert d.adduct_combo.itemText(0) == "M [M]²⁺"
+        assert d.adduct_combo.itemText(1) == "H (Proton) [M+2H]²⁺"
+        d.destroy()
+
+    def test_selection_preserved_across_charge_change(self, qapp):
+        d, ctx = _make_dlg()
+        d.charge_spin.setValue(1)
+        d.adduct_combo.setCurrentIndex(2)
+        d.charge_spin.setValue(2)
+        assert d.adduct_combo.currentIndex() == 2
+        d.destroy()
+
+
+# ===========================================================================
+# Sync timer lifecycle
+# ===========================================================================
+
+
+class TestMSSyncTimer:
+    def test_toggle_sync_checked_starts_timer(self, qapp):
+        d, ctx = _make_dlg()
+        d.check_update = MagicMock()
+        d.toggle_sync(2)
+        assert d.timer.isActive()
+        d.check_update.assert_called_once()
+        d.timer.stop()
+        d.destroy()
+
+    def test_toggle_sync_unchecked_stops_timer(self, qapp):
+        d, ctx = _make_dlg()
+        d.check_update = MagicMock()
+        d.toggle_sync(2)
+        d.toggle_sync(0)
+        assert not d.timer.isActive()
+        d.destroy()
+
+    def test_close_event_stops_running_timer(self, qapp):
+        d, ctx = _make_dlg()
+        d.timer.start(500)
+        d.close()
+        assert not d.timer.isActive()
+        d.destroy()
+
+
+# ===========================================================================
+# HistogramWidget view management
+# ===========================================================================
+
+
+class TestMSHistogramWidget:
+    def test_reset_view_defaults_without_peaks(self, qapp):
+        h = _ms_neo.HistogramWidget([])
+        h.reset_view()
+        assert (h.view_min, h.view_max) == (0.0, 100.0)
+        h.destroy()
+
+    def test_reset_view_pads_peak_range(self, qapp):
+        h = _ms_neo.HistogramWidget([(100.0, 50.0), (200.0, 100.0)])
+        h.reset_view()
+        assert (h.view_min, h.view_max) == (95.0, 205.0)
+        h.destroy()
+
+    def test_reset_view_single_mass_gets_symmetric_window(self, qapp):
+        h = _ms_neo.HistogramWidget([(120.0, 100.0)])
+        h.reset_view()
+        assert (h.view_min, h.view_max) == (115.0, 125.0)
+        h.destroy()
+
+    def test_reset_view_prefers_stick_peaks(self, qapp):
+        h = _ms_neo.HistogramWidget([(500.0, 1.0)])
+        h.stick_peaks = [(100.0, 50.0)]
+        h.reset_view()
+        assert (h.view_min, h.view_max) == (95.0, 105.0)
+        h.destroy()
+
+    def test_default_draw_mode_is_stick(self, qapp):
+        h = _ms_neo.HistogramWidget([])
+        assert h.draw_mode == "stick"
+        h.destroy()
+
+
+# ===========================================================================
+# CSV export cancel path
+# ===========================================================================
+
+
+class TestMSExport:
+    def test_export_csv_cancel_is_noop(self, qapp, tmp_path, monkeypatch):
+        d, ctx = _make_dlg()
+        monkeypatch.setattr(
+            _ms_neo.QFileDialog,
+            "getSaveFileName",
+            staticmethod(lambda *a, **k: ("", "")),
+        )
+        d.export_csv()
+        assert list(tmp_path.iterdir()) == []
+        d.destroy()
