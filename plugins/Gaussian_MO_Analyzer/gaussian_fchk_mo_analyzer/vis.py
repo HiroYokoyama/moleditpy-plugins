@@ -29,7 +29,8 @@ class CubeVisualizer:
 
         # Skip comments
         tokens = lines[2].split()
-        n_atoms = abs(int(tokens[0]))
+        n_atoms_raw = int(tokens[0])
+        n_atoms = abs(n_atoms_raw)
         origin = np.array([float(x) for x in tokens[1:4]])
 
         nx, *x_vec = lines[3].split()
@@ -46,8 +47,18 @@ class CubeVisualizer:
 
         # Data starts after atoms
         start_line = 6 + n_atoms
+        if n_atoms_raw < 0:
+            # Negative atom count flags an MO cube (Gaussian convention):
+            # a DSET_IDS block (count + that many ids, possibly wrapped
+            # over several lines) sits between the atoms and the data.
+            n_ids = int(lines[start_line].split()[0])
+            consumed = len(lines[start_line].split()) - 1
+            start_line += 1
+            while consumed < n_ids:
+                consumed += len(lines[start_line].split())
+                start_line += 1
         full_str = " ".join(lines[start_line:])
-        data = np.fromstring(full_str, sep=" ")
+        data = np.array(full_str.split(), dtype=float)
 
         return {
             "dims": (abs(nx), abs(ny), abs(nz)),

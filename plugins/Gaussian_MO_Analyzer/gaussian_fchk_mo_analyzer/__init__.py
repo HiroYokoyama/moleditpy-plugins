@@ -2,7 +2,7 @@ from .gui import OrbitalWidget
 
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Gaussian MO Analyzer"
-PLUGIN_VERSION = "2026.07.08"
+PLUGIN_VERSION = "2026.07.17"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (

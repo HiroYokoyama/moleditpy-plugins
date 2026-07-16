@@ -267,6 +267,55 @@ class TestMOCubeWriter:
         assert vals == pytest.approx([0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
 
 
+VIS_PATH = MO_PKG_DIR / "vis.py"
+
+
+class TestMOCubeParserNegativeAtoms:
+    """CubeVisualizer._parse_cube (vis.py) must skip the DSET_IDS block that
+    a Gaussian MO cube (negative atom count) inserts between the atom lines
+    and the volumetric data; otherwise the data is shifted / misreshaped."""
+
+    _HEADER = (
+        "MO cube\n"
+        "test\n"
+        "   -1    0.0 0.0 0.0\n"
+        "    2    1.0 0.0 0.0\n"
+        "    2    0.0 1.0 0.0\n"
+        "    2    0.0 0.0 1.0\n"
+        "    1    1.0    0.0 0.0 0.0\n"
+    )
+    _DATA = "1.0 2.0 3.0 4.0\n5.0 6.0 7.0 8.0\n"
+
+    def _parse(self, tmp_path, text):
+        src = _extract_method_source(VIS_PATH, "CubeVisualizer", "_parse_cube")
+        fn = _make_function(src, {"np": np})
+        path = tmp_path / "mo.cube"
+        path.write_text(text, encoding="utf-8")
+        return fn(types.SimpleNamespace(), str(path))
+
+    def test_positive_atom_count_reads_all_data(self, tmp_path):
+        header = (
+            "cube\ntest\n"
+            "    1    0.0 0.0 0.0\n"
+            "    2    1.0 0.0 0.0\n"
+            "    2    0.0 1.0 0.0\n"
+            "    2    0.0 0.0 1.0\n"
+            "    8    8.0    0.0 0.0 0.0\n"
+        )
+        meta = self._parse(tmp_path, header + self._DATA)
+        assert meta["dims"] == (2, 2, 2)
+        assert list(meta["data"]) == [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
+
+    def test_dset_ids_line_is_skipped(self, tmp_path):
+        meta = self._parse(tmp_path, self._HEADER + "    1    5\n" + self._DATA)
+        assert list(meta["data"]) == [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
+
+    def test_wrapped_dset_ids_block_is_skipped(self, tmp_path):
+        ids = "    3    5 6\n    7\n"  # 3 ids wrapped over two lines
+        meta = self._parse(tmp_path, self._HEADER + ids + self._DATA)
+        assert list(meta["data"]) == [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
+
+
 def _s_shell_fchk(exponent=1.0, coeff=1.0):
     return textwrap.dedent(f"""\
         Atomic numbers                              I   N=           1
