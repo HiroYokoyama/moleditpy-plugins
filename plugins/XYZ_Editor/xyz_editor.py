@@ -461,8 +461,27 @@ class XYZEditorWindow(QWidget):
         rows = sorted(
             set(index.row() for index in self.table.selectedIndexes()), reverse=True
         )
-        for row in rows:
-            self.table.removeRow(row)
+        if not rows:
+            return
+        # Batch removal: per-row removeRow() fires itemSelectionChanged each
+        # time (glyph rebuild + 3D render per row) and repaints per row —
+        # O(n) renders made deleting many atoms crawl.
+        self.table.blockSignals(True)
+        self.table.setUpdatesEnabled(False)
+        try:
+            model = self.table.model()
+            end = start = rows[0]
+            for r in rows[1:]:
+                if r == start - 1:
+                    start = r
+                else:
+                    model.removeRows(start, end - start + 1)
+                    end = start = r
+            model.removeRows(start, end - start + 1)
+        finally:
+            self.table.setUpdatesEnabled(True)
+            self.table.blockSignals(False)
+        self.highlight_selected_atoms()
 
     def delete_selected_atoms(self):
         """Remove the selected rows and immediately apply the result to the molecule."""
@@ -789,6 +808,7 @@ class XYZEditorWindow(QWidget):
                 color="yellow",
                 opacity=0.5,
                 pickable=False,
+                reset_camera=False,
             )
             if cam is not None:
                 try:

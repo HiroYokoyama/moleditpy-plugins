@@ -661,6 +661,7 @@ class BondEditorWindow(QWidget):
                 color="yellow",
                 opacity=0.6,
                 pickable=False,
+                reset_camera=False,
             )
 
         if cam is not None:

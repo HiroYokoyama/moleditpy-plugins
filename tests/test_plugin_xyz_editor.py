@@ -505,29 +505,61 @@ class _Idx:
 
 
 class TestXYZRemoveSelectedRows:
+    @staticmethod
+    def _table(rows):
+        model = MagicMock()
+        table = SimpleNamespace(
+            selectedIndexes=lambda: [_Idx(r) for r in rows],
+            model=lambda: model,
+            blockSignals=MagicMock(),
+            setUpdatesEnabled=MagicMock(),
+        )
+        return table, model
+
     def test_removes_rows_high_to_low_deduplicated(self):
         fn = _extract_method_as_fn(
             XYZ_EDITOR_PATH, "XYZEditorWindow", "remove_selected_rows"
         )
-        table = SimpleNamespace(
-            selectedIndexes=lambda: [_Idx(2), _Idx(0), _Idx(2)],
-            removeRow=MagicMock(),
-        )
-        self_ = SimpleNamespace(table=table)
+        table, model = self._table([2, 0, 2])
+        self_ = SimpleNamespace(table=table, highlight_selected_atoms=MagicMock())
         fn(self_)
-        assert table.removeRow.call_args_list == [
-            ((2,),),
-            ((0,),),
+        assert model.removeRows.call_args_list == [
+            ((2, 1),),
+            ((0, 1),),
         ]
+        self_.highlight_selected_atoms.assert_called_once()
+
+    def test_contiguous_rows_removed_as_single_runs(self):
+        fn = _extract_method_as_fn(
+            XYZ_EDITOR_PATH, "XYZEditorWindow", "remove_selected_rows"
+        )
+        table, model = self._table([1, 2, 3, 5])
+        self_ = SimpleNamespace(table=table, highlight_selected_atoms=MagicMock())
+        fn(self_)
+        assert model.removeRows.call_args_list == [
+            ((5, 1),),
+            ((1, 3),),
+        ]
+
+    def test_signals_blocked_and_updates_suspended_during_removal(self):
+        fn = _extract_method_as_fn(
+            XYZ_EDITOR_PATH, "XYZEditorWindow", "remove_selected_rows"
+        )
+        table, _model = self._table([0])
+        self_ = SimpleNamespace(table=table, highlight_selected_atoms=MagicMock())
+        fn(self_)
+        assert table.blockSignals.call_args_list == [((True,),), ((False,),)]
+        assert table.setUpdatesEnabled.call_args_list == [((False,),), ((True,),)]
 
     def test_no_selection_removes_nothing(self):
         fn = _extract_method_as_fn(
             XYZ_EDITOR_PATH, "XYZEditorWindow", "remove_selected_rows"
         )
-        table = SimpleNamespace(selectedIndexes=lambda: [], removeRow=MagicMock())
-        self_ = SimpleNamespace(table=table)
+        table, model = self._table([])
+        self_ = SimpleNamespace(table=table, highlight_selected_atoms=MagicMock())
         fn(self_)
-        table.removeRow.assert_not_called()
+        model.removeRows.assert_not_called()
+        self_.highlight_selected_atoms.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

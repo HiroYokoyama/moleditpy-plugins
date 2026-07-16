@@ -474,6 +474,7 @@ class ChargeEditorWindow(QWidget):
                 color="yellow",
                 opacity=0.4,
                 pickable=False,
+                reset_camera=False,
             )
 
         if cam is not None:
