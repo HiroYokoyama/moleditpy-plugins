@@ -44,6 +44,11 @@ Provide the supported version of MoleditPy (e.g., `3.*`).
 *Note: This is strictly required if the plugin is visible.*
 **Supported MoleditPy Version:** 
 
+### 9. Supported Python Version (optional)
+Provide the supported Python version spec (e.g., `>=3.9, <3.15`).
+*Note: If omitted, visible plugins default to `>=3.9, <3.15`.*
+**Supported Python Version:** 
+
 ---
 
 ### Verification Instructions for Developers

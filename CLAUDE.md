@@ -47,6 +47,7 @@ All tests run headlessly — no GUI, no chemistry libraries, no network required
 ```python
 PLUGIN_VERSION = "2026.06.25"          # date-based, bump when file changes
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_SUPPORTED_PYTHON_VERSION = ">=3.9, <3.15"  # optional; registry scripts default visible plugins to this
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_NAME = "My Plugin"
 PLUGIN_DESCRIPTION = "One-line description."

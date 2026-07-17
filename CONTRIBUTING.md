@@ -15,6 +15,7 @@ PLUGIN_VERSION = "1.0.0"
 PLUGIN_AUTHOR = "YourGitHubUsername"                  # Must match your GitHub username
 PLUGIN_DESCRIPTION = "Brief description of what the plugin does."
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = "3.*"             # Optional: parsed automatically by script
+PLUGIN_SUPPORTED_PYTHON_VERSION = ">=3.9, <3.15"       # Optional: parsed automatically by script; visible plugins default to ">=3.9, <3.15" when omitted
 PLUGIN_TAGS = ["Visualization", "Utility"]             # Optional: parsed automatically by script
 PLUGIN_DEPENDENCIES = ["numpy>=1.20", "rdkit>=2022.03"] # Optional: parsed automatically by script (supports PEP-508 constraints)
 
@@ -65,6 +66,7 @@ The `REGISTRY/plugins.json` file is the registry that the application uses to di
     - Wildcards (e.g., `3.*` to match any v3 version).
     - Range specifiers (e.g., `>=3.5` or `>=3.5, <4` for version boundaries).
     - Operator expressions (e.g., `==3.5.1` or `!=3.6`).
+- `supported_python_version`: The Python versions the plugin runs on, using the same specifier syntax (e.g., `>=3.9, <3.15`). Optional in plugin code (`PLUGIN_SUPPORTED_PYTHON_VERSION`); the registry scripts fill in `>=3.9, <3.15` for visible plugins that omit it. The Plugin Installer warns before installing a plugin whose spec does not match the running Python.
 - `name`: **Critical Identifier**. This must be unique across all plugins. It is used as the primary identifier by the application for indexing, updates, and UI display.
 - `version`: Version string (e.g., `2026.02.18` or `1.0.0`).
 - `author`: Your GitHub username (must match your release repository owner).
@@ -88,6 +90,7 @@ When adding or updating a plugin, use the following structure:
   "id": "my_awesome_plugin",
   "visible": true,
   "supported_moleditpy_version": "3.*",
+  "supported_python_version": ">=3.9, <3.15",
   "name": "My Awesome Plugin",
   "version": "1.0.0",
   "author": "Your Name",
