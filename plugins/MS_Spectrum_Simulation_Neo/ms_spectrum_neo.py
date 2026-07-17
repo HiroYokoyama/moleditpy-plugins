@@ -1365,15 +1365,22 @@ class HistogramWidget(QWidget):
                 if not (ml <= x_pos <= w - mr):
                     continue
 
+                # Mass Label (Line 1)
                 label_rect = QRectF(
-                    x_pos - (40 * scale),
-                    y_pos - (25 * scale),
-                    80 * scale,
-                    20 * scale,
+                    x_pos - (40 * scale), y_pos - (35 * scale), 80 * scale, 15 * scale
                 )
                 painter.setPen(QColor("#000000"))
                 painter.drawText(
                     label_rect, Qt.AlignmentFlag.AlignCenter, f"{p_mass:.4f}"
+                )
+
+                # Intensity Label (Line 2)
+                painter.setPen(QPen(QColor("#007bff")))
+                int_rect = QRectF(
+                    x_pos - (40 * scale), y_pos - (20 * scale), 80 * scale, 15 * scale
+                )
+                painter.drawText(
+                    int_rect, Qt.AlignmentFlag.AlignCenter, f"{int(p_int)}%"
                 )
 
         else:
