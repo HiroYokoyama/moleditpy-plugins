@@ -20,6 +20,11 @@ DUUNDER_VERSION_RE = re.compile(r"^\s*__version__\s*=\s*(['\"])(?P<version>.+?)\
 GENERIC_VERSION_RE = re.compile(r"^\s*VERSION\s*=\s*(['\"])(?P<version>.+?)\1", re.MULTILINE)
 DATE_VERSION_RE = re.compile(r"^\d{4}\.\d{2}\.\d{2}$")
 SUPPORTED_VER_RE = re.compile(r"^\s*PLUGIN_SUPPORTED_MOLEDITPY_VERSION\s*=\s*(['\"])(?P<ver>.+?)\1", re.MULTILINE)
+SUPPORTED_PY_RE = re.compile(r"^\s*PLUGIN_SUPPORTED_PYTHON_VERSION\s*=\s*(['\"])(?P<ver>.+?)\1", re.MULTILINE)
+
+# Applied to visible plugins whose source does not declare
+# PLUGIN_SUPPORTED_PYTHON_VERSION.
+DEFAULT_PYTHON_SPEC = ">=3.9, <3.15"
 
 
 def sha256_of_file(path: Path) -> str:
@@ -43,31 +48,43 @@ def read_plugin_version(path: Path) -> str | None:
     return None
 
 
-def read_supported_version(path: Path) -> str | None:
+def _read_constant(path: Path, pattern: re.Pattern) -> str | None:
     try:
         text = path.read_text(encoding="utf-8", errors="ignore")
     except OSError:
         return None
-    match = SUPPORTED_VER_RE.search(text)
+    match = pattern.search(text)
     return match.group("ver").strip() if match else None
 
 
-def infer_supported_version_from_target(target: Path) -> str | None:
+def read_supported_version(path: Path) -> str | None:
+    return _read_constant(path, SUPPORTED_VER_RE)
+
+
+def _infer_constant_from_target(target: Path, pattern: re.Pattern) -> str | None:
     if target.suffix.lower() == ".py":
-        return read_supported_version(target)
+        return _read_constant(target, pattern)
     if target.suffix.lower() == ".zip":
         package_dir = target.parent / target.stem
         if package_dir.exists() and package_dir.is_dir():
             init_py = package_dir / "__init__.py"
             if init_py.exists():
-                ver = read_supported_version(init_py)
+                ver = _read_constant(init_py, pattern)
                 if ver:
                     return ver
             for py_path in sorted(package_dir.rglob("*.py")):
-                ver = read_supported_version(py_path)
+                ver = _read_constant(py_path, pattern)
                 if ver:
                     return ver
     return None
+
+
+def infer_supported_version_from_target(target: Path) -> str | None:
+    return _infer_constant_from_target(target, SUPPORTED_VER_RE)
+
+
+def infer_supported_python_from_target(target: Path) -> str | None:
+    return _infer_constant_from_target(target, SUPPORTED_PY_RE)
 
 
 def read_package_version(package_dir: Path) -> str | None:
@@ -107,7 +124,7 @@ def find_target_json_files(repo_root: Path) -> list[Path]:
     return []
 
 
-def update_single_json(json_path: Path) -> tuple[int, int, int, int, list[str]]:
+def update_single_json(json_path: Path) -> tuple[int, int, int, int, int, list[str]]:
     data = json.loads(json_path.read_text(encoding="utf-8-sig"))
     if not isinstance(data, list):
         raise ValueError(f"{json_path} root must be a list")
@@ -116,7 +133,15 @@ def update_single_json(json_path: Path) -> tuple[int, int, int, int, list[str]]:
     updated_ver = 0
     updated_date = 0
     updated_supported = 0
+    updated_supported_py = 0
     missing = []
+
+    # Every visible entry (external ones included) gets a python spec; the
+    # per-target pass below overrides it from PLUGIN_SUPPORTED_PYTHON_VERSION.
+    for plugin in data:
+        if plugin.get("visible", True) and not plugin.get("supported_python_version"):
+            plugin["supported_python_version"] = DEFAULT_PYTHON_SPEC
+            updated_supported_py += 1
 
     for plugin in data:
         download_url = plugin.get("downloadUrl")
@@ -148,9 +173,14 @@ def update_single_json(json_path: Path) -> tuple[int, int, int, int, list[str]]:
             plugin["supported_moleditpy_version"] = new_supported
             updated_supported += 1
 
+        new_supported_py = infer_supported_python_from_target(target)
+        if new_supported_py and plugin.get("supported_python_version") != new_supported_py:
+            plugin["supported_python_version"] = new_supported_py
+            updated_supported_py += 1
+
     with json_path.open("w", encoding="utf-8", newline="\n") as f:
         f.write(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
-    return updated_sha, updated_ver, updated_date, updated_supported, missing
+    return updated_sha, updated_ver, updated_date, updated_supported, updated_supported_py, missing
 
 
 def main() -> int:
@@ -164,20 +194,23 @@ def main() -> int:
     total_ver = 0
     total_date = 0
     total_supported = 0
+    total_supported_py = 0
     total_missing = 0
 
     for json_path in targets:
-        updated_sha, updated_ver, updated_date, updated_supported, missing = update_single_json(json_path)
+        updated_sha, updated_ver, updated_date, updated_supported, updated_supported_py, missing = update_single_json(json_path)
         total_sha += updated_sha
         total_ver += updated_ver
         total_date += updated_date
         total_supported += updated_supported
+        total_supported_py += updated_supported_py
         total_missing += len(missing)
         rel = json_path.relative_to(repo_root)
         print(f"[{rel}] Updated sha256: {updated_sha}")
         print(f"[{rel}] Updated version: {updated_ver}")
         print(f"[{rel}] Updated lastUpdated: {updated_date}")
         print(f"[{rel}] Updated supported_moleditpy_version: {updated_supported}")
+        print(f"[{rel}] Updated supported_python_version: {updated_supported_py}")
         print(f"[{rel}] Missing local targets: {len(missing)}")
         for item in missing:
             print(f"  - {item}")
@@ -186,6 +219,7 @@ def main() -> int:
     print(f"Total updated version: {total_ver}")
     print(f"Total updated lastUpdated: {total_date}")
     print(f"Total updated supported_moleditpy_version: {total_supported}")
+    print(f"Total updated supported_python_version: {total_supported_py}")
     print(f"Total missing local targets: {total_missing}")
     return 0
 

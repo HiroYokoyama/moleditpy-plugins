@@ -39,6 +39,10 @@ on:
         description: 'Supported MoleditPy version (e.g. 3.*, required if visible)'
         required: false
         type: string
+      supported_python:
+        description: 'Supported Python version spec (optional, e.g. >=3.9, <3.15; visible plugins default to that)'
+        required: false
+        type: string
       allow_same_version:
         description: 'Allow re-registering with the same version (bypasses same-version error)'
         required: false
@@ -81,6 +85,7 @@ jobs:
           DRY_RUN: ${{ github.event.inputs.dry_run }}
           DATE: ${{ github.event.inputs.date }}
           SUPPORTED_VERSION: ${{ github.event.inputs.supported_version }}
+          SUPPORTED_PYTHON: ${{ github.event.inputs.supported_python }}
           ALLOW_SAME_VERSION: ${{ github.event.inputs.allow_same_version }}
         run: |
           ARGS=""
@@ -107,6 +112,9 @@ jobs:
           fi
           if [ -n "$SUPPORTED_VERSION" ]; then
             ARGS="$ARGS --supported-version \"$SUPPORTED_VERSION\""
+          fi
+          if [ -n "$SUPPORTED_PYTHON" ]; then
+            ARGS="$ARGS --supported-python \"$SUPPORTED_PYTHON\""
           fi
           if [ "$ALLOW_SAME_VERSION" = "true" ]; then
             ARGS="$ARGS --allow-same-version"

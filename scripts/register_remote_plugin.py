@@ -30,6 +30,10 @@ PLUGIN_DESCRIPTION_RE = re.compile(r"^\s*PLUGIN_DESCRIPTION\s*=\s*(['\"])(?P<val
 PLUGIN_TAGS_RE = re.compile(r"^\s*PLUGIN_TAGS\s*=\s*(?P<val>.*?)\s*$", re.MULTILINE)
 PLUGIN_DEPENDENCIES_RE = re.compile(r"^\s*PLUGIN_DEPENDENCIES\s*=\s*(?P<val>.*?)\s*$", re.MULTILINE)
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION_RE = re.compile(r"^\s*PLUGIN_SUPPORTED_MOLEDITPY_VERSION\s*=\s*(['\"])(?P<val>.*?)\1", re.MULTILINE)
+PLUGIN_SUPPORTED_PYTHON_VERSION_RE = re.compile(r"^\s*PLUGIN_SUPPORTED_PYTHON_VERSION\s*=\s*(['\"])(?P<val>.*?)\1", re.MULTILINE)
+
+# Applied to visible plugins that do not declare PLUGIN_SUPPORTED_PYTHON_VERSION.
+DEFAULT_PYTHON_SPEC = ">=3.9, <3.15"
 
 
 def parse_python_list_or_string(raw_val: str) -> list:
@@ -101,7 +105,11 @@ def extract_metadata_from_code_regex(code_text: str) -> dict:
     match_supported = PLUGIN_SUPPORTED_MOLEDITPY_VERSION_RE.search(code_text)
     if match_supported:
         meta["supported_moleditpy_version"] = match_supported.group("val").strip()
-            
+
+    match_supported_py = PLUGIN_SUPPORTED_PYTHON_VERSION_RE.search(code_text)
+    if match_supported_py:
+        meta["supported_python_version"] = match_supported_py.group("val").strip()
+
     return meta
 
 def extract_metadata_from_code(code_text: str) -> dict:
@@ -116,7 +124,7 @@ def extract_metadata_from_code(code_text: str) -> dict:
             if isinstance(node, ast.Assign):
                 for target in node.targets:
                     if isinstance(target, ast.Name) and target.id in [
-                        "PLUGIN_NAME", "PLUGIN_VERSION", "PLUGIN_AUTHOR", "PLUGIN_DESCRIPTION", "PLUGIN_TAGS", "PLUGIN_DEPENDENCIES", "PLUGIN_SUPPORTED_MOLEDITPY_VERSION"
+                        "PLUGIN_NAME", "PLUGIN_VERSION", "PLUGIN_AUTHOR", "PLUGIN_DESCRIPTION", "PLUGIN_TAGS", "PLUGIN_DEPENDENCIES", "PLUGIN_SUPPORTED_MOLEDITPY_VERSION", "PLUGIN_SUPPORTED_PYTHON_VERSION"
                     ]:
                         try:
                             val = ast.literal_eval(node.value)
@@ -130,6 +138,8 @@ def extract_metadata_from_code(code_text: str) -> dict:
                                 meta["description"] = str(val).strip()
                             elif target.id == "PLUGIN_SUPPORTED_MOLEDITPY_VERSION":
                                 meta["supported_moleditpy_version"] = str(val).strip()
+                            elif target.id == "PLUGIN_SUPPORTED_PYTHON_VERSION":
+                                meta["supported_python_version"] = str(val).strip()
                             elif target.id == "PLUGIN_TAGS":
                                 if isinstance(val, (list, tuple)):
                                     meta["tags"] = [str(x).strip() for x in val if x]
@@ -223,6 +233,7 @@ def main():
     parser.add_argument("--expected-sha256", dest="expected_sha256", help="Expected SHA-256 hash (Required for non-HiroYokoyama plugins)")
     parser.add_argument("--date", help="Override registration date (YYYY-MM-DD, optional)")
     parser.add_argument("--supported-version", dest="supported_version", help="Supported MoleditPy version (e.g., 3.*). Required for visible plugins.")
+    parser.add_argument("--supported-python", dest="supported_python", help=f"Supported Python version spec (e.g., '>=3.9, <3.15'). Optional; visible plugins default to '{DEFAULT_PYTHON_SPEC}'.")
     parser.add_argument("--allow-same-version", action="store_true", dest="allow_same_version", help="Allow re-registering with the same version (bypasses same-version error)")
     
     args = parser.parse_args()
@@ -432,6 +443,12 @@ def main():
                         rebuilt_entry["supported_moleditpy_version"] = supported_ver
                 existing_entry.clear()
                 existing_entry.update(rebuilt_entry)
+        supported_py = args.supported_python or meta.get("supported_python_version") or existing_entry.get("supported_python_version")
+        if not supported_py and existing_entry.get("visible", True):
+            supported_py = DEFAULT_PYTHON_SPEC
+        if supported_py:
+            existing_entry["supported_python_version"] = supported_py
+
         existing_entry["version"] = normalized_code_version
         existing_entry["downloadUrl"] = args.release_url
         existing_entry["sha256"] = sha256_hash
@@ -474,7 +491,13 @@ def main():
         }
         if supported_ver:
             new_entry["supported_moleditpy_version"] = supported_ver
-            
+
+        supported_py = args.supported_python or meta.get("supported_python_version")
+        if not supported_py and visible_flag:
+            supported_py = DEFAULT_PYTHON_SPEC
+        if supported_py:
+            new_entry["supported_python_version"] = supported_py
+
         new_entry.update({
             "name": meta["name"],
             "version": normalized_code_version,
