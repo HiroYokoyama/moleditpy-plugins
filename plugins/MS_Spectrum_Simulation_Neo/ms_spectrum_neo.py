@@ -588,7 +588,7 @@ class MSSpectrumDialog(QDialog):
         import numpy as np
 
         # 10 points per sigma is better for appearance, 20 is good for peak top approx
-        step = min(0.005, sigma / 10.0)
+        step = max(1e-5, min(0.005, sigma / 10.0))
         x_vals = np.arange(min_mz, max_mz, step)
         # Insert the exact stick masses: an isolated peak's apex (and the
         # normalization max) then falls exactly on the theoretical m/z
