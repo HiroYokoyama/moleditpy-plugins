@@ -23,7 +23,7 @@ from rdkit import Chem
 import logging
 
 PLUGIN_NAME = "GAMESS Input Generator"
-PLUGIN_VERSION = "2026.06.26"
+PLUGIN_VERSION = "2026.07.18"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Generate GAMESS input files for ab initio quantum chemistry."
@@ -209,7 +209,9 @@ class GamessSetupDialog(QDialog):
             self.basis_ngauss.setValue(6)
             self.basis_ngauss.setEnabled(True)
         elif gbasis == "TZV":
+            # NGAUSS is not meaningful for GBASIS=TZV
             self.basis_ngauss.setValue(1)
+            self.basis_ngauss.setEnabled(False)
         self.update_preview()
 
     def calc_initial_charge_mult(self):
