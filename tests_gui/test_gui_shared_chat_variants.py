@@ -166,6 +166,7 @@ class TestSharedExportHistory:
         monkeypatch.setattr(
             mod.QFileDialog, "getSaveFileName", lambda *a, **k: (target, "")
         )
+        monkeypatch.setattr(mod.QMessageBox, "information", MagicMock())
         w.chat_history_log = [{"sender": "You", "text": "hi"}]
         w.export_history()
         assert json.loads(Path(target).read_text(encoding="utf-8")) == [
@@ -178,6 +179,7 @@ class TestSharedExportHistory:
         monkeypatch.setattr(
             mod.QFileDialog, "getSaveFileName", lambda *a, **k: (target, "")
         )
+        monkeypatch.setattr(mod.QMessageBox, "information", MagicMock())
         w.chat_history_log = [{"sender": "You", "text": "unique-md-token"}]
         w.export_history()
         assert "unique-md-token" in Path(target).read_text(encoding="utf-8")
