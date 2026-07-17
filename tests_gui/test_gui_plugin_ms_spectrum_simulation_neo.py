@@ -392,6 +392,7 @@ class TestMSExport:
 class TestMSGaussianBroadening:
     def test_zero_sigma_does_not_crash(self, qapp):
         """Regression for zero division error when sigma is extremely small or 0"""
+        pytest.importorskip("numpy")
         d, ctx = _make_dlg()
         peaks = [(100.0, 50.0), (101.0, 100.0)]
         # This should not raise ZeroDivisionError
