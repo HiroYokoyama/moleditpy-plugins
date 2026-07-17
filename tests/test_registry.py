@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 REGISTRY_PATH = ROOT / "REGISTRY" / "plugins.json"
 PLUGINS_DIR = ROOT / "plugins"
 
-REQUIRED_FIELDS = ["name", "version", "description", "downloadUrl", "sha256", "supported_moleditpy_version"]
+REQUIRED_FIELDS = ["name", "version", "description", "downloadUrl", "sha256", "supported_moleditpy_version", "supported_python_version"]
 REQUIRED_METADATA = ["PLUGIN_NAME", "PLUGIN_VERSION", "PLUGIN_AUTHOR", "PLUGIN_DESCRIPTION"]
 
 

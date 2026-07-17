@@ -1489,3 +1489,57 @@ class TestAppVersionDetection:
         _block_pkg(monkeypatch, "moleditpy")
         _block_pkg(monkeypatch, "moleditpy_linux")
         assert self._inst()._get_package_name() == "moleditpy"
+
+
+class TestPythonVersionCheck:
+    def test_get_python_version_matches_interpreter(self):
+        assert PI.get_python_version() == "%d.%d.%d" % sys.version_info[:3]
+
+    def test_get_python_version_format(self):
+        assert _re.fullmatch(r"\d+\.\d+\.\d+", PI.get_python_version())
+
+    def test_constant_present(self):
+        assert PI.PLUGIN_SUPPORTED_PYTHON_VERSION == ">=3.9, <3.15"
+
+    def test_constant_matches_registry(self):
+        registry = json.loads(
+            (Path(__file__).resolve().parents[1] / "REGISTRY" / "plugins.json").read_text(
+                encoding="utf-8-sig"
+            )
+        )
+        entry = next((p for p in registry if p.get("id") == "plugin_installer"), None)
+        assert entry is not None
+        assert entry.get("supported_python_version") == PI.PLUGIN_SUPPORTED_PYTHON_VERSION
+
+    def test_default_spec_boundaries(self):
+        spec = ">=3.9, <3.15"
+        assert PI.is_app_version_compatible("3.9.0", spec) is True
+        assert PI.is_app_version_compatible("3.12.4", spec) is True
+        assert PI.is_app_version_compatible("3.14.2", spec) is True
+        assert PI.is_app_version_compatible("3.8.19", spec) is False
+        assert PI.is_app_version_compatible("3.15.0", spec) is False
+
+    def test_running_interpreter_compatible_with_default(self):
+        assert PI.is_app_version_compatible(PI.get_python_version(), ">=3.9, <3.15") is True
+
+    def test_missing_spec_is_compatible(self):
+        assert PI.is_app_version_compatible(PI.get_python_version(), "") is True
+
+
+def test_registry_all_visible_have_python_spec():
+    """Every visible registry entry carries supported_python_version; hidden entries never do."""
+    registry = json.loads(
+        (Path(__file__).resolve().parents[1] / "REGISTRY" / "plugins.json").read_text(
+            encoding="utf-8-sig"
+        )
+    )
+    visible_missing = [
+        p.get("id") for p in registry
+        if p.get("visible", True) and not p.get("supported_python_version")
+    ]
+    hidden_with = [
+        p.get("id") for p in registry
+        if not p.get("visible", True) and p.get("supported_python_version")
+    ]
+    assert not visible_missing, f"Visible entries missing supported_python_version: {visible_missing}"
+    assert not hidden_with, f"Hidden entries should not carry supported_python_version: {hidden_with}"
