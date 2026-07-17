@@ -238,3 +238,222 @@ class TestPluginInstallerWindowWidgets:
 
     def test_remote_data_initially_empty(self, installer):
         assert installer.remote_data == []
+
+
+# ===========================================================================
+# Plugin Installer — supported_python_version compatibility (GUI)
+# ===========================================================================
+
+PY_OK_SPEC = ">=3.9, <3.15"
+PY_BAD_SPEC = ">=99.0"
+APP_OK_SPEC = ">=4.0.0, <5.0.0"
+APP_BAD_SPEC = ">=99.0"
+
+
+def _remote_entry(name, *, moleditpy_spec=APP_OK_SPEC, python_spec=None):
+    entry = {
+        "name": name,
+        "visible": True,
+        "version": "1.0.0",
+        "author": "Test Author",
+        "description": "d",
+        "supported_moleditpy_version": moleditpy_spec,
+        "downloadUrl": "../plugins/Fake/fake.py",
+    }
+    if python_spec is not None:
+        entry["supported_python_version"] = python_spec
+    return entry
+
+
+class TestPythonVersionCompatGui:
+    """populate_table() + install path honour supported_python_version."""
+
+    @pytest.fixture
+    def installer(self, qapp):
+        from unittest.mock import MagicMock, patch
+
+        mw = MagicMock()
+        mw.plugin_manager.plugins = []
+        with patch.object(
+            _plugin_installer.PluginInstallerWindow,
+            "check_updates",
+            lambda self: None,
+        ):
+            d = _plugin_installer.PluginInstallerWindow(None, auto_check=False)
+        d.main_window = mw
+        d.get_app_version = lambda: "4.2.0"
+        d.latest_app_version = "Checking..."
+        yield d
+        d.destroy()
+
+    @staticmethod
+    def _row_of(installer, name):
+        for row in range(installer.table.rowCount()):
+            if installer.table.item(row, 0).text() == name:
+                return row
+        raise AssertionError(f"row for {name!r} not found")
+
+    def _populate(self, installer, entries):
+        installer.remote_data = entries
+        installer.populate_table(silent=True)
+
+    def test_python_incompatible_marks_incompatible(self, installer):
+        self._populate(
+            installer, [_remote_entry("Py Bad", python_spec=PY_BAD_SPEC)]
+        )
+        row = self._row_of(installer, "Py Bad")
+        status = installer.table.item(row, 4)
+        assert status.text() == "Incompatible"
+        assert "Python" in status.toolTip()
+        assert PY_BAD_SPEC in status.toolTip()
+
+    def test_python_compatible_is_not_installed(self, installer):
+        self._populate(
+            installer, [_remote_entry("Py Ok", python_spec=PY_OK_SPEC)]
+        )
+        row = self._row_of(installer, "Py Ok")
+        status = installer.table.item(row, 4)
+        assert status.text() == "Not Installed"
+        assert "Python" not in status.toolTip()
+
+    def test_missing_python_spec_is_compatible(self, installer):
+        self._populate(installer, [_remote_entry("No Spec")])
+        row = self._row_of(installer, "No Spec")
+        assert installer.table.item(row, 4).text() == "Not Installed"
+
+    def test_both_incompatible_tooltip_has_both_lines(self, installer):
+        self._populate(
+            installer,
+            [
+                _remote_entry(
+                    "Both Bad",
+                    moleditpy_spec=APP_BAD_SPEC,
+                    python_spec=PY_BAD_SPEC,
+                )
+            ],
+        )
+        row = self._row_of(installer, "Both Bad")
+        tip = installer.table.item(row, 4).toolTip()
+        assert "Requires MoleditPy" in tip
+        assert "Requires Python" in tip
+
+    def test_install_button_tooltip_mentions_python(self, installer):
+        self._populate(
+            installer, [_remote_entry("Py Bad", python_spec=PY_BAD_SPEC)]
+        )
+        row = self._row_of(installer, "Py Bad")
+        btn = installer.table.cellWidget(row, 5)
+        assert btn is not None
+        assert "Python" in btn.toolTip()
+        assert PY_BAD_SPEC in btn.toolTip()
+
+    def test_install_button_no_python_tooltip_when_compatible(self, installer):
+        self._populate(
+            installer, [_remote_entry("Py Ok", python_spec=PY_OK_SPEC)]
+        )
+        row = self._row_of(installer, "Py Ok")
+        btn = installer.table.cellWidget(row, 5)
+        assert btn is not None
+        assert "Python" not in btn.toolTip()
+
+    # -- install-time warning path ------------------------------------------
+
+    def _click_install(self, installer, name):
+        """Fire on_update_clicked via a real button so self.sender() works.
+
+        download_url is left unset: after the compatibility gates the handler
+        aborts at 'Missing download URL', so no network is ever touched.
+        """
+        from PyQt6.QtWidgets import QPushButton
+
+        btn = QPushButton(parent=installer)
+        btn.setProperty("plugin_name", name)
+        btn.setProperty("target_file", None)
+        btn.setProperty("dependencies", [])
+        btn.clicked.connect(installer.on_update_clicked)
+        btn.click()
+
+    def test_install_warning_no_aborts(self, installer, qapp):
+        from unittest.mock import patch
+        from PyQt6.QtWidgets import QMessageBox
+
+        installer.remote_data = [
+            _remote_entry("Py Bad", python_spec=PY_BAD_SPEC)
+        ]
+        with patch.object(
+            _plugin_installer.QMessageBox,
+            "warning",
+            return_value=QMessageBox.StandardButton.No,
+        ) as warn:
+            self._click_install(installer, "Py Bad")
+        assert warn.call_count == 1
+        assert "Incompatible Python Version Warning" in warn.call_args[0]
+
+    def test_install_warning_yes_proceeds_past_check(self, installer, qapp):
+        from unittest.mock import patch
+        from PyQt6.QtWidgets import QMessageBox
+
+        installer.remote_data = [
+            _remote_entry("Py Bad", python_spec=PY_BAD_SPEC)
+        ]
+        with patch.object(
+            _plugin_installer.QMessageBox,
+            "warning",
+            return_value=QMessageBox.StandardButton.Yes,
+        ) as warn:
+            self._click_install(installer, "Py Bad")
+        # Warning #1: python check (answered Yes) → proceeds; warning #2:
+        # the missing-download-URL abort, proving the gate was passed.
+        assert warn.call_count == 2
+        assert "Incompatible Python Version Warning" in warn.call_args_list[0][0]
+        assert any(
+            "Missing download URL" in str(a) for a in warn.call_args_list[1][0]
+        )
+
+    def test_install_compatible_no_python_warning(self, installer, qapp):
+        from unittest.mock import patch
+        from PyQt6.QtWidgets import QMessageBox
+
+        installer.remote_data = [
+            _remote_entry("Py Ok", python_spec=PY_OK_SPEC)
+        ]
+        with patch.object(
+            _plugin_installer.QMessageBox,
+            "warning",
+            return_value=QMessageBox.StandardButton.No,
+        ) as warn:
+            self._click_install(installer, "Py Ok")
+        # Only the missing-download-URL abort fires — no compatibility warning.
+        assert warn.call_count == 1
+        assert any("Missing download URL" in str(a) for a in warn.call_args[0])
+
+
+class TestDetailsDialogSupportedPython:
+    """PluginDetailsDialog shows the Supported Python line."""
+
+    def _find_labels(self, dlg):
+        from PyQt6.QtWidgets import QLabel
+
+        return [w.text() for w in dlg.findChildren(QLabel)]
+
+    def test_shows_passed_spec(self, qapp):
+        d = _plugin_installer.PluginDetailsDialog(
+            None, "X", "A", "1.0", "Desc", [], None, None,
+            ">=4.0.0", PY_OK_SPEC,
+        )
+        import html as _html
+
+        texts = self._find_labels(d)
+        escaped = _html.escape(PY_OK_SPEC)
+        assert any(
+            "Supported Python:" in t and escaped in t for t in texts
+        )
+        d.destroy()
+
+    def test_defaults_to_unknown(self, qapp):
+        d = _make_details_dialog()
+        texts = self._find_labels(d)
+        assert any(
+            "Supported Python:" in t and "Unknown" in t for t in texts
+        )
+        d.destroy()
