@@ -14,6 +14,7 @@ A management plugin for MoleditPy that installs, updates, and removes plugins di
 - **Reload only when needed**: Plugin reload (`discover_plugins` + menu rebuild) runs exactly once, via the `finished` signal, only if at least one plugin was installed or updated that session.
 - **Application Update Detection**: Detects newer versions of MoleditPy on PyPI and shows a "Copy upgrade command" button.
 - **Dependency Constraint Validation**: Parses and verifies PEP-508 style dependency constraints (`numpy>=1.20`, `rdkit~=2022.03.1`, etc.).
+- **Python version compatibility check**: The registry's `supported_python_version` spec (e.g. `>=3.9, <3.15`) is checked against the running interpreter — incompatible plugins are marked in the table (tooltip shows the required range) and a warning dialog asks for confirmation before install/update. Entries without the field are treated as compatible.
 - **Dependency install hints**: Highlights missing vs installed dependencies in the details dialog with pip-safe quoted commands.
 - **State Preservation**: Backs up and restores plugin `settings.json` when overwriting an existing installation.
 - **Startup check**: On first launch asks whether to enable automatic update checks; thereafter runs a silent background check at startup if opted in.
@@ -60,6 +61,7 @@ Plugin downloads are a third request, one per plugin, made by `_download_chunked
 - `check_dependency_satisfied(dep_str)` — checks installed distributions against requirements
 - `sanitize_and_quote_dependency(dep_str)` — formats pip command segments safely
 - `is_app_version_compatible(app_version, specifier)` — evaluates version specifier against running app
+- `get_python_version()` — running interpreter version as `X.Y.Z` (checked with `is_app_version_compatible` against `supported_python_version`)
 
 ## Plugin Metadata Constants
 
@@ -72,5 +74,6 @@ The installer reads these constants from each plugin file (via the registry or A
 | `PLUGIN_AUTHOR` | Author name |
 | `PLUGIN_DESCRIPTION` | One-line description |
 | `PLUGIN_SUPPORTED_MOLEDITPY_VERSION` | PEP-440 specifier checked against the running app |
+| `PLUGIN_SUPPORTED_PYTHON_VERSION` | Optional PEP-440-style specifier checked against the running Python (registry field `supported_python_version`; visible plugins default to `>=3.9, <3.15`) |
 | `PLUGIN_TAGS` | List of category strings |
 | `PLUGIN_DEPENDENCIES` | List of PEP-508 requirement strings |

@@ -45,8 +45,9 @@ import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.07.12"
+PLUGIN_VERSION = "2026.07.18"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_SUPPORTED_PYTHON_VERSION = ">=3.9, <3.15"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
     "Checks for updates, installs new plugins, and allows manual reinstallation."
@@ -279,6 +280,10 @@ def is_app_version_compatible(app_version: str, specifier: str) -> bool:
     return True
 
 
+def get_python_version() -> str:
+    return "%d.%d.%d" % sys.version_info[:3]
+
+
 def parse_dependency(dep_str: str) -> tuple[str, str]:
     if ":" in dep_str:
         return "", ""
@@ -412,6 +417,7 @@ class PluginDetailsDialog(QDialog):
         local_info,
         target_file,
         supported_version="Unknown",
+        supported_python="Unknown",
     ):
         super().__init__(parent)
         self.setWindowTitle(f"{name} - Details")
@@ -428,6 +434,9 @@ class PluginDetailsDialog(QDialog):
         lbl_supported = QLabel(
             f"<b>Supported MoleditPy:</b> {html.escape(str(supported_version))}"
         )
+        lbl_supported_py = QLabel(
+            f"<b>Supported Python:</b> {html.escape(str(supported_python))}"
+        )
         lbl_desc = QLabel(f"<b>Description:</b><br>{description}")
         lbl_desc.setWordWrap(True)
 
@@ -435,6 +444,7 @@ class PluginDetailsDialog(QDialog):
         layout.addWidget(lbl_author)
         layout.addWidget(lbl_ver)
         layout.addWidget(lbl_supported)
+        layout.addWidget(lbl_supported_py)
         layout.addSpacing(10)
         layout.addWidget(lbl_desc)
 
@@ -914,13 +924,21 @@ class PluginInstallerWindow(QDialog):
             is_installed = local_info is not None
 
             is_compatible = True
+            py_compatible = True
             supported_ver_str = ""
+            supported_py_str = ""
             if remote_info:
                 supported_ver_str = remote_info.get("supported_moleditpy_version", "")
                 if supported_ver_str:
                     is_compatible = is_app_version_compatible(
                         app_ver, supported_ver_str
                     )
+                supported_py_str = remote_info.get("supported_python_version", "")
+                if supported_py_str:
+                    py_compatible = is_app_version_compatible(
+                        get_python_version(), supported_py_str
+                    )
+                    is_compatible = is_compatible and py_compatible
 
             # Skip non-visible, not-yet-installed plugins
             if remote_info and not is_installed:
@@ -997,7 +1015,9 @@ class PluginInstallerWindow(QDialog):
                     color=color,
                     is_installed=is_installed,
                     is_compatible=is_compatible,
+                    py_compatible=py_compatible,
                     supported_ver_str=supported_ver_str,
+                    supported_py_str=supported_py_str,
                     can_update=can_update,
                     can_download=can_download,
                     target_file=target_file,
@@ -1025,11 +1045,20 @@ class PluginInstallerWindow(QDialog):
             status_item = QTableWidgetItem(row_data["status"])
             if row_data["color"]:
                 status_item.setBackground(row_data["color"])
-            if not row_data["is_compatible"] and row_data["supported_ver_str"]:
-                status_item.setToolTip(
-                    f"Requires MoleditPy {row_data['supported_ver_str']} "
-                    f"(Current: {app_ver})"
-                )
+            if not row_data["is_compatible"]:
+                tips = []
+                if row_data["supported_ver_str"]:
+                    tips.append(
+                        f"Requires MoleditPy {row_data['supported_ver_str']} "
+                        f"(Current: {app_ver})"
+                    )
+                if not row_data["py_compatible"] and row_data["supported_py_str"]:
+                    tips.append(
+                        f"Requires Python {row_data['supported_py_str']} "
+                        f"(Current: {get_python_version()})"
+                    )
+                if tips:
+                    status_item.setToolTip("\n".join(tips))
             self.table.setItem(row, 4, status_item)
 
             if remote_info and "downloadUrl" in remote_info:
@@ -1052,9 +1081,18 @@ class PluginInstallerWindow(QDialog):
                         "dependencies", remote_info.get("dependencies", [])
                     )
                     if not row_data["is_installed"] and not row_data["is_compatible"]:
+                        req_parts = []
+                        if row_data["supported_ver_str"]:
+                            req_parts.append(
+                                f"MoleditPy {row_data['supported_ver_str']}"
+                            )
+                        if not row_data["py_compatible"] and row_data["supported_py_str"]:
+                            req_parts.append(
+                                f"Python {row_data['supported_py_str']}"
+                            )
                         btn_action.setToolTip(
-                            f"Warning: Incompatible with MoleditPy "
-                            f"(Requires: {row_data['supported_ver_str']})"
+                            "Warning: Incompatible "
+                            f"(Requires: {'; '.join(req_parts)})"
                         )
                     btn_action.clicked.connect(self.on_update_clicked)
                     self.table.setCellWidget(row, 5, btn_action)
@@ -1313,6 +1351,11 @@ class PluginInstallerWindow(QDialog):
             if remote_info
             else "Unknown"
         )
+        supported_python = (
+            remote_info.get("supported_python_version", "Unknown")
+            if remote_info
+            else "Unknown"
+        )
 
         dialog = PluginDetailsDialog(
             self,
@@ -1324,6 +1367,7 @@ class PluginInstallerWindow(QDialog):
             local_info,
             target_file,
             supported_version,
+            supported_python,
         )
         dialog.exec()
 
@@ -1362,6 +1406,26 @@ class PluginInstallerWindow(QDialog):
                     f"Warning: '{plugin_name}' requires MoleditPy version "
                     f"'{supported_ver_str}', but you are running version "
                     f"'{app_ver}'.\n\nThis plugin may fail to function correctly.\n\n"
+                    f"Do you want to proceed with the {action_word} anyway?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No,
+                )
+                if ret != QMessageBox.StandardButton.Yes:
+                    return
+                user_confirmed_intent = True
+
+        # Python version compatibility check
+        if remote_info:
+            supported_py_str = remote_info.get("supported_python_version", "")
+            py_ver = get_python_version()
+            if not is_app_version_compatible(py_ver, supported_py_str):
+                action_word = "update" if is_installed else "install"
+                ret = QMessageBox.warning(
+                    self,
+                    "Incompatible Python Version Warning",
+                    f"Warning: '{plugin_name}' requires Python version "
+                    f"'{supported_py_str}', but you are running Python "
+                    f"'{py_ver}'.\n\nThis plugin may fail to function correctly.\n\n"
                     f"Do you want to proceed with the {action_word} anyway?",
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                     QMessageBox.StandardButton.No,
@@ -1411,6 +1475,11 @@ class PluginInstallerWindow(QDialog):
                         if remote_info
                         else "Unknown"
                     )
+                    supported_python = (
+                        remote_info.get("supported_python_version", "Unknown")
+                        if remote_info
+                        else "Unknown"
+                    )
                     dialog = PluginDetailsDialog(
                         self,
                         plugin_name,
@@ -1421,6 +1490,7 @@ class PluginInstallerWindow(QDialog):
                         local_info,
                         target_file,
                         supported_version,
+                        supported_python,
                     )
                     dialog.exec()
                     return
@@ -1761,6 +1831,11 @@ class PluginInstallerWindow(QDialog):
                         if remote_info
                         else "Unknown"
                     )
+                    supported_python = (
+                        remote_info.get("supported_python_version", "Unknown")
+                        if remote_info
+                        else "Unknown"
+                    )
                     dialog = PluginDetailsDialog(
                         self,
                         plugin_name,
@@ -1771,6 +1846,7 @@ class PluginInstallerWindow(QDialog):
                         local_info,
                         target_file,
                         supported_version,
+                        supported_python,
                     )
                     dialog.exec()
                 elif not self._batch_updating:
