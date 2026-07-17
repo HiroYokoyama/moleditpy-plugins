@@ -796,7 +796,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "GAMESS Input Generator",
-    "version": "2026.06.26",
+    "version": "2026.07.18",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates input files for GAMESS (US) quantum chemistry calculations.",
@@ -809,8 +809,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Gamess_Input_Generator/gamess_input_generator.py",
-    "lastUpdated": "2026-06-26",
-    "sha256": "470c3fd7b91c405f9bd85dcb814a0f8aae953ce751c1bde7fd082b55b5bc3a02",
+    "lastUpdated": "2026-07-18",
+    "sha256": "9207c60018b461f586bb8f5031e31969b3056afd1b39efb061eef52b114339e8",
     "firstAppeared": "2026-01-03",
     "supported_python_version": ">=3.9, <3.15"
   },
@@ -1001,7 +1001,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Paste from ChemDraw",
-    "version": "2026.07.08",
+    "version": "2026.07.18",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Paste chemical structures from ChemDraw clipboard data. Developed on ChemDraw version 25.5.",
@@ -1013,8 +1013,8 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/Paste_from_ChemDraw/paste_chemdraw.py",
-    "lastUpdated": "2026-07-08",
-    "sha256": "bda805b25f34ba956a50834aa86141427f195b4445fb0a7e020ad3b4685f3b16",
+    "lastUpdated": "2026-07-18",
+    "sha256": "40dd5172086c1cca12dd5ef42a9e43c4fa4ccbe1d9be58c291eb591efd024f98",
     "firstAppeared": "2026-01-15",
     "supported_python_version": ">=3.9, <3.15"
   },

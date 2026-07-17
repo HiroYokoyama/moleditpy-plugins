@@ -229,9 +229,17 @@ class TestRunClipboardPaths:
         return calls
 
     def test_empty_text_clipboard_warns_no_data(self, ctx, clipboard, warnings):
-        # Note: clipboard.clear() is not usable here — on the offscreen platform
-        # mimeData() becomes None, which run() does not guard against.
         clipboard.setText("")
+        _chemdraw.run(ctx)
+        assert len(warnings) == 1
+        assert "No valid MDLCT data" in warnings[0][2]
+        ctx.push_undo_checkpoint.assert_not_called()
+
+    def test_cleared_clipboard_null_mime_warns_instead_of_crashing(
+        self, ctx, clipboard, warnings
+    ):
+        # On the offscreen platform clear() makes mimeData() return None
+        clipboard.clear()
         _chemdraw.run(ctx)
         assert len(warnings) == 1
         assert "No valid MDLCT data" in warnings[0][2]

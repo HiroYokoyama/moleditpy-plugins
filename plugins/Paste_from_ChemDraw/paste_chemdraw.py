@@ -7,7 +7,7 @@ import logging
 
 # --- Plugin Basic Information ---
 PLUGIN_NAME = "Paste from ChemDraw"
-PLUGIN_VERSION = "2026.07.08"
+PLUGIN_VERSION = "2026.07.18"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Paste chemical structures from ChemDraw clipboard data (MDLCT/MDLSK). Optimized for MoleditPy V3."
@@ -49,6 +49,11 @@ def run(context):
 
     clipboard = app.clipboard()
     mime_data = clipboard.mimeData()
+    if mime_data is None:
+        QMessageBox.warning(
+            main_window, PLUGIN_NAME, "No valid MDLCT data found in clipboard."
+        )
+        return
 
     # Check multiple formats
     # Check multiple formats including raw Windows MIME types

@@ -127,6 +127,19 @@ class TestGamessBasisOptions:
         assert dlg.basis_ngauss.value() == 1
         assert "GBASIS=TZV NGAUSS=1" in dlg.generate_content()
 
+    def test_tzv_disables_ngauss_spinbox(self, dlg):
+        dlg.basis_gbasis.setCurrentText("N31")
+        dlg.basis_gbasis.setCurrentText("TZV")
+        assert not dlg.basis_ngauss.isEnabled()
+
+    def test_leaving_tzv_reenables_ngauss_spinbox(self, dlg):
+        dlg.basis_gbasis.setCurrentText("TZV")
+        dlg.basis_gbasis.setCurrentText("STO")
+        assert dlg.basis_ngauss.isEnabled()
+        dlg.basis_gbasis.setCurrentText("TZV")
+        dlg.basis_gbasis.setCurrentText("N31")
+        assert dlg.basis_ngauss.isEnabled()
+
 
 class TestGamessSaveFile:
     @pytest.fixture
