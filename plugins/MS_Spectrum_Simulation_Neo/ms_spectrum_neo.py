@@ -184,6 +184,7 @@ class MSSpectrumDialog(QDialog):
         self.gauss_check.setChecked(False)
 
         self.width_spin = QDoubleSpinBox()
+        self.width_spin.setDecimals(3)
         self.width_spin.setRange(0.001, 5.0)
         self.width_spin.setSingleStep(0.01)
         self.width_spin.setValue(0.04)
@@ -578,6 +579,8 @@ class MSSpectrumDialog(QDialog):
     def apply_gaussian_broadening(self, peaks, sigma):
         if not peaks:
             return []
+            
+        sigma = max(1e-5, sigma)
 
         # Dynamic margin to avoid clipping wide peaks
         margin = max(2.0, 6.0 * sigma)

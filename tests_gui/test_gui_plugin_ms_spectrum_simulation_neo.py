@@ -388,3 +388,19 @@ class TestMSExport:
         d.export_csv()
         assert list(tmp_path.iterdir()) == []
         d.destroy()
+
+class TestMSGaussianBroadening:
+    def test_zero_sigma_does_not_crash(self, qapp):
+        """Regression for zero division error when sigma is extremely small or 0"""
+        d, ctx = _make_dlg()
+        peaks = [(100.0, 50.0), (101.0, 100.0)]
+        # This should not raise ZeroDivisionError
+        result = d.apply_gaussian_broadening(peaks, 0.0)
+        assert result is not None
+        d.destroy()
+        
+    def test_spinbox_decimals(self, qapp):
+        d, ctx = _make_dlg()
+        # The spinbox should allow 3 decimals so 0.001 doesn't get rounded to 0.00
+        assert d.width_spin.decimals() == 3
+        d.destroy()
