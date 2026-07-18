@@ -44,12 +44,14 @@ from PyQt6.QtWidgets import (
 # ---------------------------------------------------------------------------
 
 PLUGIN_NAME = "xTB Optimizer"
-PLUGIN_VERSION = "2026.07.08"
+PLUGIN_VERSION = "2026.07.19"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
     "Geometry optimization using semiempirical xTB methods (GFN2-xTB, GFN1-xTB) "
-    "via the tblite package. Runs on a background thread."
+    "via the tblite package. Runs on a background thread. On Windows, install "
+    "tblite from conda-forge (mamba install -c conda-forge tblite-python ase) — "
+    "PyPI ships no Windows wheels."
 )
 PLUGIN_TAGS = ["Optimization"]
 PLUGIN_DEPENDENCIES = ["tblite", "ase"]

@@ -29,10 +29,10 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "xTB Optimizer",
-    "version": "2026.07.08",
+    "version": "2026.07.19",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "Geometry optimization using semiempirical xTB methods (GFN2-xTB, GFN1-xTB) via the tblite package. Runs on a background thread.",
+    "description": "Geometry optimization using semiempirical xTB methods (GFN2-xTB, GFN1-xTB) via the tblite package. Runs on a background thread. On Windows, install tblite from conda-forge (mamba install -c conda-forge tblite-python ase) — PyPI ships no Windows wheels.",
     "tags": [
       "Optimization"
     ],
@@ -41,11 +41,12 @@
       "ase"
     ],
     "downloadUrl": "../plugins/XTB_Optimizer/xtb_optimizer.py",
-    "lastUpdated": "2026-07-08",
-    "sha256": "0f41cb65e9e0b59f7b4f72c8dabdce324f504cdfd8143083de9348e7db0ee3ed",
+    "lastUpdated": "2026-07-19",
+    "sha256": "c17248cb87c58f55530c4f4dded7a9589c8d5159ef9fe7e660e9cc437b2c8838",
     "firstAppeared": "2026-07-08",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
+      "Windows",
       "macOS",
       "Linux",
       "WSL"
@@ -1199,7 +1200,9 @@
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
       "Windows",
-      "macOS"
+      "macOS",
+      "Linux",
+      "WSL"
     ]
   },
   {
