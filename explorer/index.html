@@ -777,9 +777,9 @@
                 <div style="font-size: 0.8em; color: #94a3b8; margin-bottom: 8px;">
                      <span>Updated: ${plugin.lastUpdated}</span>
                      ${plugin.firstAppeared ? `<span style="margin-left: 12px;">First appeared: ${plugin.firstAppeared}</span>` : ''}
-                     ${plugin.supported_moleditpy_version ? `<div style="margin-top: 2px;">Supported: MoleditPy ${plugin.supported_moleditpy_version}</div>` : ''}
-                     ${plugin.supported_python_version ? `<div style="margin-top: 2px;">Supported: Python ${plugin.supported_python_version}</div>` : ''}
-                     ${plugin.supported_os && plugin.supported_os.length > 0 ? `<div style="margin-top: 2px;" title="WSL = Windows Subsystem for Linux">Supported: OS ${plugin.supported_os.join(', ')}</div>` : ''}
+                     ${plugin.supported_moleditpy_version ? `<div style="margin-top: 2px;">Supported MoleditPy: ${plugin.supported_moleditpy_version}</div>` : ''}
+                     ${plugin.supported_python_version ? `<div style="margin-top: 2px;">Supported Python: ${plugin.supported_python_version}</div>` : ''}
+                     ${plugin.supported_os && plugin.supported_os.length > 0 ? `<div style="margin-top: 2px;" title="WSL = Windows Subsystem for Linux">Supported OS: ${plugin.supported_os.join(', ')}</div>` : ''}
                      ${plugin.sha256 ? `
                         <div style="margin-top:2px; display: flex; align-items: center;">
                             <span title="${plugin.sha256}">SHA256: ${plugin.sha256.substring(0, 8)}...</span>
