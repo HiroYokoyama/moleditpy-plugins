@@ -148,12 +148,23 @@ MY_FUNC = mod.my_function
 
 ## CI
 
-Two GitHub Actions jobs in `.github/workflows/test-plugins.yml`:
+Three GitHub Actions jobs in `.github/workflows/test-plugins.yml`:
 
 | Job | Python | Main app cloned | Tests |
 |---|---|---|---|
-| `test` | 3.11, 3.12, 3.13 | No | All except `test_api` |
-| `test-api` | 3.11 | Yes (`--depth 1`) | All including `test_api` |
+| `test` | 3.9 – 3.14 | No | `tests/` except `test_api`, plus a registry-sync check |
+| `test-gui` | 3.9 – 3.14 | Auto-cloned by fixture | `tests_gui/` (real PyQt6, `QT_QPA_PLATFORM=offscreen`) |
+| `test-api` | 3.11 | Yes (`--depth 1`) | `test_api.py` only |
+
+The matrix spans the full range declared by `PLUGIN_SUPPORTED_PYTHON_VERSION`
+(`>=3.9, <3.15`). Both matrices use `fail-fast: false` so one interpreter
+failing does not cancel the others.
+
+The `test` job also runs `scripts/update_intra_repo_metadata.py` and fails if
+it produces a diff. This catches two things at once: a registry left stale
+after a plugin version bump, and a registry script that no longer imports on a
+supported interpreter — scripts are not imported by any test, so nothing else
+would notice.
 
 ## Adding a New Plugin
 

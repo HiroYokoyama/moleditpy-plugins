@@ -18,8 +18,11 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        # 3.9 is the floor declared by PLUGIN_SUPPORTED_PYTHON_VERSION, so it
+        # is tested even though development happens on newer interpreters.
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
       - uses: actions/checkout@v4
@@ -38,6 +41,18 @@ jobs:
       - name: Run plugin tests
         run: pytest tests/ -v --tb=short
 
+      # The registry scripts are not imported by any test, so a script that
+      # fails to even import on a supported interpreter would otherwise ship
+      # unnoticed. Running the updater also asserts the registry is in sync
+      # with the plugin sources — it must be a no-op on a clean checkout.
+      - name: Check registry is in sync with plugin sources
+        run: |
+          python scripts/update_intra_repo_metadata.py
+          if ! git diff --exit-code REGISTRY/plugins.json; then
+            echo "::error::REGISTRY/plugins.json is stale. Run 'python scripts/update_intra_repo_metadata.py' and commit the result."
+            exit 1
+          fi
+
   # ---------------------------------------------------------------------------
   # Headless GUI tests — real PyQt6 with QT_QPA_PLATFORM=offscreen.
   # Chemistry libs (rdkit, numpy, …) are still mocked, so no conda env needed.
@@ -47,8 +62,9 @@ jobs:
   test-gui:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
       - uses: actions/checkout@v4
