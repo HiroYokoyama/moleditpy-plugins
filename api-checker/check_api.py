@@ -40,7 +40,7 @@ import sys
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 # Ensure Unicode output works on Windows terminals with narrow code pages.
 if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf-16"):
@@ -170,7 +170,7 @@ _QT_INHERITED = frozenset({
 #   bugs.  Activated by --mw-allowlist.
 # ---------------------------------------------------------------------------
 
-_MANAGER_ALLOWLIST: dict[str, dict | set] = {
+_MANAGER_ALLOWLIST: dict[str, Union[dict, set]] = {
     "manager": {
         "state_manager": {"data"},
         "init_manager": {
@@ -191,7 +191,7 @@ _MANAGER_ALLOWLIST: dict[str, dict | set] = {
     },
 }
 
-_MW_ALLOWLIST: dict[str, dict | set] = {
+_MW_ALLOWLIST: dict[str, Union[dict, set]] = {
     "mw": {
         "host", "view3d", "string_importers", "apply_3d_settings",
         "main_window_ui_manager", "main_window_string_importers",
