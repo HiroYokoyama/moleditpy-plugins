@@ -306,6 +306,114 @@ def test_plugin_version_matches_registry():
     )
 
 
+class TestOSDetection:
+    def test_windows(self, monkeypatch):
+        monkeypatch.setattr(PI.sys, "platform", "win32")
+        assert PI.get_current_os() == "Windows"
+
+    def test_macos(self, monkeypatch):
+        monkeypatch.setattr(PI.sys, "platform", "darwin")
+        assert PI.get_current_os() == "macOS"
+
+    def test_native_linux(self, monkeypatch):
+        monkeypatch.setattr(PI.sys, "platform", "linux")
+        monkeypatch.setattr(PI, "_running_under_wsl", lambda: False)
+        assert PI.get_current_os() == "Linux"
+
+    def test_wsl_detected_via_env(self, monkeypatch):
+        monkeypatch.setattr(PI.sys, "platform", "linux")
+        monkeypatch.setenv("WSL_DISTRO_NAME", "Ubuntu")
+        assert PI.get_current_os() == "WSL"
+
+    def test_wsl_detected_via_proc_version(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(PI.sys, "platform", "linux")
+        monkeypatch.delenv("WSL_DISTRO_NAME", raising=False)
+        proc = tmp_path / "version"
+        proc.write_text("Linux version 5.15.0-microsoft-standard-WSL2")
+        real_open = open
+        monkeypatch.setattr(
+            PI, "open", lambda p, *a, **kw: real_open(proc, *a, **kw), raising=False
+        )
+        assert PI.get_current_os() == "WSL"
+
+    def test_proc_version_without_microsoft_is_plain_linux(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(PI.sys, "platform", "linux")
+        monkeypatch.delenv("WSL_DISTRO_NAME", raising=False)
+        proc = tmp_path / "version"
+        proc.write_text("Linux version 6.1.0-generic")
+        real_open = open
+        monkeypatch.setattr(
+            PI, "open", lambda p, *a, **kw: real_open(proc, *a, **kw), raising=False
+        )
+        assert PI.get_current_os() == "Linux"
+
+    def test_unknown_platform(self, monkeypatch):
+        assert PI.get_current_os.__module__ is not None
+        monkeypatch.setattr(PI.sys, "platform", "sunos5")
+        assert PI.get_current_os() == "Unknown"
+
+
+class TestOSCompatibility:
+    def test_unspecified_is_compatible(self):
+        # A missing/empty list means "unstated", never a warning.
+        assert PI.is_os_compatible("Windows", None) is True
+        assert PI.is_os_compatible("Windows", []) is True
+        assert PI.is_os_compatible("Windows", "not-a-list") is True
+
+    def test_listed_os_is_compatible(self):
+        assert PI.is_os_compatible("Windows", ["Windows", "macOS"]) is True
+        assert PI.is_os_compatible("macOS", ["macOS", "Linux", "WSL"]) is True
+
+    def test_unlisted_os_is_incompatible(self):
+        assert PI.is_os_compatible("Windows", ["macOS", "Linux", "WSL"]) is False
+
+    def test_wsl_satisfies_plain_linux(self):
+        # WSL is a Linux userland, so a "Linux"-only plugin runs there.
+        assert PI.is_os_compatible("WSL", ["macOS", "Linux"]) is True
+
+    def test_wsl_satisfies_explicit_wsl(self):
+        assert PI.is_os_compatible("WSL", ["macOS", "Linux", "WSL"]) is True
+
+    def test_linux_is_not_satisfied_by_wsl_only_entry(self):
+        assert PI.is_os_compatible("Linux", ["Windows", "WSL"]) is False
+
+    def test_matching_is_case_insensitive(self):
+        assert PI.is_os_compatible("macOS", ["macos"]) is True
+        assert PI.is_os_compatible("Windows", ["WINDOWS"]) is True
+
+    def test_unknown_current_os_never_warns(self):
+        assert PI.is_os_compatible("Unknown", ["Windows"]) is True
+
+
+class TestFormatSupportedOS:
+    def test_list(self):
+        assert PI.format_supported_os(["macOS", "Linux"]) == "macOS, Linux"
+
+    def test_string_passthrough(self):
+        assert PI.format_supported_os("Linux") == "Linux"
+
+    def test_empty_is_unknown(self):
+        assert PI.format_supported_os(None) == "Unknown"
+        assert PI.format_supported_os([]) == "Unknown"
+        assert PI.format_supported_os("  ") == "Unknown"
+
+
+class TestOSIncompatibilityHint:
+    def test_windows_user_told_about_wsl(self):
+        hint = PI.os_incompatibility_hint("Windows", ["macOS", "Linux", "WSL"])
+        assert "WSL" in hint
+
+    def test_windows_user_told_about_wsl_when_only_linux_listed(self):
+        hint = PI.os_incompatibility_hint("Windows", ["macOS", "Linux"])
+        assert "WSL" in hint
+
+    def test_no_hint_for_non_windows(self):
+        assert PI.os_incompatibility_hint("macOS", ["Windows"]) == ""
+
+    def test_no_hint_when_wsl_route_absent(self):
+        assert PI.os_incompatibility_hint("Windows", ["macOS"]) == ""
+
+
 class TestVersionCompatibility:
     def test_empty_or_wildcard_specifier(self):
         assert PI.is_app_version_compatible("3.5.1", "") is True
