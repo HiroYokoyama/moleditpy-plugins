@@ -1199,9 +1199,7 @@
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
       "Windows",
-      "macOS",
-      "Linux",
-      "WSL"
+      "macOS"
     ]
   },
   {
