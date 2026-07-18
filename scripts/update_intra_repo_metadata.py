@@ -8,6 +8,10 @@ to the registry. Run after modifying any plugin file.
 Usage:
   python scripts/update_intra_repo_metadata.py
 """
+# Keeps the `str | None` annotations below importable on Python 3.9, which is
+# the floor this repo's plugins declare support for.
+from __future__ import annotations
+
 import hashlib
 import json
 import re

@@ -31,9 +31,30 @@ PLUGIN_TAGS_RE = re.compile(r"^\s*PLUGIN_TAGS\s*=\s*(?P<val>.*?)\s*$", re.MULTIL
 PLUGIN_DEPENDENCIES_RE = re.compile(r"^\s*PLUGIN_DEPENDENCIES\s*=\s*(?P<val>.*?)\s*$", re.MULTILINE)
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION_RE = re.compile(r"^\s*PLUGIN_SUPPORTED_MOLEDITPY_VERSION\s*=\s*(['\"])(?P<val>.*?)\1", re.MULTILINE)
 PLUGIN_SUPPORTED_PYTHON_VERSION_RE = re.compile(r"^\s*PLUGIN_SUPPORTED_PYTHON_VERSION\s*=\s*(['\"])(?P<val>.*?)\1", re.MULTILINE)
+PLUGIN_SUPPORTED_OS_RE = re.compile(r"^\s*PLUGIN_SUPPORTED_OS\s*=\s*(?P<val>.*?)\s*$", re.MULTILINE)
 
 # Applied to visible plugins that do not declare PLUGIN_SUPPORTED_PYTHON_VERSION.
 DEFAULT_PYTHON_SPEC = ">=3.9, <3.15"
+
+# Canonical OS tokens. "WSL" means Windows support exists only through the
+# Windows Subsystem for Linux, never natively.
+VALID_OS = ("Windows", "macOS", "Linux", "WSL")
+
+# Applied to visible plugins that do not declare PLUGIN_SUPPORTED_OS.
+DEFAULT_OS_LIST = ["Windows", "macOS", "Linux", "WSL"]
+
+
+def canonicalize_os_list(items) -> list:
+    """Map arbitrary OS spellings onto VALID_OS, dropping unknown tokens."""
+    if isinstance(items, str):
+        items = [v.strip() for v in items.split(",")]
+    lookup = {name.lower(): name for name in VALID_OS}
+    result = []
+    for item in items or []:
+        canonical = lookup.get(str(item).strip().lower())
+        if canonical and canonical not in result:
+            result.append(canonical)
+    return result
 
 
 def parse_python_list_or_string(raw_val: str) -> list:
@@ -110,6 +131,12 @@ def extract_metadata_from_code_regex(code_text: str) -> dict:
     if match_supported_py:
         meta["supported_python_version"] = match_supported_py.group("val").strip()
 
+    match_supported_os = PLUGIN_SUPPORTED_OS_RE.search(code_text)
+    if match_supported_os:
+        parsed_os = canonicalize_os_list(parse_python_list_or_string(match_supported_os.group("val")))
+        if parsed_os:
+            meta["supported_os"] = parsed_os
+
     return meta
 
 def extract_metadata_from_code(code_text: str) -> dict:
@@ -124,7 +151,7 @@ def extract_metadata_from_code(code_text: str) -> dict:
             if isinstance(node, ast.Assign):
                 for target in node.targets:
                     if isinstance(target, ast.Name) and target.id in [
-                        "PLUGIN_NAME", "PLUGIN_VERSION", "PLUGIN_AUTHOR", "PLUGIN_DESCRIPTION", "PLUGIN_TAGS", "PLUGIN_DEPENDENCIES", "PLUGIN_SUPPORTED_MOLEDITPY_VERSION", "PLUGIN_SUPPORTED_PYTHON_VERSION"
+                        "PLUGIN_NAME", "PLUGIN_VERSION", "PLUGIN_AUTHOR", "PLUGIN_DESCRIPTION", "PLUGIN_TAGS", "PLUGIN_DEPENDENCIES", "PLUGIN_SUPPORTED_MOLEDITPY_VERSION", "PLUGIN_SUPPORTED_PYTHON_VERSION", "PLUGIN_SUPPORTED_OS"
                     ]:
                         try:
                             val = ast.literal_eval(node.value)
@@ -140,6 +167,10 @@ def extract_metadata_from_code(code_text: str) -> dict:
                                 meta["supported_moleditpy_version"] = str(val).strip()
                             elif target.id == "PLUGIN_SUPPORTED_PYTHON_VERSION":
                                 meta["supported_python_version"] = str(val).strip()
+                            elif target.id == "PLUGIN_SUPPORTED_OS":
+                                parsed_os = canonicalize_os_list(val)
+                                if parsed_os:
+                                    meta["supported_os"] = parsed_os
                             elif target.id == "PLUGIN_TAGS":
                                 if isinstance(val, (list, tuple)):
                                     meta["tags"] = [str(x).strip() for x in val if x]

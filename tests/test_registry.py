@@ -17,7 +17,11 @@ ROOT = Path(__file__).resolve().parents[1]
 REGISTRY_PATH = ROOT / "REGISTRY" / "plugins.json"
 PLUGINS_DIR = ROOT / "plugins"
 
-REQUIRED_FIELDS = ["name", "version", "description", "downloadUrl", "sha256", "supported_moleditpy_version", "supported_python_version"]
+REQUIRED_FIELDS = ["name", "version", "description", "downloadUrl", "sha256", "supported_moleditpy_version", "supported_python_version", "supported_os"]
+
+# Canonical OS tokens. "WSL" means Windows support exists only through the
+# Windows Subsystem for Linux, never natively.
+VALID_OS = {"Windows", "macOS", "Linux", "WSL"}
 REQUIRED_METADATA = ["PLUGIN_NAME", "PLUGIN_VERSION", "PLUGIN_AUTHOR", "PLUGIN_DESCRIPTION"]
 
 
@@ -126,3 +130,52 @@ def test_version_consistency():
         if m and m.group(1) != p.get("version", ""):
             mismatches.append(f"{p['name']}: file={m.group(1)} registry={p.get('version')}")
     assert not mismatches, "Version mismatches:\n" + "\n".join(mismatches)
+
+
+def test_supported_os_tokens_are_canonical():
+    """Every visible plugin's supported_os uses only the canonical OS tokens."""
+    bad = []
+    for p in _visible_plugins():
+        value = p.get("supported_os")
+        if not isinstance(value, list) or not value:
+            bad.append(f"{p['name']}: supported_os must be a non-empty list, got {value!r}")
+            continue
+        unknown = [t for t in value if t not in VALID_OS]
+        if unknown:
+            bad.append(f"{p['name']}: unknown OS token(s) {unknown}")
+        if len(set(value)) != len(value):
+            bad.append(f"{p['name']}: duplicate OS token(s) in {value}")
+    assert not bad, "Invalid supported_os:\n" + "\n".join(bad)
+
+
+def test_supported_os_matches_source_constant():
+    """A plugin declaring PLUGIN_SUPPORTED_OS agrees with its registry entry."""
+    import ast
+
+    pat = re.compile(r"^PLUGIN_SUPPORTED_OS\s*=\s*(.+)$", re.MULTILINE)
+    mismatches = []
+    for p in _visible_plugins():
+        local = _resolve_local_path(p.get("downloadUrl", ""))
+        if local is None or not local.exists() or local.suffix != ".py":
+            continue
+        m = pat.search(local.read_text(encoding="utf-8", errors="ignore"))
+        if not m:
+            continue
+        try:
+            declared = list(ast.literal_eval(m.group(1).strip()))
+        except (ValueError, SyntaxError):
+            mismatches.append(f"{p['name']}: PLUGIN_SUPPORTED_OS is not a literal")
+            continue
+        if declared != p.get("supported_os"):
+            mismatches.append(
+                f"{p['name']}: source={declared} registry={p.get('supported_os')}"
+            )
+    assert not mismatches, "supported_os mismatches:\n" + "\n".join(mismatches)
+
+
+def test_invisible_plugins_are_not_required_to_declare_supported_os():
+    """Retired/hidden entries are exempt — they are never offered for install."""
+    registry = _load_registry()
+    hidden = [p for p in registry if not p.get("visible", False)]
+    assert hidden, "expected at least one hidden entry in the registry"
+    # No assertion on their supported_os; this test documents the exemption.

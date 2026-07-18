@@ -16,7 +16,13 @@
     "lastUpdated": "2026-07-13",
     "sha256": "2e326bec765809452b43321af156db0b32ed20a50236ba00676e3a489bf14751",
     "firstAppeared": "2026-07-13",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "xtb_optimizer",
@@ -38,7 +44,12 @@
     "lastUpdated": "2026-07-08",
     "sha256": "0f41cb65e9e0b59f7b4f72c8dabdce324f504cdfd8143083de9348e7db0ee3ed",
     "firstAppeared": "2026-07-08",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "all-trans_optimizer",
@@ -59,7 +70,13 @@
     "lastUpdated": "2026-07-11",
     "sha256": "14f75dd1e65d6e065906b798ce627007922bc90cc1a199ff10dce89d6fa4992a",
     "firstAppeared": "2025-12-15",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "animated_xyz_giffer",
@@ -81,7 +98,13 @@
     "lastUpdated": "2026-07-16",
     "sha256": "38c3c0e81fc94be992462e5404234ebe047b24c98767fd96fb6fab0b1796c298",
     "firstAppeared": "2025-12-15",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "animated_xyz_player",
@@ -120,7 +143,13 @@
     "lastUpdated": "2026-06-20",
     "sha256": "a97c7f42839df01be23624fe198853a0035aab414d0f5f49f17760bfb741a21c",
     "firstAppeared": "2025-12-15",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "conformational_search",
@@ -141,7 +170,13 @@
     "lastUpdated": "2026-06-20",
     "sha256": "48c9d2ef28e3679e8bb861e5bbcda599cc879a233145b64ac864b600c550c55d",
     "firstAppeared": "2025-12-15",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "cube_file_viewer",
@@ -164,7 +199,13 @@
     "lastUpdated": "2026-07-08",
     "sha256": "cdd4ed1893b48950a779ba155f6ccfc3b76d31128fb737ad2c41e0c844d1be16",
     "firstAppeared": "2025-12-15",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "gaussian_input_generator",
@@ -258,7 +299,13 @@
     "lastUpdated": "2026-07-11",
     "sha256": "230f1b3b08076b3cc986430f51a6122fd52c5cda3d6b230610c5ef63658d170a",
     "firstAppeared": "2025-12-15",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "console",
@@ -280,7 +327,13 @@
     "lastUpdated": "2026-06-27",
     "sha256": "e5c971a471ed2a197dc7a574f37526a350b58ac86a757652aa5fd54985bb5ed9",
     "firstAppeared": "2025-12-16",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "atom_colorizer",
@@ -304,7 +357,13 @@
     "lastUpdated": "2026-07-12",
     "sha256": "d74a47d88d1b667eafc0fb3ba5e980865783b3ee3db419d057919ca934cbb891",
     "firstAppeared": "2025-12-16",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "bond_colorizer",
@@ -328,7 +387,13 @@
     "lastUpdated": "2026-07-12",
     "sha256": "5580a59a0f4aca010b780406e56989591ea135f87c1be8816e8a6b2611b70b68",
     "firstAppeared": "2026-07-12",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "dark_mode_theme",
@@ -349,7 +414,13 @@
     "lastUpdated": "2026-06-26",
     "sha256": "730b1c05a589b5dcb9a02b07f4a1b65e3a5dea76de02e71b3875fa65d64502a8",
     "firstAppeared": "2025-12-16",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "gaussian_input_generator_neo",
@@ -394,7 +465,13 @@
     "lastUpdated": "2026-07-11",
     "sha256": "ffc62fe7f7847aef8ac662a183ea60506edfaf71d5dd375f806239065f8edd95",
     "firstAppeared": "2025-12-17",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "mapped_cube_viewer",
@@ -419,7 +496,13 @@
     "lastUpdated": "2026-06-27",
     "sha256": "c70d549009fced17215ced8f6ec4a1ef30e226431b40e1737a8f4dce33700c52",
     "firstAppeared": "2025-12-17",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "orca_input_generator_neo",
@@ -465,7 +548,13 @@
     "lastUpdated": "2026-04-11",
     "sha256": "8fd5a971dbc0701248a836a514acf5163e1fd3b4cacaa4b35a3f6a48a3d75143",
     "firstAppeared": "2025-12-13",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "ms_spectrum_simulation_neo",
@@ -488,7 +577,13 @@
     "lastUpdated": "2026-07-17",
     "sha256": "ebe17d107d39940daf6ba28bbc5c5d2a3a90c80a129262df038bd74a78478076",
     "firstAppeared": "2025-12-18",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "gaussian_freq_analyzer",
@@ -514,7 +609,13 @@
     "lastUpdated": "2026-07-08",
     "sha256": "8d0d3df79ae0ae00fdc953940d2c051c0ce5b3ead65f45e3419de89f0694f764",
     "firstAppeared": "2025-12-20",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "orca_freq_analyzer",
@@ -540,7 +641,13 @@
     "lastUpdated": "2026-07-08",
     "sha256": "17d9ca412fa7847a443fa32f8f7456fe4d51d38fa9ad11014f6c0be74e2eeb3e",
     "firstAppeared": "2025-12-20",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "paste_xyz",
@@ -559,7 +666,13 @@
     "lastUpdated": "2026-07-11",
     "sha256": "f0676acb129c54ecca5f2d188cb32b27c0f67a4fed81a626652badfe46d9f3a0",
     "firstAppeared": "2025-12-20",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "version_checker",
@@ -585,7 +698,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Plugin Installer",
-    "version": "2026.07.18",
+    "version": "2026.07.19",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Checks for updates, installs new plugins, and allows manual reinstallation.",
@@ -596,10 +709,16 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Plugin_Installer/plugin_installer.py",
-    "lastUpdated": "2026-07-18",
-    "sha256": "e024d9b892b2f9705c5c09be06433fd1393168a6ac84969608a4af200c3c9db7",
+    "lastUpdated": "2026-07-19",
+    "sha256": "be372080a51195cb9c8c6f2df5e705a58110dba97f5450e99cee417c9b1b9e0f",
     "firstAppeared": "2026-01-04",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "chat_with_molecule",
@@ -647,7 +766,13 @@
     "lastUpdated": "2026-07-04",
     "sha256": "a98844cfc23fc80950175fbb9e483a58ea6828ee7edbcd22abb2a6e071ff601f",
     "firstAppeared": "2025-12-28",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "pubchem_structure_identifier",
@@ -669,7 +794,13 @@
     "lastUpdated": "2026-07-09",
     "sha256": "9697e225b05b3fc9bfe449eef7650b42822b6e58708e5dc56ad0503ca2deb746",
     "firstAppeared": "2025-12-28",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "chat_with_molecule_neo_chatgpt",
@@ -694,7 +825,13 @@
     "lastUpdated": "2026-07-08",
     "sha256": "933ed6a4b465dde2220c94ab4ec565442543ea0e79b99fd7dcabc6b192c57abb",
     "firstAppeared": "2025-12-30",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "chat_with_molecule_neo_local",
@@ -719,7 +856,13 @@
     "lastUpdated": "2026-07-08",
     "sha256": "a123aa4e299e2affd190131836487c148e4653a8b375d2178e992b8921a3781e",
     "firstAppeared": "2025-12-30",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "symmetry_analyzer",
@@ -742,7 +885,13 @@
     "lastUpdated": "2026-06-26",
     "sha256": "d5e5d623dbcf85d7553431dadeead7341ffac6a7b3b2e613a2791cd4974faf38",
     "firstAppeared": "2025-12-31",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "vector_viewer",
@@ -766,7 +915,13 @@
     "lastUpdated": "2026-06-20",
     "sha256": "aadd1038de2cf890be7bf0e06b852336b3f847309bee7d866436ca0c69f6add1",
     "firstAppeared": "2025-12-31",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "mopac_input_generator",
@@ -789,7 +944,13 @@
     "lastUpdated": "2026-06-26",
     "sha256": "201f2528d7764718131c34dcd62edbe3b57a582eae0e1a53eb72703c47564d2e",
     "firstAppeared": "2026-01-03",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "gamess_input_generator",
@@ -812,7 +973,13 @@
     "lastUpdated": "2026-07-18",
     "sha256": "9207c60018b461f586bb8f5031e31969b3056afd1b39efb061eef52b114339e8",
     "firstAppeared": "2026-01-03",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "pyscf_input_generator",
@@ -836,7 +1003,13 @@
     "lastUpdated": "2026-07-11",
     "sha256": "d525445d15352752281c4d1672568f45765c653c372a8435933036b7ed748ab7",
     "firstAppeared": "2026-01-03",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "psi4_input_generator",
@@ -859,7 +1032,13 @@
     "lastUpdated": "2026-06-26",
     "sha256": "5491edca54fc4e25f3219abe27face71be7ed4485d1d8679834ede414b503f90",
     "firstAppeared": "2026-01-03",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "molecule_comparator",
@@ -882,7 +1061,13 @@
     "lastUpdated": "2026-07-10",
     "sha256": "38cf26ef4ba73fe33245836e2f6349263ba6845c0c3bbddb935da15f4d432eeb",
     "firstAppeared": "2026-01-03",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "nwchem_input_generator",
@@ -905,7 +1090,13 @@
     "lastUpdated": "2026-07-08",
     "sha256": "7c8dc6b62c8cd207854df559d8aaf064a71839b3d13f8b19f1055e7d38e06b59",
     "firstAppeared": "2026-01-03",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "xyz_editor",
@@ -928,7 +1119,13 @@
     "lastUpdated": "2026-07-17",
     "sha256": "06d8a757170f1fc9e0f8274115086f3b9d103c534a581be61763d99b44457236",
     "firstAppeared": "2026-01-03",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "hello_world_folder",
@@ -972,7 +1169,12 @@
     "lastUpdated": "2026-07-08",
     "sha256": "b2a1e609dc98c4fcf5e04272e868b4bd40717156941c0529bb0b53eb54448177",
     "firstAppeared": "2026-01-09",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "openbabel_conversion_tool",
@@ -994,7 +1196,13 @@
     "lastUpdated": "2026-07-10",
     "sha256": "c5020056dd6909da015a06350ca2e21536e1599bc2a4c94665eb585fe5ffb016",
     "firstAppeared": "2026-01-10",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "paste_from_chemdraw",
@@ -1016,7 +1224,13 @@
     "lastUpdated": "2026-07-18",
     "sha256": "40dd5172086c1cca12dd5ef42a9e43c4fa4ccbe1d9be58c291eb591efd024f98",
     "firstAppeared": "2026-01-15",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "compound_info_report",
@@ -1038,7 +1252,13 @@
     "lastUpdated": "2026-06-26",
     "sha256": "adcf1c473a9c3d1751a6c812d87f24449368de6e15b7150224921429ac20a0e8",
     "firstAppeared": "2026-01-21",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "gaussian_mo_analyzer",
@@ -1065,7 +1285,13 @@
     "lastUpdated": "2026-07-17",
     "sha256": "8bec6f98546c36ebb54aabf4792f925d24507b16161d476091c17d8adda79a93",
     "firstAppeared": "2026-01-23",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "gaussian_fchk_loader",
@@ -1087,7 +1313,13 @@
     "lastUpdated": "2026-06-26",
     "sha256": "6565b8aab21aa2ba36ee44b428b3eaee86c93cc50796adad586552451c238787",
     "firstAppeared": "2026-01-23",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "settings_saver",
@@ -1108,7 +1340,13 @@
     "lastUpdated": "2026-06-27",
     "sha256": "c18556aafb4f4b0f73ab4dee440501e38f0cc94e93c4456262c3535d2580deaf",
     "firstAppeared": "2026-01-25",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "structural_updater",
@@ -1130,7 +1368,13 @@
     "lastUpdated": "2026-07-08",
     "sha256": "cc8de22c3f364e7f99bd32fe4037cb82b2122c18f0fbdfffc68297f81dc1761b",
     "firstAppeared": "2026-01-28",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "orca_result_analyzer",
@@ -1159,7 +1403,13 @@
     "lastUpdated": "2026-07-16",
     "sha256": "fe819f4c20c400a033a89b012cadb745c3ea286134f41ac2d149dae848cf8340",
     "firstAppeared": "2026-01-27",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "nmr_predictor_nmrshiftdb2",
@@ -1185,7 +1435,13 @@
     "lastUpdated": "2026-07-10",
     "sha256": "6da26b60d442cbb495a958e1977d25fcb9dfcc14691a48bcd701b6b1e308c172",
     "firstAppeared": "2026-01-29",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "cube_file_viewer_advanced",
@@ -1210,7 +1466,13 @@
     "lastUpdated": "2026-07-06",
     "sha256": "ac2ca66f94317b04b9e10e4e2e787191281efcd723c943cffd8c8cc3a3252998",
     "firstAppeared": "2026-02-02",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "advanced_rendering",
@@ -1233,7 +1495,13 @@
     "lastUpdated": "2026-07-08",
     "sha256": "257a876c9b5a95d12dc68724e87ecff74745945fb55112154768c4d3ebb5ebc7",
     "firstAppeared": "2026-02-03",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "high_res_imager",
@@ -1256,7 +1524,13 @@
     "lastUpdated": "2026-06-27",
     "sha256": "32d2b65e64e9afd552c5dd25ce5e98dc14e785bdbf7f4a42a280f84ac944b323",
     "firstAppeared": "2026-02-05",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "blender_export",
@@ -1280,7 +1554,13 @@
     "lastUpdated": "2026-06-27",
     "sha256": "d919beb0704e0ac3a63edf4239f4d5698a2c0189e180e4d2b7da52a3a399cc08",
     "firstAppeared": "2026-02-05",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "povray_export",
@@ -1304,7 +1584,13 @@
     "lastUpdated": "2026-07-08",
     "sha256": "e925c65c27f1e93ad7d5c36820acb49eea29f8a1f0c4038d6474ee8bd7fee074",
     "firstAppeared": "2026-02-05",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "reaction_sketcher",
@@ -1329,7 +1615,13 @@
     "lastUpdated": "2026-07-13",
     "sha256": "d41a861cde3af73abd691f025a71c342f374f5efbe3db3790658161e1d0dc41b",
     "firstAppeared": "2026-02-08",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "encrypted_project",
@@ -1351,7 +1643,13 @@
     "lastUpdated": "2026-07-12",
     "sha256": "28048ef1846109ff5483d97ff217fec72bb6b7e516b2d7aeedfe438f4208c534",
     "firstAppeared": "2026-02-12",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "3d_molecule_on_2d",
@@ -1376,7 +1674,13 @@
     "lastUpdated": "2026-07-12",
     "sha256": "05a5cc2bb0cad30d77d0db126f64bb409e08dca8144ee368cc66a4d26c5f2f51",
     "firstAppeared": "2026-02-17",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "orca_input_generator_pro",
@@ -1400,7 +1704,13 @@
     "lastUpdated": "2026-07-11",
     "sha256": "085d16479f9eb14e15261dac09ee93bb34856e55a6cc5a96291b943d1a4fb779",
     "firstAppeared": "2026-03-21",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "nics_placer",
@@ -1424,7 +1734,13 @@
     "lastUpdated": "2026-07-15",
     "sha256": "756faac49909be25e9509cf421929478d6f0f5d0945a2212ec27b18471c1430a",
     "firstAppeared": "2026-04-18",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "molibrary",
@@ -1447,7 +1763,13 @@
     "lastUpdated": "2026-04-29",
     "sha256": "5fa3f58ba0395cf0997e7918c95f901e9710fcc5d48a34bf0d56f356a7fa5120",
     "firstAppeared": "2026-04-29",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "cif_viewer",
@@ -1472,7 +1794,13 @@
     "lastUpdated": "2026-07-16",
     "sha256": "89673e9f4502cfe888c07beff03c7aca6585d9e0552dfa2fb0e65b65c268b898",
     "firstAppeared": "2026-05-21",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "rotation_giffer",
@@ -1496,7 +1824,13 @@
     "lastUpdated": "2026-07-04",
     "sha256": "3ff790feca07f26b25e869ba7adac7560f40119cc5f8c9fcc97af539c17dc52f",
     "firstAppeared": "2026-05-24",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "strain_homodesmotic_reaction_generator",
@@ -1519,7 +1853,13 @@
     "lastUpdated": "2026-07-04",
     "sha256": "028e7303be269f20c0506813cd8ee0e2ab7a5a95d3569d2e26779c95e402ccb6",
     "firstAppeared": "2026-06-09",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "dummy_atom_mode",
@@ -1541,7 +1881,13 @@
     "lastUpdated": "2026-06-22",
     "sha256": "f3b1a2fd705c2846e94ffc8b0d05d93aaafbc99e17f01ee76dc20f7899d15022",
     "firstAppeared": "2026-06-22",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "decimer_plugin",
@@ -1565,7 +1911,13 @@
     "lastUpdated": "2026-07-04",
     "sha256": "e67aa2c397c97d3c0348804cdc45423e3f3dc2e3d3167ae4910889ff1dd8dec1",
     "firstAppeared": "2026-07-01",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "blender_export_pro",
@@ -1585,7 +1937,13 @@
     "lastUpdated": "2026-07-04",
     "sha256": "54bad67abaaf34120374427f3a3e02f68e8812e5cb50ef3e84f904ea71c30084",
     "firstAppeared": "2026-07-02",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "pmeff_plugin",
@@ -1608,7 +1966,13 @@
     "lastUpdated": "2026-07-15",
     "sha256": "49254d03428043df4d80b18aae4104f6a28e164dba637e35aa4f805f1628752e",
     "firstAppeared": "2026-07-03",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "mcp_server",
@@ -1628,7 +1992,13 @@
     "lastUpdated": "2026-07-10",
     "sha256": "7b8715cdbba5953f595bc0191446a37bdf76748523c320e5a803c9b62000ae3a",
     "firstAppeared": "2026-07-03",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "gaussian_input_generator_pro_0.1.0",
@@ -1649,7 +2019,13 @@
     "lastUpdated": "2026-07-11",
     "sha256": "21794d43a72670a389bd849c58bd981a24a3b14ac5aebb775a9c05246ba1457e",
     "firstAppeared": "2026-07-11",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "step_optimizer",
@@ -1670,7 +2046,13 @@
     "lastUpdated": "2026-07-12",
     "sha256": "3dade3748d1a7fb386f501a6595b66094f69e94017a406ed0ac3f23f2efe3503",
     "firstAppeared": "2026-07-12",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "bond_editor",
@@ -1694,7 +2076,13 @@
     "lastUpdated": "2026-07-18",
     "sha256": "e820b140d6ffda17407059170a95f3a6612537f0fa2089b850ed12f16488c97d",
     "firstAppeared": "2026-07-15",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "charge_editor",
@@ -1718,6 +2106,12 @@
     "lastUpdated": "2026-07-17",
     "sha256": "739d60f814f132325690b2e3d0c383f2048083026ef378904c542ba05dd31017",
     "firstAppeared": "2026-07-16",
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   }
 ]

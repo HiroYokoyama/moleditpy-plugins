@@ -45,9 +45,10 @@ import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.07.18"
+PLUGIN_VERSION = "2026.07.19"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_SUPPORTED_PYTHON_VERSION = ">=3.9, <3.15"
+PLUGIN_SUPPORTED_OS = ["Windows", "macOS", "Linux", "WSL"]
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
     "Checks for updates, installs new plugins, and allows manual reinstallation."
@@ -284,6 +285,76 @@ def get_python_version() -> str:
     return "%d.%d.%d" % sys.version_info[:3]
 
 
+def _running_under_wsl() -> bool:
+    """True when this interpreter is inside the Windows Subsystem for Linux.
+
+    WSL reports sys.platform == "linux", so it is only distinguishable via the
+    kernel release string or the distro env var WSL sets.
+    """
+    if not sys.platform.startswith("linux"):
+        return False
+    if os.environ.get("WSL_DISTRO_NAME"):
+        return True
+    try:
+        with open("/proc/version", "r", encoding="utf-8", errors="ignore") as f:
+            return "microsoft" in f.read().lower()
+    except OSError:
+        return False
+
+
+def get_current_os() -> str:
+    """Return this machine's canonical OS token from PLUGIN_SUPPORTED_OS."""
+    if sys.platform.startswith("win"):
+        return "Windows"
+    if sys.platform == "darwin":
+        return "macOS"
+    if sys.platform.startswith("linux"):
+        return "WSL" if _running_under_wsl() else "Linux"
+    return "Unknown"
+
+
+def is_os_compatible(current_os: str, supported_os) -> bool:
+    """Check the running OS against a registry supported_os list.
+
+    An empty or unparseable list means "unspecified", which is treated as
+    compatible — the installer only warns about a stated incompatibility.
+    WSL satisfies a plain "Linux" entry, since WSL is a Linux userland.
+    """
+    if not supported_os or not isinstance(supported_os, (list, tuple)):
+        return True
+    normalized = {str(entry).strip().lower() for entry in supported_os}
+    if not normalized:
+        return True
+    if current_os == "Unknown":
+        return True
+    if current_os.lower() in normalized:
+        return True
+    if current_os == "WSL" and "linux" in normalized:
+        return True
+    return False
+
+
+def format_supported_os(supported_os) -> str:
+    if isinstance(supported_os, (list, tuple)) and supported_os:
+        return ", ".join(str(entry) for entry in supported_os)
+    if isinstance(supported_os, str) and supported_os.strip():
+        return supported_os.strip()
+    return "Unknown"
+
+
+def os_incompatibility_hint(current_os: str, supported_os) -> str:
+    """Extra guidance appended to the incompatible-OS warning, if any."""
+    if not isinstance(supported_os, (list, tuple)):
+        return ""
+    normalized = {str(entry).strip().lower() for entry in supported_os}
+    if current_os == "Windows" and ("wsl" in normalized or "linux" in normalized):
+        return (
+            "\n\nThis plugin does not run natively on Windows, but it is "
+            "supported under WSL (Windows Subsystem for Linux)."
+        )
+    return ""
+
+
 def parse_dependency(dep_str: str) -> tuple[str, str]:
     if ":" in dep_str:
         return "", ""
@@ -418,10 +489,11 @@ class PluginDetailsDialog(QDialog):
         target_file,
         supported_version="Unknown",
         supported_python="Unknown",
+        supported_os=None,
     ):
         super().__init__(parent)
         self.setWindowTitle(f"{name} - Details")
-        self.resize(400, 370)
+        self.resize(400, 395)
         self.parent_installer = parent
         self.plugin_name = name
         self.target_file = target_file
@@ -437,6 +509,13 @@ class PluginDetailsDialog(QDialog):
         lbl_supported_py = QLabel(
             f"<b>Supported Python:</b> {html.escape(str(supported_python))}"
         )
+        lbl_supported_os = QLabel(
+            f"<b>Supported OS:</b> {html.escape(format_supported_os(supported_os))}"
+        )
+        if supported_os and not is_os_compatible(get_current_os(), supported_os):
+            lbl_supported_os.setToolTip(
+                f"This plugin does not list {get_current_os()} as supported."
+            )
         lbl_desc = QLabel(f"<b>Description:</b><br>{description}")
         lbl_desc.setWordWrap(True)
 
@@ -445,6 +524,7 @@ class PluginDetailsDialog(QDialog):
         layout.addWidget(lbl_ver)
         layout.addWidget(lbl_supported)
         layout.addWidget(lbl_supported_py)
+        layout.addWidget(lbl_supported_os)
         layout.addSpacing(10)
         layout.addWidget(lbl_desc)
 
@@ -925,8 +1005,10 @@ class PluginInstallerWindow(QDialog):
 
             is_compatible = True
             py_compatible = True
+            os_compatible = True
             supported_ver_str = ""
             supported_py_str = ""
+            supported_os_list = None
             if remote_info:
                 supported_ver_str = remote_info.get("supported_moleditpy_version", "")
                 if supported_ver_str:
@@ -939,6 +1021,12 @@ class PluginInstallerWindow(QDialog):
                         get_python_version(), supported_py_str
                     )
                     is_compatible = is_compatible and py_compatible
+                supported_os_list = remote_info.get("supported_os")
+                if supported_os_list:
+                    os_compatible = is_os_compatible(
+                        get_current_os(), supported_os_list
+                    )
+                    is_compatible = is_compatible and os_compatible
 
             # Skip non-visible, not-yet-installed plugins
             if remote_info and not is_installed:
@@ -1016,8 +1104,10 @@ class PluginInstallerWindow(QDialog):
                     is_installed=is_installed,
                     is_compatible=is_compatible,
                     py_compatible=py_compatible,
+                    os_compatible=os_compatible,
                     supported_ver_str=supported_ver_str,
                     supported_py_str=supported_py_str,
+                    supported_os_list=supported_os_list,
                     can_update=can_update,
                     can_download=can_download,
                     target_file=target_file,
@@ -1057,6 +1147,11 @@ class PluginInstallerWindow(QDialog):
                         f"Requires Python {row_data['supported_py_str']} "
                         f"(Current: {get_python_version()})"
                     )
+                if not row_data["os_compatible"] and row_data["supported_os_list"]:
+                    tips.append(
+                        f"Requires OS {format_supported_os(row_data['supported_os_list'])} "
+                        f"(Current: {get_current_os()})"
+                    )
                 if tips:
                     status_item.setToolTip("\n".join(tips))
             self.table.setItem(row, 4, status_item)
@@ -1089,6 +1184,10 @@ class PluginInstallerWindow(QDialog):
                         if not row_data["py_compatible"] and row_data["supported_py_str"]:
                             req_parts.append(
                                 f"Python {row_data['supported_py_str']}"
+                            )
+                        if not row_data["os_compatible"] and row_data["supported_os_list"]:
+                            req_parts.append(
+                                f"OS {format_supported_os(row_data['supported_os_list'])}"
                             )
                         btn_action.setToolTip(
                             "Warning: Incompatible "
@@ -1356,6 +1455,7 @@ class PluginInstallerWindow(QDialog):
             if remote_info
             else "Unknown"
         )
+        supported_os = remote_info.get("supported_os") if remote_info else None
 
         dialog = PluginDetailsDialog(
             self,
@@ -1368,6 +1468,7 @@ class PluginInstallerWindow(QDialog):
             target_file,
             supported_version,
             supported_python,
+            supported_os,
         )
         dialog.exec()
 
@@ -1434,6 +1535,30 @@ class PluginInstallerWindow(QDialog):
                     return
                 user_confirmed_intent = True
 
+        # OS compatibility check. Warn only, never block: the registry data is
+        # advisory (a user may have the backend working through some route we
+        # cannot detect), so the final call stays with the user.
+        if remote_info:
+            supported_os_list = remote_info.get("supported_os")
+            current_os = get_current_os()
+            if supported_os_list and not is_os_compatible(current_os, supported_os_list):
+                action_word = "update" if is_installed else "install"
+                ret = QMessageBox.warning(
+                    self,
+                    "Incompatible OS Warning",
+                    f"Warning: '{plugin_name}' supports "
+                    f"{format_supported_os(supported_os_list)}, but you are running "
+                    f"{current_os}."
+                    f"{os_incompatibility_hint(current_os, supported_os_list)}\n\n"
+                    f"This plugin may fail to function correctly.\n\n"
+                    f"Do you want to proceed with the {action_word} anyway?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No,
+                )
+                if ret != QMessageBox.StandardButton.Yes:
+                    return
+                user_confirmed_intent = True
+
         # Dependency check — only for a fresh install. When updating a plugin
         # that is already installed, skip the missing-dependency warning: the
         # user already chose to run this plugin, and an update should not nag
@@ -1480,6 +1605,9 @@ class PluginInstallerWindow(QDialog):
                         if remote_info
                         else "Unknown"
                     )
+                    supported_os = (
+                        remote_info.get("supported_os") if remote_info else None
+                    )
                     dialog = PluginDetailsDialog(
                         self,
                         plugin_name,
@@ -1491,6 +1619,7 @@ class PluginInstallerWindow(QDialog):
                         target_file,
                         supported_version,
                         supported_python,
+                        supported_os,
                     )
                     dialog.exec()
                     return
@@ -1836,6 +1965,9 @@ class PluginInstallerWindow(QDialog):
                         if remote_info
                         else "Unknown"
                     )
+                    supported_os = (
+                        remote_info.get("supported_os") if remote_info else None
+                    )
                     dialog = PluginDetailsDialog(
                         self,
                         plugin_name,
@@ -1847,6 +1979,7 @@ class PluginInstallerWindow(QDialog):
                         target_file,
                         supported_version,
                         supported_python,
+                        supported_os,
                     )
                     dialog.exec()
                 elif not self._batch_updating:
