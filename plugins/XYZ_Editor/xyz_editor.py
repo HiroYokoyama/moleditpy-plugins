@@ -29,7 +29,7 @@ import logging
 
 
 PLUGIN_NAME = "XYZ Editor"
-PLUGIN_VERSION = "2026.07.17"
+PLUGIN_VERSION = "2026.07.22"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "A table-based editor for atom coordinates and symbols, supporting ghost atoms. Refactored for V3 API."
@@ -997,18 +997,44 @@ def initialize(context):
         }
         return {"custom_labels": labels}
 
+    def _apply_custom_labels(labels):
+        """Set the stored custom_symbol props on the current molecule and
+        refresh any open editor window. Custom atom props do not survive the
+        host's molecule pickle, which is why they are persisted separately."""
+        mol = context.current_molecule
+        if not mol:
+            return
+        applied = False
+        for idx, lbl in labels.items():
+            try:
+                mol.GetAtomWithIdx(int(idx)).SetProp("custom_symbol", lbl)
+                applied = True
+            except Exception as _e:
+                logging.warning("[xyz_editor.py:_apply_custom_labels] silenced: %s", _e)
+        if not applied:
+            return
+        context.current_molecule = mol
+        win = context.get_window("main_panel")
+        if win:
+            win.load_molecule()
+
     def load_plugin_state(data):
         labels = data.get("custom_labels", {})
         if not isinstance(labels, dict):
             labels = {}
-        mol = context.current_molecule
-        if mol:
-            for idx, lbl in labels.items():
-                try:
-                    mol.GetAtomWithIdx(int(idx)).SetProp("custom_symbol", lbl)
-                except Exception as _e:
-                    logging.warning("[xyz_editor.py:597] silenced: %s", _e)
-            context.current_molecule = mol
+        if not labels:
+            return
+        # The host runs plugin load handlers BEFORE it restores the 3D molecule,
+        # so context.current_molecule here is the pre-load molecule that is about
+        # to be replaced — labels set now would be discarded, leaving plain
+        # element symbols after a fresh launch. Apply once immediately (keeps the
+        # synchronous unit tests working; QTimer is mocked there) and again on the
+        # next event-loop turn, after the real molecule has been loaded.
+        _apply_custom_labels(labels)
+        try:
+            QTimer.singleShot(0, lambda: _apply_custom_labels(labels))
+        except Exception as _e:
+            logging.warning("[xyz_editor.py:load_plugin_state] defer silenced: %s", _e)
 
     def on_document_reset():
         win = context.get_window("main_panel")

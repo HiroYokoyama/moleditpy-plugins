@@ -358,6 +358,57 @@ class TestXYZPersistenceHandlers:
         reset()
         win.load_molecule.assert_called_once()
 
+    def test_load_refreshes_open_editor_window(self):
+        ctx, _, load, _ = self._handlers()
+        win = MagicMock()
+        ctx.get_window.return_value = win
+        ctx.current_molecule = FakeMol([FakeAtom("C")], [(0, 0, 0)])
+        load({"custom_labels": {"0": "C13"}})
+        win.load_molecule.assert_called()
+
+    def test_load_schedules_deferred_apply(self):
+        """The host applies plugin load handlers before restoring the 3D
+        molecule, so the labels must also be re-applied on the next event-loop
+        turn — otherwise a freshly launched project shows plain symbols."""
+        with mock_optional_imports():
+            mod = load_plugin(XYZ_EDITOR_PATH)
+            ctx = make_context()
+            ctx.current_molecule = FakeMol([FakeAtom("C")], [(0, 0, 0)])
+            mod.initialize(ctx)
+            load = ctx.register_load_handler.call_args[0][0]
+            mod.QTimer.singleShot.reset_mock()
+            load({"custom_labels": {"0": "C13"}})
+            mod.QTimer.singleShot.assert_called_once()
+
+    def test_deferred_apply_labels_the_post_load_molecule(self):
+        """Regression for the real bug: at load time current_molecule is the
+        pre-load molecule; the deferred pass must label the molecule that the
+        host restores afterwards."""
+        with mock_optional_imports():
+            mod = load_plugin(XYZ_EDITOR_PATH)
+            ctx = make_context()
+            ctx.current_molecule = None  # nothing loaded yet when handler runs
+            mod.initialize(ctx)
+            load = ctx.register_load_handler.call_args[0][0]
+            load({"custom_labels": {"0": "C13"}})
+            deferred = mod.QTimer.singleShot.call_args[0][1]
+            # Host restores the molecule after handlers ran.
+            real_mol = FakeMol([FakeAtom("C")], [(0, 0, 0)])
+            ctx.current_molecule = real_mol
+            deferred()
+            assert real_mol.GetAtomWithIdx(0).GetProp("custom_symbol") == "C13"
+
+    def test_load_empty_labels_schedules_nothing(self):
+        with mock_optional_imports():
+            mod = load_plugin(XYZ_EDITOR_PATH)
+            ctx = make_context()
+            ctx.current_molecule = FakeMol([FakeAtom("C")], [(0, 0, 0)])
+            mod.initialize(ctx)
+            load = ctx.register_load_handler.call_args[0][0]
+            mod.QTimer.singleShot.reset_mock()
+            load({})
+            mod.QTimer.singleShot.assert_not_called()
+
 
 class TestXYZClickFilter:
     def _filter(self):
