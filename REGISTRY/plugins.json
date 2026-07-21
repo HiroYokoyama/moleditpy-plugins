@@ -2114,5 +2114,35 @@
       "Linux",
       "WSL"
     ]
+  },
+  {
+    "id": "auto_rotator",
+    "visible": true,
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
+    "name": "Auto Rotator",
+    "version": "1.0.0",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "projectUrl": "https://github.com/HiroYokoyama/moleditpy_auto_rotator",
+    "description": "Continuously spins the 3D viewer by orbiting the camera around a chosen axis.",
+    "tags": [
+      "Visualization"
+    ],
+    "dependencies": [
+      "pyvista",
+      "PyQt6",
+      "numpy"
+    ],
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_auto_rotator/releases/download/v1.0.0/auto_rotator.py",
+    "lastUpdated": "2026-07-22",
+    "sha256": "06c0e88954aa706c9c8928448418c312a73a487bc472811585948c9f9f3253f8",
+    "firstAppeared": "2026-07-22",
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   }
 ]

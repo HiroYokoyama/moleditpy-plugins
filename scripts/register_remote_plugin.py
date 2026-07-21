@@ -516,33 +516,39 @@ def main():
             sys.exit(1)
             return
             
+        supported_py = args.supported_python or meta.get("supported_python_version")
+        if not supported_py and visible_flag:
+            supported_py = DEFAULT_PYTHON_SPEC
+
+        supported_os = canonicalize_os_list(meta.get("supported_os") or [])
+        if not supported_os and visible_flag:
+            supported_os = list(DEFAULT_OS_LIST)
+
+        # Build in the canonical field order used by existing registry entries.
         new_entry = {
             "id": plugin_id,
             "visible": visible_flag,
         }
         if supported_ver:
             new_entry["supported_moleditpy_version"] = supported_ver
-
-        supported_py = args.supported_python or meta.get("supported_python_version")
-        if not supported_py and visible_flag:
-            supported_py = DEFAULT_PYTHON_SPEC
-        if supported_py:
-            new_entry["supported_python_version"] = supported_py
-
         new_entry.update({
             "name": meta["name"],
             "version": normalized_code_version,
             "author": meta["author"],
             "authorUrl": f"https://github.com/{owner}",
+            "projectUrl": f"https://github.com/{owner}/{repo}",
             "description": meta["description"],
             "tags": tags_list,
             "dependencies": deps_list,
             "downloadUrl": args.release_url,
-            "projectUrl": f"https://github.com/{owner}/{repo}",
             "lastUpdated": today_str,
             "sha256": sha256_hash,
             "firstAppeared": today_str
         })
+        if supported_py:
+            new_entry["supported_python_version"] = supported_py
+        if supported_os:
+            new_entry["supported_os"] = supported_os
         plugins.append(new_entry)
         plugin_name = meta["name"]
         target_entry = new_entry
