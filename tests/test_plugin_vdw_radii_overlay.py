@@ -7,9 +7,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import numpy as real_numpy  # noqa: F401  (imported so mocks_with_real_numpy can snapshot it)
 import pytest
 
-from conftest import load_plugin, mock_optional_imports
+from conftest import load_plugin, mock_optional_imports, mocks_with_real_numpy
 
 PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
 VDW_PATH = PLUGINS_DIR / "VDW_Radii_Overlay" / "vdw_radii_overlay.py"
@@ -204,3 +205,298 @@ class TestVDWInitialize:
             mod = load_plugin(VDW_PATH)
         assert mod.PLUGIN_CONTEXT is None
         mod.run(MagicMock())
+
+
+# ---------------------------------------------------------------------------
+# draw_vdw_overlay: full render path with real numpy math
+# ---------------------------------------------------------------------------
+
+
+class _FakePeriodicTable:
+    """Fixed VDW radii so the SDF math below is deterministic."""
+
+    def __init__(self, radii):
+        self._radii = radii
+
+    def GetRvdw(self, atomic_num):
+        return self._radii.get(atomic_num, 1.5)
+
+
+def _make_atom(symbol, atomic_num):
+    a = MagicMock()
+    a.GetSymbol.return_value = symbol
+    a.GetAtomicNum.return_value = atomic_num
+    return a
+
+
+def _make_mol_with_conformer(atoms_spec, positions):
+    """atoms_spec: list of (symbol, atomic_num); positions: list of (x, y, z)."""
+    mol = MagicMock()
+    mol.GetNumAtoms.return_value = len(atoms_spec)
+    mol.GetNumConformers.return_value = 1
+    atoms = [_make_atom(sym, num) for sym, num in atoms_spec]
+    mol.GetAtomWithIdx.side_effect = lambda i: atoms[i]
+
+    conf = MagicMock()
+
+    def _get_pos(i):
+        x, y, z = positions[i]
+        p = MagicMock()
+        p.x, p.y, p.z = x, y, z
+        return p
+
+    conf.GetAtomPosition.side_effect = _get_pos
+    mol.GetConformer.return_value = conf
+    return mol
+
+
+def _wire_fake_grid(mod, mesh_points):
+    """Replace mod.pv.ImageData() with a fake grid whose .contour() returns a
+    fake mesh exposing real numpy point coordinates, so the vertex-coloring
+    loop runs with real math."""
+    mesh = MagicMock()
+    mesh.points = mesh_points
+    mesh.point_data = {}
+    grid = MagicMock()
+    grid.point_data = {}
+    grid.contour.return_value = mesh
+    mod.pv.ImageData.return_value = grid
+    return grid, mesh
+
+
+class TestDrawVdwOverlayFullRenderPath:
+    def _base_mw(self):
+        mw = MagicMock()
+        mw.view_3d_manager._plugin_color_overrides = {}
+        mw.view_3d_manager.plotter = MagicMock()
+        return mw
+
+    def test_full_path_adds_mesh_with_default_cpk_colors(self, tmp_path):
+        with mocks_with_real_numpy():
+            mod = load_plugin(VDW_PATH)
+            mod.SETTINGS_FILE = str(tmp_path / "vdw.json")
+            mod._vdw_settings["resolution"] = 0.5
+            mod._vdw_settings["occupancy"] = 0.4
+            mod.pt = _FakePeriodicTable({6: 1.7, 8: 1.52})
+            mod.CPK_COLORS_PV = {"C": [0.5, 0.5, 0.5], "O": [1.0, 0.0, 0.0]}
+
+            mol = _make_mol_with_conformer(
+                [("C", 6), ("O", 8)], [(0.0, 0.0, 0.0), (1.5, 0.0, 0.0)]
+            )
+            mesh_points = mod.np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]])
+            grid, mesh = _wire_fake_grid(mod, mesh_points)
+
+            mw = self._base_mw()
+            mod.draw_vdw_overlay(mw, mol)
+
+            mw.view_3d_manager.draw_standard_3d_style.assert_called_once_with(
+                mol, style_override="ball_and_stick"
+            )
+            grid.contour.assert_called_once()
+            mw.view_3d_manager.plotter.add_mesh.assert_called_once()
+            call = mw.view_3d_manager.plotter.add_mesh.call_args
+            assert call.kwargs["opacity"] == pytest.approx(0.4)
+            assert call.kwargs["name"] == "vdw_overlay_mesh"
+            # Nearest-atom coloring assigned to the fake mesh's point_data.
+            colors = mesh.point_data["AtomColors"]
+            assert colors.shape == (2, 3)
+
+    def test_full_path_hex_color_override(self, tmp_path):
+        with mocks_with_real_numpy():
+            mod = load_plugin(VDW_PATH)
+            mod.SETTINGS_FILE = str(tmp_path / "vdw.json")
+            mod._vdw_settings["resolution"] = 0.5
+            mod.pt = _FakePeriodicTable({6: 1.7})
+
+            mol = _make_mol_with_conformer([("C", 6)], [(0.0, 0.0, 0.0)])
+            mesh_points = mod.np.array([[0.0, 0.0, 0.0]])
+            grid, mesh = _wire_fake_grid(mod, mesh_points)
+
+            mw = self._base_mw()
+            mw.view_3d_manager._plugin_color_overrides = {0: "#00ff00"}
+            mod.draw_vdw_overlay(mw, mol)
+
+            colors = mesh.point_data["AtomColors"]
+            # Green: R=0, G=1, B=0
+            assert colors[0][0] == pytest.approx(0.0)
+            assert colors[0][1] == pytest.approx(1.0)
+            assert colors[0][2] == pytest.approx(0.0)
+
+    def test_full_path_legacy_255_scale_color_override(self, tmp_path):
+        with mocks_with_real_numpy():
+            mod = load_plugin(VDW_PATH)
+            mod.SETTINGS_FILE = str(tmp_path / "vdw.json")
+            mod._vdw_settings["resolution"] = 0.5
+            mod.pt = _FakePeriodicTable({6: 1.7})
+
+            mol = _make_mol_with_conformer([("C", 6)], [(0.0, 0.0, 0.0)])
+            mesh_points = mod.np.array([[0.0, 0.0, 0.0]])
+            grid, mesh = _wire_fake_grid(mod, mesh_points)
+
+            mw = self._base_mw()
+            mw.view_3d_manager._plugin_color_overrides = {0: [255, 0, 0]}
+            mod.draw_vdw_overlay(mw, mol)
+
+            colors = mesh.point_data["AtomColors"]
+            assert colors[0][0] == pytest.approx(1.0)
+            assert colors[0][1] == pytest.approx(0.0)
+
+    def test_full_path_legacy_custom_atom_colors_fallback(self, tmp_path):
+        """When view_3d_manager has no overrides, fall back to mw.custom_atom_colors."""
+        with mocks_with_real_numpy():
+            mod = load_plugin(VDW_PATH)
+            mod.SETTINGS_FILE = str(tmp_path / "vdw.json")
+            mod._vdw_settings["resolution"] = 0.5
+            mod.pt = _FakePeriodicTable({6: 1.7})
+
+            mol = _make_mol_with_conformer([("C", 6)], [(0.0, 0.0, 0.0)])
+            mesh_points = mod.np.array([[0.0, 0.0, 0.0]])
+            grid, mesh = _wire_fake_grid(mod, mesh_points)
+
+            mw = self._base_mw()
+            mw.view_3d_manager._plugin_color_overrides = {}
+            mw.custom_atom_colors = {0: [0.25, 0.5, 0.75]}
+            mod.draw_vdw_overlay(mw, mol)
+
+            colors = mesh.point_data["AtomColors"]
+            assert colors[0][0] == pytest.approx(0.25)
+
+    def test_no_view_3d_manager_uses_legacy_view3d_fallback(self, tmp_path):
+        with mocks_with_real_numpy():
+            mod = load_plugin(VDW_PATH)
+            mod.SETTINGS_FILE = str(tmp_path / "vdw.json")
+
+            mol = MagicMock()
+            mol.GetNumAtoms.return_value = 0
+
+            mw = MagicMock(spec=["view3d", "custom_atom_colors"])
+            mod.draw_vdw_overlay(mw, mol)
+
+            mw.view3d.draw_standard_3d_style.assert_called_once_with(
+                mol, style_override="ball_and_stick"
+            )
+
+    def test_no_conformer_skips_overlay_mesh(self, tmp_path):
+        with mocks_with_real_numpy():
+            mod = load_plugin(VDW_PATH)
+            mod.SETTINGS_FILE = str(tmp_path / "vdw.json")
+
+            mol = MagicMock()
+            mol.GetNumAtoms.return_value = 2
+            mol.GetNumConformers.return_value = 0
+
+            mw = self._base_mw()
+            mod.draw_vdw_overlay(mw, mol)
+
+            mw.view_3d_manager.plotter.add_mesh.assert_not_called()
+
+    def test_resolution_below_minimum_is_clamped(self, tmp_path):
+        with mocks_with_real_numpy():
+            mod = load_plugin(VDW_PATH)
+            mod.SETTINGS_FILE = str(tmp_path / "vdw.json")
+            mod._vdw_settings["resolution"] = 0.0001  # below the 0.01 floor
+            mod.pt = _FakePeriodicTable({6: 1.7})
+
+            mol = _make_mol_with_conformer([("C", 6)], [(0.0, 0.0, 0.0)])
+            mesh_points = mod.np.array([[0.0, 0.0, 0.0]])
+            grid, mesh = _wire_fake_grid(mod, mesh_points)
+
+            mw = self._base_mw()
+            mod.draw_vdw_overlay(mw, mol)
+
+            # spacing kwarg is set on the fake grid from the clamped value.
+            assert grid.spacing == (0.01, 0.01, 0.01)
+
+    def test_no_plotter_skips_add_mesh(self, tmp_path):
+        with mocks_with_real_numpy():
+            mod = load_plugin(VDW_PATH)
+            mod.SETTINGS_FILE = str(tmp_path / "vdw.json")
+            mod._vdw_settings["resolution"] = 0.5
+            mod.pt = _FakePeriodicTable({6: 1.7})
+
+            mol = _make_mol_with_conformer([("C", 6)], [(0.0, 0.0, 0.0)])
+            mesh_points = mod.np.array([[0.0, 0.0, 0.0]])
+            _wire_fake_grid(mod, mesh_points)
+
+            mw = self._base_mw()
+            mw.view_3d_manager.plotter = None
+            mod.draw_vdw_overlay(mw, mol)  # must not raise
+
+    def test_empty_contour_mesh_skips_coloring(self, tmp_path):
+        """An empty iso-surface (n_mesh_pts == 0) must not crash."""
+        with mocks_with_real_numpy():
+            mod = load_plugin(VDW_PATH)
+            mod.SETTINGS_FILE = str(tmp_path / "vdw.json")
+            mod._vdw_settings["resolution"] = 0.5
+            mod.pt = _FakePeriodicTable({6: 1.7})
+
+            mol = _make_mol_with_conformer([("C", 6)], [(0.0, 0.0, 0.0)])
+            mesh_points = mod.np.zeros((0, 3))
+            grid, mesh = _wire_fake_grid(mod, mesh_points)
+
+            mw = self._base_mw()
+            mod.draw_vdw_overlay(mw, mol)
+
+            mw.view_3d_manager.plotter.add_mesh.assert_not_called()
+
+    def test_exception_during_render_is_caught_and_logged(self, tmp_path, caplog):
+        with mocks_with_real_numpy():
+            mod = load_plugin(VDW_PATH)
+            mod.SETTINGS_FILE = str(tmp_path / "vdw.json")
+            mod.pt = _FakePeriodicTable({6: 1.7})
+
+            mol = _make_mol_with_conformer([("C", 6)], [(0.0, 0.0, 0.0)])
+            # pv.ImageData raises -> exercises the except branch.
+            mod.pv.ImageData.side_effect = RuntimeError("boom")
+
+            mw = self._base_mw()
+            mod.draw_vdw_overlay(mw, mol)  # must not raise
+            assert any("VDW Overlay Error" in r.message for r in caplog.records)
+
+
+class TestOpenSettings:
+    def test_creates_new_window_when_none_registered(self):
+        with mock_optional_imports():
+            mod = load_plugin(VDW_PATH)
+        ctx = MagicMock()
+        ctx.get_window.return_value = None
+        created = MagicMock()
+        mod.VDWConfigWindow = MagicMock(return_value=created)
+        mod.open_settings(ctx)
+        created.show.assert_called_once()
+
+    def test_reuses_existing_window(self):
+        with mock_optional_imports():
+            mod = load_plugin(VDW_PATH)
+        ctx = MagicMock()
+        existing = MagicMock()
+        ctx.get_window.return_value = existing
+        mod.open_settings(ctx)
+        existing.show.assert_called_once()
+        existing.raise_.assert_called_once()
+        existing.activateWindow.assert_called_once()
+
+
+class TestRunEntryPoint:
+    def test_run_with_context_opens_settings(self):
+        with mock_optional_imports():
+            mod = load_plugin(VDW_PATH)
+        ctx = MagicMock()
+        mod.initialize(ctx)
+        ctx.get_window.return_value = None
+        mod.VDWConfigWindow = MagicMock()
+        mw = MagicMock(spec=["host"])
+        mw.host = MagicMock(spec=[])
+        mod.run(mw)
+        ctx.get_window.assert_called_once()
+
+    def test_run_unwraps_host_attribute(self):
+        with mock_optional_imports():
+            mod = load_plugin(VDW_PATH)
+        ctx = MagicMock()
+        mod.initialize(ctx)
+        ctx.get_window.return_value = MagicMock()
+        mw = MagicMock()
+        mw.host = MagicMock(spec=[])
+        mod.run(mw)
+        ctx.get_window.return_value.show.assert_called_once()
