@@ -6,6 +6,8 @@ Covers: VectorViewerPlugin.
 
 from __future__ import annotations
 
+import contextlib
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -24,6 +26,53 @@ with mock_chemistry_imports():
 def _vector_context():
     ctx = MagicMock()
     ctx.get_main_window.return_value = None
+    return ctx
+
+
+# Real numpy/pyvista pulled in up front so they're cached before the
+# chemistry-blocking finder snapshots sys.modules — otherwise the first-ever
+# import would be intercepted and replaced with a MagicMock. Guarded so CI's
+# bare test-gui job (only pytest+PyQt6 installed) skips this instead of
+# erroring at collection.
+_np = pytest.importorskip("numpy")
+_pv = pytest.importorskip("pyvista")
+
+
+@contextlib.contextmanager
+def _mock_chemistry_keep_real_numpy_pv():
+    """Like mock_chemistry_imports(), but numpy/pyvista resolve to the real
+    packages so the plugin's real vector math and pv.Arrow calls actually run.
+    """
+    keep_prefixes = ("numpy", "pyvista")
+    real_mods = {
+        k: v for k, v in sys.modules.items() if k.split(".")[0] in keep_prefixes
+    }
+    with mock_chemistry_imports():
+        sys.modules.update(real_mods)
+        yield
+
+
+with _mock_chemistry_keep_real_numpy_pv():
+    _vector_real = load_plugin_for_gui(VECTOR_PATH)
+
+
+def _real_mol(coords):
+    """MagicMock molecule exposing a real-numpy-friendly conformer."""
+    from types import SimpleNamespace
+
+    mol = MagicMock()
+    mol.GetNumAtoms.return_value = len(coords)
+    conf = mol.GetConformer.return_value
+    conf.GetAtomPosition.side_effect = [
+        SimpleNamespace(x=c[0], y=c[1], z=c[2]) for c in coords
+    ]
+    return mol
+
+
+def _real_ctx(mol=None):
+    ctx = MagicMock()
+    ctx.get_main_window.return_value = None
+    ctx.current_molecule = mol
     return ctx
 
 
@@ -105,3 +154,165 @@ class TestVectorViewerPlugin:
         assert callable(_vector._launch_fn)
         ctx.show_status_message.assert_called_once()
         _vector._launch_fn = None
+
+
+# ===========================================================================
+# Real numpy/pyvista paths — get_com, full arrow draw, color picker,
+# closeEvent error handling, export_image
+# ===========================================================================
+
+
+class TestVectorViewerRealMath:
+    @pytest.fixture
+    def rwin(self, qapp):
+        ctx = _real_ctx()
+        w = _vector_real.VectorViewerPlugin(ctx)
+        yield w
+        w.destroy()
+
+    def test_get_com_no_molecule_returns_origin(self, rwin):
+        rwin.context.current_molecule = None
+        com = rwin.get_com()
+        assert list(com) == [0.0, 0.0, 0.0]
+
+    def test_get_com_averages_positions(self, rwin):
+        rwin.context.current_molecule = _real_mol([(0, 0, 0), (2, 4, 6)])
+        com = rwin.get_com()
+        assert list(com) == [1.0, 2.0, 3.0]
+
+    def test_get_com_conformer_error_returns_origin(self, rwin):
+        mol = MagicMock()
+        mol.GetNumAtoms.return_value = 1
+        mol.GetConformer.side_effect = RuntimeError("no conformer")
+        rwin.context.current_molecule = mol
+        com = rwin.get_com()
+        assert list(com) == [0.0, 0.0, 0.0]
+
+    def test_full_draw_creates_arrow_and_adds_mesh(self, rwin):
+        plotter = MagicMock()
+        rwin.context.plotter = plotter
+        rwin.context.current_molecule = None
+        rwin.vec_input.setText("1 0 0")
+        rwin.update_visualization()
+        plotter.add_mesh.assert_called_once()
+        assert plotter.add_mesh.call_args.kwargs["name"] == "vector_viewer_arrow"
+        plotter.render.assert_called_once()
+        assert rwin.vis_actor is plotter.add_mesh.return_value
+
+    def test_reverse_checkbox_flips_vector(self, rwin):
+        plotter = MagicMock()
+        rwin.context.plotter = plotter
+        rwin.context.current_molecule = None
+        rwin.reverse_chk.setChecked(True)
+        rwin.vec_input.setText("1 0 0")
+        rwin.update_visualization()
+        plotter.add_mesh.assert_called_once()
+
+    def test_redraw_removes_previous_actor(self, rwin):
+        plotter = MagicMock()
+        rwin.context.plotter = plotter
+        rwin.context.current_molecule = None
+        rwin.vec_input.setText("1 0 0")
+        rwin.update_visualization()
+        first_actor = rwin.vis_actor
+        rwin.vec_input.setText("2 0 0")
+        rwin.update_visualization()
+        plotter.remove_actor.assert_called_with(first_actor)
+
+    def test_scale_and_opacity_applied(self, rwin):
+        plotter = MagicMock()
+        rwin.context.plotter = plotter
+        rwin.context.current_molecule = None
+        rwin.scale_spin.setValue(2.0)
+        rwin.opacity_spin.setValue(0.75)
+        rwin.vec_input.setText("1 0 0")
+        rwin.update_visualization()
+        kwargs = plotter.add_mesh.call_args.kwargs
+        assert kwargs["opacity"] == 0.75
+
+    def test_choose_color_valid_updates_button(self, rwin, monkeypatch):
+        from PyQt6.QtGui import QColor
+
+        new_color = QColor("red")
+        monkeypatch.setattr(
+            _vector_real.QColorDialog, "getColor", staticmethod(lambda *a, **k: new_color)
+        )
+        rwin.choose_color()
+        assert rwin.arrow_color.name() == new_color.name()
+        assert rwin.color_btn.text() == new_color.name().upper()
+
+    def test_choose_color_invalid_leaves_unchanged(self, rwin, monkeypatch):
+        from PyQt6.QtGui import QColor
+
+        invalid_color = QColor()  # default-constructed QColor is invalid
+        monkeypatch.setattr(
+            _vector_real.QColorDialog,
+            "getColor",
+            staticmethod(lambda *a, **k: invalid_color),
+        )
+        original = rwin.arrow_color
+        rwin.choose_color()
+        assert rwin.arrow_color is original
+
+    def test_close_event_swallows_remove_actor_exception(self, rwin):
+        plotter = MagicMock()
+        plotter.remove_actor.side_effect = RuntimeError("boom")
+        rwin.context.plotter = plotter
+        rwin.vis_actor = object()
+        rwin.close()  # must not raise
+        assert rwin.vis_actor is None
+
+    def test_export_image_no_plotter_warns(self, rwin, monkeypatch):
+        rwin.context.plotter = None
+        warned = {}
+        monkeypatch.setattr(
+            _vector_real.QMessageBox,
+            "warning",
+            staticmethod(lambda *a, **k: warned.setdefault("called", True)),
+        )
+        rwin.export_image()
+        assert warned.get("called") is True
+
+    def test_export_image_no_filename_is_noop(self, rwin, monkeypatch):
+        plotter = MagicMock()
+        rwin.context.plotter = plotter
+        monkeypatch.setattr(
+            _vector_real.QFileDialog,
+            "getSaveFileName",
+            staticmethod(lambda *a, **k: ("", "")),
+        )
+        rwin.export_image()
+        plotter.screenshot.assert_not_called()
+
+    def test_export_image_success_reports_status(self, rwin, monkeypatch):
+        plotter = MagicMock()
+        rwin.context.plotter = plotter
+        monkeypatch.setattr(
+            _vector_real.QFileDialog,
+            "getSaveFileName",
+            staticmethod(lambda *a, **k: ("C:/out.png", "")),
+        )
+        rwin.trans_chk.setChecked(True)
+        rwin.export_image()
+        plotter.screenshot.assert_called_once_with(
+            "C:/out.png", transparent_background=True
+        )
+        rwin.context.show_status_message.assert_called_once()
+
+    def test_export_image_screenshot_error_shows_critical(self, rwin, monkeypatch):
+        plotter = MagicMock()
+        plotter.screenshot.side_effect = RuntimeError("disk full")
+        rwin.context.plotter = plotter
+        monkeypatch.setattr(
+            _vector_real.QFileDialog,
+            "getSaveFileName",
+            staticmethod(lambda *a, **k: ("C:/out.png", "")),
+        )
+        critical = {}
+        monkeypatch.setattr(
+            _vector_real.QMessageBox,
+            "critical",
+            staticmethod(lambda *a, **k: critical.setdefault("called", True)),
+        )
+        rwin.export_image()
+        assert critical.get("called") is True
