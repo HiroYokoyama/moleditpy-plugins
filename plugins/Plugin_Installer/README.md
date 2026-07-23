@@ -1,5 +1,7 @@
 # Plugin Installer
 
+![coverage](https://img.shields.io/badge/coverage-%3E90%25-brightgreen)
+
 A management plugin for MoleditPy that installs, updates, and removes plugins directly from the official registry.
 
 ## Features
