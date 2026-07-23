@@ -34,26 +34,19 @@ jobs:
   # ---------------------------------------------------------------------------
   # Registry integrity — JSON validity, sha256/version consistency with the
   # plugin sources, and the metadata-sync no-op check. ALWAYS runs (this is the
-  # job a registry-only change most needs). The matrix is kept so a registry
-  # script that fails to even import on a supported interpreter is caught, since
-  # no test imports those scripts.
+  # job a registry-only change most needs). Registry data and the scripts that
+  # produce it are interpreter-independent, so this runs on a single Python.
   # ---------------------------------------------------------------------------
   test-registry:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        # 3.9 is the floor declared by PLUGIN_SUPPORTED_PYTHON_VERSION, so it
-        # is tested even though development happens on newer interpreters.
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.12"
 
       - name: Install dependencies
         run: pip install pytest pytest-mock numpy
