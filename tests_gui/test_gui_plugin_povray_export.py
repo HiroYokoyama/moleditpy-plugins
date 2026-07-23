@@ -74,6 +74,15 @@ class TestPovRayExportModule:
         mw = MagicMock()
         _povray.run(mw)  # PLUGIN_CONTEXT is None → early return
 
+    def test_run_calls_export_to_povray_when_context_set(self, monkeypatch):
+        ctx = _make_ctx()
+        _povray.PLUGIN_CONTEXT = ctx
+        export_mock = MagicMock()
+        monkeypatch.setattr(_povray, "export_to_povray", export_mock)
+        mw = MagicMock()  # has plugin_manager (auto-attribute)
+        _povray.run(mw)
+        export_mock.assert_called_once_with(ctx)
+
 
 # ===========================================================================
 # export_to_povray — control flow (guards / cancel / save / error)
@@ -155,3 +164,13 @@ class TestPovRayExportFlow:
         _povray.generate_povray_scene.side_effect = RuntimeError("boom")
         _povray.export_to_povray(ctx)
         self.critical.assert_called_once()
+
+    def test_bad_current_file_path_falls_back_to_default_name(self, tmp_path):
+        # current_file_path is a non-str value -> os.path.dirname/splitext raise
+        # inside the try block, exercising the silenced except branch.
+        ctx = self._ctx(_mol())
+        ctx.get_main_window.return_value.init_manager.current_file_path = 12345
+        target = tmp_path / "scene"
+        self._save_ret = (str(target), "")
+        _povray.export_to_povray(ctx)
+        assert (tmp_path / "scene.pov").exists()

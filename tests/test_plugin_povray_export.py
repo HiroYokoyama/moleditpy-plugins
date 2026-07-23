@@ -10,7 +10,13 @@ import contextlib
 from pathlib import Path
 from types import SimpleNamespace
 
-from conftest import FakeMol, load_plugin, make_context, mock_optional_imports, mocks_with_real_numpy
+from conftest import (
+    FakeMol,
+    load_plugin,
+    make_context,
+    mock_optional_imports,
+    mocks_with_real_numpy,
+)
 
 PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
 POVRAY_PATH = PLUGINS_DIR / "POV-Ray_Export" / "povray_export.py"
@@ -163,6 +169,202 @@ class TestPovrayTripleBondRegression:
         # ball_and_stick: cyl_radius=0.1, triple_offset_factor=2.0 → ±0.2
         # Bond along x → offset along ±y (cross with z-arbitrary vector).
         assert "<0.0000, -0.2000, 0.0000>," in scene or "<0.0000, 0.2000, 0.0000>," in scene
+
+
+class TestPovraySceneAdditionalBranches:
+    """
+    Targeted coverage for less-common branches in generate_povray_scene:
+    stick-style terminal multi-bonds, orthographic camera, color-map hits,
+    zero-length bonds, empty molecules, and QColor parse failures.
+    """
+
+    def _generate_mol(self, mol, mw, POVRAY=None):
+        with povray_env() as mod:
+            return mod.generate_povray_scene(mol, mw), mod
+
+    def test_stick_style_terminal_double_bond_splits_sphere(self):
+        with povray_env() as mod:
+            import rdkit
+
+            # Real rdkit exposes Chem.BondType as an alias of Chem.rdchem.BondType;
+            # the mocked module needs the same identity so both accessor paths
+            # used across the source (terminal-skip vs. main bond loop) compare equal.
+            rdkit.Chem.BondType = rdkit.Chem.rdchem.BondType
+            bt = rdkit.Chem.rdchem.BondType
+            # C0 central (degree 2), C1 terminal double bond, C2 single neighbor
+            mol = FakeMol(
+                ["C", "C", "C"],
+                [(0.0, 0.0, 0.0), (1.5, 0.0, 0.0), (-1.5, 0.0, 0.0)],
+                [(0, 1, bt.DOUBLE), (0, 2, bt.SINGLE)],
+            )
+            mw = make_export_mw(style="stick")
+            scene, w, h = mod.generate_povray_scene(mol, mw)
+            # terminal double bond -> 2 split spheres for atom 1, plus atoms 0 and 2
+            assert scene.count("\nsphere {") == 4
+
+    def test_stick_style_terminal_triple_bond_splits_sphere(self):
+        with povray_env() as mod:
+            import rdkit
+
+            rdkit.Chem.BondType = rdkit.Chem.rdchem.BondType
+            bt = rdkit.Chem.rdchem.BondType
+            mol = FakeMol(
+                ["C", "C", "C"],
+                [(0.0, 0.0, 0.0), (1.5, 0.0, 0.0), (-1.5, 0.0, 0.0)],
+                [(0, 1, bt.TRIPLE), (0, 2, bt.SINGLE)],
+            )
+            mw = make_export_mw(style="stick")
+            scene, w, h = mod.generate_povray_scene(mol, mw)
+            # terminal triple bond -> 3 split spheres for atom 1, plus atoms 0 and 2
+            assert scene.count("\nsphere {") == 5
+
+    def test_double_bond_offset_uses_neighbor_normals(self):
+        with povray_env() as mod:
+            import rdkit
+
+            bt = rdkit.Chem.rdchem.BondType
+            # C0=C1 double bond, each end has an extra neighbor off-axis so
+            # _calculate_double_bond_offset can average real normal vectors.
+            mol = FakeMol(
+                ["C", "C", "C", "C"],
+                [
+                    (0.0, 0.0, 0.0),
+                    (1.5, 0.0, 0.0),
+                    (-1.0, 1.0, 0.0),
+                    (2.5, 1.0, 0.0),
+                ],
+                [
+                    (0, 1, bt.DOUBLE),
+                    (0, 2, bt.SINGLE),
+                    (1, 3, bt.SINGLE),
+                ],
+            )
+            mw = make_export_mw(style="ball_and_stick")
+            scene, w, h = mod.generate_povray_scene(mol, mw)
+            assert isinstance(scene, str) and scene
+
+    def test_orthographic_camera(self):
+        cam = SimpleNamespace(
+            GetPosition=lambda: (0.0, 0.0, 5.0),
+            GetFocalPoint=lambda: (0.0, 0.0, 0.0),
+            GetViewUp=lambda: (0.0, 1.0, 0.0),
+            GetParallelProjection=lambda: True,
+            GetParallelScale=lambda: 4.0,
+            GetViewAngle=lambda: 30.0,
+        )
+        plotter = SimpleNamespace(window_size=(1920, 1080), camera=cam)
+        with povray_env() as mod:
+            import rdkit
+
+            bt = rdkit.Chem.rdchem.BondType
+            mol = _simple_mol([bt.SINGLE])
+            mw = make_export_mw(plotter=plotter)
+            scene, w, h = mod.generate_povray_scene(mol, mw)
+            assert "orthographic" in scene
+            assert "up y*8.0" in scene
+
+    def test_large_window_no_resolution_scaling(self):
+        plotter = SimpleNamespace(window_size=(2560, 1440))
+        with povray_env() as mod:
+            import rdkit
+
+            bt = rdkit.Chem.rdchem.BondType
+            mol = _simple_mol([bt.SINGLE])
+            mw = make_export_mw(plotter=plotter)
+            scene, w, h = mod.generate_povray_scene(mol, mw)
+            assert (w, h) == (2560, 1440)
+
+    def test_zero_length_bond_is_skipped(self):
+        with povray_env() as mod:
+            import rdkit
+
+            bt = rdkit.Chem.rdchem.BondType
+            mol = FakeMol(
+                ["C", "C"], [(0.0, 0.0, 0.0), (0.0, 0.0, 0.0)], [(0, 1, bt.SINGLE)]
+            )
+            mw = make_export_mw()
+            scene, w, h = mod.generate_povray_scene(mol, mw)
+            assert scene.count("cylinder {") == 0
+
+    def test_no_atoms_uses_fallback_bounds(self):
+        with povray_env() as mod:
+            mol = FakeMol([], [], [])
+            mw = make_export_mw()
+            scene, w, h = mod.generate_povray_scene(mol, mw)
+            assert "// End of scene - 0 atoms, 0 bonds" in scene
+
+    def test_qcolor_parse_failure_falls_back_to_default_gray(self):
+        with povray_env() as mod:
+            import rdkit
+
+            bt = rdkit.Chem.rdchem.BondType
+            mol = _simple_mol([bt.SINGLE])
+            mw = make_export_mw(settings={"background_color": None})
+            scene, w, h = mod.generate_povray_scene(mol, mw)
+            assert "background { color rgb <0.310, 0.310, 0.310> }" in scene
+
+    def test_uniform_bond_color_from_color_map(self):
+        with povray_env() as mod:
+            import rdkit
+
+            bt = rdkit.Chem.rdchem.BondType
+            mol = _simple_mol([bt.SINGLE])
+            mw = make_export_mw(color_map={"bond_0": (10, 20, 30)})
+            scene, w, h = mod.generate_povray_scene(mol, mw)
+            assert "color rgb <0.039, 0.078, 0.118>" in scene
+
+    def test_cpk_split_bond_color_from_color_map(self):
+        with povray_env() as mod:
+            import rdkit
+
+            bt = rdkit.Chem.rdchem.BondType
+            mol = _simple_mol([bt.SINGLE])
+            mw = make_export_mw(
+                color_map={
+                    "bond_0_start": (255, 0, 0),
+                    "bond_0_end": (0, 255, 0),
+                }
+            )
+            scene, w, h = mod.generate_povray_scene(mol, mw)
+            assert "Bond 0 start" in scene
+            assert "Bond 0 end" in scene
+
+    def test_double_bond_uniform_segment_colors(self):
+        with povray_env() as mod:
+            import rdkit
+
+            bt = rdkit.Chem.rdchem.BondType
+            mol = _simple_mol([bt.DOUBLE])
+            mw = make_export_mw(
+                color_map={
+                    "bond_0_1": (255, 0, 0),
+                    "bond_0_2": (0, 0, 255),
+                }
+            )
+            scene, w, h = mod.generate_povray_scene(mol, mw)
+            assert "Bond 0 segment 1" in scene
+            assert "Bond 0 segment 2" in scene
+
+    def test_triple_bond_uniform_colors_and_z_aligned_offset(self):
+        with povray_env() as mod:
+            import rdkit
+
+            bt = rdkit.Chem.rdchem.BondType
+            # Bond along z-axis to exercise the v_arb re-selection branch.
+            mol = FakeMol(
+                ["C", "C"], [(0.0, 0.0, 0.0), (0.0, 0.0, 1.5)], [(0, 1, bt.TRIPLE)]
+            )
+            mw = make_export_mw(
+                color_map={
+                    "bond_0_1": (255, 255, 255),
+                    "bond_0_2": (10, 10, 10),
+                    "bond_0_3": (20, 20, 20),
+                }
+            )
+            scene, w, h = mod.generate_povray_scene(mol, mw)
+            assert "Bond 0 center" in scene
+            assert "Bond 0 side 1" in scene
+            assert "Bond 0 side 2" in scene
 
 
 class TestPOVRayExportInitialize:
