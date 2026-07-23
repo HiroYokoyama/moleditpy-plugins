@@ -808,7 +808,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Chat with Molecule Neo (ChatGPT)",
-    "version": "2026.07.08",
+    "version": "2026.07.24",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with OpenAI ChatGPT about the current molecule. Automatically injects SMILES context. (Neo Version)",
@@ -823,8 +823,8 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_ChatGPT/chat_with_molecule_neo_chatGPT.py",
-    "lastUpdated": "2026-07-08",
-    "sha256": "933ed6a4b465dde2220c94ab4ec565442543ea0e79b99fd7dcabc6b192c57abb",
+    "lastUpdated": "2026-07-24",
+    "sha256": "7d254d0c163f458ef67e407e80bcb7501df017b93db08000238fded24087cd82",
     "firstAppeared": "2025-12-30",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -839,7 +839,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Chat with Molecule Neo (Local)",
-    "version": "2026.07.08",
+    "version": "2026.07.24",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with local LLM about the current molecule. Automatically injects SMILES context. (Neo Version)",
@@ -854,8 +854,8 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_Local/chat_with_molecule_neo_local.py",
-    "lastUpdated": "2026-07-08",
-    "sha256": "a123aa4e299e2affd190131836487c148e4653a8b375d2178e992b8921a3781e",
+    "lastUpdated": "2026-07-24",
+    "sha256": "acc09400c6195e473fcac92b2fdef14b8edc313bb5815eafa2a336153bfbd7b1",
     "firstAppeared": "2025-12-30",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

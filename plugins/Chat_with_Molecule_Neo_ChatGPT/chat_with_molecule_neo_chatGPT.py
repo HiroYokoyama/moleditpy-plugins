@@ -3,7 +3,7 @@
 
 
 PLUGIN_NAME = "Chat with Molecule Neo (ChatGPT)"
-PLUGIN_VERSION = "2026.07.08"
+PLUGIN_VERSION = "2026.07.24"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with OpenAI ChatGPT about the current molecule. Automatically injects SMILES context. (Neo Version)"
@@ -2792,10 +2792,6 @@ class ChatMoleculeWindow(QDialog):
         try:
             smiles = params.get("smiles", None)
             name = params.get("name", "")
-
-            # User Request: "Optimize 2D" after conversion
-            if hasattr(self.main_window.edit_actions_manager, "clean_up_2d_structure"):
-                self.main_window.edit_actions_manager.clean_up_2d_structure()
 
             if not smiles:
                 self.append_message("System", "Error: No SMILES provided.", "red")

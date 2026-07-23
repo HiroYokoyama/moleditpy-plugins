@@ -3,7 +3,7 @@
 
 
 PLUGIN_NAME = "Chat with Molecule Neo (Local) (truststore)"
-PLUGIN_VERSION = "2026.07.08"
+PLUGIN_VERSION = "2026.07.24"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with Local LLM (OpenAI-Compatible) about the current molecule. Automatically injects SMILES context. (Neo Version) Note: InChIKey is sent to PubChem."
@@ -3468,6 +3468,7 @@ class ChatMoleculeWindow(QDialog):
         calc_info = ""
         if smiles and smiles in self.calc_results_by_smiles:
             calc_info = self.calc_results_by_smiles[smiles]
+            self.calc_results_by_smiles.pop(smiles)  # Clear after use for this molecule
 
         return (
             f"I am currently looking at a molecule. {name_str}{descriptor_str}"
