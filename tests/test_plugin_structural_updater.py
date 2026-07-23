@@ -412,3 +412,302 @@ class TestUpdaterFinalize:
         with mock_optional_imports():
             mod = load_plugin(STRUCTURAL_PATH)
             assert mod.PLUGIN_VERSION > "2026.06.27"
+
+
+# ---------------------------------------------------------------------------
+# load_settings / save_settings — exception (warning-log) branches
+# ---------------------------------------------------------------------------
+
+
+class TestUpdaterSettingsExceptionPaths:
+    def test_load_settings_bad_json_is_silenced(self, tmp_path):
+        with mock_optional_imports():
+            ctx = make_context()
+            plugin = SU.StructuralUpdaterPlugin(ctx)
+        settings_file = tmp_path / "bad.json"
+        settings_file.write_text("{not valid json")
+        plugin.settings_file = str(settings_file)
+        plugin.enabled = True
+        plugin.load_settings()  # must not raise; exception is caught & logged
+        assert plugin.enabled is True  # unchanged since load failed
+
+    def test_save_settings_bad_path_is_silenced(self, tmp_path):
+        with mock_optional_imports():
+            ctx = make_context()
+            plugin = SU.StructuralUpdaterPlugin(ctx)
+        # A directory path cannot be opened for writing -> IsADirectoryError
+        plugin.settings_file = str(tmp_path)
+        plugin.save_settings()  # must not raise
+
+
+# ---------------------------------------------------------------------------
+# patch_mainwindow / new_on_calculation_finished — disconnect() exception
+# ---------------------------------------------------------------------------
+
+
+class TestUpdaterDisconnectExceptionPaths:
+    def test_patch_mainwindow_disconnect_exception_is_silenced(self):
+        with mock_optional_imports():
+            ctx = make_context()
+            mw = ctx.get_main_window()
+            mw.init_manager.convert_button.clicked.disconnect.side_effect = TypeError(
+                "no connections"
+            )
+            plugin = SU.StructuralUpdaterPlugin(ctx)  # must not raise
+        # Connect still happens after the silenced exception
+        mw.init_manager.convert_button.clicked.connect.assert_called_with(
+            plugin.new_trigger_conversion
+        )
+
+    def test_calculation_finished_disconnect_exception_is_silenced(self):
+        with mock_optional_imports():
+            mod = load_plugin(STRUCTURAL_PATH)
+            orig = MagicMock()
+            mod._ORIGINAL_METHODS["on_calculation_finished"] = orig
+            inst = _updater_instance(mod, enabled=False)
+            inst.mw.init_manager.convert_button.clicked.disconnect.side_effect = Exception(
+                "boom"
+            )
+            inst.new_on_calculation_finished("RESULT")  # must not raise
+            inst.mw.init_manager.convert_button.clicked.connect.assert_called_with(
+                inst.new_trigger_conversion
+            )
+
+
+# ---------------------------------------------------------------------------
+# apply_changes_to_3d — full core-logic coverage
+# ---------------------------------------------------------------------------
+
+
+class RAtom:
+    """Rich fake RDKit atom exposing what apply_changes_to_3d needs."""
+
+    def __init__(self, num, oid=None, idx=0):
+        self._num = num
+        self._oid = oid
+        self._idx = idx
+
+    def GetIdx(self):
+        return self._idx
+
+    def GetAtomicNum(self):
+        return self._num
+
+    def HasProp(self, key):
+        return key == "_original_atom_id" and self._oid is not None
+
+    def GetIntProp(self, key):
+        return self._oid
+
+    def GetBonds(self):
+        return []
+
+    def GetNeighbors(self):
+        return []
+
+
+class RConf:
+    def __init__(self, coords):
+        self._coords = list(coords)
+        self.set_calls = []
+
+    def GetAtomPosition(self, i):
+        return FakePos(*self._coords[i])
+
+    def SetAtomPosition(self, idx, pos):
+        self.set_calls.append((idx, pos))
+
+
+class RMol:
+    def __init__(self, atoms, coords, conf_raises=False, num_conformers=1):
+        self._atoms = atoms
+        self._coords = coords
+        self._conf_raises = conf_raises
+        self._num_conformers = num_conformers
+        for i, a in enumerate(atoms):
+            a._idx = i
+
+    def GetAtoms(self):
+        return list(self._atoms)
+
+    def GetAtomWithIdx(self, i):
+        return self._atoms[i]
+
+    def GetNumAtoms(self):
+        return len(self._atoms)
+
+    def GetConformer(self):
+        if self._conf_raises:
+            raise RuntimeError("no conformer")
+        return RConf(self._coords)
+
+    def GetNumConformers(self):
+        return self._num_conformers
+
+
+class TestApplyChangesToThreeD:
+    def _mod(self):
+        with mock_optional_imports():
+            mod = load_plugin(STRUCTURAL_PATH)
+        mod.Chem.AddHs.side_effect = lambda mol: mol
+        return mod
+
+    def _make_mols(self, n=4, matched=True):
+        new_atoms = [RAtom(6, oid=(i if matched else 100 + i)) for i in range(n)]
+        old_atoms = [RAtom(6, oid=i) for i in range(n)]
+        coords = [(float(i), 0.0, 0.0) for i in range(n)]
+        return RMol(new_atoms, coords), RMol(old_atoms, coords)
+
+    def _inst(self, mod, new_mol, old_mol, mw=None):
+        inst = object.__new__(mod.StructuralUpdaterPlugin)
+        inst.context = MagicMock()
+        inst.context.current_molecule = old_mol
+        if mw is None:
+            mw = MagicMock()
+            mw.state_manager.data.to_rdkit_mol.return_value = new_mol
+        inst.mw = mw
+        inst.force_full_conversion = MagicMock()
+        return inst
+
+    def test_invalid_2d_structure(self):
+        mod = self._mod()
+        inst = self._inst(mod, None, MagicMock())
+        inst.apply_changes_to_3d()
+        inst.context.show_status_message.assert_any_call(
+            "Error: Invalid 2D structure."
+        )
+
+    def test_no_old_mol_forces_full_conversion(self):
+        mod = self._mod()
+        new_mol, _ = self._make_mols()
+        inst = self._inst(mod, new_mol, None)
+        inst.apply_changes_to_3d()
+        inst.force_full_conversion.assert_called_once()
+
+    def test_conformer_exception_forces_full_conversion(self):
+        mod = self._mod()
+        new_mol, old_mol = self._make_mols()
+        old_mol._conf_raises = True
+        inst = self._inst(mod, new_mol, old_mol)
+        inst.apply_changes_to_3d()
+        inst.force_full_conversion.assert_called_once()
+
+    def test_too_few_matches_forces_full_conversion(self):
+        mod = self._mod()
+        new_mol, old_mol = self._make_mols(matched=False)
+        inst = self._inst(mod, new_mol, old_mol)
+        inst.apply_changes_to_3d()
+        inst.force_full_conversion.assert_called_once()
+        inst.context.show_status_message.assert_any_call(
+            "Notice: Too few matching atoms (0). Performing full conversion."
+        )
+
+    def test_embed_success_first_attempt_mmff(self):
+        mod = self._mod()
+        new_mol, old_mol = self._make_mols()
+        mod.AllChem.EmbedMolecule.return_value = 0
+        mod.AllChem.MMFFHasAllMoleculeParams.return_value = True
+        ff = MagicMock()
+        mod.AllChem.MMFFGetMoleculeForceField.return_value = ff
+        inst = self._inst(mod, new_mol, old_mol)
+        inst.apply_changes_to_3d()
+        inst.mw.compute_manager.on_calculation_finished.assert_called_once_with(
+            new_mol
+        )
+        ff.AddFixedPoint.assert_called()
+        ff.Minimize.assert_called_once_with(maxIts=200)
+        inst.context.show_status_message.assert_any_call(
+            "Applied 2D changes to 3D structure."
+        )
+
+    def test_embed_success_uff_path(self):
+        mod = self._mod()
+        new_mol, old_mol = self._make_mols()
+        mod.AllChem.EmbedMolecule.return_value = 0
+        mod.AllChem.MMFFHasAllMoleculeParams.return_value = False
+        ff = MagicMock()
+        mod.AllChem.UFFGetMoleculeForceField.return_value = ff
+        inst = self._inst(mod, new_mol, old_mol)
+        inst.apply_changes_to_3d()
+        mod.AllChem.UFFGetMoleculeForceField.assert_called_once()
+        inst.mw.compute_manager.on_calculation_finished.assert_called_once()
+
+    def test_ff_none_skips_minimize(self):
+        mod = self._mod()
+        new_mol, old_mol = self._make_mols()
+        mod.AllChem.EmbedMolecule.return_value = 0
+        mod.AllChem.MMFFHasAllMoleculeParams.return_value = True
+        mod.AllChem.MMFFGetMoleculeForceField.return_value = None
+        inst = self._inst(mod, new_mol, old_mol)
+        inst.apply_changes_to_3d()
+        inst.mw.compute_manager.on_calculation_finished.assert_called_once()
+
+    def test_minimize_exception_forces_full_conversion(self):
+        mod = self._mod()
+        new_mol, old_mol = self._make_mols()
+        mod.AllChem.EmbedMolecule.return_value = 0
+        mod.AllChem.MMFFHasAllMoleculeParams.return_value = True
+        ff = MagicMock()
+        ff.Minimize.side_effect = RuntimeError("explode")
+        mod.AllChem.MMFFGetMoleculeForceField.return_value = ff
+        inst = self._inst(mod, new_mol, old_mol)
+        inst.apply_changes_to_3d()
+        inst.force_full_conversion.assert_called_once()
+        inst.context.show_status_message.assert_any_call(
+            "Notice: Structure optimization unstable. Re-generating full 3D structure...",
+            5000,
+        )
+
+    def test_fallback1_success(self):
+        mod = self._mod()
+        new_mol, old_mol = self._make_mols()
+        mod.AllChem.EmbedMolecule.side_effect = [1, 0]
+        mod.AllChem.MMFFHasAllMoleculeParams.return_value = True
+        mod.AllChem.MMFFGetMoleculeForceField.return_value = MagicMock()
+        inst = self._inst(mod, new_mol, old_mol)
+        inst.apply_changes_to_3d()
+        assert mod.AllChem.EmbedMolecule.call_count == 2
+        inst.mw.compute_manager.on_calculation_finished.assert_called_once()
+
+    def test_fallback2_success(self):
+        mod = self._mod()
+        new_mol, old_mol = self._make_mols()
+        mod.AllChem.EmbedMolecule.side_effect = [1, 1, 0]
+        mod.AllChem.MMFFHasAllMoleculeParams.return_value = True
+        mod.AllChem.MMFFGetMoleculeForceField.return_value = MagicMock()
+        inst = self._inst(mod, new_mol, old_mol)
+        inst.apply_changes_to_3d()
+        assert mod.AllChem.EmbedMolecule.call_count == 3
+        inst.mw.compute_manager.on_calculation_finished.assert_called_once()
+
+    def test_all_embeds_fail_forces_full_conversion(self):
+        mod = self._mod()
+        new_mol, old_mol = self._make_mols()
+        mod.AllChem.EmbedMolecule.side_effect = [1, 1, 1]
+        inst = self._inst(mod, new_mol, old_mol)
+        inst.apply_changes_to_3d()
+        inst.force_full_conversion.assert_called_once()
+
+    def test_legacy_data_fallback_uses_mw_data(self):
+        """Regression: elif branch used mw.state_manager.data instead of
+        mw.data, so it crashed for hosts without a state_manager attr."""
+        mod = self._mod()
+        new_mol, old_mol = self._make_mols()
+        mod.AllChem.EmbedMolecule.return_value = 0
+        mod.AllChem.MMFFHasAllMoleculeParams.return_value = True
+        mod.AllChem.MMFFGetMoleculeForceField.return_value = MagicMock()
+
+        class LegacyMw:
+            pass
+
+        legacy_mw = LegacyMw()
+        legacy_mw.data = MagicMock()
+        legacy_mw.data.to_rdkit_mol.return_value = new_mol
+        legacy_mw.compute_manager = MagicMock()
+
+        inst = self._inst(mod, None, old_mol, mw=legacy_mw)
+        inst.apply_changes_to_3d()
+        legacy_mw.data.to_rdkit_mol.assert_called_once()
+        legacy_mw.compute_manager.on_calculation_finished.assert_called_once_with(
+            new_mol
+        )
