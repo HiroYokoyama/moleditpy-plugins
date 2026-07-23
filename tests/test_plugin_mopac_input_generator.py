@@ -404,3 +404,31 @@ class TestMopacInitialChargeMult:
     def test_no_molecule_is_noop(self):
         fake = self._run(None, 0)
         assert fake.charge_spin.set_values == []
+
+
+class TestMopacRun:
+    """run(mw) module-level function, real module (not AST-extracted)."""
+
+    def test_no_molecule_warns_and_returns(self):
+        with mock_optional_imports():
+            mod = load_plugin(MOPAC_PATH)
+            mw = MagicMock()
+            mw.current_mol = None
+            mod.QMessageBox.warning.reset_mock()
+            mod.run(mw)
+            mod.QMessageBox.warning.assert_called_once()
+
+    def test_with_molecule_opens_dialog(self):
+        with mock_optional_imports():
+            mod = load_plugin(MOPAC_PATH)
+            mw = MagicMock()
+            mw.current_mol = MagicMock()
+            mw.current_file_path = "job.xyz"
+            mod.run(mw)  # should not raise; dialog constructed and exec()'d
+
+    def test_with_molecule_no_file_path(self):
+        with mock_optional_imports():
+            mod = load_plugin(MOPAC_PATH)
+            mw = MagicMock(spec=["current_mol"])
+            mw.current_mol = MagicMock()
+            mod.run(mw)
