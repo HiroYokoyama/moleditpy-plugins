@@ -360,3 +360,33 @@ class TestChemDrawReconstructEdgeCases:
         # header(3) + counts + 2 atoms + 1 bond + M END
         assert len(lines) == 3 + 1 + 2 + 1 + 1
         assert lines[-1] == "M  END"
+
+    def test_atom_token_stream_exhausted_between_atoms_breaks_loop(self):
+        # n_atoms=2 declared but only one atom's worth of tokens supplied;
+        # the top-of-loop "ran out of tokens" guard must break, not raise.
+        one_atom = ["0.0", "0.0", "0.0", "C"] + ["0"] * 12
+        _, block = _reconstruct(_flat(2, 0, one_atom))
+        lines = block.splitlines()
+        # only 1 atom line was actually written despite n_atoms=2 in header
+        assert lines[3].startswith("  2  0")
+        assert len(lines) == 3 + 1 + 1 + 1  # header+counts+1atom+M END
+
+    def test_bond_token_stream_exhausted_between_bonds_breaks_loop(self):
+        # n_bonds=2 declared but only one bond's worth of tokens supplied.
+        atoms = (
+            ["0.0", "0.0", "0.0", "C"] + ["0"] * 12
+            + ["1.0", "0.0", "0.0", "C"] + ["0"] * 12
+        )
+        one_bond = ["1", "2", "1", "0"]
+        _, block = _reconstruct(_flat(2, 2, atoms + one_bond))
+        lines = block.splitlines()
+        assert "  1  2  1  0  0  0  0" in lines
+        # second bond never written; block still terminates cleanly
+        assert lines[-1] == "M  END"
+
+    def test_trailing_non_m_garbage_token_is_skipped(self):
+        # Leftover tokens after bonds that aren't "M" tags must be consumed
+        # one-at-a-time by the else branch, without raising.
+        tokens = ["0.0", "0.0", "0.0", "C"] + ["0"] * 12 + ["GARBAGE", "TOKENS"]
+        _, block = _reconstruct(_flat(1, 0, tokens))
+        assert block.splitlines()[-1] == "M  END"

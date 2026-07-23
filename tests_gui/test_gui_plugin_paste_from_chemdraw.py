@@ -278,3 +278,331 @@ class TestRunClipboardPaths:
         _chemdraw.run(ctx)
         assert len(warnings) == 1
         ctx.push_undo_checkpoint.assert_not_called()
+
+
+# ===========================================================================
+# Context resolution: legacy PLUGIN_CONTEXT fallback + mw.host unwrap
+# ===========================================================================
+
+
+class TestContextResolution:
+    def teardown_method(self, method):
+        _chemdraw.PLUGIN_CONTEXT = None
+
+    def test_bare_context_without_get_main_window_falls_back_to_none_returns(self):
+        # No hasattr(context, "get_main_window") and no stored PLUGIN_CONTEXT
+        # -> silent early return, no exception.
+        _chemdraw.PLUGIN_CONTEXT = None
+
+        class _Bare:
+            pass
+
+        assert _chemdraw.run(_Bare()) is None
+
+    def test_bare_context_uses_stored_plugin_context(self, qapp, monkeypatch):
+        warnings = []
+        monkeypatch.setattr(
+            _chemdraw.QMessageBox,
+            "warning",
+            staticmethod(lambda *a, **k: warnings.append(a)),
+        )
+        real_ctx = MagicMock()
+        real_ctx.get_main_window.return_value = object()
+        _chemdraw.PLUGIN_CONTEXT = real_ctx
+
+        class _Bare:
+            pass
+
+        qapp.clipboard().clear()
+        _chemdraw.run(_Bare())
+        # Falls through to the stored PLUGIN_CONTEXT and proceeds normally.
+        assert len(warnings) == 1
+
+    def test_mw_host_attribute_is_unwrapped(self, qapp, monkeypatch):
+        warnings = []
+        monkeypatch.setattr(
+            _chemdraw.QMessageBox,
+            "warning",
+            staticmethod(lambda *a, **k: warnings.append(a)),
+        )
+        ctx = MagicMock()
+
+        class _HostWrapped:
+            host = object()
+
+        ctx.get_main_window.return_value = _HostWrapped()
+        qapp.clipboard().clear()
+        _chemdraw.run(ctx)
+        assert len(warnings) == 1
+        # main_window passed to QMessageBox.warning is the unwrapped .host
+        assert warnings[0][0] is _HostWrapped.host
+
+
+# ===========================================================================
+# Binary clipboard formats (MDLCT / MDLSK) — byte decode loop
+# ===========================================================================
+
+
+class TestBinaryFormatDecoding:
+    @pytest.fixture
+    def ctx(self):
+        class _BareMainWindow:
+            pass
+
+        c = MagicMock()
+        c.get_main_window.return_value = _BareMainWindow()
+        return c
+
+    @pytest.fixture
+    def clipboard(self, qapp):
+        cb = qapp.clipboard()
+        yield cb
+        cb.clear()
+
+    @pytest.fixture
+    def warnings(self, monkeypatch):
+        calls = []
+        monkeypatch.setattr(
+            _chemdraw.QMessageBox,
+            "warning",
+            staticmethod(lambda *a, **k: calls.append(a)),
+        )
+        return calls
+
+    def _set_mdlct(self, clipboard, payload_bytes, fmt="MDLCT"):
+        from PyQt6.QtCore import QMimeData, QByteArray
+
+        mime = QMimeData()
+        mime.setData(fmt, QByteArray(payload_bytes))
+        clipboard.setMimeData(mime)
+
+    def test_mdlct_binary_v2000_payload_parsed(
+        self, ctx, clipboard, warnings, monkeypatch
+    ):
+        monkeypatch.setattr(
+            _chemdraw.Chem, "MolFromMolBlock", lambda *a, **k: _FakeMol()
+        )
+        block = "\n\n\nfake header\n  1  0  0  0  0  0  0  0  0  0999 V2000\nM  END\n"
+        self._set_mdlct(clipboard, block.encode("utf-8"))
+        _chemdraw.run(ctx)
+        assert warnings == []
+        ctx.push_undo_checkpoint.assert_called_once()
+
+    def test_empty_first_format_falls_through_to_next(
+        self, ctx, clipboard, warnings, monkeypatch
+    ):
+        from PyQt6.QtCore import QMimeData, QByteArray
+
+        monkeypatch.setattr(
+            _chemdraw.Chem, "MolFromMolBlock", lambda *a, **k: _FakeMol()
+        )
+        mime = QMimeData()
+        mime.setData("MDLCT", QByteArray(b""))  # empty -> "continue"
+        block = "\n\n\nheader\n  1  0  0  0  0  0  0  0  0  0999 V2000\nM  END\n"
+        mime.setData("MDLSK", QByteArray(block.encode("utf-8")))
+        clipboard.setMimeData(mime)
+        _chemdraw.run(ctx)
+        assert warnings == []
+        ctx.push_undo_checkpoint.assert_called_once()
+
+    def test_case1_molfrommolblock_exception_shows_critical(
+        self, ctx, clipboard, warnings, monkeypatch
+    ):
+        criticals = []
+        monkeypatch.setattr(
+            _chemdraw.QMessageBox,
+            "critical",
+            staticmethod(lambda *a, **k: criticals.append(a)),
+        )
+
+        def _raise(*a, **k):
+            raise ValueError("boom")
+
+        monkeypatch.setattr(_chemdraw.Chem, "MolFromMolBlock", _raise)
+        block = "\n\n\nheader\n  1  0  0  0  0  0  0  0  0  0999 V2000\nM  END\n"
+        self._set_mdlct(clipboard, block.encode("utf-8"))
+        _chemdraw.run(ctx)
+        assert len(criticals) == 1
+        assert "Paste Error" in criticals[0][2]
+
+    def test_mimedata_text_raises_is_silenced(self, ctx, monkeypatch):
+        warnings = []
+        monkeypatch.setattr(
+            _chemdraw.QMessageBox,
+            "warning",
+            staticmethod(lambda *a, **k: warnings.append(a)),
+        )
+        fake_mime = MagicMock()
+        fake_mime.hasFormat.return_value = False
+        fake_mime.hasText.return_value = True
+        fake_mime.text.side_effect = Exception("text boom")
+        fake_clipboard = MagicMock()
+        fake_clipboard.mimeData.return_value = fake_mime
+        fake_app = MagicMock()
+        fake_app.clipboard.return_value = fake_clipboard
+        monkeypatch.setattr(
+            _chemdraw.QApplication, "instance", staticmethod(lambda: fake_app)
+        )
+        _chemdraw.run(ctx)
+        assert len(warnings) == 1
+
+
+# ===========================================================================
+# Drawing loop: view_2d centering, Compute2DCoords, Kekulize exception,
+# bond stereo assignment, and the top-level draw exception -> critical dialog
+# ===========================================================================
+
+
+class _FakeAtomN:
+    def __init__(self, symbol="C", charge=0):
+        self._symbol, self._charge = symbol, charge
+
+    def GetSymbol(self):
+        return self._symbol
+
+    def GetFormalCharge(self):
+        return self._charge
+
+
+class _FakeBondN:
+    def __init__(self, begin, end, order=1.0, direction=None):
+        self._begin, self._end, self._order, self._dir = begin, end, order, direction
+
+    def GetBeginAtomIdx(self):
+        return self._begin
+
+    def GetEndAtomIdx(self):
+        return self._end
+
+    def GetBondTypeAsDouble(self):
+        return self._order
+
+    def GetBondDir(self):
+        return self._dir
+
+
+class _FakeConfN:
+    def GetAtomPosition(self, i):
+        return _FakePos()
+
+
+class _FakeMolFull:
+    """3 atoms / 3 bonds, no conformer initially, to drive the full flow."""
+
+    def __init__(self, bond_dirs):
+        self._atoms = [_FakeAtomN() for _ in range(3)]
+        self._bonds = [
+            _FakeBondN(0, 1, 1.0, bond_dirs[0]),
+            _FakeBondN(1, 2, 2.0, bond_dirs[1]),
+            _FakeBondN(0, 2, 1.0, bond_dirs[2]),
+        ]
+        self._n_conf_calls = 0
+
+    def GetNumConformers(self):
+        return 0
+
+    def GetConformer(self):
+        return _FakeConfN()
+
+    def GetNumAtoms(self):
+        return len(self._atoms)
+
+    def GetAtomWithIdx(self, i):
+        return self._atoms[i]
+
+    def GetBonds(self):
+        return list(self._bonds)
+
+
+class TestDrawingLoopFullFlow:
+    @pytest.fixture
+    def clipboard(self, qapp):
+        cb = qapp.clipboard()
+        yield cb
+        cb.clear()
+
+    @pytest.fixture
+    def ctx_with_view2d(self):
+        from PyQt6.QtCore import QRect, QPointF as RealQPointF
+
+        class _View2D:
+            def viewport(self_inner):
+                class _VP:
+                    def rect(self_vp):
+                        return QRect(0, 0, 100, 100)
+
+                return _VP()
+
+            def mapToScene(self_inner, point):
+                return RealQPointF(1.0, 2.0)
+
+        class _InitManager:
+            view_2d = _View2D()
+
+        class _MainWindow:
+            init_manager = _InitManager()
+
+        ctx = MagicMock()
+        ctx.get_main_window.return_value = _MainWindow()
+        ctx.scene.atom_items = {}
+        counter = {"n": 0}
+
+        def _create_atom(symbol, pos, charge=0):
+            aid = counter["n"]
+            counter["n"] += 1
+            ctx.scene.atom_items[aid] = MagicMock(atom_id=aid)
+            return aid
+
+        ctx.scene.create_atom.side_effect = _create_atom
+        return ctx
+
+    def test_full_draw_with_view2d_compute2d_and_bond_stereo(
+        self, clipboard, ctx_with_view2d, monkeypatch
+    ):
+        bond_dirs = [
+            _chemdraw.Chem.BondDir.BEGINWEDGE,
+            _chemdraw.Chem.BondDir.BEGINDASH,
+            None,
+        ]
+        fake_mol = _FakeMolFull(bond_dirs)
+        monkeypatch.setattr(
+            _chemdraw.Chem, "MolFromMolBlock", lambda *a, **k: fake_mol
+        )
+        monkeypatch.setattr(_chemdraw.AllChem, "Compute2DCoords", MagicMock())
+        # Kekulize raises -> must be silenced and drawing must still proceed
+        monkeypatch.setattr(
+            _chemdraw.Chem, "Kekulize", MagicMock(side_effect=Exception("kek boom"))
+        )
+        clipboard.setText("fake V2000 block\nM  END")
+        _chemdraw.run(ctx_with_view2d)
+
+        _chemdraw.AllChem.Compute2DCoords.assert_called_once()
+        assert ctx_with_view2d.scene.create_atom.call_count == 3
+        assert ctx_with_view2d.scene.create_bond.call_count == 3
+        stereo_values = [
+            call.kwargs.get("bond_stereo")
+            for call in ctx_with_view2d.scene.create_bond.call_args_list
+        ]
+        assert stereo_values == [1, 2, 0]
+        ctx_with_view2d.push_undo_checkpoint.assert_called_once()
+
+    def test_drawing_exception_shows_critical_not_undo_checkpoint(
+        self, clipboard, ctx_with_view2d, monkeypatch
+    ):
+        criticals = []
+        monkeypatch.setattr(
+            _chemdraw.QMessageBox,
+            "critical",
+            staticmethod(lambda *a, **k: criticals.append(a)),
+        )
+        fake_mol = _FakeMolFull([None, None, None])
+        monkeypatch.setattr(
+            _chemdraw.Chem, "MolFromMolBlock", lambda *a, **k: fake_mol
+        )
+        ctx_with_view2d.scene.create_atom.side_effect = RuntimeError("draw boom")
+        clipboard.setText("fake V2000 block\nM  END")
+        _chemdraw.run(ctx_with_view2d)
+
+        assert len(criticals) == 1
+        assert "Paste Error" in criticals[0][2]
+        ctx_with_view2d.push_undo_checkpoint.assert_not_called()
