@@ -32,10 +32,13 @@ jobs:
               - '!REGISTRY/**'
 
   # ---------------------------------------------------------------------------
-  # Standard tests — registry integrity, syntax, smoke tests.
-  # No main app required.
+  # Registry integrity — JSON validity, sha256/version consistency with the
+  # plugin sources, and the metadata-sync no-op check. ALWAYS runs (this is the
+  # job a registry-only change most needs). The matrix is kept so a registry
+  # script that fails to even import on a supported interpreter is caught, since
+  # no test imports those scripts.
   # ---------------------------------------------------------------------------
-  test:
+  test-registry:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -58,8 +61,8 @@ jobs:
       - name: Validate plugins.json
         run: python scripts/validate_json.py
 
-      - name: Run plugin tests
-        run: pytest tests/ -v --tb=short
+      - name: Run registry integrity tests
+        run: pytest tests/test_registry.py -v --tb=short
 
       # The registry scripts are not imported by any test, so a script that
       # fails to even import on a supported interpreter would otherwise ship
@@ -72,6 +75,34 @@ jobs:
             echo "::error::REGISTRY/plugins.json is stale. Run 'python scripts/update_intra_repo_metadata.py' and commit the result."
             exit 1
           fi
+
+  # ---------------------------------------------------------------------------
+  # Plugin logic + smoke tests — everything in tests/ except registry integrity.
+  # Skipped on a registry-only change (a metadata edit can't affect them).
+  # No main app required.
+  # ---------------------------------------------------------------------------
+  test-plugins:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: pip install pytest pytest-mock numpy
+
+      - name: Run plugin tests
+        run: pytest tests/ --ignore=tests/test_registry.py -v --tb=short
 
   # ---------------------------------------------------------------------------
   # Headless GUI tests — real PyQt6 with QT_QPA_PLATFORM=offscreen.
