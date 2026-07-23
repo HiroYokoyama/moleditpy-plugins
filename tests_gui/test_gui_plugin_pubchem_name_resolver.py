@@ -108,3 +108,119 @@ class TestMoleculeResolverDialog:
         with patch.object(_pubchem, "QMessageBox"):
             dlg.load_molecule()
         mw.string_importer_manager.load_from_smiles.assert_called_once_with("CCO")
+
+    def test_load_selected_row_empty_smiles_warns(self, dlg):
+        dlg.candidates_data = [{"name": "Mystery", "smiles": "", "formula": ""}]
+        dlg.update_table()
+        dlg.table.selectRow(0)
+        with patch.object(_pubchem, "QMessageBox") as mb:
+            dlg.load_molecule()
+        mb.warning.assert_called_once()
+
+    def test_load_selected_row_missing_importer_reports_error(self, dlg):
+        dlg.candidates_data = [
+            {"name": "Ethanol", "smiles": "CCO", "formula": "C2H6O"}
+        ]
+        dlg.update_table()
+        dlg.table.selectRow(0)
+
+        class _NoManager:
+            pass
+
+        dlg.context.get_main_window.return_value = _NoManager()
+        with patch.object(_pubchem, "QMessageBox") as mb:
+            dlg.load_molecule()
+        mb.critical.assert_called_once()
+        assert "does not support" in mb.critical.call_args.args[2]
+
+    def test_load_selected_row_importer_exception_reports_error(self, dlg):
+        dlg.candidates_data = [
+            {"name": "Ethanol", "smiles": "CCO", "formula": "C2H6O"}
+        ]
+        dlg.update_table()
+        dlg.table.selectRow(0)
+        mw = MagicMock()
+        mw.string_importer_manager.load_from_smiles.side_effect = RuntimeError("boom")
+        dlg.context.get_main_window.return_value = mw
+        with patch.object(_pubchem, "QMessageBox") as mb:
+            dlg.load_molecule()
+        mb.critical.assert_called_once()
+        assert "boom" in mb.critical.call_args.args[2]
+        assert dlg.lbl_info.text() == "Load failed."
+
+    def test_auto_search_http_200_populates_table(self, dlg):
+        dlg.combo_type.setCurrentText("Auto (Name/CAS)")
+        dlg.line_input.setText("ethanol")
+        response = MagicMock()
+        response.status_code = 200
+        response.json.return_value = {
+            "PropertyTable": {
+                "Properties": [
+                    {
+                        "SMILES": "CCO",
+                        "Title": "Ethanol",
+                        "MolecularFormula": "C2H6O",
+                    }
+                ]
+            }
+        }
+        with patch.object(_pubchem.requests, "get", return_value=response):
+            dlg.run_search()
+        assert dlg.table.rowCount() == 1
+        assert dlg.table.item(0, 0).text() == "Ethanol"
+        assert dlg.table.item(0, 2).text() == "CCO"
+        assert "Found 1 candidates" in dlg.lbl_info.text()
+
+    def test_auto_search_http_404_reports_not_found(self, dlg):
+        dlg.combo_type.setCurrentText("Auto (Name/CAS)")
+        dlg.line_input.setText("nosuchcompound")
+        response = MagicMock()
+        response.status_code = 404
+        with patch.object(_pubchem.requests, "get", return_value=response):
+            dlg.run_search()
+        assert dlg.lbl_info.text() == "Not found in PubChem search."
+        assert dlg.table.rowCount() == 0
+
+    def test_auto_search_network_error_shows_dialog(self, dlg):
+        dlg.combo_type.setCurrentText("Auto (Name/CAS)")
+        dlg.line_input.setText("water")
+
+        class _FakeRequestException(Exception):
+            pass
+
+        with patch.object(
+            _pubchem.requests, "get", side_effect=_FakeRequestException("offline")
+        ), patch.object(
+            _pubchem.requests.exceptions, "RequestException", _FakeRequestException
+        ), patch.object(_pubchem, "QMessageBox") as mb:
+            dlg.run_search()
+        mb.critical.assert_called_once()
+        assert dlg.lbl_info.text() == "Network error."
+
+    def test_auto_search_generic_exception_reports_error(self, dlg):
+        dlg.combo_type.setCurrentText("Auto (Name/CAS)")
+        dlg.line_input.setText("water")
+
+        class _FakeRequestException(Exception):
+            pass
+
+        with patch.object(
+            _pubchem.requests, "get", side_effect=ValueError("kaboom")
+        ), patch.object(
+            _pubchem.requests.exceptions, "RequestException", _FakeRequestException
+        ), patch.object(_pubchem, "QMessageBox") as mb:
+            dlg.run_search()
+        mb.critical.assert_called_once()
+        assert "kaboom" in mb.critical.call_args.args[2]
+        assert dlg.lbl_info.text() == "Error occurred."
+
+
+class TestPubChemRunEntryPoint:
+    def test_run_with_no_context_does_nothing(self):
+        original_context = _pubchem.PLUGIN_CONTEXT
+        _pubchem.PLUGIN_CONTEXT = None
+        try:
+            mw = MagicMock()
+            _pubchem.run(mw)  # must not raise, must return early
+        finally:
+            _pubchem.PLUGIN_CONTEXT = original_context
