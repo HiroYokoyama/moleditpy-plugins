@@ -503,7 +503,9 @@ class TestAlignmentWorkerMCS:
         # installed `rdkit.Chem` package at call time -- patching the frozen
         # `_comparator.Chem` mock (used for the module-level `Chem` global
         # elsewhere) has no effect on it. Patch the real package instead.
-        import rdkit.Chem as _real_rdkit_chem
+        # importorskip so CI test-gui (no rdkit installed) skips these MCS
+        # tests instead of failing; local runs still exercise them.
+        _real_rdkit_chem = pytest.importorskip("rdkit.Chem")
 
         monkeypatch.setattr(
             _real_rdkit_chem,
