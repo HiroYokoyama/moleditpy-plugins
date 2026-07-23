@@ -1197,3 +1197,418 @@ class TestZipFolderOverwrite:
         # Manual overwrite path — the plugin manager was never involved
         bare_installer.main_window.plugin_manager.install_plugin.assert_not_called()
         assert bare_installer._last_install_succeeded is True
+
+
+def _btn_with_deps(installer, *, name, download_url, target_file=None, dependencies=None):
+    from PyQt6.QtWidgets import QPushButton
+
+    btn = QPushButton(parent=installer)
+    btn.setProperty("plugin_name", name)
+    btn.setProperty("download_url", download_url)
+    btn.setProperty("target_file", target_file)
+    btn.setProperty("dependencies", dependencies or [])
+    btn.clicked.connect(installer.on_update_clicked)
+    return btn
+
+
+def _sha_entry(name, payload, url):
+    import hashlib
+
+    entry = _remote_entry(name)
+    entry["downloadUrl"] = url
+    entry["sha256"] = hashlib.sha256(payload).hexdigest()
+    return entry
+
+
+def _stub_dl(installer, payload):
+    def _fake(url, dest, cb=None):
+        with open(dest, "wb") as f:
+            f.write(payload)
+        if cb is not None:
+            cb(1024, 2048)  # drive the progress callback branch
+        return True
+
+    installer._download_chunked = _fake
+
+
+class TestInstallBranchCoverage:
+    """Deep branches of on_update_clicked: overwrite failures, settings
+    backup/restore, old-file cleanup, missing-deps dialog, error handling."""
+
+    PY = b"PLUGIN_VERSION = '2.0.0'\n"
+
+    def _yes(self):
+        from PyQt6.QtWidgets import QMessageBox
+
+        return QMessageBox.StandardButton.Yes
+
+    def test_manual_py_overwrite_failure_falls_back_to_manager(
+        self, bare_installer, tmp_path
+    ):
+        from unittest.mock import MagicMock, patch
+
+        target = tmp_path / "fake_plugin.py"
+        target.write_bytes(b"OLD")
+        bare_installer.remote_data = [
+            _sha_entry("Fake Plugin", self.PY, "https://example.com/fake_plugin.py")
+        ]
+        _stub_dl(bare_installer, self.PY)
+
+        with patch.object(
+            _plugin_installer.QMessageBox, "question", return_value=self._yes()
+        ), patch.object(
+            _plugin_installer.QMessageBox, "information", MagicMock()
+        ), patch.object(
+            _plugin_installer.shutil, "copy2", side_effect=OSError("denied")
+        ):
+            _btn_with_deps(
+                bare_installer,
+                name="Fake Plugin",
+                download_url="https://example.com/fake_plugin.py",
+                target_file=str(target),
+            ).click()
+
+        # copy2 failed -> fell back to the plugin manager
+        bare_installer.main_window.plugin_manager.install_plugin.assert_called_once()
+        assert bare_installer._last_install_succeeded is True
+
+    def _zip(self, entries):
+        import io
+        import zipfile as zf
+
+        buf = io.BytesIO()
+        with zf.ZipFile(buf, "w") as z:
+            for arc, data in entries.items():
+                z.writestr(arc, data)
+        return buf.getvalue()
+
+    def test_zip_skips_suspicious_entry_and_uses_flat_extract(
+        self, bare_installer, tmp_path
+    ):
+        from unittest.mock import MagicMock, patch
+
+        plugin_dir = tmp_path / "My_Plugin"
+        plugin_dir.mkdir()
+        target = plugin_dir / "__init__.py"
+        target.write_text("old")
+        # Flat (multi top-level item) zip + a path-traversal entry.
+        payload = self._zip(
+            {
+                "a.py": "a",
+                "b.py": "b",
+                "../evil.py": "pwned",
+            }
+        )
+        bare_installer.remote_data = [
+            _sha_entry("Folder Plugin", payload, "https://example.com/My_Plugin.zip")
+        ]
+        _stub_dl(bare_installer, payload)
+
+        with patch.object(
+            _plugin_installer.QMessageBox, "question", return_value=self._yes()
+        ), patch.object(_plugin_installer.QMessageBox, "information", MagicMock()):
+            _btn_with_deps(
+                bare_installer,
+                name="Folder Plugin",
+                download_url="https://example.com/My_Plugin.zip",
+                target_file=str(target),
+            ).click()
+
+        assert (plugin_dir / "a.py").read_text() == "a"
+        assert (plugin_dir / "b.py").read_text() == "b"
+        # The traversal entry must never escape the plugin directory.
+        assert not (tmp_path / "evil.py").exists()
+        assert bare_installer._last_install_succeeded is True
+
+    def test_folder_overwrite_failure_backs_up_and_restores_settings(
+        self, bare_installer, tmp_path
+    ):
+        from unittest.mock import MagicMock, patch
+
+        plugin_dir = tmp_path / "My_Plugin"
+        plugin_dir.mkdir()
+        target = plugin_dir / "__init__.py"
+        target.write_text("old")
+        (plugin_dir / "settings.json").write_text('{"keep": 1}')
+        payload = self._zip({"My_Plugin/__init__.py": "new"})
+        bare_installer.remote_data = [
+            _sha_entry("Folder Plugin", payload, "https://example.com/My_Plugin.zip")
+        ]
+        _stub_dl(bare_installer, payload)
+        # Manual folder overwrite blows up -> fall back to manager + settings dance.
+        bare_installer._overwrite_folder_plugin = MagicMock(side_effect=OSError("x"))
+
+        with patch.object(
+            _plugin_installer.QMessageBox, "question", return_value=self._yes()
+        ), patch.object(_plugin_installer.QMessageBox, "information", MagicMock()):
+            _btn_with_deps(
+                bare_installer,
+                name="Folder Plugin",
+                download_url="https://example.com/My_Plugin.zip",
+                target_file=str(target),
+            ).click()
+
+        bare_installer.main_window.plugin_manager.install_plugin.assert_called_once()
+        # settings.json preserved across the failed-overwrite fallback
+        assert (plugin_dir / "settings.json").read_text() == '{"keep": 1}'
+
+    def test_zip_install_removes_stale_single_file_py(self, bare_installer, tmp_path):
+        from unittest.mock import MagicMock, patch
+
+        target = tmp_path / "old_plugin.py"
+        target.write_text("old")
+        payload = self._zip({"P/__init__.py": "new"})
+        bare_installer.remote_data = [
+            _sha_entry("Zip Plugin", payload, "https://example.com/P.zip")
+        ]
+        _stub_dl(bare_installer, payload)
+
+        with patch.object(
+            _plugin_installer.QMessageBox, "question", return_value=self._yes()
+        ), patch.object(_plugin_installer.QMessageBox, "information", MagicMock()):
+            _btn_with_deps(
+                bare_installer,
+                name="Zip Plugin",
+                download_url="https://example.com/P.zip",
+                target_file=str(target),
+            ).click()
+
+        # Old single-file .py removed once the plugin became a folder.
+        assert not target.exists()
+
+    def test_py_install_removes_stale_folder(self, bare_installer, tmp_path):
+        from unittest.mock import MagicMock, patch
+
+        plugin_dir = tmp_path / "Old_Folder"
+        plugin_dir.mkdir()
+        target = plugin_dir / "__init__.py"
+        target.write_text("old")
+        bare_installer.remote_data = [
+            _sha_entry("Py Plugin", self.PY, "https://example.com/py_plugin.py")
+        ]
+        _stub_dl(bare_installer, self.PY)
+
+        with patch.object(
+            _plugin_installer.QMessageBox, "question", return_value=self._yes()
+        ), patch.object(_plugin_installer.QMessageBox, "information", MagicMock()):
+            _btn_with_deps(
+                bare_installer,
+                name="Py Plugin",
+                download_url="https://example.com/py_plugin.py",
+                target_file=str(target),
+            ).click()
+
+        # Old folder plugin removed once it became a single .py file.
+        assert not plugin_dir.exists()
+
+    def test_missing_deps_shows_details_after_install(self, bare_installer):
+        from unittest.mock import MagicMock, patch
+
+        bare_installer.remote_data = [
+            _sha_entry("Dep Plugin", self.PY, "https://example.com/dep_plugin.py")
+        ]
+        _stub_dl(bare_installer, self.PY)
+
+        with patch.object(
+            _plugin_installer.QMessageBox, "question", return_value=self._yes()
+        ), patch.object(
+            _plugin_installer.QMessageBox, "warning", MagicMock()
+        ) as warn, patch.object(
+            _plugin_installer, "PluginDetailsDialog", MagicMock()
+        ) as details:
+            _btn_with_deps(
+                bare_installer,
+                name="Dep Plugin",
+                download_url="https://example.com/dep_plugin.py",
+                dependencies=["zzz_definitely_not_installed_pkg"],
+            ).click()
+
+        # Fresh install with a missing dep -> post-install warning + details dialog
+        assert warn.called
+        details.return_value.exec.assert_called_once()
+        assert bare_installer._last_install_succeeded is True
+
+    def test_install_exception_shows_warning(self, bare_installer):
+        from unittest.mock import MagicMock, patch
+
+        bare_installer.remote_data = [
+            _sha_entry("Boom Plugin", self.PY, "https://example.com/boom.py")
+        ]
+        _stub_dl(bare_installer, self.PY)
+        bare_installer.main_window.plugin_manager.install_plugin.side_effect = (
+            RuntimeError("kaboom")
+        )
+
+        with patch.object(
+            _plugin_installer.QMessageBox, "question", return_value=self._yes()
+        ), patch.object(
+            _plugin_installer.QMessageBox, "warning", MagicMock()
+        ) as warn:
+            _btn_with_deps(
+                bare_installer,
+                name="Boom Plugin",
+                download_url="https://example.com/boom.py",
+            ).click()
+
+        assert warn.called
+        assert "Failed to install" in str(warn.call_args)
+        assert bare_installer._last_install_succeeded is False
+
+
+    def test_os_incompatible_warning_then_proceed(self, bare_installer, tmp_path):
+        from unittest.mock import MagicMock, patch
+        from PyQt6.QtWidgets import QMessageBox
+
+        target = tmp_path / "fake_plugin.py"
+        target.write_bytes(b"OLD")
+        entry = _sha_entry(
+            "Fake Plugin", self.PY, "https://example.com/fake_plugin.py"
+        )
+        # Force an OS the current machine is not, so the advisory warning fires.
+        entry["supported_os"] = ["Plan9"]
+        bare_installer.remote_data = [entry]
+        _stub_dl(bare_installer, self.PY)
+
+        with patch.object(
+            _plugin_installer.QMessageBox,
+            "warning",
+            return_value=QMessageBox.StandardButton.Yes,
+        ) as warn, patch.object(
+            _plugin_installer.QMessageBox, "information", MagicMock()
+        ):
+            _btn_with_deps(
+                bare_installer,
+                name="Fake Plugin",
+                download_url="https://example.com/fake_plugin.py",
+                target_file=str(target),
+            ).click()
+
+        assert warn.called
+        assert "Incompatible OS" in str(warn.call_args_list)
+        assert bare_installer._last_install_succeeded is True
+
+
+class TestAskUserPermission:
+    def test_yes_enables_and_runs_startup_check(self, qapp):
+        from unittest.mock import MagicMock, patch
+        from PyQt6.QtWidgets import QMessageBox
+
+        saved = {}
+        with patch.object(
+            _plugin_installer.QMessageBox,
+            "question",
+            return_value=QMessageBox.StandardButton.Yes,
+        ), patch.object(
+            _plugin_installer, "load_settings", return_value={}
+        ), patch.object(
+            _plugin_installer, "save_settings", lambda s: saved.update(s)
+        ), patch.object(
+            _plugin_installer, "perform_startup_check", MagicMock()
+        ) as startup:
+            _plugin_installer.ask_user_permission(None)
+
+        assert saved.get("check_at_startup") is True
+        startup.assert_called_once()
+
+    def test_no_disables_startup_check(self, qapp):
+        from unittest.mock import patch
+        from PyQt6.QtWidgets import QMessageBox
+
+        saved = {}
+        with patch.object(
+            _plugin_installer.QMessageBox,
+            "question",
+            return_value=QMessageBox.StandardButton.No,
+        ), patch.object(
+            _plugin_installer, "load_settings", return_value={}
+        ), patch.object(
+            _plugin_installer, "save_settings", lambda s: saved.update(s)
+        ):
+            _plugin_installer.ask_user_permission(None)
+
+        assert saved.get("check_at_startup") is False
+
+
+class TestCheckUpdates:
+    def test_check_updates_starts_worker(self, bare_installer):
+        from unittest.mock import MagicMock, patch
+
+        with patch.object(_plugin_installer, "_FetchWorker") as WorkerCls:
+            bare_installer._fetch_worker = None
+            bare_installer.check_updates()
+
+        WorkerCls.assert_called_once()
+        WorkerCls.return_value.start.assert_called_once()
+
+    def test_check_updates_cancels_inflight_worker(self, bare_installer):
+        from unittest.mock import MagicMock, patch
+
+        stale = MagicMock()
+        stale.isRunning.return_value = True
+        bare_installer._fetch_worker = stale
+
+        with patch.object(_plugin_installer, "_FetchWorker"):
+            bare_installer.check_updates()
+
+        stale.quit.assert_called_once()
+        stale.wait.assert_called_once()
+
+
+class TestCloseEventWorker:
+    def test_closeevent_stops_running_fetch_worker(self, bare_installer, qapp):
+        from unittest.mock import MagicMock
+        from PyQt6.QtGui import QCloseEvent
+
+        worker = MagicMock()
+        worker.isRunning.return_value = True
+        bare_installer._fetch_worker = worker
+        bare_installer.closeEvent(QCloseEvent())
+        worker.quit.assert_called_once()
+        worker.wait.assert_called_once()
+
+
+class TestOnFinishedManagerSync:
+    """_on_finished also refreshes an open PluginManagerWindow."""
+
+    def _make_pmw(self, raises=False):
+        from PyQt6.QtWidgets import QWidget
+
+        class PluginManagerWindow(QWidget):  # name matched by type().__name__
+            def __init__(self):
+                super().__init__()
+                self.called = False
+
+            def refresh_plugin_list(self):
+                self.called = True
+                if raises:
+                    raise RuntimeError("sync boom")
+
+        w = PluginManagerWindow()
+        w.show()
+        return w
+
+    def test_syncs_open_manager_window(self, bare_installer, qapp):
+        from unittest.mock import MagicMock, patch
+
+        pmw = self._make_pmw()
+        try:
+            bare_installer._needs_plugin_reload = True
+            with patch.object(_plugin_installer, "_refresh_plugin_menus", MagicMock()):
+                bare_installer._on_finished(0)
+            assert pmw.called is True
+        finally:
+            pmw.close()
+            pmw.deleteLater()
+
+    def test_sync_exception_is_swallowed(self, bare_installer, qapp):
+        from unittest.mock import MagicMock, patch
+
+        pmw = self._make_pmw(raises=True)
+        try:
+            bare_installer._needs_plugin_reload = True
+            with patch.object(_plugin_installer, "_refresh_plugin_menus", MagicMock()):
+                bare_installer._on_finished(0)  # must not raise
+            assert pmw.called is True
+        finally:
+            pmw.close()
+            pmw.deleteLater()
