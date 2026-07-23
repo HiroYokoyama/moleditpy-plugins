@@ -1104,7 +1104,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "XYZ Editor",
-    "version": "2026.07.22",
+    "version": "2026.07.23",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A table-based editor for atom coordinates and symbols, supporting ghost atoms, adding and deleting atoms.",
@@ -1117,8 +1117,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/XYZ_Editor/xyz_editor.py",
-    "lastUpdated": "2026-07-22",
-    "sha256": "dd22a61094de5d412098c7503abd9e0f8181ce232cb5be9722fa4a0cd6270e25",
+    "lastUpdated": "2026-07-23",
+    "sha256": "542675b86cdfae67895ad3f9aedc606a90514c9aaf9aca68bc154e2596877094",
     "firstAppeared": "2026-01-03",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1354,7 +1354,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Structural Updater",
-    "version": "2026.07.08",
+    "version": "2026.07.23",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Applies 2D structural changes to 3D conformation without full re-embedding.",
@@ -1366,8 +1366,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Structural_Updater/structural_updater.py",
-    "lastUpdated": "2026-07-08",
-    "sha256": "cc8de22c3f364e7f99bd32fe4037cb82b2122c18f0fbdfffc68297f81dc1761b",
+    "lastUpdated": "2026-07-23",
+    "sha256": "44edb8d1384eb4d483912da0bf9d4711c273e6167c816384a2ac3b7ff602366c",
     "firstAppeared": "2026-01-28",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
