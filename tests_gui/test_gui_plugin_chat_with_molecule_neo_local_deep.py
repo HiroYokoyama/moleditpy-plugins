@@ -203,6 +203,13 @@ def _sync_workers(monkeypatch):
     """Run QThread workers synchronously (call run() directly from start())."""
     monkeypatch.setattr(_mod.InitWorker, "start", lambda self: self.run())
     monkeypatch.setattr(_mod.OpenAIWorker, "start", lambda self: self.run())
+    # Neutralize the event pump: processEvents() would otherwise fire a leaked
+    # QTimer.singleShot from a prior test, popping a modal exec() that blocks
+    # the offscreen CI process forever (observed hanging the 3.11 leg).
+    monkeypatch.setattr(_mod.QApplication, "processEvents",
+                        staticmethod(lambda *a, **k: None), raising=False)
+    monkeypatch.setattr(_mod.QTimer, "singleShot",
+                        staticmethod(lambda *a, **k: None), raising=False)
 
 
 def _make_openai_chunk(content):
