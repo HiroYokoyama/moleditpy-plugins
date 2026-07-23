@@ -749,7 +749,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Chat with Molecule Neo (Gemini)",
-    "version": "2026.07.04",
+    "version": "2026.07.24",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with Google Gemini about the current molecule. Automatically injects SMILES context. (Neo Version)",
@@ -764,8 +764,8 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo/chat_with_molecule_neo.py",
-    "lastUpdated": "2026-07-04",
-    "sha256": "a98844cfc23fc80950175fbb9e483a58ea6828ee7edbcd22abb2a6e071ff601f",
+    "lastUpdated": "2026-07-24",
+    "sha256": "ae53467204c145f9f55f9f1ac195f68f0b402533c250f71c9d06b8907ad1a5e1",
     "firstAppeared": "2025-12-28",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -824,7 +824,7 @@
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_ChatGPT/chat_with_molecule_neo_chatGPT.py",
     "lastUpdated": "2026-07-24",
-    "sha256": "7d254d0c163f458ef67e407e80bcb7501df017b93db08000238fded24087cd82",
+    "sha256": "8ffe9e23174fb3b3e76d56c7d95514ac9f7e3abce7e18f7ae40b0c329e17482d",
     "firstAppeared": "2025-12-30",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -855,7 +855,7 @@
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_Local/chat_with_molecule_neo_local.py",
     "lastUpdated": "2026-07-24",
-    "sha256": "acc09400c6195e473fcac92b2fdef14b8edc313bb5815eafa2a336153bfbd7b1",
+    "sha256": "76141e490d05bd4f0ece260f305b5ce21fe7bafe2584e5a5f3138c0c62131512",
     "firstAppeared": "2025-12-30",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

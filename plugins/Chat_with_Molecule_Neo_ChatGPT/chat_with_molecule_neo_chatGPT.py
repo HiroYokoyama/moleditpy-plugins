@@ -620,7 +620,6 @@ class ChatMoleculeWindow(QDialog):
         # If clipping occurs, we might need Qt.WindowType.Window
         self.setWindowFlags(self.windowFlags() | Qt.WindowType.Dialog)
         try:
-            # QMessageBox.information(None, "Debug", "Window Init Start")
             self.main_window = main_window
             self.setWindowTitle("Chat with Molecule Neo (ChatGPT)")
             self.resize(500, 700)
@@ -1095,9 +1094,6 @@ class ChatMoleculeWindow(QDialog):
         """Handle clickable links in chat window"""
         scheme = url.scheme()
 
-        # Debugging: Print scheme and URL
-        # print(f"Link Clicked: {url.toString()}, Scheme: {scheme}")
-
         if scheme == "smiles":
             # Extract SMILES string
             full_url = url.toString()
@@ -1325,7 +1321,6 @@ class ChatMoleculeWindow(QDialog):
             self.combo_model.addItem("demo-model")
             self.client = None
             self.chat_history_state = []
-            self.demo_step = 0  # Initialize step counter
 
             self.append_message(
                 "System",
@@ -1633,11 +1628,6 @@ class ChatMoleculeWindow(QDialog):
 
             # Remove hydrogens for ChatGPT prompt, but preserve MapNums on heavy atoms
             mol_clean = Chem.RemoveHs(mol)
-
-            # Ensure every heavy atom has a MapNum
-            # for atom in mol_clean.GetAtoms():
-            #     if atom.GetAtomMapNum() == 0:
-            #         atom.SetAtomMapNum(atom.GetIdx() + 1)
 
             return Chem.MolToSmiles(mol_clean), None
         except Exception as e:
@@ -2236,10 +2226,6 @@ class ChatMoleculeWindow(QDialog):
 
             # Explicit Hydrogens handling
             mol_with_h = Chem.AddHs(mol)
-
-            # DEBUG: Check if AddHs preserves maps
-            # maps_h = [a.GetAtomMapNum() for a in mol_with_h.GetAtoms()]
-            # print(f"DEBUG: MapNums after AddHs: {maps_h}")
 
             # Run reaction
             products = rxn.RunReactants((mol_with_h,))
@@ -3390,180 +3376,6 @@ class ChatMoleculeWindow(QDialog):
         # LOGGING: Log the full prompt including injected context
         append_log("PROMPT_FULL", full_text_to_send)
 
-        # SHORTCUT: "br" triggers bromination demo sequence for SELECTED atoms
-        if DEMO_MODE and text.lower().startswith("br"):
-            # Get selected atom IDs (strings)
-            selected_ids = self.get_selected_atom_indices()
-
-            tools_json_list = []
-            if selected_ids:
-                self.append_message(
-                    "System",
-                    f"Bromination Shortcut: Applying to selected atoms {', '.join(selected_ids)}",
-                    "green",
-                )
-                for aid in selected_ids:
-                    # aid is already 1-based MapNum (string)
-                    tools_json_list.append(
-                        f'  {{"tool": "apply_transformation", "params": {{"reaction_smarts": "[#6:{aid}][H]>>[#6:{aid}][Br]", "atom_index": {aid}}}}}'
-                        # f'  {{"tool": "apply_transformation", "params": {{"reaction_smarts": "[c:{aid}][H]>>[c:{aid}][Br]", "atom_index": {aid}}}}}'
-                    )
-                json_body = "[\n" + ",\n".join(tools_json_list) + "\n]"
-            else:
-                # No selection - abort
-                self.append_message(
-                    "System",
-                    "Bromination Shortcut: No atoms selected. Please select atoms to brominate.",
-                    "orange",
-                )
-                return
-
-            response_text = (
-                f"Applying Bromination Demo Sequence...\n```json\n{json_body}\n```"
-            )
-            QTimer.singleShot(500, lambda: self.on_chunk_received(response_text))
-            QTimer.singleShot(600, lambda: self.on_final_response(None))
-            return
-
-        # SHORTCUT: "load" triggers bromination demo sequence for SELECTED atoms
-        if DEMO_MODE and text.lower().startswith("load"):
-            # Get selected atom IDs (strings)
-            selected_ids = self.get_selected_atom_indices()
-
-            tools_json_list = []
-            self.append_message(
-                "System", f"p-Xylene Shortcut: Loading p-xylene to 2D editor", "green"
-            )
-            # aid is already 1-based MapNum (string)
-            tools_json_list.append(
-                f'  {{"tool": "load_molecule_by_name", "params": {{"name": "p-xylene"}}}}'
-            )
-            json_body = "[\n" + ",\n".join(tools_json_list) + "\n]"
-
-            response_text = f"Loading p-xylene molecule...\n```json\n{json_body}\n```"
-            QTimer.singleShot(500, lambda: self.on_chunk_received(response_text))
-            QTimer.singleShot(600, lambda: self.on_final_response(None))
-            return
-
-        # DEMO MODE CHECK
-        if DEMO_MODE:
-            response_text = "I'm not sure how to help with that in Demo Mode."
-
-            if self.demo_step == 0:
-                response_text = (
-                    "Welcome! Let's start by loading Benzene using the `load_molecule` tool.\n"
-                    "```json\n"
-                    '{"tool": "load_molecule", "params": {"smiles": "c1ccccc1", "name": "Benzene"}}\n'
-                    "```"
-                )
-                self.demo_step += 1
-            elif self.demo_step == 1:
-                response_text = (
-                    "Great! Now let's try modifying it. I can replace a Hydrogen with Chlorine using a reaction.\n"
-                    "```json\n"
-                    '{"tool": "apply_transformation", "params": {"reaction_smarts": "[c:1][H]>>[c:1][Cl]"}}\n'
-                    "```"
-                )
-                self.demo_step += 1
-            elif self.demo_step == 2:
-                response_text = (
-                    "Now let's highlight the aromatic carbons using atom indices!\n"
-                    "```json\n"
-                    '{"tool": "highlight_substructure", "params": {"atom_indices": [2, 3, 4, 5, 6, 7]}}\n'
-                    "```"
-                )
-                self.demo_step += 1
-            elif self.demo_step == 3:
-                response_text = (
-                    "Now let's set a formal charge on the chlorinated carbon (atom 1)!\n"
-                    "```json\n"
-                    '{"tool": "set_electronic_state", "params": {"atom_index": 1, "charge": 1}}\n'
-                    "```"
-                )
-                self.demo_step += 1
-            elif self.demo_step == 4:
-                response_text = (
-                    "Let's calculate molecular properties and show 3D structure!\n"
-                    "```json\n"
-                    '[{"tool": "calculate_descriptors", "params": {"properties": ["MW", "LogP"]}}, {"tool": "convert_to_3d", "params": {}}]\n'
-                    "```"
-                )
-                self.demo_step += 1
-            elif self.demo_step == 5:
-                response_text = (
-                    "Now let's generate an **ORCA input file** with proper header order!\n"
-                    "```json\n"
-                    '{"tool": "orca_input_generator", "params": {"filename": "chlorobenzene-H-opt.inp", "header": "%maxcore 2000\\n%pal nprocs 4 end\\n! B3LYP def2-SVP Opt", "footer": ""}}\n'
-                    "```"
-                )
-                self.demo_step += 1
-            elif self.demo_step == 6:
-                response_text = (
-                    "And a **Gaussian input file** too!\n"
-                    "```json\n"
-                    '{"tool": "gaussian_input_generator", "params": {"filename": "chlorobenzene-H-opt.gjf", "header": "%nprocshared=4\\n%mem=4GB\\n#P B3LYP/6-31G* Opt", "footer": ""}}\n'
-                    "```"
-                )
-                self.demo_step += 1
-            elif self.demo_step == 7:
-                response_text = (
-                    "Use the versatile `save_file` tool with atom injection!\n"
-                    "```json\n"
-                    '{"tool": "save_file", "params": {"filename": "custom_structure.xyz", "content": "[[atom_count]]\\nMy Molecule\\n[[atom]]"}}\n'
-                    "```"
-                )
-                self.demo_step += 1
-            elif self.demo_step == 8:
-                response_text = (
-                    "Let's load a new molecule - **Aspirin**!\n"
-                    "```json\n"
-                    '{"tool": "load_molecule", "params": {"smiles": "CC(=O)Oc1ccccc1C(=O)O", "name": "Aspirin"}}\n'
-                    "```"
-                )
-                self.demo_step += 1
-            elif self.demo_step == 9:
-                response_text = (
-                    "Now a **triple combo**: Highlight, calculate ALL properties, AND convert to 3D!\n"
-                    "```json\n"
-                    '[{"tool": "highlight_substructure", "params": {"atom_indices": [10,11,12]}}, {"tool": "calculate_descriptors", "params": {"properties": ["MW", "LogP", "TPSA", "HBondDonor", "HBondAcceptor", "RotatableBonds"]}}, {"tool": "convert_to_3d", "params": {}}]\n'
-                    "```"
-                )
-                self.demo_step += 1
-            elif self.demo_step == 10:
-                response_text = (
-                    "Let's highlight the acetyl group using atom indices!\n"
-                    "```json\n"
-                    '{"tool": "highlight_substructure", "params": {"atom_indices": [1, 2, 3]}}\n'
-                    "```"
-                )
-                self.demo_step += 1
-            elif self.demo_step == 11:
-                response_text = (
-                    "Finally, let's clear the canvas to start fresh!\n"
-                    "```json\n"
-                    '{"tool": "clear_canvas", "params": {}}\n'
-                    "```"
-                )
-                self.demo_step += 1
-            else:
-                response_text = (
-                    "That concludes the demo! You've seen:\n"
-                    "- Loading molecules (Benzene & Aspirin)\n"
-                    "- Chemical transformations (Chlorination)\n"
-                    "- Atom highlighting (indices & SMARTS)\n"
-                    "- Setting electronic states (charges)\n"
-                    "- Multiple tool combinations (up to 3 tools!)\n"
-                    "- All descriptor properties\n"
-                    "- ORCA & Gaussian input generation\n"
-                    "- Custom file saving with atom injection\n"
-                    "- Canvas clearing\n\n"
-                    "Feel free to try your own prompts now!"
-                )
-
-            QTimer.singleShot(500, lambda: self.on_chunk_received(response_text))
-            QTimer.singleShot(600, lambda: self.on_final_response(None))
-            return
-
         # Append to History State
         self.chat_history_state.append({"role": "user", "content": full_text_to_send})
 
@@ -3990,7 +3802,6 @@ class ChatMoleculeWindow(QDialog):
                                         adata["item"], "atom_id"
                                     ):
                                         adata["item"].atom_id = target_id
-                                    # print(f"Remapped New Atom {actual_id} -> {target_id}")
                                 except Exception as _e:
                                     logging.warning(
                                         "[chat_with_molecule_neo_chatGPT.py:3596] silenced: %s",

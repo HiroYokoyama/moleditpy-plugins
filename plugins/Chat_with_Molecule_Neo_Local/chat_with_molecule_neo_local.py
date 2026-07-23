@@ -641,7 +641,6 @@ class ChatMoleculeWindow(QDialog):
         # If clipping occurs, we might need Qt.WindowType.Window
         self.setWindowFlags(self.windowFlags() | Qt.WindowType.Dialog)
         try:
-            # QMessageBox.information(None, "Debug", "Window Init Start")
             self.main_window = main_window
             self.setWindowTitle("Chat with Molecule Neo (Local)")
             self.resize(500, 700)
@@ -1318,9 +1317,6 @@ class ChatMoleculeWindow(QDialog):
         """Handle clickable links in chat window"""
         scheme = url.scheme()
 
-        # Debugging: Print scheme and URL
-        # print(f"Link Clicked: {url.toString()}, Scheme: {scheme}")
-
         if scheme == "smiles":
             # Extract SMILES string
             full_url = url.toString()
@@ -1838,11 +1834,6 @@ class ChatMoleculeWindow(QDialog):
 
             # Remove hydrogens for AI prompt, but preserve MapNums on heavy atoms
             mol_clean = Chem.RemoveHs(mol)
-
-            # Ensure every heavy atom has a MapNum
-            # for atom in mol_clean.GetAtoms():
-            #     if atom.GetAtomMapNum() == 0:
-            #         atom.SetAtomMapNum(atom.GetIdx() + 1)
 
             return Chem.MolToSmiles(mol_clean), None
         except Exception as e:
@@ -2445,10 +2436,6 @@ class ChatMoleculeWindow(QDialog):
 
             # Explicit Hydrogens handling
             mol_with_h = Chem.AddHs(mol)
-
-            # DEBUG: Check if AddHs preserves maps
-            # maps_h = [a.GetAtomMapNum() for a in mol_with_h.GetAtoms()]
-            # print(f"DEBUG: MapNums after AddHs: {maps_h}")
 
             # Run reaction
             products = rxn.RunReactants((mol_with_h,))
@@ -4186,7 +4173,6 @@ class ChatMoleculeWindow(QDialog):
                                         adata["item"], "atom_id"
                                     ):
                                         adata["item"].atom_id = target_id
-                                    # print(f"Remapped New Atom {actual_id} -> {target_id}")
                                 except Exception as _e:
                                     logging.warning(
                                         "[chat_with_molecule_neo_local.py:3792] silenced: %s",
