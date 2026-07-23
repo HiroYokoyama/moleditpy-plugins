@@ -1103,7 +1103,8 @@ class TestEnforceSceneState:
 class TestSaveSettingsSanitize:
     def test_sanitizes_numpy_and_qcolor_in_presets(self, qapp, tmp_path, monkeypatch):
         import json
-        import numpy as real_np
+
+        real_np = pytest.importorskip("numpy")
         from PyQt6.QtGui import QColor
 
         mw, w, plotter = _make_adv_widget_with_plotter(tmp_path)
