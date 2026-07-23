@@ -12,6 +12,26 @@ permissions:
 
 jobs:
   # ---------------------------------------------------------------------------
+  # Detect whether anything outside REGISTRY/ changed. A registry-only push
+  # (e.g. the metadata-sync commit after a version bump) cannot affect GUI or
+  # API test outcomes, so those jobs are skipped for it. The `test` job always
+  # runs — it owns the registry-integrity + sync checks that a registry change
+  # most needs. workflow_dispatch has no diff base, so `code` defaults to true.
+  # ---------------------------------------------------------------------------
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            code:
+              - '!REGISTRY/**'
+
+  # ---------------------------------------------------------------------------
   # Standard tests — registry integrity, syntax, smoke tests.
   # No main app required.
   # ---------------------------------------------------------------------------
@@ -60,6 +80,8 @@ jobs:
   # is absent (one shallow clone per CI run, cached by session fixture).
   # ---------------------------------------------------------------------------
   test-gui:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -97,6 +119,8 @@ jobs:
   # Clones python_molecular_editor at --depth 1 so test_api.py is not skipped.
   # ---------------------------------------------------------------------------
   test-api:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
 
     steps:
