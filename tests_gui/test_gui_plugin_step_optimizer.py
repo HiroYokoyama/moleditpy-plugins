@@ -158,3 +158,187 @@ class TestStepOptimizerDialog:
         ctx = _ctx()
         _step.initialize(ctx)
         assert ctx.add_menu_action.call_args[0][0] == "3D Edit/Step Optimizer..."
+
+    def test_close_event_delegates_to_accept(self, dlg):
+        event = MagicMock()
+        dlg.closeEvent(event)
+        event.ignore.assert_called_once()
+        dlg.context.register_window.assert_called_with("main_panel", None)
+
+
+# ===========================================================================
+# _start / _tick with a real conformer-shaped mol — moves coverage on the
+# main Qt-class logic (real PyQt6, chemistry still MagicMocked via AllChem).
+# ===========================================================================
+
+
+class _FakePos:
+    def __init__(self, x, y, z):
+        self.x, self.y, self.z = x, y, z
+
+
+class _FakeConf:
+    def __init__(self, n):
+        self.positions = [_FakePos(float(i), 0.0, 0.0) for i in range(n)]
+        self.set_calls = []
+
+    def GetAtomPosition(self, i):
+        return self.positions[i]
+
+    def SetAtomPosition(self, i, p):
+        self.set_calls.append((i, p))
+        self.positions[i] = p
+
+
+class _FakeMolWithConf:
+    def __init__(self, n=2):
+        self._conf = _FakeConf(n)
+        self._n = n
+
+    def GetNumConformers(self):
+        return 1
+
+    def GetNumAtoms(self):
+        return self._n
+
+    def GetConformer(self):
+        return self._conf
+
+
+class TestStepOptimizerStartTickReal:
+    @pytest.fixture
+    def dlg(self, qapp):
+        d = _step.StepOptimizerDialog(context=_ctx(), parent=None)
+        yield d
+        d.timer.stop()
+        d.destroy()
+
+    @pytest.fixture
+    def allchem(self, dlg, monkeypatch):
+        ac = MagicMock()
+        monkeypatch.setattr(_step, "AllChem", ac)
+        monkeypatch.setattr(_step.Geometry, "Point3D", _FakePos)
+        return ac
+
+    def test_start_mmff_success(self, dlg, allchem):
+        mol = _FakeMolWithConf(3)
+        dlg.context.current_mol = mol
+        ff = MagicMock()
+        allchem.MMFFGetMoleculeProperties.return_value = MagicMock()
+        allchem.MMFFGetMoleculeForceField.return_value = ff
+        dlg._start()
+        assert dlg.running is True
+        assert dlg.timer.isActive()
+        assert dlg.target_mol is mol
+        assert not dlg.btn_start.isEnabled()
+        assert dlg.btn_stop.isEnabled()
+        assert dlg.lbl_state.text() == "State: Running"
+        ff.Initialize.assert_called_once()
+
+    def test_start_mmff_props_none_warns(self, dlg, allchem, no_msgbox):
+        mol = _FakeMolWithConf(2)
+        dlg.context.current_mol = mol
+        allchem.MMFFGetMoleculeProperties.return_value = None
+        dlg._start()
+        no_msgbox[_step.__name__].warning.assert_called_once()
+        assert dlg.running is False
+        assert not dlg.timer.isActive()
+
+    def test_start_uff_success(self, dlg, allchem):
+        mol = _FakeMolWithConf(2)
+        dlg.context.current_mol = mol
+        dlg.combo_ff.setCurrentText("UFF")
+        ff = MagicMock()
+        allchem.UFFGetMoleculeForceField.return_value = ff
+        dlg._start()
+        allchem.UFFGetMoleculeForceField.assert_called_once_with(mol)
+        allchem.MMFFGetMoleculeProperties.assert_not_called()
+        assert dlg.running is True
+        ff.Initialize.assert_called_once()
+
+    def test_start_ff_build_fails_warns(self, dlg, allchem, no_msgbox):
+        mol = _FakeMolWithConf(2)
+        dlg.context.current_mol = mol
+        allchem.MMFFGetMoleculeProperties.return_value = MagicMock()
+        allchem.MMFFGetMoleculeForceField.return_value = None
+        dlg._start()
+        no_msgbox[_step.__name__].warning.assert_called_once()
+        assert dlg.running is False
+
+    def test_start_exception_shows_critical(self, dlg, allchem, no_msgbox):
+        mol = MagicMock()
+        mol.GetNumConformers.return_value = 1
+        mol.GetConformer.side_effect = RuntimeError("boom")
+        dlg.context.current_mol = mol
+        dlg._start()
+        no_msgbox[_step.__name__].critical.assert_called_once()
+        assert dlg.running is False
+
+    def test_tick_runs_minimize_and_updates_labels(self, dlg, allchem):
+        mol = _FakeMolWithConf(2)
+        dlg.context.current_mol = mol
+        ff = MagicMock()
+        ff.CalcEnergy.return_value = 3.14159
+        allchem.MMFFGetMoleculeProperties.return_value = MagicMock()
+        allchem.MMFFGetMoleculeForceField.return_value = ff
+        dlg._start()
+        dlg.timer.stop()  # drive the tick manually, no real timer firing
+
+        dlg._tick()
+        ff.Minimize.assert_called_once()
+        assert dlg.step_count == dlg.spin_steps.value()
+        assert dlg.lbl_energy.text() == "Energy: 3.1416 kcal/mol"
+        dlg.context.refresh_3d_view.assert_called_once()
+
+    def test_tick_molecule_changed_stops_run(self, dlg, allchem):
+        mol = _FakeMolWithConf(2)
+        dlg.context.current_mol = mol
+        ff = MagicMock()
+        allchem.MMFFGetMoleculeProperties.return_value = MagicMock()
+        allchem.MMFFGetMoleculeForceField.return_value = ff
+        dlg._start()
+        dlg.context.current_mol = _FakeMolWithConf(2)  # a *different* mol object
+
+        dlg._tick()
+        assert dlg.running is False
+        assert not dlg.timer.isActive()
+        assert "Molecule changed" in dlg.lbl_state.text()
+        assert dlg.btn_start.isEnabled()
+
+    def test_tick_exception_is_caught(self, dlg, allchem):
+        mol = _FakeMolWithConf(2)
+        dlg.context.current_mol = mol
+        ff = MagicMock()
+        ff.Minimize.side_effect = RuntimeError("boom")
+        allchem.MMFFGetMoleculeProperties.return_value = MagicMock()
+        allchem.MMFFGetMoleculeForceField.return_value = ff
+        dlg._start()
+
+        dlg._tick()
+        assert dlg.running is False
+        assert not dlg.timer.isActive()
+        assert "Error" in dlg.lbl_state.text()
+        assert dlg.btn_start.isEnabled()
+
+    def test_tick_max_move_clamp_rescales_large_displacement(self, dlg, allchem):
+        mol = _FakeMolWithConf(1)
+        dlg.context.current_mol = mol
+        ff = MagicMock()
+
+        def _minimize(maxIts=None):
+            conf = mol.GetConformer()
+            p = conf.positions[0]
+            conf.positions[0] = _FakePos(p.x + 3.0, p.y, p.z)
+            return 0
+
+        ff.Minimize.side_effect = _minimize
+        allchem.MMFFGetMoleculeProperties.return_value = MagicMock()
+        allchem.MMFFGetMoleculeForceField.return_value = ff
+        dlg._start()
+        dlg.spin_max_move.setValue(0.5)
+
+        dlg._tick()
+        assert len(mol.GetConformer().set_calls) == 1
+        i, point = mol.GetConformer().set_calls[0]
+        assert i == 0
+        assert point.x == pytest.approx(0.5)
