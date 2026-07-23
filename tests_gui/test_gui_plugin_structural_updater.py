@@ -6,6 +6,7 @@ Covers: SettingsDialog + StructuralUpdaterPlugin.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -136,3 +137,44 @@ class TestStructuralUpdaterPlugin:
         plugin.mw._temp_conv_mode = "force_full"
         plugin.new_trigger_conversion()
         _updater._ORIGINAL_METHODS["trigger_conversion"].assert_called_once()
+
+    def test_open_settings_accept_disables_plugin(self, plugin, monkeypatch, tmp_path):
+        plugin.settings_file = str(tmp_path / "su.json")
+        plugin.enabled = True
+
+        def fake_exec(self):
+            self.enabled = False  # simulate user unchecking the box
+            return 1
+
+        monkeypatch.setattr(_updater.SettingsDialog, "exec", fake_exec)
+        plugin.open_settings()
+        assert plugin.enabled is False
+        plugin.mw.init_manager.convert_button.setText.assert_called_with(
+            "Convert 2D to 3D"
+        )
+        plugin.context.show_status_message.assert_called_with(
+            "Structural Updater: Disabled"
+        )
+        assert json.loads((tmp_path / "su.json").read_text()) == {"enabled": False}
+
+    def test_open_settings_accept_keeps_enabled(self, plugin, monkeypatch, tmp_path):
+        plugin.settings_file = str(tmp_path / "su.json")
+        plugin.enabled = True
+
+        monkeypatch.setattr(_updater.SettingsDialog, "exec", lambda self: 1)
+        plugin.open_settings()
+        assert plugin.enabled is True
+        plugin.context.show_status_message.assert_called_with(
+            "Structural Updater: Enabled"
+        )
+
+    def test_open_settings_cancel_leaves_state_unchanged(
+        self, plugin, monkeypatch, tmp_path
+    ):
+        plugin.settings_file = str(tmp_path / "su.json")
+        plugin.enabled = True
+
+        monkeypatch.setattr(_updater.SettingsDialog, "exec", lambda self: 0)
+        plugin.open_settings()
+        assert plugin.enabled is True
+        assert not (tmp_path / "su.json").exists()
