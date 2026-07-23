@@ -161,6 +161,36 @@ class TestMOFCHKReader:
         )
 
 
+class TestMOFCHKReaderRealModuleScalarAndCharDtypes:
+    """Real-module (real numpy) coverage of the scalar-R and array-C dtype
+    branches, which TestMOFCHKReader's AST-extracted class copy doesn't
+    exercise for coverage purposes."""
+
+    def test_scalar_real_value_parsed(self, tmp_path):
+        f = tmp_path / "mo.fchk"
+        f.write_text(
+            "Total Energy                               R     -76.026760000000E+00\n"
+        )
+        r = RealFCHKReader(str(f))
+        assert r.get("Total Energy") == pytest.approx([-76.02676])
+
+    def test_scalar_real_bad_value_silently_ignored(self, tmp_path):
+        f = tmp_path / "mo.fchk"
+        # Matches the scalar regex but float() will fail -> except: pass
+        f.write_text("Bad Value                                  R     --.-\n")
+        r = RealFCHKReader(str(f))
+        assert r.get("Bad Value") is None
+
+    def test_array_char_dtype_stored_as_raw_tokens(self, tmp_path):
+        f = tmp_path / "mo.fchk"
+        f.write_text(
+            "Some Label                                 C   N=           2\n"
+            "AAA BBB\n"
+        )
+        r = RealFCHKReader(str(f))
+        assert r.get("Some Label") == ["AAA", "BBB"]
+
+
 class TestMONormalizationPrefactor:
     def _prefactor(self):
         src = _extract_method_source(
@@ -191,34 +221,15 @@ class TestMONormalizationPrefactor:
         assert fn(None, 0.9, 1, 1, 0) == pytest.approx(fn(None, 0.9, 0, 1, 1))
 
 
-class _FakeGrid:
-    def __init__(self, shape, values):
-        self.shape = shape
-        self._values = values
-
-    def flatten(self):
-        return list(self._values)
-
-
-class _FakeMat:
-    def __init__(self, rows):
-        self._rows = rows
-
-    def __getitem__(self, idx):
-        i, j = idx
-        return self._rows[i][j]
-
-
 class TestMOCubeWriter:
     def _write(self, tmp_path, n_vals):
-        src = _extract_class_source(MO_ANALYZER_PATH, "CubeWriter")
-        ns = {}
-        exec(src, ns)  # noqa: S102
-        writer = ns["CubeWriter"]
+        # Exercises the real module's CubeWriter.write (not an AST-extracted
+        # copy) so this test actually contributes to analyzer.py coverage.
+        writer = _mo_real.CubeWriter
         out = tmp_path / "orbital.cube"
-        data = _FakeGrid((1, 2, 3) if n_vals == 6 else (1, 1, n_vals),
-                         [float(i) for i in range(n_vals)])
-        vectors = _FakeMat([[0.2, 0.0, 0.0], [0.0, 0.2, 0.0], [0.0, 0.0, 0.2]])
+        shape = (1, 2, 3) if n_vals == 6 else (1, 1, n_vals)
+        data = np.arange(n_vals, dtype=float).reshape(shape)
+        vectors = np.array([[0.2, 0.0, 0.0], [0.0, 0.2, 0.0], [0.0, 0.0, 0.2]])
         writer.write(
             str(out),
             atoms=[(0.0, 0.0, 0.0)],
@@ -314,6 +325,198 @@ class TestMOCubeParserNegativeAtoms:
         ids = "    3    5 6\n    7\n"  # 3 ids wrapped over two lines
         meta = self._parse(tmp_path, self._HEADER + ids + self._DATA)
         assert list(meta["data"]) == [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
+
+
+# ---------------------------------------------------------------------------
+# vis.py — CubeVisualizer, loaded as a real module (no PyQt6 at module scope)
+# with real numpy; pyvista stays mocked (matches mocks_with_real_numpy()).
+# ---------------------------------------------------------------------------
+
+with mocks_with_real_numpy():
+    _vis_real = load_plugin(VIS_PATH)
+RealCubeVisualizer = _vis_real.CubeVisualizer
+
+
+def _write_real_cube(tmp_path, nx=2, ny=2, nz=2, name="real.cube"):
+    path = tmp_path / name
+    data = np.arange(nx * ny * nz, dtype=float).reshape(nx, ny, nz)
+    vectors = np.array([[0.2, 0.0, 0.0], [0.0, 0.2, 0.0], [0.0, 0.0, 0.2]])
+    _mo_real.CubeWriter.write(
+        str(path),
+        atoms=[(0.0, 0.0, 0.0)],
+        atom_nos=[8],
+        origin=(-1.0, -1.0, -1.0),
+        vectors=vectors,
+        data=data,
+        comment="MO 1",
+    )
+    return path
+
+
+class TestMOCubeVisualizerLoadFile:
+    def test_load_file_success_builds_grid(self, tmp_path):
+        path = _write_real_cube(tmp_path)
+        mw = types.SimpleNamespace(plotter=MagicMock())
+        vis = RealCubeVisualizer(mw)
+        assert vis.load_file(str(path)) is True
+        assert vis.current_grid is not None
+
+    def test_load_file_missing_file_returns_false(self, tmp_path):
+        mw = types.SimpleNamespace(plotter=MagicMock())
+        vis = RealCubeVisualizer(mw)
+        assert vis.load_file(str(tmp_path / "nope.cube")) is False
+
+
+class TestMOCubeVisualizerShowIso:
+    def test_no_grid_is_noop(self):
+        mw = types.SimpleNamespace(plotter=MagicMock())
+        vis = RealCubeVisualizer(mw)
+        vis.show_iso()  # current_grid is None -> must not raise
+        mw.plotter.remove_actor.assert_not_called()
+
+    def test_positive_and_negative_lobes_added(self):
+        class _FakeContour:
+            def __init__(self, n_points):
+                self.n_points = n_points
+
+        class _FakeGrid:
+            def contour(self, isovalues, scalars):
+                return _FakeContour(5)
+
+        mw = types.SimpleNamespace(plotter=MagicMock())
+        vis = RealCubeVisualizer(mw)
+        vis.current_grid = _FakeGrid()
+        vis.show_iso(isovalue=0.02, opacity=0.3, smooth_shading=False)
+        assert mw.plotter.add_mesh.call_count == 2
+        mw.plotter.remove_actor.assert_any_call("fchk_iso_p")
+        mw.plotter.remove_actor.assert_any_call("fchk_iso_n")
+        mw.plotter.render.assert_called_once()
+
+    def test_empty_lobes_skip_add_mesh(self):
+        class _FakeContour:
+            n_points = 0
+
+        class _FakeGrid:
+            def contour(self, isovalues, scalars):
+                return _FakeContour()
+
+        mw = types.SimpleNamespace(plotter=MagicMock())
+        vis = RealCubeVisualizer(mw)
+        vis.current_grid = _FakeGrid()
+        vis.show_iso()
+        mw.plotter.add_mesh.assert_not_called()
+        mw.plotter.render.assert_called_once()
+
+    def test_contour_exception_is_caught(self):
+        class _FakeGrid:
+            def contour(self, isovalues, scalars):
+                raise RuntimeError("boom")
+
+        mw = types.SimpleNamespace(plotter=MagicMock())
+        vis = RealCubeVisualizer(mw)
+        vis.current_grid = _FakeGrid()
+        vis.show_iso()  # exception is caught internally, must not raise
+
+
+# ---------------------------------------------------------------------------
+# worker.py — CalcWorker.run(), a Qt-derived (QThread) method extracted via
+# AST since QThread is a mocked base class; driven with real numpy and a
+# fake self carrying plain Python attributes + recording pyqtSignal stand-ins.
+# ---------------------------------------------------------------------------
+
+WORKER_PATH = MO_PKG_DIR / "worker.py"
+
+
+class _FakeQtSignal:
+    def __init__(self):
+        self.calls = []
+
+    def emit(self, *args):
+        self.calls.append(args)
+
+
+def _make_worker_run_fn():
+    src = _extract_method_source(WORKER_PATH, "CalcWorker", "run")
+    return _make_function(src, {"np": np, "CubeWriter": _mo_real.CubeWriter})
+
+
+class _FakeWorkerSelf:
+    def __init__(
+        self,
+        engine,
+        atoms,
+        coeffs,
+        output_path,
+        mode="MO",
+        mo_idx=0,
+        n_points=3,
+        margin=2.0,
+        cancelled=False,
+    ):
+        self.engine = engine
+        self.mo_idx = mo_idx
+        self.n_points = n_points
+        self.margin = margin
+        self.atoms = atoms
+        self.mo_coeffs = coeffs
+        self.output_path = output_path
+        self.mode = mode
+        self._is_cancelled = cancelled
+        self.progress_sig = _FakeQtSignal()
+        self.finished_sig = _FakeQtSignal()
+
+
+class TestMOCalcWorkerRun:
+    def _engine(self, tmp_path):
+        engine, _ = _make_engine(tmp_path, _s_shell_fchk(exponent=1.0, coeff=1.0))
+        return engine
+
+    def test_success_writes_cube_and_emits_true(self, tmp_path):
+        engine = self._engine(tmp_path)
+        run = _make_worker_run_fn()
+        out = tmp_path / "out.cube"
+        atoms = np.array([[0.0, 0.0, 0.0]])
+        coeffs = np.array([1.0])
+        fake_self = _FakeWorkerSelf(engine, atoms, coeffs, str(out))
+        run(fake_self)
+        assert fake_self.finished_sig.calls == [(True, str(out))]
+        assert out.exists()
+        assert fake_self.progress_sig.calls[-1] == (100,)
+
+    def test_basis_mode_evaluates_ao(self, tmp_path):
+        engine = self._engine(tmp_path)
+        run = _make_worker_run_fn()
+        out = tmp_path / "basis.cube"
+        atoms = np.array([[0.0, 0.0, 0.0]])
+        fake_self = _FakeWorkerSelf(engine, atoms, None, str(out), mode="Basis")
+        run(fake_self)
+        assert fake_self.finished_sig.calls == [(True, str(out))]
+
+    def test_cancelled_before_first_chunk_emits_nothing(self, tmp_path):
+        engine = self._engine(tmp_path)
+        run = _make_worker_run_fn()
+        atoms = np.array([[0.0, 0.0, 0.0]])
+        coeffs = np.array([1.0])
+        fake_self = _FakeWorkerSelf(
+            engine, atoms, coeffs, str(tmp_path / "cancelled.cube"), cancelled=True
+        )
+        run(fake_self)
+        assert fake_self.finished_sig.calls == []
+        assert fake_self.progress_sig.calls == []
+
+    def test_exception_path_emits_false(self, tmp_path):
+        engine = self._engine(tmp_path)
+        run = _make_worker_run_fn()
+        atoms = np.array([[0.0, 0.0, 0.0]])
+        # mode="MO" with coeffs=None -> len(None) raises TypeError inside
+        # evaluate_mo_on_grid, caught internally by run()'s try/except.
+        fake_self = _FakeWorkerSelf(
+            engine, atoms, None, str(tmp_path / "err.cube")
+        )
+        run(fake_self)
+        assert len(fake_self.finished_sig.calls) == 1
+        success, msg = fake_self.finished_sig.calls[0]
+        assert success is False
 
 
 def _s_shell_fchk(exponent=1.0, coeff=1.0):
@@ -448,6 +651,28 @@ def _neg_d_shell_fchk():
         """)
 
 
+def _f_shell_fchk(pure_flag=None):
+    extra = ""
+    if pure_flag is not None:
+        extra = f"Pure/Cartesian f shells                     I                {pure_flag}\n"
+    return textwrap.dedent("""\
+        Atomic numbers                              I   N=           1
+                 1
+        Current cartesian coordinates               R   N=           3
+          0.000000000000E+00  0.000000000000E+00  0.000000000000E+00
+        Shell types                                 I   N=           1
+                 3
+        Number of primitives per shell              I   N=           1
+                 1
+        Shell to atom map                           I   N=           1
+                 1
+        Primitive exponents                         R   N=           1
+          1.000000000000E+00
+        Contraction coefficients                    R   N=           1
+          1.000000000000E+00
+        """) + extra
+
+
 def _make_engine(tmp_path, content, name="mo.fchk"):
     f = tmp_path / name
     f.write_text(content)
@@ -505,6 +730,15 @@ class TestMOBasisSetEnginePrepareBasisSet:
         engine, _ = _make_engine(tmp_path, _neg_d_shell_fchk())
         assert engine.n_basis == 5
 
+    def test_f_shell_defaults_to_cartesian_ten_functions(self, tmp_path):
+        engine, _ = _make_engine(tmp_path, _f_shell_fchk(pure_flag=None))
+        assert engine.n_basis == 10
+
+    def test_f_shell_pure_flag_zero_seven_functions(self, tmp_path):
+        # Exercises the spherical-F basis_definitions construction branch.
+        engine, _ = _make_engine(tmp_path, _f_shell_fchk(pure_flag=0))
+        assert engine.n_basis == 7
+
 
 class TestMOBasisSetEngineEvaluateMoOnGrid:
     def test_s_function_value_at_center(self, tmp_path):
@@ -536,6 +770,16 @@ class TestMOBasisSetEngineEvaluateMoOnGrid:
         with pytest.raises(ValueError):
             engine.evaluate_mo_on_grid(1, grid, coeffs)  # only 1 basis fn -> mo 1 out of range
 
+    def test_d_shell_exercises_all_angular_axes(self, tmp_path):
+        # Cartesian D shell (xx,yy,zz,xy,xz,yz) with an off-axis grid point
+        # so l>0, m>0 and n>0 all contribute (each is a separate branch in
+        # evaluate_mo_on_grid).
+        engine, _ = _make_engine(tmp_path, _d_shell_fchk(pure_flag=1))
+        grid = np.array([[1.0, 1.0, 1.0]])
+        coeffs = np.ones(6)
+        phi = engine.evaluate_mo_on_grid(0, grid, coeffs)
+        assert np.isfinite(phi[0])
+
 
 class TestMOBasisSetEngineEvaluateBasisOnGrid:
     def test_single_basis_function_matches_manual_gaussian(self, tmp_path):
@@ -545,6 +789,17 @@ class TestMOBasisSetEngineEvaluateBasisOnGrid:
         prefactor = (2 * 1.0 / np.pi) ** 0.75
         expected = prefactor * math.exp(-1.0 * 1.0**2)
         assert phi[0] == pytest.approx(expected)
+
+    def test_d_shell_basis_indices_exercise_all_angular_axes(self, tmp_path):
+        # basis_idx=3 is "xy" (l>0, m>0); basis_idx=5 is "yz" (m>0, n>0) in
+        # the cart_d ordering [xx,yy,zz,xy,xz,yz] -> together they cover the
+        # l>0/m>0/n>0 branches of evaluate_basis_on_grid.
+        engine, _ = _make_engine(tmp_path, _d_shell_fchk(pure_flag=1))
+        grid = np.array([[1.0, 1.0, 1.0]])
+        phi_xy = engine.evaluate_basis_on_grid(3, grid)
+        phi_yz = engine.evaluate_basis_on_grid(5, grid)
+        assert np.isfinite(phi_xy[0])
+        assert np.isfinite(phi_yz[0])
 
     def test_out_of_range_basis_index_returns_zeros(self, tmp_path):
         engine, _ = _make_engine(tmp_path, _s_shell_fchk())
