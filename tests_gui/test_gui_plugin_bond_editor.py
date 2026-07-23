@@ -34,11 +34,13 @@ with mock_chemistry_imports():
 # sys.modules before _mock_chemistry_keep_real_chem() snapshots it below —
 # otherwise the chemistry-blocking meta path finder would intercept the
 # first-ever `import rdkit`/`import vtk` and hand back a MagicMock instead.
-import numpy as _np
-import pyvista as _pv
-import vtk as _vtk
-from rdkit import Chem as _Chem
-from rdkit.Geometry import Point3D as _Point3D
+# Guarded so CI's bare test-gui job (only pytest+PyQt6 installed) skips this
+# real-library module instead of erroring at collection.
+_np = pytest.importorskip("numpy")
+_pv = pytest.importorskip("pyvista")
+_vtk = pytest.importorskip("vtk")
+_Chem = pytest.importorskip("rdkit.Chem")
+_Point3D = pytest.importorskip("rdkit.Geometry").Point3D
 
 
 @contextlib.contextmanager

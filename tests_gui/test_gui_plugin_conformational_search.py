@@ -30,9 +30,11 @@ with mock_chemistry_imports():
 # before _mock_chemistry_keep_real_chem() snapshots it below — otherwise the
 # chemistry-blocking meta path finder would intercept the first-ever
 # `import rdkit` and hand back a MagicMock instead.
-from rdkit import Chem as _Chem
-from rdkit.Chem import AllChem as _AllChem
-from rdkit.Geometry import Point3D as _Point3D
+# Guarded so CI's bare test-gui job (only pytest+PyQt6 installed) skips this
+# real-rdkit module instead of erroring at collection.
+_Chem = pytest.importorskip("rdkit.Chem")
+_AllChem = pytest.importorskip("rdkit.Chem.AllChem")
+_Point3D = pytest.importorskip("rdkit.Geometry").Point3D
 
 
 @contextlib.contextmanager

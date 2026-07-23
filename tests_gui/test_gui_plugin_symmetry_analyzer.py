@@ -16,8 +16,11 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-import numpy as np
 import pytest
+
+# Guarded so CI's bare test-gui job (only pytest+PyQt6 installed) skips this
+# real-numpy module instead of erroring at collection.
+np = pytest.importorskip("numpy")
 
 from conftest import load_plugin_for_gui, mock_chemistry_imports
 
