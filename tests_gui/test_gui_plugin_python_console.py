@@ -11,6 +11,8 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+from PyQt6.QtCore import QEvent, Qt
+from PyQt6.QtGui import QKeyEvent, QTextCursor
 
 from conftest import load_plugin_for_gui, mock_chemistry_imports
 
@@ -156,3 +158,163 @@ class TestPythonHighlighter:
     def test_rules_are_tuples(self, hl):
         for rule in hl.highlighting_rules:
             assert isinstance(rule, tuple) and len(rule) == 2
+
+
+class TestHighlightBlock:
+    """highlightBlock() applies every rule over real document text."""
+
+    def test_highlight_runs_over_all_rule_types(self, qapp):
+        from PyQt6.QtGui import QTextDocument
+
+        doc = QTextDocument()
+        h = _console.PythonHighlighter(parent=doc)
+        # keyword, builtin, comment, string and number all present so every
+        # rule matches at least once inside highlightBlock's while loop.
+        doc.setPlainText("def foo():  # note\n    x = print('hi') + 42")
+        h.rehighlight()  # forces highlightBlock over each block synchronously
+        assert doc.toPlainText().startswith("def foo")
+
+
+# ===========================================================================
+# Python Console — ConsoleInput.keyPressEvent (history navigation)
+# ===========================================================================
+
+
+def _key(key, mod=Qt.KeyboardModifier.NoModifier, text=""):
+    return QKeyEvent(QEvent.Type.KeyPress, key, mod, text)
+
+
+class TestConsoleInputKeys:
+    """keyPressEvent — Enter/Shift+Enter and Up/Down history navigation."""
+
+    @pytest.fixture
+    def inp(self, qapp):
+        w = _console.ConsoleInput()
+        yield w
+        w.destroy()
+
+    def test_enter_emits_execute_signal(self, inp):
+        fired = []
+        inp.execute_signal.connect(lambda: fired.append(True))
+        inp.setPlainText("x = 1")
+        inp.keyPressEvent(_key(Qt.Key.Key_Return))
+        assert fired == [True]
+        # Return path returns early — text is not modified with a newline
+        assert inp.toPlainText() == "x = 1"
+
+    def test_shift_enter_does_not_execute(self, inp):
+        # Shift+Enter takes the super() branch (newline), never the execute path.
+        fired = []
+        inp.execute_signal.connect(lambda: fired.append(True))
+        inp.setPlainText("abc")
+        inp.moveCursor(QTextCursor.MoveOperation.End)
+        inp.keyPressEvent(_key(Qt.Key.Key_Return, Qt.KeyboardModifier.ShiftModifier))
+        assert fired == []
+
+    def test_up_navigates_history(self, inp):
+        inp.history = ["first", "second"]
+        inp.history_index = 2
+        inp.keyPressEvent(_key(Qt.Key.Key_Up))
+        assert inp.toPlainText() == "second"
+        assert inp.history_index == 1
+
+    def test_up_without_history_falls_through(self, inp):
+        inp.history = []
+        inp.keyPressEvent(_key(Qt.Key.Key_Up))  # must not raise
+        assert inp.toPlainText() == ""
+
+    def test_down_navigates_history_forward(self, inp):
+        inp.history = ["a", "b"]
+        inp.history_index = 0
+        inp.setPlainText("a")
+        inp.moveCursor(QTextCursor.MoveOperation.End)
+        inp.keyPressEvent(_key(Qt.Key.Key_Down))
+        assert inp.toPlainText() == "b"
+        assert inp.history_index == 1
+
+    def test_down_past_last_history_clears(self, inp):
+        inp.history = ["a", "b"]
+        inp.history_index = 1
+        inp.setPlainText("b")
+        inp.moveCursor(QTextCursor.MoveOperation.End)
+        inp.keyPressEvent(_key(Qt.Key.Key_Down))
+        assert inp.toPlainText() == ""
+        assert inp.history_index == 2
+
+    def test_down_without_history_falls_through(self, inp):
+        inp.history = []
+        inp.keyPressEvent(_key(Qt.Key.Key_Down))  # must not raise
+        assert inp.toPlainText() == ""
+
+    def test_other_key_inserts_text(self, inp):
+        inp.keyPressEvent(_key(Qt.Key.Key_A, text="a"))
+        assert "a" in inp.toPlainText()
+
+
+# ===========================================================================
+# Python Console — run_code() execution paths
+# ===========================================================================
+
+
+class TestRunCode:
+    """run_code() — REPL execution, echoing, stdout/stderr capture."""
+
+    def _dlg(self, mol=...):
+        ctx = MagicMock()
+        ctx.get_main_window.return_value = None
+        if mol is not ...:
+            ctx.current_molecule = mol
+        return _console.PythonConsoleDialog(context=ctx)
+
+    def test_empty_command_is_noop(self, qapp):
+        d = self._dlg()
+        before = d.output_area.toPlainText()
+        d.input_area.setPlainText("   ")
+        d.run_code()  # returns before echoing anything
+        assert d.output_area.toPlainText() == before
+
+    def test_executes_and_echoes_input(self, qapp):
+        d = self._dlg()
+        d.input_area.setPlainText("x = 41 + 1")
+        d.run_code()
+        assert ">>> x = 41 + 1" in d.output_area.toPlainText()
+        assert d.local_scope.get("x") == 42
+        assert d.input_area.toPlainText() == ""  # input cleared
+
+    def test_stdout_is_captured(self, qapp):
+        d = self._dlg()
+        d.input_area.setPlainText("print('hello world')")
+        d.run_code()
+        assert "hello world" in d.output_area.toPlainText()
+
+    def test_stderr_stream_is_captured(self, qapp):
+        # Write to stderr without raising, so pytest-qt's event-loop exception
+        # guard is not tripped, while still covering the stderr-append branch.
+        d = self._dlg()
+        d.input_area.setPlainText("import sys; sys.stderr.write('ERRLINE')")
+        d.run_code()
+        assert "ERRLINE" in d.output_area.toPlainText()
+
+    def test_multiline_uses_exec_mode(self, qapp):
+        d = self._dlg()
+        d.input_area.setPlainText("a = 5\nb = a * 2")
+        d.run_code()
+        assert d.local_scope.get("b") == 10
+        assert "... b = a * 2" in d.output_area.toPlainText()
+
+    def test_incomplete_block_warns(self, qapp):
+        d = self._dlg()
+        d.input_area.setPlainText("if True:")
+        d.run_code()
+        assert "Incomplete" in d.output_area.toPlainText()
+
+    def test_mol_none_emits_warning(self, qapp):
+        d = self._dlg(mol=None)
+        d.input_area.setPlainText("print(mol)")
+        d.run_code()
+        assert "'mol' is None" in d.output_area.toPlainText()
+
+    def test_append_output_with_color(self, qapp):
+        d = self._dlg()
+        d.append_output("colored", color="#FF0000")
+        assert "colored" in d.output_area.toPlainText()
