@@ -173,6 +173,35 @@ class TestSaveLoadProject:
         MOD.on_load_project(None)  # not a dict → early return
         MOD.on_load_project("bad")
 
+    def test_on_save_project_no_context_uses_active_window(self):
+        MOD.PLUGIN_CONTEXT = None
+        MOD.EMBED_SETTINGS["enabled"] = True
+        result = MOD.on_save_project()  # falls back to QApplication.activeWindow()
+        assert result is None
+
+    def test_on_load_project_applies_settings_full_path(self):
+        mw = SimpleNamespace(init_manager=SimpleNamespace(settings={"orig": 1}))
+        ctx = make_context()
+        ctx.get_main_window.return_value = mw
+        MOD.PLUGIN_CONTEXT = ctx
+        MOD.ORIGINAL_SETTINGS = None
+        MOD.on_load_project({"settings": {"theme": "dark"}})
+        assert MOD.ORIGINAL_SETTINGS == {"orig": 1}
+        assert mw.init_manager.settings["theme"] == "dark"
+        assert MOD.EMBED_SETTINGS["enabled"] is True
+        ctx.show_status_message.assert_called_once()
+
+    def test_on_load_project_exception_swallowed(self):
+        class BadDict(dict):
+            def update(self, *a, **k):
+                raise RuntimeError("boom")
+
+        mw = SimpleNamespace(init_manager=SimpleNamespace(settings=BadDict({"a": 1})))
+        ctx = make_context()
+        ctx.get_main_window.return_value = mw
+        MOD.PLUGIN_CONTEXT = ctx
+        MOD.on_load_project({"settings": {"x": 1}})  # must not raise
+
 
 # ---------------------------------------------------------------------------
 # enable_project_mode / disable_project_mode
@@ -214,6 +243,47 @@ class TestProjectMode:
         assert MOD.EMBED_SETTINGS["enabled"] is True
         MOD.disable_project_mode(mw, restore_content=False)
         assert MOD.EMBED_SETTINGS["enabled"] is False
+
+    def test_enable_project_mode_full_paths(self):
+        """Exercise dirty-flag reset, initial_settings alias, and save_settings monkeypatch."""
+        mw = SimpleNamespace(
+            settings_dirty=None,
+            initial_settings=None,
+            save_settings=lambda: None,
+            init_manager=SimpleNamespace(
+                settings={"a": 1}, settings_dirty=None, save_settings=lambda: "orig"
+            ),
+        )
+        MOD.enable_project_mode(mw)
+        assert mw.init_manager.settings_dirty is False
+        assert mw.initial_settings == {"a": 1}
+        assert hasattr(mw, "_original_save_settings")
+        assert mw.init_manager.save_settings() is None  # proxy blocks the call
+
+    def test_disable_project_mode_restores_original(self):
+        """Exercise save_settings restoration and content restoration from ORIGINAL_SETTINGS."""
+        mw = SimpleNamespace(
+            initial_settings={"old": True},
+            init_manager=SimpleNamespace(settings={"live": 1}, save_settings=lambda: "orig"),
+        )
+        mw._original_save_settings = lambda: "orig"
+        MOD.ORIGINAL_SETTINGS = {"restored": 2}
+        MOD.disable_project_mode(mw, restore_content=True)
+        assert not hasattr(mw, "_original_save_settings")
+        assert mw.init_manager.save_settings() == "orig"
+        assert mw.initial_settings == {"restored": 2}
+        assert mw.init_manager.settings == {"restored": 2}
+        assert MOD.ORIGINAL_SETTINGS is None
+
+    def test_disable_project_mode_restore_content_exception_swallowed(self):
+        class BadDict(dict):
+            def clear(self):
+                raise RuntimeError("boom")
+
+        mw = SimpleNamespace(init_manager=SimpleNamespace(settings=BadDict({"a": 1})))
+        MOD.ORIGINAL_SETTINGS = {"x": 1}
+        MOD.disable_project_mode(mw, restore_content=True)  # must not raise
+        assert MOD.ORIGINAL_SETTINGS is None
 
 
 # ---------------------------------------------------------------------------
@@ -259,6 +329,15 @@ class TestOnDocumentReset:
         MOD.on_document_reset()
         assert MOD.EMBED_SETTINGS["enabled"] is False
 
+    def test_reenables_project_mode_when_always_save_true(self):
+        mw = SimpleNamespace(init_manager=SimpleNamespace(settings={}))
+        ctx = make_context()
+        ctx.get_main_window.return_value = mw
+        MOD.PLUGIN_CONTEXT = ctx
+        MOD.PLUGIN_CONFIG["always_save_to_project"] = True
+        MOD.on_document_reset()
+        assert MOD.EMBED_SETTINGS["enabled"] is True
+
 
 class TestSettingsSaver:
     def _patch_path(self, tmp_path, monkeypatch) -> str:
@@ -297,6 +376,61 @@ class TestSettingsSaver:
         data_path = self._patch_path(tmp_path, monkeypatch)
         Path(data_path).write_text("{not valid json", encoding="utf-8")
         assert MOD.load_library() == {}
+
+    def test_save_library_write_error_shows_critical(self, tmp_path, monkeypatch):
+        bad_path = str(tmp_path / "missing_dir" / "file.json")
+        monkeypatch.setattr(MOD, "get_plugin_data_path", lambda: bad_path)
+        parent = MagicMock()
+        with patch.object(MOD.QMessageBox, "critical") as crit:
+            MOD.save_library({"a": 1}, parent)
+        crit.assert_called_once()
+
+    def test_save_library_write_error_no_parent_silent(self, tmp_path, monkeypatch):
+        bad_path = str(tmp_path / "missing_dir2" / "file.json")
+        monkeypatch.setattr(MOD, "get_plugin_data_path", lambda: bad_path)
+        MOD.save_library({"a": 1})  # no parent_window -> silently swallowed
+
+
+# ---------------------------------------------------------------------------
+# initialize
+# ---------------------------------------------------------------------------
+
+
+class TestInitialize:
+    def setup_method(self):
+        self._orig_ctx = MOD.PLUGIN_CONTEXT
+        self._orig_config = dict(MOD.PLUGIN_CONFIG)
+        self._orig_embed = dict(MOD.EMBED_SETTINGS)
+
+    def teardown_method(self):
+        MOD.PLUGIN_CONTEXT = self._orig_ctx
+        MOD.PLUGIN_CONFIG.clear()
+        MOD.PLUGIN_CONFIG.update(self._orig_config)
+        MOD.EMBED_SETTINGS.clear()
+        MOD.EMBED_SETTINGS.update(self._orig_embed)
+
+    def test_registers_handlers_and_menu(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(
+            MOD, "get_plugin_data_path", lambda: str(tmp_path / "settings_saver.json")
+        )
+        ctx = make_context()
+        MOD.initialize(ctx)
+        ctx.add_menu_action.assert_called_once()
+        ctx.register_save_handler.assert_called_once_with(MOD.on_save_project)
+        ctx.register_load_handler.assert_called_once_with(MOD.on_load_project)
+        ctx.register_document_reset_handler.assert_called_once_with(MOD.on_document_reset)
+
+    def test_loads_config_and_enables_project_mode(self, tmp_path, monkeypatch):
+        data_path = str(tmp_path / "settings_saver.json")
+        monkeypatch.setattr(MOD, "get_plugin_data_path", lambda: data_path)
+        Path(data_path).write_text(
+            json.dumps({"_PLUGIN_CONFIG": {"always_save_to_project": True}}),
+            encoding="utf-8",
+        )
+        ctx = make_context()
+        MOD.initialize(ctx)
+        assert MOD.PLUGIN_CONFIG["always_save_to_project"] is True
+        assert MOD.EMBED_SETTINGS["enabled"] is True
 
 
 # ---------------------------------------------------------------------------
@@ -387,6 +521,76 @@ class TestApplySettingsHot:
         MOD.apply_settings_hot(mw)
         assert len(mw.scene.background_calls) == 1
 
+    def test_dirty_flag_assignment_exception_swallowed(self):
+        class _RaisingIM:
+            def __init__(self, settings):
+                self.settings = settings
+
+            @property
+            def settings_dirty(self):
+                return None
+
+            @settings_dirty.setter
+            def settings_dirty(self, value):
+                raise RuntimeError("boom")
+
+        MOD.PLUGIN_CONTEXT = None
+        MOD.EMBED_SETTINGS["enabled"] = False
+        mw = SimpleNamespace(init_manager=_RaisingIM({"a": 1}))
+        MOD.apply_settings_hot(mw)  # must not raise
+
+    def test_3d_settings_exception_swallowed(self):
+        view3d = MagicMock()
+        view3d.apply_3d_settings.side_effect = RuntimeError("boom")
+        MOD.PLUGIN_CONTEXT = None
+        mw = SimpleNamespace(init_manager=_FakeInitManager({"a": 1}), view_3d_manager=view3d)
+        MOD.apply_settings_hot(mw)  # must not raise
+
+    def test_cpk_exception_swallowed(self):
+        im = _FakeInitManager({"a": 1})
+        im.update_cpk_colors_from_settings = MagicMock(side_effect=RuntimeError("boom"))
+        MOD.PLUGIN_CONTEXT = None
+        mw = SimpleNamespace(init_manager=im)
+        MOD.apply_settings_hot(mw)  # must not raise
+
+    def test_refresh_ui_inner_exception_swallowed(self):
+        widget = MagicMock()
+        widget.refresh_ui.side_effect = RuntimeError("boom")
+        MOD.PLUGIN_CONTEXT = None
+        mw = self._mw()
+        with patch.object(MOD.QApplication, "topLevelWidgets", return_value=[widget]):
+            MOD.apply_settings_hot(mw)  # must not raise
+
+    def test_top_level_widgets_outer_exception_swallowed(self):
+        MOD.PLUGIN_CONTEXT = None
+        mw = self._mw()
+        with patch.object(
+            MOD.QApplication, "topLevelWidgets", side_effect=RuntimeError("boom")
+        ):
+            MOD.apply_settings_hot(mw)  # must not raise
+
+    def test_draw_molecule_exception_swallowed(self):
+        ctx = make_context()
+        ctx.current_molecule = MagicMock()
+        ctx.draw_molecule_3d.side_effect = RuntimeError("boom")
+        MOD.PLUGIN_CONTEXT = ctx
+        mw = self._mw()
+        MOD.apply_settings_hot(mw)  # must not raise
+
+    def test_2d_scene_exception_swallowed(self):
+        scene = MagicMock()
+        scene.setBackgroundBrush.side_effect = RuntimeError("boom")
+        MOD.PLUGIN_CONTEXT = None
+        mw = SimpleNamespace(init_manager=_FakeInitManager({"a": 1}), scene=scene)
+        MOD.apply_settings_hot(mw)  # must not raise
+
+    def test_undo_checkpoint_exception_swallowed(self):
+        ctx = make_context()
+        ctx.push_undo_checkpoint.side_effect = RuntimeError("boom")
+        MOD.PLUGIN_CONTEXT = ctx
+        mw = self._mw()
+        MOD.apply_settings_hot(mw)  # must not raise
+
 
 class _FakeScene2:
     def __init__(self):
@@ -420,6 +624,45 @@ class TestRefreshLoadedScene:
         assert callable(args[1])
         # scene not updated synchronously (deferred via QTimer)
         assert mw.scene.updated is False
+
+    def test_views_error_swallowed(self):
+        class _SceneNoViewsError(_FakeScene2):
+            def views(self):
+                raise RuntimeError("boom")
+
+        mw = SimpleNamespace(scene=_SceneNoViewsError())
+        MOD.refresh_loaded_scene(mw, defer=False)  # must not raise
+
+    def test_view2d_viewport_error_swallowed(self):
+        view2d = MagicMock()
+        view2d.viewport.side_effect = RuntimeError("boom")
+        mw = SimpleNamespace(init_manager=SimpleNamespace(view_2d=view2d))
+        MOD.refresh_loaded_scene(mw, defer=False)  # must not raise
+
+    def test_edit_3d_manager_error_swallowed(self):
+        e3d = MagicMock()
+        e3d.update_2d_measurement_labels.side_effect = RuntimeError("boom")
+        mw = SimpleNamespace(edit_3d_manager=e3d)
+        MOD.refresh_loaded_scene(mw, defer=False)  # must not raise
+
+    def test_draw_molecule_error_swallowed(self):
+        ctx = make_context()
+        ctx.current_molecule = MagicMock()
+        ctx.draw_molecule_3d.side_effect = RuntimeError("boom")
+        MOD.PLUGIN_CONTEXT = ctx
+        try:
+            mw = SimpleNamespace()
+            MOD.refresh_loaded_scene(mw, defer=False)  # must not raise
+        finally:
+            MOD.PLUGIN_CONTEXT = None
+
+    def test_outer_exception_swallowed(self):
+        class _RaisingScene:
+            def update(self):
+                raise RuntimeError("boom")
+
+        mw = SimpleNamespace(scene=_RaisingScene())
+        MOD.refresh_loaded_scene(mw, defer=False)  # must not raise
 
 
 # ---------------------------------------------------------------------------
