@@ -89,22 +89,27 @@ def make_truststore(src: Path, dst: Path, name_suffix: str, id_suffix: str, add_
     print(f"Written: {dst.relative_to(Path('plugins').parent)}")
 
 
-base = Path("plugins")
+# (src -> dst, add_docstring) pairs, resolved against the given plugins dir.
+# Kept as data so tests can regenerate into a tmp dir and assert no drift.
+VARIANTS = [
+    ("Chat_with_Molecule_Neo/chat_with_molecule_neo.py",
+     "Chat_with_Molecule_Neo/chat_with_molecule_neo_truststore.py", False),
+    ("Chat_with_Molecule_Neo_Local/chat_with_molecule_neo_local.py",
+     "Chat_with_Molecule_Neo_Local/chat_with_molecule_neo_local_truststore.py", True),
+]
 
-make_truststore(
-    src=base / "Chat_with_Molecule_Neo/chat_with_molecule_neo.py",
-    dst=base / "Chat_with_Molecule_Neo/chat_with_molecule_neo_truststore.py",
-    name_suffix=" (truststore)",
-    id_suffix="_truststore",
-    add_docstring=False,
-)
 
-make_truststore(
-    src=base / "Chat_with_Molecule_Neo_Local/chat_with_molecule_neo_local.py",
-    dst=base / "Chat_with_Molecule_Neo_Local/chat_with_molecule_neo_local_truststore.py",
-    name_suffix=" (truststore)",
-    id_suffix="_truststore",
-    add_docstring=True,
-)
+def generate_all(base=Path("plugins")):
+    for src_rel, dst_rel, add_docstring in VARIANTS:
+        make_truststore(
+            src=base / src_rel,
+            dst=base / dst_rel,
+            name_suffix=" (truststore)",
+            id_suffix="_truststore",
+            add_docstring=add_docstring,
+        )
 
-print("Done.")
+
+if __name__ == "__main__":
+    generate_all()
+    print("Done.")

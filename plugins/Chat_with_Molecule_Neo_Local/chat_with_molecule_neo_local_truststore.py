@@ -3,7 +3,7 @@
 
 
 PLUGIN_NAME = "Chat with Molecule Neo (Local) (truststore)"
-PLUGIN_VERSION = "2026.07.04"
+PLUGIN_VERSION = "2026.07.08"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with Local LLM (OpenAI-Compatible) about the current molecule. Automatically injects SMILES context. (Neo Version) Note: InChIKey is sent to PubChem."
@@ -4055,14 +4055,16 @@ class ChatMoleculeWindow(QDialog):
     def log_usage(self, response):
         """Helper to log usage metadata"""
         try:
-            if hasattr(response, "usage_metadata"):
-                usage = response.usage_metadata
+            usage = getattr(response, "usage", None) or getattr(
+                response, "usage_metadata", None
+            )
+            if usage is not None:
                 append_log("usage", str(usage))
 
-            # User Request: "History Management" - Check token/turn count
-            # Simple heuristic: If history > N turns, prone.
-            if self.chat_session and hasattr(self.chat_session, "history"):
-                history_len = len(self.chat_session.history)
+            # History Management: this variant keeps the OpenAI-style message
+            # list in chat_history_state (there is no Gemini chat_session here).
+            if hasattr(self, "chat_history_state"):
+                history_len = len(self.chat_history_state)
                 if history_len > MAX_HISTORY:
                     self._prune_history()
 
@@ -4070,22 +4072,20 @@ class ChatMoleculeWindow(QDialog):
             logging.warning("Failed to log usage / manage history: %s", e)
 
     def _prune_history(self):
-        """Rolling history: Keep last N turns + System prompt context (handled by restart)"""
+        """Rolling history: keep system messages + the last 10 conversation messages"""
         try:
-            old_history = self.chat_session.history
-            # Keep last 10 messages (5 turns)
-            new_history = old_history[-10:]
-
-            # Restart session with trimmed history
-            # Note: start_chat history argument takes list of Content objects.
-            model_name = self.settings.get("model", "gpt-4o")
-
-            model = genai.GenerativeModel(
-                model_name,
-                system_instruction=SYSTEM_PROMPT,
-                generation_config=GENERATION_CONFIG,
-            )
-            self.chat_session = model.start_chat(history=new_history)
+            old_history = self.chat_history_state
+            system_msgs = [
+                m
+                for m in old_history
+                if isinstance(m, dict) and m.get("role") == "system"
+            ]
+            conversation = [
+                m
+                for m in old_history
+                if not (isinstance(m, dict) and m.get("role") == "system")
+            ]
+            self.chat_history_state = system_msgs + conversation[-10:]
 
             self.append_message(
                 "System", "History pruned to save tokens (Rolling update).", "gray"
