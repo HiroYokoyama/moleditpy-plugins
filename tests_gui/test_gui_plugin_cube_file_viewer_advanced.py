@@ -147,6 +147,10 @@ def _make_viewer(data_max=2.0, mol=None):
     ctx.current_molecule = mol
     dock = MagicMock()
     grid = MagicMock()
+    # contour().n_points must be a real int (not a bare MagicMock) so the
+    # `> 0` comparison in update_iso() doesn't raise and short-circuit into
+    # the outer except before reaching add_mesh/process_mesh.
+    grid.contour.return_value.n_points = 5
     w = _cube_adv.CubeViewerWidget(ctx, dock, grid, data_max=data_max)
     # Keep test-triggered saves (closeEvent, aboutToQuit) out of plugins/
     import os

@@ -125,6 +125,127 @@ class TestCubeAdvancedParseCubeData:
         result = cube_adv_mod.parse_cube_data(str(p))
         assert len(result["data_flat"]) == 8
 
+    def test_negative_natoms_with_metadata_line_after_header(self, tmp_path, cube_adv_mod):
+        # Negative n_atoms header signals an extra metadata line right after
+        # the atom block (unrelated to atom count). Here the line right after
+        # the dims header is that metadata line (only 2 tokens, not 5), so
+        # parse_cube_data should skip it (current_line += 1) before atoms.
+        content = (
+            "Title\nTitle2\n"
+            "  -1   0.0 0.0 0.0\n"
+            "   2   0.2 0.0 0.0\n"
+            "   2   0.0 0.2 0.0\n"
+            "   2   0.0 0.0 0.2\n"
+            "   1   150\n"  # metadata line (2 tokens != 5) -> skipped
+            "   6   0.0   0.0   0.0   0.0   0.0\n"
+            "1.0 2.0 3.0 4.0 5.0 6.0\n7.0 8.0\n"
+        )
+        p = tmp_path / "neg_meta.cube"
+        p.write_text(content)
+        result = cube_adv_mod.parse_cube_data(str(p))
+        assert len(result["atoms"]) == 1
+        assert result["atoms"][0][0] == 6
+
+    def test_negative_natoms_missing_line_exercises_except_branch(self, tmp_path, cube_adv_mod):
+        # Negative n_atoms with no line beyond the dims header — the smart
+        # check's lines[current_line] access raises IndexError, caught by
+        # the except branch (current_line += 1). The subsequent (unguarded)
+        # atom-reading loop then also runs past the end of the file, so the
+        # whole call raises IndexError -- but the except branch itself still
+        # executes first, which is what we're covering here.
+        content = (
+            "Title\nTitle2\n"
+            "  -1   0.0 0.0 0.0\n"
+            "   1   0.2 0.0 0.0\n"
+            "   1   0.0 0.2 0.0\n"
+            "   1   0.0 0.0 0.2\n"
+        )
+        p = tmp_path / "neg_missing.cube"
+        p.write_text(content)
+        with pytest.raises(IndexError):
+            cube_adv_mod.parse_cube_data(str(p))
+
+    def test_atom_line_bad_coords_falls_back_to_zero(self, tmp_path, cube_adv_mod):
+        content = (
+            "Title\nTitle2\n"
+            "   1   0.0 0.0 0.0\n"
+            "   1   0.2 0.0 0.0\n"
+            "   1   0.0 0.2 0.0\n"
+            "   1   0.0 0.0 0.2\n"
+            "   6   0.0   bad   bad   bad\n"
+            "1.0 2.0 3.0 4.0 5.0 6.0\n"
+        )
+        p = tmp_path / "bad_coords.cube"
+        p.write_text(content)
+        result = cube_adv_mod.parse_cube_data(str(p))
+        anum, pos = result["atoms"][0]
+        assert anum == 6
+        assert list(pos) == [0.0, 0.0, 0.0]
+
+    def test_skips_blank_lines_before_data(self, tmp_path, cube_adv_mod):
+        content = (
+            "Title\nTitle2\n"
+            "   1   0.0 0.0 0.0\n"
+            "   2   0.2 0.0 0.0\n"
+            "   1   0.0 0.2 0.0\n"
+            "   1   0.0 0.0 0.2\n"
+            "   6   0.0   0.0   0.0   0.0   0.0\n"
+            "\n"  # blank line before data -> skipped
+            "1.0 2.0 3.0 4.0 5.0 6.0\n7.0 8.0\n"
+        )
+        p = tmp_path / "blank_before.cube"
+        p.write_text(content)
+        result = cube_adv_mod.parse_cube_data(str(p))
+        assert len(result["data_flat"]) == 2  # nx*ny*nz = 2*1*1
+
+    def test_skips_short_metadata_and_non_numeric_lines(self, tmp_path, cube_adv_mod):
+        content = (
+            "Title\nTitle2\n"
+            "   1   0.0 0.0 0.0\n"
+            "   2   0.2 0.0 0.0\n"
+            "   1   0.0 0.2 0.0\n"
+            "   1   0.0 0.0 0.2\n"
+            "   6   0.0   0.0   0.0   0.0   0.0\n"
+            "   1   150\n"  # short line (<6 tokens) -> skipped
+            "not numeric data here at all\n"  # non-numeric first token -> skipped
+            "1.0 2.0 3.0 4.0 5.0 6.0\n7.0 8.0\n"
+        )
+        p = tmp_path / "meta_and_junk.cube"
+        p.write_text(content)
+        result = cube_adv_mod.parse_cube_data(str(p))
+        assert len(result["data_flat"]) == 2
+
+    def test_excess_data_trimmed_from_start(self, tmp_path, cube_adv_mod):
+        # 2 expected (nx*ny*nz = 2*1*1) but 4 values provided -> excess=2
+        # trimmed from the START, keeping the last `expected_size` values.
+        content = (
+            "Title\nTitle2\n"
+            "   1   0.0 0.0 0.0\n"
+            "   2   0.2 0.0 0.0\n"
+            "   1   0.0 0.2 0.0\n"
+            "   1   0.0 0.0 0.2\n"
+            "   6   0.0   0.0   0.0   0.0   0.0\n"
+            "1.0 2.0 3.0 4.0 5.0 6.0\n"
+        )
+        p = tmp_path / "excess.cube"
+        p.write_text(content)
+        result = cube_adv_mod.parse_cube_data(str(p))
+        assert len(result["data_flat"]) == 2
+        assert list(result["data_flat"]) == [5.0, 6.0]
+
+    def test_fromstring_exception_falls_back_to_empty_array(self, tmp_path, cube_adv_mod, monkeypatch):
+        content = _make_cube_content(nx=2, ny=1, nz=1, n_atoms=1)
+        p = tmp_path / "fromstring_err.cube"
+        p.write_text(content)
+        monkeypatch.setattr(
+            cube_adv_mod.np, "fromstring",
+            lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("boom")),
+        )
+        result = cube_adv_mod.parse_cube_data(str(p))
+        # data_values falls back to empty array, then gets padded up to expected_size.
+        assert len(result["data_flat"]) == 2
+        assert list(result["data_flat"]) == [0.0, 0.0]
+
 
 # ---------------------------------------------------------------------------
 # initialize() — Cube File Viewer Advanced
