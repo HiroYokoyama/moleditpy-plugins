@@ -22,6 +22,23 @@ with mock_chemistry_imports():
     _cube_adv = load_plugin_for_gui(CUBE_ADV_PATH)
 
 
+@pytest.fixture(autouse=True)
+def _no_qt_event_pump(monkeypatch):
+    """Prevent the offscreen Qt fatal-abort seen intermittently on CI.
+
+    CubeViewerWidget.__init__ schedules QTimer.singleShot(100, initial_update);
+    load_env_texture() then calls QCoreApplication.processEvents(), which drains
+    that leaked timer against a plotter a later test has already swapped/destroyed
+    -> `QTimerInfoList::activateTimers -> qt_assert -> abort` (Fatal Python error:
+    Aborted, core dumped). No test relies on the deferred callback or the pump, so
+    neutralize both at the source module.
+    """
+    monkeypatch.setattr(_cube_adv.QTimer, "singleShot",
+                        staticmethod(lambda *a, **k: None), raising=False)
+    monkeypatch.setattr(_cube_adv.QCoreApplication, "processEvents",
+                        staticmethod(lambda *a, **k: None), raising=False)
+
+
 # ===========================================================================
 # ChargeDialog  (Cube File Viewer Advanced)
 # ===========================================================================
