@@ -248,6 +248,50 @@ class TestFetchExperimentalProperties:
             None,
         )
 
+    def test_physical_description_number_value(self, monkeypatch):
+        payload = _pugview_payload(
+            [
+                {
+                    "TOCHeading": "Color",
+                    "Information": [{"Value": {"Number": [123]}}],
+                }
+            ]
+        )
+        self._patch(monkeypatch, payload)
+        # A bare number ("123") does not match any of the heuristic keywords,
+        # so phys_desc stays None -- but the Number branch (line 150) still
+        # has to execute to compute `text` before the heuristic check runs.
+        _, desc = COMPOUND_MOD.PubChemFetcher.fetch_experimental_properties(241)
+        assert desc is None
+
+    def test_density_and_phys_desc_both_found_breaks_early(self, monkeypatch):
+        payload = _pugview_payload(
+            [
+                {
+                    "TOCHeading": "Density",
+                    "Information": [
+                        {"Value": {"StringWithMarkup": [{"String": "1.0 g/cm3"}]}}
+                    ],
+                },
+                {
+                    "TOCHeading": "Color",
+                    "Information": [
+                        {"Value": {"StringWithMarkup": [{"String": "White solid"}]}}
+                    ],
+                },
+                {
+                    "TOCHeading": "Density",
+                    "Information": [
+                        {"Value": {"StringWithMarkup": [{"String": "9.9 g/cm3"}]}}
+                    ],
+                },
+            ]
+        )
+        self._patch(monkeypatch, payload)
+        density, desc = COMPOUND_MOD.PubChemFetcher.fetch_experimental_properties(241)
+        assert density == "1.0 g/cm3"
+        assert desc == "White solid"
+
     def test_first_matching_density_wins(self, monkeypatch):
         payload = _pugview_payload(
             [
