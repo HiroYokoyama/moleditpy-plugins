@@ -7,7 +7,9 @@ Qt / PyVista / RDKit remain mocked throughout.
 """
 from __future__ import annotations
 
+import sys
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
@@ -210,3 +212,253 @@ class TestCubeViewerInitialize:
             mod.initialize(ctx)
         exts = [c.args[0] for c in ctx.register_file_opener.call_args_list]
         assert ".cub" in exts
+
+    def test_registers_drop_handler(self):
+        with mock_optional_imports():
+            mod = load_plugin(CUBE_PATH)
+            ctx = make_context()
+            mod.initialize(ctx)
+        assert ctx.register_drop_handler.called
+        _, kwargs = ctx.register_drop_handler.call_args
+        assert kwargs.get("priority") == 10
+
+    def test_drop_handler_handles_cube_file(self):
+        with mock_optional_imports():
+            mod = load_plugin(CUBE_PATH)
+            ctx = make_context()
+            mod.initialize(ctx)
+            mod.open_cube_viewer = MagicMock()
+            handler = ctx.register_drop_handler.call_args[0][0]
+            assert handler("/some/path/mo.CUBE") is True
+            mod.open_cube_viewer.assert_called_once_with(ctx, "/some/path/mo.CUBE")
+
+    def test_drop_handler_ignores_other_extension(self):
+        with mock_optional_imports():
+            mod = load_plugin(CUBE_PATH)
+            ctx = make_context()
+            mod.initialize(ctx)
+            mod.open_cube_viewer = MagicMock()
+            handler = ctx.register_drop_handler.call_args[0][0]
+            assert handler("/some/path/mol.xyz") is False
+            mod.open_cube_viewer.assert_not_called()
+
+    def test_file_opener_wrapper_calls_open_cube_viewer(self):
+        with mock_optional_imports():
+            mod = load_plugin(CUBE_PATH)
+            ctx = make_context()
+            mod.initialize(ctx)
+            mod.open_cube_viewer = MagicMock()
+            opener = ctx.register_file_opener.call_args_list[0].args[1]
+            opener("/x/y.cube")
+            mod.open_cube_viewer.assert_called_once_with(ctx, "/x/y.cube")
+
+
+# ---------------------------------------------------------------------------
+# RDKit truly unavailable — import-time fallback (Chem/Geometry/rdDetermineBonds
+# set to None) and the plugin's user-facing guards for that state.
+# ---------------------------------------------------------------------------
+
+class TestRDKitUnavailable:
+    def _load_without_rdkit(self):
+        with mock_optional_imports():
+            sys.modules["rdkit"] = None
+            try:
+                mod = load_plugin(CUBE_PATH)
+            finally:
+                del sys.modules["rdkit"]
+            return mod
+
+    def test_chem_is_none(self):
+        mod = self._load_without_rdkit()
+        assert mod.Chem is None
+        assert mod.Geometry is None
+        assert mod.rdDetermineBonds is None
+
+
+    def test_open_cube_viewer_shows_error(self):
+        mod = self._load_without_rdkit()
+        ctx = make_context()
+        mod.open_cube_viewer(ctx, "somefile.cube")
+        mod.QMessageBox.critical.assert_called_once()
+
+    def test_run_shows_error_and_no_file_dialog(self):
+        mod = self._load_without_rdkit()
+        mod.run(MagicMock())
+        mod.QMessageBox.critical.assert_called_once()
+        mod.QFileDialog.getOpenFileName.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# run() — module-level PLUGIN_CONTEXT gate and file-dialog wiring
+# ---------------------------------------------------------------------------
+
+class TestRun:
+    def test_run_returns_when_no_context(self):
+        with mock_optional_imports():
+            mod = load_plugin(CUBE_PATH)
+            mod.PLUGIN_CONTEXT = None
+            mod.QFileDialog.getOpenFileName = MagicMock()
+            mod.run(MagicMock())
+        mod.QFileDialog.getOpenFileName.assert_not_called()
+
+    def test_run_skips_open_when_no_filename(self):
+        with mock_optional_imports():
+            mod = load_plugin(CUBE_PATH)
+            ctx = make_context()
+            mod.initialize(ctx)
+            mod.open_cube_viewer = MagicMock()
+            mod.QFileDialog.getOpenFileName = MagicMock(return_value=("", ""))
+            mod.run(MagicMock())
+        mod.open_cube_viewer.assert_not_called()
+
+    def test_run_opens_cube_when_filename_chosen(self):
+        with mock_optional_imports():
+            mod = load_plugin(CUBE_PATH)
+            ctx = make_context()
+            mod.initialize(ctx)
+            mod.open_cube_viewer = MagicMock()
+            mod.QFileDialog.getOpenFileName = MagicMock(
+                return_value=("/some/file.cube", "Cube Files (*.cube)")
+            )
+            mw = MagicMock()
+            mod.run(mw)
+        mod.open_cube_viewer.assert_called_once_with(ctx, "/some/file.cube")
+
+
+# ---------------------------------------------------------------------------
+# parse_cube_data — additional header/atom/data edge cases
+# ---------------------------------------------------------------------------
+
+class TestParseCubeDataEdgeCases:
+    def test_negative_natoms_skips_non_atom_metadata_line(self, tmp_path, cube_mod):
+        """n_atoms_raw<0 (MO cube) + a metadata line that isn't a 5-token
+        atom line right after the vectors -> that line is skipped."""
+        content = _make_cube_content(nx=2, ny=2, nz=2, n_atoms=1)
+        content = content.replace(
+            "   1   0.000000   0.000000   0.000000\n",
+            "  -1   0.000000   0.000000   0.000000\n",
+            1,
+        )
+        lines = content.splitlines(keepends=True)
+        # Insert a non-atom metadata line ("1 5") right after the vector lines.
+        lines.insert(6, "    1    5\n")
+        p = tmp_path / "mo_meta.cube"
+        p.write_text("".join(lines))
+        result = cube_mod.parse_cube_data(str(p))
+        assert len(result["atoms"]) == 1
+        assert result["atoms"][0][0] == 6
+
+    def test_negative_natoms_no_trailing_lines_hits_except(self, tmp_path, cube_mod):
+        """n_atoms_raw<0 but the file ends right at the header -> the smart
+        lookahead's IndexError is swallowed."""
+        content = (
+            "Title 1\nTitle 2\n"
+            "  -1   0.0   0.0   0.0\n"
+            "   1   0.2   0.0   0.0\n"
+            "   1   0.0   0.2   0.0\n"
+            "   1   0.0   0.0   0.2\n"
+        )
+        p = tmp_path / "truncated.cube"
+        p.write_text(content)
+        with pytest.raises(IndexError):
+            cube_mod.parse_cube_data(str(p))
+
+    def test_malformed_atom_line_falls_back_to_origin(self, tmp_path, cube_mod):
+        content = _make_cube_content(nx=2, ny=2, nz=2, n_atoms=1)
+        content = content.replace(
+            "   6   0.000000   0.000000   0.000000   0.629118   0.000000\n",
+            "   6   0.000000   bad   bad   bad\n",
+            1,
+        )
+        p = tmp_path / "bad_atom.cube"
+        p.write_text(content)
+        result = cube_mod.parse_cube_data(str(p))
+        atomic_num, pos = result["atoms"][0]
+        assert atomic_num == 6
+        assert list(pos) == [0.0, 0.0, 0.0]
+
+    def test_skips_blank_and_short_and_nonnumeric_lines_before_data(
+        self, tmp_path, cube_mod
+    ):
+        content = _make_cube_content(nx=2, ny=2, nz=2, n_atoms=1)
+        header, atoms_and_data = content.split(
+            "   6   0.000000   0.000000   0.000000   0.629118   0.000000\n", 1
+        )
+        content = (
+            header
+            + "   6   0.000000   0.000000   0.000000   0.629118   0.000000\n"
+            + "\n"  # blank line
+            + "   1   150\n"  # short metadata line (<6 tokens)
+            + "comment word two three four five\n"  # non-numeric leading token, 6 tokens
+            + atoms_and_data
+        )
+        p = tmp_path / "skippy.cube"
+        p.write_text(content)
+        result = cube_mod.parse_cube_data(str(p))
+        assert len(result["data_flat"]) == 8
+
+    def test_fromstring_exception_yields_zero_padded_array(
+        self, cube_file, cube_mod, monkeypatch
+    ):
+        def _raiser(*_a, **_k):
+            raise ValueError("boom")
+
+        monkeypatch.setattr(cube_mod.np, "fromstring", _raiser)
+        result = cube_mod.parse_cube_data(str(cube_file))
+        nx, ny, nz = result["dims"]
+        assert len(result["data_flat"]) == nx * ny * nz
+        assert np.all(result["data_flat"] == 0.0)
+
+
+# ---------------------------------------------------------------------------
+# build_grid_from_meta / read_cube — grid reconstruction (real numpy, mocked
+# pyvista — the plugin only assigns attributes on the StructuredGrid, so a
+# MagicMock records them faithfully for inspection).
+# ---------------------------------------------------------------------------
+
+def _synthetic_meta(is_angstrom_header):
+    nx = ny = nz = 2
+    return {
+        "atoms": [(6, np.array([1.0, 0.0, 0.0]))],
+        "origin": np.array([0.0, 0.0, 0.0]),
+        "x_vec": np.array([1.0, 0.0, 0.0]),
+        "y_vec": np.array([0.0, 1.0, 0.0]),
+        "z_vec": np.array([0.0, 0.0, 1.0]),
+        "dims": (nx, ny, nz),
+        "data_flat": np.arange(nx * ny * nz, dtype=float),
+        "is_angstrom_header": is_angstrom_header,
+    }
+
+
+class TestBuildGridFromMeta:
+    def test_bohr_header_converts_to_angstrom(self, cube_mod):
+        meta = _synthetic_meta(is_angstrom_header=False)
+        result, grid = cube_mod.build_grid_from_meta(meta)
+        BOHR_TO_ANGSTROM = 0.529177210903
+        assert result["atoms"][0][1][0] == pytest.approx(1.0 * BOHR_TO_ANGSTROM)
+        # Max x-coordinate among the 8 points is 1 unit-cell step (converted).
+        assert grid.points[:, 0].max() == pytest.approx(BOHR_TO_ANGSTROM)
+
+    def test_angstrom_header_no_conversion(self, cube_mod):
+        meta = _synthetic_meta(is_angstrom_header=True)
+        result, grid = cube_mod.build_grid_from_meta(meta)
+        assert result["atoms"][0][1][0] == pytest.approx(1.0)
+        assert grid.points[:, 0].max() == pytest.approx(1.0)
+
+    def test_grid_dimensions_set(self, cube_mod):
+        meta = _synthetic_meta(is_angstrom_header=True)
+        _, grid = cube_mod.build_grid_from_meta(meta)
+        assert grid.dimensions == [2, 2, 2]
+
+    def test_point_data_values_shape(self, cube_mod):
+        meta = _synthetic_meta(is_angstrom_header=True)
+        _, grid = cube_mod.build_grid_from_meta(meta)
+        set_args = grid.point_data.__setitem__.call_args
+        key, values = set_args.args
+        assert key == "values"
+        assert len(values) == 8
+
+    def test_read_cube_end_to_end(self, cube_file, cube_mod):
+        meta_result, grid = cube_mod.read_cube(str(cube_file))
+        assert len(meta_result["atoms"]) == 1
+        assert grid.dimensions == [2, 2, 2]
