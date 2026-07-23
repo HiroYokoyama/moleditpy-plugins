@@ -21,6 +21,38 @@ with mock_chemistry_imports():
     _plugin_installer = load_plugin_for_gui(PLUGIN_INSTALLER_PATH)
 
 
+class _FakeProgressDialog:
+    """No-op stand-in for QProgressDialog.
+
+    The real dialog's internal timer, when pumped by QApplication.processEvents()
+    under offscreen Qt, can hit a fatal Qt assertion and abort the process
+    (observed on Python 3.14). The event pump is irrelevant to these synchronous
+    logic tests, so the dialog and processEvents are both neutralized below.
+    """
+
+    def __init__(self, *a, **k):
+        pass
+
+    def wasCanceled(self):
+        return False
+
+    def __getattr__(self, _name):
+        return lambda *a, **k: None
+
+
+@pytest.fixture(autouse=True)
+def _no_qt_event_pump(monkeypatch):
+    monkeypatch.setattr(
+        _plugin_installer, "QProgressDialog", _FakeProgressDialog, raising=False
+    )
+    monkeypatch.setattr(
+        _plugin_installer.QApplication,
+        "processEvents",
+        staticmethod(lambda *a, **k: None),
+        raising=False,
+    )
+
+
 # ===========================================================================
 # PluginDetailsDialog  (inside Plugin Installer)
 # ===========================================================================
