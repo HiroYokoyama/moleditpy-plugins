@@ -217,13 +217,16 @@ class TestMopacSaveFile:
         )
         dlg.save_file()  # no exception, no file created
 
-    def test_save_write_error_shows_critical(self, dlg, monkeypatch):
-        bad_path = "Z:\\nonexistent_dir_xyz\\job.mop"
+    def test_save_write_error_shows_critical(self, dlg, monkeypatch, tmp_path):
+        # Missing parent dir fails to open on every OS (a bare "Z:\..." string is
+        # a *valid* filename on Linux, so the write would succeed there).
+        bad_path = str(tmp_path / "missing_dir" / "job.mop")
         monkeypatch.setattr(
             _mopac.QFileDialog, "getSaveFileName", lambda *a, **k: (bad_path, "")
         )
         crit = MagicMock()
         monkeypatch.setattr(_mopac.QMessageBox, "critical", crit)
+        monkeypatch.setattr(_mopac.QMessageBox, "information", MagicMock())
         dlg.save_file()
         crit.assert_called_once()
 
