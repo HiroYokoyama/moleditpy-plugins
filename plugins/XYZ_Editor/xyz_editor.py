@@ -29,7 +29,7 @@ import logging
 
 
 PLUGIN_NAME = "XYZ Editor"
-PLUGIN_VERSION = "2026.07.22"
+PLUGIN_VERSION = "2026.07.23"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "A table-based editor for atom coordinates and symbols, supporting ghost atoms. Refactored for V3 API."
@@ -835,11 +835,6 @@ class XYZEditorWindow(QWidget):
     def apply_changes(self):
         # self.context.push_undo_checkpoint() # MOVED TO END
         mol = self.context.current_molecule
-        # Create new editable molecule from scratch or copy
-        if mol:
-            Chem.RWMol(mol)
-        else:
-            Chem.RWMol()
 
         # We need to rebuild the molecule based on the table content
         # Because rows might have been deleted or added/reordered
