@@ -187,6 +187,11 @@ class TestSelectionSyncAndClose:
         win.get_selection_from_viewer()
         assert win.le_indices.text() == "0,1,2"
 
+    def test_auto_update_selection_runs_when_field_unfocused(self, win):
+        win.context.get_selected_atom_indices.return_value = [3, 1]
+        win._auto_update_selection()
+        assert win.le_indices.text() == "1,3"
+
     def test_selection_sync_error_is_silenced(self, win):
         win.context.get_selected_atom_indices.side_effect = RuntimeError("boom")
         win.le_indices.setText("keep")
@@ -198,3 +203,219 @@ class TestSelectionSyncAndClose:
         win.close()
         assert not win.sel_timer.isActive()
         assert win.context.register_window.call_args.args == ("main_panel", None)
+
+
+class _FakeEdit3D:
+    """Plain object (not QWidget) standing in for edit_3d_manager."""
+
+    def __init__(self):
+        self.measurement_mode = False
+        self.is_3d_edit_mode = False
+        self.selected_atoms_3d = set()
+        self.selected_atoms_for_measurement = []
+        self.toggle_measurement_mode = MagicMock()
+        self.clear_measurement_selection = MagicMock()
+        self.update_3d_selection_display = MagicMock()
+
+
+class _FakeMW:
+    def __init__(self):
+        self.edit_3d_manager = _FakeEdit3D()
+        self.init_manager = MagicMock()
+        self.ui_manager = MagicMock()
+
+
+class TestEnterAndRestoreSelectMode:
+    """Real (non-MagicMock parent) mw stand-in to exercise the mode
+    save/restore bodies without constructing them as a QWidget parent."""
+
+    @pytest.fixture
+    def win(self, qapp):
+        ctx = _colorizer_context()
+        w = _atom_colorizer.AtomColorizerWindow(context=ctx)
+        yield w
+        w.sel_timer.stop()
+        w.destroy()
+
+    def test_enter_select_mode_no_main_window_is_noop(self, win):
+        win.context.get_main_window.return_value = None
+        win._enter_select_mode()  # must not raise
+
+    def test_enter_select_mode_forces_measurement_when_off(self, win):
+        fake_mw = _FakeMW()
+        win.context.get_main_window.return_value = fake_mw
+        win._forced_measurement_mode = False
+        win._enter_select_mode()
+        fake_mw.edit_3d_manager.toggle_measurement_mode.assert_called_once_with(True)
+        fake_mw.init_manager.measurement_action.setChecked.assert_called_once_with(True)
+        assert win._forced_measurement_mode is True
+
+    def test_enter_select_mode_skips_toggle_when_already_active(self, win):
+        fake_mw = _FakeMW()
+        fake_mw.edit_3d_manager.measurement_mode = True
+        win.context.get_main_window.return_value = fake_mw
+        win._enter_select_mode()
+        fake_mw.edit_3d_manager.toggle_measurement_mode.assert_not_called()
+        assert win._restore_measurement_mode is True
+
+    def test_enter_select_mode_exception_silenced(self, win):
+        fake_mw = _FakeMW()
+        fake_mw.edit_3d_manager.toggle_measurement_mode.side_effect = RuntimeError("x")
+        win.context.get_main_window.return_value = fake_mw
+        win._enter_select_mode()  # must not raise
+
+    def test_restore_select_mode_no_main_window_is_noop(self, win):
+        win.context.get_main_window.return_value = None
+        win._restore_select_mode()  # must not raise
+
+    def test_restore_select_mode_clears_selection_and_restores_modes(self, win):
+        fake_mw = _FakeMW()
+        fake_mw.edit_3d_manager.selected_atoms_3d = {1, 2}
+        win.context.get_main_window.return_value = fake_mw
+        win._restore_measurement_mode = True
+        win._restore_edit_mode = True
+        win._restore_select_mode()
+        fake_mw.edit_3d_manager.clear_measurement_selection.assert_called_once()
+        assert fake_mw.edit_3d_manager.selected_atoms_3d == set()
+        fake_mw.edit_3d_manager.update_3d_selection_display.assert_called_once()
+        fake_mw.init_manager.measurement_action.setChecked.assert_called_once_with(True)
+        fake_mw.edit_3d_manager.toggle_measurement_mode.assert_called_once_with(True)
+        fake_mw.ui_manager.toggle_3d_edit_mode.assert_called_once_with(True)
+
+    def test_restore_select_mode_selection_clear_exception_silenced(self, win):
+        fake_mw = _FakeMW()
+        fake_mw.edit_3d_manager.clear_measurement_selection.side_effect = RuntimeError("x")
+        win.context.get_main_window.return_value = fake_mw
+        win._restore_select_mode()  # must not raise
+        # restore-mode block still runs despite the selection-clear exception
+        fake_mw.edit_3d_manager.toggle_measurement_mode.assert_called_once()
+
+    def test_restore_select_mode_toggle_exception_silenced(self, win):
+        fake_mw = _FakeMW()
+        fake_mw.edit_3d_manager.toggle_measurement_mode.side_effect = RuntimeError("x")
+        win.context.get_main_window.return_value = fake_mw
+        win._restore_select_mode()  # must not raise
+
+
+class TestGetSelectionFromViewer3D:
+    @pytest.fixture
+    def win(self, qapp):
+        ctx = _colorizer_context()
+        w = _atom_colorizer.AtomColorizerWindow(context=ctx)
+        yield w
+        w.sel_timer.stop()
+        w.destroy()
+
+    def test_merges_3d_and_measurement_picks(self, win):
+        fake_mw = _FakeMW()
+        fake_mw.edit_3d_manager.selected_atoms_3d = {2, 5}
+        fake_mw.edit_3d_manager.selected_atoms_for_measurement = (7, 5)
+        win.context.get_main_window.return_value = fake_mw
+        win.context.get_selected_atom_indices.return_value = [0, 2]
+        win.get_selection_from_viewer()
+        assert win.le_indices.text() == "0,2,5,7"
+
+    def test_non_collection_measurement_attribute_ignored(self, win):
+        fake_mw = _FakeMW()
+        fake_mw.edit_3d_manager.selected_atoms_for_measurement = "garbage"
+        win.context.get_main_window.return_value = fake_mw
+        win.context.get_selected_atom_indices.return_value = [4]
+        win.get_selection_from_viewer()
+        assert win.le_indices.text() == "4"
+
+
+class TestApplyResetExceptionPaths:
+    @pytest.fixture
+    def win(self, qapp):
+        ctx = _colorizer_context()
+        w = _atom_colorizer.AtomColorizerWindow(context=ctx)
+        yield w
+        w.sel_timer.stop()
+        w.destroy()
+
+    @pytest.fixture
+    def criticals(self, monkeypatch):
+        calls = []
+        monkeypatch.setattr(
+            _atom_colorizer.QMessageBox,
+            "critical",
+            staticmethod(lambda *a, **k: calls.append(a)),
+        )
+        return calls
+
+    def test_apply_color_controller_exception_shows_critical(self, win, criticals):
+        mol = MagicMock()
+        mol.GetNumAtoms.return_value = 2
+        win.context.current_molecule = mol
+        win.context.get_3d_controller.side_effect = RuntimeError("boom")
+        win.le_indices.setText("0")
+        win.apply_color()
+        assert len(criticals) == 1
+        assert "Failed to apply color" in criticals[0][2]
+
+    def test_reset_colors_controller_exception_shows_critical(self, win, criticals):
+        mol = MagicMock()
+        mol.GetNumAtoms.return_value = 2
+        win.context.current_molecule = mol
+        win.context.get_3d_controller.side_effect = RuntimeError("boom")
+        win.reset_colors()
+        assert len(criticals) == 1
+        assert "Failed to reset colors" in criticals[0][2]
+
+
+class TestCloseEventTimerExceptionSilenced:
+    @pytest.fixture
+    def win(self, qapp):
+        ctx = _colorizer_context()
+        w = _atom_colorizer.AtomColorizerWindow(context=ctx)
+        yield w
+        w.destroy()
+
+    def test_stop_timer_exception_is_silenced(self, win):
+        bad_timer = MagicMock()
+        bad_timer.isActive.side_effect = RuntimeError("boom")
+        win.sel_timer = bad_timer
+        win.close()  # must not raise
+        assert win.context.register_window.call_args.args == ("main_panel", None)
+
+
+class TestLaunch:
+    def test_launch_creates_new_window_when_none_registered(self, qapp):
+        ctx = _colorizer_context()
+        ctx.get_window.return_value = None
+        _atom_colorizer.launch(ctx)
+        win = ctx.register_window.call_args.args[1]
+        assert isinstance(win, _atom_colorizer.AtomColorizerWindow)
+        win.sel_timer.stop()
+        win.close()
+
+    def test_launch_reuses_existing_window(self, qapp):
+        ctx = _colorizer_context()
+        existing = MagicMock()
+        ctx.get_window.return_value = existing
+        _atom_colorizer.launch(ctx)
+        existing.show.assert_called_once()
+        existing.raise_.assert_called_once()
+        existing.activateWindow.assert_called_once()
+
+
+class TestRunLegacyEntryPoint:
+    def test_run_without_plugin_manager_is_noop(self, qapp):
+        class _NoPluginManagerMW:
+            pass
+
+        _atom_colorizer.run(_NoPluginManagerMW())  # must not raise / launch
+
+    def test_run_with_context_launches(self, qapp, monkeypatch):
+        ctx = _colorizer_context()
+        _atom_colorizer.PLUGIN_CONTEXT = ctx
+        ctx.get_window.return_value = None
+        called = []
+        monkeypatch.setattr(_atom_colorizer, "launch", lambda c: called.append(c))
+
+        class _MW:
+            plugin_manager = MagicMock()
+
+        _atom_colorizer.run(_MW())
+        assert called == [ctx]
+        _atom_colorizer.PLUGIN_CONTEXT = None
