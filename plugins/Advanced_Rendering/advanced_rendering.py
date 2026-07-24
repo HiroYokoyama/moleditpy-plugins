@@ -46,7 +46,7 @@ except ImportError:
     vtk = None
 
 PLUGIN_NAME = "Advanced Rendering"
-PLUGIN_VERSION = "2026.07.08"
+PLUGIN_VERSION = "2026.07.24"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Fine-grained control over Scene lighting, shadows, and PBR effects. Refactored for V3 API."
@@ -297,7 +297,7 @@ class AdvancedGraphicsWidget(QWidget):
             # Enforce scene effects for persistence
             self.sync_style_ui(getattr(self.mw.view_3d_manager, "current_3d_style", ""))
 
-            logging.info(
+            logging.debug(
                 "Advanced Rendering: Lighting & Effects Initialized Successfully."
             )
         else:
