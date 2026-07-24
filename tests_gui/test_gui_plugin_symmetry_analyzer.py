@@ -434,6 +434,15 @@ class TestOnOpSelectionChangedReal:
 
 
 class TestVisualizeOpsReal:
+    # visualize_ops builds real pyvista meshes (Sphere/Line/Disc); with pyvista
+    # mocked those calls return MagicMocks and the drawn-actor assertions no
+    # longer hold. These tests are only meaningful with a real pyvista/vtk build
+    # installed (CI test-gui deliberately omits them), so skip otherwise.
+    @pytest.fixture(autouse=True)
+    def _need_real_pyvista(self):
+        pytest.importorskip("pyvista")
+        pytest.importorskip("vtk")
+
     def test_no_plotter_returns_immediately(self, dlgnp):
         dlgnp.context.plotter = None
         dlgnp.visualize_ops([_op(_MAT_E)])  # should not raise

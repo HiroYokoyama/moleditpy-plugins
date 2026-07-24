@@ -133,6 +133,15 @@ jobs:
       - name: Install Python dependencies
         run: pip install pytest PyQt6
 
+      # Real chemistry libs let the rdkit-gated GUI tests actually run on CI
+      # instead of being importorskip-skipped (they hold real logic, not just
+      # rendering). Best-effort: on an interpreter without wheels (e.g. a very
+      # new 3.x), the install no-ops and those tests fall back to skipping, as
+      # before. VTK/pyvista are deliberately NOT installed — their offscreen
+      # render paths are abort-prone on headless CI.
+      - name: Install real chemistry libs (best effort)
+        run: pip install rdkit numpy pillow || echo "chemistry wheels unavailable on this interpreter; rdkit-gated tests will skip"
+
       - name: Run headless GUI tests
         run: pytest tests_gui/ -v --tb=short
         env:
