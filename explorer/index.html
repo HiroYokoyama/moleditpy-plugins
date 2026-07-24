@@ -284,12 +284,97 @@
         .plugin-desc {
             color: var(--text-sub);
             font-size: 0.95rem;
-            margin-bottom: 20px;
+            margin-bottom: 18px;
             flex-grow: 1;
-            line-height: 1.5;
+            line-height: 1.55;
+        }
+
+        /* Metadata panel */
+        .plugin-meta {
+            border-top: 1px solid var(--card-border);
+            padding-top: 14px;
+            margin-bottom: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+        }
+
+        .meta-row {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            font-size: 0.8rem;
+            line-height: 1.4;
+        }
+
+        .meta-label {
+            flex-shrink: 0;
+            min-width: 104px;
+            color: var(--text-muted);
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .meta-label svg {
+            width: 13px;
+            height: 13px;
+            flex-shrink: 0;
+        }
+
+        .meta-value {
+            color: var(--text-sub);
+            word-break: break-word;
+        }
+
+        .meta-value.mono {
+            font-family: monospace;
+        }
+
+        .meta-sha {
+            display: inline-flex;
+            align-items: center;
+        }
+
+        /* Dependencies */
+        .plugin-deps {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 18px;
+        }
+
+        .plugin-deps .deps-label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-right: 2px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .plugin-deps .deps-label svg {
+            width: 13px;
+            height: 13px;
+        }
+
+        .dep-chip {
+            background: var(--tag-bg);
+            border: 1px solid var(--tag-border);
+            color: var(--text-sub);
+            padding: 2px 9px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-family: monospace;
         }
 
         .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
             margin-bottom: 20px;
         }
 
@@ -301,7 +386,6 @@
             border-radius: 4px;
             font-size: 0.75rem;
             font-weight: 500;
-            margin-right: 6px;
             border: 1px solid var(--tag-border);
         }
 
@@ -774,27 +858,54 @@
                         <a href="${plugin.authorUrl}" target="_blank">${plugin.author}</a>
                     </span>
                 </div>
-                <div style="font-size: 0.8em; color: #94a3b8; margin-bottom: 8px;">
-                     <span>Updated: ${plugin.lastUpdated}</span>
-                     ${plugin.firstAppeared ? `<span style="margin-left: 12px;">First appeared: ${plugin.firstAppeared}</span>` : ''}
-                     ${plugin.supported_moleditpy_version ? `<div style="margin-top: 2px;">Supported MoleditPy: ${plugin.supported_moleditpy_version}</div>` : ''}
-                     ${plugin.supported_python_version ? `<div style="margin-top: 2px;">Supported Python: ${plugin.supported_python_version}</div>` : ''}
-                     ${plugin.supported_os && plugin.supported_os.length > 0 ? `<div style="margin-top: 2px;" title="WSL = Windows Subsystem for Linux">Supported OS: ${plugin.supported_os.join(', ')}</div>` : ''}
-                     ${plugin.sha256 ? `
-                        <div style="margin-top:2px; display: flex; align-items: center;">
-                            <span title="${plugin.sha256}">SHA256: ${plugin.sha256.substring(0, 8)}...</span>
+                <p class="plugin-desc">${plugin.description}</p>
+                <div class="plugin-meta">
+                    <div class="meta-row">
+                        <span class="meta-label">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                            Updated
+                        </span>
+                        <span class="meta-value">${plugin.lastUpdated}${plugin.firstAppeared ? ` · since ${plugin.firstAppeared}` : ''}</span>
+                    </div>
+                    ${plugin.supported_moleditpy_version ? `
+                    <div class="meta-row">
+                        <span class="meta-label">MoleditPy</span>
+                        <span class="meta-value mono">${plugin.supported_moleditpy_version}</span>
+                    </div>` : ''}
+                    ${plugin.supported_python_version ? `
+                    <div class="meta-row">
+                        <span class="meta-label">Python</span>
+                        <span class="meta-value mono">${plugin.supported_python_version}</span>
+                    </div>` : ''}
+                    ${plugin.supported_os && plugin.supported_os.length > 0 ? `
+                    <div class="meta-row">
+                        <span class="meta-label">Platforms</span>
+                        <span class="meta-value" title="WSL = Windows Subsystem for Linux">${plugin.supported_os.join(', ')}</span>
+                    </div>` : ''}
+                    ${plugin.sha256 ? `
+                    <div class="meta-row">
+                        <span class="meta-label">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                            SHA256
+                        </span>
+                        <span class="meta-value mono meta-sha">
+                            <span title="${plugin.sha256}">${plugin.sha256.substring(0, 10)}…</span>
                             <button class="copy-sha-btn" onclick="copyToClipboard(this, '${plugin.sha256}', event)" title="Copy full SHA256">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                                 </svg>
                             </button>
-                        </div>` : ''}
+                        </span>
+                    </div>` : ''}
                 </div>
-                <p class="plugin-desc">${plugin.description}</p>
                 ${plugin.dependencies && plugin.dependencies.length > 0 ?
-                        `<div style="font-size:0.85rem; color:#94a3b8; margin-bottom:12px;">
-                        <strong>Dependencies:</strong> ${plugin.dependencies.join(', ')}
+                        `<div class="plugin-deps">
+                        <span class="deps-label">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                            Requires
+                        </span>
+                        ${plugin.dependencies.map(d => `<span class="dep-chip">${d}</span>`).join('')}
                      </div>` : ''}
                 <div class="tags">${tagsHtml}</div>
                 <div class="actions">
