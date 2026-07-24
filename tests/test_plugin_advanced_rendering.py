@@ -130,6 +130,164 @@ class TestAdvancedRenderingStyleDrawers:
         drawers["Wireframe (Advanced Rendering)"](mw_obj, "MOL")
         viewer.sync_style_ui.assert_called_once_with("")
 
+    def test_drawer_tears_down_effects_before_redraw(self):
+        # Regression (2026.07.25): plotter.clear() during the redraw left the
+        # EDL pass attached, tripping "vtkEDLShading: ColorTexture should have
+        # been deleted in ReleaseGraphicsResources()". The drawer must release
+        # the pass-based effects BEFORE the host clears/redraws the plotter.
+        drawers = self._drawers()
+        order = []
+        viewer = MagicMock()
+        viewer.teardown_scene_effects.side_effect = lambda: order.append("teardown")
+        vm = MagicMock()
+        vm.current_3d_style = "CPK (Advanced Rendering)"
+        vm.draw_standard_3d_style.side_effect = lambda *a, **k: order.append("draw")
+        mw_obj = SimpleNamespace(view_3d_manager=vm, _adv_rendering_viewer=viewer)
+
+        drawers["CPK (Advanced Rendering)"](mw_obj, "MOL")
+
+        viewer.teardown_scene_effects.assert_called_once()
+        assert order == ["teardown", "draw"]
+
+
+def _teardown_scene_effects_fn():
+    return extract_function(
+        ADV_RENDER_PATH,
+        "AdvancedGraphicsWidget",
+        "teardown_scene_effects",
+        {"logging": logging},
+    )
+
+
+class TestTeardownSceneEffects:
+    def test_disables_all_passes_and_renders(self):
+        fn = _teardown_scene_effects_fn()
+        plotter = MagicMock()
+        fn(SimpleNamespace(plotter=plotter))
+        plotter.disable_eye_dome_lighting.assert_called_once()
+        plotter.disable_shadows.assert_called_once()
+        plotter.disable_ssao.assert_called_once()
+        plotter.disable_depth_peeling.assert_called_once()
+        # A render is required so VTK actually runs ReleaseGraphicsResources.
+        plotter.render.assert_called_once()
+
+    def test_noop_without_plotter(self):
+        fn = _teardown_scene_effects_fn()
+        fn(SimpleNamespace(plotter=None))  # must not raise
+
+    def test_render_failure_is_logged_not_raised(self):
+        fn = _teardown_scene_effects_fn()
+        plotter = MagicMock()
+        plotter.render.side_effect = RuntimeError("gl context gone")
+        fn(SimpleNamespace(plotter=plotter))  # must not raise
+
+
+def _sync_style_ui_fn():
+    return extract_function(
+        ADV_RENDER_PATH, "AdvancedGraphicsWidget", "sync_style_ui", {"logging": logging}
+    )
+
+
+def _sync_stub(use_atom_pbr):
+    return SimpleNamespace(
+        check_atom_pbr=MagicMock(),
+        slider_atom_metallic=MagicMock(),
+        slider_atom_roughness=MagicMock(),
+        use_atom_pbr=use_atom_pbr,
+        update_atoms_pbr=MagicMock(),
+        _enforce_scene_state=MagicMock(),
+    )
+
+
+class TestSyncStyleUiPbrPreference:
+    def test_advanced_style_does_not_force_pbr_on(self):
+        # Regression (2026.07.25): switching to an Advanced style used to force
+        # use_atom_pbr=True, rendering the model flat gray. It must respect the
+        # saved preference (here: OFF).
+        fn = _sync_style_ui_fn()
+        stub = _sync_stub(use_atom_pbr=False)
+        fn(stub, "Ball & Stick (Advanced Rendering)")
+        assert stub.use_atom_pbr is False
+        stub.check_atom_pbr.setChecked.assert_called_with(False)
+        stub._enforce_scene_state.assert_called_once_with(enable=True)
+
+    def test_advanced_style_reflects_saved_pbr_on(self):
+        fn = _sync_style_ui_fn()
+        stub = _sync_stub(use_atom_pbr=True)
+        fn(stub, "CPK (Advanced Rendering)")
+        assert stub.use_atom_pbr is True
+        stub.check_atom_pbr.setChecked.assert_called_with(True)
+        stub.slider_atom_metallic.setEnabled.assert_called_with(True)
+        stub.slider_atom_roughness.setEnabled.assert_called_with(True)
+
+    def test_standard_style_disables_pbr_but_preserves_pref(self):
+        fn = _sync_style_ui_fn()
+        stub = _sync_stub(use_atom_pbr=True)
+        fn(stub, "CPK")  # not an Advanced Rendering style
+        # Saved preference must survive a trip through a standard style.
+        assert stub.use_atom_pbr is True
+        stub.check_atom_pbr.setEnabled.assert_called_with(False)
+        stub.check_atom_pbr.setChecked.assert_called_with(False)
+        stub._enforce_scene_state.assert_called_once_with(enable=False)
+
+
+def _enforce_scene_state_fn():
+    return extract_function(
+        ADV_RENDER_PATH,
+        "AdvancedGraphicsWidget",
+        "_enforce_scene_state",
+        {"logging": logging},
+    )
+
+
+def _enforce_stub(**overrides):
+    stub = SimpleNamespace(
+        plotter=MagicMock(),
+        use_shadows=False,
+        use_ssao=False,
+        use_edl=False,
+        use_aa=False,
+        use_depth_peeling=False,
+        edl_strength=0.2,
+        _clean_render_pipeline=MagicMock(),
+        update_lights=MagicMock(),
+    )
+    for k, v in overrides.items():
+        setattr(stub, k, v)
+    return stub
+
+
+class TestEnforceSceneState:
+    def test_cleans_pipeline_before_re_enabling_edl(self):
+        # Regression (2026.07.25): the redraw re-apply path enabled passes
+        # without resetting the pipeline first (unlike the manual toggle
+        # handlers), so effects silently failed to re-attach.
+        fn = _enforce_scene_state_fn()
+        stub = _enforce_stub(use_edl=True)
+        fn(stub, enable=True)
+        stub._clean_render_pipeline.assert_called_once()
+        stub.plotter.enable_eye_dome_lighting.assert_called_once()
+
+    def test_enabling_shadows_reapplies_lights(self):
+        fn = _enforce_scene_state_fn()
+        stub = _enforce_stub(use_shadows=True)
+        fn(stub, enable=True)
+        stub.plotter.enable_shadows.assert_called_once()
+        stub.update_lights.assert_called_once()
+
+    def test_disable_path_does_not_clean_pipeline(self):
+        fn = _enforce_scene_state_fn()
+        stub = _enforce_stub(use_edl=True)
+        fn(stub, enable=False)
+        stub._clean_render_pipeline.assert_not_called()
+        stub.plotter.disable_eye_dome_lighting.assert_called_once()
+
+    def test_no_effects_enabled_does_not_clean_pipeline(self):
+        fn = _enforce_scene_state_fn()
+        stub = _enforce_stub()  # all effects off
+        fn(stub, enable=True)
+        stub._clean_render_pipeline.assert_not_called()
+
 
 # ---------------------------------------------------------------------------
 # Pure-logic method extraction: settings dict round-trip, lighting math,

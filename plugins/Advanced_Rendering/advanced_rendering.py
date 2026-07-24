@@ -175,12 +175,22 @@ def initialize(context):
     # 3. Register PBR Styles & Draw Overrides
     def make_style_drawer(base_style_key, force_pbr=False):
         def drawer(mw_obj, mol):
+            v = getattr(mw_obj, "_adv_rendering_viewer", None)
+
+            # Release GPU render passes (EDL/SSAO/shadows) BEFORE the host
+            # clears the plotter. plotter.clear() rebuilds the scene while an
+            # orphaned EDL pass still holds its ColorTexture, which trips
+            # "vtkEDLShading: ColorTexture should have been deleted in
+            # ReleaseGraphicsResources()" and breaks the effect. _enforce_scene_state
+            # (via sync_style_ui below) re-attaches them cleanly after the redraw.
+            if v:
+                v.teardown_scene_effects()
+
             if hasattr(mw_obj, "view_3d_manager"):
                 mw_obj.view_3d_manager.draw_standard_3d_style(
                     mol, style_override=base_style_key
                 )
 
-            v = getattr(mw_obj, "_adv_rendering_viewer", None)
             if v:
                 if force_pbr:
                     v.apply_pbr_forced()
@@ -1052,6 +1062,24 @@ class AdvancedGraphicsWidget(QWidget):
         except Exception as e:
             logging.warning(f"EDL Apply error: {e}")
 
+    def teardown_scene_effects(self):
+        """Release pass-based GPU effects before the plotter is cleared/redrawn.
+
+        Detaching passes via SetPasses(None) orphans them without releasing
+        their GPU textures; disable_*() + a render forces VTK to call
+        ReleaseGraphicsResources, avoiding the vtkEDLShading ColorTexture leak.
+        """
+        if not self.plotter:
+            return
+        try:
+            self.plotter.disable_eye_dome_lighting()
+            self.plotter.disable_shadows()
+            self.plotter.disable_ssao()
+            self.plotter.disable_depth_peeling()
+            self.plotter.render()
+        except Exception as e:
+            logging.warning(f"Scene effect teardown error: {e}")
+
     def closeEvent(self, event):
         """終了時に特殊効果をOFFにしてリソースを解放する"""
         try:
@@ -1211,9 +1239,16 @@ class AdvancedGraphicsWidget(QWidget):
             return
 
         try:
+            # Reset the pass pipeline before (re)attaching effects, mirroring the
+            # manual toggle handlers — without this the passes fail to re-attach
+            # after a redraw and the effect silently doesn't show.
+            if enable and (self.use_shadows or self.use_ssao or self.use_edl):
+                self._clean_render_pipeline()
+
             # Shadows
             if enable and self.use_shadows:
                 self.plotter.enable_shadows()
+                self.update_lights()
             else:
                 self.plotter.disable_shadows()
 
