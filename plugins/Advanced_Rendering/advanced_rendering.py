@@ -35,7 +35,7 @@ except ImportError:
     except ImportError:
         sip = None
 from PyQt6.QtCore import Qt, QTimer, QCoreApplication
-from PyQt6.QtGui import QColor, QCloseEvent
+from PyQt6.QtGui import QColor, QCloseEvent, QPixmap
 
 # PyVista / VTK Import Check
 try:
@@ -406,6 +406,13 @@ class AdvancedGraphicsWidget(QWidget):
         tex_layout.addWidget(btn_clear_tex)
         scene_layout.addLayout(tex_layout)
 
+        # Loaded-texture preview (thumbnail + filename)
+        self.label_tex = QLabel("(no texture)")
+        self.label_tex.setFixedHeight(64)
+        self.label_tex.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.label_tex.setStyleSheet("border: 1px solid palette(mid);")
+        scene_layout.addWidget(self.label_tex)
+
         # Shadows
         self.check_shadows = QCheckBox("Enable Shadows (Requires PBR)")
         self.check_shadows.toggled.connect(self.on_shadows_toggled)
@@ -471,7 +478,12 @@ class AdvancedGraphicsWidget(QWidget):
         self.slider_edl.setRange(1, 100)
         self.slider_edl.setValue(20)
         self.slider_edl.valueChanged.connect(self.on_edl_strength_changed)
+        # vtkEDLShading exposes no strength/radius setter, so this cannot drive
+        # the effect — keep it disabled rather than pretend it works.
         self.slider_edl.setEnabled(False)
+        self.slider_edl.setToolTip(
+            "EDL intensity is fixed by VTK and cannot be adjusted in this build."
+        )
         edl_str_layout.addWidget(self.slider_edl)
         scene_layout.addLayout(edl_str_layout)
 
@@ -614,6 +626,11 @@ class AdvancedGraphicsWidget(QWidget):
                 # Standard logic
                 should_use_pbr = self.use_atom_pbr or force_pbr
 
+            # plotter.clear() on redraw drops the environment texture; reapply it
+            # so PBR keeps its image-based lighting instead of going gray.
+            if should_use_pbr and self.env_texture_path:
+                self.apply_texture()
+
             # --- FIX 1: シグナルループ防止 ---
             if getattr(self, "check_atom_pbr", None) is not None:
                 self.check_atom_pbr.blockSignals(True)  # シグナルを遮断
@@ -669,6 +686,10 @@ class AdvancedGraphicsWidget(QWidget):
         self.use_atom_pbr = checked
         self.slider_atom_metallic.setEnabled(checked)
         self.slider_atom_roughness.setEnabled(checked)
+        if checked:
+            # PBR needs the environment texture for image-based lighting,
+            # otherwise the model renders flat gray.
+            self.apply_texture()
         self.update_atoms_pbr()
         self.save_settings()
 
@@ -721,27 +742,68 @@ class AdvancedGraphicsWidget(QWidget):
         )
         if fname:
             self.env_texture_path = fname
-            self.apply_texture()
+            if not self.apply_texture():
+                QMessageBox.warning(
+                    self, "Texture Load Error", f"Could not load texture:\n{fname}"
+                )
+            self.save_settings()
 
     def on_remove_env_texture(self):
         self.env_texture_path = ""
         self.apply_texture()
+        self.save_settings()
 
     def apply_texture(self):
-        if not self.plotter:
+        """(Re)apply the environment texture used for PBR image-based lighting.
+
+        Returns True on success (or when intentionally cleared). Caches the
+        loaded texture so redraw/PBR paths don't re-read the file each time.
+        """
+        ok = True
+        if self.plotter:
+            try:
+                path = self.env_texture_path
+                if path and os.path.exists(path):
+                    if getattr(self, "_env_texture_cache_path", None) != path:
+                        self._env_texture_obj = pv.read_texture(path)
+                        self._env_texture_cache_path = path
+                    self.plotter.set_environment_texture(self._env_texture_obj)
+                else:
+                    self._env_texture_obj = None
+                    self._env_texture_cache_path = ""
+                    self.plotter.remove_environment_texture()
+            except Exception as e:
+                logging.error(f"Failed to load environment texture: {e}")
+                self._env_texture_obj = None
+                self._env_texture_cache_path = ""
+                ok = False
+        self._update_texture_label()
+        return ok
+
+    def _update_texture_label(self):
+        """Show a thumbnail (or filename) of the loaded environment texture."""
+        label = getattr(self, "label_tex", None)
+        if label is None:
             return
-        try:
-            if self.env_texture_path and os.path.exists(self.env_texture_path):
-                # Ensure read_texture is used for robustness
-                texture = pv.read_texture(self.env_texture_path)
-                self.plotter.set_environment_texture(texture)
+        path = self.env_texture_path
+        if path and os.path.exists(path):
+            pix = QPixmap(path)
+            if not pix.isNull():
+                label.setText("")
+                label.setPixmap(
+                    pix.scaledToHeight(
+                        60, Qt.TransformationMode.SmoothTransformation
+                    )
+                )
             else:
-                self.plotter.remove_environment_texture()
-        except Exception as e:
-            logging.error(f"Failed to load environment texture: {e}")
-            QMessageBox.warning(
-                self, "Texture Load Error", f"Could not load texture:\n{e}"
-            )
+                # e.g. .hdr, which QPixmap can't decode — show the filename.
+                label.setPixmap(QPixmap())
+                label.setText(os.path.basename(path))
+            label.setToolTip(path)
+        else:
+            label.setPixmap(QPixmap())
+            label.setText("(no texture)")
+            label.setToolTip("")
 
     def _clean_render_pipeline(self):
         """
@@ -1005,45 +1067,12 @@ class AdvancedGraphicsWidget(QWidget):
             # ★修正: パイプライン洗浄
             self._clean_render_pipeline()
 
-        self.slider_edl.setEnabled(checked)
         self.apply_edl()
 
     def on_edl_strength_changed(self, val):
+        # Kept for the persisted value only; vtkEDLShading has no strength API,
+        # so the slider is disabled and this never re-renders the effect.
         self.edl_strength = val / 100.0
-        if self.use_edl:
-            self.update_edl_strength()
-            self.save_settings()
-
-    def update_edl_strength(self):
-        """スライダーの値をEDLパスに適用"""
-        if not self.plotter or not self.use_edl:
-            return
-        try:
-            # PyVistaが保持しているEDLパスインスタンスにアクセス
-            # バージョンによって _edl_pass または edl_pass の可能性があるため両方チェック
-            edl_pass = getattr(self.plotter.renderer, "_edl_pass", None)
-            if not edl_pass:
-                edl_pass = getattr(self.plotter.renderer, "edl_pass", None)
-
-            if edl_pass:
-                # ★修正: Radius(半径)だけでなくDist(距離)も変更しないと見た目が変わらない
-                # slider: 1-100
-                # Radius: ぼかし範囲 (通常 1.0 - 10.0)
-                # Dist: 深度の強調度合い (通常 0.0001 - 0.01 程度だがシーンスケールによる)
-
-                # 半径の設定
-                if hasattr(edl_pass, "SetRadius"):
-                    edl_pass.SetRadius(self.edl_strength * 10.0)
-
-                # 距離の設定 (これを追加することで凹凸がはっきりする)
-                if hasattr(edl_pass, "SetDist"):
-                    # シーンによって適切な値は異なるが、スライダーで調整できるようにする
-                    # 1.0は大きすぎる場合が多いのでスケーリングする
-                    edl_pass.SetDist(self.edl_strength * 5.0)
-
-            self.plotter.render()
-        except Exception as e:
-            logging.warning(f"EDL Update Error: {e}")
 
     def apply_edl(self):
         if not self.plotter:
@@ -1051,7 +1080,6 @@ class AdvancedGraphicsWidget(QWidget):
         try:
             if self.use_edl:
                 self.plotter.enable_eye_dome_lighting()
-                self.update_edl_strength()  # 値を適用
             else:
                 self.plotter.disable_eye_dome_lighting()
 
@@ -1258,14 +1286,9 @@ class AdvancedGraphicsWidget(QWidget):
             else:
                 self.plotter.disable_ssao()
 
-            # EDL
+            # EDL (vtkEDLShading has no strength API — enable/disable only)
             if enable and self.use_edl:
                 self.plotter.enable_eye_dome_lighting()
-                # Restore strength
-                if hasattr(self.plotter.renderer, "_edl_pass"):
-                    edl_pass = self.plotter.renderer._edl_pass
-                    if edl_pass and hasattr(edl_pass, "SetEDLStrength"):
-                        edl_pass.SetEDLStrength(self.edl_strength)
             else:
                 self.plotter.disable_eye_dome_lighting()
 

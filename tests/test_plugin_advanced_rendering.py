@@ -723,3 +723,258 @@ class TestSaveLoadSettings:
             get_settings_path=lambda: str(tmp_path / "nope" / "settings.json"),
         )
         save_fn(stub)  # must not raise
+
+
+# ---------------------------------------------------------------------------
+# Environment texture: (re)apply for PBR image-based lighting, caching, and
+# the UI preview label. (2026.07.25)
+# ---------------------------------------------------------------------------
+
+
+def _apply_texture_fn(read_texture):
+    fake_pv = SimpleNamespace(read_texture=read_texture)
+    return extract_function(
+        ADV_RENDER_PATH,
+        "AdvancedGraphicsWidget",
+        "apply_texture",
+        {"os": os, "logging": logging, "pv": fake_pv},
+    )
+
+
+class TestApplyTexture:
+    def test_sets_environment_texture_when_path_exists(self, tmp_path):
+        p = tmp_path / "env.png"
+        p.write_bytes(b"x")
+        fn = _apply_texture_fn(lambda pth: f"TEX:{pth}")
+        plotter = MagicMock()
+        stub = SimpleNamespace(
+            plotter=plotter,
+            env_texture_path=str(p),
+            _update_texture_label=MagicMock(),
+        )
+        assert fn(stub) is True
+        plotter.set_environment_texture.assert_called_once_with(f"TEX:{p}")
+        stub._update_texture_label.assert_called_once()
+
+    def test_caches_texture_across_calls(self, tmp_path):
+        p = tmp_path / "env.png"
+        p.write_bytes(b"x")
+        reads = []
+        fn = _apply_texture_fn(lambda pth: reads.append(pth) or "TEX")
+        stub = SimpleNamespace(
+            plotter=MagicMock(),
+            env_texture_path=str(p),
+            _update_texture_label=MagicMock(),
+        )
+        fn(stub)
+        fn(stub)
+        assert len(reads) == 1  # file read once, then served from cache
+
+    def test_removes_texture_when_path_empty(self):
+        fn = _apply_texture_fn(lambda pth: "TEX")
+        plotter = MagicMock()
+        stub = SimpleNamespace(
+            plotter=plotter, env_texture_path="", _update_texture_label=MagicMock()
+        )
+        assert fn(stub) is True
+        plotter.remove_environment_texture.assert_called_once()
+
+    def test_read_failure_returns_false(self, tmp_path):
+        p = tmp_path / "bad.png"
+        p.write_bytes(b"x")
+
+        def boom(pth):
+            raise RuntimeError("cannot decode")
+
+        fn = _apply_texture_fn(boom)
+        stub = SimpleNamespace(
+            plotter=MagicMock(),
+            env_texture_path=str(p),
+            _update_texture_label=MagicMock(),
+        )
+        assert fn(stub) is False
+        stub._update_texture_label.assert_called_once()
+
+    def test_noop_without_plotter_still_updates_label(self):
+        fn = _apply_texture_fn(lambda pth: "TEX")
+        stub = SimpleNamespace(
+            plotter=None, env_texture_path="x", _update_texture_label=MagicMock()
+        )
+        assert fn(stub) is True
+        stub._update_texture_label.assert_called_once()
+
+
+class _FakePixmapValid:
+    def __init__(self, *a):
+        self._path = a[0] if a else ""
+
+    def isNull(self):
+        return not self._path
+
+    def scaledToHeight(self, h, mode):
+        return f"scaled:{self._path}:{h}"
+
+
+class _FakePixmapNull:
+    def __init__(self, *a):
+        pass
+
+    def isNull(self):
+        return True
+
+    def scaledToHeight(self, h, mode):  # pragma: no cover - never reached
+        return self
+
+
+_FAKE_QT = SimpleNamespace(
+    TransformationMode=SimpleNamespace(SmoothTransformation=0)
+)
+
+
+def _update_texture_label_fn(qpixmap):
+    return extract_function(
+        ADV_RENDER_PATH,
+        "AdvancedGraphicsWidget",
+        "_update_texture_label",
+        {"os": os, "QPixmap": qpixmap, "Qt": _FAKE_QT},
+    )
+
+
+class TestUpdateTextureLabel:
+    def test_shows_thumbnail_for_decodable_image(self, tmp_path):
+        p = tmp_path / "env.png"
+        p.write_bytes(b"x")
+        fn = _update_texture_label_fn(_FakePixmapValid)
+        label = MagicMock()
+        fn(SimpleNamespace(env_texture_path=str(p), label_tex=label))
+        label.setPixmap.assert_called_once_with(f"scaled:{p}:60")
+        label.setToolTip.assert_called_once_with(str(p))
+
+    def test_shows_filename_when_pixmap_cannot_decode(self, tmp_path):
+        p = tmp_path / "scene.hdr"
+        p.write_bytes(b"x")
+        fn = _update_texture_label_fn(_FakePixmapNull)
+        label = MagicMock()
+        fn(SimpleNamespace(env_texture_path=str(p), label_tex=label))
+        label.setText.assert_called_once_with("scene.hdr")
+
+    def test_shows_placeholder_when_no_texture(self):
+        fn = _update_texture_label_fn(_FakePixmapValid)
+        label = MagicMock()
+        fn(SimpleNamespace(env_texture_path="", label_tex=label))
+        label.setText.assert_called_once_with("(no texture)")
+
+    def test_noop_without_label(self):
+        fn = _update_texture_label_fn(_FakePixmapValid)
+        fn(SimpleNamespace(env_texture_path="x", label_tex=None))  # must not raise
+
+
+# ---------------------------------------------------------------------------
+# PBR toggle applies the texture; EDL is enable/disable only (no strength API).
+# ---------------------------------------------------------------------------
+
+
+class TestOnAtomPbrToggled:
+    def _fn(self):
+        return extract_function(
+            ADV_RENDER_PATH,
+            "AdvancedGraphicsWidget",
+            "on_atom_pbr_toggled",
+            {"logging": logging},
+        )
+
+    def _stub(self, use):
+        return SimpleNamespace(
+            use_atom_pbr=use,
+            slider_atom_metallic=MagicMock(),
+            slider_atom_roughness=MagicMock(),
+            apply_texture=MagicMock(),
+            update_atoms_pbr=MagicMock(),
+            save_settings=MagicMock(),
+        )
+
+    def test_enabling_pbr_applies_texture(self):
+        stub = self._stub(False)
+        self._fn()(stub, True)
+        assert stub.use_atom_pbr is True
+        stub.apply_texture.assert_called_once()
+        stub.update_atoms_pbr.assert_called_once()
+
+    def test_disabling_pbr_does_not_apply_texture(self):
+        stub = self._stub(True)
+        self._fn()(stub, False)
+        stub.apply_texture.assert_not_called()
+
+
+class TestUpdateAtomsPbrTexture:
+    def _fn(self):
+        return extract_function(
+            ADV_RENDER_PATH,
+            "AdvancedGraphicsWidget",
+            "update_atoms_pbr",
+            {"logging": logging, "vtk": None},
+        )
+
+    def _stub(self, use_atom_pbr, env_path):
+        renderer = SimpleNamespace(actors={})  # no actors -> skip the prop loop
+        plotter = SimpleNamespace(renderer=renderer, render=MagicMock())
+        return SimpleNamespace(
+            safe_plotter=plotter,
+            mw=SimpleNamespace(
+                view_3d_manager=SimpleNamespace(
+                    current_3d_style="CPK (Advanced Rendering)"
+                )
+            ),
+            use_atom_pbr=use_atom_pbr,
+            env_texture_path=env_path,
+            check_atom_pbr=MagicMock(),
+            atom_metallic=0.0,
+            atom_roughness=0.5,
+            apply_texture=MagicMock(),
+        )
+
+    def test_reapplies_texture_when_pbr_active(self):
+        stub = self._stub(use_atom_pbr=True, env_path="/env.png")
+        self._fn()(stub)
+        stub.apply_texture.assert_called_once()
+
+    def test_no_texture_reapply_when_pbr_off(self):
+        stub = self._stub(use_atom_pbr=False, env_path="/env.png")
+        self._fn()(stub)
+        stub.apply_texture.assert_not_called()
+
+    def test_no_texture_reapply_when_no_path(self):
+        stub = self._stub(use_atom_pbr=True, env_path="")
+        self._fn()(stub)
+        stub.apply_texture.assert_not_called()
+
+
+class TestEdlControls:
+    def test_strength_change_only_stores_value(self):
+        # vtkEDLShading has no strength API; the slider is disabled and this
+        # handler must not touch the plotter — it only keeps the value.
+        fn = extract_function(
+            ADV_RENDER_PATH, "AdvancedGraphicsWidget", "on_edl_strength_changed", {}
+        )
+        stub = SimpleNamespace(edl_strength=0.0)
+        fn(stub, 50)
+        assert stub.edl_strength == pytest.approx(0.5)
+
+    def _apply_edl_fn(self):
+        return extract_function(
+            ADV_RENDER_PATH, "AdvancedGraphicsWidget", "apply_edl", {"logging": logging}
+        )
+
+    def test_apply_edl_enable(self):
+        plotter = MagicMock()
+        self._apply_edl_fn()(
+            SimpleNamespace(plotter=plotter, use_edl=True, use_aa=False)
+        )
+        plotter.enable_eye_dome_lighting.assert_called_once()
+
+    def test_apply_edl_disable(self):
+        plotter = MagicMock()
+        self._apply_edl_fn()(
+            SimpleNamespace(plotter=plotter, use_edl=False, use_aa=False)
+        )
+        plotter.disable_eye_dome_lighting.assert_called_once()
