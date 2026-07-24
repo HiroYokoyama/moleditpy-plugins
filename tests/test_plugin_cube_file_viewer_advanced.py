@@ -804,3 +804,192 @@ class TestRunPluginAndInitialize:
         mod.initialize(ctx)
         handler = ctx.register_drop_handler.call_args[0][0]
         assert handler("molecule.xyz") is False
+
+
+# ---------------------------------------------------------------------------
+# Shadow-fix helpers: _reset_stale_shadow_pass, _enable_shadows
+# ---------------------------------------------------------------------------
+
+_reset_stale_shadow_pass = extract_function(
+    CUBE_ADV_PATH, "CubeViewerWidget", "_reset_stale_shadow_pass",
+    extra_globals={"logging": _logging},
+)
+_enable_shadows = extract_function(
+    CUBE_ADV_PATH, "CubeViewerWidget", "_enable_shadows",
+    extra_globals={"logging": _logging},
+)
+
+
+class TestResetStaleShadowPass:
+    def _plotter_with_pass(self, pass_value=object()):
+        """Return a fake plotter whose renderer has a stale _shadow_map_pass."""
+        rp = SimpleNamespace(_shadow_map_pass=pass_value)
+        renderer = SimpleNamespace(_render_passes=rp)
+        return SimpleNamespace(renderer=renderer)
+
+    def test_clears_stale_shadow_pass(self):
+        fake = SimpleNamespace(plotter=self._plotter_with_pass(object()))
+        _reset_stale_shadow_pass(fake)
+        assert fake.plotter.renderer._render_passes._shadow_map_pass is None
+
+    def test_already_none_is_noop(self):
+        fake = SimpleNamespace(plotter=self._plotter_with_pass(None))
+        _reset_stale_shadow_pass(fake)  # must not raise
+        assert fake.plotter.renderer._render_passes._shadow_map_pass is None
+
+    def test_missing_render_passes_is_silenced(self):
+        renderer = SimpleNamespace()  # no _render_passes attribute
+        fake = SimpleNamespace(plotter=SimpleNamespace(renderer=renderer))
+        _reset_stale_shadow_pass(fake)  # must not raise
+
+    def test_exception_is_logged_not_raised(self):
+        """If accessing _render_passes raises, the method must swallow it."""
+        class BrokenRenderer:
+            @property
+            def _render_passes(self):
+                raise RuntimeError("internal VTK error")
+
+        fake = SimpleNamespace(plotter=SimpleNamespace(renderer=BrokenRenderer()))
+        _reset_stale_shadow_pass(fake)  # must not raise
+
+
+class TestEnableShadows:
+    def test_calls_reset_before_enable(self):
+        reset_called = []
+        enable_called = []
+        fake = SimpleNamespace()
+        fake._reset_stale_shadow_pass = lambda: reset_called.append(True)
+        fake.plotter = SimpleNamespace(enable_shadows=lambda: enable_called.append(True))
+        _enable_shadows(fake)
+        assert reset_called == [True]
+        assert enable_called == [True]
+
+    def test_reset_before_enable_ordering(self):
+        """Reset must be called BEFORE enable_shadows, not after."""
+        order = []
+        fake = SimpleNamespace()
+        fake._reset_stale_shadow_pass = lambda: order.append("reset")
+        fake.plotter = SimpleNamespace(enable_shadows=lambda: order.append("enable"))
+        _enable_shadows(fake)
+        assert order == ["reset", "enable"]
+
+
+# ---------------------------------------------------------------------------
+# Texture thumbnail: _update_tex_label
+# ---------------------------------------------------------------------------
+
+import os as _os
+
+
+class FakeQPixmap:
+    """Minimal stand-in for QPixmap; *null* controls isNull()."""
+
+    def __init__(self, path="", null=False):
+        self._path = path
+        self._null = null
+        self._scaled = None
+
+    def isNull(self):
+        return self._null
+
+    def scaled(self, w, h, *args, **kwargs):
+        copy = FakeQPixmap(self._path, self._null)
+        copy._scaled = (w, h)
+        return copy
+
+
+class FakeLabel:
+    def __init__(self):
+        self._text = "(no texture)"
+        self._pixmap = None
+        self._tooltip = ""
+
+    def setText(self, t):
+        self._text = t
+
+    def text(self):
+        return self._text
+
+    def setPixmap(self, px):
+        self._pixmap = px
+
+    def setToolTip(self, t):
+        self._tooltip = t
+
+
+_update_tex_label = extract_function(
+    CUBE_ADV_PATH, "CubeViewerWidget", "_update_tex_label",
+    extra_globals={
+        "os": _os,
+        "QPixmap": FakeQPixmap,
+        "Qt": MagicMock(),
+    },
+)
+
+
+class TestUpdateTexLabel:
+    def _fake_with_label(self):
+        fake = SimpleNamespace()
+        fake.label_tex = FakeLabel()
+        return fake
+
+    def test_empty_path_shows_no_texture_text(self):
+        fake = self._fake_with_label()
+        _update_tex_label(fake, "")
+        assert fake.label_tex.text() == "(no texture)"
+
+    def test_empty_path_clears_pixmap(self):
+        fake = self._fake_with_label()
+        fake.label_tex._pixmap = FakeQPixmap("old.png")
+        _update_tex_label(fake, "")
+        # After clearing, the pixmap should be a null/empty QPixmap (not the old one)
+        assert fake.label_tex._pixmap is not None  # setPixmap was called
+
+    def test_valid_pixmap_sets_scaled_pixmap(self, monkeypatch):
+        """When QPixmap loads successfully (not null), label gets a scaled pixmap."""
+        fake = self._fake_with_label()
+        monkeypatch.setattr(
+            "tests.test_plugin_cube_file_viewer_advanced.FakeQPixmap",
+            lambda path="", null=False: FakeQPixmap(path, null=False),
+        )
+        # Inject a non-null QPixmap via the function's extra_globals substitution
+        non_null_px = FakeQPixmap("tex.png", null=False)
+        import types
+        # Call through a wrapper that provides a non-null QPixmap
+        ns = SimpleNamespace(label_tex=FakeLabel())
+        called_scaled = []
+
+        class PatchedQPixmap(FakeQPixmap):
+            def isNull(self):
+                return False
+            def scaled(self, w, h, *a, **kw):
+                called_scaled.append((w, h))
+                return self
+
+        fn_with_pixmap = extract_function(
+            CUBE_ADV_PATH, "CubeViewerWidget", "_update_tex_label",
+            extra_globals={"os": _os, "QPixmap": PatchedQPixmap, "Qt": MagicMock()},
+        )
+        fn_with_pixmap(ns, "/some/tex.png")
+        assert len(called_scaled) == 1
+        assert ns.label_tex._tooltip == "/some/tex.png"
+
+    def test_null_pixmap_falls_back_to_basename(self):
+        """When QPixmap.isNull() is True, label gets the file basename as text."""
+        class NullQPixmap(FakeQPixmap):
+            def isNull(self):
+                return True
+
+        fn_null = extract_function(
+            CUBE_ADV_PATH, "CubeViewerWidget", "_update_tex_label",
+            extra_globals={"os": _os, "QPixmap": NullQPixmap, "Qt": MagicMock()},
+        )
+        ns = SimpleNamespace(label_tex=FakeLabel())
+        fn_null(ns, "/some/path/texture.png")
+        assert ns.label_tex.text() == "texture.png"
+        assert ns.label_tex._tooltip == "/some/path/texture.png"
+
+    def test_missing_label_tex_attribute_is_silenced(self):
+        """If label_tex is not set (e.g. old settings loaded), method must not raise."""
+        fake = SimpleNamespace()  # no label_tex
+        _update_tex_label(fake, "")  # must not raise

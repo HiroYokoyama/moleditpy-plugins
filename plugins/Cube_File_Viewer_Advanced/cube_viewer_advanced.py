@@ -22,7 +22,7 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QLineEdit,
 )
-from PyQt6.QtGui import QColor
+from PyQt6.QtGui import QColor, QPixmap
 from PyQt6.QtCore import Qt, QTimer, QCoreApplication
 import logging
 
@@ -43,7 +43,7 @@ except ImportError:
 __author__ = "HiroYokoyama"
 PLUGIN_AUTHOR = __author__
 PLUGIN_NAME = "Cube File Viewer Advanced"
-PLUGIN_VERSION = "2026.07.06"
+PLUGIN_VERSION = "2026.07.25"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_DESCRIPTION = "Advanced 3D visualization for Gaussian Cube files with PBR, SSAO, and other effects."
 PLUGIN_CONTEXT = None
@@ -288,7 +288,6 @@ class CubeViewerWidget(QWidget):
         # New Graphics Options
         self.use_aa = False
         self.use_edl = False
-        self.edl_strength = 0.2
         self.use_shadows = False
         self.light_intensity = 1.0
 
@@ -517,6 +516,13 @@ class CubeViewerWidget(QWidget):
         tex_layout.addWidget(btn_clear_tex)
         scene_layout.addLayout(tex_layout, 0, 1)
 
+        # Loaded-texture preview (thumbnail / filename)
+        self.label_tex = QLabel("(no texture)")
+        self.label_tex.setFixedHeight(56)
+        self.label_tex.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.label_tex.setStyleSheet("border: 1px solid palette(mid);")
+        scene_layout.addWidget(self.label_tex, 5, 0, 1, 2)
+
         # Shadows
         self.check_shadows = QCheckBox("Shadows")
         self.check_shadows.setToolTip("Enable Shadows (requires compatible lighting)")
@@ -543,20 +549,10 @@ class CubeViewerWidget(QWidget):
         self.check_aa.toggled.connect(self.on_aa_toggled)
         scene_layout.addWidget(self.check_aa, 3, 1)
 
-        # EDL
+        # EDL (enable/disable only — vtkEDLShading has no strength API)
         self.check_edl = QCheckBox("EDL (Depth)")
         self.check_edl.toggled.connect(self.on_edl_toggled)
         scene_layout.addWidget(self.check_edl, 4, 0)
-
-        edl_layout = QHBoxLayout()
-        edl_layout.addWidget(QLabel("Str:"))
-        self.slider_edl = QSlider(Qt.Orientation.Horizontal)
-        self.slider_edl.setRange(1, 100)
-        self.slider_edl.setValue(int(self.edl_strength * 100))
-        self.slider_edl.valueChanged.connect(self.on_edl_strength_changed)
-        self.slider_edl.setEnabled(False)
-        edl_layout.addWidget(self.slider_edl)
-        scene_layout.addLayout(edl_layout, 4, 1)
 
         tab_scene.setLayout(scene_layout)
         tabs.addTab(tab_scene, "Scene")
@@ -624,9 +620,6 @@ class CubeViewerWidget(QWidget):
             "use_silhouette": False,
             "use_aa": False,
             "use_edl": False,
-            "edl_strength": 0.2,
-            "use_shadows": False,
-            "edl_strength": 0.2,
             "use_shadows": False,
             "light_intensity": 1.0,
             "smooth_shading": True,
@@ -790,10 +783,6 @@ class CubeViewerWidget(QWidget):
                 if "use_aa" in settings:
                     self.check_aa.setChecked(bool(settings["use_aa"]))
 
-                if "edl_strength" in settings:
-                    self.edl_strength = float(settings["edl_strength"])
-                    self.slider_edl.setValue(int(self.edl_strength * 100))
-
                 if "use_edl" in settings:
                     self.check_edl.setChecked(bool(settings["use_edl"]))
 
@@ -830,9 +819,6 @@ class CubeViewerWidget(QWidget):
                 "env_texture_path": self.env_texture_path,
                 "use_aa": self.use_aa,
                 "use_edl": self.use_edl,
-                "edl_strength": self.edl_strength,
-                "use_shadows": self.use_shadows,
-                "light_intensity": self.light_intensity,
                 "use_shadows": self.use_shadows,
                 "light_intensity": self.light_intensity,
                 "presets": self.presets,
@@ -1183,6 +1169,26 @@ class CubeViewerWidget(QWidget):
         self.use_silhouette = checked
         self.update_iso()
 
+    def _reset_stale_shadow_pass(self):
+        """Work around a PyVista bug: disable_shadow_pass() removes the pass
+        from the collection but leaves _shadow_map_pass set, so the guard in
+        enable_shadow_pass() makes every subsequent enable a silent no-op —
+        shadows never come back after the first disable (and are lost on every
+        isovalue redraw, which disables then re-enables them). Clearing the
+        stale reference lets a re-enable actually re-add the pass.
+        """
+        try:
+            rp = getattr(self.plotter.renderer, "_render_passes", None)
+            if rp is not None and getattr(rp, "_shadow_map_pass", None) is not None:
+                rp._shadow_map_pass = None
+        except Exception as e:
+            logging.warning("Shadow pass reset error: %s", e)
+
+    def _enable_shadows(self):
+        """Enable shadows, clearing PyVista's stale shadow-pass ref first."""
+        self._reset_stale_shadow_pass()
+        self.plotter.enable_shadows()
+
     def on_shadows_toggled(self, checked):
         self.use_shadows = checked
         self._disable_conflicting_effects(exclude="shadows" if checked else "")
@@ -1190,7 +1196,7 @@ class CubeViewerWidget(QWidget):
         try:
             self._clean_render_pipeline()
             if checked:
-                self.plotter.enable_shadows()
+                self._enable_shadows()
             else:
                 self.plotter.disable_shadows()
         except Exception as _e:
@@ -1224,29 +1230,14 @@ class CubeViewerWidget(QWidget):
         self.use_edl = checked
         self._disable_conflicting_effects(exclude="edl" if checked else "")
 
-        self.slider_edl.setEnabled(checked)
         self._clean_render_pipeline()
         self.apply_edl()
-
-    def on_edl_strength_changed(self, val):
-        self.edl_strength = val / 100.0
-        if self.use_edl:
-            self.apply_edl()
 
     def apply_edl(self):
         try:
             if self.use_edl:
+                # vtkEDLShading exposes no strength API — enable/disable only.
                 self.plotter.enable_eye_dome_lighting()
-
-                # Access the EDL pass to set strength
-                try:
-                    if hasattr(self.plotter.renderer, "_edl_pass"):
-                        edl_pass = self.plotter.renderer._edl_pass
-                        if edl_pass and hasattr(edl_pass, "SetEDLStrength"):
-                            edl_pass.SetEDLStrength(self.edl_strength)
-                except Exception as _e:
-                    logging.warning("[cube_viewer_advanced.py:1161] silenced: %s", _e)
-
             else:
                 if hasattr(self.plotter, "disable_eye_dome_lighting"):
                     self.plotter.disable_eye_dome_lighting()
@@ -1315,8 +1306,13 @@ class CubeViewerWidget(QWidget):
 
         self.blockSignals(False)
 
-        # --- ATOM METHODS REMOVED ---
+    def _enforce_scene_state(self):
+        """Redraw molecule + orbital and restore all advanced rendering effects.
 
+        Call this after any operation that calls plotter.clear() (e.g. isovalue
+        change on top of an existing scene), so that shadows / EDL survive the
+        full redraw cycle.
+        """
         # Save state of advanced rendering effects that get lost during plotter.clear()
         edl_was_enabled = self.use_edl
         shadows_were_enabled = self.use_shadows
@@ -1326,13 +1322,13 @@ class CubeViewerWidget(QWidget):
             try:
                 self.plotter.disable_eye_dome_lighting()
             except Exception as _e:
-                logging.warning("[cube_viewer_advanced.py:1236] silenced: %s", _e)
+                logging.warning("[cube_viewer_advanced.py:_enforce_scene_state] silenced: %s", _e)
 
         if shadows_were_enabled:
             try:
                 self.plotter.disable_shadows()
             except Exception as _e:
-                logging.warning("[cube_viewer_advanced.py:1242] silenced: %s", _e)
+                logging.warning("[cube_viewer_advanced.py:_enforce_scene_state] silenced: %s", _e)
 
         # Redraw molecule 3D and orbital
         mol = self.context.current_molecule
@@ -1351,7 +1347,7 @@ class CubeViewerWidget(QWidget):
         # Restore advanced rendering effects
         if shadows_were_enabled:
             try:
-                self.plotter.enable_shadows()
+                self._enable_shadows()
             except Exception as e:
                 logging.warning("Error restoring shadows: %s", e)
 
@@ -1365,7 +1361,8 @@ class CubeViewerWidget(QWidget):
         try:
             self.plotter.render()
         except Exception as _e:
-            logging.warning("[cube_viewer_advanced.py:1275] silenced: %s", _e)
+            logging.warning("[cube_viewer_advanced.py:_enforce_scene_state] silenced: %s", _e)
+
 
     def on_texture_path_entered(self):
         path = self.line_env_path.text().strip()
@@ -1448,7 +1445,6 @@ class CubeViewerWidget(QWidget):
             "use_silhouette": self.use_silhouette,
             "use_aa": self.use_aa,
             "use_edl": self.use_edl,
-            "edl_strength": self.edl_strength,
             "use_shadows": self.use_shadows,
             "light_intensity": self.light_intensity,
             "smooth_shading": self.check_smooth.isChecked(),
@@ -1539,10 +1535,6 @@ class CubeViewerWidget(QWidget):
             self.check_silhouette.setChecked(bool(settings["use_silhouette"]))
         if "use_aa" in settings:
             self.check_aa.setChecked(bool(settings["use_aa"]))
-
-        if "edl_strength" in settings:
-            self.edl_strength = float(settings["edl_strength"])
-            self.slider_edl.setValue(int(self.edl_strength * 100))
 
         if "use_edl" in settings:
             self.check_edl.setChecked(bool(settings["use_edl"]))
@@ -1693,6 +1685,7 @@ class CubeViewerWidget(QWidget):
             QCoreApplication.processEvents()
 
             self.plotter.render()
+            self._update_tex_label(path)
             print(f"Loaded texture: {os.path.basename(path)}")
 
         except Exception as e:
@@ -1723,9 +1716,36 @@ class CubeViewerWidget(QWidget):
 
             self.env_texture_path = ""
             self.line_env_path.clear()
+            self._update_tex_label("")
             self.plotter.render()
         except Exception as e:
             logging.warning("Error removing texture: %s", e)
+
+    def _update_tex_label(self, path: str) -> None:
+        """Update the texture thumbnail/label widget.
+
+        Shows a 56×40 px QPixmap preview when *path* is a valid image file,
+        falls back to a plain filename when QPixmap loading fails, and shows
+        "(no texture)" when *path* is empty.
+        """
+        label = getattr(self, "label_tex", None)
+        if label is None:
+            return
+        if not path:
+            label.setPixmap(QPixmap())  # clear any existing pixmap
+            label.setText("(no texture)")
+            return
+        px = QPixmap(path)
+        if not px.isNull():
+            label.setPixmap(
+                px.scaled(56, 40, Qt.AspectRatioMode.KeepAspectRatio,
+                           Qt.TransformationMode.SmoothTransformation)
+            )
+            label.setToolTip(path)
+        else:
+            label.setPixmap(QPixmap())  # clear stale pixmap
+            label.setText(os.path.basename(path))
+            label.setToolTip(path)
 
     def on_reset_all(self):
         """Resets ALL settings to defaults (not just advanced)."""
@@ -1786,7 +1806,6 @@ class CubeViewerWidget(QWidget):
 
             # EDL (Eye Dome Lighting)
             self.check_edl.setChecked(False)
-            self.slider_edl.setValue(20)  # 0.2
             if self.use_edl:
                 try:
                     self.plotter.disable_eye_dome_lighting()
