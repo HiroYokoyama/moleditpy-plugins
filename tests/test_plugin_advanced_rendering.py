@@ -95,7 +95,11 @@ class TestAdvancedRenderingStyleDrawers:
         mw_obj.view_3d_manager.draw_standard_3d_style.assert_called_once_with(
             "MOL", style_override="ball_and_stick"
         )
-        viewer.apply_pbr_forced.assert_called_once()
+        # Drawer must NOT force PBR — it honours the user's saved atom-PBR
+        # preference through update_atoms_pbr(); forcing it rendered the model
+        # flat gray (PBR with no environment texture).
+        viewer.apply_pbr_forced.assert_not_called()
+        viewer.update_atoms_pbr.assert_called_once()
         viewer.update_lights.assert_called_once()
         viewer.sync_style_ui.assert_called_once_with(
             "Ball & Stick (Advanced Rendering)"

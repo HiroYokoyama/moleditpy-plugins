@@ -1480,7 +1480,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Advanced Rendering",
-    "version": "2026.07.24",
+    "version": "2026.07.25",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Fine-grained control over Scene lighting, shadows, post-processing effects (SSAO, Depth Peeling, EDL), and Atom/Bond rendering (PBR, Silhouette).",
@@ -1493,8 +1493,8 @@
       "numpy"
     ],
     "downloadUrl": "../plugins/Advanced_Rendering/advanced_rendering.py",
-    "lastUpdated": "2026-07-24",
-    "sha256": "107984a850c7f19a602efc75bab3d80c03f29c5e629a6586c3f0acd2db91b60b",
+    "lastUpdated": "2026-07-25",
+    "sha256": "42ee4afc72d4f7a7912c08f121bcd6c55f02a4b01b3337c3073813efde7b0c12",
     "firstAppeared": "2026-02-03",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

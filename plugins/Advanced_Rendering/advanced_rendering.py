@@ -46,7 +46,7 @@ except ImportError:
     vtk = None
 
 PLUGIN_NAME = "Advanced Rendering"
-PLUGIN_VERSION = "2026.07.24"
+PLUGIN_VERSION = "2026.07.25"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Fine-grained control over Scene lighting, shadows, and PBR effects. Refactored for V3 API."
@@ -207,10 +207,14 @@ def initialize(context):
     ]
 
     for display_name, style_key in styles:
+        # force_pbr=False: honour the user's saved atom-PBR preference instead
+        # of force-enabling it. Forced PBR without an environment texture makes
+        # the model render flat gray until the settings dialog is touched.
         context.register_3d_style(
             style_key,
             make_style_drawer(
-                style_key.split(" (")[0].lower().replace(" & ", "_and_"), force_pbr=True
+                style_key.split(" (")[0].lower().replace(" & ", "_and_"),
+                force_pbr=False,
             ),
         )
 
@@ -1177,20 +1181,19 @@ class AdvancedGraphicsWidget(QWidget):
         """Syncs widget state and scene effects with active style."""
         is_active_pbr = "(Advanced Rendering)" in active_style_name
 
-        # --- FIX: Strictly enforce PBR Checkbox/State based on Style ---
-        # This prevents PBR from "leaking" into Standard styles
+        # PBR is only meaningful in Advanced Rendering styles, but switching to
+        # one must NOT force it on — that overrode the user's saved preference
+        # and rendered the model flat gray (PBR with no environment texture).
+        # In an Advanced style: expose the controls and reflect the saved
+        # `use_atom_pbr`. In a Standard style: keep PBR strictly disabled so it
+        # cannot leak in, without clobbering the stored preference.
         if getattr(self, "check_atom_pbr", None) is not None:
             self.check_atom_pbr.blockSignals(True)
-            if is_active_pbr:
-                self.check_atom_pbr.setChecked(True)
-                self.use_atom_pbr = True
-                self.slider_atom_metallic.setEnabled(True)
-                self.slider_atom_roughness.setEnabled(True)
-            else:
-                self.check_atom_pbr.setChecked(False)
-                self.use_atom_pbr = False
-                self.slider_atom_metallic.setEnabled(False)
-                self.slider_atom_roughness.setEnabled(False)
+            self.check_atom_pbr.setEnabled(is_active_pbr)
+            self.check_atom_pbr.setChecked(is_active_pbr and self.use_atom_pbr)
+            enable_sliders = is_active_pbr and self.use_atom_pbr
+            self.slider_atom_metallic.setEnabled(enable_sliders)
+            self.slider_atom_roughness.setEnabled(enable_sliders)
             self.check_atom_pbr.blockSignals(False)
 
         # Apply the PBR state immediately
