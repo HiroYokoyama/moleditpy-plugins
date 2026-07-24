@@ -807,6 +807,25 @@ class AdvancedGraphicsWidget(QWidget):
         except Exception as e:
             logging.warning(f"Pipeline clean error: {e}")
 
+    def _reset_stale_shadow_pass(self):
+        """Work around a PyVista bug: disable_shadow_pass() removes the pass
+        from the collection but leaves _shadow_map_pass set, so the guard in
+        enable_shadow_pass() makes every subsequent enable a silent no-op —
+        shadows never come back after the first disable. Clearing the stale
+        reference lets a re-enable actually re-add the pass.
+        """
+        try:
+            rp = getattr(self.plotter.renderer, "_render_passes", None)
+            if rp is not None and getattr(rp, "_shadow_map_pass", None) is not None:
+                rp._shadow_map_pass = None
+        except Exception as e:
+            logging.warning(f"Shadow pass reset error: {e}")
+
+    def _enable_shadows(self):
+        """Enable shadows, clearing PyVista's stale shadow-pass ref first."""
+        self._reset_stale_shadow_pass()
+        self.plotter.enable_shadows()
+
     def on_shadows_toggled(self, checked):
         if not self.plotter:
             return
@@ -833,7 +852,7 @@ class AdvancedGraphicsWidget(QWidget):
 
         try:
             if checked:
-                self.plotter.enable_shadows()
+                self._enable_shadows()
                 self.update_lights()  # 影有効化後はライト更新が必須
             else:
                 self.plotter.disable_shadows()
@@ -1249,7 +1268,7 @@ class AdvancedGraphicsWidget(QWidget):
 
             # Shadows
             if enable and self.use_shadows:
-                self.plotter.enable_shadows()
+                self._enable_shadows()
                 self.update_lights()
             else:
                 self.plotter.disable_shadows()

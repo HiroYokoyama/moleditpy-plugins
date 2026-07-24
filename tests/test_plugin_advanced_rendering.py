@@ -249,6 +249,7 @@ def _enforce_stub(**overrides):
         use_aa=False,
         use_depth_peeling=False,
         _clean_render_pipeline=MagicMock(),
+        _enable_shadows=MagicMock(),
         update_lights=MagicMock(),
     )
     for k, v in overrides.items():
@@ -271,7 +272,8 @@ class TestEnforceSceneState:
         fn = _enforce_scene_state_fn()
         stub = _enforce_stub(use_shadows=True)
         fn(stub, enable=True)
-        stub.plotter.enable_shadows.assert_called_once()
+        # Routes through the workaround helper, not plotter.enable_shadows directly.
+        stub._enable_shadows.assert_called_once()
         stub.update_lights.assert_called_once()
 
     def test_disable_path_does_not_clean_pipeline(self):
@@ -972,3 +974,108 @@ class TestEdlControls:
             SimpleNamespace(plotter=plotter, use_edl=False, use_aa=False)
         )
         plotter.disable_eye_dome_lighting.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Shadow re-enable workaround for the PyVista bug where disable_shadow_pass()
+# leaves _shadow_map_pass set, making every later enable a silent no-op.
+# ---------------------------------------------------------------------------
+
+
+def _reset_stale_shadow_pass_fn():
+    return extract_function(
+        ADV_RENDER_PATH,
+        "AdvancedGraphicsWidget",
+        "_reset_stale_shadow_pass",
+        {"logging": logging},
+    )
+
+
+def _enable_shadows_fn():
+    return extract_function(
+        ADV_RENDER_PATH, "AdvancedGraphicsWidget", "_enable_shadows", {"logging": logging}
+    )
+
+
+class TestShadowReEnable:
+    def test_reset_clears_stale_shadow_pass(self):
+        fn = _reset_stale_shadow_pass_fn()
+        rp = SimpleNamespace(_shadow_map_pass="stale-pass")
+        stub = SimpleNamespace(plotter=SimpleNamespace(renderer=SimpleNamespace(_render_passes=rp)))
+        fn(stub)
+        assert rp._shadow_map_pass is None
+
+    def test_reset_noop_when_already_clear(self):
+        fn = _reset_stale_shadow_pass_fn()
+        rp = SimpleNamespace(_shadow_map_pass=None)
+        stub = SimpleNamespace(plotter=SimpleNamespace(renderer=SimpleNamespace(_render_passes=rp)))
+        fn(stub)  # must not raise
+        assert rp._shadow_map_pass is None
+
+    def test_reset_tolerates_missing_render_passes(self):
+        fn = _reset_stale_shadow_pass_fn()
+        stub = SimpleNamespace(plotter=SimpleNamespace(renderer=SimpleNamespace()))
+        fn(stub)  # must not raise
+
+    def test_enable_shadows_resets_then_enables(self):
+        # The stale ref must be cleared BEFORE enable_shadows(), otherwise the
+        # PyVista guard swallows the enable.
+        fn = _enable_shadows_fn()
+        order = []
+        rp = SimpleNamespace(_shadow_map_pass="stale")
+        plotter = MagicMock()
+        plotter.enable_shadows.side_effect = lambda: order.append(
+            ("enable", rp._shadow_map_pass)
+        )
+
+        def reset():
+            rp._shadow_map_pass = None
+
+        fn(SimpleNamespace(plotter=plotter, _reset_stale_shadow_pass=reset))
+        plotter.enable_shadows.assert_called_once()
+        # Recorded state at enable time proves the reset ran first.
+        assert order == [("enable", None)]
+
+
+class TestOnShadowsToggled:
+    def _fn(self):
+        return extract_function(
+            ADV_RENDER_PATH,
+            "AdvancedGraphicsWidget",
+            "on_shadows_toggled",
+            {"logging": logging},
+        )
+
+    def _stub(self, **ov):
+        stub = SimpleNamespace(
+            plotter=MagicMock(),
+            mw=SimpleNamespace(
+                view_3d_manager=SimpleNamespace(
+                    current_3d_style="CPK (Advanced Rendering)"
+                )
+            ),
+            use_atom_pbr=False,
+            use_shadows=False,
+            use_aa=False,
+            check_shadows=MagicMock(),
+            _disable_conflicting_effects=MagicMock(),
+            _clean_render_pipeline=MagicMock(),
+            _enable_shadows=MagicMock(),
+            update_lights=MagicMock(),
+            save_settings=MagicMock(),
+        )
+        for k, v in ov.items():
+            setattr(stub, k, v)
+        return stub
+
+    def test_enable_routes_through_enable_shadows(self):
+        stub = self._stub()
+        self._fn()(stub, True)
+        stub._enable_shadows.assert_called_once()
+        stub.plotter.disable_shadows.assert_not_called()
+
+    def test_disable_calls_disable_shadows(self):
+        stub = self._stub(use_shadows=True)
+        self._fn()(stub, False)
+        stub.plotter.disable_shadows.assert_called_once()
+        stub._enable_shadows.assert_not_called()
