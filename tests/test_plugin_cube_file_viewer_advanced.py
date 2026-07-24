@@ -945,17 +945,8 @@ class TestUpdateTexLabel:
         # After clearing, the pixmap should be a null/empty QPixmap (not the old one)
         assert fake.label_tex._pixmap is not None  # setPixmap was called
 
-    def test_valid_pixmap_sets_scaled_pixmap(self, monkeypatch):
+    def test_valid_pixmap_sets_scaled_pixmap(self):
         """When QPixmap loads successfully (not null), label gets a scaled pixmap."""
-        fake = self._fake_with_label()
-        monkeypatch.setattr(
-            "tests.test_plugin_cube_file_viewer_advanced.FakeQPixmap",
-            lambda path="", null=False: FakeQPixmap(path, null=False),
-        )
-        # Inject a non-null QPixmap via the function's extra_globals substitution
-        non_null_px = FakeQPixmap("tex.png", null=False)
-        import types
-        # Call through a wrapper that provides a non-null QPixmap
         ns = SimpleNamespace(label_tex=FakeLabel())
         called_scaled = []
 
