@@ -256,8 +256,8 @@ class TestCubeViewerWidgetConstruction:
         assert not viewer.slider_metallic.isEnabled()
         assert not viewer.slider_roughness.isEnabled()
 
-    def test_edl_slider_disabled_initially(self, viewer):
-        assert not viewer.slider_edl.isEnabled()
+    def test_edl_checkbox_unchecked_initially(self, viewer):
+        assert not viewer.check_edl.isChecked()
 
     def test_preset_combo_has_default(self, viewer):
         texts = [viewer.combo_presets.itemText(i) for i in range(viewer.combo_presets.count())]
@@ -359,15 +359,14 @@ class TestCubeViewerWidgetSignals:
         viewer.check_aa.setChecked(True)
         assert viewer.use_aa
 
-    def test_edl_checkbox_enables_slider(self, viewer):
+    def test_edl_checkbox_updates_state(self, viewer):
         viewer.check_edl.setChecked(True)
-        assert viewer.slider_edl.isEnabled()
         assert viewer.use_edl
 
-    def test_edl_strength_slider_updates_state(self, viewer):
+    def test_edl_checkbox_uncheck_clears_state(self, viewer):
         viewer.check_edl.setChecked(True)
-        viewer.slider_edl.setValue(60)
-        assert viewer.edl_strength == pytest.approx(0.6)
+        viewer.check_edl.setChecked(False)
+        assert not viewer.use_edl
 
     def test_light_intensity_slider_updates_state(self, viewer):
         viewer.slider_light.setValue(200)
@@ -1285,12 +1284,14 @@ class TestCubeViewerEffectToggleExceptions:
 
 
 # ===========================================================================
-# CubeViewerWidget — _disable_conflicting_effects: mol-redraw / restore /
-# final-render branches (reached through the effect-toggle slots)
+# CubeViewerWidget — _enforce_scene_state: mol-redraw / restore /
+# final-render branches
+# (The redraw logic lives in _enforce_scene_state(), not in
+# _disable_conflicting_effects(), so we call it directly.)
 # ===========================================================================
 
 
-class TestCubeViewerDisableConflictingEffectsExtra:
+class TestCubeViewerEnforceSceneState:
     @pytest.fixture
     def viewer(self, qapp):
         w, ctx, mw, dock, grid = _make_viewer()
@@ -1300,19 +1301,19 @@ class TestCubeViewerDisableConflictingEffectsExtra:
     def test_mol_redraw_happens_when_current_molecule_set(self, viewer):
         w, ctx = viewer
         ctx.current_molecule = MagicMock()
-        w.check_ssao.setChecked(True)
+        w._enforce_scene_state()
         ctx.draw_molecule_3d.assert_called()
 
     def test_mol_redraw_exception_is_caught(self, viewer):
         w, ctx = viewer
         ctx.current_molecule = MagicMock()
         ctx.draw_molecule_3d.side_effect = RuntimeError("boom")
-        w.check_ssao.setChecked(True)  # must not raise
+        w._enforce_scene_state()  # must not raise
 
-    def test_update_iso_exception_inside_disable_conflicting_is_caught(self, viewer, monkeypatch):
+    def test_update_iso_exception_is_caught(self, viewer, monkeypatch):
         w, ctx = viewer
         monkeypatch.setattr(w, "update_iso", MagicMock(side_effect=RuntimeError("boom")))
-        w.check_ssao.setChecked(True)  # must not raise
+        w._enforce_scene_state()  # must not raise
 
     def test_edl_and_shadows_disable_restore_exceptions_are_caught(self, viewer):
         w, ctx = viewer
@@ -1322,12 +1323,12 @@ class TestCubeViewerDisableConflictingEffectsExtra:
         w.plotter.disable_shadows = MagicMock(side_effect=RuntimeError("boom"))
         w.plotter.enable_eye_dome_lighting = MagicMock(side_effect=RuntimeError("boom"))
         w.plotter.enable_shadows = MagicMock(side_effect=RuntimeError("boom"))
-        w.check_ssao.setChecked(True)  # must not raise despite all the failures
+        w._enforce_scene_state()  # must not raise despite all the failures
 
     def test_final_render_exception_is_caught(self, viewer):
         w, ctx = viewer
         w.plotter.render.side_effect = RuntimeError("boom")
-        w.check_ssao.setChecked(True)  # must not raise
+        w._enforce_scene_state()  # must not raise
 
 
 # ===========================================================================
