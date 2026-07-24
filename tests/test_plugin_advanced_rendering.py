@@ -248,7 +248,6 @@ def _enforce_stub(**overrides):
         use_edl=False,
         use_aa=False,
         use_depth_peeling=False,
-        edl_strength=0.2,
         _clean_render_pipeline=MagicMock(),
         update_lights=MagicMock(),
     )
@@ -318,7 +317,6 @@ def _make_widget_stub(**overrides):
         use_depth_peeling=False,
         use_aa=False,
         use_edl=False,
-        edl_strength=0.2,
         env_texture_path="",
         use_atom_pbr=False,
         atom_metallic=0.0,
@@ -331,7 +329,6 @@ def _make_widget_stub(**overrides):
         check_depth=MagicMock(),
         check_aa=MagicMock(),
         check_edl=MagicMock(),
-        slider_edl=MagicMock(),
         check_atom_pbr=MagicMock(),
         slider_atom_metallic=MagicMock(),
         slider_atom_roughness=MagicMock(),
@@ -360,7 +357,6 @@ class TestGatherSettingsDict:
             "use_depth_peeling",
             "use_aa",
             "use_edl",
-            "edl_strength",
             "env_texture_path",
             "use_atom_pbr",
             "atom_metallic",
@@ -950,15 +946,13 @@ class TestUpdateAtomsPbrTexture:
 
 
 class TestEdlControls:
-    def test_strength_change_only_stores_value(self):
-        # vtkEDLShading has no strength API; the slider is disabled and this
-        # handler must not touch the plotter — it only keeps the value.
-        fn = extract_function(
-            ADV_RENDER_PATH, "AdvancedGraphicsWidget", "on_edl_strength_changed", {}
-        )
-        stub = SimpleNamespace(edl_strength=0.0)
-        fn(stub, 50)
-        assert stub.edl_strength == pytest.approx(0.5)
+    # The EDL strength slider was removed — vtkEDLShading has no strength API,
+    # so EDL is enable/disable only.
+    def test_no_edl_strength_slider_or_handler(self):
+        src = ADV_RENDER_PATH.read_text(encoding="utf-8")
+        assert "slider_edl" not in src
+        assert "on_edl_strength_changed" not in src
+        assert "edl_strength" not in src
 
     def _apply_edl_fn(self):
         return extract_function(

@@ -1494,7 +1494,7 @@
     ],
     "downloadUrl": "../plugins/Advanced_Rendering/advanced_rendering.py",
     "lastUpdated": "2026-07-25",
-    "sha256": "075e0885644575821d961548f2da493f3cd07676de8d7fa3068dbcda6dec9e81",
+    "sha256": "72ed0b6363c340f161fe607b3c73b7ff0637f69efd815cc82f871ab2be26a1c0",
     "firstAppeared": "2026-02-03",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

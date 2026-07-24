@@ -256,7 +256,6 @@ class AdvancedGraphicsWidget(QWidget):
         self.use_depth_peeling = False
         self.use_aa = False
         self.use_edl = False
-        self.edl_strength = 0.2
 
         # Atom PBR
         self.atom_metallic = 0.0
@@ -347,7 +346,6 @@ class AdvancedGraphicsWidget(QWidget):
             "use_depth_peeling": False,
             "use_aa": False,
             "use_edl": False,
-            "edl_strength": 0.2,
             "env_texture_path": "",
             "use_atom_pbr": False,
             "atom_metallic": 0.0,
@@ -471,21 +469,6 @@ class AdvancedGraphicsWidget(QWidget):
         self.check_edl = QCheckBox("Eye Dome Lighting (Depth Shading)")
         self.check_edl.toggled.connect(self.on_edl_toggled)
         scene_layout.addWidget(self.check_edl)
-
-        edl_str_layout = QHBoxLayout()
-        edl_str_layout.addWidget(QLabel("EDL Strength:"))
-        self.slider_edl = QSlider(Qt.Orientation.Horizontal)
-        self.slider_edl.setRange(1, 100)
-        self.slider_edl.setValue(20)
-        self.slider_edl.valueChanged.connect(self.on_edl_strength_changed)
-        # vtkEDLShading exposes no strength/radius setter, so this cannot drive
-        # the effect — keep it disabled rather than pretend it works.
-        self.slider_edl.setEnabled(False)
-        self.slider_edl.setToolTip(
-            "EDL intensity is fixed by VTK and cannot be adjusted in this build."
-        )
-        edl_str_layout.addWidget(self.slider_edl)
-        scene_layout.addLayout(edl_str_layout)
 
         scene_layout.addStretch()
         tab_scene.setLayout(scene_layout)
@@ -1069,11 +1052,6 @@ class AdvancedGraphicsWidget(QWidget):
 
         self.apply_edl()
 
-    def on_edl_strength_changed(self, val):
-        # Kept for the persisted value only; vtkEDLShading has no strength API,
-        # so the slider is disabled and this never re-renders the effect.
-        self.edl_strength = val / 100.0
-
     def apply_edl(self):
         if not self.plotter:
             return
@@ -1182,7 +1160,6 @@ class AdvancedGraphicsWidget(QWidget):
             "use_depth_peeling": self.use_depth_peeling,
             "use_aa": self.use_aa,
             "use_edl": self.use_edl,
-            "edl_strength": self.edl_strength,
             "env_texture_path": self.env_texture_path,
             "use_atom_pbr": self.use_atom_pbr,
             "atom_metallic": self.atom_metallic,
@@ -1213,9 +1190,6 @@ class AdvancedGraphicsWidget(QWidget):
             self.check_aa.setChecked(data["use_aa"])
         if "use_edl" in data:
             self.check_edl.setChecked(data["use_edl"])
-        if "edl_strength" in data:
-            self.edl_strength = float(data["edl_strength"])
-            self.slider_edl.setValue(int(self.edl_strength * 100))
 
         if "env_texture_path" in data:
             self.env_texture_path = data["env_texture_path"]
