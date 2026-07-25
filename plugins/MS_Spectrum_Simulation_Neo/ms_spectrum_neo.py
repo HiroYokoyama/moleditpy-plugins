@@ -97,8 +97,6 @@ class MSSpectrumDialog(QDialog):
             QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {
                 background-color: #ffffff;
                 color: #000000;
-                border: 1px solid #cccccc;
-                padding: 2px 4px;
             }
             QComboBox QAbstractItemView {
                 background-color: #ffffff;
