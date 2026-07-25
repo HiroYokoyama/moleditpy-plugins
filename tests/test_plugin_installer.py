@@ -205,8 +205,10 @@ class TestInitialize:
         return ctx
 
     def setup_method(self):
-        # Reset the per-session flag before each test
         PI._startup_check_performed = False
+        app_mock = PI.QApplication.instance.return_value
+        app_mock.reset_mock()
+        app_mock.property.return_value = False
 
     def test_no_main_window_does_not_crash(self):
         ctx = MagicMock()
@@ -280,6 +282,129 @@ class TestInitialize:
         ctx.get_main_window.return_value = None
         PI.initialize(ctx)
         ctx.add_menu_action.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Startup-check guard — module-reload resilience
+# ---------------------------------------------------------------------------
+
+
+class TestStartupCheckGuard:
+    """Verifies the module-reload-safe startup check guard."""
+
+    def setup_method(self):
+        PI._startup_check_performed = False
+        app_mock = PI.QApplication.instance.return_value
+        app_mock.reset_mock()
+        app_mock.property.return_value = False
+
+    def test_not_performed_initially(self):
+        assert PI._is_startup_check_performed() is False
+
+    def test_mark_sets_module_level_flag(self):
+        PI._mark_startup_check_performed()
+        assert PI._startup_check_performed is True
+
+    def test_mark_sets_qapplication_property(self):
+        PI._mark_startup_check_performed()
+        app_mock = PI.QApplication.instance.return_value
+        app_mock.setProperty.assert_called_once_with(PI._STARTUP_CHECK_PROP, True)
+
+    def test_is_performed_reads_qapplication_property(self):
+        # Module-level flag is False (simulates post-reload state); QApp prop is True.
+        PI._startup_check_performed = False
+        app_mock = PI.QApplication.instance.return_value
+        app_mock.property.return_value = True
+        assert PI._is_startup_check_performed() is True
+
+    def test_module_reload_does_not_retrigger_startup_check(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(PI, "SETTINGS_FILE", str(tmp_path / "s.json"))
+        PI.save_settings({"check_at_startup": True})
+        timer_mock = MagicMock()
+        monkeypatch.setattr(PI.QTimer, "singleShot", timer_mock)
+
+        app_mock = PI.QApplication.instance.return_value
+        app_mock.property.return_value = False
+        ctx = MagicMock()
+        ctx.get_main_window.return_value = MagicMock()
+        PI.initialize(ctx)
+        assert timer_mock.call_count == 1
+
+        # Simulate reload: module-level flag reset, QApp property survives.
+        PI._startup_check_performed = False
+        app_mock.property.return_value = True
+        PI.initialize(ctx)
+        assert timer_mock.call_count == 1
+
+    def test_no_qapplication_falls_back_to_module_level(self, monkeypatch):
+        monkeypatch.setattr(PI.QApplication, "instance", lambda: None)
+        PI._startup_check_performed = False
+        assert PI._is_startup_check_performed() is False
+        PI._mark_startup_check_performed()
+        assert PI._startup_check_performed is True
+        assert PI._is_startup_check_performed() is True
+
+
+
+# ---------------------------------------------------------------------------
+# ask_user_permission — pre-dialog settings re-check
+# ---------------------------------------------------------------------------
+
+
+class TestAskUserPermission:
+    """ask_user_permission() re-reads settings before showing the dialog."""
+
+    def setup_method(self):
+        # Reset the shared QMessageBox mock so call counts are fresh per test.
+        PI.QMessageBox.question.reset_mock()
+
+    def _setup(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(PI, "SETTINGS_FILE", str(tmp_path / "s.json"))
+        return MagicMock()
+
+    def test_shows_dialog_when_key_absent(self, monkeypatch, tmp_path):
+        mw = self._setup(monkeypatch, tmp_path)
+        PI.QMessageBox.question.return_value = PI.QMessageBox.StandardButton.No
+        PI.ask_user_permission(mw)
+        PI.QMessageBox.question.assert_called_once()
+
+    def test_skips_dialog_when_key_already_false(self, monkeypatch, tmp_path):
+        mw = self._setup(monkeypatch, tmp_path)
+        PI.save_settings({"check_at_startup": False})
+        perform_mock = MagicMock()
+        monkeypatch.setattr(PI, "perform_startup_check", perform_mock)
+        PI.ask_user_permission(mw)
+        PI.QMessageBox.question.assert_not_called()
+        perform_mock.assert_not_called()
+
+    def test_skips_dialog_and_runs_check_when_key_already_true(
+        self, monkeypatch, tmp_path
+    ):
+        mw = self._setup(monkeypatch, tmp_path)
+        PI.save_settings({"check_at_startup": True})
+        perform_mock = MagicMock()
+        monkeypatch.setattr(PI, "perform_startup_check", perform_mock)
+        PI.ask_user_permission(mw)
+        PI.QMessageBox.question.assert_not_called()
+        perform_mock.assert_called_once_with(mw)
+
+    def test_yes_saves_true_and_runs_check(self, monkeypatch, tmp_path):
+        mw = self._setup(monkeypatch, tmp_path)
+        PI.QMessageBox.question.return_value = PI.QMessageBox.StandardButton.Yes
+        perform_mock = MagicMock()
+        monkeypatch.setattr(PI, "perform_startup_check", perform_mock)
+        PI.ask_user_permission(mw)
+        assert PI.load_settings().get("check_at_startup") is True
+        perform_mock.assert_called_once_with(mw)
+
+    def test_no_saves_false_and_does_not_run_check(self, monkeypatch, tmp_path):
+        mw = self._setup(monkeypatch, tmp_path)
+        PI.QMessageBox.question.return_value = PI.QMessageBox.StandardButton.No
+        perform_mock = MagicMock()
+        monkeypatch.setattr(PI, "perform_startup_check", perform_mock)
+        PI.ask_user_permission(mw)
+        assert PI.load_settings().get("check_at_startup") is False
+        perform_mock.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

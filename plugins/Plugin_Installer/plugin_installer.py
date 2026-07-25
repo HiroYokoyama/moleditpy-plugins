@@ -45,7 +45,7 @@ import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.07.19"
+PLUGIN_VERSION = "2026.07.25"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_SUPPORTED_PYTHON_VERSION = ">=3.9, <3.15"
 PLUGIN_SUPPORTED_OS = ["Windows", "macOS", "Linux", "WSL"]
@@ -61,6 +61,30 @@ SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "plugin_installer.json")
 
 _startup_check_performed = False
 _context = None
+
+_STARTUP_CHECK_PROP = "_plugin_installer_startup_check_performed"
+
+
+def _is_startup_check_performed() -> bool:
+    """True if the startup check has already been scheduled this process lifetime.
+
+    Checks the module-level flag first (same import), then the QApplication
+    property (survives a module reload triggered by discover_plugins after install).
+    """
+    if _startup_check_performed:
+        return True
+    app = QApplication.instance()
+    if app is not None:
+        return bool(app.property(_STARTUP_CHECK_PROP))
+    return False
+
+
+def _mark_startup_check_performed() -> None:
+    global _startup_check_performed
+    _startup_check_performed = True
+    app = QApplication.instance()
+    if app is not None:
+        app.setProperty(_STARTUP_CHECK_PROP, True)
 
 
 def _read_plugin_version_ast(filepath: str) -> str:
@@ -157,8 +181,8 @@ def initialize(context):
     if not mw:
         return
 
-    if not _startup_check_performed:
-        _startup_check_performed = True
+    if not _is_startup_check_performed():
+        _mark_startup_check_performed()
         settings = load_settings()
         if "check_at_startup" not in settings:
             QTimer.singleShot(3000, lambda: ask_user_permission(mw))
@@ -167,6 +191,14 @@ def initialize(context):
 
 
 def ask_user_permission(mw):
+    # Re-check settings: the 3-second timer may have fired after the user
+    # already saved a preference via the Plugin Installer dialog.
+    settings = load_settings()
+    if "check_at_startup" in settings:
+        if settings.get("check_at_startup"):
+            perform_startup_check(mw)
+        return
+
     reply = QMessageBox.question(
         mw,
         "Plugin Installer",
