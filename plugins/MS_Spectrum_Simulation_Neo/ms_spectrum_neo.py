@@ -48,7 +48,7 @@ except ImportError:
     Descriptors = None
     Draw = None
 
-PLUGIN_VERSION = "2026.07.17"
+PLUGIN_VERSION = "2026.07.25"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 
@@ -70,7 +70,7 @@ class MSSpectrumDialog(QDialog):
         self.timer.timeout.connect(self.check_update)
         # We start the timer later if sync is checked
 
-        # Clean white look
+        # Clean white look - forced light mode to prevent dark mode unreadability
         self.setStyleSheet("""
             QDialog {
                 background-color: #ffffff;
@@ -86,12 +86,36 @@ class MSSpectrumDialog(QDialog):
                 border-radius: 4px;
                 margin-top: 20px;
                 padding-top: 10px;
+                color: #000000;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
                 subcontrol-position: top center;
                 padding: 0 5px;
                 color: #555555;
+            }
+            QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {
+                background-color: #ffffff;
+                color: #000000;
+                border: 1px solid #cccccc;
+                padding: 2px 4px;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #ffffff;
+                color: #000000;
+            }
+            QCheckBox {
+                color: #000000;
+            }
+            QPushButton {
+                background-color: #f0f0f0;
+                color: #000000;
+                border: 1px solid #cccccc;
+                padding: 5px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #e0e0e0;
             }
         """)
 

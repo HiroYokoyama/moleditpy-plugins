@@ -560,3 +560,15 @@ class TestHistogramPan:
         assert w.view_min < 0.0
         assert w.view_max < 100.0
         assert (w.view_max - w.view_min) == pytest.approx(100.0)
+
+
+class TestDarkModePrevention:
+    def test_stylesheet_forces_light_mode(self):
+        source = MS_PATH.read_text(encoding="utf-8")
+        
+        # Verify that the stylesheet block in the source code forces light mode
+        assert "background-color: #ffffff;" in source
+        assert "color: #000000;" in source
+        assert "QLineEdit" in source
+        assert "QComboBox" in source
+        assert "QSpinBox" in source
