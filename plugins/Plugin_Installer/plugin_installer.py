@@ -45,7 +45,7 @@ import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.07.25"
+PLUGIN_VERSION = "2026.07.26"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_SUPPORTED_PYTHON_VERSION = ">=3.9, <3.15"
 PLUGIN_SUPPORTED_OS = ["Windows", "macOS", "Linux", "WSL"]
@@ -1311,6 +1311,27 @@ class PluginInstallerWindow(QDialog):
             return "moleditpy-linux"
         except ImportError:
             pass
+            
+        try:
+            main_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+            parent_dir = os.path.dirname(main_dir)
+            if main_dir not in sys.path:
+                sys.path.append(main_dir)
+            if parent_dir not in sys.path:
+                sys.path.append(parent_dir)
+            try:
+                from moleditpy.utils.constants import VERSION as _ver3  # noqa: F401
+                return "moleditpy"
+            except ImportError:
+                pass
+            try:
+                from moleditpy_linux.utils.constants import VERSION as _ver4  # noqa: F401
+                return "moleditpy-linux"
+            except ImportError:
+                pass
+        except Exception:
+            pass
+            
         return "moleditpy"
 
     def get_app_version(self):
@@ -1326,14 +1347,20 @@ class PluginInstallerWindow(QDialog):
             except ImportError:
                 try:
                     main_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+                    parent_dir = os.path.dirname(main_dir)
                     if main_dir not in sys.path:
                         sys.path.append(main_dir)
+                    if parent_dir not in sys.path:
+                        sys.path.append(parent_dir)
                     try:
                         from moleditpy.utils.constants import VERSION as APP_VERSION
                     except ImportError:
-                        from moleditpy_linux.utils.constants import (
-                            VERSION as APP_VERSION,
-                        )
+                        try:
+                            from moleditpy_linux.utils.constants import (
+                                VERSION as APP_VERSION,
+                            )
+                        except ImportError:
+                            from utils.constants import VERSION as APP_VERSION
                     return APP_VERSION
                 except Exception as e:
                     logging.warning("Plugin Installer: failed to detect version: %s", e)

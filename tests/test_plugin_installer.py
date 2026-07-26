@@ -1723,6 +1723,35 @@ class TestAppVersionDetection:
         _block_pkg(monkeypatch, "moleditpy_linux")
         assert self._inst()._get_package_name() == "moleditpy"
 
+    def test_get_app_version_fallback_appends_sys_path(self, monkeypatch):
+        _block_pkg(monkeypatch, "moleditpy")
+        _block_pkg(monkeypatch, "moleditpy_linux")
+        fake_argv = os.path.abspath("/fake/src/moleditpy_linux/main.py")
+        monkeypatch.setattr(sys, "argv", [fake_argv])
+        fake_path = []
+        monkeypatch.setattr(sys, "path", fake_path)
+        
+        self._inst().get_app_version()
+        
+        normalized_paths = [os.path.normpath(p) for p in fake_path]
+        assert os.path.dirname(fake_argv) in normalized_paths
+        assert os.path.dirname(os.path.dirname(fake_argv)) in normalized_paths
+
+    def test_get_package_name_fallback_appends_sys_path(self, monkeypatch):
+        _block_pkg(monkeypatch, "moleditpy")
+        _block_pkg(monkeypatch, "moleditpy_linux")
+        fake_argv = os.path.abspath("/fake/src/moleditpy_linux/main.py")
+        monkeypatch.setattr(sys, "argv", [fake_argv])
+        fake_path = []
+        monkeypatch.setattr(sys, "path", fake_path)
+        
+        self._inst()._get_package_name()
+        
+        normalized_paths = [os.path.normpath(p) for p in fake_path]
+        assert os.path.dirname(fake_argv) in normalized_paths
+        assert os.path.dirname(os.path.dirname(fake_argv)) in normalized_paths
+
+
 
 class TestPythonVersionCheck:
     def test_get_python_version_matches_interpreter(self):
