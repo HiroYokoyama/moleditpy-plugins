@@ -1355,12 +1355,9 @@ class PluginInstallerWindow(QDialog):
                     try:
                         from moleditpy.utils.constants import VERSION as APP_VERSION
                     except ImportError:
-                        try:
-                            from moleditpy_linux.utils.constants import (
-                                VERSION as APP_VERSION,
-                            )
-                        except ImportError:
-                            from utils.constants import VERSION as APP_VERSION
+                        from moleditpy_linux.utils.constants import (
+                            VERSION as APP_VERSION,
+                        )
                     return APP_VERSION
                 except Exception as e:
                     logging.warning("Plugin Installer: failed to detect version: %s", e)
