@@ -1704,6 +1704,14 @@ class TestAppVersionDetection:
         _fake_pkg(monkeypatch, "moleditpy_linux", "4.8.0")
         assert self._inst().get_app_version() == "4.8.0"
 
+    def test_get_app_version_from_main_module(self, monkeypatch):
+        _block_pkg(monkeypatch, "moleditpy")
+        _block_pkg(monkeypatch, "moleditpy_linux")
+        fake_main = types.ModuleType("__main__")
+        fake_main.VERSION = "5.0.0"
+        monkeypatch.setitem(sys.modules, "__main__", fake_main)
+        assert self._inst().get_app_version() == "5.0.0"
+
     def test_get_app_version_fallback_zero(self, monkeypatch):
         _block_pkg(monkeypatch, "moleditpy")
         _block_pkg(monkeypatch, "moleditpy_linux")
@@ -1717,6 +1725,7 @@ class TestAppVersionDetection:
         _block_pkg(monkeypatch, "moleditpy")
         _fake_pkg(monkeypatch, "moleditpy_linux", "4.8.0")
         assert self._inst()._get_package_name() == "moleditpy-linux"
+
 
     def test_package_name_default_when_neither(self, monkeypatch):
         _block_pkg(monkeypatch, "moleditpy")

@@ -1299,6 +1299,11 @@ class PluginInstallerWindow(QDialog):
             return 0
 
     def _get_package_name(self):
+        if sys.modules.get("moleditpy_linux") is not None:
+            return "moleditpy-linux"
+        elif sys.modules.get("moleditpy") is not None:
+            return "moleditpy"
+
         try:
             from moleditpy.utils.constants import VERSION as _ver  # noqa: F401
 
@@ -1335,6 +1340,10 @@ class PluginInstallerWindow(QDialog):
         return "moleditpy"
 
     def get_app_version(self):
+        main_mod = sys.modules.get("__main__")
+        if main_mod and hasattr(main_mod, "VERSION") and main_mod.VERSION and main_mod.VERSION != "Unknown":
+            return main_mod.VERSION
+
         try:
             from moleditpy.utils.constants import VERSION as APP_VERSION
 
