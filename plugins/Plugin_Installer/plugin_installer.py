@@ -1391,20 +1391,16 @@ class PluginInstallerWindow(QDialog):
                 if os.path.exists(toml_path):
                     try:
                         with open(toml_path, "r", encoding="utf-8") as f:
-                            content = f.read()
-                        if sys.version_info >= (3, 11):
-                            import tomllib
-
-                            data = tomllib.loads(content)
-                            ver = data.get("project", {}).get("version")
-                            if ver and ver != "Unknown":
-                                return str(ver)
-                        else:
-                            for line in content.splitlines():
-                                if line.strip().startswith("version ="):
-                                    v = line.split("=")[1].strip().strip('"').strip("'")
-                                    if v and v != "Unknown":
-                                        return v
+                            in_project_section = False
+                            for line in f:
+                                stripped = line.strip()
+                                if stripped.startswith("["):
+                                    in_project_section = stripped == "[project]"
+                                elif in_project_section or not stripped.startswith("["):
+                                    if stripped.startswith("version =") or stripped.startswith("version="):
+                                        v = stripped.split("=", 1)[1].strip().strip('"').strip("'")
+                                        if v and v != "Unknown":
+                                            return v
                     except (OSError, UnicodeDecodeError, ValueError) as e:
                         logging.debug(
                             "Plugin Installer: failed to parse pyproject.toml at %s: %s",
