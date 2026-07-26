@@ -317,7 +317,9 @@ class TestStartupCheckGuard:
         app_mock.property.return_value = True
         assert PI._is_startup_check_performed() is True
 
-    def test_module_reload_does_not_retrigger_startup_check(self, monkeypatch, tmp_path):
+    def test_module_reload_does_not_retrigger_startup_check(
+        self, monkeypatch, tmp_path
+    ):
         monkeypatch.setattr(PI, "SETTINGS_FILE", str(tmp_path / "s.json"))
         PI.save_settings({"check_at_startup": True})
         timer_mock = MagicMock()
@@ -343,7 +345,6 @@ class TestStartupCheckGuard:
         PI._mark_startup_check_performed()
         assert PI._startup_check_performed is True
         assert PI._is_startup_check_performed() is True
-
 
 
 # ---------------------------------------------------------------------------
@@ -786,7 +787,9 @@ class TestDownloadChunked:
         ) as mock_open:
             with patch.object(PI.QMessageBox, "warning") as warn:
                 with patch("time.sleep") as mock_sleep:
-                    ok = inst._download_chunked("https://example.com/plugin.py", str(dest))
+                    ok = inst._download_chunked(
+                        "https://example.com/plugin.py", str(dest)
+                    )
 
         assert ok is False
         assert mock_open.call_count == 3
@@ -815,7 +818,9 @@ class TestDownloadChunked:
         ) as mock_open:
             with patch.object(PI.QMessageBox, "warning") as warn:
                 with patch("time.sleep"):
-                    ok = inst._download_chunked("https://example.com/plugin.py", str(dest))
+                    ok = inst._download_chunked(
+                        "https://example.com/plugin.py", str(dest)
+                    )
 
         assert ok is True
         assert dest.read_bytes() == content
@@ -833,7 +838,9 @@ class TestDownloadChunked:
         ) as mock_open:
             with patch.object(PI.QMessageBox, "warning") as warn:
                 with patch("time.sleep") as mock_sleep:
-                    ok = inst._download_chunked("https://example.com/plugin.py", str(dest))
+                    ok = inst._download_chunked(
+                        "https://example.com/plugin.py", str(dest)
+                    )
 
         assert ok is False
         assert mock_open.call_count == 1
@@ -847,7 +854,9 @@ class TestDownloadChunked:
         with patch("urllib.request.urlopen", side_effect=OSError("connection refused")):
             with patch.object(PI.QMessageBox, "warning") as warn:
                 with patch("time.sleep"):
-                    ok = inst._download_chunked("https://example.com/plugin.py", str(dest))
+                    ok = inst._download_chunked(
+                        "https://example.com/plugin.py", str(dest)
+                    )
 
         assert ok is False
         warn.assert_called_once()
@@ -991,9 +1000,7 @@ class TestOverwriteFolderPlugin:
             tmp_path,
             {"__init__.py": "old", "LICENSE.txt": "stale", "LICENSE": "gpl"},
         )
-        source = self._make_source(
-            tmp_path, {"__init__.py": "new", "LICENSE": "gpl"}
-        )
+        source = self._make_source(tmp_path, {"__init__.py": "new", "LICENSE": "gpl"})
 
         PI.PluginInstallerWindow._overwrite_folder_plugin(str(source), str(target))
 
@@ -1010,7 +1017,9 @@ class TestOverwriteFolderPlugin:
 
         PI.PluginInstallerWindow._overwrite_folder_plugin(str(source), str(target))
 
-        assert (target / "settings.json").read_text(encoding="utf-8") == '{"user": "keepme"}'
+        assert (target / "settings.json").read_text(
+            encoding="utf-8"
+        ) == '{"user": "keepme"}'
         assert (target / "__init__.py").read_text(encoding="utf-8") == "new"
 
     def test_no_settings_json_is_fine(self, tmp_path):
@@ -1129,14 +1138,13 @@ class TestUpdateSkipsDependencyWarning:
         btn = self._btn(str(installed), ["definitely_missing_pkg_xyz"])
         monkeypatch.setattr(inst, "sender", lambda: btn, raising=False)
 
-        with patch.object(PI.QMessageBox, "question") as q, patch.object(
-            PI.QMessageBox, "warning"
+        with (
+            patch.object(PI.QMessageBox, "question") as q,
+            patch.object(PI.QMessageBox, "warning"),
         ):
             inst.on_update_clicked()  # returns at the confirm dialog
 
-        assert not any(
-            "Missing Dependencies" in t for t in self._question_titles(q)
-        )
+        assert not any("Missing Dependencies" in t for t in self._question_titles(q))
 
     def test_dependency_warning_shown_on_fresh_install(self, tmp_path, monkeypatch):
         inst = self._make_installer()
@@ -1144,16 +1152,17 @@ class TestUpdateSkipsDependencyWarning:
         btn = self._btn(str(tmp_path / "missing.py"), ["definitely_missing_pkg_xyz"])
         monkeypatch.setattr(inst, "sender", lambda: btn, raising=False)
 
-        with patch.object(
-            PI.QMessageBox,
-            "question",
-            return_value=PI.QMessageBox.StandardButton.No,
-        ) as q, patch.object(PI, "PluginDetailsDialog"):
+        with (
+            patch.object(
+                PI.QMessageBox,
+                "question",
+                return_value=PI.QMessageBox.StandardButton.No,
+            ) as q,
+            patch.object(PI, "PluginDetailsDialog"),
+        ):
             inst.on_update_clicked()
 
-        assert any(
-            "Missing Dependencies" in t for t in self._question_titles(q)
-        )
+        assert any("Missing Dependencies" in t for t in self._question_titles(q))
 
 
 class _Item:
@@ -1241,8 +1250,12 @@ class TestPopulateTable:
 
     def test_invisible_uninstalled_plugin_skipped(self, monkeypatch):
         remote = [
-            {"name": "Hidden", "version": "1.0.0", "visible": False,
-             "downloadUrl": "https://x/h.py"},
+            {
+                "name": "Hidden",
+                "version": "1.0.0",
+                "visible": False,
+                "downloadUrl": "https://x/h.py",
+            },
         ]
         inst = self._make_installer(remote, installed=[])
         self._run(inst, monkeypatch)
@@ -1251,9 +1264,13 @@ class TestPopulateTable:
 
     def test_incompatible_uninstalled_shows_incompatible_status(self, monkeypatch):
         remote = [
-            {"name": "Future", "version": "9.0.0", "visible": True,
-             "supported_moleditpy_version": ">=5.0.0",
-             "downloadUrl": "https://x/f.py"},
+            {
+                "name": "Future",
+                "version": "9.0.0",
+                "visible": True,
+                "supported_moleditpy_version": ">=5.0.0",
+                "downloadUrl": "https://x/f.py",
+            },
         ]
         inst = self._make_installer(remote, installed=[], app_version="4.2.0")
         self._run(inst, monkeypatch)
@@ -1264,9 +1281,13 @@ class TestPopulateTable:
 
     def test_compatible_uninstalled_gets_install_button(self, monkeypatch):
         remote = [
-            {"name": "Fresh", "version": "1.0.0", "visible": True,
-             "supported_moleditpy_version": ">=4.0.0, <5.0.0",
-             "downloadUrl": "https://x/fresh.py"},
+            {
+                "name": "Fresh",
+                "version": "1.0.0",
+                "visible": True,
+                "supported_moleditpy_version": ">=4.0.0, <5.0.0",
+                "downloadUrl": "https://x/fresh.py",
+            },
         ]
         inst = self._make_installer(remote, installed=[])
         self._run(inst, monkeypatch)
@@ -1275,8 +1296,12 @@ class TestPopulateTable:
 
     def test_update_available_counted(self, monkeypatch):
         remote = [
-            {"name": "Old", "version": "2.0.0", "visible": True,
-             "downloadUrl": "https://x/old.py"},
+            {
+                "name": "Old",
+                "version": "2.0.0",
+                "visible": True,
+                "downloadUrl": "https://x/old.py",
+            },
         ]
         installed = [{"name": "Old", "version": "1.0.0", "filepath": None}]
         inst = self._make_installer(remote, installed)
@@ -1287,8 +1312,12 @@ class TestPopulateTable:
 
     def test_up_to_date_not_counted(self, monkeypatch):
         remote = [
-            {"name": "Same", "version": "1.0.0", "visible": True,
-             "downloadUrl": "https://x/same.py"},
+            {
+                "name": "Same",
+                "version": "1.0.0",
+                "visible": True,
+                "downloadUrl": "https://x/same.py",
+            },
         ]
         installed = [{"name": "Same", "version": "1.0.0", "filepath": None}]
         inst = self._make_installer(remote, installed)
@@ -1298,8 +1327,12 @@ class TestPopulateTable:
 
     def test_local_newer_than_registry(self, monkeypatch):
         remote = [
-            {"name": "Dev", "version": "1.0.0", "visible": True,
-             "downloadUrl": "https://x/dev.py"},
+            {
+                "name": "Dev",
+                "version": "1.0.0",
+                "visible": True,
+                "downloadUrl": "https://x/dev.py",
+            },
         ]
         installed = [{"name": "Dev", "version": "2.0.0", "filepath": None}]
         inst = self._make_installer(remote, installed)
@@ -1317,8 +1350,12 @@ class TestPopulateTable:
         f = tmp_path / "p.py"
         f.write_text('PLUGIN_VERSION = "3.3.3"\n', encoding="utf-8")
         remote = [
-            {"name": "OnDisk", "version": "3.3.3", "visible": True,
-             "downloadUrl": "https://x/p.py"},
+            {
+                "name": "OnDisk",
+                "version": "3.3.3",
+                "visible": True,
+                "downloadUrl": "https://x/p.py",
+            },
         ]
         installed = [{"name": "OnDisk", "version": "0.0.1", "filepath": str(f)}]
         inst = self._make_installer(remote, installed)
@@ -1413,19 +1450,25 @@ class TestOnUpdateClickedSecurity:
         content = b"actual downloaded bytes"
         wrong_hash = "0" * 64
         btn, entry = self._btn(
-            "Demo", "https://example.com/demo.py",
-            str(tmp_path / "missing.py"), sha256=wrong_hash,
+            "Demo",
+            "https://example.com/demo.py",
+            str(tmp_path / "missing.py"),
+            sha256=wrong_hash,
         )
         inst = self._make_installer()
         inst.remote_data = [entry]
         monkeypatch.setattr(inst, "sender", lambda: btn, raising=False)
         monkeypatch.setattr(
-            inst, "_download_chunked",
-            lambda url, path, cb=None: (open(path, "wb").write(content) or True) and True,
+            inst,
+            "_download_chunked",
+            lambda url, path, cb=None: (open(path, "wb").write(content) or True)
+            and True,
             raising=False,
         )
 
-        with patch.object(PI.QMessageBox, "question", return_value=PI.QMessageBox.StandardButton.Yes):
+        with patch.object(
+            PI.QMessageBox, "question", return_value=PI.QMessageBox.StandardButton.Yes
+        ):
             with patch.object(PI.QMessageBox, "critical") as crit:
                 inst.on_update_clicked()
 
@@ -1441,19 +1484,24 @@ class TestOnUpdateClickedSecurity:
         content = b"actual downloaded bytes"
         correct_hash = hashlib.sha256(content).hexdigest()
         btn, entry = self._btn(
-            "Demo", "https://example.com/demo.py",
-            str(tmp_path / "missing.py"), sha256=correct_hash,
+            "Demo",
+            "https://example.com/demo.py",
+            str(tmp_path / "missing.py"),
+            sha256=correct_hash,
         )
         inst = self._make_installer()
         inst.remote_data = [entry]
         monkeypatch.setattr(inst, "sender", lambda: btn, raising=False)
         monkeypatch.setattr(
-            inst, "_download_chunked",
+            inst,
+            "_download_chunked",
             lambda url, path, cb=None: open(path, "wb").write(content) or True,
             raising=False,
         )
 
-        with patch.object(PI.QMessageBox, "question", return_value=PI.QMessageBox.StandardButton.Yes):
+        with patch.object(
+            PI.QMessageBox, "question", return_value=PI.QMessageBox.StandardButton.Yes
+        ):
             with patch.object(PI.QMessageBox, "information"):
                 inst.on_update_clicked()
 
@@ -1468,7 +1516,8 @@ class TestOnUpdateClickedSecurity:
         inst.remote_data = [entry]
         monkeypatch.setattr(inst, "sender", lambda: btn, raising=False)
         monkeypatch.setattr(
-            inst, "_download_chunked",
+            inst,
+            "_download_chunked",
             lambda url, path, cb=None: open(path, "wb").write(b"x") or True,
             raising=False,
         )
@@ -1476,8 +1525,12 @@ class TestOnUpdateClickedSecurity:
         # First question() = confirm install -> Yes.
         # Second question() would be missing-sha warning is actually QMessageBox.warning,
         # not question -- patch warning to return No.
-        with patch.object(PI.QMessageBox, "question", return_value=PI.QMessageBox.StandardButton.Yes):
-            with patch.object(PI.QMessageBox, "warning", return_value=PI.QMessageBox.StandardButton.No) as warn:
+        with patch.object(
+            PI.QMessageBox, "question", return_value=PI.QMessageBox.StandardButton.Yes
+        ):
+            with patch.object(
+                PI.QMessageBox, "warning", return_value=PI.QMessageBox.StandardButton.No
+            ) as warn:
                 inst.on_update_clicked()
 
         warn.assert_called_once()
@@ -1492,13 +1545,20 @@ class TestOnUpdateClickedSecurity:
         inst.remote_data = [entry]
         monkeypatch.setattr(inst, "sender", lambda: btn, raising=False)
         monkeypatch.setattr(
-            inst, "_download_chunked",
+            inst,
+            "_download_chunked",
             lambda url, path, cb=None: open(path, "wb").write(b"x") or True,
             raising=False,
         )
 
-        with patch.object(PI.QMessageBox, "question", return_value=PI.QMessageBox.StandardButton.Yes):
-            with patch.object(PI.QMessageBox, "warning", return_value=PI.QMessageBox.StandardButton.Yes):
+        with patch.object(
+            PI.QMessageBox, "question", return_value=PI.QMessageBox.StandardButton.Yes
+        ):
+            with patch.object(
+                PI.QMessageBox,
+                "warning",
+                return_value=PI.QMessageBox.StandardButton.Yes,
+            ):
                 with patch.object(PI.QMessageBox, "information"):
                     inst.on_update_clicked()
 
@@ -1507,28 +1567,38 @@ class TestOnUpdateClickedSecurity:
 
     def test_download_failure_skips_sha_and_install(self, tmp_path, monkeypatch):
         btn, entry = self._btn(
-            "Demo", "https://example.com/demo.py",
-            str(tmp_path / "missing.py"), sha256="deadbeef",
+            "Demo",
+            "https://example.com/demo.py",
+            str(tmp_path / "missing.py"),
+            sha256="deadbeef",
         )
         inst = self._make_installer()
         inst.remote_data = [entry]
         monkeypatch.setattr(inst, "sender", lambda: btn, raising=False)
-        monkeypatch.setattr(inst, "_download_chunked", lambda *a, **k: False, raising=False)
+        monkeypatch.setattr(
+            inst, "_download_chunked", lambda *a, **k: False, raising=False
+        )
         calc_mock = MagicMock()
         monkeypatch.setattr(inst, "calculate_sha256", calc_mock, raising=False)
 
-        with patch.object(PI.QMessageBox, "question", return_value=PI.QMessageBox.StandardButton.Yes):
+        with patch.object(
+            PI.QMessageBox, "question", return_value=PI.QMessageBox.StandardButton.Yes
+        ):
             inst.on_update_clicked()
 
         calc_mock.assert_not_called()
         inst.main_window.plugin_manager.install_plugin.assert_not_called()
 
-    def test_disallowed_url_scheme_rejected_before_download(self, tmp_path, monkeypatch):
+    def test_disallowed_url_scheme_rejected_before_download(
+        self, tmp_path, monkeypatch
+    ):
         # Starts with "http" (passes the naive startswith check) but the scheme
         # itself ("httpevil") is not in the http/https allowlist.
         btn, entry = self._btn(
-            "Demo", "httpevil://example.com/demo.py",
-            str(tmp_path / "missing.py"), sha256="deadbeef",
+            "Demo",
+            "httpevil://example.com/demo.py",
+            str(tmp_path / "missing.py"),
+            sha256="deadbeef",
         )
         inst = self._make_installer()
         inst.remote_data = [entry]
@@ -1536,13 +1606,18 @@ class TestOnUpdateClickedSecurity:
         dl_mock = MagicMock()
         monkeypatch.setattr(inst, "_download_chunked", dl_mock, raising=False)
 
-        with patch.object(PI.QMessageBox, "question", return_value=PI.QMessageBox.StandardButton.Yes):
+        with patch.object(
+            PI.QMessageBox, "question", return_value=PI.QMessageBox.StandardButton.Yes
+        ):
             with patch.object(PI.QMessageBox, "warning") as warn:
                 inst.on_update_clicked()
 
         dl_mock.assert_not_called()
         warn.assert_called_once()
-        assert "unsafe" in warn.call_args[0][2].lower() or "scheme" in warn.call_args[0][2].lower()
+        assert (
+            "unsafe" in warn.call_args[0][2].lower()
+            or "scheme" in warn.call_args[0][2].lower()
+        )
 
     def test_no_sender_returns_immediately(self):
         inst = self._make_installer()
@@ -1565,8 +1640,10 @@ class TestOnUpdateClickedSecurity:
 
     def test_incompatible_version_no_aborts(self, tmp_path, monkeypatch):
         btn, entry = self._btn(
-            "Demo", "https://example.com/demo.py",
-            str(tmp_path / "missing.py"), sha256="deadbeef",
+            "Demo",
+            "https://example.com/demo.py",
+            str(tmp_path / "missing.py"),
+            sha256="deadbeef",
         )
         entry["supported_moleditpy_version"] = ">=99.0.0"
         inst = self._make_installer()
@@ -1576,7 +1653,9 @@ class TestOnUpdateClickedSecurity:
         dl_mock = MagicMock()
         monkeypatch.setattr(inst, "_download_chunked", dl_mock, raising=False)
 
-        with patch.object(PI.QMessageBox, "warning", return_value=PI.QMessageBox.StandardButton.No):
+        with patch.object(
+            PI.QMessageBox, "warning", return_value=PI.QMessageBox.StandardButton.No
+        ):
             inst.on_update_clicked()
 
         dl_mock.assert_not_called()
@@ -1633,7 +1712,9 @@ class TestPluginDetailsDialogActions:
         f = tmp_path / "demo.py"
         f.write_text("x = 1")
         d = self._dialog(target_file=str(f))
-        with patch.object(PI.QMessageBox, "question", return_value=PI.QMessageBox.StandardButton.No):
+        with patch.object(
+            PI.QMessageBox, "question", return_value=PI.QMessageBox.StandardButton.No
+        ):
             d.on_delete()
         assert f.exists()
 
@@ -1642,7 +1723,9 @@ class TestPluginDetailsDialogActions:
         f.write_text("x = 1")
         d = self._dialog(target_file=str(f))
         d.accept = MagicMock()
-        with patch.object(PI.QMessageBox, "question", return_value=PI.QMessageBox.StandardButton.Yes):
+        with patch.object(
+            PI.QMessageBox, "question", return_value=PI.QMessageBox.StandardButton.Yes
+        ):
             with patch.object(PI.QMessageBox, "information"):
                 d.on_delete()
         assert not f.exists()
@@ -1657,14 +1740,18 @@ class TestPluginDetailsDialogActions:
         init.write_text("x = 1")
         d = self._dialog(target_file=str(init))
         d.accept = MagicMock()
-        with patch.object(PI.QMessageBox, "question", return_value=PI.QMessageBox.StandardButton.Yes):
+        with patch.object(
+            PI.QMessageBox, "question", return_value=PI.QMessageBox.StandardButton.Yes
+        ):
             with patch.object(PI.QMessageBox, "information"):
                 d.on_delete()
         assert not pkg.exists()
 
     def test_on_delete_missing_file_warns(self, tmp_path):
         d = self._dialog(target_file=str(tmp_path / "gone.py"))
-        with patch.object(PI.QMessageBox, "question", return_value=PI.QMessageBox.StandardButton.Yes):
+        with patch.object(
+            PI.QMessageBox, "question", return_value=PI.QMessageBox.StandardButton.Yes
+        ):
             with patch.object(PI.QMessageBox, "warning") as warn:
                 d.on_delete()
         warn.assert_called_once()
@@ -1712,9 +1799,42 @@ class TestAppVersionDetection:
         monkeypatch.setitem(sys.modules, "__main__", fake_main)
         assert self._inst().get_app_version() == "5.0.0"
 
-    def test_get_app_version_fallback_zero(self, monkeypatch):
+    def test_get_app_version_ignores_unknown_version(self, monkeypatch):
+        _fake_pkg(monkeypatch, "moleditpy", "Unknown")
+        fake_main = types.ModuleType("__main__")
+        fake_main.VERSION = "Unknown"
+        monkeypatch.setitem(sys.modules, "__main__", fake_main)
+        assert self._inst().get_app_version() != "Unknown"
+
+    def test_get_app_version_parses_pyproject_toml(self, monkeypatch, tmp_path):
         _block_pkg(monkeypatch, "moleditpy")
         _block_pkg(monkeypatch, "moleditpy_linux")
+        fake_main = types.ModuleType("__main__")
+        fake_main.VERSION = "Unknown"
+        monkeypatch.setitem(sys.modules, "__main__", fake_main)
+
+        proj_dir = tmp_path / "myproj"
+        proj_dir.mkdir()
+        toml_file = proj_dir / "pyproject.toml"
+        toml_file.write_text(
+            '[project]\nname = "test"\nversion = "3.2.1"\n', encoding="utf-8"
+        )
+
+        script_file = proj_dir / "src" / "main.py"
+        script_file.parent.mkdir(parents=True)
+        script_file.write_text("# main", encoding="utf-8")
+
+        monkeypatch.setattr(sys, "argv", [str(script_file)])
+        assert self._inst().get_app_version() == "3.2.1"
+
+    def test_get_app_version_fallback_zero(self, monkeypatch, tmp_path):
+        _block_pkg(monkeypatch, "moleditpy")
+        _block_pkg(monkeypatch, "moleditpy_linux")
+        fake_main = types.ModuleType("__main__")
+        fake_main.VERSION = "Unknown"
+        monkeypatch.setitem(sys.modules, "__main__", fake_main)
+        monkeypatch.setattr(sys, "argv", [])
+        monkeypatch.chdir(tmp_path)
         assert self._inst().get_app_version() == "0.0.0"
 
     def test_package_name_moleditpy(self, monkeypatch):
@@ -1725,7 +1845,6 @@ class TestAppVersionDetection:
         _block_pkg(monkeypatch, "moleditpy")
         _fake_pkg(monkeypatch, "moleditpy_linux", "4.8.0")
         assert self._inst()._get_package_name() == "moleditpy-linux"
-
 
     def test_package_name_default_when_neither(self, monkeypatch):
         _block_pkg(monkeypatch, "moleditpy")
@@ -1739,9 +1858,9 @@ class TestAppVersionDetection:
         monkeypatch.setattr(sys, "argv", [fake_argv])
         fake_path = []
         monkeypatch.setattr(sys, "path", fake_path)
-        
+
         self._inst().get_app_version()
-        
+
         normalized_paths = [os.path.normpath(p) for p in fake_path]
         assert os.path.dirname(fake_argv) in normalized_paths
         assert os.path.dirname(os.path.dirname(fake_argv)) in normalized_paths
@@ -1753,13 +1872,12 @@ class TestAppVersionDetection:
         monkeypatch.setattr(sys, "argv", [fake_argv])
         fake_path = []
         monkeypatch.setattr(sys, "path", fake_path)
-        
+
         self._inst()._get_package_name()
-        
+
         normalized_paths = [os.path.normpath(p) for p in fake_path]
         assert os.path.dirname(fake_argv) in normalized_paths
         assert os.path.dirname(os.path.dirname(fake_argv)) in normalized_paths
-
 
 
 class TestPythonVersionCheck:
@@ -1774,13 +1892,15 @@ class TestPythonVersionCheck:
 
     def test_constant_matches_registry(self):
         registry = json.loads(
-            (Path(__file__).resolve().parents[1] / "REGISTRY" / "plugins.json").read_text(
-                encoding="utf-8-sig"
-            )
+            (
+                Path(__file__).resolve().parents[1] / "REGISTRY" / "plugins.json"
+            ).read_text(encoding="utf-8-sig")
         )
         entry = next((p for p in registry if p.get("id") == "plugin_installer"), None)
         assert entry is not None
-        assert entry.get("supported_python_version") == PI.PLUGIN_SUPPORTED_PYTHON_VERSION
+        assert (
+            entry.get("supported_python_version") == PI.PLUGIN_SUPPORTED_PYTHON_VERSION
+        )
 
     def test_default_spec_boundaries(self):
         spec = ">=3.9, <3.15"
@@ -1791,7 +1911,10 @@ class TestPythonVersionCheck:
         assert PI.is_app_version_compatible("3.15.0", spec) is False
 
     def test_running_interpreter_compatible_with_default(self):
-        assert PI.is_app_version_compatible(PI.get_python_version(), ">=3.9, <3.15") is True
+        assert (
+            PI.is_app_version_compatible(PI.get_python_version(), ">=3.9, <3.15")
+            is True
+        )
 
     def test_missing_spec_is_compatible(self):
         assert PI.is_app_version_compatible(PI.get_python_version(), "") is True
@@ -1805,12 +1928,18 @@ def test_registry_all_visible_have_python_spec():
         )
     )
     visible_missing = [
-        p.get("id") for p in registry
+        p.get("id")
+        for p in registry
         if p.get("visible", True) and not p.get("supported_python_version")
     ]
     hidden_with = [
-        p.get("id") for p in registry
+        p.get("id")
+        for p in registry
         if not p.get("visible", True) and p.get("supported_python_version")
     ]
-    assert not visible_missing, f"Visible entries missing supported_python_version: {visible_missing}"
-    assert not hidden_with, f"Hidden entries should not carry supported_python_version: {hidden_with}"
+    assert not visible_missing, (
+        f"Visible entries missing supported_python_version: {visible_missing}"
+    )
+    assert not hidden_with, (
+        f"Hidden entries should not carry supported_python_version: {hidden_with}"
+    )

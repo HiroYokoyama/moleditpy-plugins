@@ -1213,17 +1213,20 @@ class PluginInstallerWindow(QDialog):
                             req_parts.append(
                                 f"MoleditPy {row_data['supported_ver_str']}"
                             )
-                        if not row_data["py_compatible"] and row_data["supported_py_str"]:
-                            req_parts.append(
-                                f"Python {row_data['supported_py_str']}"
-                            )
-                        if not row_data["os_compatible"] and row_data["supported_os_list"]:
+                        if (
+                            not row_data["py_compatible"]
+                            and row_data["supported_py_str"]
+                        ):
+                            req_parts.append(f"Python {row_data['supported_py_str']}")
+                        if (
+                            not row_data["os_compatible"]
+                            and row_data["supported_os_list"]
+                        ):
                             req_parts.append(
                                 f"OS {format_supported_os(row_data['supported_os_list'])}"
                             )
                         btn_action.setToolTip(
-                            "Warning: Incompatible "
-                            f"(Requires: {'; '.join(req_parts)})"
+                            f"Warning: Incompatible (Requires: {'; '.join(req_parts)})"
                         )
                     btn_action.clicked.connect(self.on_update_clicked)
                     self.table.setCellWidget(row, 5, btn_action)
@@ -1301,76 +1304,119 @@ class PluginInstallerWindow(QDialog):
     def _get_package_name(self):
         if sys.modules.get("moleditpy_linux") is not None:
             return "moleditpy-linux"
-        elif sys.modules.get("moleditpy") is not None:
+        if sys.modules.get("moleditpy") is not None:
             return "moleditpy"
 
-        try:
-            from moleditpy.utils.constants import VERSION as _ver  # noqa: F401
-
-            return "moleditpy"
-        except ImportError:
-            pass
-        try:
-            from moleditpy_linux.utils.constants import VERSION as _ver2  # noqa: F401
-
-            return "moleditpy-linux"
-        except ImportError:
-            pass
-            
-        try:
-            main_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
-            parent_dir = os.path.dirname(main_dir)
-            if main_dir not in sys.path:
-                sys.path.append(main_dir)
-            if parent_dir not in sys.path:
-                sys.path.append(parent_dir)
+        for pkg, pkg_name in (
+            ("moleditpy", "moleditpy"),
+            ("moleditpy_linux", "moleditpy-linux"),
+        ):
             try:
-                from moleditpy.utils.constants import VERSION as _ver3  # noqa: F401
-                return "moleditpy"
+                importlib.import_module(f"{pkg}.utils.constants")
+                return pkg_name
             except ImportError:
                 pass
+
+        if sys.argv and sys.argv[0]:
             try:
-                from moleditpy_linux.utils.constants import VERSION as _ver4  # noqa: F401
-                return "moleditpy-linux"
-            except ImportError:
-                pass
-        except Exception:
-            pass
-            
+                main_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+                parent_dir = os.path.dirname(main_dir)
+                for d in (main_dir, parent_dir):
+                    if d and d not in sys.path:
+                        sys.path.append(d)
+                for pkg, pkg_name in (
+                    ("moleditpy", "moleditpy"),
+                    ("moleditpy_linux", "moleditpy-linux"),
+                ):
+                    try:
+                        importlib.import_module(f"{pkg}.utils.constants")
+                        return pkg_name
+                    except ImportError:
+                        pass
+            except OSError as e:
+                logging.debug("Plugin Installer: package resolution path error: %s", e)
+
         return "moleditpy"
 
     def get_app_version(self):
         main_mod = sys.modules.get("__main__")
-        if main_mod and hasattr(main_mod, "VERSION") and main_mod.VERSION and main_mod.VERSION != "Unknown":
+        if (
+            main_mod
+            and getattr(main_mod, "VERSION", None)
+            and main_mod.VERSION != "Unknown"
+        ):
             return main_mod.VERSION
 
-        try:
-            from moleditpy.utils.constants import VERSION as APP_VERSION
-
-            return APP_VERSION
-        except ImportError:
+        for pkg in ("moleditpy", "moleditpy_linux"):
             try:
-                from moleditpy_linux.utils.constants import VERSION as APP_VERSION
-
-                return APP_VERSION
+                mod = importlib.import_module(f"{pkg}.utils.constants")
+                ver = getattr(mod, "VERSION", None)
+                if ver and ver != "Unknown":
+                    return ver
             except ImportError:
-                try:
-                    main_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
-                    parent_dir = os.path.dirname(main_dir)
-                    if main_dir not in sys.path:
-                        sys.path.append(main_dir)
-                    if parent_dir not in sys.path:
-                        sys.path.append(parent_dir)
+                pass
+
+        if sys.argv and sys.argv[0]:
+            try:
+                main_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+                parent_dir = os.path.dirname(main_dir)
+                for d in (main_dir, parent_dir):
+                    if d and d not in sys.path:
+                        sys.path.append(d)
+                for pkg in ("moleditpy", "moleditpy_linux"):
                     try:
-                        from moleditpy.utils.constants import VERSION as APP_VERSION
+                        mod = importlib.import_module(f"{pkg}.utils.constants")
+                        ver = getattr(mod, "VERSION", None)
+                        if ver and ver != "Unknown":
+                            return ver
                     except ImportError:
-                        from moleditpy_linux.utils.constants import (
-                            VERSION as APP_VERSION,
+                        pass
+            except OSError as e:
+                logging.debug("Plugin Installer: path resolution failed: %s", e)
+
+        for base_path in (sys.argv[0] if sys.argv else "", os.getcwd()):
+            if not base_path:
+                continue
+            try:
+                curr = os.path.abspath(
+                    os.path.dirname(base_path)
+                    if os.path.isfile(base_path)
+                    else base_path
+                )
+            except OSError:
+                continue
+
+            for _ in range(6):
+                toml_path = os.path.join(curr, "pyproject.toml")
+                if os.path.exists(toml_path):
+                    try:
+                        with open(toml_path, "r", encoding="utf-8") as f:
+                            content = f.read()
+                        if sys.version_info >= (3, 11):
+                            import tomllib
+
+                            data = tomllib.loads(content)
+                            ver = data.get("project", {}).get("version")
+                            if ver and ver != "Unknown":
+                                return str(ver)
+                        else:
+                            for line in content.splitlines():
+                                if line.strip().startswith("version ="):
+                                    v = line.split("=")[1].strip().strip('"').strip("'")
+                                    if v and v != "Unknown":
+                                        return v
+                    except (OSError, UnicodeDecodeError, ValueError) as e:
+                        logging.debug(
+                            "Plugin Installer: failed to parse pyproject.toml at %s: %s",
+                            toml_path,
+                            e,
                         )
-                    return APP_VERSION
-                except Exception as e:
-                    logging.warning("Plugin Installer: failed to detect version: %s", e)
-                    return "0.0.0"
+                parent = os.path.dirname(curr)
+                if parent == curr:
+                    break
+                curr = parent
+
+        return "0.0.0"
 
     def filter_plugins(self):
         text = self.search_input.text().lower()
@@ -1606,7 +1652,9 @@ class PluginInstallerWindow(QDialog):
         if remote_info:
             supported_os_list = remote_info.get("supported_os")
             current_os = get_current_os()
-            if supported_os_list and not is_os_compatible(current_os, supported_os_list):
+            if supported_os_list and not is_os_compatible(
+                current_os, supported_os_list
+            ):
                 action_word = "update" if is_installed else "install"
                 ret = QMessageBox.warning(
                     self,
