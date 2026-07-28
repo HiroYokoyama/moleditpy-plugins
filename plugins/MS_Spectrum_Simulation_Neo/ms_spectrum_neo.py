@@ -48,7 +48,7 @@ except ImportError:
     Descriptors = None
     Draw = None
 
-PLUGIN_VERSION = "2026.07.25"
+PLUGIN_VERSION = "2026.07.29"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 
@@ -880,7 +880,7 @@ class MSSpectrumDialog(QDialog):
                                     mol_b64 = ba.toBase64().data().decode("utf-8")
                                     img_w, img_h = w, h
                                 else:
-                                    print("QPainter failed to begin on image")
+                                    logging.warning("QPainter failed to begin on image")
                 except Exception as e:
                     logging.warning("Scene Capture Error: %s", e)
 

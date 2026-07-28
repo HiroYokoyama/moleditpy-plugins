@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import logging
+
 import pytest
 
 from conftest import load_plugin_for_gui, mock_chemistry_imports
@@ -668,10 +670,10 @@ class TestCubeViewerTexturePath:
         yield w
         _teardown_viewer(w)
 
-    def test_texture_path_entered_missing_file_does_not_crash(self, viewer, capsys):
+    def test_texture_path_entered_missing_file_does_not_crash(self, viewer, caplog):
         viewer.line_env_path.setText("Z:/does/not/exist.png")
         viewer.on_texture_path_entered()
-        assert "not found" in capsys.readouterr().out
+        assert "not found" in caplog.text
 
     def test_texture_path_entered_blank_is_noop(self, viewer):
         viewer.line_env_path.setText("")
@@ -1077,17 +1079,18 @@ class TestCubeViewerLoadEnvTexture:
         w.load_env_texture(str(p))
         assert w.env_texture_path == str(p)
 
-    def test_progress_cancelled_before_read_texture(self, viewer, monkeypatch, capsys):
+    def test_progress_cancelled_before_read_texture(self, viewer, monkeypatch, caplog):
         w, mw, tmp_path = viewer
         p = tmp_path / "cancel.png"
         p.write_bytes(b"x")
         from PyQt6.QtWidgets import QProgressDialog
 
         monkeypatch.setattr(QProgressDialog, "wasCanceled", lambda self: True)
-        w.load_env_texture(str(p))
-        assert "cancelled" in capsys.readouterr().out
+        with caplog.at_level(logging.INFO):
+            w.load_env_texture(str(p))
+        assert "cancelled" in caplog.text
 
-    def test_progress_cancelled_after_read_texture(self, viewer, monkeypatch, capsys):
+    def test_progress_cancelled_after_read_texture(self, viewer, monkeypatch, caplog):
         w, mw, tmp_path = viewer
         p = tmp_path / "cancel2.png"
         p.write_bytes(b"x")
@@ -1100,8 +1103,9 @@ class TestCubeViewerLoadEnvTexture:
             return calls["n"] > 1  # not cancelled first check, cancelled afterwards
 
         monkeypatch.setattr(QProgressDialog, "wasCanceled", fake_cancel)
-        w.load_env_texture(str(p))
-        assert "cancelled" in capsys.readouterr().out
+        with caplog.at_level(logging.INFO):
+            w.load_env_texture(str(p))
+        assert "cancelled" in caplog.text
 
     def test_read_texture_raises_shows_critical(self, viewer, monkeypatch):
         w, mw, tmp_path = viewer
@@ -1285,9 +1289,10 @@ class TestCubeViewerEffectToggleExceptions:
 
 # ===========================================================================
 # CubeViewerWidget — _enforce_scene_state: mol-redraw / restore /
-# final-render branches
-# (The redraw logic lives in _enforce_scene_state(), not in
-# _disable_conflicting_effects(), so we call it directly.)
+# final-render branches.
+# The error-swallowing branches are driven directly; the wiring from the
+# effect checkboxes is covered by TestCubeViewerEffectTogglesRedraw below,
+# because calling the private method alone would not notice a lost call site.
 # ===========================================================================
 
 
@@ -1329,6 +1334,63 @@ class TestCubeViewerEnforceSceneState:
         w, ctx = viewer
         w.plotter.render.side_effect = RuntimeError("boom")
         w._enforce_scene_state()  # must not raise
+
+
+# ===========================================================================
+# CubeViewerWidget — effect toggles must reach _enforce_scene_state
+# ===========================================================================
+
+
+class TestCubeViewerEffectTogglesRedraw:
+    """Toggling an effect auto-unchecks the conflicting ones, which clears
+    their actors; the scene has to be redrawn and the surviving effects
+    restored. Regression: _enforce_scene_state() was extracted out of
+    _disable_conflicting_effects() and left without a caller, so nothing
+    redrew any more."""
+
+    @pytest.fixture
+    def viewer(self, qapp):
+        w, ctx, mw, dock, grid = _make_viewer()
+        ctx.current_molecule = MagicMock()
+        yield w, ctx
+        _teardown_viewer(w)
+
+    @pytest.mark.parametrize(
+        "checkbox",
+        ["check_ssao", "check_edl", "check_shadows", "check_depth"],
+    )
+    def test_toggle_redraws_the_scene(self, viewer, checkbox):
+        w, ctx = viewer
+        ctx.draw_molecule_3d.reset_mock()
+        getattr(w, checkbox).setChecked(True)
+        ctx.draw_molecule_3d.assert_called()
+
+    def test_toggle_restores_shadows_after_the_redraw(self, viewer):
+        w, ctx = viewer
+        w.use_shadows = True
+        w.plotter.enable_shadows.reset_mock()
+        w.check_ssao.setChecked(True)
+        w.plotter.enable_shadows.assert_called()
+
+    def test_nested_toggle_redraws_only_once(self, viewer):
+        """Auto-unchecking a conflicting effect re-enters through its own
+        slot; one redraw per user action is enough."""
+        w, ctx = viewer
+        w.check_edl.setChecked(True)
+        ctx.draw_molecule_3d.reset_mock()
+        w.check_depth.setChecked(True)  # unchecks EDL -> re-entrant call
+        assert ctx.draw_molecule_3d.call_count == 1
+
+    def test_reentrancy_flag_is_cleared_after_the_call(self, viewer):
+        w, ctx = viewer
+        w._enforce_scene_state()
+        assert not w._enforcing_scene_state
+
+    def test_reentrancy_flag_is_cleared_after_a_failure(self, viewer):
+        w, ctx = viewer
+        w.plotter.render.side_effect = RuntimeError("boom")
+        w._enforce_scene_state()
+        assert not w._enforcing_scene_state
 
 
 # ===========================================================================

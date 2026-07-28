@@ -43,7 +43,7 @@ except ImportError:
 __author__ = "HiroYokoyama"
 PLUGIN_AUTHOR = __author__
 PLUGIN_NAME = "Cube File Viewer Advanced"
-PLUGIN_VERSION = "2026.07.25"
+PLUGIN_VERSION = "2026.07.29"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_DESCRIPTION = "Advanced 3D visualization for Gaussian Cube files with PBR, SSAO, and other effects."
 PLUGIN_CONTEXT = None
@@ -1253,6 +1253,21 @@ class CubeViewerWidget(QWidget):
         - EDL / Shadows / SSAO (不透明エフェクト)
         これらは共存できないため、一方をONにしたら他方を無効化(Disable & Uncheck)する。
         """
+        # Auto-unchecking a conflicting effect fires that checkbox's own slot,
+        # which lands back here; only the outermost call redraws the scene.
+        nested = getattr(self, "_resolving_conflicts", False)
+        self._resolving_conflicts = True
+        try:
+            self._resolve_conflicting_effects(exclude)
+        finally:
+            self._resolving_conflicts = nested
+
+        if not nested:
+            # The effects switched off above dropped their actors; redraw and
+            # restore whatever stays on so the scene matches the checkboxes.
+            self._enforce_scene_state()
+
+    def _resolve_conflicting_effects(self, exclude=""):
         # 無限ループ防止
         self.blockSignals(True)
 
@@ -1313,6 +1328,17 @@ class CubeViewerWidget(QWidget):
         change on top of an existing scene), so that shadows / EDL survive the
         full redraw cycle.
         """
+        # Auto-unchecking a conflicting effect re-enters this method through
+        # that checkbox's own toggled slot; one redraw per user action is enough.
+        if getattr(self, "_enforcing_scene_state", False):
+            return
+        self._enforcing_scene_state = True
+        try:
+            self._enforce_scene_state_impl()
+        finally:
+            self._enforcing_scene_state = False
+
+    def _enforce_scene_state_impl(self):
         # Save state of advanced rendering effects that get lost during plotter.clear()
         edl_was_enabled = self.use_edl
         shadows_were_enabled = self.use_shadows
@@ -1372,7 +1398,7 @@ class CubeViewerWidget(QWidget):
                 if os.path.exists(path):
                     self.load_env_texture(path)
                 else:
-                    print(f"Texture path not found: {path}")
+                    logging.warning("Texture path not found: %s", path)
             except Exception as e:
                 logging.warning("Error loading entered texture: %s", e)
 
@@ -1392,20 +1418,9 @@ class CubeViewerWidget(QWidget):
         name = self.combo_presets.currentText()
         if name in self.presets:
             # Redraw molecule and orbital before loading preset
-            mol = self.context.current_molecule
-            if mol:
-                try:
-                    self.context.draw_molecule_3d(mol)
-                except Exception as _e:
-                    logging.warning("[cube_viewer_advanced.py:1309] silenced: %s", _e)
-
-            try:
-                self.update_iso()
-            except Exception as _e:
-                logging.warning("[cube_viewer_advanced.py:1314] silenced: %s", _e)
-
+            self._enforce_scene_state()
             self.load_preset_settings(self.presets[name])
-            print(f"Loaded preset: {name}")
+            logging.info("Loaded preset: %s", name)
 
     def save_preset(self):
         # Show dialog to ask for preset name
@@ -1456,7 +1471,7 @@ class CubeViewerWidget(QWidget):
         self.update_preset_combo()
         self.combo_presets.setCurrentText(name)
         self.save_settings()
-        print(f"Saved preset: {name}")
+        logging.info("Saved preset: %s", name)
 
     def delete_preset(self):
         name = self.combo_presets.currentText().strip()
@@ -1474,7 +1489,7 @@ class CubeViewerWidget(QWidget):
             del self.presets[name]
             self.update_preset_combo()
             self.save_settings()  # Update disk
-            print(f"Deleted preset: {name}")
+            logging.info("Deleted preset: %s", name)
 
     def load_preset_settings(self, settings):
         # Apply settings dict to UI
@@ -1630,7 +1645,7 @@ class CubeViewerWidget(QWidget):
 
             # Check for cancellation
             if progress.wasCanceled():
-                print("Texture loading cancelled by user")
+                logging.info("Texture loading cancelled by user")
                 return
 
             # Load and apply texture with improved error handling
@@ -1641,7 +1656,7 @@ class CubeViewerWidget(QWidget):
 
             # Check for cancellation
             if progress.wasCanceled():
-                print("Texture loading cancelled by user")
+                logging.info("Texture loading cancelled by user")
                 return
 
             progress.setLabelText("Applying texture to renderer...")
@@ -1678,7 +1693,7 @@ class CubeViewerWidget(QWidget):
 
             # Check for cancellation
             if progress.wasCanceled():
-                print("Texture loading cancelled by user")
+                logging.info("Texture loading cancelled by user")
                 return
 
             progress.setLabelText("Rendering...")
@@ -1686,7 +1701,7 @@ class CubeViewerWidget(QWidget):
 
             self.plotter.render()
             self._update_tex_label(path)
-            print(f"Loaded texture: {os.path.basename(path)}")
+            logging.info("Loaded texture: %s", os.path.basename(path))
 
         except Exception as e:
             logging.warning("Failed to load texture: %s", e)
@@ -1844,7 +1859,7 @@ class CubeViewerWidget(QWidget):
             self.update_iso()
             self.plotter.render()
 
-            print("All settings have been reset to defaults.")
+            logging.info("All settings have been reset to defaults.")
 
         except Exception as e:
             self.blockSignals(False)
