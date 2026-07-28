@@ -147,7 +147,6 @@ class TestAdvancedGraphicsWidget:
         assert widget.slider_light.value() == 100
         assert widget.slider_ele.value() == 45
         assert widget.slider_azi.value() == 0
-        assert not widget.slider_edl.isEnabled()
         assert not widget.slider_atom_metallic.isEnabled()
         assert not widget.slider_atom_roughness.isEnabled()
 
@@ -161,19 +160,32 @@ class TestAdvancedGraphicsWidget:
         assert data["light_intensity"] == pytest.approx(2.5)
         assert data["use_aa"] is True
 
-    def test_sync_style_ui_advanced_enables_pbr(self, widget):
+    def test_sync_style_ui_advanced_exposes_pbr_controls(self, widget):
+        """An advanced style enables the PBR controls but must not turn PBR on:
+        forcing it without an environment texture rendered the model gray."""
+        widget.use_atom_pbr = False
         widget.sync_style_ui("Ball & Stick (Advanced Rendering)")
-        assert widget.use_atom_pbr
+        assert widget.check_atom_pbr.isEnabled()
+        assert not widget.use_atom_pbr
+        assert not widget.check_atom_pbr.isChecked()
+        assert not widget.slider_atom_metallic.isEnabled()
+
+    def test_sync_style_ui_advanced_restores_saved_pbr_preference(self, widget):
+        widget.use_atom_pbr = True
+        widget.sync_style_ui("Ball & Stick (Advanced Rendering)")
         assert widget.check_atom_pbr.isChecked()
         assert widget.slider_atom_metallic.isEnabled()
         assert widget.slider_atom_roughness.isEnabled()
 
     def test_sync_style_ui_standard_disables_pbr(self, widget):
+        widget.use_atom_pbr = True
         widget.sync_style_ui("Ball & Stick (Advanced Rendering)")
         widget.sync_style_ui("ball_and_stick")
-        assert not widget.use_atom_pbr
         assert not widget.check_atom_pbr.isChecked()
+        assert not widget.check_atom_pbr.isEnabled()
         assert not widget.slider_atom_metallic.isEnabled()
+        # The preference itself survives, so switching back restores it.
+        assert widget.use_atom_pbr
 
     def test_ssao_refused_on_standard_style(self, widget):
         widget.check_ssao.setChecked(True)
@@ -454,7 +466,8 @@ class TestPollStyleChange:
             w._poll_style_change()
             assert w._last_polled_style == "CPK (Advanced Rendering)"
             assert w.presets["last_active_style"] == "CPK (Advanced Rendering)"
-            assert w.use_atom_pbr  # sync_style_ui enabled PBR for advanced style
+            # sync_style_ui exposes the PBR controls without forcing PBR on
+            assert w.check_atom_pbr.isEnabled()
         finally:
             _teardown_adv_widget_with_plotter(mw, w, plotter)
 
@@ -707,21 +720,35 @@ class TestEnvTexture:
         finally:
             _teardown_adv_widget(mw, w)
 
-    def test_apply_texture_error_shows_warning(self, qapp, tmp_path, monkeypatch):
+    def test_apply_texture_reports_failure(self, qapp, tmp_path, monkeypatch):
         mw, w, plotter = _make_adv_widget_with_plotter(tmp_path)
         try:
-            w.env_texture_path = str(tmp_path / "missing_but_named.png")
-            # os.path.exists is False for a nonexistent file, so force the
-            # "exists" branch to hit the exception path via read_texture.
-            (tmp_path / "missing_but_named.png").write_bytes(b"not-an-image")
+            bad = tmp_path / "not_an_image.png"
+            bad.write_bytes(b"not-an-image")
+            w.env_texture_path = str(bad)
             monkeypatch.setattr(
                 _adv.pv,
                 "read_texture",
                 MagicMock(side_effect=RuntimeError("bad texture")),
             )
+            assert w.apply_texture() is False
+        finally:
+            _teardown_adv_widget_with_plotter(mw, w, plotter)
+
+    def test_load_env_texture_warns_when_apply_fails(self, qapp, tmp_path, monkeypatch):
+        """The dialog handler owns the user-facing warning; apply_texture only
+        reports success so redraw paths can reapply it silently."""
+        mw, w, plotter = _make_adv_widget_with_plotter(tmp_path)
+        try:
+            chosen = str(tmp_path / "chosen.png")
+            monkeypatch.setattr(
+                _adv.QFileDialog, "getOpenFileName", lambda *a, **k: (chosen, "")
+            )
+            monkeypatch.setattr(w, "apply_texture", lambda: False)
             box = MagicMock()
             monkeypatch.setattr(_adv, "QMessageBox", box)
-            w.apply_texture()
+            w.on_load_env_texture()
+            assert w.env_texture_path == chosen
             box.warning.assert_called_once()
         finally:
             _teardown_adv_widget_with_plotter(mw, w, plotter)
@@ -813,17 +840,23 @@ class TestSceneEffectToggles:
         finally:
             _teardown_adv_widget_with_plotter(mw, w, plotter)
 
-    def test_edl_toggle_enables_slider_and_strength(self, qapp, tmp_path):
+    def test_edl_toggle_updates_state(self, qapp, tmp_path):
+        """vtkEDLShading exposes no strength API, so EDL is on/off only."""
         mw, w, plotter = _make_adv_widget_with_plotter(tmp_path)
         try:
             w.check_edl.setChecked(True)
             assert w.use_edl
-            assert w.slider_edl.isEnabled()
-            w.slider_edl.setValue(75)
-            assert w.edl_strength == pytest.approx(0.75)
             w.check_edl.setChecked(False)
             assert not w.use_edl
-            assert not w.slider_edl.isEnabled()
+        finally:
+            _teardown_adv_widget_with_plotter(mw, w, plotter)
+
+    def test_no_edl_strength_controls_remain(self, qapp, tmp_path):
+        mw, w, plotter = _make_adv_widget_with_plotter(tmp_path)
+        try:
+            assert not hasattr(w, "slider_edl")
+            assert not hasattr(w, "edl_strength")
+            assert not hasattr(w, "update_edl_strength")
         finally:
             _teardown_adv_widget_with_plotter(mw, w, plotter)
 
@@ -848,14 +881,6 @@ class TestSceneEffectToggles:
             w.apply_edl()  # must not raise
         finally:
             _teardown_adv_widget(mw, w)
-
-    def test_update_edl_strength_noop_when_disabled(self, qapp, tmp_path):
-        mw, w, plotter = _make_adv_widget_with_plotter(tmp_path)
-        try:
-            assert not w.use_edl
-            w.update_edl_strength()  # must not raise / no-op
-        finally:
-            _teardown_adv_widget_with_plotter(mw, w, plotter)
 
 
 # ===========================================================================
@@ -1087,10 +1112,11 @@ class TestEnforceSceneState:
         mw, w, plotter = _make_adv_widget_with_plotter(tmp_path, style="ball_and_stick")
         try:
             w.use_shadows = True
+            w.use_atom_pbr = True
             w.sync_style_ui("Wireframe (Advanced Rendering)")
-            assert w.use_atom_pbr
+            assert w.check_atom_pbr.isChecked()
             w.sync_style_ui("ball_and_stick")
-            assert not w.use_atom_pbr
+            assert not w.check_atom_pbr.isChecked()
         finally:
             _teardown_adv_widget_with_plotter(mw, w, plotter)
 

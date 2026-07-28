@@ -148,6 +148,59 @@ jobs:
           QT_QPA_PLATFORM: offscreen
 
   # ---------------------------------------------------------------------------
+  # Rendering GUI tests — the modules that open with
+  # pytest.importorskip("pyvista") / ("vtk"). The test-gui matrix above does
+  # not install them, so those ~450 tests silently skip there and a widget
+  # renamed out from under them stays green (that is how seven stale
+  # Advanced Rendering tests survived the EDL-slider removal).
+  #
+  # Kept to a single interpreter and to the gated modules: VTK's offscreen
+  # render paths have aborted on headless runners before, so the blast radius
+  # of a flake stays small.
+  # ---------------------------------------------------------------------------
+  test-gui-render:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Qt and OpenGL system libraries
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y \
+            libegl1 \
+            libgl1 \
+            libgles2 \
+            libxkbcommon-x11-0 \
+            libdbus-1-3 \
+            libxrender1 \
+            xvfb
+
+      - name: Install Python dependencies
+        run: pip install pytest PyQt6 rdkit numpy pillow pyvista vtk
+
+      - name: Run rendering GUI tests
+        run: |
+          xvfb-run -a pytest -v --tb=short \
+            tests_gui/test_gui_plugin_advanced_rendering.py \
+            tests_gui/test_gui_plugin_bond_editor.py \
+            tests_gui/test_gui_plugin_charge_editor.py \
+            tests_gui/test_gui_plugin_cube_file_viewer.py \
+            tests_gui/test_gui_plugin_symmetry_analyzer.py \
+            tests_gui/test_gui_plugin_vector_viewer.py \
+            tests_gui/test_gui_plugin_xyz_editor.py
+        env:
+          QT_QPA_PLATFORM: offscreen
+
+  # ---------------------------------------------------------------------------
   # API compatibility check — requires the main app.
   # Clones python_molecular_editor at --depth 1 so test_api.py is not skipped.
   # ---------------------------------------------------------------------------
