@@ -966,3 +966,38 @@ class TestMSInitializeToggleWindow:
         assert win.timer.isActive()
         win.timer.stop()
         win.destroy()
+
+
+class TestMSForcedLightMode:
+    """The dialog paints its own light palette: on a dark desktop theme the
+    inherited dark background left the spectrum labels unreadable."""
+
+    def test_stylesheet_is_applied_to_the_dialog(self, qapp):
+        d, _ctx = _make_dlg()
+        try:
+            assert "background-color: #ffffff" in d.styleSheet()
+        finally:
+            d.close()
+
+    def test_input_widgets_are_styled_for_light_mode(self, qapp):
+        d, _ctx = _make_dlg()
+        try:
+            sheet = d.styleSheet()
+            for widget in ("QLineEdit", "QComboBox", "QSpinBox", "QCheckBox"):
+                assert widget in sheet, f"{widget} left unstyled"
+            assert "color: #000000" in sheet
+        finally:
+            d.close()
+
+    def test_dialog_background_is_light_regardless_of_palette(self, qapp):
+        """Rendered colour, not just the rule text."""
+        from PyQt6.QtGui import QPalette
+
+        d, _ctx = _make_dlg()
+        try:
+            d.show()
+            qapp.processEvents()
+            bg = d.palette().color(QPalette.ColorRole.Window)
+            assert bg.lightness() > 200, f"dialog background too dark: {bg.name()}"
+        finally:
+            d.close()

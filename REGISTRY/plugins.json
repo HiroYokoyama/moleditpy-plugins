@@ -562,7 +562,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "MS Spectrum Simulation Neo",
-    "version": "2026.07.25",
+    "version": "2026.07.29",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Simulates the Mass Spectrum for the currently loaded molecule using RDKit descriptors. Includes Gaussian broadening and interactive zoom/pan.",
@@ -575,8 +575,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/MS_Spectrum_Simulation_Neo/ms_spectrum_neo.py",
-    "lastUpdated": "2026-07-25",
-    "sha256": "cd98354d01e25cb5a59e519b34566023143c60c20d52a4a97d1c1a604c419137",
+    "lastUpdated": "2026-07-29",
+    "sha256": "555737e59c8f40a7184c89fc46f1c370b4f6349f8db0f94b8d714fc357f1ced3",
     "firstAppeared": "2025-12-18",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -699,7 +699,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Plugin Installer",
-    "version": "2026.07.26",
+    "version": "2026.07.29",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Checks for updates, installs new plugins, and allows manual reinstallation.",
@@ -710,8 +710,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Plugin_Installer/plugin_installer.py",
-    "lastUpdated": "2026-07-26",
-    "sha256": "0f18d972992ea0f4111de402138d47dea26ac1386e22c00b44bbc3f380d9f4f4",
+    "lastUpdated": "2026-07-29",
+    "sha256": "f310eff584268120a43bdc4eb04337249990e77881d9ae002b3ad2e285fbb41f",
     "firstAppeared": "2026-01-04",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1449,7 +1449,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Cube File Viewer Advanced",
-    "version": "2026.07.25",
+    "version": "2026.07.29",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Advanced 3D visualization for Gaussian Cube files with PBR, SSAO, and other effects.",
@@ -1464,8 +1464,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer_Advanced/cube_viewer_advanced.py",
-    "lastUpdated": "2026-07-25",
-    "sha256": "e49354f57fee3744034d7d63e5665d8fa49d33359b1426f1fc6cd0e8bf7a0e6b",
+    "lastUpdated": "2026-07-29",
+    "sha256": "130ad4e56491ca27bb1a93fd4a560d1213bcde83852bcebd6e4789cca6c349d0",
     "firstAppeared": "2026-02-02",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

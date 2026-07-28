@@ -17,21 +17,89 @@ moleditpy-plugins/
 
 ## Running Tests
 
+There are **two suites, and they must run as two pytest invocations** —
+`tests/` and `tests_gui/` each have their own `conftest.py`, so collecting
+both at once fails with `ImportError: cannot import name … from 'conftest'`.
+
 ```bash
-# Full suite
-python -m pytest tests/ -v
+# 1. Unit suite — everything mocked (no Qt, no chemistry libs, no network)
+python -m pytest tests/ -q
 
-# Single file
-python -m pytest tests/test_initialize.py -v
+# 2. GUI suite — real PyQt6, offscreen
+QT_QPA_PLATFORM=offscreen PYTEST_QT_API=pyqt6 python -m pytest tests_gui/ -q
+```
 
-# Single test by name
+Expected baseline: `tests/` ~2200 passed / 96 skipped, `tests_gui/` ~2800
+passed / 55 skipped. On Windows use the full interpreter path
+(`C:/Users/<you>/AppData/Local/Programs/Python/Python313/python.exe`) — the
+Store alias cannot launch pytest.
+
+```bash
+# Single file / single test
+python -m pytest tests/test_initialize.py -q
 python -m pytest tests/ -k "Atom Colorizer"
+```
 
-# With coverage
+### Optional dependencies decide what actually runs
+
+Several GUI modules open with `pytest.importorskip("pyvista")` /
+`("vtk")` — `advanced_rendering`, `bond_editor`, `charge_editor`,
+`cube_file_viewer`, `symmetry_analyzer`, `vector_viewer`, `xyz_editor`
+(~450 tests). Without those packages installed they skip **silently**, so
+run the GUI suite in an environment that has `pyvista`, `vtk`, `rdkit`,
+`numpy` and `pillow` before trusting a green result. CI covers them in the
+dedicated `test-gui-render` job; the main `test-gui` matrix does not.
+
+### Coverage
+
+Whole repo, unit suite only — a quick global number:
+
+```bash
 python -m pytest tests/ --cov=plugins --cov-report=term-missing
 ```
 
-All tests run headlessly — no GUI, no chemistry libraries, no network required.
+Per-plugin is what actually matters, and it needs **unit + GUI combined**
+via `--cov-append`, because only the real-Qt GUI tests move the number
+(`extract_function` AST tests validate logic but never execute the plugin's
+own source lines, so they do not register as coverage):
+
+```bash
+rm -f .coverage
+python -m pytest tests/test_plugin_<name>.py --cov=plugins/<Plugin_Dir> --cov-report=
+QT_QPA_PLATFORM=offscreen python -m pytest tests_gui/test_gui_plugin_<name>.py \
+    --cov=plugins/<Plugin_Dir> --cov-append --cov-report=
+python -m coverage report --show-missing
+```
+
+Worked example (Plugin Installer → 92%):
+
+```bash
+rm -f .coverage
+python -m pytest tests/test_plugin_installer.py --cov=plugins/Plugin_Installer --cov-report=
+QT_QPA_PLATFORM=offscreen python -m pytest tests_gui/test_gui_plugin_installer.py \
+    --cov=plugins/Plugin_Installer --cov-append --cov-report=
+python -m coverage report
+```
+
+Gotchas:
+
+- **The two suites do not follow one naming convention.** The installer is
+  `tests/test_plugin_installer.py` but `tests_gui/test_gui_plugin_installer.py`
+  (no second "plugin"). Guessing a path gives *no error* — pytest reports
+  "no tests ran", coverage silently reports the remaining run, and the number
+  looks like a regression. Always check the "N passed" line of **both** runs.
+- Missing `pyvista`/`vtk` skips whole GUI modules (see above), which shows up
+  as a large, fake coverage drop.
+- `.coveragerc` omits the generated `*_truststore.py` twins.
+
+Every visible plugin is expected to stay **above 80%** (the README badge).
+To see whether *newly changed* lines are covered rather than just the total,
+intersect the diff with the missing lines:
+
+```bash
+python -m coverage json -o cov.json
+git diff -U0 <base> HEAD -- plugins/<Plugin_Dir>/<file>.py   # hunk headers give the new line numbers
+```
 
 ## Critical Constraints
 
@@ -148,12 +216,13 @@ MY_FUNC = mod.my_function
 
 ## CI
 
-Three GitHub Actions jobs in `.github/workflows/test-plugins.yml`:
+Four GitHub Actions jobs in `.github/workflows/test-plugins.yml`:
 
 | Job | Python | Main app cloned | Tests |
 |---|---|---|---|
 | `test` | 3.9 – 3.14 | No | `tests/` except `test_api`, plus a registry-sync check |
-| `test-gui` | 3.9 – 3.14 | Auto-cloned by fixture | `tests_gui/` (real PyQt6, `QT_QPA_PLATFORM=offscreen`) |
+| `test-gui` | 3.9 – 3.14 | Auto-cloned by fixture | `tests_gui/` (real PyQt6, `QT_QPA_PLATFORM=offscreen`); no pyvista/vtk, so the rendering modules skip |
+| `test-gui-render` | 3.12 | Auto-cloned by fixture | Only the pyvista/vtk-gated `tests_gui/` modules, with those packages installed under `xvfb-run` |
 | `test-api` | 3.11 | Yes (`--depth 1`) | `test_api.py` only |
 
 The matrix spans the full range declared by `PLUGIN_SUPPORTED_PYTHON_VERSION`
