@@ -48,13 +48,20 @@ except ImportError:
     Descriptors = None
     Draw = None
 
-PLUGIN_VERSION = "2026.07.29"
+PLUGIN_VERSION = "2026.07.30"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 
 PLUGIN_NAME = "MS Spectrum Simulation Neo"
 PLUGIN_DESCRIPTION = "Simulate and visualize mass spectra from molecular formula."
 PLUGIN_DEPENDENCIES = ["rdkit", "numpy", "PyQt6"]
+
+# RDKit's periodic table has no entry for the hydrogen isotope symbols.
+HYDROGEN_ISOTOPE_MASSES = {"D": 2.0141017781, "T": 3.0160492779}
+
+#: No natural isotope sits further than 10 mass units from its element's most
+#: common isotope, so this half-width provably enumerates all of them.
+ISOTOPE_SCAN_HALF_WIDTH = 12
 
 
 class MSSpectrumDialog(QDialog):
@@ -319,6 +326,15 @@ class MSSpectrumDialog(QDialog):
             # If different from text box, update
             if self.formula_input.text() != current_formula:
                 self.formula_input.setText(current_formula)
+
+                # CalcMolFormula appends the net charge ("C6H5+") but
+                # parse_formula_str ignores it, so an already-ionic molecule
+                # would silently be measured against the wrong ion charge.
+                # Only on an actual structure change, never on every poll.
+                net_charge = Chem.GetFormalCharge(self.mol)
+                if net_charge != 0 and self.charge_spin.value() != net_charge:
+                    self.charge_spin.setValue(net_charge)
+                    self.adduct_combo.setCurrentIndex(0)  # [M]
         except Exception as _e:
             # Fail silently to avoid spamming errors in timer
             logging.warning("[ms_spectrum_neo.py:246] silenced: %s", _e)
@@ -526,6 +542,58 @@ class MSSpectrumDialog(QDialog):
 
         return delta
 
+    def isotope_distribution(self, pt, sym):
+        """Normalized [(exact_mass, fraction)] of the natural isotopes of `sym`.
+
+        Raises RuntimeError (from RDKit) for an unrecognized element symbol.
+        """
+        if sym in HYDROGEN_ISOTOPE_MASSES:
+            return [(HYDROGEN_ISOTOPE_MASSES[sym], 1.0)]
+
+        atomic_num = pt.GetAtomicNumber(sym)
+        center = pt.GetMostCommonIsotope(atomic_num)
+
+        dist = []
+        for m in range(
+            max(1, center - ISOTOPE_SCAN_HALF_WIDTH),
+            center + ISOTOPE_SCAN_HALF_WIDTH + 1,
+        ):
+            abundance = pt.GetAbundanceForIsotope(atomic_num, m)
+            if abundance > 0.0:
+                dist.append((pt.GetMassForIsotope(atomic_num, m), abundance))
+
+        total_p = sum(p for _m, p in dist)
+        if total_p <= 0.0:
+            # Synthetic elements (Tc, Pm, ...) have no natural abundances at
+            # all; treat them as pure most-common isotope rather than dropping
+            # them silently out of the spectrum.
+            return [(pt.GetMassForIsotope(atomic_num, center), 1.0)]
+
+        return [(m, p / total_p) for m, p in dist]
+
+    def average_mass(self, pt, counts):
+        """Average (molecular-weight) mass of a composition."""
+        total = 0.0
+        for sym, count in counts.items():
+            if sym in HYDROGEN_ISOTOPE_MASSES:
+                total += HYDROGEN_ISOTOPE_MASSES[sym] * count
+            else:
+                total += pt.GetAtomicWeight(sym) * count
+        return total
+
+    def monoisotopic_mass(self, pt, counts):
+        """Mass built from each element's most abundant isotope."""
+        total = 0.0
+        for sym, count in counts.items():
+            if sym in HYDROGEN_ISOTOPE_MASSES:
+                total += HYDROGEN_ISOTOPE_MASSES[sym] * count
+            else:
+                anum = pt.GetAtomicNumber(sym)
+                total += (
+                    pt.GetMassForIsotope(anum, pt.GetMostCommonIsotope(anum)) * count
+                )
+        return total
+
     def export_csv(self):
         filename, _ = QFileDialog.getSaveFileName(
             self, "Save Spectrum CSV", "spectrum.csv", "CSV Files (*.csv)"
@@ -661,7 +729,9 @@ class MSSpectrumDialog(QDialog):
         for el, count in delta.items():
             final_counts[el] = final_counts.get(el, 0) + count
 
-        # Remove elements with <= 0 count
+        # An adduct that removes more atoms than M has is not a real species.
+        if any(v < 0 for v in final_counts.values()):
+            return [], 0.0, 0.0, 0.0
         final_counts = {k: v for k, v in final_counts.items() if v > 0}
 
         if not final_counts:
@@ -672,43 +742,21 @@ class MSSpectrumDialog(QDialog):
         current_dist = [(0.0, 1.0)]
         electron_mass = 0.00054858
 
-        total_mw = 0.0  # Neutral average mass
+        try:
+            # The neutral masses describe M itself, so they are computed from
+            # base_counts — the adduct must not leak into them.
+            total_mw = self.average_mass(pt, base_counts)
+            neutral_exact_mass = self.monoisotopic_mass(pt, base_counts)
+            exact_mass_sum = self.monoisotopic_mass(pt, final_counts)
+            iso_dists = {
+                sym: self.isotope_distribution(pt, sym) for sym in final_counts
+            }
+        except Exception:
+            # Unrecognized element -> Invalid Formula -> Hide Spectrum
+            return [], 0.0, 0.0, 0.0
 
         for sym, count in final_counts.items():
-            # Special handling for Deuterium
-            if sym == "D":
-                mass_d = 2.0141017781
-                total_mw += mass_d * count
-                atom_iso_dist = [(mass_d, 1.0)]
-            else:
-                try:
-                    base_mass = pt.GetAtomicWeight(sym)  # Average weight
-                    total_mw += base_mass * count
-
-                    atomic_num = pt.GetAtomicNumber(sym)
-                    if atomic_num <= 0:
-                        raise RuntimeError("Invalid Atom")  # Just in case
-
-                    atom_iso_dist = []
-                    center_mass = pt.GetMostCommonIsotope(atomic_num)
-                    # Scan a range
-                    for m in range(max(1, center_mass - 5), center_mass + 10):
-                        try:
-                            abundance = pt.GetAbundanceForIsotope(atomic_num, m)
-                            if abundance > 0.00001:
-                                exact_mass = pt.GetMassForIsotope(atomic_num, m)
-                                atom_iso_dist.append((exact_mass, abundance))
-                        except RuntimeError as _e:
-                            logging.warning("[ms_spectrum_neo.py:592] silenced: %s", _e)
-
-                    # Normalize
-                    total_p = sum(p for m, p in atom_iso_dist)
-                    if total_p == 0:
-                        continue
-                    atom_iso_dist = [(m, p / total_p) for m, p in atom_iso_dist]
-                except Exception:
-                    # Found an unrecognized element -> Invalid Formula -> Hide Spectrum
-                    return [], 0.0, 0.0, 0.0
+            atom_iso_dist = iso_dists[sym]
 
             # Convolve 'count' times
             for _ in range(count):
@@ -742,22 +790,6 @@ class MSSpectrumDialog(QDialog):
                 if len(current_dist) > 200:
                     current_dist.sort(key=lambda x: x[1], reverse=True)
                     current_dist = current_dist[:200]
-
-        # Calculate EXACT NEUTRAL MASS (Always needed)
-        exact_mass_sum = 0.0
-        for sym, count in final_counts.items():
-            if sym == "D":
-                exact_mass_sum += 2.0141017781 * count
-            else:
-                try:
-                    anum = pt.GetAtomicNumber(sym)
-                    m_iso = pt.GetMostCommonIsotope(anum)
-                    mass_iso = pt.GetMassForIsotope(anum, m_iso)
-                    exact_mass_sum += mass_iso * count
-                except Exception as _e:
-                    logging.warning("[ms_spectrum_neo.py:645] silenced: %s", _e)
-
-        neutral_exact_mass = exact_mass_sum
 
         # 4. Adjust for Charge (m/z)
         if charge_val == 0:

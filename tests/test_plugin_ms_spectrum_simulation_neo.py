@@ -217,6 +217,23 @@ _ISOTOPE_DATA = {
     ),
     "Cl": (17, [(35, 34.96885268, 0.7576), (37, 36.96590259, 0.2424)], 35.453),
     "Na": (11, [(23, 22.98976928, 1.0)], 22.98977),
+    # Mo's most common isotope (98) sits 6 mass units above its lightest
+    # natural one (92, 14.84%) — the case the old +-5/+10 scan window clipped.
+    "Mo": (
+        42,
+        [
+            (92, 91.906808, 0.1484),
+            (94, 93.9050849, 0.0925),
+            (95, 94.90583877, 0.1592),
+            (96, 95.90467612, 0.1668),
+            (97, 96.90601812, 0.0955),
+            (98, 97.90540482, 0.2413),
+            (100, 99.9074718, 0.0963),
+        ],
+        95.95,
+    ),
+    # Synthetic element: no natural abundances at all.
+    "Tc": (43, [(97, 96.906365, 0.0)], 98.0),
     "S": (
         16,
         [
@@ -283,6 +300,28 @@ class _Val:
         return self.v
 
 
+_MASS_HELPER_GLOBALS = {
+    "HYDROGEN_ISOTOPE_MASSES": _ms.HYDROGEN_ISOTOPE_MASSES,
+    "ISOTOPE_SCAN_HALF_WIDTH": _ms.ISOTOPE_SCAN_HALF_WIDTH,
+}
+
+_isotope_distribution = extract_function(
+    MS_PATH,
+    "MSSpectrumDialog",
+    "isotope_distribution",
+    extra_globals=_MASS_HELPER_GLOBALS,
+)
+_average_mass = extract_function(
+    MS_PATH, "MSSpectrumDialog", "average_mass", extra_globals=_MASS_HELPER_GLOBALS
+)
+_monoisotopic_mass = extract_function(
+    MS_PATH,
+    "MSSpectrumDialog",
+    "monoisotopic_mass",
+    extra_globals=_MASS_HELPER_GLOBALS,
+)
+
+
 class _FakeDialogForPeaks:
     def __init__(self, formula, charge, species_idx=0):
         self.formula_input = _Val(formula)
@@ -294,6 +333,15 @@ class _FakeDialogForPeaks:
 
     def get_adduct_delta(self, species_idx, mode, charge):
         return _get_adduct_delta(None, species_idx, mode, charge)
+
+    def isotope_distribution(self, pt, sym):
+        return _isotope_distribution(self, pt, sym)
+
+    def average_mass(self, pt, counts):
+        return _average_mass(self, pt, counts)
+
+    def monoisotopic_mass(self, pt, counts):
+        return _monoisotopic_mass(self, pt, counts)
 
 
 _calculate_peaks = extract_function(
@@ -341,6 +389,44 @@ class TestCalculatePeaksNeutralMass:
     def test_deprotonation_removing_only_atom_yields_empty(self):
         # "H" with [M-H]- leaves zero atoms -> final_counts empty.
         fake = _FakeDialogForPeaks("H", charge=-1, species_idx=1)
+        result = _calculate_peaks(fake)
+        assert result == ([], 0.0, 0.0, 0.0)
+
+    def test_neutral_masses_exclude_the_adduct(self):
+        # Regression: the neutral columns were computed from the ADDUCTED
+        # composition, so [M+Na]+ reported Na's mass as part of neutral M.
+        water_avg = 2 * 1.008 + 15.999
+        water_exact = 2 * 1.0078250319 + 15.9949146221
+
+        plain = _FakeDialogForPeaks("H2O", charge=1, species_idx=0)  # [M]+
+        sodiated = _FakeDialogForPeaks("H2O", charge=1, species_idx=2)  # [M+Na]+
+
+        _p, avg_plain, exact_plain, _mz = _calculate_peaks(plain)
+        _p, avg_na, exact_na, mz_na = _calculate_peaks(sodiated)
+
+        assert avg_na == pytest.approx(water_avg, abs=1e-6)
+        assert exact_na == pytest.approx(water_exact, abs=1e-6)
+        # ...identical to the un-adducted run, and NOT inflated by Na.
+        assert avg_na == pytest.approx(avg_plain, abs=1e-9)
+        assert exact_na == pytest.approx(exact_plain, abs=1e-9)
+        # The ion m/z, by contrast, must include Na and lose one electron.
+        assert mz_na == pytest.approx(
+            water_exact + 22.98976928 - _ELECTRON_MASS, abs=1e-6
+        )
+
+    def test_protonated_neutral_mass_excludes_the_proton(self):
+        fake = _FakeDialogForPeaks("H2O", charge=1, species_idx=1)  # [M+H]+
+        _peaks, avg_mw, exact_mw, ion_mz = _calculate_peaks(fake)
+        assert avg_mw == pytest.approx(2 * 1.008 + 15.999, abs=1e-6)
+        assert ion_mz == pytest.approx(
+            3 * 1.0078250319 + 15.9949146221 - _ELECTRON_MASS, abs=1e-6
+        )
+
+    def test_adduct_removing_more_atoms_than_present_is_rejected(self):
+        # [M-2H]2- on a molecule carrying a single H is not a real species;
+        # the negative H count used to be silently dropped, yielding a
+        # confident spectrum for the wrong composition.
+        fake = _FakeDialogForPeaks("CH", charge=-2, species_idx=1)
         result = _calculate_peaks(fake)
         assert result == ([], 0.0, 0.0, 0.0)
 
@@ -565,3 +651,73 @@ class TestHistogramPan:
         assert w.view_min < 0.0
         assert w.view_max < 100.0
         assert (w.view_max - w.view_min) == pytest.approx(100.0)
+
+
+class TestIsotopeDistribution:
+    """The natural-isotope enumeration behind every simulated envelope."""
+
+    def setup_method(self):
+        self.pt = _FakePeriodicTable()
+        self.fake = _FakeDialogForPeaks("", charge=0)
+
+    def test_chlorine_abundances_normalized(self):
+        dist = self.fake.isotope_distribution(self.pt, "Cl")
+        assert len(dist) == 2
+        assert sum(p for _m, p in dist) == pytest.approx(1.0, abs=1e-12)
+
+    def test_molybdenum_keeps_its_lightest_isotope(self):
+        # Regression: the scan window ran from most_common-5, which for Mo
+        # (most common 98) started at 93 and silently discarded 92Mo -- the
+        # element's second most abundant isotope at 14.84%.
+        dist = self.fake.isotope_distribution(self.pt, "Mo")
+        assert len(dist) == 7
+        masses = [m for m, _p in dist]
+        assert min(masses) == pytest.approx(91.906808, abs=1e-6)
+        assert sum(p for _m, p in dist) == pytest.approx(1.0, abs=1e-12)
+
+    def test_molybdenum_envelope_spans_all_seven_isotopes(self):
+        fake = _FakeDialogForPeaks("Mo", charge=1, species_idx=0)
+        peaks, _avg, _exact, _mz = _calculate_peaks(fake)
+        assert len(peaks) == 7
+        # 98Mo is the base peak; 92Mo must be present at ~61% of it.
+        by_mass = sorted(peaks)
+        assert by_mass[0][0] == pytest.approx(91.906808 - _ELECTRON_MASS, abs=1e-5)
+        assert by_mass[0][1] == pytest.approx(100.0 * 0.1484 / 0.2413, rel=1e-3)
+
+    def test_synthetic_element_falls_back_to_most_common_isotope(self):
+        # Tc has no natural abundances; it used to be skipped entirely,
+        # dropping its mass out of the simulated envelope.
+        dist = self.fake.isotope_distribution(self.pt, "Tc")
+        assert dist == [(96.906365, 1.0)]
+
+    def test_hydrogen_isotope_symbols_are_pure(self):
+        assert self.fake.isotope_distribution(self.pt, "D") == [(2.0141017781, 1.0)]
+        assert self.fake.isotope_distribution(self.pt, "T") == [(3.0160492779, 1.0)]
+
+
+class TestMassHelpers:
+    def setup_method(self):
+        self.pt = _FakePeriodicTable()
+        self.fake = _FakeDialogForPeaks("", charge=0)
+
+    def test_average_mass_uses_atomic_weights(self):
+        got = self.fake.average_mass(self.pt, {"C": 6, "H": 6})
+        assert got == pytest.approx(6 * 12.011 + 6 * 1.008, abs=1e-9)
+
+    def test_monoisotopic_mass_uses_most_common_isotope(self):
+        got = self.fake.monoisotopic_mass(self.pt, {"C": 6, "H": 6})
+        assert got == pytest.approx(6 * 12.0000000000 + 6 * 1.0078250319, abs=1e-9)
+
+    def test_monoisotopic_differs_from_average(self):
+        counts = {"Cl": 2}
+        assert self.fake.average_mass(self.pt, counts) != pytest.approx(
+            self.fake.monoisotopic_mass(self.pt, counts), abs=1e-3
+        )
+
+    def test_deuterium_counted_in_both(self):
+        assert self.fake.average_mass(self.pt, {"D": 2}) == pytest.approx(
+            2 * 2.0141017781, abs=1e-9
+        )
+        assert self.fake.monoisotopic_mass(self.pt, {"D": 2}) == pytest.approx(
+            2 * 2.0141017781, abs=1e-9
+        )
