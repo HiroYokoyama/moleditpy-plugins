@@ -601,7 +601,7 @@ class MSSpectrumDialog(QDialog):
     def apply_gaussian_broadening(self, peaks, sigma):
         if not peaks:
             return []
-            
+
         sigma = max(1e-5, sigma)
 
         # Dynamic margin to avoid clipping wide peaks

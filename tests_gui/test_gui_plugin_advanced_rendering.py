@@ -254,7 +254,9 @@ class TestAdvancedRenderingInitialize:
         assert ctx.register_3d_style.call_count == 4
         style_names = [c[0][0] for c in ctx.register_3d_style.call_args_list]
         assert "Ball & Stick (Advanced Rendering)" in style_names
-        assert ctx.add_menu_action.call_args[0][0] == "Settings/Advanced Graphics Settings"
+        assert (
+            ctx.add_menu_action.call_args[0][0] == "Settings/Advanced Graphics Settings"
+        )
         assert isinstance(viewer, _adv.AdvancedGraphicsWidget)
 
         _teardown_adv_widget(mw, viewer)
@@ -335,7 +337,9 @@ class TestLoadPluginFromMw:
         stale_viewer = mw._adv_rendering_viewer
         stale_viewer.get_settings_path = lambda: str(tmp_path / "adv_settings.json")
 
-        monkeypatch.setattr(stale_dialog, "show", MagicMock(side_effect=RuntimeError("boom")))
+        monkeypatch.setattr(
+            stale_dialog, "show", MagicMock(side_effect=RuntimeError("boom"))
+        )
 
         _adv.load_plugin_from_mw(mw)
 
@@ -536,9 +540,7 @@ class TestUpdateAtomsPbr:
         finally:
             _teardown_adv_widget_with_plotter(mw, w, plotter)
 
-    def test_non_advanced_style_forces_phong_even_if_pbr_flag_set(
-        self, qapp, tmp_path
-    ):
+    def test_non_advanced_style_forces_phong_even_if_pbr_flag_set(self, qapp, tmp_path):
         mw, w, plotter = _make_adv_widget_with_plotter(tmp_path, style="ball_and_stick")
         try:
             w.use_atom_pbr = True
@@ -656,9 +658,7 @@ class TestAtomHandlers:
             assert w.slider_atom_metallic.value() == 0
             assert w.slider_atom_roughness.value() == 50
             for actor in plotter.renderer.actors.values():
-                assert (
-                    actor.GetProperty().GetInterpolation() == _real_vtk.VTK_PHONG
-                )
+                assert actor.GetProperty().GetInterpolation() == _real_vtk.VTK_PHONG
         finally:
             _teardown_adv_widget_with_plotter(mw, w, plotter)
 
@@ -687,7 +687,9 @@ class TestEnvTexture:
         finally:
             _teardown_adv_widget_with_plotter(mw, w, plotter)
 
-    def test_load_env_texture_cancelled_leaves_path_unset(self, qapp, tmp_path, monkeypatch):
+    def test_load_env_texture_cancelled_leaves_path_unset(
+        self, qapp, tmp_path, monkeypatch
+    ):
         mw, w, plotter = _make_adv_widget_with_plotter(tmp_path)
         try:
             monkeypatch.setattr(
@@ -967,7 +969,9 @@ class TestPresetsReal:
         mw, w, plotter = _make_adv_widget_with_plotter(tmp_path)
         try:
             monkeypatch.setattr(
-                QInputDialog, "getText", staticmethod(lambda *a, **k: ("MyPreset", True))
+                QInputDialog,
+                "getText",
+                staticmethod(lambda *a, **k: ("MyPreset", True)),
             )
             w.light_intensity = 3.3
             w.save_preset()
@@ -983,7 +987,9 @@ class TestPresetsReal:
         mw, w, plotter = _make_adv_widget_with_plotter(tmp_path)
         try:
             monkeypatch.setattr(
-                QInputDialog, "getText", staticmethod(lambda *a, **k: ("Whatever", False))
+                QInputDialog,
+                "getText",
+                staticmethod(lambda *a, **k: ("Whatever", False)),
             )
             before = set(w.presets)
             w.save_preset()

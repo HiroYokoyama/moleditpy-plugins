@@ -35,10 +35,18 @@ def _no_qt_event_pump(monkeypatch):
     Aborted, core dumped). No test relies on the deferred callback or the pump, so
     neutralize both at the source module.
     """
-    monkeypatch.setattr(_cube_adv.QTimer, "singleShot",
-                        staticmethod(lambda *a, **k: None), raising=False)
-    monkeypatch.setattr(_cube_adv.QCoreApplication, "processEvents",
-                        staticmethod(lambda *a, **k: None), raising=False)
+    monkeypatch.setattr(
+        _cube_adv.QTimer,
+        "singleShot",
+        staticmethod(lambda *a, **k: None),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        _cube_adv.QCoreApplication,
+        "processEvents",
+        staticmethod(lambda *a, **k: None),
+        raising=False,
+    )
 
 
 # ===========================================================================
@@ -247,7 +255,9 @@ class TestCubeViewerWidgetConstruction:
         assert viewer.opacity_slider.value() == 40
 
     def test_style_combo_options(self, viewer):
-        texts = [viewer.combo_style.itemText(i) for i in range(viewer.combo_style.count())]
+        texts = [
+            viewer.combo_style.itemText(i) for i in range(viewer.combo_style.count())
+        ]
         assert texts == ["Surface", "Smoothed Surface", "Wireframe", "Points"]
 
     def test_smooth_checkbox_checked_by_default(self, viewer):
@@ -262,15 +272,26 @@ class TestCubeViewerWidgetConstruction:
         assert not viewer.check_edl.isChecked()
 
     def test_preset_combo_has_default(self, viewer):
-        texts = [viewer.combo_presets.itemText(i) for i in range(viewer.combo_presets.count())]
+        texts = [
+            viewer.combo_presets.itemText(i)
+            for i in range(viewer.combo_presets.count())
+        ]
         assert "Default" in texts
 
     def test_close_button_text(self, viewer):
-        found = [b for b in viewer.findChildren(_cube_adv.QPushButton) if b.text() == "Close Plugin"]
+        found = [
+            b
+            for b in viewer.findChildren(_cube_adv.QPushButton)
+            if b.text() == "Close Plugin"
+        ]
         assert len(found) == 1
 
     def test_reset_button_text(self, viewer):
-        found = [b for b in viewer.findChildren(_cube_adv.QPushButton) if b.text() == "Reset All Settings"]
+        found = [
+            b
+            for b in viewer.findChildren(_cube_adv.QPushButton)
+            if b.text() == "Reset All Settings"
+        ]
         assert len(found) == 1
 
     def test_env_path_placeholder(self, viewer):
@@ -301,7 +322,9 @@ class TestCubeViewerWidgetSignals:
 
     def test_slider_change_updates_spin(self, viewer):
         viewer.slider.setValue(500)
-        assert viewer.spin.value() == pytest.approx((500 / 1000) * viewer.max_val, rel=1e-3)
+        assert viewer.spin.value() == pytest.approx(
+            (500 / 1000) * viewer.max_val, rel=1e-3
+        )
 
     def test_spin_change_updates_slider(self, viewer):
         viewer.spin.setValue(viewer.max_val)
@@ -427,19 +450,34 @@ class TestCubeViewerPresets:
         _tmp_settings_path = tmp_path / "cube_viewer_advanced.json"
 
     def test_save_preset_adds_to_presets_and_combo(self, viewer, monkeypatch):
-        monkeypatch.setattr(_cube_adv.QInputDialog, "getText", staticmethod(lambda *a, **kw: ("MyPreset", True)))
+        monkeypatch.setattr(
+            _cube_adv.QInputDialog,
+            "getText",
+            staticmethod(lambda *a, **kw: ("MyPreset", True)),
+        )
         viewer.save_preset()
         assert "MyPreset" in viewer.presets
-        texts = [viewer.combo_presets.itemText(i) for i in range(viewer.combo_presets.count())]
+        texts = [
+            viewer.combo_presets.itemText(i)
+            for i in range(viewer.combo_presets.count())
+        ]
         assert "MyPreset" in texts
 
     def test_save_preset_cancelled_does_nothing(self, viewer, monkeypatch):
-        monkeypatch.setattr(_cube_adv.QInputDialog, "getText", staticmethod(lambda *a, **kw: ("Ignored", False)))
+        monkeypatch.setattr(
+            _cube_adv.QInputDialog,
+            "getText",
+            staticmethod(lambda *a, **kw: ("Ignored", False)),
+        )
         viewer.save_preset()
         assert "Ignored" not in viewer.presets
 
     def test_save_preset_default_name_blocked(self, viewer, monkeypatch):
-        monkeypatch.setattr(_cube_adv.QInputDialog, "getText", staticmethod(lambda *a, **kw: ("Default", True)))
+        monkeypatch.setattr(
+            _cube_adv.QInputDialog,
+            "getText",
+            staticmethod(lambda *a, **kw: ("Default", True)),
+        )
         box = MagicMock()
         monkeypatch.setattr(_cube_adv, "QMessageBox", box)
         viewer.spin.setValue(0.9)
@@ -448,7 +486,11 @@ class TestCubeViewerPresets:
         assert viewer.presets["Default"]["isovalue"] != pytest.approx(0.9)
 
     def test_delete_preset_removes_custom(self, viewer, monkeypatch):
-        monkeypatch.setattr(_cube_adv.QInputDialog, "getText", staticmethod(lambda *a, **kw: ("Temp", True)))
+        monkeypatch.setattr(
+            _cube_adv.QInputDialog,
+            "getText",
+            staticmethod(lambda *a, **kw: ("Temp", True)),
+        )
         viewer.save_preset()
         viewer.combo_presets.setCurrentText("Temp")
         viewer.delete_preset()
@@ -468,7 +510,11 @@ class TestCubeViewerPresets:
         assert viewer.combo_style.currentText() == "Points"
 
     def test_on_preset_activated_loads_settings(self, viewer, monkeypatch):
-        monkeypatch.setattr(_cube_adv.QInputDialog, "getText", staticmethod(lambda *a, **kw: ("Temp2", True)))
+        monkeypatch.setattr(
+            _cube_adv.QInputDialog,
+            "getText",
+            staticmethod(lambda *a, **kw: ("Temp2", True)),
+        )
         viewer.spin.setValue(0.77)
         viewer.save_preset()
         viewer.spin.setValue(0.01)
@@ -526,14 +572,20 @@ class TestCubeViewerColorPickers:
     def test_choose_color_p_valid_updates_color(self, viewer, monkeypatch):
         from PyQt6.QtGui import QColor
 
-        monkeypatch.setattr(_cube_adv.QColorDialog, "getColor", staticmethod(lambda **kw: QColor(10, 20, 30)))
+        monkeypatch.setattr(
+            _cube_adv.QColorDialog,
+            "getColor",
+            staticmethod(lambda **kw: QColor(10, 20, 30)),
+        )
         viewer.choose_color_p()
         assert viewer.color_p == (10, 20, 30)
 
     def test_choose_color_p_invalid_leaves_color(self, viewer, monkeypatch):
         from PyQt6.QtGui import QColor
 
-        monkeypatch.setattr(_cube_adv.QColorDialog, "getColor", staticmethod(lambda **kw: QColor()))
+        monkeypatch.setattr(
+            _cube_adv.QColorDialog, "getColor", staticmethod(lambda **kw: QColor())
+        )
         before = viewer.color_p
         viewer.choose_color_p()
         assert viewer.color_p == before
@@ -541,7 +593,11 @@ class TestCubeViewerColorPickers:
     def test_choose_color_n_valid_updates_color(self, viewer, monkeypatch):
         from PyQt6.QtGui import QColor
 
-        monkeypatch.setattr(_cube_adv.QColorDialog, "getColor", staticmethod(lambda **kw: QColor(1, 2, 3)))
+        monkeypatch.setattr(
+            _cube_adv.QColorDialog,
+            "getColor",
+            staticmethod(lambda **kw: QColor(1, 2, 3)),
+        )
         viewer.choose_color_n()
         assert viewer.color_n == (1, 2, 3)
 
@@ -549,7 +605,11 @@ class TestCubeViewerColorPickers:
         from PyQt6.QtGui import QColor
 
         viewer.check_comp_color.setChecked(True)
-        monkeypatch.setattr(_cube_adv.QColorDialog, "getColor", staticmethod(lambda **kw: QColor(0, 255, 0)))
+        monkeypatch.setattr(
+            _cube_adv.QColorDialog,
+            "getColor",
+            staticmethod(lambda **kw: QColor(0, 255, 0)),
+        )
         viewer.choose_color_p()
         assert viewer.color_n != (255, 0, 0)  # complementary recomputed
 
@@ -727,7 +787,11 @@ class TestCubeAdvancedInitialize:
 class TestRunPlugin:
     def test_run_plugin_cancelled_dialog_does_not_open_viewer(self, qapp, monkeypatch):
         ctx = MagicMock()
-        monkeypatch.setattr(_cube_adv.QFileDialog, "getOpenFileName", staticmethod(lambda *a, **kw: ("", "")))
+        monkeypatch.setattr(
+            _cube_adv.QFileDialog,
+            "getOpenFileName",
+            staticmethod(lambda *a, **kw: ("", "")),
+        )
         with patch.object(_cube_adv, "open_cube_viewer") as ocv:
             _cube_adv.run_plugin(ctx)
             ocv.assert_not_called()
@@ -735,7 +799,9 @@ class TestRunPlugin:
     def test_run_plugin_opens_selected_file(self, qapp, monkeypatch):
         ctx = MagicMock()
         monkeypatch.setattr(
-            _cube_adv.QFileDialog, "getOpenFileName", staticmethod(lambda *a, **kw: ("orbital.cube", ""))
+            _cube_adv.QFileDialog,
+            "getOpenFileName",
+            staticmethod(lambda *a, **kw: ("orbital.cube", "")),
         )
         with patch.object(_cube_adv, "open_cube_viewer") as ocv:
             _cube_adv.run_plugin(ctx)
@@ -755,7 +821,9 @@ class TestCubeViewerPlotterCapabilityGating:
     def test_ssao_and_depth_checkboxes_disabled_without_plotter_methods(self, qapp):
         class BarePlotter:
             renderer = None
-            __getattr__ = _fallback_plotter_getattr({"enable_ssao", "enable_depth_peeling"})
+            __getattr__ = _fallback_plotter_getattr(
+                {"enable_ssao", "enable_depth_peeling"}
+            )
 
         ctx = MagicMock()
         mw = _make_main_window()
@@ -847,7 +915,9 @@ class TestCubeViewerLoadSettingsTexture:
 
         w, mw, tmp_path = viewer
         settings_path = tmp_path / "s.json"
-        settings_path.write_text(json.dumps({"env_texture_path": "path with space.png"}))
+        settings_path.write_text(
+            json.dumps({"env_texture_path": "path with space.png"})
+        )
         w.get_settings_path = lambda: str(settings_path)
         w.load_settings()  # no crash; texture not loaded (VTK can't handle spaces)
         assert w.line_env_path.text() == "path with space.png"
@@ -1059,7 +1129,8 @@ class TestCubeViewerLoadEnvTexture:
         from PyQt6.QtWidgets import QMessageBox
 
         monkeypatch.setattr(
-            QMessageBox, "question",
+            QMessageBox,
+            "question",
             staticmethod(lambda *a, **kw: QMessageBox.StandardButton.No),
         )
         w.load_env_texture(str(p))  # returns early, no crash
@@ -1073,7 +1144,8 @@ class TestCubeViewerLoadEnvTexture:
         from PyQt6.QtWidgets import QMessageBox
 
         monkeypatch.setattr(
-            QMessageBox, "question",
+            QMessageBox,
+            "question",
             staticmethod(lambda *a, **kw: QMessageBox.StandardButton.Yes),
         )
         w.load_env_texture(str(p))
@@ -1113,7 +1185,9 @@ class TestCubeViewerLoadEnvTexture:
         p.write_bytes(b"x")
         box = MagicMock()
         monkeypatch.setattr(_cube_adv, "QMessageBox", box)
-        monkeypatch.setattr(_cube_adv.pv, "read_texture", MagicMock(side_effect=RuntimeError("bad tex")))
+        monkeypatch.setattr(
+            _cube_adv.pv, "read_texture", MagicMock(side_effect=RuntimeError("bad tex"))
+        )
         with pytest.raises(ValueError):
             w.load_env_texture(str(p))
         box.critical.assert_called_once()
@@ -1124,7 +1198,9 @@ class TestCubeViewerLoadEnvTexture:
         p.write_bytes(b"x")
         box = MagicMock()
         monkeypatch.setattr(_cube_adv, "QMessageBox", box)
-        w.plotter.set_environment_texture = MagicMock(side_effect=RuntimeError("vtk fail"))
+        w.plotter.set_environment_texture = MagicMock(
+            side_effect=RuntimeError("vtk fail")
+        )
         with pytest.raises(ValueError):
             w.load_env_texture(str(p))
         box.critical.assert_called_once()
@@ -1172,7 +1248,9 @@ class TestCubeViewerTexturePathEnteredFound:
         p = tmp_path / "entered_bad.png"
         p.write_bytes(b"x")
         w.line_env_path.setText(str(p))
-        monkeypatch.setattr(w, "load_env_texture", MagicMock(side_effect=RuntimeError("boom")))
+        monkeypatch.setattr(
+            w, "load_env_texture", MagicMock(side_effect=RuntimeError("boom"))
+        )
         w.on_texture_path_entered()  # must not raise
 
 
@@ -1258,7 +1336,9 @@ class TestCubeViewerEffectToggleExceptions:
         viewer.check_ssao.setChecked(True)  # must not raise
 
     def test_depth_peeling_toggle_exception_is_caught(self, viewer):
-        viewer.plotter.enable_depth_peeling = MagicMock(side_effect=RuntimeError("boom"))
+        viewer.plotter.enable_depth_peeling = MagicMock(
+            side_effect=RuntimeError("boom")
+        )
         viewer.check_depth.setChecked(True)  # must not raise
 
     def test_shadows_toggle_exception_is_caught(self, viewer):
@@ -1266,7 +1346,9 @@ class TestCubeViewerEffectToggleExceptions:
         viewer.check_shadows.setChecked(True)  # must not raise
 
     def test_aa_toggle_exception_is_caught(self, viewer):
-        viewer.plotter.enable_anti_aliasing = MagicMock(side_effect=RuntimeError("boom"))
+        viewer.plotter.enable_anti_aliasing = MagicMock(
+            side_effect=RuntimeError("boom")
+        )
         viewer.check_aa.setChecked(True)  # must not raise
 
     def test_clean_render_pipeline_returns_early_without_renderer(self, viewer):
@@ -1317,14 +1399,18 @@ class TestCubeViewerEnforceSceneState:
 
     def test_update_iso_exception_is_caught(self, viewer, monkeypatch):
         w, ctx = viewer
-        monkeypatch.setattr(w, "update_iso", MagicMock(side_effect=RuntimeError("boom")))
+        monkeypatch.setattr(
+            w, "update_iso", MagicMock(side_effect=RuntimeError("boom"))
+        )
         w._enforce_scene_state()  # must not raise
 
     def test_edl_and_shadows_disable_restore_exceptions_are_caught(self, viewer):
         w, ctx = viewer
         w.use_edl = True
         w.use_shadows = True
-        w.plotter.disable_eye_dome_lighting = MagicMock(side_effect=RuntimeError("boom"))
+        w.plotter.disable_eye_dome_lighting = MagicMock(
+            side_effect=RuntimeError("boom")
+        )
         w.plotter.disable_shadows = MagicMock(side_effect=RuntimeError("boom"))
         w.plotter.enable_eye_dome_lighting = MagicMock(side_effect=RuntimeError("boom"))
         w.plotter.enable_shadows = MagicMock(side_effect=RuntimeError("boom"))
@@ -1408,7 +1494,11 @@ class TestCubeViewerPresetActivatedWithMolecule:
 
     def test_activation_redraws_molecule_when_set(self, viewer, monkeypatch):
         w, ctx = viewer
-        monkeypatch.setattr(_cube_adv.QInputDialog, "getText", staticmethod(lambda *a, **kw: ("Preset1", True)))
+        monkeypatch.setattr(
+            _cube_adv.QInputDialog,
+            "getText",
+            staticmethod(lambda *a, **kw: ("Preset1", True)),
+        )
         w.save_preset()
         ctx.current_molecule = MagicMock()
         idx = w.combo_presets.findText("Preset1")
@@ -1418,7 +1508,11 @@ class TestCubeViewerPresetActivatedWithMolecule:
 
     def test_activation_mol_redraw_exception_is_caught(self, viewer, monkeypatch):
         w, ctx = viewer
-        monkeypatch.setattr(_cube_adv.QInputDialog, "getText", staticmethod(lambda *a, **kw: ("Preset2", True)))
+        monkeypatch.setattr(
+            _cube_adv.QInputDialog,
+            "getText",
+            staticmethod(lambda *a, **kw: ("Preset2", True)),
+        )
         w.save_preset()
         ctx.current_molecule = MagicMock()
         ctx.draw_molecule_3d.side_effect = RuntimeError("boom")

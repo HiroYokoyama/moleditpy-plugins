@@ -401,7 +401,13 @@ class TestMSProfileLocalMaxima:
     def test_merged_curve_gives_single_apex(self, qapp):
         # Two overlapping components already summed into one hump
         h = _ms_neo.HistogramWidget(
-            [(100.0, 10.0), (100.1, 80.0), (100.15, 100.0), (100.2, 80.0), (100.3, 10.0)]
+            [
+                (100.0, 10.0),
+                (100.1, 80.0),
+                (100.15, 100.0),
+                (100.2, 80.0),
+                (100.3, 10.0),
+            ]
         )
         assert h._profile_local_maxima() == [(100.15, 100.0)]
         h.destroy()
@@ -463,6 +469,7 @@ class TestMSExport:
         assert list(tmp_path.iterdir()) == []
         d.destroy()
 
+
 class TestMSGaussianBroadening:
     def test_zero_sigma_does_not_crash(self, qapp):
         """Regression for zero division error when sigma is extremely small or 0"""
@@ -473,7 +480,7 @@ class TestMSGaussianBroadening:
         result = d.apply_gaussian_broadening(peaks, 0.0)
         assert result is not None
         d.destroy()
-        
+
     def test_spinbox_decimals(self, qapp):
         d, ctx = _make_dlg()
         # The spinbox should allow 3 decimals so 0.001 doesn't get rounded to 0.00
@@ -505,7 +512,9 @@ class TestMSCheckUpdateReal:
         d.destroy()
         mw.destroy()
 
-    def test_falls_back_to_current_molecule_without_state_manager(self, qapp, monkeypatch):
+    def test_falls_back_to_current_molecule_without_state_manager(
+        self, qapp, monkeypatch
+    ):
         monkeypatch.setattr(_ms_neo, "Chem", _FakeChem)
         mw = _ms_neo.QWidget()  # no state_manager attr
         fakemol = SimpleNamespace(formula="H2O")
@@ -688,14 +697,14 @@ class TestMSExportImage:
         assert list(tmp_path.iterdir()) == []
         d.destroy()
 
-    def test_export_image_save_failure_shows_critical(self, qapp, tmp_path, monkeypatch):
+    def test_export_image_save_failure_shows_critical(
+        self, qapp, tmp_path, monkeypatch
+    ):
         d, ctx = _make_dlg()
         monkeypatch.setattr(
             _ms_neo.QFileDialog,
             "getSaveFileName",
-            staticmethod(
-                lambda *a, **k: (str(tmp_path / "no_such_dir" / "x.png"), "")
-            ),
+            staticmethod(lambda *a, **k: (str(tmp_path / "no_such_dir" / "x.png"), "")),
         )
         crit_calls = []
         monkeypatch.setattr(

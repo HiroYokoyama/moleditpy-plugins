@@ -720,7 +720,9 @@ class CubeViewerWidget(QWidget):
                         try:
                             self.load_env_texture(path)
                         except Exception as e:
-                            logging.warning("Failed to restore texture from settings: %s", e)
+                            logging.warning(
+                                "Failed to restore texture from settings: %s", e
+                            )
                             # Do NOT clear the path; let user retry or see the error
                     elif not path:
                         # 3. SYNC: If no specific path is saved for this instance, check if the renderer
@@ -737,7 +739,10 @@ class CubeViewerWidget(QWidget):
                         ):
                             shared_path = adv_viewer.env_texture_path
                             if os.path.exists(shared_path) and " " not in shared_path:
-                                logging.debug("Syncing texture from Advanced Renderer: %s", shared_path)
+                                logging.debug(
+                                    "Syncing texture from Advanced Renderer: %s",
+                                    shared_path,
+                                )
                                 self.line_env_path.setText(shared_path)
                                 self.env_texture_path = shared_path
                                 try:
@@ -1102,7 +1107,9 @@ class CubeViewerWidget(QWidget):
         # Removed MessageBox as requested by user
         if checked and not self.env_texture_path:
             # Just print to console or set status tip if needed, but avoid popup
-            logging.info("PBR enabled without environment texture. Surfaces may appear dark.")
+            logging.info(
+                "PBR enabled without environment texture. Surfaces may appear dark."
+            )
 
         self.update_iso()
 
@@ -1348,13 +1355,17 @@ class CubeViewerWidget(QWidget):
             try:
                 self.plotter.disable_eye_dome_lighting()
             except Exception as _e:
-                logging.warning("[cube_viewer_advanced.py:_enforce_scene_state] silenced: %s", _e)
+                logging.warning(
+                    "[cube_viewer_advanced.py:_enforce_scene_state] silenced: %s", _e
+                )
 
         if shadows_were_enabled:
             try:
                 self.plotter.disable_shadows()
             except Exception as _e:
-                logging.warning("[cube_viewer_advanced.py:_enforce_scene_state] silenced: %s", _e)
+                logging.warning(
+                    "[cube_viewer_advanced.py:_enforce_scene_state] silenced: %s", _e
+                )
 
         # Redraw molecule 3D and orbital
         mol = self.context.current_molecule
@@ -1387,8 +1398,9 @@ class CubeViewerWidget(QWidget):
         try:
             self.plotter.render()
         except Exception as _e:
-            logging.warning("[cube_viewer_advanced.py:_enforce_scene_state] silenced: %s", _e)
-
+            logging.warning(
+                "[cube_viewer_advanced.py:_enforce_scene_state] silenced: %s", _e
+            )
 
     def on_texture_path_entered(self):
         path = self.line_env_path.text().strip()
@@ -1464,7 +1476,6 @@ class CubeViewerWidget(QWidget):
             "light_intensity": self.light_intensity,
             "smooth_shading": self.check_smooth.isChecked(),
             "style": self.combo_style.currentText(),
-            "env_texture_path": self.env_texture_path,  # Ensure save
         }
 
         self.presets[name] = current_data
@@ -1727,7 +1738,9 @@ class CubeViewerWidget(QWidget):
                 try:
                     self.plotter.set_environment_texture(None)
                 except Exception:
-                    logging.warning("Could not clear environment texture (set_environment_texture(None) failed).")
+                    logging.warning(
+                        "Could not clear environment texture (set_environment_texture(None) failed)."
+                    )
 
             self.env_texture_path = ""
             self.line_env_path.clear()
@@ -1753,8 +1766,12 @@ class CubeViewerWidget(QWidget):
         px = QPixmap(path)
         if not px.isNull():
             label.setPixmap(
-                px.scaled(56, 40, Qt.AspectRatioMode.KeepAspectRatio,
-                           Qt.TransformationMode.SmoothTransformation)
+                px.scaled(
+                    56,
+                    40,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
             )
             label.setToolTip(path)
         else:
@@ -2115,7 +2132,7 @@ def open_cube_viewer(context, file_path):
                     rdDetermineBonds.DetermineConnectivity(mol, charge=current_charge)
                     rdDetermineBonds.DetermineBondOrders(mol, charge=current_charge)
                     break  # Success
-                except Exception as e:
+                except Exception:
                     # Show Dialog
                     dlg = ChargeDialog(main_window, current_charge)
                     if dlg.exec() == QDialog.DialogCode.Accepted:

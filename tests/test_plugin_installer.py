@@ -1977,20 +1977,26 @@ class TestVersionFromPyprojectText:
         assert PI._version_from_pyproject_text(text) is None
 
     def test_accepts_single_quotes_and_no_spaces(self):
-        assert PI._version_from_pyproject_text("[project]\nversion='1.2.3'\n") == "1.2.3"
+        assert (
+            PI._version_from_pyproject_text("[project]\nversion='1.2.3'\n") == "1.2.3"
+        )
 
     def test_ignores_keys_that_merely_start_with_version(self):
         text = '[project]\nversion_scheme = "calver"\nversion = "1.0.0"\n'
         assert PI._version_from_pyproject_text(text) == "1.0.0"
 
     def test_rejects_unknown_placeholder(self):
-        assert PI._version_from_pyproject_text('[project]\nversion = "Unknown"\n') is None
+        assert (
+            PI._version_from_pyproject_text('[project]\nversion = "Unknown"\n') is None
+        )
 
     def test_rejects_empty_value(self):
         assert PI._version_from_pyproject_text('[project]\nversion = ""\n') is None
 
     def test_returns_none_without_a_project_table(self):
-        assert PI._version_from_pyproject_text("[tool.black]\nline-length = 88\n") is None
+        assert (
+            PI._version_from_pyproject_text("[tool.black]\nline-length = 88\n") is None
+        )
 
     def test_returns_none_for_empty_text(self):
         assert PI._version_from_pyproject_text("") is None

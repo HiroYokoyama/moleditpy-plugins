@@ -576,7 +576,7 @@
     ],
     "downloadUrl": "../plugins/MS_Spectrum_Simulation_Neo/ms_spectrum_neo.py",
     "lastUpdated": "2026-07-29",
-    "sha256": "555737e59c8f40a7184c89fc46f1c370b4f6349f8db0f94b8d714fc357f1ced3",
+    "sha256": "b80e55e4fb54dc31563d1e99abe044d437477b71dc83831bccbd1b878e93cb9a",
     "firstAppeared": "2025-12-18",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1465,7 +1465,7 @@
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer_Advanced/cube_viewer_advanced.py",
     "lastUpdated": "2026-07-29",
-    "sha256": "130ad4e56491ca27bb1a93fd4a560d1213bcde83852bcebd6e4789cca6c349d0",
+    "sha256": "5b8c3879249c385a7a06e616a262a21907181582e8125f3a523402cee365e597",
     "firstAppeared": "2026-02-02",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

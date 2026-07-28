@@ -46,7 +46,12 @@ class TestParseFormulaStr:
         assert _parse_formula_str(None, "NaCl") == {"Na": 1, "Cl": 1}
 
     def test_caffeine(self):
-        assert _parse_formula_str(None, "C8H10N4O2") == {"C": 8, "H": 10, "N": 4, "O": 2}
+        assert _parse_formula_str(None, "C8H10N4O2") == {
+            "C": 8,
+            "H": 10,
+            "N": 4,
+            "O": 2,
+        }
 
     def test_empty_returns_falsy(self):
         result = _parse_formula_str(None, "")
@@ -110,8 +115,6 @@ class TestGetAdductDelta:
         assert _get_adduct_delta(None, 3, "Negative", 1) == {"C": 1, "H": 1, "O": 2}
 
 
-
-
 # ---------------------------------------------------------------------------
 # Gaussian broadening (requires real numpy)
 # ---------------------------------------------------------------------------
@@ -137,7 +140,9 @@ def _make_function(src: str, namespace: dict):
 class TestGaussianBroadening:
     def _fn(self):
         pytest.importorskip("numpy")
-        src = _extract_method_source(MS_PATH, "MSSpectrumDialog", "apply_gaussian_broadening")
+        src = _extract_method_source(
+            MS_PATH, "MSSpectrumDialog", "apply_gaussian_broadening"
+        )
         return _make_function(src, {})
 
     def test_empty_peaks_returns_empty(self):
@@ -306,9 +311,7 @@ class TestCalculatePeaksNeutralMass:
         assert peaks == []
         assert ion_mz == 0.0
         assert avg_mw == pytest.approx(1.008 * 2 + 15.999, abs=1e-6)
-        assert exact_mw == pytest.approx(
-            2 * 1.0078250319 + 15.9949146221, abs=1e-6
-        )
+        assert exact_mw == pytest.approx(2 * 1.0078250319 + 15.9949146221, abs=1e-6)
 
     def test_dimethyl_ether_parentheses_average_mass(self):
         # (CH3)2O -> C2H6O; exercises parenthesis-multiplier parsing feeding
@@ -323,9 +326,7 @@ class TestCalculatePeaksNeutralMass:
         fake = _FakeDialogForPeaks("D2O", charge=0)
         _peaks, avg_mw, exact_mw, _ion_mz = _calculate_peaks(fake)
         assert avg_mw == pytest.approx(2 * 2.0141017781 + 15.999, abs=1e-6)
-        assert exact_mw == pytest.approx(
-            2 * 2.0141017781 + 15.9949146221, abs=1e-6
-        )
+        assert exact_mw == pytest.approx(2 * 2.0141017781 + 15.9949146221, abs=1e-6)
 
     def test_unrecognized_element_returns_empty(self):
         fake = _FakeDialogForPeaks("Xx2", charge=0)
@@ -553,9 +554,13 @@ class TestHistogramPan:
     def test_drag_right_shifts_view_left(self):
         w = _FakeHistogramWidget()
         w.view_min, w.view_max = 0.0, 100.0
-        _mouse_press_event(w, _FakeMouseEvent(x=300, button=_FakeQt.MouseButton.LeftButton))
+        _mouse_press_event(
+            w, _FakeMouseEvent(x=300, button=_FakeQt.MouseButton.LeftButton)
+        )
         assert w.last_mouse_x == 300
-        _mouse_move_event(w, _FakeMouseEvent(x=350, button=_FakeQt.MouseButton.LeftButton))
+        _mouse_move_event(
+            w, _FakeMouseEvent(x=350, button=_FakeQt.MouseButton.LeftButton)
+        )
         # Dragging right (dx > 0) pans the view left (both bounds decrease).
         assert w.view_min < 0.0
         assert w.view_max < 100.0
