@@ -1943,3 +1943,257 @@ def test_registry_all_visible_have_python_spec():
     assert not hidden_with, (
         f"Hidden entries should not carry supported_python_version: {hidden_with}"
     )
+
+
+# ---------------------------------------------------------------------------
+# pyproject.toml parsing (source-checkout version fallback)
+# ---------------------------------------------------------------------------
+
+
+class TestVersionFromPyprojectText:
+    def test_reads_project_version(self):
+        text = '[project]\nname = "moleditpy"\nversion = "4.2.0"\n'
+        assert PI._version_from_pyproject_text(text) == "4.2.0"
+
+    def test_ignores_version_in_other_tables(self):
+        """A [tool.*] version belongs to that tool, not to the application.
+
+        Regression: the section filter was dead code, so the first `version =`
+        line anywhere in the file won — here 9.9.9 instead of the real 4.2.0.
+        """
+        text = (
+            '[build-system]\nrequires = ["setuptools"]\n\n'
+            '[tool.commitizen]\nversion = "9.9.9"\n\n'
+            '[project]\nname = "moleditpy"\nversion = "4.2.0"\n'
+        )
+        assert PI._version_from_pyproject_text(text) == "4.2.0"
+
+    def test_ignores_version_after_the_project_table_ends(self):
+        text = '[project]\nname = "x"\n\n[tool.poetry]\nversion = "9.9.9"\n'
+        assert PI._version_from_pyproject_text(text) is None
+
+    def test_ignores_preamble_before_any_table(self):
+        text = 'version = "9.9.9"\n\n[project]\nname = "x"\n'
+        assert PI._version_from_pyproject_text(text) is None
+
+    def test_accepts_single_quotes_and_no_spaces(self):
+        assert PI._version_from_pyproject_text("[project]\nversion='1.2.3'\n") == "1.2.3"
+
+    def test_ignores_keys_that_merely_start_with_version(self):
+        text = '[project]\nversion_scheme = "calver"\nversion = "1.0.0"\n'
+        assert PI._version_from_pyproject_text(text) == "1.0.0"
+
+    def test_rejects_unknown_placeholder(self):
+        assert PI._version_from_pyproject_text('[project]\nversion = "Unknown"\n') is None
+
+    def test_rejects_empty_value(self):
+        assert PI._version_from_pyproject_text('[project]\nversion = ""\n') is None
+
+    def test_returns_none_without_a_project_table(self):
+        assert PI._version_from_pyproject_text("[tool.black]\nline-length = 88\n") is None
+
+    def test_returns_none_for_empty_text(self):
+        assert PI._version_from_pyproject_text("") is None
+
+
+class TestVersionFromPyproject:
+    def _script(self, tmp_path, rel="app/main.py"):
+        script = tmp_path / rel
+        script.parent.mkdir(parents=True, exist_ok=True)
+        script.write_text("# main", encoding="utf-8")
+        return script
+
+    def test_finds_pyproject_next_to_the_script(self, monkeypatch, tmp_path):
+        script = self._script(tmp_path, "main.py")
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nversion = "4.2.0"\n', encoding="utf-8"
+        )
+        monkeypatch.setattr(sys, "argv", [str(script)])
+        assert PI._version_from_pyproject() == "4.2.0"
+
+    def test_walks_up_to_a_parent_directory(self, monkeypatch, tmp_path):
+        script = self._script(tmp_path, "src/app/main.py")
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nversion = "4.3.0"\n', encoding="utf-8"
+        )
+        monkeypatch.setattr(sys, "argv", [str(script)])
+        assert PI._version_from_pyproject() == "4.3.0"
+
+    def test_nearest_pyproject_wins(self, monkeypatch, tmp_path):
+        script = self._script(tmp_path, "src/app/main.py")
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nversion = "1.0.0"\n', encoding="utf-8"
+        )
+        (tmp_path / "src" / "pyproject.toml").write_text(
+            '[project]\nversion = "2.0.0"\n', encoding="utf-8"
+        )
+        monkeypatch.setattr(sys, "argv", [str(script)])
+        assert PI._version_from_pyproject() == "2.0.0"
+
+    def test_stops_after_the_search_depth(self, monkeypatch, tmp_path):
+        deep = tmp_path.joinpath(
+            *[f"d{i}" for i in range(PI._PYPROJECT_SEARCH_DEPTH + 2)]
+        )
+        deep.mkdir(parents=True)
+        script = deep / "main.py"
+        script.write_text("# main", encoding="utf-8")
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nversion = "4.2.0"\n', encoding="utf-8"
+        )
+        monkeypatch.setattr(sys, "argv", [str(script)])
+        monkeypatch.chdir(deep)
+        assert PI._version_from_pyproject() is None
+
+    def test_falls_back_to_the_working_directory(self, monkeypatch, tmp_path):
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nversion = "5.1.0"\n', encoding="utf-8"
+        )
+        monkeypatch.setattr(sys, "argv", [])
+        monkeypatch.chdir(tmp_path)
+        assert PI._version_from_pyproject() == "5.1.0"
+
+    def test_unreadable_pyproject_is_skipped(self, monkeypatch, tmp_path):
+        import builtins
+
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nversion = "4.2.0"\n', encoding="utf-8"
+        )
+        monkeypatch.setattr(sys, "argv", [])
+        monkeypatch.chdir(tmp_path)
+
+        def _boom(*a, **kw):
+            raise OSError("locked")
+
+        monkeypatch.setattr(builtins, "open", _boom)
+        assert PI._version_from_pyproject() is None
+
+    def test_malformed_pyproject_is_skipped(self, monkeypatch, tmp_path):
+        (tmp_path / "pyproject.toml").write_text("not a toml file", encoding="utf-8")
+        monkeypatch.setattr(sys, "argv", [])
+        monkeypatch.chdir(tmp_path)
+        assert PI._version_from_pyproject() is None
+
+    def test_directory_argv_is_handled(self, monkeypatch, tmp_path):
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nversion = "6.0.0"\n', encoding="utf-8"
+        )
+        monkeypatch.setattr(sys, "argv", [str(tmp_path)])  # a dir, not a file
+        assert PI._version_from_pyproject() == "6.0.0"
+
+
+# ---------------------------------------------------------------------------
+# Host-package resolution
+# ---------------------------------------------------------------------------
+
+
+class TestResolveAppPackage:
+    def test_prefers_an_already_imported_package(self, monkeypatch):
+        _fake_pkg(monkeypatch, "moleditpy", "4.9.9")
+        assert PI._resolve_app_package() == "moleditpy"
+
+    def test_finds_the_linux_build(self, monkeypatch):
+        _block_pkg(monkeypatch, "moleditpy")
+        _fake_pkg(monkeypatch, "moleditpy_linux", "4.8.0")
+        assert PI._resolve_app_package() == "moleditpy_linux"
+
+    def test_returns_none_when_nothing_resolves(self, monkeypatch):
+        _block_pkg(monkeypatch, "moleditpy")
+        _block_pkg(monkeypatch, "moleditpy_linux")
+        monkeypatch.setattr(sys, "argv", [])
+        assert PI._resolve_app_package() is None
+
+    def test_adds_source_checkout_dirs_to_sys_path(self, monkeypatch):
+        _block_pkg(monkeypatch, "moleditpy")
+        _block_pkg(monkeypatch, "moleditpy_linux")
+        argv0 = os.path.abspath(
+            os.path.join("fake", "src", "moleditpy_linux", "main.py")
+        )
+        monkeypatch.setattr(sys, "argv", [argv0])
+        fake_path = []
+        monkeypatch.setattr(sys, "path", fake_path)
+
+        PI._resolve_app_package()
+
+        normalized = [os.path.normpath(p) for p in fake_path]
+        assert os.path.dirname(argv0) in normalized
+        assert os.path.dirname(os.path.dirname(argv0)) in normalized
+
+    def test_source_checkout_dirs_are_not_duplicated(self, monkeypatch):
+        _block_pkg(monkeypatch, "moleditpy")
+        _block_pkg(monkeypatch, "moleditpy_linux")
+        argv0 = os.path.abspath(os.path.join("fake", "app", "main.py"))
+        monkeypatch.setattr(sys, "argv", [argv0])
+        fake_path = [os.path.dirname(argv0)]
+        monkeypatch.setattr(sys, "path", fake_path)
+
+        PI._resolve_app_package()
+
+        assert fake_path.count(os.path.dirname(argv0)) == 1
+
+    def test_no_argv_yields_no_source_dirs(self, monkeypatch):
+        monkeypatch.setattr(sys, "argv", [])
+        assert PI._source_checkout_dirs() == []
+
+
+class TestPackageAndVersionAgree:
+    """The distribution name and the version must describe the same build."""
+
+    def _inst(self):
+        return object.__new__(PI.PluginInstallerWindow)
+
+    def test_linux_build_reports_linux_name_and_its_version(self, monkeypatch):
+        _block_pkg(monkeypatch, "moleditpy")
+        _fake_pkg(monkeypatch, "moleditpy_linux", "4.8.0")
+        monkeypatch.delitem(sys.modules, "__main__", raising=False)
+        inst = self._inst()
+        assert inst._get_package_name() == "moleditpy-linux"
+        assert inst.get_app_version() == "4.8.0"
+
+    def test_pypi_build_reports_pypi_name_and_its_version(self, monkeypatch):
+        _fake_pkg(monkeypatch, "moleditpy", "4.9.9")
+        monkeypatch.delitem(sys.modules, "__main__", raising=False)
+        inst = self._inst()
+        assert inst._get_package_name() == "moleditpy"
+        assert inst.get_app_version() == "4.9.9"
+
+    def test_both_present_resolve_to_the_same_package(self, monkeypatch):
+        _fake_pkg(monkeypatch, "moleditpy", "4.9.9")
+        _fake_pkg(monkeypatch, "moleditpy_linux", "4.8.0")
+        monkeypatch.delitem(sys.modules, "__main__", raising=False)
+        inst = self._inst()
+        assert inst._get_package_name() == "moleditpy"
+        assert inst.get_app_version() == "4.9.9"
+
+    def test_package_name_defaults_when_nothing_resolves(self, monkeypatch):
+        _block_pkg(monkeypatch, "moleditpy")
+        _block_pkg(monkeypatch, "moleditpy_linux")
+        monkeypatch.setattr(sys, "argv", [])
+        assert self._inst()._get_package_name() == "moleditpy"
+
+    def test_pyproject_wins_over_a_tool_table_end_to_end(self, monkeypatch, tmp_path):
+        """The whole fallback chain, not just the text parser."""
+        _block_pkg(monkeypatch, "moleditpy")
+        _block_pkg(monkeypatch, "moleditpy_linux")
+        fake_main = types.ModuleType("__main__")
+        fake_main.VERSION = "Unknown"
+        monkeypatch.setitem(sys.modules, "__main__", fake_main)
+
+        (tmp_path / "pyproject.toml").write_text(
+            '[tool.commitizen]\nversion = "9.9.9"\n\n[project]\nversion = "4.2.0"\n',
+            encoding="utf-8",
+        )
+        script = tmp_path / "main.py"
+        script.write_text("# main", encoding="utf-8")
+        monkeypatch.setattr(sys, "argv", [str(script)])
+
+        assert self._inst().get_app_version() == "4.2.0"
+
+
+class TestIsUsableVersion:
+    def test_accepts_a_real_version(self):
+        assert PI._is_usable_version("4.2.0")
+
+    def test_rejects_unknown_none_and_empty(self):
+        assert not PI._is_usable_version("Unknown")
+        assert not PI._is_usable_version(None)
+        assert not PI._is_usable_version("")

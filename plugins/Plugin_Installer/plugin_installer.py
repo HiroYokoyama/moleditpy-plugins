@@ -45,7 +45,7 @@ import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.07.26"
+PLUGIN_VERSION = "2026.07.29"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_SUPPORTED_PYTHON_VERSION = ">=3.9, <3.15"
 PLUGIN_SUPPORTED_OS = ["Windows", "macOS", "Linux", "WSL"]
@@ -85,6 +85,130 @@ def _mark_startup_check_performed() -> None:
     app = QApplication.instance()
     if app is not None:
         app.setProperty(_STARTUP_CHECK_PROP, True)
+
+
+# --- Host app identification -----------------------------------------------
+# Import name -> PyPI distribution name. Order matters: the first one that
+# resolves wins, and both the package name and the version must come from the
+# SAME entry or the update check compares one build against the other's version.
+_APP_PACKAGES = {
+    "moleditpy": "moleditpy",
+    "moleditpy_linux": "moleditpy-linux",
+}
+
+#: How far up from the launch directory to look for a pyproject.toml.
+_PYPROJECT_SEARCH_DEPTH = 6
+
+
+def _is_usable_version(value) -> bool:
+    """A version string is usable unless it is empty or the app's 'Unknown'."""
+    return bool(value) and value != "Unknown"
+
+
+def _source_checkout_dirs():
+    """Directories to search when the app runs from a source checkout.
+
+    Launching ``main.py`` from a checkout leaves the package's parent
+    directory off sys.path, so the import below would fail even though the
+    source is right there.
+    """
+    if not (sys.argv and sys.argv[0]):
+        return []
+    try:
+        main_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+    except OSError as e:
+        logging.debug("Plugin Installer: path resolution failed: %s", e)
+        return []
+    return [d for d in (main_dir, os.path.dirname(main_dir)) if d]
+
+
+def _import_app_constants(pkg):
+    """Import ``<pkg>.utils.constants``, returning None when unavailable."""
+    try:
+        return importlib.import_module(f"{pkg}.utils.constants")
+    except ImportError:
+        return None
+
+
+def _resolve_app_package():
+    """Return the import name of the running MoleditPy build, or None.
+
+    Prefers a package the app has already imported, then one that is
+    importable, then one reachable from a source checkout.
+    """
+    for pkg in _APP_PACKAGES:
+        if sys.modules.get(pkg) is not None:
+            return pkg
+
+    for pkg in _APP_PACKAGES:
+        if _import_app_constants(pkg) is not None:
+            return pkg
+
+    for directory in _source_checkout_dirs():
+        if directory not in sys.path:
+            sys.path.append(directory)
+    for pkg in _APP_PACKAGES:
+        if _import_app_constants(pkg) is not None:
+            return pkg
+
+    return None
+
+
+def _version_from_pyproject_text(text):
+    """Return the ``[project] version`` declared in *text*, or None.
+
+    Only the ``[project]`` table is honoured — a ``version`` key under
+    ``[tool.*]`` belongs to that tool, not to the application.
+    """
+    in_project = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("["):
+            in_project = stripped == "[project]"
+            continue
+        if not in_project:
+            continue
+        key, sep, raw = stripped.partition("=")
+        if sep and key.strip() == "version":
+            value = raw.strip().strip('"').strip("'")
+            if _is_usable_version(value):
+                return value
+    return None
+
+
+def _version_from_pyproject():
+    """Search upward from the launch directory for a pyproject.toml version."""
+    starts = []
+    if sys.argv and sys.argv[0]:
+        starts.append(sys.argv[0])
+    starts.append(os.getcwd())
+
+    for base_path in starts:
+        try:
+            curr = os.path.abspath(
+                os.path.dirname(base_path) if os.path.isfile(base_path) else base_path
+            )
+        except OSError:
+            continue
+
+        for _ in range(_PYPROJECT_SEARCH_DEPTH):
+            toml_path = os.path.join(curr, "pyproject.toml")
+            if os.path.exists(toml_path):
+                try:
+                    text = open(toml_path, "r", encoding="utf-8").read()
+                except (OSError, UnicodeDecodeError) as e:
+                    logging.debug(
+                        "Plugin Installer: failed to read %s: %s", toml_path, e
+                    )
+                else:
+                    version = _version_from_pyproject_text(text)
+                    if version is not None:
+                        return version
+            parent = os.path.dirname(curr)
+            if parent == curr:
+                break
+            curr = parent
+    return None
 
 
 def _read_plugin_version_ast(filepath: str) -> str:
@@ -1302,115 +1426,26 @@ class PluginInstallerWindow(QDialog):
             return 0
 
     def _get_package_name(self):
-        if sys.modules.get("moleditpy_linux") is not None:
-            return "moleditpy-linux"
-        if sys.modules.get("moleditpy") is not None:
-            return "moleditpy"
-
-        for pkg, pkg_name in (
-            ("moleditpy", "moleditpy"),
-            ("moleditpy_linux", "moleditpy-linux"),
-        ):
-            try:
-                importlib.import_module(f"{pkg}.utils.constants")
-                return pkg_name
-            except ImportError:
-                pass
-
-        if sys.argv and sys.argv[0]:
-            try:
-                main_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
-                parent_dir = os.path.dirname(main_dir)
-                for d in (main_dir, parent_dir):
-                    if d and d not in sys.path:
-                        sys.path.append(d)
-                for pkg, pkg_name in (
-                    ("moleditpy", "moleditpy"),
-                    ("moleditpy_linux", "moleditpy-linux"),
-                ):
-                    try:
-                        importlib.import_module(f"{pkg}.utils.constants")
-                        return pkg_name
-                    except ImportError:
-                        pass
-            except OSError as e:
-                logging.debug("Plugin Installer: package resolution path error: %s", e)
-
-        return "moleditpy"
+        """PyPI distribution name of the running app (for the update check)."""
+        pkg = _resolve_app_package()
+        return _APP_PACKAGES.get(pkg, "moleditpy")
 
     def get_app_version(self):
         main_mod = sys.modules.get("__main__")
-        if (
-            main_mod
-            and getattr(main_mod, "VERSION", None)
-            and main_mod.VERSION != "Unknown"
-        ):
-            return main_mod.VERSION
+        main_version = getattr(main_mod, "VERSION", None) if main_mod else None
+        if _is_usable_version(main_version):
+            return main_version
 
-        for pkg in ("moleditpy", "moleditpy_linux"):
-            try:
-                mod = importlib.import_module(f"{pkg}.utils.constants")
-                ver = getattr(mod, "VERSION", None)
-                if ver and ver != "Unknown":
-                    return ver
-            except ImportError:
-                pass
+        pkg = _resolve_app_package()
+        if pkg is not None:
+            constants = _import_app_constants(pkg)
+            version = getattr(constants, "VERSION", None) if constants else None
+            if _is_usable_version(version):
+                return version
 
-        if sys.argv and sys.argv[0]:
-            try:
-                main_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
-                parent_dir = os.path.dirname(main_dir)
-                for d in (main_dir, parent_dir):
-                    if d and d not in sys.path:
-                        sys.path.append(d)
-                for pkg in ("moleditpy", "moleditpy_linux"):
-                    try:
-                        mod = importlib.import_module(f"{pkg}.utils.constants")
-                        ver = getattr(mod, "VERSION", None)
-                        if ver and ver != "Unknown":
-                            return ver
-                    except ImportError:
-                        pass
-            except OSError as e:
-                logging.debug("Plugin Installer: path resolution failed: %s", e)
-
-        for base_path in (sys.argv[0] if sys.argv else "", os.getcwd()):
-            if not base_path:
-                continue
-            try:
-                curr = os.path.abspath(
-                    os.path.dirname(base_path)
-                    if os.path.isfile(base_path)
-                    else base_path
-                )
-            except OSError:
-                continue
-
-            for _ in range(6):
-                toml_path = os.path.join(curr, "pyproject.toml")
-                if os.path.exists(toml_path):
-                    try:
-                        with open(toml_path, "r", encoding="utf-8") as f:
-                            in_project_section = False
-                            for line in f:
-                                stripped = line.strip()
-                                if stripped.startswith("["):
-                                    in_project_section = stripped == "[project]"
-                                elif in_project_section or not stripped.startswith("["):
-                                    if stripped.startswith("version =") or stripped.startswith("version="):
-                                        v = stripped.split("=", 1)[1].strip().strip('"').strip("'")
-                                        if v and v != "Unknown":
-                                            return v
-                    except (OSError, UnicodeDecodeError, ValueError) as e:
-                        logging.debug(
-                            "Plugin Installer: failed to parse pyproject.toml at %s: %s",
-                            toml_path,
-                            e,
-                        )
-                parent = os.path.dirname(curr)
-                if parent == curr:
-                    break
-                curr = parent
+        version = _version_from_pyproject()
+        if version is not None:
+            return version
 
         return "0.0.0"
 
