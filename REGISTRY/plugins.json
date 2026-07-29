@@ -42,7 +42,7 @@
     ],
     "downloadUrl": "../plugins/XTB_Optimizer/xtb_optimizer.py",
     "lastUpdated": "2026-07-29",
-    "sha256": "85dfed46637e6eb82111a614d6ab7aa5ced682248a22374c70b5e96f257894b8",
+    "sha256": "e2099f7b75303042e579d90e23b15b5e0ca876c2056b4676ecbf539d52817165",
     "firstAppeared": "2026-07-08",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -591,7 +591,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Gaussian Freq Analyzer",
-    "version": "2026.07.08",
+    "version": "2026.07.29",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Analyzes vibrational frequencies from Gaussian FCHK files. View IR spectrum, animate normal modes, and export GIF animations.",
@@ -607,8 +607,8 @@
       "Pillow"
     ],
     "downloadUrl": "../plugins/Gaussian_Freq_Analyzer/gaussian_fchk_freq_analyzer.py",
-    "lastUpdated": "2026-07-08",
-    "sha256": "8d0d3df79ae0ae00fdc953940d2c051c0ce5b3ead65f45e3419de89f0694f764",
+    "lastUpdated": "2026-07-29",
+    "sha256": "dce9c2da8ab15e413da49e596753dbf09be47a98e33f58b7718561de41fa2959",
     "firstAppeared": "2025-12-20",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

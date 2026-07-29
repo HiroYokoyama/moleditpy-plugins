@@ -33,7 +33,7 @@ except ImportError:
     Chem = None
 
 PLUGIN_NAME = "Gaussian Freq Analyzer"
-PLUGIN_VERSION = "2026.07.08"
+PLUGIN_VERSION = "2026.07.29"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -1050,7 +1050,12 @@ class SpectrumDialog(QDialog):
         layout.addLayout(controls)
         self.setLayout(layout)
 
-        # Initial Plot
+        # Initial Plot.  The spin boxes were populated before their signals
+        # were connected, so nothing has pushed their values into the plot
+        # widget yet — without this the first curve (and any CSV exported from
+        # it) is broadened with the widget's own default rather than the FWHM
+        # the dialog is displaying.
+        self.plot_widget.set_fwhm(float(self.spin_fwhm.value()))
         self.on_range_changed()
 
     def on_fwhm_changed(self, val):

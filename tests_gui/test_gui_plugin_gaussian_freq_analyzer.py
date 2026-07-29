@@ -152,6 +152,16 @@ class TestGaussianSpectrumDialog:
     def test_fwhm_spinbox_default(self, dlg):
         assert dlg.spin_fwhm.value() == 50
 
+    def test_plot_widget_fwhm_matches_the_spinbox(self, dlg):
+        """The displayed FWHM must be the one the curve was built with.
+
+        The spin boxes are populated before their signals are connected, so
+        nothing pushes their values down; the plot widget carried its own
+        default (80) while the dialog showed 50, and a CSV exported without
+        touching the control was broadened with 80.
+        """
+        assert dlg.plot_widget.fwhm == float(dlg.spin_fwhm.value())
+
     def test_min_wavenumber_default(self, dlg):
         assert dlg.spin_min.value() == 0
 
