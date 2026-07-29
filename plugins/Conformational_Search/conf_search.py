@@ -14,11 +14,12 @@ from PyQt6.QtWidgets import (
     QCheckBox,
 )
 from PyQt6.QtCore import Qt
+from rdkit import Chem
 from rdkit.Chem import AllChem
 import copy
 
 PLUGIN_NAME = "Conformational Search"
-PLUGIN_VERSION = "2026.06.20"
+PLUGIN_VERSION = "2026.07.29"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Perform conformational search using RDKit ETKDG."
@@ -157,6 +158,17 @@ class ConformerSearchDialog(QDialog):
         try:
             # 計算用に分子を複製（水素が付加されていることを推奨）
             mol_calc = copy.deepcopy(self.target_mol)
+
+            # ETKDG embeds from the graph, so it follows the chiral tags rather
+            # than the coordinates on screen.  Re-perceive stereochemistry from
+            # the displayed 3D geometry first: without this, a molecule whose
+            # tags are unset yields a mix of both enantiomers, and one whose
+            # tags are stale after a 3D edit yields conformers that are all the
+            # mirror image of what the user is looking at.
+            try:
+                Chem.AssignStereochemistryFrom3D(mol_calc)
+            except (ValueError, RuntimeError):
+                pass
 
             # 1. 配座生成 (ETKDGv3)
             params = AllChem.ETKDGv3()

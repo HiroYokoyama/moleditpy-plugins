@@ -282,6 +282,7 @@ def _run_search_fn(allchem, qmessage=None):
         "ConformerSearchDialog",
         "run_search",
         {
+            "Chem": SimpleNamespace(AssignStereochemistryFrom3D=lambda m: None),
             "AllChem": allchem,
             "QMessageBox": qmessage if qmessage is not None else MagicMock(),
             "QApplication": SimpleNamespace(processEvents=lambda: None),
@@ -710,3 +711,107 @@ class TestConfSearchDefaultForceField:
         )
         fn(self_)
         self_.combo_ff.setCurrentText.assert_not_called()
+
+
+class TestStereochemistryPreservation:
+    """ETKDG embeds from the graph, not from the displayed coordinates.
+
+    Without re-perceiving stereo from 3D first, a molecule with unset chiral
+    tags produces a mix of both enantiomers, and one whose tags went stale
+    after a 3D edit produces conformers that are all the mirror image of what
+    the user is looking at.
+    """
+
+    @staticmethod
+    def _run_search_fn(chem, allchem, calls):
+        return extract_function(
+            CONF_SEARCH_PATH,
+            "ConformerSearchDialog",
+            "run_search",
+            extra_globals={
+                "Chem": chem,
+                "AllChem": allchem,
+                "copy": SimpleNamespace(deepcopy=lambda m: m),
+                "QMessageBox": MagicMock(),
+                "QApplication": SimpleNamespace(processEvents=lambda: None),
+                "PLUGIN_NAME": "Conformational Search",
+            },
+        )
+
+    def _drive(self):
+        calls = []
+        mol = MagicMock(name="mol")
+        chem = SimpleNamespace(
+            AssignStereochemistryFrom3D=lambda m: calls.append(
+                ("assign_from_3d", m)
+            )
+        )
+
+        def embed(m, numConfs=0, params=None):
+            calls.append(("embed", m))
+            return []  # no conformers -> run_search returns early
+
+        allchem = SimpleNamespace(
+            ETKDGv3=lambda: SimpleNamespace(useSmallRingTorsions=False),
+            EmbedMultipleConfs=embed,
+        )
+        fn = self._run_search_fn(chem, allchem, calls)
+        self_ = SimpleNamespace(
+            context=SimpleNamespace(current_mol=mol),
+            target_mol=mol,
+            original_coords=[],
+            btn_run=MagicMock(),
+            lbl_info=MagicMock(),
+            combo_ff=MagicMock(),
+        )
+        fn(self_)
+        return calls, mol
+
+    def test_stereo_is_reperceived_from_3d_before_embedding(self):
+        calls, mol = self._drive()
+        names = [name for name, _ in calls]
+        assert "assign_from_3d" in names, (
+            "run_search must call Chem.AssignStereochemistryFrom3D; without it "
+            "ETKDG follows stale/absent chiral tags and can invert the molecule"
+        )
+        assert names.index("assign_from_3d") < names.index("embed"), (
+            "stereo must be re-perceived BEFORE EmbedMultipleConfs, not after"
+        )
+
+    def test_stereo_is_reperceived_on_the_calculation_copy(self):
+        """It must run on the working copy, never mutate the user's molecule."""
+        calls, mol = self._drive()
+        assigned = [m for name, m in calls if name == "assign_from_3d"]
+        embedded = [m for name, m in calls if name == "embed"]
+        assert assigned == embedded, "the embedded mol must be the one re-perceived"
+
+    def test_stereo_failure_does_not_abort_the_search(self):
+        """A molecule with no conformer must not kill the whole search."""
+        calls = []
+        mol = MagicMock(name="mol")
+
+        def boom(m):
+            calls.append(("assign_from_3d", m))
+            raise ValueError("no conformer")
+
+        chem = SimpleNamespace(AssignStereochemistryFrom3D=boom)
+
+        def embed(m, numConfs=0, params=None):
+            calls.append(("embed", m))
+            return []
+
+        allchem = SimpleNamespace(
+            ETKDGv3=lambda: SimpleNamespace(useSmallRingTorsions=False),
+            EmbedMultipleConfs=embed,
+        )
+        fn = self._run_search_fn(chem, allchem, calls)
+        self_ = SimpleNamespace(
+            context=SimpleNamespace(current_mol=mol),
+            target_mol=mol,
+            original_coords=[],
+            btn_run=MagicMock(),
+            lbl_info=MagicMock(),
+            combo_ff=MagicMock(),
+        )
+        fn(self_)
+        assert [n for n, _ in calls] == ["assign_from_3d", "embed"]
