@@ -112,6 +112,11 @@ class _FakeAtom:
     def GetAtomicNum(self):
         return self._num
 
+    def GetNumRadicalElectrons(self):
+        # Real RDKit atoms always expose this; without it the
+        # derivation raised into the dialog's silent except.
+        return getattr(self, '_radicals', 0)
+
 
 class _FakeConformer:
     def __init__(self, coords):
@@ -183,6 +188,22 @@ class TestPyscfChargeMultReal:
         d = _pyscf.PyscfSetupDialog(parent=None, mol=mol)
         try:
             assert d.mult_spin.value() == 2
+        finally:
+            d.destroy()
+
+    def test_triplet_oxygen_is_not_a_singlet(self, qapp, monkeypatch):
+        """O2 has an even electron count but two unpaired electrons.
+
+        Parity alone called it a singlet, so the generated input file asked
+        for a closed-shell calculation on a triplet ground state.
+        """
+        a1, a2 = _FakeAtom("O", 8), _FakeAtom("O", 8)
+        a1._radicals = a2._radicals = 1
+        mol = _FakeMol([a1, a2], [(0, 0, 0), (0, 0, 1.2)])
+        monkeypatch.setattr(_pyscf.Chem, "GetFormalCharge", lambda mol: 0)
+        d = _pyscf.PyscfSetupDialog(parent=None, mol=mol)
+        try:
+            assert d.mult_spin.value() == 3
         finally:
             d.destroy()
 

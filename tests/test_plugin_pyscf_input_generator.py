@@ -119,6 +119,11 @@ class FakeAtom:
     def GetAtomicNum(self):
         return self._num
 
+    def GetNumRadicalElectrons(self):
+        # Real RDKit atoms always expose this; the fakes did not,
+        # so the derivation raised into a silent except.
+        return getattr(self, '_radicals', 0)
+
     def HasProp(self, key):
         return key in self._props
 
@@ -372,8 +377,14 @@ class _MolWithAtoms:
     def __init__(self, atomic_nums):
         self._nums = atomic_nums
 
+    def __init_radicals__(self):
+        pass
+
     def GetAtoms(self):
-        return [FakeAtom("X", n) for n in self._nums]
+        atoms = [FakeAtom("X", n) for n in self._nums]
+        for a, r in zip(atoms, getattr(self, "_rads", [])):
+            a._radicals = r
+        return atoms
 
 
 class TestPyscfInitialChargeMult:
@@ -390,6 +401,28 @@ class TestPyscfInitialChargeMult:
         fake.mult_spin = _ValueRecorder()
         fn(fake)
         return fake
+
+    def test_triplet_is_not_reported_as_a_singlet(self):
+        """O2 has an even electron count but two unpaired electrons.
+
+        Deriving multiplicity from parity alone called it a singlet.
+        """
+        mol = _MolWithAtoms([8, 8])
+        mol._rads = [1, 1]
+        fake = self._run(mol, 0)
+        assert fake.mult_spin.set_values == [3]
+
+    def test_carbene_is_a_triplet(self):
+        mol = _MolWithAtoms([6, 1, 1])
+        mol._rads = [2, 0, 0]
+        fake = self._run(mol, 0)
+        assert fake.mult_spin.set_values == [3]
+
+    def test_impossible_pairing_is_reconciled_by_parity(self):
+        """An odd electron count can never be a singlet."""
+        mol = _MolWithAtoms([26])  # Fe, 26 electrons, charge +3 -> 23
+        fake = self._run(mol, 3)
+        assert fake.mult_spin.set_values[0] % 2 == 0
 
     def test_even_electrons_singlet(self):
         fake = self._run(_MolWithAtoms([8, 1, 1]), 0)

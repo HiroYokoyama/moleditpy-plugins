@@ -110,6 +110,11 @@ class _FakeAtom:
     def GetAtomicNum(self):
         return self._num
 
+    def GetNumRadicalElectrons(self):
+        # Real RDKit atoms always expose this; without it the
+        # derivation raised into the dialog's silent except.
+        return getattr(self, '_radicals', 0)
+
 
 class _FakeConformer:
     def __init__(self, coords):

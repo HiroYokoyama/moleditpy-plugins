@@ -23,7 +23,7 @@ from rdkit import Chem
 import logging
 
 PLUGIN_NAME = "NWChem Input Generator"
-PLUGIN_VERSION = "2026.07.08"
+PLUGIN_VERSION = "2026.07.30"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Generate NWChem input files for quantum chemistry calculations."
@@ -202,11 +202,17 @@ class NwchemSetupDialog(QDialog):
             self.charge_spin.setValue(charge)
 
             total_electrons = 0
+            unpaired = 0
             for atom in self.mol.GetAtoms():
                 total_electrons += atom.GetAtomicNum()
+                unpaired += atom.GetNumRadicalElectrons()
             total_electrons -= charge
 
-            mult = 1 if total_electrons % 2 == 0 else 2
+            # Explicit radicals set the multiplicity; parity only settles what they
+            # leave open. Deriving from parity alone wrote triplet O2 as a singlet.
+            if (total_electrons - unpaired) % 2 != 0:
+                unpaired = unpaired + 1 if unpaired == 0 else unpaired - 1
+            mult = unpaired + 1
             self.mult_spin.setValue(mult)
         except Exception as _e:
             logging.warning("[nwchem_input_generator.py:169] silenced: %s", _e)

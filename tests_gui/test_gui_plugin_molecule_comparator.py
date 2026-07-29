@@ -425,6 +425,11 @@ class _WAtom:
     def GetAtomicNum(self):
         return self._z
 
+    def GetNumRadicalElectrons(self):
+        # Real RDKit atoms always expose this; without it the
+        # derivation raised into the dialog's silent except.
+        return getattr(self, '_radicals', 0)
+
 
 class _WMol:
     """Minimal fake rdkit Mol for AlignmentWorker.run()."""
@@ -1222,6 +1227,11 @@ class _VAtom:
 
     def GetAtomicNum(self):
         return self._z
+
+    def GetNumRadicalElectrons(self):
+        # Real RDKit atoms always expose this; without it the
+        # derivation raised into the dialog's silent except.
+        return getattr(self, '_radicals', 0)
 
 
 class _VMol:

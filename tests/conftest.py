@@ -286,6 +286,11 @@ class FakeAtom:
     def GetMass(self):
         return self._MASSES.get(self.symbol, 12.011)
 
+    def GetNumRadicalElectrons(self):
+        # Real RDKit atoms always expose this. Tests that need an open
+        # shell set _radicals on the instance.
+        return getattr(self, "_radicals", 0)
+
 
 class FakeBond:
     def __init__(self, begin_atom, end_atom, bond_type):

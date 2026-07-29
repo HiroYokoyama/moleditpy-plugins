@@ -131,6 +131,11 @@ class _NPAtom:
     def GetAtomicNum(self):
         return self._z
 
+    def GetNumRadicalElectrons(self):
+        # Real RDKit atoms always expose this; without it the
+        # derivation raised into the dialog's silent except.
+        return getattr(self, '_radicals', 0)
+
     def GetMass(self):
         return self._MASSES.get(self._z, 12.011)
 

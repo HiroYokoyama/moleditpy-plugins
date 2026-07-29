@@ -118,6 +118,11 @@ class FakeAtom:
     def GetAtomicNum(self):
         return self._num
 
+    def GetNumRadicalElectrons(self):
+        # Real RDKit atoms always expose this; the fakes did not,
+        # so the derivation raised into a silent except.
+        return getattr(self, '_radicals', 0)
+
     def HasProp(self, key):
         return key in self._props
 
