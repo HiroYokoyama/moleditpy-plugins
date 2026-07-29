@@ -38,7 +38,7 @@ except ImportError:
     Geometry = None
     rdDetermineBonds = None
 
-PLUGIN_VERSION = "2026.07.08"
+PLUGIN_VERSION = "2026.07.29"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Visualize Gaussian cube files (electron density, MOs)."
@@ -100,6 +100,23 @@ def parse_cube_data(filename):
             x, y, z = 0.0, 0.0, 0.0
         atoms.append((atomic_num, np.array([x, y, z])))
 
+    # A negative atom count means the file carries several data sets.  The
+    # line after the atom block gives how many and their orbital IDs, and the
+    # values that follow are interleaved point by point -- not concatenated.
+    n_datasets = 1
+    if n_atoms_raw < 0:
+        try:
+            parts = lines[current_line].split()
+            n_datasets = max(1, int(parts[0]))
+            consumed = len(parts) - 1
+            current_line += 1
+            # The ID list wraps onto further lines when there are many.
+            while consumed < n_datasets and current_line < len(lines):
+                consumed += len(lines[current_line].split())
+                current_line += 1
+        except Exception:
+            n_datasets = 1
+
     # --- Volumetric Data Parsing ---
 
     # Skip metadata lines (e.g. "1 150") before data starts
@@ -134,7 +151,8 @@ def parse_cube_data(filename):
     except Exception:
         data_values = np.array([])
 
-    expected_size = nx * ny * nz
+    n_points = nx * ny * nz
+    expected_size = n_points * n_datasets
     actual_size = len(data_values)
 
     # FIX: Trim from START if excess > 0 (The header values are at the start)
@@ -145,6 +163,11 @@ def parse_cube_data(filename):
     elif actual_size < expected_size:
         pad = np.zeros(expected_size - actual_size)
         data_values = np.concatenate((data_values, pad))
+
+    if n_datasets > 1:
+        # Take the first data set. Slicing the mixed stream instead returned a
+        # value that belonged to neither orbital.
+        data_values = data_values.reshape(n_points, n_datasets)[:, 0]
 
     return {
         "atoms": atoms,

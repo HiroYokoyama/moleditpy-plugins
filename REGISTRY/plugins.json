@@ -184,7 +184,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Cube File Viewer",
-    "version": "2026.07.08",
+    "version": "2026.07.29",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes Gaussian Cube files (.cube) containing volumetric data (e.g., orbitals, densities).",
@@ -197,8 +197,8 @@
       "numpy"
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer/cube_viewer.py",
-    "lastUpdated": "2026-07-08",
-    "sha256": "cdd4ed1893b48950a779ba155f6ccfc3b76d31128fb737ad2c41e0c844d1be16",
+    "lastUpdated": "2026-07-29",
+    "sha256": "b5172a99055d7c97f773ab413647c417b72ed9886266fcf3b3bf6b63cf61cb88",
     "firstAppeared": "2025-12-15",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -479,7 +479,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Mapped Cube Viewer",
-    "version": "2026.06.27",
+    "version": "2026.07.29",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes a property (e.g. ESP) mapped onto an isosurface (e.g. electron density) from two Cube files.",
@@ -494,8 +494,8 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/Mapped_Cube_Viewer/mapped_cube_viewer.py",
-    "lastUpdated": "2026-06-27",
-    "sha256": "c70d549009fced17215ced8f6ec4a1ef30e226431b40e1737a8f4dce33700c52",
+    "lastUpdated": "2026-07-29",
+    "sha256": "f9a6d200f3351aff9186350fa7d28b6d80344df52e050000b165944207b0092f",
     "firstAppeared": "2025-12-17",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1266,7 +1266,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Gaussian MO Analyzer",
-    "version": "2026.07.17",
+    "version": "2026.07.29",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes Molecular Orbitals from Gaussian FCHK files by generating Cube files. The current implementation supports S, P, D, and F shells",
@@ -1283,8 +1283,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Gaussian_MO_Analyzer/gaussian_fchk_mo_analyzer.zip",
-    "lastUpdated": "2026-07-17",
-    "sha256": "8bec6f98546c36ebb54aabf4792f925d24507b16161d476091c17d8adda79a93",
+    "lastUpdated": "2026-07-29",
+    "sha256": "24e604868d9c45a9bf4d8ddc09e5277ffc2ffe4be8b26bb5e34f0dc5834b8fdd",
     "firstAppeared": "2026-01-23",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1465,7 +1465,7 @@
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer_Advanced/cube_viewer_advanced.py",
     "lastUpdated": "2026-07-29",
-    "sha256": "5b8c3879249c385a7a06e616a262a21907181582e8125f3a523402cee365e597",
+    "sha256": "2b4172e07c344451a956e0b641c36065582c9d9151594864bf86c21f48ad78c9",
     "firstAppeared": "2026-02-02",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

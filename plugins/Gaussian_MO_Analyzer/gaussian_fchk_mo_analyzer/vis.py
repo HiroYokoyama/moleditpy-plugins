@@ -47,11 +47,13 @@ class CubeVisualizer:
 
         # Data starts after atoms
         start_line = 6 + n_atoms
+        n_datasets = 1
         if n_atoms_raw < 0:
             # Negative atom count flags an MO cube (Gaussian convention):
             # a DSET_IDS block (count + that many ids, possibly wrapped
             # over several lines) sits between the atoms and the data.
             n_ids = int(lines[start_line].split()[0])
+            n_datasets = max(1, n_ids)
             consumed = len(lines[start_line].split()) - 1
             start_line += 1
             while consumed < n_ids:
@@ -59,6 +61,13 @@ class CubeVisualizer:
                 start_line += 1
         full_str = " ".join(lines[start_line:])
         data = np.array(full_str.split(), dtype=float)
+
+        # With several data sets the values are interleaved point by point, so
+        # the stream is n_datasets times too long. Reshaping it straight to
+        # (nx, ny, nz) raises; take the first set instead.
+        n_points = abs(nx) * abs(ny) * abs(nz)
+        if n_datasets > 1 and data.size >= n_points * n_datasets:
+            data = data[: n_points * n_datasets].reshape(n_points, n_datasets)[:, 0]
 
         return {
             "dims": (abs(nx), abs(ny), abs(nz)),
