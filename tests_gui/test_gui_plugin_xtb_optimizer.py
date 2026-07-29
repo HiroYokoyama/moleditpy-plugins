@@ -123,9 +123,11 @@ class TestXtbOptimizerDialog:
         assert dlg.lbl_status.text() == "Stopped: Cancelled by user."
         assert dlg.btn_run.isEnabled()
 
-    def test_finished_success_applies_coordinates(self, dlg):
+    def test_finished_success_applies_coordinates(self, dlg, no_msgbox):
         mol = MagicMock()
+        mol.GetNumAtoms.return_value = 2
         dlg.context.current_mol = mol
+        dlg._run_mol = mol
         dlg._step_count = 12
         dlg._on_finished(True, [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]])
         conf = mol.GetConformer.return_value
@@ -133,6 +135,22 @@ class TestXtbOptimizerDialog:
         dlg.context.refresh_3d_view.assert_called_once()
         dlg.context.push_undo_checkpoint.assert_called_once()
         assert "complete" in dlg.lbl_status.text()
+
+    def test_finished_discards_when_molecule_swapped(self, dlg, no_msgbox):
+        """A swap mid-run must not write into the newly loaded molecule.
+
+        SetAtomPosition accepts an out-of-range index silently, so without
+        this guard the other molecule's coordinates were overwritten and
+        committed by push_undo_checkpoint().
+        """
+        optimised, other = MagicMock(), MagicMock()
+        optimised.GetNumAtoms.return_value = 2
+        other.GetNumAtoms.return_value = 12
+        dlg._run_mol = optimised
+        dlg.context.current_mol = other
+        dlg._on_finished(True, [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]])
+        other.GetConformer.assert_not_called()
+        dlg.context.push_undo_checkpoint.assert_not_called()
 
     def test_finished_success_with_unloaded_molecule(self, dlg):
         dlg.context.current_mol = None
@@ -386,6 +404,9 @@ class TestXtbOptimizerDialogFullLifecycle:
             a = MagicMock()
             a.GetSymbol.return_value = sym
             a.GetIdx.return_value = i
+            # Explicit: a MagicMock would sum() to a truthy value and
+            # trip the implicit-hydrogen guard into a blocking modal.
+            a.GetNumImplicitHs.return_value = 0
             atoms.append(a)
         mol = MagicMock()
         mol.GetNumConformers.return_value = 1
@@ -416,7 +437,7 @@ class TestXtbOptimizerDialogFullLifecycle:
         monkeypatch.setitem(sys.modules, "rdkit", fake_rdkit)
         monkeypatch.setitem(sys.modules, "rdkit.Chem", fake_chem)
 
-    def test_on_run_gathers_atoms_and_starts_worker(self, dlg, monkeypatch):
+    def test_on_run_gathers_atoms_and_starts_worker(self, dlg, monkeypatch, no_msgbox):
         self._install_fake_rdkit_chem(monkeypatch)
         started = []
         monkeypatch.setattr(_xtb.XtbWorker, "start", lambda self: started.append(self))
@@ -460,11 +481,13 @@ class TestXtbOptimizerDialogFullLifecycle:
         dlg._worker = None
         dlg._on_cancel()  # must not raise
 
-    def test_finished_apply_exception_reports_status(self, dlg):
+    def test_finished_apply_exception_reports_status(self, dlg, no_msgbox):
         mol = MagicMock()
+        mol.GetNumAtoms.return_value = 1
         conf = mol.GetConformer.return_value
         conf.SetAtomPosition.side_effect = ValueError("boom")
         dlg.context.current_mol = mol
+        dlg._run_mol = mol
         dlg._on_finished(True, [[0.0, 0.0, 0.0]])
         assert "Error applying coordinates" in dlg.lbl_status.text()
 

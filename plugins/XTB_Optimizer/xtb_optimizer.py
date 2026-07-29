@@ -416,19 +416,6 @@ class XtbOptimizerDialog(QDialog):
             )
             return
 
-        # Implicit hydrogens have no coordinates, so they would simply be absent
-        # from the structure handed to xTB -- ethanol would be optimised as a
-        # bare C-C-O fragment, and it would "succeed".
-        implicit_h = sum(atom.GetNumImplicitHs() for atom in mol.GetAtoms())
-        if implicit_h:
-            QMessageBox.warning(
-                self, PLUGIN_NAME,
-                f"The molecule has {implicit_h} implicit hydrogen(s), which have "
-                "no 3D coordinates and would be left out of the calculation.\n\n"
-                "Add explicit hydrogens before optimizing."
-            )
-            return
-
         # Gather atom data from the RDKit molecule
         conf = mol.GetConformer()
         numbers = []
@@ -436,6 +423,22 @@ class XtbOptimizerDialog(QDialog):
         try:
             from rdkit.Chem import GetPeriodicTable
             pt = GetPeriodicTable()
+
+            # Implicit hydrogens have no coordinates, so they would simply be
+            # absent from the structure handed to xTB -- ethanol would be
+            # optimised as a bare C-C-O fragment, and it would "succeed".
+            # Inside the try: reading a corrupt molecule must still report
+            # "Failed to read molecule" rather than raise out of the slot.
+            implicit_h = sum(atom.GetNumImplicitHs() for atom in mol.GetAtoms())
+            if implicit_h:
+                QMessageBox.warning(
+                    self, PLUGIN_NAME,
+                    f"The molecule has {implicit_h} implicit hydrogen(s), which "
+                    "have no 3D coordinates and would be left out of the "
+                    "calculation.\n\nAdd explicit hydrogens before optimizing."
+                )
+                return
+
             for atom in mol.GetAtoms():
                 symbol = atom.GetSymbol()
                 if symbol == "*":
