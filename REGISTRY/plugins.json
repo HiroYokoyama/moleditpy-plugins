@@ -42,7 +42,7 @@
     ],
     "downloadUrl": "../plugins/XTB_Optimizer/xtb_optimizer.py",
     "lastUpdated": "2026-07-29",
-    "sha256": "f774e0173c3717db8c1d9f7919069dda604accf4f490c42764b1650fbe6e0434",
+    "sha256": "85dfed46637e6eb82111a614d6ab7aa5ced682248a22374c70b5e96f257894b8",
     "firstAppeared": "2026-07-08",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

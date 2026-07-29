@@ -602,3 +602,50 @@ class TestMoleculeSwapGuard:
         ctx = self._finish(mol, mol, [[0.0, 0.0, 0.0]] * 3)
         ctx.push_undo_checkpoint.assert_called_once()
         ctx.refresh_3d_view.assert_called_once()
+
+
+class TestImplicitHydrogenGuard:
+    """Implicit hydrogens have no coordinates and would be silently omitted.
+
+    xTB would optimise the heavy-atom skeleton and report success, so this has
+    to be caught before the run rather than surfacing as a bad geometry.
+    """
+
+    @staticmethod
+    def _run(implicit_counts):
+        fn = extract_function(
+            PLUGIN_PATH,
+            "XtbOptimizerDialog",
+            "_on_run",
+            extra_globals={
+                "PLUGIN_NAME": "xTB Optimizer",
+                "logger": MagicMock(),
+                "QMessageBox": MagicMock(),
+                "QApplication": MagicMock(),
+                "XtbWorker": MagicMock(),
+                "derive_charge_and_multiplicity": lambda m: (0, 1),
+            },
+        )
+        atoms = []
+        for n in implicit_counts:
+            a = MagicMock()
+            a.GetNumImplicitHs.return_value = n
+            a.GetSymbol.return_value = "C"
+            a.GetIdx.return_value = 0
+            atoms.append(a)
+        mol = MagicMock()
+        mol.GetNumConformers.return_value = 1
+        mol.GetAtoms.return_value = atoms
+        self_mock = MagicMock()
+        self_mock.context = MagicMock()
+        self_mock.context.current_mol = mol
+        fn(self_mock)
+        return self_mock, mol
+
+    def test_implicit_hydrogens_block_the_run(self):
+        self_mock, mol = self._run([3, 2, 1])
+        self_mock._set_running.assert_not_called()
+
+    def test_explicit_only_molecule_proceeds(self):
+        self_mock, mol = self._run([0, 0, 0])
+        self_mock._set_running.assert_called()

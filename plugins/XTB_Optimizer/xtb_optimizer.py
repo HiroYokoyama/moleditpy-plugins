@@ -416,6 +416,19 @@ class XtbOptimizerDialog(QDialog):
             )
             return
 
+        # Implicit hydrogens have no coordinates, so they would simply be absent
+        # from the structure handed to xTB -- ethanol would be optimised as a
+        # bare C-C-O fragment, and it would "succeed".
+        implicit_h = sum(atom.GetNumImplicitHs() for atom in mol.GetAtoms())
+        if implicit_h:
+            QMessageBox.warning(
+                self, PLUGIN_NAME,
+                f"The molecule has {implicit_h} implicit hydrogen(s), which have "
+                "no 3D coordinates and would be left out of the calculation.\n\n"
+                "Add explicit hydrogens before optimizing."
+            )
+            return
+
         # Gather atom data from the RDKit molecule
         conf = mol.GetConformer()
         numbers = []
