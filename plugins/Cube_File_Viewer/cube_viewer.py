@@ -167,7 +167,7 @@ def parse_cube_data(filename):
     if n_datasets > 1:
         # Take the first data set. Slicing the mixed stream instead returned a
         # value that belonged to neither orbital.
-        data_values = data_values.reshape(n_points, n_datasets)[:, 0]
+        data_values = data_values[0 : n_points * n_datasets : n_datasets]
 
     return {
         "atoms": atoms,

@@ -198,7 +198,7 @@
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer/cube_viewer.py",
     "lastUpdated": "2026-07-29",
-    "sha256": "b5172a99055d7c97f773ab413647c417b72ed9886266fcf3b3bf6b63cf61cb88",
+    "sha256": "5e71933a1effec0222fd23f17fb11640967a0f64ff35af100ee672a2278bf1ea",
     "firstAppeared": "2025-12-15",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -495,7 +495,7 @@
     ],
     "downloadUrl": "../plugins/Mapped_Cube_Viewer/mapped_cube_viewer.py",
     "lastUpdated": "2026-07-29",
-    "sha256": "f9a6d200f3351aff9186350fa7d28b6d80344df52e050000b165944207b0092f",
+    "sha256": "d00c328a0bee5747327dc91c6c7e3ed5b276927906857b1097111eab10937d09",
     "firstAppeared": "2025-12-17",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1284,7 +1284,7 @@
     ],
     "downloadUrl": "../plugins/Gaussian_MO_Analyzer/gaussian_fchk_mo_analyzer.zip",
     "lastUpdated": "2026-07-29",
-    "sha256": "24e604868d9c45a9bf4d8ddc09e5277ffc2ffe4be8b26bb5e34f0dc5834b8fdd",
+    "sha256": "f4485931746ccd4876a67336ae52ac0cdc2be4fbb513c4052cdf54eb8f0ae2d8",
     "firstAppeared": "2026-01-23",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1465,7 +1465,7 @@
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer_Advanced/cube_viewer_advanced.py",
     "lastUpdated": "2026-07-29",
-    "sha256": "2b4172e07c344451a956e0b641c36065582c9d9151594864bf86c21f48ad78c9",
+    "sha256": "bd10f9147cddf6a731318a1e96cafbb2ca88dbb8c758ee7c763405ec87f314f9",
     "firstAppeared": "2026-02-02",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

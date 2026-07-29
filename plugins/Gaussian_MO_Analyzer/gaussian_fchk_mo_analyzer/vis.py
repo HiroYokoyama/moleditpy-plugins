@@ -66,8 +66,10 @@ class CubeVisualizer:
         # the stream is n_datasets times too long. Reshaping it straight to
         # (nx, ny, nz) raises; take the first set instead.
         n_points = abs(nx) * abs(ny) * abs(nz)
-        if n_datasets > 1 and data.size >= n_points * n_datasets:
-            data = data[: n_points * n_datasets].reshape(n_points, n_datasets)[:, 0]
+        if n_datasets > 1 and len(data) >= n_points * n_datasets:
+            # Orbital 0 sits at 0, m, 2m, ... A slice works on a plain list
+            # too, which is what the stubbed numpy in the tests returns.
+            data = data[0 : n_points * n_datasets : n_datasets]
 
         return {
             "dims": (abs(nx), abs(ny), abs(nz)),
