@@ -17,7 +17,6 @@ Dependencies (install in MoleditPy's environment):
 from __future__ import annotations
 
 import logging
-import copy
 
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtWidgets import (
@@ -466,8 +465,11 @@ class XtbOptimizerDialog(QDialog):
         self.lbl_status.setText(f"Running {method}…")
         QApplication.processEvents()
 
-        # Store a deep copy of the original coordinates for potential rollback
-        self._original_mol = copy.deepcopy(mol)
+        # Remember what we actually optimised.  The optimisation is async, so
+        # the user can load a different molecule before it finishes; the
+        # results must not then be written into whatever happens to be loaded.
+        self._run_mol = mol
+        self._run_natoms = mol.GetNumAtoms()
 
         self._worker = XtbWorker(
             numbers=numbers,
@@ -515,6 +517,21 @@ class XtbOptimizerDialog(QDialog):
         mol = self.context.current_mol
         if mol is None:
             self.lbl_status.setText("Error: molecule was unloaded during optimization.")
+            return
+
+        # Conformer.SetAtomPosition accepts an out-of-range index without
+        # raising, so a mismatch here would silently overwrite a different
+        # molecule's coordinates and then be committed by the undo checkpoint.
+        if mol is not getattr(self, "_run_mol", None) or (
+            mol.GetNumAtoms() != len(new_positions)
+        ):
+            msg = (
+                "The molecule changed while the optimization was running, so "
+                "the optimized coordinates were discarded."
+            )
+            self.lbl_status.setText(msg)
+            self._append_log("\n" + msg)
+            QMessageBox.warning(self, PLUGIN_NAME, msg)
             return
 
         try:

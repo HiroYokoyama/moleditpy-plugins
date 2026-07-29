@@ -366,12 +366,14 @@ def test_on_finished_success_calls_undo_checkpoint():
     fake_conf = MagicMock()
     fake_mol = MagicMock()
     fake_mol.GetConformer.return_value = fake_conf
+    fake_mol.GetNumAtoms.return_value = 2
 
     ctx = MagicMock()
     ctx.current_mol = fake_mol
 
     self_mock = MagicMock()
     self_mock.context = ctx
+    self_mock._run_mol = fake_mol
     self_mock._set_running = MagicMock()
     self_mock.lbl_status = MagicMock()
     self_mock._worker = None
@@ -397,12 +399,14 @@ def test_on_finished_success_sets_each_atom_position():
     fake_conf = MagicMock()
     fake_mol = MagicMock()
     fake_mol.GetConformer.return_value = fake_conf
+    fake_mol.GetNumAtoms.return_value = 3
 
     ctx = MagicMock()
     ctx.current_mol = fake_mol
 
     self_mock = MagicMock()
     self_mock.context = ctx
+    self_mock._run_mol = fake_mol
     self_mock._set_running = MagicMock()
     self_mock.lbl_status = MagicMock()
     self_mock._worker = None
@@ -542,3 +546,59 @@ class TestWorkerReceivesChargeAndSpin:
             "atoms.get_initial_charges().sum(), which is 0 for every molecule"
         )
         assert "multiplicity=self._multiplicity" in calc
+
+
+class TestMoleculeSwapGuard:
+    """Conformer.SetAtomPosition accepts an out-of-range index silently.
+
+    The optimization is async, so if the user loads a different molecule while
+    it runs, the finished handler would write the old molecule's coordinates
+    into the new one and commit that with push_undo_checkpoint().
+    """
+
+    @staticmethod
+    def _finish(run_mol, current_mol, positions):
+        fn = extract_function(
+            PLUGIN_PATH,
+            "XtbOptimizerDialog",
+            "_on_finished",
+            extra_globals={
+                "PLUGIN_NAME": "xTB Optimizer",
+                "logger": MagicMock(),
+                "QMessageBox": MagicMock(),
+            },
+        )
+        ctx = MagicMock()
+        ctx.current_mol = current_mol
+        self_mock = MagicMock()
+        self_mock.context = ctx
+        self_mock._run_mol = run_mol
+        self_mock._set_running = MagicMock()
+        self_mock.lbl_status = MagicMock()
+        self_mock._worker = None
+        self_mock._step_count = 1
+        fn(self_mock, True, positions)
+        return ctx
+
+    def test_swapped_molecule_is_not_overwritten(self):
+        optimised = MagicMock()
+        optimised.GetNumAtoms.return_value = 3
+        other = MagicMock()
+        other.GetNumAtoms.return_value = 12
+        ctx = self._finish(optimised, other, [[0.0, 0.0, 0.0]] * 3)
+        other.GetConformer.assert_not_called()
+        ctx.push_undo_checkpoint.assert_not_called()
+
+    def test_same_object_but_atom_count_changed_is_rejected(self):
+        """Editing atoms in place keeps object identity but breaks indices."""
+        mol = MagicMock()
+        mol.GetNumAtoms.return_value = 5
+        ctx = self._finish(mol, mol, [[0.0, 0.0, 0.0]] * 3)
+        ctx.push_undo_checkpoint.assert_not_called()
+
+    def test_unchanged_molecule_is_applied(self):
+        mol = MagicMock()
+        mol.GetNumAtoms.return_value = 3
+        ctx = self._finish(mol, mol, [[0.0, 0.0, 0.0]] * 3)
+        ctx.push_undo_checkpoint.assert_called_once()
+        ctx.refresh_3d_view.assert_called_once()
