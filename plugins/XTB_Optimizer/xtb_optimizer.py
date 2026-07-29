@@ -22,6 +22,7 @@ import copy
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtWidgets import (
     QApplication,
+    QCheckBox,
     QComboBox,
     QDialog,
     QDoubleSpinBox,
@@ -38,13 +39,14 @@ from PyQt6.QtWidgets import (
     QTableWidgetItem,
     QVBoxLayout,
 )
+from rdkit import Chem
 
 # ---------------------------------------------------------------------------
 # Plugin metadata
 # ---------------------------------------------------------------------------
 
 PLUGIN_NAME = "xTB Optimizer"
-PLUGIN_VERSION = "2026.07.19"
+PLUGIN_VERSION = "2026.07.29"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -57,6 +59,26 @@ PLUGIN_TAGS = ["Optimization"]
 PLUGIN_DEPENDENCIES = ["tblite", "ase"]
 
 logger = logging.getLogger(__name__)
+
+
+def derive_charge_and_multiplicity(mol) -> tuple[int, int]:
+    """Read total charge and spin multiplicity off an RDKit molecule.
+
+    Returns ``(charge, multiplicity)``.  The multiplicity is derived from the
+    explicit radical electrons, then reconciled with the electron count:
+    a molecule with an odd number of electrons cannot be a singlet, and
+    handing xTB an impossible combination makes it fail outright.
+    """
+    charge = Chem.GetFormalCharge(mol)
+    unpaired = sum(atom.GetNumRadicalElectrons() for atom in mol.GetAtoms())
+
+    n_electrons = sum(atom.GetAtomicNum() for atom in mol.GetAtoms()) - charge
+    # Unpaired electrons must have the same parity as the electron count.
+    if (n_electrons - unpaired) % 2 != 0:
+        unpaired = unpaired + 1 if unpaired == 0 else unpaired - 1
+
+    return charge, unpaired + 1
+
 
 # ---------------------------------------------------------------------------
 # Worker thread
@@ -89,6 +111,8 @@ class XtbWorker(QThread):
         method: str,
         fmax: float,
         max_steps: int,
+        charge: int = 0,
+        multiplicity: int = 1,
         parent=None,
     ):
         super().__init__(parent)
@@ -97,6 +121,8 @@ class XtbWorker(QThread):
         self._method = method
         self._fmax = fmax
         self._max_steps = max_steps
+        self._charge = charge
+        self._multiplicity = multiplicity
         self._cancelled = False
 
     def cancel(self):
@@ -113,14 +139,25 @@ class XtbWorker(QThread):
 
             self.log_message.emit(
                 f"Starting {self._method} optimization  "
-                f"(fmax={self._fmax} eV/Å, max_steps={self._max_steps})"
+                f"(fmax={self._fmax} eV/Å, max_steps={self._max_steps}, "
+                f"charge={self._charge:+d}, multiplicity={self._multiplicity})"
             )
 
             atoms = Atoms(
                 numbers=self._numbers,
                 positions=self._positions,
             )
-            atoms.calc = TBLite(method=self._method, verbosity=0)
+            # charge/multiplicity must be passed explicitly.  Left at their
+            # None defaults, tblite falls back to atoms.get_initial_charges()
+            # and get_initial_magnetic_moments(), which are all-zero for an
+            # Atoms built from numbers+positions -- so every ion was optimised
+            # as neutral and every radical as closed-shell.
+            atoms.calc = TBLite(
+                method=self._method,
+                charge=self._charge,
+                multiplicity=self._multiplicity,
+                verbosity=0,
+            )
 
             step_counter = [0]
             cancelled_ref = [False]
@@ -241,6 +278,32 @@ class XtbOptimizerDialog(QDialog):
         self.combo_method.addItems(["GFN2-xTB", "GFN1-xTB"])
         form.addRow("Method:", self.combo_method)
 
+        self.chk_auto_charge = QCheckBox("Read charge and spin from the molecule")
+        self.chk_auto_charge.setChecked(True)
+        self.chk_auto_charge.setToolTip(
+            "Uses the RDKit formal charge and radical electrons. Uncheck to set "
+            "them by hand, e.g. for a triplet or a charge RDKit cannot perceive."
+        )
+        self.chk_auto_charge.toggled.connect(self._on_auto_charge_toggled)
+        form.addRow("", self.chk_auto_charge)
+
+        self.spin_charge = QSpinBox()
+        self.spin_charge.setRange(-20, 20)
+        self.spin_charge.setValue(0)
+        self.spin_charge.setEnabled(False)
+        self.spin_charge.setToolTip("Total molecular charge handed to xTB.")
+        form.addRow("Charge:", self.spin_charge)
+
+        self.spin_multiplicity = QSpinBox()
+        self.spin_multiplicity.setRange(1, 21)
+        self.spin_multiplicity.setValue(1)
+        self.spin_multiplicity.setEnabled(False)
+        self.spin_multiplicity.setToolTip(
+            "Spin multiplicity 2S+1. 1 = closed shell, 2 = doublet radical, "
+            "3 = triplet."
+        )
+        form.addRow("Spin multiplicity:", self.spin_multiplicity)
+
         self.spin_fmax = QDoubleSpinBox()
         self.spin_fmax.setRange(1e-6, 10.0)
         self.spin_fmax.setDecimals(4)
@@ -315,12 +378,20 @@ class XtbOptimizerDialog(QDialog):
     # Helpers
     # ------------------------------------------------------------------
 
+    def _on_auto_charge_toggled(self, checked: bool):
+        self.spin_charge.setEnabled(not checked)
+        self.spin_multiplicity.setEnabled(not checked)
+
     def _set_running(self, running: bool):
         self.btn_run.setEnabled(not running)
         self.btn_cancel.setEnabled(running)
         self.combo_method.setEnabled(not running)
         self.spin_fmax.setEnabled(not running)
         self.spin_maxsteps.setEnabled(not running)
+        self.chk_auto_charge.setEnabled(not running)
+        manual = not self.chk_auto_charge.isChecked()
+        self.spin_charge.setEnabled(not running and manual)
+        self.spin_multiplicity.setEnabled(not running and manual)
         self.progress_bar.setVisible(running)
 
     def _append_log(self, text: str):
@@ -373,6 +444,20 @@ class XtbOptimizerDialog(QDialog):
         self.log_text.clear()
         self._step_count = 0
 
+        if self.chk_auto_charge.isChecked():
+            try:
+                charge, multiplicity = derive_charge_and_multiplicity(mol)
+            except Exception as exc:
+                logger.warning("Could not derive charge/multiplicity: %s", exc)
+                charge, multiplicity = 0, 1
+            # Show what was actually used, so a wrong perception is visible
+            # rather than silently baked into the result.
+            self.spin_charge.setValue(charge)
+            self.spin_multiplicity.setValue(multiplicity)
+        else:
+            charge = self.spin_charge.value()
+            multiplicity = self.spin_multiplicity.value()
+
         method = self.combo_method.currentText()
         fmax = self.spin_fmax.value()
         max_steps = self.spin_maxsteps.value()
@@ -390,6 +475,8 @@ class XtbOptimizerDialog(QDialog):
             method=method,
             fmax=fmax,
             max_steps=max_steps,
+            charge=charge,
+            multiplicity=multiplicity,
             parent=self,
         )
         self._worker.log_message.connect(self._append_log)

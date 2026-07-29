@@ -9,6 +9,7 @@ chemistry libraries required.
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, call, patch
 
 import pytest
@@ -453,3 +454,91 @@ def test_plugin_tags_is_minimal(plugin_mod):
     """Tags should be minimal — only ['Optimization']."""
     assert plugin_mod.PLUGIN_TAGS == ["Optimization"]
 
+
+
+class TestChargeAndMultiplicity:
+    """xTB was told charge=0, multiplicity=1 for every molecule.
+
+    tblite resolves charge=None via atoms.get_initial_charges().sum() and
+    multiplicity=None via get_initial_magnetic_moments().sum(); both are
+    all-zero for an Atoms built from numbers+positions alone. So every ion
+    was optimised as neutral and every radical as closed-shell.
+    """
+
+    @staticmethod
+    def _derive(mol, total_charge):
+        """Load the plugin and give it a Chem whose GetFormalCharge is real."""
+        with mock_optional_imports():
+            mod = load_plugin(PLUGIN_PATH)
+            mod.Chem = SimpleNamespace(GetFormalCharge=lambda m: total_charge)
+            return mod.derive_charge_and_multiplicity(mol)
+
+    @staticmethod
+    def _mol(atomic_nums, charges=None, radicals=None):
+        charges = charges or [0] * len(atomic_nums)
+        radicals = radicals or [0] * len(atomic_nums)
+        atoms = []
+        for z, q, r in zip(atomic_nums, charges, radicals):
+            a = MagicMock()
+            a.GetAtomicNum.return_value = z
+            a.GetFormalCharge.return_value = q
+            a.GetNumRadicalElectrons.return_value = r
+            atoms.append(a)
+        mol = MagicMock()
+        mol.GetAtoms.return_value = atoms
+        return mol, sum(charges)
+
+    def test_neutral_closed_shell(self):
+        mol, total = self._mol([6, 1, 1, 1, 1])  # methane
+        assert self._derive(mol, total) == (0, 1)
+
+    def test_anion_charge_is_reported(self):
+        """Acetate optimised as neutral is a different molecule."""
+        mol, total = self._mol([6, 6, 8, 8, 1, 1, 1], charges=[0, 0, 0, -1, 0, 0, 0])
+        assert self._derive(mol, total) == (-1, 1)
+
+    def test_cation_charge_is_reported(self):
+        mol, total = self._mol([7, 1, 1, 1, 1], charges=[1, 0, 0, 0, 0])
+        assert self._derive(mol, total)[0] == 1
+
+    def test_radical_is_a_doublet(self):
+        """Methyl radical: 9 electrons cannot be a singlet."""
+        mol, total = self._mol([6, 1, 1, 1], radicals=[1, 0, 0, 0])
+        assert self._derive(mol, total) == (0, 2)
+
+    def test_triplet_oxygen(self):
+        mol, total = self._mol([8, 8], radicals=[1, 1])
+        assert self._derive(mol, total) == (0, 3)
+
+    def test_odd_electron_count_cannot_be_a_singlet(self):
+        """Fe(III): RDKit reports no radicals, but 23 electrons is odd.
+
+        charge=+3 with multiplicity=1 is impossible and makes xTB fail
+        outright, so the parity check must lift it to an even multiplicity.
+        """
+        mol, total = self._mol([26], charges=[3])
+        charge, mult = self._derive(mol, total)
+        assert charge == 3
+        assert mult % 2 == 0, "odd electron count requires an even multiplicity"
+
+    def test_multiplicity_parity_always_matches_electron_count(self):
+        for z, q in [(6, 0), (7, 0), (8, 0), (26, 3), (26, 2), (1, 0), (1, -1)]:
+            mol, total = self._mol([z], charges=[q])
+            _, mult = self._derive(mol, total)
+            n_elec = z - q
+            unpaired = mult - 1
+            assert (n_elec - unpaired) % 2 == 0, f"Z={z} q={q} -> mult={mult}"
+
+
+class TestWorkerReceivesChargeAndSpin:
+    def test_worker_passes_charge_and_multiplicity_to_tblite(self):
+        """The values must reach TBLite, not just the worker constructor."""
+        with mock_optional_imports():
+            mod = load_plugin(PLUGIN_PATH)
+        src = PLUGIN_PATH.read_text(encoding="utf-8")
+        calc = src[src.index("atoms.calc = TBLite(") : src.index("step_counter = [0]")]
+        assert "charge=self._charge" in calc, (
+            "TBLite must be given the charge; left as None it falls back to "
+            "atoms.get_initial_charges().sum(), which is 0 for every molecule"
+        )
+        assert "multiplicity=self._multiplicity" in calc
