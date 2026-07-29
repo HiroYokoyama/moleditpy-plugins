@@ -639,7 +639,12 @@ class TestImplicitHydrogenGuard:
         self_mock = MagicMock()
         self_mock.context = MagicMock()
         self_mock.context.current_mol = mol
-        fn(self_mock)
+        # _on_run does `from rdkit.Chem import GetPeriodicTable` inside a
+        # try/except that swallows ImportError and returns early. Without
+        # the mock context that import is real: it works locally but not
+        # on CI's chemistry-free test-plugins job.
+        with mock_optional_imports():
+            fn(self_mock)
         return self_mock, mol
 
     def test_implicit_hydrogens_block_the_run(self):
