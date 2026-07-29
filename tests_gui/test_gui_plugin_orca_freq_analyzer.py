@@ -9,12 +9,6 @@ Covers:
     global for all 3D-viewer interaction (draw_molecule_3d, plotter, etc).
   - SpectrumDialog (QDialog, module level) + SpectrumPlotWidget — real
     numpy Gaussian-sum curve rendering and CSV/PNG export.
-  - OrcaOutFreqAnalyzer.SpectrumWidget — an inner class defined on the
-    analyser but never actually instantiated anywhere in the source (the
-    only call site, in show_spectrum(), resolves the bare name
-    ``SpectrumDialog`` against module globals, not this inner class); it is
-    exercised directly here purely for coverage of otherwise-dead code,
-    without asserting anything about program behaviour.
   - OrcaParser — pure-Python parser object that needs no Qt.
 
 Run:
@@ -159,6 +153,16 @@ class TestOrcaSpectrumDialog:
 
     def test_fwhm_spinbox_default(self, dlg):
         assert dlg.spin_fwhm.value() == 50
+
+    def test_plot_widget_fwhm_matches_the_spinbox(self, dlg):
+        """The displayed FWHM must be the one the curve was built with.
+
+        The spin boxes are populated before their signals are connected, so
+        nothing pushes their values down; the plot widget carried its own
+        default (80) while the dialog showed 50, and a CSV exported without
+        touching the control was broadened with 80.
+        """
+        assert dlg.plot_widget.fwhm == float(dlg.spin_fwhm.value())
 
     def test_fwhm_spinbox_range(self, dlg):
         assert dlg.spin_fwhm.minimum() == 1
@@ -1013,38 +1017,6 @@ class TestCloseAction:
         btn.click()
         dock.close.assert_called_once()
         w.timer.stop()
-        w.destroy()
-
-
-# ===========================================================================
-# OrcaOutFreqAnalyzer.SpectrumWidget — inner class, dead code (no live call
-# site actually reaches it — see module docstring), exercised directly.
-# ===========================================================================
-
-
-class TestOrcaInnerSpectrumWidgetDead:
-    def test_paint_event_no_freqs_returns_early(self, qapp):
-        w = _onp.OrcaOutFreqAnalyzer.SpectrumWidget([], [])
-        w.resize(400, 300)
-        pixmap = w.grab()
-        assert not pixmap.isNull()
-        w.destroy()
-
-    def test_paint_event_with_data_renders(self, qapp):
-        w = _onp.OrcaOutFreqAnalyzer.SpectrumWidget([1000.0, 2000.0], [50.0, 100.0])
-        w.resize(600, 400)
-        pixmap = w.grab()
-        assert not pixmap.isNull()
-        w.destroy()
-
-    def test_max_int_zero_normalized_to_one(self, qapp):
-        w = _onp.OrcaOutFreqAnalyzer.SpectrumWidget([1000.0], [0.0])
-        assert w.max_int == 1.0
-        w.destroy()
-
-    def test_max_int_empty_defaults_to_one(self, qapp):
-        w = _onp.OrcaOutFreqAnalyzer.SpectrumWidget([1000.0], [])
-        assert w.max_int == 1.0
         w.destroy()
 
 

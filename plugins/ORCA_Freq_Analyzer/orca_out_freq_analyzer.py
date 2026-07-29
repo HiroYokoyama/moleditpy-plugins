@@ -42,7 +42,7 @@ except ImportError:
 
 PLUGIN_NAME = "ORCA Freq Analyzer"
 PLUGIN_DESCRIPTION = "Parse ORCA output files and visualize vibrational frequencies."
-PLUGIN_VERSION = "2026.07.08"
+PLUGIN_VERSION = "2026.07.29"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_CONTEXT = None
@@ -648,109 +648,6 @@ class OrcaOutFreqAnalyzer(QWidget):
         if len(self.parser.atoms) > 0 and Chem:
             self.create_base_molecule()
 
-    class SpectrumWidget(QWidget):
-        def __init__(self, freqs, intensities):
-            super().__init__()
-            self.freqs = freqs
-            self.intensities = intensities
-            self.setBackgroundRole(QPalette.ColorRole.Base)
-            self.setAutoFillBackground(True)
-
-            # Normalize
-            self.max_int = max(intensities) if intensities else 1.0
-            if self.max_int == 0:
-                self.max_int = 1.0
-
-        def paintEvent(self, event):
-            painter = QPainter(self)
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-            w = self.width()
-            h = self.height()
-
-            # Margins
-            ml, mr, mt, mb = 50, 20, 20, 40
-            plot_w = w - ml - mr
-            plot_h = h - mt - mb
-
-            # Range
-            if not self.freqs:
-                return
-            min_f = min(self.freqs) - 50
-            max_f = max(self.freqs) + 50
-            f_range = max_f - min_f
-            if f_range == 0:
-                f_range = 100
-
-            # Axes
-            painter.drawLine(ml, h - mb, w - mr, h - mb)  # X
-            painter.drawLine(ml, mt, ml, h - mb)  # Y
-
-            # Grid X
-            painter.setPen(QColor("#ddd"))
-            n_ticks = 8
-            for i in range(n_ticks + 1):
-                val = min_f + (f_range * i / n_ticks)
-                x = ml + (val - min_f) / f_range * plot_w
-                painter.drawLine(int(x), mt, int(x), h - mb)
-                painter.setPen(QColor("#000"))
-                painter.drawText(
-                    int(x) - 20,
-                    h - mb + 5,
-                    40,
-                    15,
-                    Qt.AlignmentFlag.AlignCenter,
-                    f"{int(val)}",
-                )
-                painter.setPen(QColor("#ddd"))
-
-            # Compute Profile
-            x_vals = np.linspace(min_f, max_f, w // 2)
-            y_vals = np.zeros_like(x_vals)
-
-            sigma = 20.0  # Broadening
-
-            for f, inten in zip(self.freqs, self.intensities):
-                # Lorentzian
-                gamma = sigma
-                denom = (x_vals - f) ** 2 + (gamma / 2.0) ** 2
-                y_vals += inten * (gamma / 2.0) ** 2 / denom
-
-            # Scale Y
-            max_y = np.max(y_vals) if len(y_vals) > 0 else 1.0
-            if max_y == 0:
-                max_y = 1.0
-
-            # Draw Curve
-            painter.setPen(QPen(QColor("red"), 2))
-            path_points = []
-            for i, val in enumerate(x_vals):
-                x_px = ml + (val - min_f) / f_range * plot_w
-                y_px = (h - mb) - (y_vals[i] / max_y) * plot_h
-                path_points.append(QPointF(x_px, y_px))
-
-            painter.drawPolyline(path_points)
-
-            # X Label
-            painter.setPen(QColor("black"))
-            painter.drawText(w // 2, h - 5, "Wavenumber (cm⁻¹)")
-
-    class SpectrumDialog(QDialog):
-        def __init__(self, freqs, intensities, title="Spectrum", parent=None):
-            super().__init__(parent)
-            self.setWindowTitle(title)
-            self.resize(600, 400)
-
-            layout = QVBoxLayout(self)
-
-            # Simple Matplotlib Plot? Or custom painter?
-            # Trying custom widget for speed/deps
-            self.plot = SpectrumWidget(freqs, intensities)  # noqa: F821
-            layout.addWidget(self.plot)
-
-            btn_close = QPushButton("Close")
-            btn_close.clicked.connect(self.accept)
-            layout.addWidget(btn_close)
 
     def update_list_and_spectrum_values(self):
         if not self.parser or not self.parser.final_modes:
@@ -1193,7 +1090,12 @@ class SpectrumDialog(QDialog):
         layout.addLayout(controls)
         self.setLayout(layout)
 
-        # Initial Plot
+        # Initial Plot.  The spin boxes were populated before their signals
+        # were connected, so nothing has pushed their values into the plot
+        # widget yet — without this the first curve (and any CSV exported from
+        # it) is broadened with the widget's own default rather than the FWHM
+        # the dialog is displaying.
+        self.plot_widget.set_fwhm(float(self.spin_fwhm.value()))
         self.on_range_changed()
 
     def on_fwhm_changed(self, val):
