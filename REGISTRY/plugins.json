@@ -69,7 +69,7 @@
     ],
     "downloadUrl": "../plugins/All-Trans_Optimizer/all-trans_optimizer.py",
     "lastUpdated": "2026-07-30",
-    "sha256": "f4cfb28932074a33c761b5dccf3b475f7fc9706d4b1b38083c28a282739182fe",
+    "sha256": "4f21b671e7720320273a4b98e236bcbb3efedb75b4c17050352a9b23021d0945",
     "firstAppeared": "2025-12-15",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -142,7 +142,7 @@
     ],
     "downloadUrl": "../plugins/Complex_Molecule_Untangler/complex_molecule_untangler.py",
     "lastUpdated": "2026-07-30",
-    "sha256": "8ba164cdc3cc70f05ac02cb6fa8ad2123210657f2e2485a5cce9775d9f200743",
+    "sha256": "d839900a5d2dab8c4aa49e52b613a65b193c0fb73c9d4d78489bd737229efdd7",
     "firstAppeared": "2025-12-15",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -2045,7 +2045,7 @@
     ],
     "downloadUrl": "../plugins/Step_Optimizer/step_optimizer.py",
     "lastUpdated": "2026-07-30",
-    "sha256": "a4689566d7df8239513cb3800290ed4b1ca5aadc041cb78831c8e58a34df1146",
+    "sha256": "b1388bcd7a556f535dc5ff6228d2be6a5dea143557d69255de6f724dc9f1ae93",
     "firstAppeared": "2026-07-12",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
