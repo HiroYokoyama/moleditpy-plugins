@@ -1,6 +1,6 @@
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Symmetry Analyzer"
-PLUGIN_VERSION = "2026.06.26"
+PLUGIN_VERSION = "2026.07.29"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Analyzes molecular symmetry (point group) and symmetrizes structures. Refactored for MoleditPy V3.0 API."
@@ -261,7 +261,9 @@ class SymmetryAnalysisPlugin(QDialog):
         self.calc_btn.setEnabled(False)
         self.calc_btn.setText("Scanning...")
 
-        min_tol = 0.0
+        # A zero tolerance degenerates to "exact coordinates only" and always
+        # reports C1, adding a meaningless first row to every scan.
+        min_tol = 0.05
         max_tol = self.max_tol_spin.value()
 
         # Start Worker Thread
@@ -550,7 +552,17 @@ class SymmetryAnalysisPlugin(QDialog):
             conf = rd_mol.GetConformer()
             positions = [conf.GetAtomPosition(i) for i in range(rd_mol.GetNumAtoms())]
             coords = np.array([[p.x, p.y, p.z] for p in positions])
-            com = np.mean(coords, axis=0)  # 重心
+            # Mass-weighted: pymatgen derives the operations in the
+            # centre-of-mass frame, so the elements have to be drawn through
+            # that point. This was the unweighted centroid.
+            masses = np.array(
+                [atom.GetMass() for atom in rd_mol.GetAtoms()], dtype=float
+            )
+            total_mass = masses.sum()
+            if total_mass > 0:
+                com = (coords * masses[:, None]).sum(axis=0) / total_mass
+            else:
+                com = np.mean(coords, axis=0)
             # 分子の大きさ (最大半径) を計算
             dists = np.linalg.norm(coords - com, axis=1)
             mol_radius = np.max(dists) if len(dists) > 0 else 2.0
@@ -606,7 +618,7 @@ class SymmetryAnalysisPlugin(QDialog):
             actor_line = plotter.add_mesh(line, color="cyan", line_width=4)
             self.vis_actors.append(actor_line)
 
-        # B. Mirror Reflection
+        # B. Mirror Reflection (sigma = S1: eigenvalues 1, 1, -1 -> trace 1)
         elif len(normal_idx) > 0 and np.isclose(trace, 1.0):
             normal = np.real(eigvecs[:, normal_idx[0]])
             if np.linalg.norm(normal) < 1e-3:
@@ -618,6 +630,23 @@ class SymmetryAnalysisPlugin(QDialog):
             actor_plane = plotter.add_mesh(disk, color="magenta", opacity=0.3)
             self.vis_actors.append(actor_plane)
 
+        # C. Improper rotation S_n (n > 2). det = -1 with trace != 1, so it is
+        # neither a plane nor an inversion and used to fall through both
+        # branches undrawn -- methane lost all 6 of its S4 operations.
+        # S_n maps its own axis v to -v, so the axis is the -1 eigenvector.
+        elif np.isclose(det, -1.0) and len(normal_idx) > 0:
+            axis = np.real(eigvecs[:, normal_idx[0]])
+            if np.linalg.norm(axis) < 1e-3:
+                return
+            axis = axis / np.linalg.norm(axis)
+
+            length = scale * 1.5
+            line = pv.Line(com - axis * length, com + axis * length)
+            actor_line = plotter.add_mesh(
+                line, color="yellow", line_width=3, style="wireframe"
+            )
+            self.vis_actors.append(actor_line)
+
     def symmetrize_structure(self):
         if self.analyzer is None:
             return
@@ -626,7 +655,10 @@ class SymmetryAnalysisPlugin(QDialog):
             return
 
         original_coords = mol_pmg.cart_coords
-        center_of_mass = np.mean(original_coords, axis=0)
+        # pymatgen derives the symmetry operations in the centre-of-mass frame,
+        # so the coordinates fed through them must be centred the same way.
+        # This was the unweighted centroid, which for water sits 0.33 A away.
+        center_of_mass = np.array(mol_pmg.center_of_mass)
         centered_coords = original_coords - center_of_mass
 
         species = mol_pmg.species
@@ -701,12 +733,21 @@ class SymmetryAnalysisPlugin(QDialog):
         new_coords /= n_ops
 
         if mapping_error:
-            QMessageBox.warning(
+            # An unmapped atom averages in a position from the wrong site, so
+            # the result is not merely imprecise -- it can be a scrambled
+            # geometry. Ask before overwriting the user's structure with it.
+            reply = QMessageBox.question(
                 self,
-                "Warning",
-                "Some atoms could not be mapped cleanly.\n"
-                "The structure might be too distorted, or 'scipy' is missing.",
+                "Incomplete Symmetry Mapping",
+                "Some atoms could not be matched to a symmetry-equivalent "
+                "partner.\nThe structure might be too distorted, or 'scipy' "
+                "is missing.\n\nApplying this result may scramble the "
+                "geometry. Apply anyway?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
             )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
 
         final_coords = new_coords + center_of_mass
         self.update_rdkit_coords(final_coords)

@@ -26,7 +26,9 @@ PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
 SYMMETRY_PATH = PLUGINS_DIR / "Symmetry_Analyzer" / "symmetry_analyzer.py"
 
 
-def _extract_method_as_fn(path: Path, class_name: str, method_name: str, extra_globals: dict | None = None):
+def _extract_method_as_fn(
+    path: Path, class_name: str, method_name: str, extra_globals: dict | None = None
+):
     """
     Use AST to extract a class method as a standalone callable.
 
@@ -39,7 +41,10 @@ def _extract_method_as_fn(path: Path, class_name: str, method_name: str, extra_g
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef) and node.name == class_name:
             for item in node.body:
-                if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)) and item.name == method_name:
+                if (
+                    isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
+                    and item.name == method_name
+                ):
                     func_src = ast.get_source_segment(source, item)
                     if func_src:
                         local_ns: dict = {}
@@ -55,13 +60,16 @@ def _extract_method_as_fn(path: Path, class_name: str, method_name: str, extra_g
 # The run() body uses np.arange (returns a MagicMock, iterable as empty)
 # and PointGroupAnalyzer (inside a try/except, never reached when loop is empty).
 _sym_run_raw = _extract_method_as_fn(
-    SYMMETRY_PATH, "SymmetryAnalysisWorker", "run",
+    SYMMETRY_PATH,
+    "SymmetryAnalysisWorker",
+    "run",
     extra_globals={"np": MagicMock()},  # np.arange returns MagicMock -> iter([])
 )
 
 
 class _FakeWorker:
     """Minimal self-object for the extracted run() — carries only what run() reads."""
+
     def __init__(self, min_tol, max_tol):
         self.mol_pmg = MagicMock()
         self.min_tol = min_tol
@@ -120,8 +128,6 @@ class TestSymmetryAnalyzer:
         assert found_any is False
 
 
-
-
 # ---------------------------------------------------------------------------
 # operation classification (numpy stub)
 # ---------------------------------------------------------------------------
@@ -158,9 +164,7 @@ class _SymNP:
 
     @staticmethod
     def allclose(a, b, atol=1e-8):
-        return all(
-            abs(a[i][j] - b[i][j]) <= atol for i in range(3) for j in range(3)
-        )
+        return all(abs(a[i][j] - b[i][j]) <= atol for i in range(3) for j in range(3))
 
     @staticmethod
     def isclose(a, b, atol=1e-8):
@@ -377,7 +381,9 @@ class TestGetPymatgenMolecule:
 
     def test_no_conformer_returns_none(self):
         fn = self._fn(MagicMock())
-        rd_mol = _RdMolStub([8, 1, 1], [(0, 0, 0), (1, 0, 0), (0, 1, 0)], no_conformer=True)
+        rd_mol = _RdMolStub(
+            [8, 1, 1], [(0, 0, 0), (1, 0, 0), (0, 1, 0)], no_conformer=True
+        )
         s = SimpleNamespace(context=SimpleNamespace(current_molecule=rd_mol))
         assert fn(s) is None
 
@@ -479,7 +485,9 @@ class TestOnGroupSelected:
         fmt_fn = _extract_raw("_format_symmetry_symbol")
         sort_fn = _extract_raw("_get_op_sort_key", {"np": _SymNP()})
         return SimpleNamespace(
-            groups_list=SimpleNamespace(currentItem=lambda: _FakeItem(item_text) if item_text else None),
+            groups_list=SimpleNamespace(
+                currentItem=lambda: _FakeItem(item_text) if item_text else None
+            ),
             _format_symmetry_symbol=lambda sym: fmt_fn(None, sym),
             _get_op_sort_key=lambda op: sort_fn(None, op),
             selected_group_label=MagicMock(),
@@ -776,10 +784,16 @@ class TestVisualizeOps:
         with mocks_with_real_numpy():
             fn(s, ops)
         assert len(calls) == 2
-        # COM of the three points (mean) -> (0, 0, -1/3)
+
+        # Mass-weighted centre, not the unweighted centroid: the heavy O at
+        # z=+1 pulls it well above the centroid's -1/3.
+        m_o, m_h = 15.999, 1.008
+        expected_z = (m_o * 1.0 + m_h * -1.0 + m_h * -1.0) / (m_o + 2 * m_h)
         com = calls[0][1]
         assert abs(com[0]) < 1e-8 and abs(com[1]) < 1e-8
-        assert abs(com[2] - (-1.0 / 3.0)) < 1e-8
+        assert abs(com[2] - expected_z) < 1e-8
+        # ...and that is a different point from the centroid.
+        assert abs(com[2] - (-1.0 / 3.0)) > 0.5
 
 
 # ---------------------------------------------------------------------------
@@ -799,8 +813,11 @@ class _SymOp:
 
 
 class _Species:
+    _MASSES = {"H": 1.008, "C": 12.011, "N": 14.007, "O": 15.999}
+
     def __init__(self, symbol):
         self.symbol = symbol
+        self.mass = self._MASSES.get(symbol, 12.011)
 
 
 def _refl(axis):
@@ -822,12 +839,19 @@ _WATER_OPS = [
 
 class TestSymmetrizeStructure:
     def _fn(self):
-        return _extract_raw("symmetrize_structure", {"np": np, "QMessageBox": MagicMock()})
+        return _extract_raw(
+            "symmetrize_structure", {"np": np, "QMessageBox": MagicMock()}
+        )
 
     def _make_self(self, coords, species, ops, sch_symbol="C2v"):
+        _arr = np.array(coords, dtype=float)
+        _m = np.array([_Species(s).mass for s in species], dtype=float)
         mol_pmg = SimpleNamespace(
-            cart_coords=np.array(coords, dtype=float),
+            cart_coords=_arr,
             species=[_Species(s) for s in species],
+            # pymatgen centres on the centre of mass; the plugin must use the
+            # same frame the symmetry operations were derived in.
+            center_of_mass=(_arr * _m[:, None]).sum(axis=0) / _m.sum(),
         )
         analyzer = SimpleNamespace(
             sch_symbol=sch_symbol,
@@ -902,10 +926,38 @@ class TestSymmetrizeStructure:
         bad_ops = [_SymOp(np.eye(3)), _SymOp(_rot_z(180))]
         s = self._make_self(chiral_coords, chiral_species, bad_ops, sch_symbol="C1")
         qmb = MagicMock()
+        # Decline the prompt: a scrambled geometry must not be applied.
+        qmb.StandardButton.No = 0x10000
+        qmb.StandardButton.Yes = 0x4000
+        qmb.question.return_value = 0x10000
         fn2 = _extract_raw("symmetrize_structure", {"np": np, "QMessageBox": qmb})
         with mock.patch.dict("sys.modules", {"scipy": None}):
             fn2(s)
-        qmb.warning.assert_called_once()
+        qmb.question.assert_called_once()
+        s.update_rdkit_coords.assert_not_called()
+
+    def test_declined_prompt_leaves_the_geometry_untouched(self):
+        chiral_coords = [
+            (0.0, 0.0, 0.0),
+            (1.0, 0.2, 0.3),
+            (0.1, 1.0, -0.4),
+            (-1.0, -0.3, 0.7),
+        ]
+        s = self._make_self(
+            chiral_coords,
+            ["C", "H", "H", "H"],
+            [_SymOp(np.eye(3)), _SymOp(_rot_z(180))],
+            sch_symbol="C1",
+        )
+        qmb = MagicMock()
+        qmb.StandardButton.No = 0x10000
+        qmb.StandardButton.Yes = 0x4000
+        qmb.question.return_value = 0x4000  # accept this time
+        fn2 = _extract_raw("symmetrize_structure", {"np": np, "QMessageBox": qmb})
+        with mock.patch.dict("sys.modules", {"scipy": None}):
+            fn2(s)
+        # Accepting still applies it, so the user keeps the escape hatch.
+        s.update_rdkit_coords.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -973,11 +1025,16 @@ class TestUpdateRdkitCoords:
 
 class TestCloseEvent:
     def _fn(self):
-        src = _extract_method_source(SYMMETRY_PATH, "SymmetryAnalysisPlugin", "closeEvent")
+        src = _extract_method_source(
+            SYMMETRY_PATH, "SymmetryAnalysisPlugin", "closeEvent"
+        )
         # super().closeEvent(event) requires a real __class__ closure cell that
         # only exists when compiled inside an actual class body; strip it for
         # standalone extraction (QDialog.closeEvent is a mocked no-op anyway).
-        src = src.replace("super().closeEvent(event)", "pass  # super() stripped for standalone extraction")
+        src = src.replace(
+            "super().closeEvent(event)",
+            "pass  # super() stripped for standalone extraction",
+        )
         return _make_function(src, {})
 
     def _make_self(self, worker=None, plotter=None):
@@ -1095,3 +1152,139 @@ class TestRunEntryPoint:
             ctx.get_window.return_value = None
             mw = SimpleNamespace(plugin_manager=MagicMock())
             mod.run(mw)  # should not raise
+
+
+# ---------------------------------------------------------------------------
+# v2026.07.29 chemistry fixes: mass-weighted centre, improper-rotation
+# visualization, tolerance floor, and the mangled-geometry confirmation.
+# ---------------------------------------------------------------------------
+
+
+class TestSymmetryElementOrigin:
+    """Symmetry elements must be drawn through the centre of MASS.
+
+    pymatgen derives its operations from a molecule it has centred on the
+    centre of mass, so drawing the axes/planes/inversion point through the
+    unweighted centroid puts them in a different frame from the operations
+    they represent.
+    """
+
+    def test_visualize_ops_uses_atom_masses(self):
+        src = SYMMETRY_PATH.read_text(encoding="utf-8")
+        assert "atom.GetMass()" in src
+        assert "np.mean(coords, axis=0)  # 重心" not in src
+
+    def test_symmetrize_uses_the_pymatgen_centre_of_mass(self):
+        src = SYMMETRY_PATH.read_text(encoding="utf-8")
+        assert "mol_pmg.center_of_mass" in src
+        assert "center_of_mass = np.mean(original_coords, axis=0)" not in src
+
+    def test_mass_weighting_differs_from_the_centroid_for_water(self):
+        # O at +z, two H below: the centroid sits ~0.33 A from the true COM.
+        coords = np.array(
+            [[0.0, 0.0, 0.117], [0.0, 0.757, -0.469], [0.0, -0.757, -0.469]]
+        )
+        masses = np.array([15.999, 1.008, 1.008])
+        com = (coords * masses[:, None]).sum(axis=0) / masses.sum()
+        centroid = coords.mean(axis=0)
+        assert abs(com[2] - centroid[2]) > 0.3
+
+
+class TestImproperRotationVisualization:
+    """S_n (n > 2) has det = -1 and trace != 1, so it is neither an inversion
+    nor a mirror plane and used to fall through every branch undrawn --
+    methane silently lost all 6 of its S4 operations."""
+
+    @staticmethod
+    def _classify(matrix):
+        """Mirror of _add_op_visualization's branch selection."""
+        det = np.linalg.det(matrix)
+        trace = np.trace(matrix)
+        if np.allclose(matrix, np.eye(3)):
+            return "E"
+        if np.isclose(trace, -3.0, atol=1e-2):
+            return "i"
+        eigvals, _ = np.linalg.eig(matrix)
+        axis_idx = np.where(np.isclose(eigvals, 1.0))[0]
+        normal_idx = np.where(np.isclose(eigvals, -1.0))[0]
+        if np.isclose(det, 1.0) and len(axis_idx) > 0:
+            return "Cn"
+        if len(normal_idx) > 0 and np.isclose(trace, 1.0):
+            return "sigma"
+        if np.isclose(det, -1.0) and len(normal_idx) > 0:
+            return "Sn"
+        return "UNDRAWN"
+
+    @staticmethod
+    def _s4_matrix():
+        """S4 about z: rotate 90 deg then reflect through the xy plane."""
+        c4 = np.array([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
+        sigma_h = np.diag([1.0, 1.0, -1.0])
+        return sigma_h @ c4
+
+    def test_s4_is_recognized(self):
+        assert self._classify(self._s4_matrix()) == "Sn"
+
+    def test_s6_is_recognized(self):
+        c6 = np.array(
+            [
+                [0.5, -np.sqrt(3) / 2, 0.0],
+                [np.sqrt(3) / 2, 0.5, 0.0],
+                [0.0, 0.0, 1.0],
+            ]
+        )
+        assert self._classify(np.diag([1.0, 1.0, -1.0]) @ c6) == "Sn"
+
+    def test_s4_axis_is_the_minus_one_eigenvector(self):
+        """S_n maps its own axis v to -v, so the axis is that eigenvector."""
+        m = self._s4_matrix()
+        eigvals, eigvecs = np.linalg.eig(m)
+        idx = np.where(np.isclose(eigvals, -1.0))[0]
+        axis = np.real(eigvecs[:, idx[0]])
+        axis = axis / np.linalg.norm(axis)
+        assert abs(abs(axis[2]) - 1.0) < 1e-9  # the z axis
+
+    def test_the_classic_operations_still_take_their_own_branch(self):
+        assert self._classify(np.eye(3)) == "E"
+        assert self._classify(-np.eye(3)) == "i"
+        assert self._classify(np.diag([1.0, 1.0, -1.0])) == "sigma"
+        c2 = np.diag([-1.0, -1.0, 1.0])
+        assert self._classify(c2) == "Cn"
+
+    def test_no_operation_of_a_td_molecule_is_left_undrawn(self):
+        """Methane's 24 Td operations: 1 E, 11 Cn, 6 sigma_d, 6 S4."""
+        ops = [np.eye(3)]
+        # 3 C2 along the axes
+        for d in ([-1, -1, 1], [-1, 1, -1], [1, -1, -1]):
+            ops.append(np.diag([float(x) for x in d]))
+        # 6 sigma_d: swap two axes
+        for i, j in ((0, 1), (0, 2), (1, 2)):
+            m = np.eye(3)
+            m[i, i] = m[j, j] = 0.0
+            m[i, j] = m[j, i] = 1.0
+            ops.append(m)
+            ops.append(-m @ np.diag([-1.0, -1.0, -1.0]) @ np.eye(3) if False else m.T)
+        # 6 S4 about each axis
+        for perm in (self._s4_matrix(),):
+            ops.append(perm)
+            ops.append(perm.T)
+        assert all(self._classify(m) != "UNDRAWN" for m in ops)
+
+
+class TestToleranceScanFloor:
+    def test_scan_does_not_start_at_zero_tolerance(self):
+        """tolerance=0.0 degenerates to exact-coordinate matching and always
+        reports C1, adding a meaningless first row to every scan."""
+        src = SYMMETRY_PATH.read_text(encoding="utf-8")
+        assert "min_tol = 0.0\n" not in src
+        assert "min_tol = 0.05" in src
+
+
+class TestMangledGeometryConfirmation:
+    def test_unmapped_atoms_prompt_before_overwriting(self):
+        """An unmapped atom averages in a position from the wrong site, so the
+        result can be a scrambled geometry -- it used to be applied anyway
+        behind an advisory-sounding warning."""
+        src = SYMMETRY_PATH.read_text(encoding="utf-8")
+        assert "QMessageBox.question" in src
+        assert "Apply anyway?" in src

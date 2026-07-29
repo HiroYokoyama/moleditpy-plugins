@@ -122,11 +122,17 @@ class _P3:
 
 
 class _NPAtom:
+    #: Average atomic weights by Z, for the mass-weighted centre of mass.
+    _MASSES = {1: 1.008, 6: 12.011, 7: 14.007, 8: 15.999, 9: 18.998}
+
     def __init__(self, z):
         self._z = z
 
     def GetAtomicNum(self):
         return self._z
+
+    def GetMass(self):
+        return self._MASSES.get(self._z, 12.011)
 
 
 class _NPConf:
@@ -163,8 +169,11 @@ class _NPMolNoConformer(_NPMol):
 
 
 class _Species:
+    _MASSES = {"H": 1.008, "C": 12.011, "N": 14.007, "O": 15.999, "F": 18.998}
+
     def __init__(self, symbol):
         self.symbol = symbol
+        self.mass = self._MASSES.get(symbol, 12.011)
 
 
 class _FakePlotter:
@@ -248,6 +257,17 @@ def _no_block_msgbox(monkeypatch):
             _symnp.QMessageBox, kind,
             staticmethod(lambda *a, _k=kind, **kw: calls[_k].append(a)),
         )
+
+    # question() blocks the same way, and unlike the others its RETURN VALUE
+    # drives control flow, so it must answer rather than just record. Default
+    # to Yes so the code under test proceeds and stays observable.
+    calls["question"] = []
+
+    def _question(*a, **kw):
+        calls["question"].append(a)
+        return _symnp.QMessageBox.StandardButton.Yes
+
+    monkeypatch.setattr(_symnp.QMessageBox, "question", staticmethod(_question))
     return calls
 
 
@@ -480,9 +500,14 @@ class TestVisualizeOpsReal:
 def _mol_pmg_stub(coords, species):
     """Bypasses get_pymatgen_molecule (pymatgen itself stays MagicMock even
     in `_symnp`) with a stand-in exposing real numpy cart_coords/species."""
+    arr = np.array(coords, dtype=float)
+    masses = np.array([_Species(s).mass for s in species], dtype=float)
     return SimpleNamespace(
-        cart_coords=np.array(coords, dtype=float),
+        cart_coords=arr,
         species=[_Species(s) for s in species],
+        # pymatgen centres on the centre of mass, which is the frame its
+        # symmetry operations are expressed in.
+        center_of_mass=(arr * masses[:, None]).sum(axis=0) / masses.sum(),
     )
 
 
@@ -532,9 +557,39 @@ class TestSymmetrizeStructureReal:
         bad_ops = [_SymOp(np.eye(3)), _SymOp(_rot_z(180))]
         dlgnp.analyzer = SimpleNamespace(get_symmetry_operations=lambda: bad_ops, sch_symbol="C1")
         monkeypatch.setattr(dlgnp, "get_pymatgen_molecule", lambda: _mol_pmg_stub(chiral_coords, chiral_species))
-        monkeypatch.setattr(dlgnp, "update_rdkit_coords", MagicMock())
+        applied = MagicMock()
+        monkeypatch.setattr(dlgnp, "update_rdkit_coords", applied)
         dlgnp.symmetrize_structure()
-        assert len(calls["warning"]) == 1
+        # Unmapped atoms now prompt before overwriting the geometry, rather
+        # than warning and applying a possibly scrambled structure anyway.
+        assert len(calls["question"]) == 1
+        applied.assert_called_once()  # the stub answers Yes
+
+    def test_declining_the_prompt_leaves_the_geometry_alone(self, dlgnp, monkeypatch):
+        calls = _no_block_msgbox(monkeypatch)
+        monkeypatch.setattr(
+            _symnp.QMessageBox, "question",
+            staticmethod(
+                lambda *a, **kw: (
+                    calls["question"].append(a),
+                    _symnp.QMessageBox.StandardButton.No,
+                )[1]
+            ),
+        )
+        chiral_coords = [(0.0, 0.0, 0.0), (2.0, 0.0, 0.5), (0.0, 2.0, 1.5), (-2.0, -0.8, 2.0)]
+        dlgnp.analyzer = SimpleNamespace(
+            get_symmetry_operations=lambda: [_SymOp(np.eye(3)), _SymOp(_rot_z(180))],
+            sch_symbol="C1",
+        )
+        monkeypatch.setattr(
+            dlgnp, "get_pymatgen_molecule",
+            lambda: _mol_pmg_stub(chiral_coords, ["C", "H", "H", "H"]),
+        )
+        applied = MagicMock()
+        monkeypatch.setattr(dlgnp, "update_rdkit_coords", applied)
+        dlgnp.symmetrize_structure()
+        assert len(calls["question"]) == 1
+        applied.assert_not_called()
 
 
 class TestUpdateRdkitCoordsReal:

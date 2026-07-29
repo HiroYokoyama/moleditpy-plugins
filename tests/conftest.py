@@ -217,9 +217,7 @@ def mocks_with_real_numpy() -> Generator[None, None, None]:
     of the process (e.g. ``np.allclose(0, 1)`` starts returning True).
     """
     real_mods = {
-        k: v
-        for k, v in sys.modules.items()
-        if k == "numpy" or k.startswith("numpy.")
+        k: v for k, v in sys.modules.items() if k == "numpy" or k.startswith("numpy.")
     }
     with mock_optional_imports():
         sys.modules.update(real_mods)
@@ -269,6 +267,24 @@ class FakeAtom:
         for b in self.bonds:
             out.append(b.end_atom if b.begin_atom is self else b.begin_atom)
         return out
+
+    #: Average atomic weights, for the handful of elements the fakes use.
+    #: Anything else falls back to carbon so mass-weighted maths still runs.
+    _MASSES = {
+        "H": 1.008,
+        "C": 12.011,
+        "N": 14.007,
+        "O": 15.999,
+        "F": 18.998,
+        "P": 30.974,
+        "S": 32.06,
+        "Cl": 35.45,
+        "Br": 79.904,
+        "I": 126.904,
+    }
+
+    def GetMass(self):
+        return self._MASSES.get(self.symbol, 12.011)
 
 
 class FakeBond:
