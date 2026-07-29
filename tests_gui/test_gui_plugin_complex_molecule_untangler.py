@@ -225,8 +225,61 @@ def _patch_chem(monkeypatch, work_mol, ff=None, uff=None, props_ok=True):
 
 def _collect_finished(worker):
     results = {}
-    worker.finished.connect(lambda new_mol, msg: results.update(new_mol=new_mol, msg=msg))
+    worker.finished.connect(
+        lambda new_mol, msg: results.update(new_mol=new_mol, msg=msg)
+    )
     return results
+
+
+class TestUntangleWorkerEnergyIsLive:
+    """Every CalcEnergy must be preceded by Initialize().
+
+    Without it the field reports a snapshot from its first call, so the
+    accept/reject test compared stale energies and the run drove the molecule
+    into overlap instead of out of it.
+    """
+
+    @staticmethod
+    def _recording_ff():
+        ff = MagicMock()
+        calls = []
+        ff.Initialize.side_effect = lambda *a, **k: calls.append("init")
+        ff.CalcEnergy.side_effect = lambda *a, **k: (
+            calls.append("energy"),
+            100.0 - len(calls),
+        )[1]
+        return ff, calls
+
+    def test_initialize_precedes_every_energy_read(self, qapp, monkeypatch):
+        work_mol = _FakeWorkMolGui()
+        ff, calls = self._recording_ff()
+        _patch_chem(monkeypatch, work_mol, ff=ff)
+        w = _untangler.UntangleWorker(work_mol, max_iter=4, force_field="MMFF94")
+        _collect_finished(w)
+        w.run()
+
+        assert "energy" in calls
+        for pos, name in enumerate(calls):
+            if name == "energy":
+                assert pos > 0 and calls[pos - 1] == "init", (
+                    f"CalcEnergy at {pos} not preceded by Initialize: {calls}"
+                )
+
+    def test_reported_score_is_read_after_the_final_polish(self, qapp, monkeypatch):
+        work_mol = _FakeWorkMolGui()
+        ff, calls = self._recording_ff()
+        _, allchem, _ = _patch_chem(monkeypatch, work_mol, ff=ff)
+        allchem.MMFFOptimizeMolecule.side_effect = lambda *a, **k: calls.append(
+            "polish"
+        )
+        w = _untangler.UntangleWorker(work_mol, max_iter=2, force_field="MMFF94")
+        _collect_finished(w)
+        w.run()
+
+        assert "polish" in calls, calls
+        # An energy read must follow the polish, or the score shown describes a
+        # geometry the user never receives.
+        assert "energy" in calls[calls.index("polish") :], calls
 
 
 class TestUntangleWorkerRunReal:

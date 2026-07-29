@@ -290,6 +290,30 @@ class TestStepOptimizerStartTickReal:
         assert dlg.lbl_energy.text() == "Energy: 3.1416 kcal/mol"
         dlg.context.refresh_3d_view.assert_called_once()
 
+    def test_tick_energy_is_read_from_live_coordinates(self, dlg, allchem):
+        """The energy label must be re-bound before it is read.
+
+        Minimize() reads the conformer directly, but CalcEnergy() reports a
+        snapshot from its first call, so the label ignored both the max-move
+        clamp and any atom the user dragged mid-run.
+        """
+        mol = _FakeMolWithConf(3)
+        dlg.context.current_mol = mol
+        ff = MagicMock()
+        order = []
+        ff.Minimize.side_effect = lambda *a, **k: order.append("minimize")
+        ff.Initialize.side_effect = lambda *a, **k: order.append("init")
+        ff.CalcEnergy.side_effect = lambda *a, **k: (order.append("energy"), 1.0)[1]
+        allchem.MMFFGetMoleculeProperties.return_value = MagicMock()
+        allchem.MMFFGetMoleculeForceField.return_value = ff
+        dlg._start()
+        dlg.timer.stop()
+        order.clear()  # drop the Initialize() from _start
+
+        dlg._tick()
+
+        assert order == ["minimize", "init", "energy"], order
+
     def test_tick_molecule_changed_stops_run(self, dlg, allchem):
         mol = _FakeMolWithConf(2)
         dlg.context.current_mol = mol

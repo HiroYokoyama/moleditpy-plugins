@@ -57,7 +57,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "All-Trans Optimizer",
-    "version": "2026.07.11",
+    "version": "2026.07.30",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A geometric tool for straightening alkyl chains.",
@@ -68,8 +68,8 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/All-Trans_Optimizer/all-trans_optimizer.py",
-    "lastUpdated": "2026-07-11",
-    "sha256": "14f75dd1e65d6e065906b798ce627007922bc90cc1a199ff10dce89d6fa4992a",
+    "lastUpdated": "2026-07-30",
+    "sha256": "f4cfb28932074a33c761b5dccf3b475f7fc9706d4b1b38083c28a282739182fe",
     "firstAppeared": "2025-12-15",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -130,7 +130,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Complex Molecule Untangler",
-    "version": "2026.06.20",
+    "version": "2026.07.30",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A Monte Carlo-based tool to resolve steric clashes in complex or roughly drawn molecules.",
@@ -141,8 +141,8 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/Complex_Molecule_Untangler/complex_molecule_untangler.py",
-    "lastUpdated": "2026-06-20",
-    "sha256": "a97c7f42839df01be23624fe198853a0035aab414d0f5f49f17760bfb741a21c",
+    "lastUpdated": "2026-07-30",
+    "sha256": "8ba164cdc3cc70f05ac02cb6fa8ad2123210657f2e2485a5cce9775d9f200743",
     "firstAppeared": "2025-12-15",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -2033,7 +2033,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Step Optimizer",
-    "version": "2026.07.12",
+    "version": "2026.07.30",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Interactive step-by-step force-field optimization with live 3D animation.",
@@ -2044,8 +2044,8 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/Step_Optimizer/step_optimizer.py",
-    "lastUpdated": "2026-07-12",
-    "sha256": "3dade3748d1a7fb386f501a6595b66094f69e94017a406ed0ac3f23f2efe3503",
+    "lastUpdated": "2026-07-30",
+    "sha256": "a4689566d7df8239513cb3800290ed4b1ca5aadc041cb78831c8e58a34df1146",
     "firstAppeared": "2026-07-12",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

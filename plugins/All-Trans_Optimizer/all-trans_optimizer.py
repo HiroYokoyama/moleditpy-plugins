@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import QMessageBox
 from rdkit import Chem
 from rdkit.Chem import rdMolTransforms
 
-PLUGIN_VERSION = "2026.07.11"
+PLUGIN_VERSION = "2026.07.30"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -26,25 +26,56 @@ _CENTRAL_ATOM = f"[{_CENTRAL_ELEMENTS};!$([*]=*);!$([*]#*)]"
 _ALL_TRANS_SMARTS = f"[!#1]-{_CENTRAL_ATOM}-;!@{_CENTRAL_ATOM}-[!#1]"
 
 
-def _select_torsions(matches):
+def _main_chain_atoms(mol):
+    """Atom indices on the longest heavy-atom path (the backbone).
+
+    Uses the topological distance matrix rather than all-pairs shortest
+    paths, so this stays O(n^2) on large molecules.
+    """
+    heavy = [a.GetIdx() for a in mol.GetAtoms() if a.GetAtomicNum() > 1]
+    if len(heavy) < 2:
+        return set(heavy)
+
+    dmat = Chem.GetDistanceMatrix(mol)
+    best_pair, best_dist = (heavy[0], heavy[1]), -1.0
+    for pos, i in enumerate(heavy):
+        for j in heavy[pos + 1 :]:
+            d = dmat[i][j]
+            # Disconnected atoms get a huge sentinel distance, not a real path.
+            if d > best_dist and d < mol.GetNumAtoms():
+                best_dist, best_pair = d, (i, j)
+
+    return set(Chem.rdmolops.GetShortestPath(mol, best_pair[0], best_pair[1]))
+
+
+def _select_torsions(matches, backbone=None):
     """Keep exactly one torsion quartet per rotatable central bond.
 
     A branched backbone atom produces several matches that share the same
     central bond (idx2-idx3). Applying all of them would make each
-    SetDihedralDeg undo the previous one for that bond, so we keep only the
-    first quartet seen for each central bond. Order is preserved for
-    determinism.
+    SetDihedralDeg undo the previous one for that bond, so we keep only one
+    quartet per central bond.
+
+    When ``backbone`` is given, the quartet whose reference atoms both lie on
+    it wins. Taking the first match instead straightened a substituent and
+    left the main chain bent -- 3-ethylnonane kept a 62 degree backbone
+    dihedral. Ties keep the earlier match, so the result stays deterministic.
     """
-    seen_bonds = set()
-    selected = []
+    best = {}
+    order = []
     for match in matches:
         idx1, idx2, idx3, idx4 = match
         bond_key = (idx2, idx3) if idx2 <= idx3 else (idx3, idx2)
-        if bond_key in seen_bonds:
-            continue
-        seen_bonds.add(bond_key)
-        selected.append(match)
-    return selected
+        if backbone is None:
+            score = 0
+        else:
+            score = (idx1 in backbone) + (idx4 in backbone)
+        if bond_key not in best:
+            best[bond_key] = (score, match)
+            order.append(bond_key)
+        elif score > best[bond_key][0]:
+            best[bond_key] = (score, match)
+    return [best[key][1] for key in order]
 
 
 def run_plugin(context):
@@ -70,7 +101,7 @@ def run_plugin(context):
 
         patt = Chem.MolFromSmarts(_ALL_TRANS_SMARTS)
         matches = mol.GetSubstructMatches(patt)
-        torsions = _select_torsions(matches)
+        torsions = _select_torsions(matches, _main_chain_atoms(mol))
 
         if not torsions:
             QMessageBox.information(
@@ -101,6 +132,4 @@ def run_plugin(context):
 
 
 def initialize(context):
-    context.add_menu_action(
-        "3D Edit/All-Trans Optimizer", lambda: run_plugin(context)
-    )
+    context.add_menu_action("3D Edit/All-Trans Optimizer", lambda: run_plugin(context))

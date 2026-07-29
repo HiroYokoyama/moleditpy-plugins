@@ -62,6 +62,37 @@ class TestAllTransSelectTorsions:
         assert _all_trans._select_torsions([]) == []
 
 
+class TestAllTransBackbonePreference:
+    """A branched centre offers several quartets per bond; the backbone wins.
+
+    Keeping the first match instead straightened a substituent and left the
+    main chain bent -- 3-ethylnonane kept a 62 degree backbone dihedral.
+    """
+
+    def test_backbone_quartet_beats_an_earlier_branch_quartet(self):
+        # (9, 1, 2, 8) is the branch pair; (0, 1, 2, 3) lies on the backbone.
+        matches = [(9, 1, 2, 8), (0, 1, 2, 3)]
+        backbone = {0, 1, 2, 3}
+        assert _all_trans._select_torsions(matches, backbone) == [(0, 1, 2, 3)]
+
+    def test_half_on_backbone_loses_to_fully_on_backbone(self):
+        matches = [(0, 1, 2, 9), (0, 1, 2, 3)]
+        assert _all_trans._select_torsions(matches, {0, 1, 2, 3}) == [(0, 1, 2, 3)]
+
+    def test_first_match_kept_when_scores_tie(self):
+        matches = [(0, 1, 2, 3), (4, 1, 2, 5)]
+        assert _all_trans._select_torsions(matches, set()) == [(0, 1, 2, 3)]
+
+    def test_still_one_quartet_per_bond_with_backbone(self):
+        matches = [(9, 1, 2, 8), (0, 1, 2, 3), (3, 2, 1, 0)]
+        got = _all_trans._select_torsions(matches, {0, 1, 2, 3})
+        assert got == [(0, 1, 2, 3)]
+
+    def test_no_backbone_matches_falls_back_to_first(self):
+        matches = [(9, 1, 2, 8), (7, 1, 2, 6)]
+        assert _all_trans._select_torsions(matches, {40, 41}) == [(9, 1, 2, 8)]
+
+
 class TestAllTransRunPlugin:
     def test_no_molecule_warns(self, no_msgbox):
         ctx = _ctx()
@@ -89,9 +120,7 @@ class TestAllTransRunPlugin:
 
     def test_applies_one_dihedral_per_bond(self, no_msgbox, monkeypatch):
         set_dihedral = MagicMock()
-        monkeypatch.setattr(
-            _all_trans.rdMolTransforms, "SetDihedralDeg", set_dihedral
-        )
+        monkeypatch.setattr(_all_trans.rdMolTransforms, "SetDihedralDeg", set_dihedral)
         ctx = _ctx()
         mol = MagicMock()
         mol.GetNumConformers.return_value = 1

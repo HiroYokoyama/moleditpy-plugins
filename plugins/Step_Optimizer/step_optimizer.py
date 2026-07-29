@@ -16,7 +16,7 @@ import logging
 import math
 
 PLUGIN_NAME = "Step Optimizer"
-PLUGIN_VERSION = "2026.07.12"
+PLUGIN_VERSION = "2026.07.30"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -136,9 +136,7 @@ class StepOptimizerDialog(QDialog):
 
             selected_ff = self.combo_ff.currentText()
             if selected_ff in ("MMFF94", "MMFF94s"):
-                props = AllChem.MMFFGetMoleculeProperties(
-                    mol, mmffVariant=selected_ff
-                )
+                props = AllChem.MMFFGetMoleculeProperties(mol, mmffVariant=selected_ff)
                 if not props:
                     QMessageBox.warning(
                         self,
@@ -214,6 +212,11 @@ class StepOptimizerDialog(QDialog):
             self.steps_since_checkpoint += n_steps
 
             self.lbl_step.setText(f"Step: {self.step_count}")
+            # Rebind to the live coordinates first. Minimize() reads the
+            # conformer directly, but CalcEnergy() reports a snapshot from the
+            # first call, so it ignored both the max-move clamp above and any
+            # atom the user dragged mid-run.
+            self.ff.Initialize()
             energy = self.ff.CalcEnergy()
             self.lbl_energy.setText(f"Energy: {energy:.4f} kcal/mol")
             self.context.refresh_3d_view()

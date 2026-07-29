@@ -18,7 +18,7 @@ from rdkit.Chem import AllChem, rdMolTransforms
 import logging
 
 PLUGIN_NAME = "Complex Molecule Untangler"
-PLUGIN_VERSION = "2026.06.20"
+PLUGIN_VERSION = "2026.07.30"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Untangle overlapping fragments in complex molecules."
@@ -72,6 +72,10 @@ class UntangleWorker(QThread):
                 return
 
             # 初期エネルギー（衝突具合）
+            # Initialize() rebinds the field to the conformer's current
+            # coordinates. CalcEnergy() alone reads a snapshot taken at the
+            # first call, so every energy below must be preceded by it.
+            ff.Initialize()
             current_energy = ff.CalcEnergy()
 
             # 回転可能な結合（二面角）を探索
@@ -122,10 +126,8 @@ class UntangleWorker(QThread):
                     conf, i_idx, j_idx, k_idx, l_idx, new_angle
                 )
 
-                # 判定
-                # 座標が変わったのでFFを更新する必要があるか？ -> RDKitのFFは座標更新を追跡しない場合があるが、
-                # CalcEnergyは現在のCoordsを使うはず。ただしInitializeが必要な場合も。
-                # RDKit通常の使用法では座標を変えたらそのままCalcEnergyで反映される。
+                # 判定: 回転後の座標でエネルギーを再評価する。
+                ff.Initialize()
                 new_energy = ff.CalcEnergy()
 
                 if new_energy < current_energy:
@@ -156,6 +158,14 @@ class UntangleWorker(QThread):
                     logging.warning(
                         "[complex_molecule_untangler.py:132] silenced: %s", _e
                     )
+
+            # Re-read after the polish above, otherwise the reported score is
+            # the pre-polish value and understates the result.
+            try:
+                ff.Initialize()
+                current_energy = ff.CalcEnergy()
+            except Exception as _e:
+                logging.warning("[complex_molecule_untangler.py] final energy: %s", _e)
 
             self.finished.emit(
                 work_mol,
