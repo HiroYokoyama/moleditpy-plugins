@@ -19,7 +19,7 @@ from functools import partial
 
 
 PLUGIN_NAME = "Charge Editor"
-PLUGIN_VERSION = "2026.07.17"
+PLUGIN_VERSION = "2026.07.30"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -189,9 +189,7 @@ class ChargeEditorWindow(QWidget):
             ctrl_held = bool(modifiers & Qt.KeyboardModifier.ControlModifier)
             self._select_atom_row(idx, ctrl_held)
         except Exception as _e:
-            logging.warning(
-                "[charge_editor.py:_on_plotter_click] silenced: %s", _e
-            )
+            logging.warning("[charge_editor.py:_on_plotter_click] silenced: %s", _e)
 
     def _nearest_atom_to_point(self, mol, pick_pos):
         """Return the index of the atom nearest the 3D *pick_pos*, or None."""
@@ -255,9 +253,7 @@ class ChargeEditorWindow(QWidget):
             if current_sig != self.last_seen_signature:
                 self.load_molecule()
         except Exception as _e:
-            logging.warning(
-                "[charge_editor.py:check_molecule_update] silenced: %s", _e
-            )
+            logging.warning("[charge_editor.py:check_molecule_update] silenced: %s", _e)
 
     def _atom_symbol(self, atom):
         if atom.HasProp("custom_symbol"):
@@ -344,14 +340,10 @@ class ChargeEditorWindow(QWidget):
                 rw.UpdatePropertyCache(strict=False)
                 Chem.GetSSSR(rw)
             except Exception as _e:
-                logging.warning(
-                    "[charge_editor.py:_commit] sanitize fallback: %s", _e
-                )
+                logging.warning("[charge_editor.py:_commit] sanitize fallback: %s", _e)
         self.context.current_molecule = rw.GetMol()
         self.context.push_undo_checkpoint()
-        self.last_seen_signature = self.get_mol_signature(
-            self.context.current_molecule
-        )
+        self.last_seen_signature = self.get_mol_signature(self.context.current_molecule)
         refresh = getattr(self.context, "refresh_3d_view", None)
         if callable(refresh):
             refresh()
@@ -361,11 +353,39 @@ class ChargeEditorWindow(QWidget):
                 try:
                     fn()
                 except Exception as _e:
-                    logging.warning(
-                        "[charge_editor.py:_commit] %s: %s", name, _e
-                    )
+                    logging.warning("[charge_editor.py:_commit] %s: %s", name, _e)
         self.load_molecule()
         self.context.show_status_message(message)
+
+    def _verify_applied(self, atom_idx, getter, requested, what, hint):
+        """Warn when sanitization overrode the value we just wrote.
+
+        SanitizeMol recomputes radical counts, so asking for an unpaired
+        electron on an atom with no free valence silently yields 0 — the edit
+        did nothing while the status bar reported success.
+        """
+        mol = self.context.current_molecule
+        if not mol:
+            return True
+        try:
+            actual = getter(mol.GetAtomWithIdx(int(atom_idx)))
+        except Exception as _e:
+            logging.warning("[charge_editor.py:_verify_applied] %s", _e)
+            return True
+        # Only a genuine int is evidence of a mismatch. A stand-in object
+        # compares unequal to anything and would raise a modal dialog that
+        # blocks forever in a headless run.
+        if not isinstance(actual, int) or isinstance(actual, bool):
+            return True
+        if actual == int(requested):
+            return True
+        QMessageBox.warning(
+            self,
+            PLUGIN_NAME,
+            f"Atom {atom_idx}: {what} could not be set to {requested} "
+            f"(it is {actual}).\n\n{hint}",
+        )
+        return False
 
     def on_charge_changed(self, atom_idx, value):
         mol = self.context.current_molecule
@@ -377,6 +397,13 @@ class ChargeEditorWindow(QWidget):
             atom.SetFormalCharge(int(value))
             atom.SetNoImplicit(True)
             self._commit(rw, f"Atom {atom_idx} formal charge set to {value:+d}.")
+            self._verify_applied(
+                atom_idx,
+                lambda a: a.GetFormalCharge(),
+                int(value),
+                "formal charge",
+                "The structure could not accept that charge.",
+            )
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to set charge: {str(e)}")
 
@@ -390,6 +417,14 @@ class ChargeEditorWindow(QWidget):
             atom.SetNumRadicalElectrons(int(value))
             atom.SetNoImplicit(True)
             self._commit(rw, f"Atom {atom_idx} radical electrons set to {value}.")
+            self._verify_applied(
+                atom_idx,
+                lambda a: a.GetNumRadicalElectrons(),
+                int(value),
+                "radical electrons",
+                "The atom has no free valence — remove a bond or a hydrogen "
+                "first, then set the unpaired electrons.",
+            )
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to set radicals: {str(e)}")
 
@@ -432,9 +467,7 @@ class ChargeEditorWindow(QWidget):
                 pt = Chem.GetPeriodicTable()
                 return pt.GetRvdw(atomic_num) * 1.2 * 0.3
         except Exception as _e:
-            logging.warning(
-                "[charge_editor.py:_highlight_radius] silenced: %s", _e
-            )
+            logging.warning("[charge_editor.py:_highlight_radius] silenced: %s", _e)
         return 1.5 * 0.3  # ghost/unknown atoms keep the old fixed size
 
     def highlight_selected_atoms(self):
@@ -465,9 +498,7 @@ class ChargeEditorWindow(QWidget):
         else:
             cloud = pv.PolyData(np.array(centers))
             cloud["radii"] = radii
-            glyph = cloud.glyph(
-                geom=pv.Sphere(radius=1.0), scale="radii", orient=False
-            )
+            glyph = cloud.glyph(geom=pv.Sphere(radius=1.0), scale="radii", orient=False)
             plotter.add_mesh(
                 glyph,
                 name="charge_editor_selection",

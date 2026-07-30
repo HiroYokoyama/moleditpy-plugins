@@ -2060,7 +2060,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Bond Editor",
-    "version": "2026.07.18",
+    "version": "2026.07.30",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A table-based bond editor: add/delete bonds, change bond order, and set bond lengths by moving one side of the bond. In the 3D view pick a mode to select a bond by clicking it, or create a bond by clicking two atoms.",
@@ -2074,8 +2074,8 @@
       "numpy"
     ],
     "downloadUrl": "../plugins/Bond_Editor/bond_editor.py",
-    "lastUpdated": "2026-07-18",
-    "sha256": "e820b140d6ffda17407059170a95f3a6612537f0fa2089b850ed12f16488c97d",
+    "lastUpdated": "2026-07-30",
+    "sha256": "6cae8f70ae849ba0966f32766a5347d6a2e725cb3385f137ff340a4462384c9b",
     "firstAppeared": "2026-07-15",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -2090,7 +2090,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Charge Editor",
-    "version": "2026.07.17",
+    "version": "2026.07.30",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A table-based editor for per-atom formal charge and radical electrons. Click atoms in the 3D view to select them, and read off the total charge and spin multiplicity for DFT input preparation.",
@@ -2104,8 +2104,8 @@
       "numpy"
     ],
     "downloadUrl": "../plugins/Charge_Editor/charge_editor.py",
-    "lastUpdated": "2026-07-17",
-    "sha256": "739d60f814f132325690b2e3d0c383f2048083026ef378904c542ba05dd31017",
+    "lastUpdated": "2026-07-30",
+    "sha256": "b0ce7b931cbff8e43b239d3e51462fee2f10fc3e412ae7c2ae8acaf491059665",
     "firstAppeared": "2026-07-16",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

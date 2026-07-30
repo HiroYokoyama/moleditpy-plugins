@@ -21,7 +21,7 @@ from functools import partial
 
 
 PLUGIN_NAME = "Bond Editor"
-PLUGIN_VERSION = "2026.07.18"
+PLUGIN_VERSION = "2026.07.30"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -137,7 +137,9 @@ class BondEditorWindow(QWidget):
         add_layout.addWidget(QLabel("New bond type:"))
         self.add_type_combo = QComboBox()
         self.add_type_combo.addItems(BOND_TYPE_LABELS)
-        self.add_type_combo.setToolTip("Bond type used when creating a bond by clicking")
+        self.add_type_combo.setToolTip(
+            "Bond type used when creating a bond by clicking"
+        )
         self.add_type_combo.currentTextChanged.connect(
             lambda _t: self._update_mode_overlay()
         )
@@ -192,7 +194,9 @@ class BondEditorWindow(QWidget):
             if interactor and self._click_filter:
                 interactor.removeEventFilter(self._click_filter)
         except Exception as _e:
-            logging.warning("[bond_editor.py:_disable_plotter_picking] silenced: %s", _e)
+            logging.warning(
+                "[bond_editor.py:_disable_plotter_picking] silenced: %s", _e
+            )
         self._click_filter = None
 
     def _on_plotter_click(self, x, y, widget, modifiers):
@@ -513,9 +517,7 @@ class BondEditorWindow(QWidget):
                 length = (
                     (p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2 + (p1.z - p2.z) ** 2
                 ) ** 0.5
-                self.table.setItem(
-                    row, self.COL_LEN, QTableWidgetItem(f"{length:.4f}")
-                )
+                self.table.setItem(row, self.COL_LEN, QTableWidgetItem(f"{length:.4f}"))
             else:
                 item = QTableWidgetItem("n/a")
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
@@ -544,9 +546,7 @@ class BondEditorWindow(QWidget):
             Chem.GetSSSR(rw)
         self.context.current_molecule = rw.GetMol()
         self.context.push_undo_checkpoint()
-        self.last_seen_signature = self.get_mol_signature(
-            self.context.current_molecule
-        )
+        self.last_seen_signature = self.get_mol_signature(self.context.current_molecule)
         refresh = getattr(self.context, "refresh_3d_view", None)
         if callable(refresh):
             refresh()
@@ -571,7 +571,9 @@ class BondEditorWindow(QWidget):
         try:
             rw = Chem.RWMol(mol)
             rw.AddBond(a1, a2, bond_type_from_label(self.add_type_combo.currentText()))
-            self._commit(rw, f"Added {self.add_type_combo.currentText().lower()} bond {a1}-{a2}.")
+            self._commit(
+                rw, f"Added {self.add_type_combo.currentText().lower()} bond {a1}-{a2}."
+            )
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to add bond: {str(e)}")
 
@@ -593,6 +595,49 @@ class BondEditorWindow(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to delete bonds: {str(e)}")
 
+    def _verify_bond_type(self, pair, requested, label):
+        """Warn when sanitization restored the previous bond type.
+
+        SanitizeMol re-perceives aromaticity, so setting a benzene or pyridine
+        ring bond to single/double silently comes back as aromatic — the edit
+        did nothing while the status bar reported success.
+        """
+        mol = self.context.current_molecule
+        if not mol:
+            return True
+        try:
+            bond = mol.GetBondBetweenAtoms(int(pair[0]), int(pair[1]))
+        except Exception as _e:
+            logging.warning("[bond_editor.py:_verify_bond_type] %s", _e)
+            return True
+        if bond is None or bond.GetBondType() == requested:
+            return True
+        actual = bond.GetBondType()
+        # Only a nameable bond type is evidence of a mismatch. A stand-in
+        # object compares unequal to anything and would raise a modal dialog
+        # that blocks forever in a headless run.
+        if str(actual).rsplit(".", 1)[-1] not in (
+            "SINGLE",
+            "DOUBLE",
+            "TRIPLE",
+            "AROMATIC",
+        ):
+            return True
+        extra = ""
+        if actual == Chem.BondType.AROMATIC:
+            extra = (
+                "\n\nThe bond belongs to an aromatic ring. Break the ring's "
+                "aromaticity first (for example by changing an atom or adding "
+                "a hydrogen), then set the bond type."
+            )
+        QMessageBox.warning(
+            self,
+            PLUGIN_NAME,
+            f"Bond {pair[0]}-{pair[1]} could not be set to {label.lower()} — "
+            f"it is {str(actual).split('.')[-1].lower()}.{extra}",
+        )
+        return False
+
     def on_type_changed(self, row, label):
         mol = self.context.current_molecule
         pair = self._row_bond_atoms(row)
@@ -611,6 +656,7 @@ class BondEditorWindow(QWidget):
                 bond.GetBeginAtom().SetIsAromatic(True)
                 bond.GetEndAtom().SetIsAromatic(True)
             self._commit(rw, f"Bond {pair[0]}-{pair[1]} set to {label.lower()}.")
+            self._verify_bond_type(pair, new_type, label)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to change bond type: {str(e)}")
 

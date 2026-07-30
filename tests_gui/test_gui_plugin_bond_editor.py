@@ -43,6 +43,23 @@ _Chem = pytest.importorskip("rdkit.Chem")
 _Point3D = pytest.importorskip("rdkit.Geometry").Point3D
 
 
+@pytest.fixture(autouse=True)
+def _no_modal_warning(monkeypatch):
+    """Neutralise QMessageBox.warning for every test in this module.
+
+    The editors now warn when RDKit's sanitize step overrides an edit. That is
+    a real modal, and several tests below drive exactly those paths, so an
+    unpatched warning blocks the offscreen run forever.
+    """
+    from PyQt6.QtWidgets import QMessageBox
+
+    calls = []
+    monkeypatch.setattr(
+        QMessageBox, "warning", staticmethod(lambda *a, **k: calls.append(a))
+    )
+    return calls
+
+
 @contextlib.contextmanager
 def _mock_chemistry_keep_real_chem():
     """Like mock_chemistry_imports(), but numpy/rdkit/pyvista/vtk resolve to the
@@ -118,6 +135,55 @@ def _ethane_like():
 # ===========================================================================
 # Bond Editor — bond-type label maps (module functions)
 # ===========================================================================
+
+
+class TestAromaticBondTypeChangeIsReported:
+    """SanitizeMol re-perceives aromaticity, so the edit must be reported."""
+
+    @staticmethod
+    def _benzene():
+        mol = _Chem.AddHs(_Chem.MolFromSmiles("c1ccccc1"))
+        conf = _Chem.Conformer(mol.GetNumAtoms())
+        for i in range(mol.GetNumAtoms()):
+            conf.SetAtomPosition(i, _Point3D(float(i), 0.0, 0.0))
+        mol.AddConformer(conf, assignId=True)
+        return mol
+
+    def test_aromatic_bond_set_to_single_warns(self, qapp, _no_modal_warning):
+        mol = self._benzene()
+        ctx = _real_ctx(mol=mol)
+        w = _bondrn.BondEditorWindow(context=ctx)
+        try:
+            row = next(
+                r
+                for r in range(w.table.rowCount())
+                if w.table.item(r, w.COL_TYPE) is not None
+                or w.table.cellWidget(r, w.COL_TYPE) is not None
+            )
+            pair = w._row_bond_atoms(row)
+            bond = mol.GetBondBetweenAtoms(*pair)
+            if bond.GetBondType() != _Chem.BondType.AROMATIC:
+                pytest.skip("first row is not an aromatic bond")
+            w.on_type_changed(row, "Single")
+            got = ctx.current_molecule.GetBondBetweenAtoms(*pair).GetBondType()
+            assert got == _Chem.BondType.AROMATIC
+            assert _no_modal_warning, "aromatic bond reverted without warning"
+            assert "aromatic" in _no_modal_warning[0][2]
+        finally:
+            w.update_timer.stop()
+            w.destroy()
+
+    def test_non_aromatic_bond_change_does_not_warn(self, qapp, _no_modal_warning):
+        ctx = _real_ctx(mol=_real_mol())
+        w = _bondrn.BondEditorWindow(context=ctx)
+        try:
+            w.on_type_changed(0, "Double")
+            got = ctx.current_molecule.GetBondBetweenAtoms(0, 1).GetBondType()
+            if got == _Chem.BondType.DOUBLE:
+                assert not _no_modal_warning, "warned about a change that applied"
+        finally:
+            w.update_timer.stop()
+            w.destroy()
 
 
 class TestBondTypeMaps:

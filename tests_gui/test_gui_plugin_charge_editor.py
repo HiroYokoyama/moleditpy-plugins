@@ -41,6 +41,23 @@ _Chem = pytest.importorskip("rdkit.Chem")
 _Point3D = pytest.importorskip("rdkit.Geometry").Point3D
 
 
+@pytest.fixture(autouse=True)
+def _no_modal_warning(monkeypatch):
+    """Neutralise QMessageBox.warning for every test in this module.
+
+    The editors now warn when RDKit's sanitize step overrides an edit. That is
+    a real modal, and several tests below drive exactly those paths, so an
+    unpatched warning blocks the offscreen run forever.
+    """
+    from PyQt6.QtWidgets import QMessageBox
+
+    calls = []
+    monkeypatch.setattr(
+        QMessageBox, "warning", staticmethod(lambda *a, **k: calls.append(a))
+    )
+    return calls
+
+
 @contextlib.contextmanager
 def _mock_chemistry_keep_real_chem():
     """Like mock_chemistry_imports(), but numpy/rdkit/pyvista/vtk resolve to the
@@ -454,7 +471,9 @@ class TestOnPlotterClick:
         monkeypatch.setattr(
             _vtk, "vtkCellPicker", lambda: _FakePicker(actor="x", pos=(3.0, 0.0, 0.0))
         )
-        win._on_plotter_click(10, 10, self._widget(), Qt.KeyboardModifier.ControlModifier)
+        win._on_plotter_click(
+            10, 10, self._widget(), Qt.KeyboardModifier.ControlModifier
+        )
         rows = sorted({i.row() for i in win.table.selectedIndexes()})
         assert rows == [0, 2]
 
@@ -547,6 +566,52 @@ class TestLoadMoleculeCustomSymbolAndHCountFallback:
         assert w.table.item(0, w.COL_HS).text() == "0"
         w.update_timer.stop()
         w.destroy()
+
+
+class TestSanitizeOverrideIsReported:
+    """A radical RDKit refuses to keep must be reported, not silently dropped."""
+
+    @staticmethod
+    def _saturated_methane():
+        rw = _Chem.RWMol()
+        rw.AddAtom(_Chem.Atom(6))
+        for _ in range(4):
+            rw.AddAtom(_Chem.Atom(1))
+        for h in range(1, 5):
+            rw.AddBond(0, h, _Chem.BondType.SINGLE)
+        conf = _Chem.Conformer(5)
+        for i, (x, y, z) in enumerate(
+            [(0, 0, 0), (1.1, 0, 0), (-1.1, 0, 0), (0, 1.1, 0), (0, -1.1, 0)]
+        ):
+            conf.SetAtomPosition(i, _Point3D(float(x), float(y), float(z)))
+        mol = rw.GetMol()
+        mol.AddConformer(conf, assignId=True)
+        _Chem.SanitizeMol(mol)
+        return mol
+
+    def test_radical_on_saturated_atom_warns(self, qapp, _no_modal_warning):
+        ctx = _real_ctx(mol=self._saturated_methane())
+        w = _chargern.ChargeEditorWindow(context=ctx)
+        try:
+            w.on_radical_changed(0, 1)
+            assert ctx.current_molecule.GetAtomWithIdx(0).GetNumRadicalElectrons() == 0
+            assert _no_modal_warning, "sanitize dropped the radical without warning"
+            assert "radical electrons" in _no_modal_warning[0][2]
+        finally:
+            w.update_timer.stop()
+            w.destroy()
+
+    def test_radical_on_open_valence_atom_does_not_warn(self, qapp, _no_modal_warning):
+        ctx = _real_ctx(mol=_real_mol())
+        w = _chargern.ChargeEditorWindow(context=ctx)
+        try:
+            w.on_radical_changed(0, 1)
+            got = ctx.current_molecule.GetAtomWithIdx(0).GetNumRadicalElectrons()
+            if got == 1:
+                assert not _no_modal_warning, "warned about a radical that applied"
+        finally:
+            w.update_timer.stop()
+            w.destroy()
 
 
 class TestEditOperationsRealChem:
