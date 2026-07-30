@@ -1,6 +1,6 @@
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Symmetry Analyzer"
-PLUGIN_VERSION = "2026.07.29"
+PLUGIN_VERSION = "2026.07.30"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Analyzes molecular symmetry (point group) and symmetrizes structures. Refactored for MoleditPy V3.0 API."
@@ -23,7 +23,6 @@ from PyQt6.QtWidgets import (
     QDialog,
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from moleditpy.plugins.plugin_interface import PluginContext
 
 # --- RDKit Imports ---
 try:

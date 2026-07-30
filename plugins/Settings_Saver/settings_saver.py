@@ -23,7 +23,7 @@ from PyQt6.QtCore import Qt, QTimer
 import logging
 
 PLUGIN_NAME = "Settings Saver"
-PLUGIN_VERSION = "2026.06.27"
+PLUGIN_VERSION = "2026.07.30"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Save, load, and manage settings presets in a unified dialog."
 PLUGIN_CATEGORY = "Utility"
@@ -263,7 +263,7 @@ def load_library():
     try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
-    except Exception as e:
+    except Exception:
         # print(f"Error loading settings library: {e}")
         return {}
 

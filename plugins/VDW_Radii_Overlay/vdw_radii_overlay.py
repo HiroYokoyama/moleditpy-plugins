@@ -1,7 +1,6 @@
 import os
 import logging
 import json
-import traceback
 import pyvista as pv
 import numpy as np
 from PyQt6.QtWidgets import (
@@ -32,7 +31,7 @@ except ImportError:
 
 # Plugin Metadata
 PLUGIN_NAME = "VDW Radii Overlay"
-PLUGIN_VERSION = "2026.07.11"
+PLUGIN_VERSION = "2026.07.30"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Visualizes VDW radii as a translucent surface overlay using PyVista. Refactored for V3 API."

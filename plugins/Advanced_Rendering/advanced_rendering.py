@@ -46,7 +46,7 @@ except ImportError:
     vtk = None
 
 PLUGIN_NAME = "Advanced Rendering"
-PLUGIN_VERSION = "2026.07.25"
+PLUGIN_VERSION = "2026.07.30"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Fine-grained control over Scene lighting, shadows, and PBR effects. Refactored for V3 API."
@@ -137,7 +137,7 @@ def load_plugin_from_mw(mw):
         dialog.show()
         dialog.raise_()
         dialog.activateWindow()
-    except Exception as e:
+    except Exception:
         # Detected deleted C++ object or other error, force recreate
         mw._adv_graphics_dialog = None
         load_plugin_from_mw(mw)

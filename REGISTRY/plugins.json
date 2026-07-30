@@ -184,7 +184,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Cube File Viewer",
-    "version": "2026.07.29",
+    "version": "2026.07.30",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes Gaussian Cube files (.cube) containing volumetric data (e.g., orbitals, densities).",
@@ -197,8 +197,8 @@
       "numpy"
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer/cube_viewer.py",
-    "lastUpdated": "2026-07-29",
-    "sha256": "5e71933a1effec0222fd23f17fb11640967a0f64ff35af100ee672a2278bf1ea",
+    "lastUpdated": "2026-07-30",
+    "sha256": "119ba3ce306a691f27bccaf0ea8a45319646cc0721aa00a62ecf1f0aa39e1587",
     "firstAppeared": "2025-12-15",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -341,7 +341,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Atom Colorizer",
-    "version": "2026.07.12",
+    "version": "2026.07.30",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Select atoms in the 3D viewer and apply color.",
@@ -355,8 +355,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Atom_Colorizer/atom_colorizer.py",
-    "lastUpdated": "2026-07-12",
-    "sha256": "d74a47d88d1b667eafc0fb3ba5e980865783b3ee3db419d057919ca934cbb891",
+    "lastUpdated": "2026-07-30",
+    "sha256": "d39942331f3ef0e69b57ade7d47d0aa9c38717bccc2d9a123142fac03676a1da",
     "firstAppeared": "2025-12-16",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -450,7 +450,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "VDW Radii Overlay",
-    "version": "2026.07.11",
+    "version": "2026.07.30",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes Van der Waals radii as a merged surface overlay using PyVista.",
@@ -463,8 +463,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/VDW_Radii_Overlay/vdw_radii_overlay.py",
-    "lastUpdated": "2026-07-11",
-    "sha256": "ffc62fe7f7847aef8ac662a183ea60506edfaf71d5dd375f806239065f8edd95",
+    "lastUpdated": "2026-07-30",
+    "sha256": "1912b99e7f65142901741ec6e7cc6eeb6d431ae4a54ee7487ca5d60d4aeda486",
     "firstAppeared": "2025-12-17",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -591,7 +591,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Gaussian Freq Analyzer",
-    "version": "2026.07.29",
+    "version": "2026.07.30",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Analyzes vibrational frequencies from Gaussian FCHK files. View IR spectrum, animate normal modes, and export GIF animations.",
@@ -607,8 +607,8 @@
       "Pillow"
     ],
     "downloadUrl": "../plugins/Gaussian_Freq_Analyzer/gaussian_fchk_freq_analyzer.py",
-    "lastUpdated": "2026-07-29",
-    "sha256": "dce9c2da8ab15e413da49e596753dbf09be47a98e33f58b7718561de41fa2959",
+    "lastUpdated": "2026-07-30",
+    "sha256": "8b9331c420e44d41d7615ce862b268135ecf95a85baeffb05b56b112ea341164",
     "firstAppeared": "2025-12-20",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -623,7 +623,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "ORCA Freq Analyzer",
-    "version": "2026.07.29",
+    "version": "2026.07.30",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Analyzes vibrational frequencies from ORCA output files. View IR spectrum, animate normal modes, and export GIF animations.",
@@ -639,8 +639,8 @@
       "Pillow"
     ],
     "downloadUrl": "../plugins/ORCA_Freq_Analyzer/orca_out_freq_analyzer.py",
-    "lastUpdated": "2026-07-29",
-    "sha256": "a444845cb346ea1684f5e3a5cd1f1bd138e1ee16f0b3751bed2c866131e3ea3d",
+    "lastUpdated": "2026-07-30",
+    "sha256": "8dcde1c3ee984853a361ec7b53b07568255985e3f308e0590d1af79dfc6badf2",
     "firstAppeared": "2025-12-20",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -655,7 +655,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Paste XYZ",
-    "version": "2026.07.11",
+    "version": "2026.07.30",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Paste XYZ to view in 3D.",
@@ -664,8 +664,8 @@
     ],
     "dependencies": [],
     "downloadUrl": "../plugins/Paste_XYZ/paste_xyz.py",
-    "lastUpdated": "2026-07-11",
-    "sha256": "f0676acb129c54ecca5f2d188cb32b27c0f67a4fed81a626652badfe46d9f3a0",
+    "lastUpdated": "2026-07-30",
+    "sha256": "4b1df36694d90e97b1425957db811b4aefddbc3c9e4255c02ff763352d1135a2",
     "firstAppeared": "2025-12-20",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -749,7 +749,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Chat with Molecule Neo (Gemini)",
-    "version": "2026.07.24",
+    "version": "2026.07.30",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with Google Gemini about the current molecule. Automatically injects SMILES context. (Neo Version)",
@@ -764,8 +764,8 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo/chat_with_molecule_neo.py",
-    "lastUpdated": "2026-07-24",
-    "sha256": "ae53467204c145f9f55f9f1ac195f68f0b402533c250f71c9d06b8907ad1a5e1",
+    "lastUpdated": "2026-07-30",
+    "sha256": "3b39bea7637ade965f516db2f3feba9d4b62f8dadc277d867f21c7abc7d297ed",
     "firstAppeared": "2025-12-28",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -808,7 +808,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Chat with Molecule Neo (ChatGPT)",
-    "version": "2026.07.24",
+    "version": "2026.07.30",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with OpenAI ChatGPT about the current molecule. Automatically injects SMILES context. (Neo Version)",
@@ -823,8 +823,8 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_ChatGPT/chat_with_molecule_neo_chatGPT.py",
-    "lastUpdated": "2026-07-24",
-    "sha256": "8ffe9e23174fb3b3e76d56c7d95514ac9f7e3abce7e18f7ae40b0c329e17482d",
+    "lastUpdated": "2026-07-30",
+    "sha256": "c498cb4c7c107b939c7e80d0a3f21b2a0af032599a91df8caccbd5a4ff9f8827",
     "firstAppeared": "2025-12-30",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -839,7 +839,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Chat with Molecule Neo (Local)",
-    "version": "2026.07.24",
+    "version": "2026.07.30",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with local LLM about the current molecule. Automatically injects SMILES context. (Neo Version)",
@@ -854,8 +854,8 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_Local/chat_with_molecule_neo_local.py",
-    "lastUpdated": "2026-07-24",
-    "sha256": "76141e490d05bd4f0ece260f305b5ce21fe7bafe2584e5a5f3138c0c62131512",
+    "lastUpdated": "2026-07-30",
+    "sha256": "6f688bad8ab713cd39081e33625d0b2f9740ff757d70399807471c05f19505a5",
     "firstAppeared": "2025-12-30",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -870,7 +870,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Symmetry Analyzer",
-    "version": "2026.07.29",
+    "version": "2026.07.30",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Analyzes molecular symmetry (point group) and symmetrizes structures.",
@@ -883,8 +883,8 @@
       "pymatgen"
     ],
     "downloadUrl": "../plugins/Symmetry_Analyzer/symmetry_analyzer.py",
-    "lastUpdated": "2026-07-29",
-    "sha256": "176711b1ad883819a72ebd859137be414a32efc4f0924eab679a903ddbe2b186",
+    "lastUpdated": "2026-07-30",
+    "sha256": "6cfa704acab63d8a07056eb75366db73f5ccaee73e7aab53d660932fd30a8536",
     "firstAppeared": "2025-12-31",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1266,7 +1266,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Gaussian MO Analyzer",
-    "version": "2026.07.29",
+    "version": "2026.07.30",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes Molecular Orbitals from Gaussian FCHK files by generating Cube files. The current implementation supports S, P, D, and F shells",
@@ -1283,8 +1283,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Gaussian_MO_Analyzer/gaussian_fchk_mo_analyzer.zip",
-    "lastUpdated": "2026-07-29",
-    "sha256": "f4485931746ccd4876a67336ae52ac0cdc2be4fbb513c4052cdf54eb8f0ae2d8",
+    "lastUpdated": "2026-07-30",
+    "sha256": "d7ca3dc72b6e1b0ed8e6a2e17051af0046730f173ae28f92f0041cd33b4a97c7",
     "firstAppeared": "2026-01-23",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1327,7 +1327,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Settings Saver",
-    "version": "2026.06.27",
+    "version": "2026.07.30",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Save, load, and manage settings presets in a unified dialog.",
@@ -1338,8 +1338,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Settings_Saver/settings_saver.py",
-    "lastUpdated": "2026-06-27",
-    "sha256": "c18556aafb4f4b0f73ab4dee440501e38f0cc94e93c4456262c3535d2580deaf",
+    "lastUpdated": "2026-07-30",
+    "sha256": "f25851b24d00c4e1bd2e5143f4d9f66bb3862ac29da1ea7785bbbe9d1984e061",
     "firstAppeared": "2026-01-25",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1480,7 +1480,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Advanced Rendering",
-    "version": "2026.07.25",
+    "version": "2026.07.30",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Fine-grained control over Scene lighting, shadows, post-processing effects (SSAO, Depth Peeling, EDL), and Atom/Bond rendering (PBR, Silhouette).",
@@ -1493,8 +1493,8 @@
       "numpy"
     ],
     "downloadUrl": "../plugins/Advanced_Rendering/advanced_rendering.py",
-    "lastUpdated": "2026-07-25",
-    "sha256": "b71044efe3c1209956f856c76ecf920484672a21b838a5e6093e6152f31fbeb3",
+    "lastUpdated": "2026-07-30",
+    "sha256": "fa36ebcfde11170d87a80ae92438b4c68eda6bf09e8f89deca3a92778ea0575b",
     "firstAppeared": "2026-02-03",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1538,7 +1538,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Blender Export",
-    "version": "2026.06.27",
+    "version": "2026.07.30",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Export molecular structures as Blender Python scripts that create 3D visualizations",
@@ -1552,8 +1552,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Blender_Export/blender_export.py",
-    "lastUpdated": "2026-06-27",
-    "sha256": "d919beb0704e0ac3a63edf4239f4d5698a2c0189e180e4d2b7da52a3a399cc08",
+    "lastUpdated": "2026-07-30",
+    "sha256": "8067ecf91bd67ba240dc17d8b9e276d84bcf47679ed1664f5103b7b41a63e395",
     "firstAppeared": "2026-02-05",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1568,7 +1568,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "POV-Ray Export",
-    "version": "2026.07.08",
+    "version": "2026.07.30",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Export molecular structures as POV-Ray scene files for professional ray-traced rendering",
@@ -1582,8 +1582,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/POV-Ray_Export/povray_export.py",
-    "lastUpdated": "2026-07-08",
-    "sha256": "e925c65c27f1e93ad7d5c36820acb49eea29f8a1f0c4038d6474ee8bd7fee074",
+    "lastUpdated": "2026-07-30",
+    "sha256": "d267ab48d41b9012b0871ef67581338ed814afe0a7ab48b2407fd83088f3f662",
     "firstAppeared": "2026-02-05",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1629,7 +1629,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Encrypted Project",
-    "version": "2026.07.12",
+    "version": "2026.07.30",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Securely saves molecular data using AES-128 encryption with password protection (.pmeenc file).",
@@ -1641,8 +1641,8 @@
       "cryptography"
     ],
     "downloadUrl": "../plugins/Encrypted_Project/encrypted_project.py",
-    "lastUpdated": "2026-07-12",
-    "sha256": "28048ef1846109ff5483d97ff217fec72bb6b7e516b2d7aeedfe438f4208c534",
+    "lastUpdated": "2026-07-30",
+    "sha256": "d75f8a9e1310ad46153352ca8e9daa131696b92ae8cc8d3625feb37bcb6c9347",
     "firstAppeared": "2026-02-12",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1867,7 +1867,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Dummy Atom Mode",
-    "version": "2026.06.22",
+    "version": "2026.07.30",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Adds a dummy atom (*) mode to the 2D editor and registers a toolbar action to place dummy atoms.",
@@ -1879,8 +1879,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Dummy_Atom_Mode/dummy_atom_mode.py",
-    "lastUpdated": "2026-06-22",
-    "sha256": "f3b1a2fd705c2846e94ffc8b0d05d93aaafbc99e17f01ee76dc20f7899d15022",
+    "lastUpdated": "2026-07-30",
+    "sha256": "37ae5eddaa5a097e817de4ca6ef863cd667e7425438e6c81f4f75dd045ae510e",
     "firstAppeared": "2026-06-22",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -2045,7 +2045,7 @@
     ],
     "downloadUrl": "../plugins/Step_Optimizer/step_optimizer.py",
     "lastUpdated": "2026-07-30",
-    "sha256": "b1388bcd7a556f535dc5ff6228d2be6a5dea143557d69255de6f724dc9f1ae93",
+    "sha256": "940ba3776747ce17fcdb4db7f4add253f2280332912f779f22bddb7236918ddd",
     "firstAppeared": "2026-07-12",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

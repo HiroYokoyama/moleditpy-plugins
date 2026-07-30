@@ -3,7 +3,7 @@
 
 
 PLUGIN_NAME = "Chat with Molecule Neo (ChatGPT)"
-PLUGIN_VERSION = "2026.07.24"
+PLUGIN_VERSION = "2026.07.30"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with OpenAI ChatGPT about the current molecule. Automatically injects SMILES context. (Neo Version)"
@@ -2576,7 +2576,6 @@ class ChatMoleculeWindow(QDialog):
             atom_indices_param = params.get("atom_indices", None)
             new_charge = params.get("charge", None)
             new_mult = params.get("multiplicity", None)
-            mode = params.get("mode", "atom")  # 'atom' or 'global'
 
             # 1. Atom-Specific Changes (Robust RDKit modification)
             changes_made = False

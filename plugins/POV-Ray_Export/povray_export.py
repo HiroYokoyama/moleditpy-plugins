@@ -1,4 +1,3 @@
-import logging
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
@@ -7,8 +6,10 @@ POV-Ray Export Plugin for MoleditPy
 Exports molecular structures as POV-Ray scene files for high-quality ray-traced rendering
 """
 
+import logging
+
 PLUGIN_NAME = "POV-Ray Export"
-PLUGIN_VERSION = "2026.07.08"
+PLUGIN_VERSION = "2026.07.30"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Export molecular structures as POV-Ray scene files for professional ray-traced rendering"
@@ -355,20 +356,6 @@ def generate_povray_scene(mol, mw):
     specular_power = settings.get("specular_power", 20)
     # Convert specular power to roughness (approximate)
     roughness_val = max(0.01, min(1.0, 1.0 - (specular_power / 100.0)))
-
-    # Van der Waals radii (in Angstroms) - fallback only
-    vdw_radii = {
-        "C": 1.70,
-        "H": 1.20,
-        "O": 1.52,
-        "N": 1.55,
-        "S": 1.80,
-        "P": 1.80,
-        "F": 1.47,
-        "Cl": 1.75,
-        "Br": 1.85,
-        "I": 1.98,
-    }
 
     # Start building the scene
     lines = []

@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
-import logging
 from PyQt6.QtGui import QColor
 from rdkit import Chem
-from moleditpy.core.molecular_data import MolecularData
+# Imported for its side effect: molecular_data must be loaded before the
+# Chem.Atom patch below, since that is the module the patch exists to serve.
+from moleditpy.core.molecular_data import MolecularData  # noqa: F401
 from moleditpy.utils.constants import CPK_COLORS, CPK_COLORS_PV
 from moleditpy.ui.ui_manager import UIManager
 
 # Metadata
 PLUGIN_NAME = "Dummy Atom Mode"
-PLUGIN_VERSION = "2026.06.22"
+PLUGIN_VERSION = "2026.07.30"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Adds a dummy atom (*) mode to the 2D editor and registers a toolbar action to place dummy atoms."
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"

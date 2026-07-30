@@ -10,7 +10,6 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QColor, QCloseEvent
 from PyQt6.QtCore import Qt, QTimer
-import traceback
 import logging
 
 # Try importing from the installed package first (pip package structure)
@@ -26,7 +25,7 @@ except ImportError:
 
 # Plugin Metadata
 PLUGIN_NAME = "Atom Colorizer"
-PLUGIN_VERSION = "2026.07.12"
+PLUGIN_VERSION = "2026.07.30"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (

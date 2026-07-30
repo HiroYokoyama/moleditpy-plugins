@@ -1,7 +1,6 @@
 import os
 import re
 import numpy as np
-import traceback
 from PyQt6.QtWidgets import (
     QDialog,
     QVBoxLayout,
@@ -33,7 +32,7 @@ except ImportError:
     Chem = None
 
 PLUGIN_NAME = "Gaussian Freq Analyzer"
-PLUGIN_VERSION = "2026.07.29"
+PLUGIN_VERSION = "2026.07.30"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -106,20 +105,8 @@ class FCHKParser:
 
             # Simple check: line starts with upper char
             if line[0].isupper():
-                # Check for Type and N= signature more loosely but reliably
-                # If "   I   " or "   R   " is present (at least 3 spaces before/after or N=)
-                # Let's try Regex for robustness
-                # Matches: Start with Word, spaces, I or R, spaces, (N= xxxxx)?
-                match = re.search(
-                    r"^([A-Za-z0-9\-\s]+?)\s+([IR])\s+(?:N=\s+(\d+)|([0-9\-]+))", line
-                )
-
-                # Actually, simpler: check for "   I   " or "   R   " or "   I " at specific columns?
-                # FCHK is fixed format mostly.
-                # Name: 0-40. Type: 43.
-                # But let's trust "   I" or "   R" presence for now if regex is too complex to get right blindly.
-                # However, the previous "R   N=" failed. Maybe it was "R    N=".
-                # Let's use a regex that handles variable whitespace.
+                # Whitespace in FCHK headers varies between writers, so match the
+                # type marker loosely rather than by fixed column.
                 if re.search(r"\s+[IR]\s+(N=)?\s+", line):
                     # Store previous
                     if current_section:

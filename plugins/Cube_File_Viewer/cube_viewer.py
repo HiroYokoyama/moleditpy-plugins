@@ -38,7 +38,7 @@ except ImportError:
     Geometry = None
     rdDetermineBonds = None
 
-PLUGIN_VERSION = "2026.07.29"
+PLUGIN_VERSION = "2026.07.30"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Visualize Gaussian cube files (electron density, MOs)."
@@ -918,7 +918,7 @@ def open_cube_viewer(context, fname):
                     rdDetermineBonds.DetermineConnectivity(mol, charge=current_charge)
                     rdDetermineBonds.DetermineBondOrders(mol, charge=current_charge)
                     break  # Success
-                except Exception as e:
+                except Exception:
                     # Show Dialog
                     dlg = ChargeDialog(main_window, current_charge)
                     if dlg.exec() == QDialog.DialogCode.Accepted:
@@ -1016,7 +1016,6 @@ def initialize(context):
     """
     global PLUGIN_CONTEXT
     PLUGIN_CONTEXT = context
-    mw = context.get_main_window()
 
     def open_cube_wrapper(fname):
         open_cube_viewer(context, fname)

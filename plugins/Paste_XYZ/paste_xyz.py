@@ -1,5 +1,4 @@
 import logging
-import traceback
 
 from PyQt6.QtWidgets import (
     QDialog,
@@ -20,7 +19,7 @@ except ImportError:
     Chem = None
 
 PLUGIN_NAME = "Paste XYZ"
-PLUGIN_VERSION = "2026.07.11"
+PLUGIN_VERSION = "2026.07.30"
 PLUGIN_CATEGORY = "File"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"

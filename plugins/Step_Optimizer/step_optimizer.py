@@ -192,7 +192,7 @@ class StepOptimizerDialog(QDialog):
                     for i in range(self.target_mol.GetNumAtoms())
                 ]
 
-            res = self.ff.Minimize(maxIts=n_steps)
+            self.ff.Minimize(maxIts=n_steps)
 
             if snapshot is not None:
                 for i, (ox, oy, oz) in enumerate(snapshot):
@@ -221,10 +221,10 @@ class StepOptimizerDialog(QDialog):
             self.lbl_energy.setText(f"Energy: {energy:.4f} kcal/mol")
             self.context.refresh_3d_view()
 
-            # `res` (Minimize's return code) is intentionally not surfaced in
-            # the UI: the run continues regardless of convergence so the user
-            # can keep pulling atoms and watch the structure re-relax. The
-            # state label stays "State: Running" for the whole run.
+            # Minimize's return code is intentionally ignored: the run
+            # continues regardless of convergence so the user can keep pulling
+            # atoms and watch the structure re-relax. The state label stays
+            # "State: Running" for the whole run.
         except Exception:
             logging.exception("Step Optimizer: error during optimization tick")
             self._pause_timer()

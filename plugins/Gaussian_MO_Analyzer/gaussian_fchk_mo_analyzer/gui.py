@@ -289,10 +289,6 @@ class OrbitalWidget(QWidget):
             self.list_widget.setEnabled(True)
             return
 
-        mo_idx = self.generation_queue[
-            0
-        ]  # Peek/Process first. Don't pop yet if we want to use worker's mo_idx
-        # Actually it's cleaner to pop now.
         self.current_gen_mo_idx = self.generation_queue.pop(0)
 
         # Setup Path
