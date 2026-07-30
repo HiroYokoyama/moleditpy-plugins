@@ -54,9 +54,7 @@ def _mock_chemistry_keep_real_chem():
     """
     keep_prefixes = ("numpy", "rdkit", "pyvista", "pyvistaqt", "vtk", "vtkmodules")
     real_mods = {
-        k: v
-        for k, v in sys.modules.items()
-        if k.split(".")[0] in keep_prefixes
+        k: v for k, v in sys.modules.items() if k.split(".")[0] in keep_prefixes
     }
     with mock_chemistry_imports():
         sys.modules.update(real_mods)
@@ -135,8 +133,12 @@ class TestBondTypeMaps:
 
     @pytest.mark.parametrize(
         "name,label",
-        [("SINGLE", "Single"), ("DOUBLE", "Double"),
-         ("TRIPLE", "Triple"), ("AROMATIC", "Aromatic")],
+        [
+            ("SINGLE", "Single"),
+            ("DOUBLE", "Double"),
+            ("TRIPLE", "Triple"),
+            ("AROMATIC", "Aromatic"),
+        ],
     )
     def test_label_from_bond_type_names(self, name, label):
         assert _bond.label_from_bond_type(name) == label
@@ -238,11 +240,16 @@ class TestBondEditorWindowEmpty:
         assert win.table.rowCount() == 0
 
     def test_click_mode_combo_options(self, win):
-        texts = [win.click_mode_combo.itemText(i) for i in range(win.click_mode_combo.count())]
+        texts = [
+            win.click_mode_combo.itemText(i)
+            for i in range(win.click_mode_combo.count())
+        ]
         assert texts == ["Select bond", "Create bond"]
 
     def test_add_type_combo_options(self, win):
-        texts = [win.add_type_combo.itemText(i) for i in range(win.add_type_combo.count())]
+        texts = [
+            win.add_type_combo.itemText(i) for i in range(win.add_type_combo.count())
+        ]
         assert texts == _bond.BOND_TYPE_LABELS
 
     def test_buttons_exist(self, win):
@@ -518,7 +525,9 @@ class TestOnPlotterClick:
         widget.resize(400, 300)
         return widget
 
-    def test_empty_space_click_select_mode_clears_selection(self, win, qapp, monkeypatch):
+    def test_empty_space_click_select_mode_clears_selection(
+        self, win, qapp, monkeypatch
+    ):
         widget = self._widget(qapp)
         win.table.selectRow(0)
         monkeypatch.setattr(_vtk, "vtkCellPicker", lambda: _FakePicker(actor=None))
@@ -725,7 +734,9 @@ class TestEditOperationsRealChem:
         new_mol = win.context.current_molecule
         assert new_mol.GetNumBonds() == 1
 
-    def test_delete_selected_bonds_exception_shows_critical(self, win, qapp, monkeypatch):
+    def test_delete_selected_bonds_exception_shows_critical(
+        self, win, qapp, monkeypatch
+    ):
         from PyQt6.QtWidgets import QMessageBox
 
         calls = []
@@ -863,7 +874,9 @@ class TestMovingSideAndBondLength:
         w.destroy()
 
     def test_set_bond_length_no_conformer_returns_early(self, qapp):
-        ctx = _real_ctx(mol=_FakeMol(atoms=[_FakeAtom(0), _FakeAtom(1)], bonds=[_FakeBond(0, 0, 1)]))
+        ctx = _real_ctx(
+            mol=_FakeMol(atoms=[_FakeAtom(0), _FakeAtom(1)], bonds=[_FakeBond(0, 0, 1)])
+        )
         w = _bondrn.BondEditorWindow(context=ctx)
         w.set_bond_length(0, 2.0)  # should not raise
         w.update_timer.stop()
