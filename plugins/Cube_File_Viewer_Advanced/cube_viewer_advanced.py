@@ -43,7 +43,7 @@ except ImportError:
 __author__ = "HiroYokoyama"
 PLUGIN_AUTHOR = __author__
 PLUGIN_NAME = "Cube File Viewer Advanced"
-PLUGIN_VERSION = "2026.07.29"
+PLUGIN_VERSION = "2026.07.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_DESCRIPTION = "Advanced 3D visualization for Gaussian Cube files with PBR, SSAO, and other effects."
 PLUGIN_CONTEXT = None
@@ -90,7 +90,7 @@ def parse_cube_data(filename):
             parts = lines[current_line].split()
             if len(parts) != 5:
                 current_line += 1
-        except Exception:
+        except IndexError:
             current_line += 1
 
     for _ in range(n_atoms):
@@ -99,7 +99,7 @@ def parse_cube_data(filename):
         atomic_num = int(line[0])
         try:
             x, y, z = float(line[2]), float(line[3]), float(line[4])
-        except Exception:
+        except (IndexError, TypeError, ValueError):
             x, y, z = 0.0, 0.0, 0.0
         atoms.append((atomic_num, np.array([x, y, z])))
 
@@ -117,7 +117,7 @@ def parse_cube_data(filename):
             while consumed < n_datasets and current_line < len(lines):
                 consumed += len(lines[current_line].split())
                 current_line += 1
-        except Exception:
+        except (IndexError, TypeError, ValueError):
             n_datasets = 1
 
     # --- Volumetric Data Parsing ---
@@ -989,7 +989,7 @@ class CubeViewerWidget(QWidget):
             if actor:
                 try:
                     self.plotter.remove_actor(actor)
-                except Exception as _e:
+                except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
                     logging.warning("[cube_viewer_advanced.py:890] silenced: %s", _e)
         self.iso_actor_p = None
         self.iso_actor_n = None
@@ -998,7 +998,7 @@ class CubeViewerWidget(QWidget):
         for _name in ["cube_iso_p", "cube_iso_n"]:
             try:
                 self.plotter.remove_actor(_name)
-            except Exception as _e:
+            except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
                 logging.warning("[cube_viewer_advanced.py:899] silenced: %s", _e)
 
         try:
@@ -1157,7 +1157,7 @@ class CubeViewerWidget(QWidget):
                 if hasattr(self.plotter, "disable_ssao"):
                     self.plotter.disable_ssao()
             self.plotter.render()
-        except Exception as e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as e:
             logging.warning("SSAO error: %s", e)
 
     def _clean_render_pipeline(self):
@@ -1176,7 +1176,7 @@ class CubeViewerWidget(QWidget):
             # Note: Do NOT call render() here. Rendering with None passes can cause
             # VTK to complain about missing resources or invalid state.
             # self.plotter.render()
-        except Exception as e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as e:
             logging.warning("Pipeline clean error: %s", e)
 
     def on_depth_peeling_toggled(self, checked):
@@ -1192,7 +1192,7 @@ class CubeViewerWidget(QWidget):
                 if hasattr(self.plotter, "disable_depth_peeling"):
                     self.plotter.disable_depth_peeling()
             self.plotter.render()
-        except Exception as e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as e:
             logging.warning("Depth Peeling error: %s", e)
 
     def on_silhouette_toggled(self, checked):
@@ -1211,7 +1211,7 @@ class CubeViewerWidget(QWidget):
             rp = getattr(self.plotter.renderer, "_render_passes", None)
             if rp is not None and getattr(rp, "_shadow_map_pass", None) is not None:
                 rp._shadow_map_pass = None
-        except Exception as e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as e:
             logging.warning("Shadow pass reset error: %s", e)
 
     def _enable_shadows(self):
@@ -1229,7 +1229,7 @@ class CubeViewerWidget(QWidget):
                 self._enable_shadows()
             else:
                 self.plotter.disable_shadows()
-        except Exception as _e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
             logging.warning("[cube_viewer_advanced.py:1110] silenced: %s", _e)
         self.plotter.render()
 
@@ -1242,7 +1242,7 @@ class CubeViewerWidget(QWidget):
                 for light in lights:
                     light.SetIntensity(self.light_intensity)
             self.plotter.render()
-        except Exception:
+        except (RuntimeError, AttributeError, KeyError, ValueError):
             pass  # Silently fail for compatibility
 
     def on_aa_toggled(self, checked):
@@ -1253,7 +1253,7 @@ class CubeViewerWidget(QWidget):
             else:
                 self.plotter.disable_anti_aliasing()
             self.plotter.render()
-        except Exception as e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as e:
             logging.warning("AA Error: %s", e)
 
     def on_edl_toggled(self, checked):
@@ -1272,7 +1272,7 @@ class CubeViewerWidget(QWidget):
                 if hasattr(self.plotter, "disable_eye_dome_lighting"):
                     self.plotter.disable_eye_dome_lighting()
             self.plotter.render()
-        except Exception as e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as e:
             # Plotter might be closed or invalid
             logging.warning("[cube_viewer_advanced.py:1168] silenced: %s", e)
 
@@ -1310,7 +1310,7 @@ class CubeViewerWidget(QWidget):
                 try:
                     if hasattr(self.plotter, "disable_eye_dome_lighting"):
                         self.plotter.disable_eye_dome_lighting()
-                except Exception as _e:
+                except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
                     logging.warning("[cube_viewer_advanced.py:1191] silenced: %s", _e)
 
             # Shadows check OFF
@@ -1319,7 +1319,7 @@ class CubeViewerWidget(QWidget):
                 self.use_shadows = False
                 try:
                     self.plotter.disable_shadows()
-                except Exception as _e:
+                except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
                     logging.warning("[cube_viewer_advanced.py:1198] silenced: %s", _e)
 
             # SSAO check OFF
@@ -1329,7 +1329,7 @@ class CubeViewerWidget(QWidget):
                 try:
                     if hasattr(self.plotter, "disable_ssao"):
                         self.plotter.disable_ssao()
-                except Exception as _e:
+                except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
                     logging.warning("[cube_viewer_advanced.py:1206] silenced: %s", _e)
 
         # 2. エフェクト(EDL/Shadows/SSAO)がONの場合 -> Depth PeelingをOFFにしてDisable
@@ -1342,7 +1342,7 @@ class CubeViewerWidget(QWidget):
                 try:
                     if hasattr(self.plotter, "disable_depth_peeling"):
                         self.plotter.disable_depth_peeling()
-                except Exception as _e:
+                except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
                     logging.warning("[cube_viewer_advanced.py:1216] silenced: %s", _e)
 
         # 3. 最後に有効/無効状態を更新 (グレーアウト処理) -> REMOVED
@@ -1377,7 +1377,7 @@ class CubeViewerWidget(QWidget):
         if edl_was_enabled:
             try:
                 self.plotter.disable_eye_dome_lighting()
-            except Exception as _e:
+            except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
                 logging.warning(
                     "[cube_viewer_advanced.py:_enforce_scene_state] silenced: %s", _e
                 )
@@ -1385,7 +1385,7 @@ class CubeViewerWidget(QWidget):
         if shadows_were_enabled:
             try:
                 self.plotter.disable_shadows()
-            except Exception as _e:
+            except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
                 logging.warning(
                     "[cube_viewer_advanced.py:_enforce_scene_state] silenced: %s", _e
                 )
@@ -1414,13 +1414,13 @@ class CubeViewerWidget(QWidget):
         if edl_was_enabled:
             try:
                 self.plotter.enable_eye_dome_lighting()
-            except Exception as e:
+            except (RuntimeError, AttributeError, KeyError, ValueError) as e:
                 logging.warning("Error restoring EDL: %s", e)
 
         # Final render to apply all effects
         try:
             self.plotter.render()
-        except Exception as _e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
             logging.warning(
                 "[cube_viewer_advanced.py:_enforce_scene_state] silenced: %s", _e
             )
@@ -1685,7 +1685,7 @@ class CubeViewerWidget(QWidget):
             # Load and apply texture with improved error handling
             try:
                 texture = pv.read_texture(path)
-            except Exception as tex_err:
+            except (RuntimeError, AttributeError, KeyError, ValueError) as tex_err:
                 raise ValueError(f"Failed to read texture file: {tex_err}")
 
             # Check for cancellation
@@ -1698,7 +1698,7 @@ class CubeViewerWidget(QWidget):
 
             try:
                 self.plotter.set_environment_texture(texture)
-            except Exception as vtk_err:
+            except (RuntimeError, AttributeError, KeyError, ValueError) as vtk_err:
                 raise ValueError(
                     f"VTK failed to apply texture (possibly incompatible format): {vtk_err}"
                 )
@@ -1760,7 +1760,7 @@ class CubeViewerWidget(QWidget):
                 # Fallback if remove_ doesn't exist but set_ does (unlikely given dir() output)
                 try:
                     self.plotter.set_environment_texture(None)
-                except Exception:
+                except (RuntimeError, AttributeError, KeyError, ValueError):
                     logging.warning(
                         "Could not clear environment texture (set_environment_texture(None) failed)."
                     )
@@ -1841,7 +1841,7 @@ class CubeViewerWidget(QWidget):
                 try:
                     if hasattr(self.plotter, "disable_ssao"):
                         self.plotter.disable_ssao()
-                except Exception as _e:
+                except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
                     logging.warning("[cube_viewer_advanced.py:1646] silenced: %s", _e)
                 self.use_ssao = False
 
@@ -1851,7 +1851,7 @@ class CubeViewerWidget(QWidget):
                 try:
                     if hasattr(self.plotter, "disable_depth_peeling"):
                         self.plotter.disable_depth_peeling()
-                except Exception as _e:
+                except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
                     logging.warning("[cube_viewer_advanced.py:1654] silenced: %s", _e)
                 self.use_depth_peeling = False
 
@@ -1864,7 +1864,7 @@ class CubeViewerWidget(QWidget):
             if self.use_edl:
                 try:
                     self.plotter.disable_eye_dome_lighting()
-                except Exception as _e:
+                except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
                     logging.warning("[cube_viewer_advanced.py:1667] silenced: %s", _e)
                 self.use_edl = False
 
@@ -1873,7 +1873,7 @@ class CubeViewerWidget(QWidget):
             if self.use_aa:
                 try:
                     self.plotter.disable_anti_aliasing()
-                except Exception as _e:
+                except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
                     logging.warning("[cube_viewer_advanced.py:1675] silenced: %s", _e)
                 self.use_aa = False
 
@@ -1883,7 +1883,7 @@ class CubeViewerWidget(QWidget):
             if self.use_shadows:
                 try:
                     self.plotter.disable_shadows()
-                except Exception as _e:
+                except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
                     logging.warning("[cube_viewer_advanced.py:1684] silenced: %s", _e)
                 self.use_shadows = False
 
@@ -1932,17 +1932,17 @@ class CubeViewerWidget(QWidget):
         try:
             if self.use_edl:
                 self.plotter.disable_eye_dome_lighting()
-        except Exception as e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as e:
             logging.warning("[cube_viewer_advanced.py] silenced: %s", e)
         try:
             if self.use_shadows:
                 self.plotter.disable_shadows()
-        except Exception as e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as e:
             logging.warning("[cube_viewer_advanced.py] silenced: %s", e)
         try:
             if self.use_ssao and hasattr(self.plotter, "disable_ssao"):
                 self.plotter.disable_ssao()
-        except Exception as e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as e:
             logging.warning("[cube_viewer_advanced.py] silenced: %s", e)
 
         try:
@@ -1957,7 +1957,7 @@ class CubeViewerWidget(QWidget):
             self.plotter.remove_actor("cube_iso_p")
             self.plotter.remove_actor("cube_iso_n")
             self.plotter.render()
-        except Exception as e:
+        except (RuntimeError, AttributeError, KeyError, IndexError, ValueError) as e:
             logging.warning("[cube_viewer_advanced.py] silenced: %s", e)
 
         try:
@@ -1993,20 +1993,20 @@ class CubeViewerWidget(QWidget):
             if self.use_edl:
                 try:
                     self.plotter.disable_eye_dome_lighting()
-                except Exception as _e:
+                except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
                     logging.warning("[cube_viewer_advanced.py:1720] silenced: %s", _e)
 
             if self.use_shadows:
                 try:
                     self.plotter.disable_shadows()
-                except Exception as _e:
+                except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
                     logging.warning("[cube_viewer_advanced.py:1725] silenced: %s", _e)
 
             if self.use_ssao:
                 try:
                     if hasattr(self.plotter, "disable_ssao"):
                         self.plotter.disable_ssao()
-                except Exception as _e:
+                except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
                     logging.warning("[cube_viewer_advanced.py:1731] silenced: %s", _e)
             # --- FIX END ---
 
@@ -2099,7 +2099,7 @@ def open_cube_viewer(context, file_path):
                 widget.close_plugin()
             else:
                 old_dock.close()
-        except Exception as _e:
+        except (RuntimeError, AttributeError) as _e:
             logging.warning("[cube_viewer_advanced.py:1821] silenced: %s", _e)
 
     try:
@@ -2120,7 +2120,7 @@ def open_cube_viewer(context, file_path):
                 data_max = float(np.max(np.abs(flat_data)))
             else:
                 data_max = 1.0
-        except Exception:
+        except (KeyError, IndexError, TypeError, ValueError):
             data_max = 1.0
 
         viewer = CubeViewerWidget(context, dock, grid, data_max=data_max)

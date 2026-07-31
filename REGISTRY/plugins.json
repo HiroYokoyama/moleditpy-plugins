@@ -1449,7 +1449,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Cube File Viewer Advanced",
-    "version": "2026.07.29",
+    "version": "2026.07.31",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Advanced 3D visualization for Gaussian Cube files with PBR, SSAO, and other effects.",
@@ -1464,8 +1464,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer_Advanced/cube_viewer_advanced.py",
-    "lastUpdated": "2026-07-29",
-    "sha256": "bd10f9147cddf6a731318a1e96cafbb2ca88dbb8c758ee7c763405ec87f314f9",
+    "lastUpdated": "2026-07-31",
+    "sha256": "8ada76dba0db8a407ac326f67af88b0cf38391039630e27a066259158a5f5bc6",
     "firstAppeared": "2026-02-02",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
