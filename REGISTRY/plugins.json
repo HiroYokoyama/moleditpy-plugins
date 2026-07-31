@@ -1269,7 +1269,7 @@
     "version": "2026.07.31",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "Visualizes Molecular Orbitals from Gaussian FCHK files by generating Cube files. The current implementation supports S, P, D, and F shells",
+    "description": "Visualizes Molecular Orbitals from Gaussian FCHK files by generating Cube files. Supports S, P, D, F and spherical G shells; files using basis functions it cannot render exactly are rejected rather than shown wrong.",
     "tags": [
       "Analysis",
       "DFT",
