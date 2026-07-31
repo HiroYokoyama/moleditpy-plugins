@@ -282,7 +282,48 @@ _WIDGETS = {
     "QComboBox": _ComboBox,
 }
 
-_SWAP_KEYS = ("PyQt6", "PyQt6.QtWidgets", "PyQt6.QtCore", "PyQt6.QtGui")
+_SWAP_KEYS = (
+    "PyQt6",
+    "PyQt6.QtWidgets",
+    "PyQt6.QtCore",
+    "PyQt6.QtGui",
+    "pyvista",
+)
+
+
+class _StubMesh:
+    """A contour result: just enough for the "did it draw?" checks."""
+
+    def __init__(self, n_points=10):
+        self.n_points = n_points
+
+
+class _StubStructuredGrid:
+    """Stands in for pyvista's grid.
+
+    CI installs numpy but not pyvista, so without this the plugin's dependency
+    guard (``np is None or pv is None``) refuses every load and the whole
+    loading suite fails there while passing locally. Building the grid is the
+    only thing pyvista is needed for; the point/dimension bookkeeping this
+    keeps is what the tests actually assert on.
+    """
+
+    def __init__(self):
+        self.points = None
+        self.dimensions = None
+        self.point_data = {}
+        self.contour_levels = []
+
+    def contour(self, levels, scalars=None):
+        self.contour_levels.append(levels[0])
+        return _StubMesh()
+
+
+def _pyvista_stub():
+    mod = types.ModuleType("pyvista")
+    mod.StructuredGrid = _StubStructuredGrid
+    mod.PolyData = MagicMock()
+    return mod
 
 
 def _module(name, extra):
@@ -309,6 +350,9 @@ def load_with_stateful_qt(path, modname="orbital_comparator_isolated"):
             "PyQt6.QtWidgets": widgets,
             "PyQt6.QtCore": core,
             "PyQt6.QtGui": gui,
+            # Real pyvista would drag in VTK; the plugin only needs a grid
+            # object, and CI has no pyvista at all.
+            "pyvista": _pyvista_stub(),
         }
     )
     try:
