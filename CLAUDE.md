@@ -235,6 +235,49 @@ after a plugin version bump, and a registry script that no longer imports on a
 supported interpreter — scripts are not imported by any test, so nothing else
 would notice.
 
+## Releasing
+
+One action starts everything: **push a `v`-prefixed date tag.**
+
+```bash
+git pull --ff-only origin main     # never tag behind the remote
+git tag v2026.08.01                # today's date, v-prefixed
+git push origin v2026.08.01
+```
+
+That sets off a two-step chain:
+
+1. **`release.yml`** (trigger: tags matching `v[0-9][0-9][0-9][0-9].[0-9][0-9].[0-9][0-9]`)
+   creates the GitHub release, titled `Up to the release of 2026.08.01` — the
+   leading `v` is dropped from the title so it reads like the releases made
+   before the prefix was adopted. This repo publishes no build artifacts; the
+   tag's source archive is the payload.
+2. **`zenodo.yml`** (trigger: `release: published`) uploads to Zenodo and mints
+   a DOI, updating record 21522477 — this collection's own record, hardcoded
+   once as `DEPOSITION_ID` in `scripts/update_zenodo.py`.
+
+Nothing else is needed. There is no version constant to bump: a release here
+marks a snapshot of the whole collection, and each plugin carries its own
+`PLUGIN_VERSION`.
+
+Guards, so a mistake is loud rather than silent:
+
+- A tag not matching the pattern publishes nothing. If you push a bare
+  `2026.08.01` (the old scheme), **the release workflow will not fire** —
+  dispatch it manually with the tag as input.
+- Pre-releases are skipped by the Zenodo job: a permanent DOI should not point
+  at one.
+- `update_zenodo.py` refuses a version identical to the record's current one,
+  so a re-run cannot mint a duplicate DOI. It fails *after* uploading the file,
+  which leaves an unpublished draft behind — Zenodo permits only one draft per
+  record, so discard it in the Zenodo UI or the next upload cannot start.
+- Both workflows also accept `workflow_dispatch`, for archiving an older tag or
+  rehearsing against a draft (`draft: true` uploads without publishing).
+
+`ZENODO_TOKEN` must exist as a repository secret. `roll_zenodo_token.py` at the
+DEV_MAIN root sets it across every repo that references it, verifying the token
+against the Zenodo API before writing it anywhere.
+
 ## Adding a New Plugin
 
 1. Create `plugins/My_Plugin/my_plugin.py` with all required `PLUGIN_*` constants.
