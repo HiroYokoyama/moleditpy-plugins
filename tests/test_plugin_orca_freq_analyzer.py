@@ -192,8 +192,6 @@ class TestOrcaFreqInitialize:
         assert _orca.PLUGIN_VERSION
 
 
-
-
 # ---------------------------------------------------------------------------
 # normal modes, IR intensities, imaginary frequencies, context regression
 # ---------------------------------------------------------------------------
@@ -451,3 +449,74 @@ class TestOrcaInitializeExtras:
             mod.initialize(ctx)
         handler = ctx.register_drop_handler.call_args[0][0]
         assert handler(str(f)) is False
+
+
+# ---------------------------------------------------------------------------
+# IR intensity column detection
+# ---------------------------------------------------------------------------
+
+# The IR table layout differs between ORCA versions, and the ORCA 4 header
+# carries the frequency unit as an inline "(cm**-1)" token with no matching
+# data column. A fixed column index worked on ORCA 5/6 but landed on "(" from
+# the dipole-derivative group on ORCA 4, where float() raised and the row was
+# silently dropped -- every intensity came out missing, with no error shown.
+
+_ORCA5_IR_BLOCK = """ Mode   freq       eps      Int      T**2         TX        TY        TZ
+       cm**-1   L/(mol*cm) km/mol    a.u.
+----------------------------------------------------------------------------
+   6:  -1609.85   0.015725   79.47  0.002871  (-0.001018 -0.053574 -0.000000)
+   7:   3681.19   0.005000   10.00  0.001000  ( 0.001000  0.002000  0.000000)
+   8:   3811.12   0.001000    5.00  0.000500  ( 0.000000  0.001000  0.000000)"""
+
+_ORCA4_IR_BLOCK = """ Mode    freq (cm**-1)   T**2         TX         TY         TZ
+                          (KM/Mole)   (a.u.)     (a.u.)     (a.u.)
+----------------------------------------------------------------------------
+   6:  -1609.85   79.470000  (-0.001018 -0.053574 -0.000000)
+   7:   3681.19   10.000000  ( 0.001000  0.002000  0.000000)
+   8:   3811.12    5.000000  ( 0.000000  0.001000  0.000000)"""
+
+
+def _orca4_variant():
+    """The shared full fixture with only its IR table swapped to ORCA 4."""
+    assert _ORCA5_IR_BLOCK in _ORCA_FULL, "fixture IR block changed"
+    return _ORCA_FULL.replace(_ORCA5_IR_BLOCK, _ORCA4_IR_BLOCK, 1)
+
+
+class TestIrIntensityColumn:
+    def _modes(self, tmp_path, content, name):
+        f = tmp_path / name
+        f.write_text(content)
+        p = _orca.OrcaParser()
+        p.parse(str(f))
+        return p.final_modes
+
+    def test_orca5_intensities_read(self, tmp_path):
+        modes = self._modes(tmp_path, _ORCA_FULL, "o5.out")
+        assert [m["intensity"] for m in modes] == pytest.approx([79.47, 10.0, 5.0])
+
+    def test_orca4_intensities_read(self, tmp_path):
+        """Was: every row skipped, so each intensity stayed None."""
+        modes = self._modes(tmp_path, _orca4_variant(), "o4.out")
+        assert [m["intensity"] for m in modes] == pytest.approx([79.47, 10.0, 5.0])
+
+    def test_orca4_is_not_silently_empty(self, tmp_path):
+        modes = self._modes(tmp_path, _orca4_variant(), "o4b.out")
+        assert modes, "no modes parsed at all"
+        assert all(m["intensity"] is not None for m in modes)
+
+    def test_the_two_layouts_agree(self, tmp_path):
+        a = self._modes(tmp_path, _ORCA_FULL, "a.out")
+        b = self._modes(tmp_path, _orca4_variant(), "b.out")
+        assert [m["intensity"] for m in a] == pytest.approx([m["intensity"] for m in b])
+
+    def test_unit_tokens_ignored_in_header_lookup(self):
+        header = [
+            "IR SPECTRUM",
+            " Mode    freq (cm**-1)   T**2         TX",
+        ]
+        assert _orca._find_intensity_column(header, 0, ("int", "t**2"), 99) == 2
+
+    def test_missing_header_uses_the_default(self):
+        assert (
+            _orca._find_intensity_column(["IR SPECTRUM", "", ""], 0, ("int",), 3) == 3
+        )

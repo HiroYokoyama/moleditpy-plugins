@@ -41,10 +41,32 @@ except ImportError:
 
 PLUGIN_NAME = "ORCA Freq Analyzer"
 PLUGIN_DESCRIPTION = "Parse ORCA output files and visualize vibrational frequencies."
-PLUGIN_VERSION = "2026.07.30"
+PLUGIN_VERSION = "2026.07.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_CONTEXT = None
+
+
+def _find_intensity_column(lines, section_start, wanted, default):
+    """Index of the first column named in *wanted* within a spectrum header.
+
+    ORCA's header token positions line up with the data rows only once inline
+    unit tokens are dropped: the ORCA 4 IR header reads
+    "Mode freq (cm**-1) T**2 ..." while its rows carry no unit column, so
+    counting "(cm**-1)" shifts every lookup one place right.
+
+    Falls back to *default* when no header is recognized.
+    """
+    end = min(section_start + 6, len(lines))
+    for i in range(section_start + 1, end):
+        tokens = lines[i].split()
+        if not tokens or tokens[0].lower() != "mode":
+            continue
+        lowered = [t.lower().strip(":") for t in tokens if not t.startswith("(")]
+        for name in wanted:
+            if name in lowered:
+                return lowered.index(name)
+    return default
 
 
 class OrcaParser:
@@ -207,6 +229,7 @@ class OrcaParser:
                 # Don't break - continue to find last one
 
         if ir_start > 0:
+            ir_col = _find_intensity_column(lines, ir_start, ("int", "t**2"), 3)
             curr = ir_start + 6  # Skip headers and dashed line
             # Expected format:
             #  Mode   freq       eps      Int      T**2         TX        TY        TZ
@@ -225,16 +248,17 @@ class OrcaParser:
                 # line: "   6:   1709.03   0.015725   79.47  0.002871 ..."
                 if ":" in l:
                     parts = l.split()
-                    # parts[0] -> "6:"
-                    # parts[1] -> Freq
-                    # parts[2] -> eps
-                    # parts[3] -> Int (km/mol)
-                    # parts[4] -> T**2
+                    # ORCA 5/6:  Mode freq eps Int T**2 (TX TY TZ)   -> col 3
+                    # ORCA 4:    Mode freq T**2 (TX TY TZ)           -> col 2
+                    # The column is located from the header rather than fixed
+                    # at 3: on ORCA 4 output parts[3] is "(" from the dipole
+                    # derivative group, float() raised, and the row was
+                    # silently dropped — every intensity came out missing.
                     try:
                         mode_id_str = parts[0].rstrip(":")
                         mode_id = int(mode_id_str)
-                        if len(parts) >= 4:
-                            inten = float(parts[3])
+                        if len(parts) > ir_col:
+                            inten = float(parts[ir_col])
                             intensity_map[mode_id] = inten
                     except Exception as _e:
                         logging.warning(
@@ -646,7 +670,6 @@ class OrcaOutFreqAnalyzer(QWidget):
         # Load molecule into main window
         if len(self.parser.atoms) > 0 and Chem:
             self.create_base_molecule()
-
 
     def update_list_and_spectrum_values(self):
         if not self.parser or not self.parser.final_modes:
