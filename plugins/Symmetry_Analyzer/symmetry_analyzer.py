@@ -1,6 +1,6 @@
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Symmetry Analyzer"
-PLUGIN_VERSION = "2026.07.30"
+PLUGIN_VERSION = "2026.07.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Analyzes molecular symmetry (point group) and symmetrizes structures. Refactored for MoleditPy V3.0 API."
@@ -60,21 +60,45 @@ class SymmetryAnalysisWorker(QThread):
         group_data = {}
         found_any = False
 
-        for tol in tolerances:
-            try:
+        try:
+            for tol in tolerances:
                 tol_val = float(tol)
-                # Heavy calculation here
-                analyzer = PointGroupAnalyzer(self.mol_pmg, tolerance=tol_val)
-                sym = analyzer.sch_symbol
+                try:
+                    # Heavy calculation here
+                    analyzer = PointGroupAnalyzer(self.mol_pmg, tolerance=tol_val)
+                    sym = analyzer.sch_symbol
+                except ValueError as exc:
+                    # Routine: pymatgen's axis search raises ValueError ("min()
+                    # arg is an empty sequence") at tolerances that fit no axis
+                    # for this geometry. Neighbouring tolerances still resolve
+                    # the group -- ammonia fails 30 of 40 steps and is still
+                    # correctly reported as C3v.
+                    logging.debug(
+                        "Symmetry: tolerance %.3f rejected by pymatgen: %s",
+                        tol_val,
+                        exc,
+                    )
+                    continue
+                except Exception:
+                    # Anything else is not expected from a point-group search.
+                    # Keep scanning the remaining tolerances -- one bad step
+                    # should not cost the whole result -- but log the traceback
+                    # instead of hiding it, which is how this stayed invisible.
+                    logging.exception(
+                        "Symmetry: unexpected failure at tolerance %.3f", tol_val
+                    )
+                    continue
 
                 if sym not in group_data:
                     group_data[sym] = {"analyzer": analyzer, "tols": [tol_val]}
                 else:
                     group_data[sym]["tols"].append(tol_val)
                 found_any = True
-
-            except Exception:
-                pass  # tolerance list may be empty for a given symmetry group; skip
+        except Exception:
+            # The dialog only unblocks when `finished` is emitted, so an
+            # unexpected error must still report whatever the scan found
+            # rather than leaving the UI waiting forever.
+            logging.exception("Symmetry: scan aborted early; reporting partial results")
 
         self.finished.emit(group_data, found_any)
 

@@ -119,6 +119,101 @@ class TestSymmetryAnalyzer:
         assert isinstance(group_data, dict)
         assert isinstance(found_any, bool)
 
+    # -- tolerance-scan resilience ------------------------------------------
+    # Real numpy + a stub PointGroupAnalyzer, so the loop body actually runs.
+
+    def _run_with(self, pga, min_tol=0.1, max_tol=0.3):
+        run = _extract_method_as_fn(
+            SYMMETRY_PATH,
+            "SymmetryAnalysisWorker",
+            "run",
+            extra_globals={"np": np, "PointGroupAnalyzer": pga},
+        )
+        worker = _FakeWorker(min_tol, max_tol)
+        run(worker)
+        return worker.finished.emit.call_args[0]
+
+    def test_tolerances_pymatgen_rejects_are_skipped_not_fatal(self):
+        """pymatgen raises ValueError at tolerances that fit no axis.
+
+        Ammonia fails 30 of 40 steps this way and must still come back C3v,
+        so a rejected tolerance has to be a skip, never the end of the scan.
+        """
+
+        def pga(mol, tolerance):
+            if tolerance < 0.2:
+                raise ValueError("min() arg is an empty sequence")
+            return SimpleNamespace(sch_symbol="C3v")
+
+        group_data, found_any = self._run_with(pga)
+        assert found_any is True
+        assert "C3v" in group_data
+        # Only the tolerances at/above 0.2 contributed.
+        assert all(t >= 0.2 for t in group_data["C3v"]["tols"])
+
+    def test_every_tolerance_rejected_reports_nothing_found(self):
+        def pga(mol, tolerance):
+            raise ValueError("min() arg is an empty sequence")
+
+        group_data, found_any = self._run_with(pga)
+        assert group_data == {}
+        assert found_any is False
+
+    def test_an_unexpected_error_does_not_end_the_scan(self):
+        """One bad tolerance must not cost the tolerances after it."""
+        seen = []
+
+        def pga(mol, tolerance):
+            seen.append(tolerance)
+            if len(seen) == 1:
+                raise RuntimeError("something unexpected")
+            return SimpleNamespace(sch_symbol="D6h")
+
+        group_data, found_any = self._run_with(pga)
+        assert len(seen) > 1, "scan stopped at the first unexpected error"
+        assert found_any is True
+        assert "D6h" in group_data
+
+    def test_an_unexpected_error_is_logged_with_a_traceback(self, caplog):
+        """The old code discarded it silently, which is how it stayed hidden."""
+
+        def pga(mol, tolerance):
+            raise RuntimeError("something unexpected")
+
+        with caplog.at_level(logging.ERROR):
+            self._run_with(pga)
+        assert any(r.exc_info for r in caplog.records), "no traceback logged"
+
+    def test_routine_rejections_stay_at_debug_level(self):
+        """30-of-40 rejections are normal; they must not spam the user's log."""
+
+        def pga(mol, tolerance):
+            raise ValueError("min() arg is an empty sequence")
+
+        with mock.patch.object(logging, "warning") as warn, mock.patch.object(
+            logging, "exception"
+        ) as exc:
+            self._run_with(pga)
+        warn.assert_not_called()
+        exc.assert_not_called()
+
+    def test_finished_is_emitted_even_when_every_tolerance_explodes(self):
+        """The dialog only unblocks on `finished`; it must never be starved."""
+
+        def pga(mol, tolerance):
+            raise RuntimeError("boom")
+
+        group_data, found_any = self._run_with(pga)
+        assert group_data == {}
+        assert found_any is False
+
+    def test_multiple_groups_are_collected_across_tolerances(self):
+        def pga(mol, tolerance):
+            return SimpleNamespace(sch_symbol="C1" if tolerance < 0.2 else "C2v")
+
+        group_data, _ = self._run_with(pga)
+        assert set(group_data) == {"C1", "C2v"}
+
     def test_worker_found_any_false_when_no_real_analysis(self):
         """With mocked pymatgen the loop body is never entered → found_any=False."""
         worker = _FakeWorker(0.1, 0.5)
