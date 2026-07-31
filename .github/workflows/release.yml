@@ -1,0 +1,65 @@
+name: Release
+
+# Releases here mark a snapshot of the whole collection rather than one
+# plugin's version, so the tag is the date: 2026.08.01. The pattern below is
+# deliberately strict — a stray tag should not publish a release.
+on:
+  push:
+    tags:
+      - "[0-9][0-9][0-9][0-9].[0-9][0-9].[0-9][0-9]"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to publish a release for (e.g. 2026.08.01)."
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Resolve tag
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          else
+            TAG="${{ github.event.inputs.tag }}"
+          fi
+          echo "Tag: $TAG"
+          echo "TAG=$TAG" >> $GITHUB_ENV
+
+      - name: Verify the tag exists
+        run: |
+          # A dispatch can name anything; releasing a tag that is not in the
+          # repository would create a release pointing at the default branch.
+          if ! git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            echo "::error::Tag '${TAG}' does not exist in this repository."
+            exit 1
+          fi
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Re-running for a tag that is already released is a no-op rather
+          # than a failure, so a retry after an unrelated hiccup is safe.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; nothing to do."
+            exit 0
+          fi
+
+          TITLE="Up to the release of ${TAG}"
+          gh release create "$TAG" \
+            --title "$TITLE" \
+            --notes "$TITLE"
+
+          echo "Created release: $TITLE"
