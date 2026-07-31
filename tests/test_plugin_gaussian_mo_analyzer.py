@@ -22,7 +22,12 @@ from unittest.mock import MagicMock
 import numpy as np
 import pytest
 
-from conftest import load_plugin, make_context, mock_optional_imports, mocks_with_real_numpy
+from conftest import (
+    load_plugin,
+    make_context,
+    mock_optional_imports,
+    mocks_with_real_numpy,
+)
 
 PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
 MO_PKG_DIR = PLUGINS_DIR / "Gaussian_MO_Analyzer" / "gaussian_fchk_mo_analyzer"
@@ -37,6 +42,7 @@ with mocks_with_real_numpy():
     _mo_real = load_plugin(MO_ANALYZER_PATH)
 RealFCHKReader = _mo_real.FCHKReader
 RealBasisSetEngine = _mo_real.BasisSetEngine
+RealUnsupportedBasisError = _mo_real.UnsupportedBasisError
 
 
 def _extract_method_source(path: Path, class_name: str, method_name: str) -> str:
@@ -113,11 +119,15 @@ class TestMOFCHKReader:
         assert r.get("Alpha Orbital Energies") == pytest.approx([-1.025, 0.375])
 
     def test_scalar_integer_parsed(self, tmp_path):
-        r = self._read(tmp_path, "Number of electrons                        I           10\n")
+        r = self._read(
+            tmp_path, "Number of electrons                        I           10\n"
+        )
         assert r.get("Number of electrons") == [10]
 
     def test_scalar_negative_integer(self, tmp_path):
-        r = self._read(tmp_path, "Charge                                     I           -2\n")
+        r = self._read(
+            tmp_path, "Charge                                     I           -2\n"
+        )
         assert r.get("Charge") == [-2]
 
     def test_fortran_d_exponent_converted(self, tmp_path):
@@ -146,7 +156,9 @@ class TestMOFCHKReader:
         assert r.get("Shell types") == [0, 1]
 
     def test_get_default_for_missing_key(self, tmp_path):
-        r = self._read(tmp_path, "Number of electrons                        I           10\n")
+        r = self._read(
+            tmp_path, "Number of electrons                        I           10\n"
+        )
         assert r.get("Nope", default="fallback") == "fallback"
 
     def test_multiline_array_accumulated(self, tmp_path):
@@ -184,8 +196,7 @@ class TestMOFCHKReaderRealModuleScalarAndCharDtypes:
     def test_array_char_dtype_stored_as_raw_tokens(self, tmp_path):
         f = tmp_path / "mo.fchk"
         f.write_text(
-            "Some Label                                 C   N=           2\n"
-            "AAA BBB\n"
+            "Some Label                                 C   N=           2\nAAA BBB\n"
         )
         r = RealFCHKReader(str(f))
         assert r.get("Some Label") == ["AAA", "BBB"]
@@ -196,7 +207,12 @@ class TestMONormalizationPrefactor:
         src = _extract_method_source(
             MO_ANALYZER_PATH, "BasisSetEngine", "_normalization_prefactor"
         )
-        return _make_function(src, {"np": _FakeNP()})
+        # The factorial tables are module-level in analyzer.py, so the
+        # extracted method needs them injected alongside the numpy stub.
+        return _make_function(
+            src,
+            {"np": _FakeNP(), "_FACT": _mo_real._FACT, "_FACT2": _mo_real._FACT2},
+        )
 
     def test_s_function_value(self):
         fn = self._prefactor()
@@ -510,9 +526,7 @@ class TestMOCalcWorkerRun:
         atoms = np.array([[0.0, 0.0, 0.0]])
         # mode="MO" with coeffs=None -> len(None) raises TypeError inside
         # evaluate_mo_on_grid, caught internally by run()'s try/except.
-        fake_self = _FakeWorkerSelf(
-            engine, atoms, None, str(tmp_path / "err.cube")
-        )
+        fake_self = _FakeWorkerSelf(engine, atoms, None, str(tmp_path / "err.cube"))
         run(fake_self)
         assert len(fake_self.finished_sig.calls) == 1
         success, msg = fake_self.finished_sig.calls[0]
@@ -613,7 +627,8 @@ def _d_shell_fchk(pure_flag=None):
     extra = ""
     if pure_flag is not None:
         extra = f"Pure/Cartesian d shells                     I                {pure_flag}\n"
-    return textwrap.dedent("""\
+    return (
+        textwrap.dedent("""\
         Atomic numbers                              I   N=           1
                  1
         Current cartesian coordinates               R   N=           3
@@ -628,7 +643,9 @@ def _d_shell_fchk(pure_flag=None):
           1.000000000000E+00
         Contraction coefficients                    R   N=           1
           1.000000000000E+00
-        """) + extra
+        """)
+        + extra
+    )
 
 
 def _neg_d_shell_fchk():
@@ -655,7 +672,8 @@ def _f_shell_fchk(pure_flag=None):
     extra = ""
     if pure_flag is not None:
         extra = f"Pure/Cartesian f shells                     I                {pure_flag}\n"
-    return textwrap.dedent("""\
+    return (
+        textwrap.dedent("""\
         Atomic numbers                              I   N=           1
                  1
         Current cartesian coordinates               R   N=           3
@@ -670,7 +688,41 @@ def _f_shell_fchk(pure_flag=None):
           1.000000000000E+00
         Contraction coefficients                    R   N=           1
           1.000000000000E+00
-        """) + extra
+        """)
+        + extra
+    )
+
+
+def _shell_fchk(shell_type, pure_d=None, pure_f=None):
+    """A one-atom, one-shell FCHK for an arbitrary Gaussian shell type."""
+    extra = ""
+    if pure_d is not None:
+        extra += (
+            f"Pure/Cartesian d shells                     I                {pure_d}\n"
+        )
+    if pure_f is not None:
+        extra += (
+            f"Pure/Cartesian f shells                     I                {pure_f}\n"
+        )
+    return (
+        textwrap.dedent(f"""\
+        Atomic numbers                              I   N=           1
+                 1
+        Current cartesian coordinates               R   N=           3
+          0.000000000000E+00  0.000000000000E+00  0.000000000000E+00
+        Shell types                                 I   N=           1
+              {shell_type:4d}
+        Number of primitives per shell              I   N=           1
+                 1
+        Shell to atom map                           I   N=           1
+                 1
+        Primitive exponents                         R   N=           1
+          1.000000000000E+00
+        Contraction coefficients                    R   N=           1
+          1.000000000000E+00
+        """)
+        + extra
+    )
 
 
 def _make_engine(tmp_path, content, name="mo.fchk"):
@@ -704,13 +756,18 @@ class TestMOBasisSetEnginePrepareBasisSet:
         assert engine.n_basis == 4
         assert len(engine.shells) == 2
 
-    def test_unsupported_shell_type_skipped_pointers_advance(self, tmp_path):
-        engine, _ = _make_engine(tmp_path, _UNSUPPORTED_THEN_S_FCHK)
-        # Only the trailing S shell (type 0) should survive; the unsupported
-        # type-9 shell is skipped but its primitive/coeff slots are consumed.
-        assert engine.n_basis == 1
-        assert len(engine.shells) == 1
-        assert engine.shells[0]["type"] == 0
+    def test_unsupported_shell_type_is_rejected(self, tmp_path):
+        """An unrenderable shell must block the file, not be skipped.
+
+        Skipping consumed the primitive/coeff slots but never advanced
+        basis_idx_counter, so n_basis undercounted and every later shell's
+        start_idx shifted — and because evaluate_mo_on_grid slices at
+        mo_idx * n_basis, every orbital past the first read the wrong
+        coefficients entirely. Silently rendering garbage is worse than
+        refusing the file.
+        """
+        with pytest.raises(RealUnsupportedBasisError):
+            _make_engine(tmp_path, _UNSUPPORTED_THEN_S_FCHK)
 
     def test_d_shell_defaults_to_cartesian_six_functions(self, tmp_path):
         engine, _ = _make_engine(tmp_path, _d_shell_fchk(pure_flag=None))
@@ -738,6 +795,132 @@ class TestMOBasisSetEnginePrepareBasisSet:
         # Exercises the spherical-F basis_definitions construction branch.
         engine, _ = _make_engine(tmp_path, _f_shell_fchk(pure_flag=0))
         assert engine.n_basis == 7
+
+    def test_pure_g_shell_gives_nine_functions(self, tmp_path):
+        engine, _ = _make_engine(tmp_path, _shell_fchk(-4, pure_f=0))
+        assert engine.n_basis == 9
+
+    def test_cartesian_g_shell_is_rejected(self, tmp_path):
+        """15G's monomial ordering is unverified, so it must block rather
+        than render a confidently wrong orbital."""
+        with pytest.raises(RealUnsupportedBasisError):
+            _make_engine(tmp_path, _shell_fchk(4, pure_f=1))
+
+    def test_h_shell_is_rejected(self, tmp_path):
+        with pytest.raises(RealUnsupportedBasisError):
+            _make_engine(tmp_path, _shell_fchk(-5, pure_f=0))
+
+    def test_the_rejection_names_the_offending_shell(self, tmp_path):
+        with pytest.raises(RealUnsupportedBasisError, match="15G"):
+            _make_engine(tmp_path, _shell_fchk(4, pure_f=1))
+
+    @pytest.mark.parametrize(
+        "stype,d_cart,f_cart,expected",
+        [
+            (0, True, True, 1),
+            (1, True, True, 3),
+            (-1, True, True, 4),
+            (2, True, True, 6),  # 6D
+            (2, False, True, 5),  # 5D — purity comes from the flag, not the sign
+            (-2, False, True, 5),
+            (3, True, True, 10),  # 10F
+            (3, True, False, 7),  # 7F
+            (-3, True, False, 7),
+            (4, True, True, 15),  # 15G
+            (-4, True, False, 9),  # 9G — the f flag governs g too
+        ],
+    )
+    def test_shell_function_counts(self, stype, d_cart, f_cart, expected):
+        """The count must be right even for types we refuse — it is what
+        detects the mismatch in the first place."""
+        assert RealBasisSetEngine._shell_n_functions(stype, d_cart, f_cart) == expected
+
+
+class TestMOSphericalHarmonicShapes:
+    """Pure basis functions must be radial * Y_lm.
+
+    That holds under any program's normalization convention — the convention
+    fixes an overall constant per component, it cannot make the angular part
+    something other than a spherical harmonic. The previous hand-typed f
+    table applied one scalar to components with different Cartesian
+    normalizations, which distorted 5 of the 7 f functions (the f(z^3) nodal
+    cone came out at 28.6 degrees instead of 39.2).
+    """
+
+    @staticmethod
+    def _directions(n=2000):
+        rng = np.random.default_rng(11)
+        v = rng.normal(size=(n, 3))
+        return v / np.linalg.norm(v, axis=1)[:, None]
+
+    @staticmethod
+    def _real_sph_harm(l, m, theta, phi):
+        sph_harm_y = pytest.importorskip("scipy.special").sph_harm_y
+        if m == 0:
+            return sph_harm_y(l, 0, theta, phi).real
+        y = sph_harm_y(l, abs(m), theta, phi)
+        sign = (-1) ** abs(m)
+        return math.sqrt(2) * sign * (y.real if m > 0 else y.imag)
+
+    def _cos_similarity(self, engine, component, l, m):
+        v = self._directions()
+        theta = np.arccos(np.clip(v[:, 2], -1.0, 1.0))
+        phi = np.arctan2(v[:, 1], v[:, 0])
+        coeffs = np.zeros(engine.n_basis)
+        coeffs[component] = 1.0
+        got = engine.evaluate_mo_on_grid(0, v, coeffs)
+        ref = np.array([self._real_sph_harm(l, m, t, p) for t, p in zip(theta, phi)])
+        return abs(
+            float(np.dot(got, ref)) / (np.linalg.norm(got) * np.linalg.norm(ref))
+        )
+
+    # Gaussian's pure-shell m ordering: 0, +1, -1, +2, -2, ...
+    _F_ORDER = [0, 1, -1, 2, -2, 3, -3]
+    _G_ORDER = [0, 1, -1, 2, -2, 3, -3, 4, -4]
+
+    @pytest.mark.parametrize("component,m", list(enumerate(_F_ORDER)))
+    def test_each_f_component_is_the_matching_harmonic(self, tmp_path, component, m):
+        engine, _ = _make_engine(tmp_path, _f_shell_fchk(pure_flag=0))
+        assert self._cos_similarity(engine, component, 3, m) == pytest.approx(
+            1.0, abs=1e-6
+        )
+
+    @pytest.mark.parametrize("component,m", list(enumerate(_G_ORDER)))
+    def test_each_g_component_is_the_matching_harmonic(self, tmp_path, component, m):
+        engine, _ = _make_engine(tmp_path, _shell_fchk(-4, pure_f=0))
+        assert self._cos_similarity(engine, component, 4, m) == pytest.approx(
+            1.0, abs=1e-6
+        )
+
+    @pytest.mark.parametrize("component,m", list(enumerate([0, 1, -1, 2, -2])))
+    def test_d_components_are_unchanged_and_correct(self, tmp_path, component, m):
+        """Control: the d table was already exact and was left alone, so
+        ordinary basis sets render exactly as before."""
+        engine, _ = _make_engine(tmp_path, _d_shell_fchk(pure_flag=0))
+        assert self._cos_similarity(engine, component, 2, m) == pytest.approx(
+            1.0, abs=1e-6
+        )
+
+    def test_f_z3_nodal_cone_is_at_the_analytic_angle(self, tmp_path):
+        """f(z^3) changes sign where 5cos^2(theta) = 3, i.e. 39.23 deg."""
+        engine, _ = _make_engine(tmp_path, _f_shell_fchk(pure_flag=0))
+        coeffs = np.zeros(engine.n_basis)
+        coeffs[0] = 1.0
+        thetas = np.linspace(0.5, 89.5, 20000)
+        pts = np.stack(
+            [
+                np.sin(np.radians(thetas)),
+                np.zeros_like(thetas),
+                np.cos(np.radians(thetas)),
+            ],
+            axis=1,
+        )
+        v = engine.evaluate_mo_on_grid(0, pts, coeffs)
+        crossings = thetas[:-1][np.sign(v[:-1]) != np.sign(v[1:])]
+        assert len(crossings) == 1
+        assert crossings[0] == pytest.approx(
+            math.degrees(math.acos(math.sqrt(0.6))), abs=0.05
+        )
 
 
 class TestMOBasisSetEngineEvaluateMoOnGrid:
@@ -768,7 +951,9 @@ class TestMOBasisSetEngineEvaluateMoOnGrid:
         grid = np.array([[0.0, 0.0, 0.0]])
         coeffs = np.array([1.0])
         with pytest.raises(ValueError):
-            engine.evaluate_mo_on_grid(1, grid, coeffs)  # only 1 basis fn -> mo 1 out of range
+            engine.evaluate_mo_on_grid(
+                1, grid, coeffs
+            )  # only 1 basis fn -> mo 1 out of range
 
     def test_d_shell_exercises_all_angular_axes(self, tmp_path):
         # Cartesian D shell (xx,yy,zz,xy,xz,yz) with an off-axis grid point

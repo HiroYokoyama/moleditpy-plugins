@@ -1,14 +1,24 @@
 from .gui import OrbitalWidget
+from .analyzer import UnsupportedBasisError
 
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Gaussian MO Analyzer"
-PLUGIN_VERSION = "2026.07.30"
+PLUGIN_VERSION = "2026.07.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
-    "Visualizes Molecular Orbitals from Gaussian FCHK files by generating Cube files."
+    "Visualizes Molecular Orbitals from Gaussian FCHK files by generating Cube "
+    "files. Supports S, P, D, F and spherical G shells; files using basis "
+    "functions it cannot render exactly are rejected rather than shown wrong."
 )
 PLUGIN_CONTEXT = None
+
+
+def _warn_unsupported(parent, exc):
+    """Show the refusal message for a basis set we cannot render exactly."""
+    from PyQt6.QtWidgets import QMessageBox
+
+    QMessageBox.warning(parent, "Unsupported basis set", str(exc))
 
 
 def initialize(context):
@@ -22,7 +32,11 @@ def initialize(context):
         mw = context.get_main_window()
         # Create and show dialog (keep reference to avoid GC)
         # Attach to context to keep alive
-        context._fchk_dialog = OrbitalWidget(mw, context, path)
+        try:
+            context._fchk_dialog = OrbitalWidget(mw, context, path)
+        except UnsupportedBasisError as exc:
+            _warn_unsupported(mw, exc)
+            return
         context._fchk_dialog.show()
 
     context.register_file_opener(".fchk", open_fchk, priority=10)
@@ -50,5 +64,9 @@ def run(mw):
     context = PLUGIN_CONTEXT
     if not context:
         return
-    dialog = OrbitalWidget(mw, context, path)
+    try:
+        dialog = OrbitalWidget(mw, context, path)
+    except UnsupportedBasisError as exc:
+        _warn_unsupported(mw, exc)
+        return
     dialog.show()

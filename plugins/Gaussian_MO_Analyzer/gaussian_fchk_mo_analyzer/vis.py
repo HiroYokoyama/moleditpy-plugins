@@ -97,10 +97,13 @@ class CubeVisualizer:
         gy = gy.flatten(order="F")
         gz = gz.flatten(order="F")
 
-        scale = BOHR_TO_ANG
+        # A negative voxel count on the NX line means the grid is already in
+        # Angstrom (Gaussian cube convention). Converting those as if they
+        # were Bohr inflated the whole isosurface by 1/0.529 = 1.89x.
+        scale = 1.0 if meta.get("is_angstrom") else BOHR_TO_ANG
 
         points = origin + np.outer(gx, xv) + np.outer(gy, yv) + np.outer(gz, zv)
-        points *= scale  # Convert Bohr -> Angstrom
+        points *= scale
 
         grid.points = points
         grid.dimensions = [nx, ny, nz]

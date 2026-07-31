@@ -2,6 +2,29 @@ import numpy as np
 import re
 
 
+class UnsupportedBasisError(ValueError):
+    """The FCHK uses basis functions this plugin cannot render exactly.
+
+    Raised instead of rendering a partial or mis-indexed orbital — the
+    message is written for the user and is shown verbatim in the dialog.
+    """
+
+
+#: Factorials indexed by n: _FACT[n] = n!, _FACT2[n] = (2n)!
+_FACT = {0: 1, 1: 1, 2: 2, 3: 6, 4: 24, 5: 120, 6: 720, 7: 5040, 8: 40320}
+_FACT2 = {
+    0: 1,
+    1: 2,
+    2: 24,
+    3: 720,
+    4: 40320,
+    5: 3628800,
+    6: 479001600,
+    7: 87178291200,
+    8: 20922789888000,
+}
+
+
 class FCHKReader:
     """
     Parses Gaussian FCHK files and holds data in a dictionary.
@@ -125,15 +148,131 @@ class BasisSetEngine:
 
     def _normalization_prefactor(self, alpha, l, m, n):
         L = l + m + n
-        # Simple implementation for S, P, D, F, G
-        fact = {0: 1, 1: 1, 2: 2, 3: 6, 4: 24, 5: 120}
-        fact2 = {0: 1, 1: 2, 2: 24, 3: 720, 4: 40320, 5: 3628800}  # (2n)! mapped by n
-
-        # FIX: Access fact2 with n (l), not 2*n, because keys recall (2n)!
-        num = (8 * alpha) ** L * fact[l] * fact[m] * fact[n]
-        den = fact2[l] * fact2[m] * fact2[n]
+        num = (8 * alpha) ** L * _FACT[l] * _FACT[m] * _FACT[n]
+        den = _FACT2[l] * _FACT2[m] * _FACT2[n]
 
         return ((2 * alpha / np.pi) ** 0.75) * np.sqrt(num / den)
+
+    def _n_cart_part(self, l, m, n):
+        """Angular part of the Cartesian Gaussian normalization."""
+        return np.sqrt(
+            (_FACT[l] * _FACT[m] * _FACT[n]) / (_FACT2[l] * _FACT2[m] * _FACT2[n])
+        )
+
+    @staticmethod
+    def _odd_double_factorial(k):
+        """(k-1)!! for even k — the 1-D Gaussian moment integral factor."""
+        result = 1.0
+        while k > 1:
+            result *= k - 1
+            k -= 2
+        return result
+
+    def _angular_overlap(self, a, b):
+        """Overlap of two normalized Cartesian Gaussians in the same shell.
+
+        Scaled so a single component overlaps itself as 1.0. The radial part
+        is shared by every component of a shell, so it cancels and the result
+        does not depend on the exponent.
+        """
+        moment = 1.0
+        for ka, kb in zip(a, b):
+            k = ka + kb
+            if k % 2:
+                return 0.0  # odd power integrates to zero over all space
+            moment *= self._odd_double_factorial(k)
+        return (2.0 ** sum(a)) * moment * self._n_cart_part(*a) * self._n_cart_part(*b)
+
+    def _build_sph_defs(self, polys):
+        """Turn real-solid-harmonic polynomials into component weights.
+
+        Each component is evaluated as N_cart(l,m,n) * x^l y^m z^n, and
+        N_cart differs between topologies (N(0,0,3) is N(2,0,1)/sqrt(5)).
+        The previous hand-typed table applied one scalar per component, which
+        squashed any component mixing topologies — it put the f(z^3) nodal
+        cone at 28.6 degrees instead of 39.2. Dividing out N_cart and then
+        normalizing against the exact angular overlap fixes the shape and the
+        scale together, and matches the s/p/d shells.
+        """
+        defs = []
+        for poly in polys:
+            weights = [(c_poly / self._n_cart_part(*lmn), lmn) for c_poly, lmn in poly]
+            norm_sq = sum(
+                wa * wb * self._angular_overlap(a, b)
+                for wa, a in weights
+                for wb, b in weights
+            )
+            scale = 1.0 / np.sqrt(norm_sq) if norm_sq > 0 else 1.0
+            defs.append([(w * scale, lmn) for w, lmn in weights])
+        return defs
+
+    #: Human-readable names for the shell types Gaussian writes.
+    _SHELL_NAMES = {
+        0: "S",
+        1: "P",
+        -1: "SP",
+        2: "6D (Cartesian)",
+        -2: "5D (pure)",
+        3: "10F (Cartesian)",
+        -3: "7F (pure)",
+        4: "15G (Cartesian)",
+        -4: "9G (pure)",
+        5: "21H (Cartesian)",
+        -5: "11H (pure)",
+    }
+
+    def _reject_unsupported_shells(self, shell_types, d_is_cart, f_is_cart):
+        """Refuse the whole file if any shell type cannot be rendered exactly.
+
+        Rendering only the shells we understand is not an option: the FCHK MO
+        coefficient block covers every basis function, so an unrenderable
+        shell either desyncs the coefficient indexing or silently drops part
+        of the orbital. Either way the picture is wrong with nothing on screen
+        to say so. Better to refuse the file and name the shell type.
+        """
+        offenders = []
+        for stype in shell_types:
+            stype = int(stype)
+            expected = self._shell_n_functions(stype, d_is_cart, f_is_cart)
+            defs = self.basis_definitions.get(abs(stype) if stype < -1 else stype, None)
+            if defs is None or len(defs) != expected:
+                name = self._SHELL_NAMES.get(stype, f"type {stype}")
+                if name not in offenders:
+                    offenders.append(name)
+
+        if offenders:
+            raise UnsupportedBasisError(
+                "This FCHK uses basis functions the analyzer cannot render "
+                "exactly: " + ", ".join(offenders) + ".\n\n"
+                "Visualization is blocked rather than showing an orbital that "
+                "would be silently incorrect.\n\n"
+                "Re-run the Gaussian job with spherical harmonics (5D 7F, the "
+                "default for most modern basis sets) to produce a file this "
+                "plugin can render."
+            )
+
+    @staticmethod
+    def _shell_n_functions(stype, d_is_cart=True, f_is_cart=True):
+        """Number of basis functions a Gaussian shell type contributes.
+
+        Purity comes from the file's "Pure/Cartesian" flags rather than the
+        sign of the shell type, matching how the definitions above are
+        chosen. Gaussian writes the two consistently, but the flags are what
+        this code acts on, so the count has to agree with them or a
+        perfectly renderable file would be refused.
+
+        Gaussian's "Pure/Cartesian f shells" flag governs f and every higher
+        shell; S and P are the same either way. -1 is the SP special case.
+        """
+        if stype == -1:
+            return 4
+        total_l = abs(stype)
+        if total_l <= 1:
+            return 2 * total_l + 1
+        is_cart = d_is_cart if total_l == 2 else f_is_cart
+        if is_cart:
+            return (total_l + 1) * (total_l + 2) // 2
+        return 2 * total_l + 1
 
     def _prepare_basis_set(self):
         shell_types = self.fchk.get("Shell types", None)
@@ -240,47 +379,69 @@ class BasisSetEngine:
         if f_is_cart:
             self.basis_definitions[3] = cart_f
         else:
-            # Spherical F (7 components) - Normalized
-            # Calculated via calculate_norm.py accounting for overlaps.
-
-            # F0 (5z^2-3r^2)z -> 2z^3 - 3x^2z - 3y^2z. Norm Factor: 0.24065403
-            f0_n = 0.24065403
-            # F1 (5z^2-r^2)x -> 4xz^2 - x^3 - xy^2. Norm Factor: 0.28116020
-            f1_n = 0.28116020
-            # F2 (x^2-y^2)z -> x^2z - y^2z. Norm Factor: 0.86602540
-            f2_n = 0.86602540
-            # F3 (x^3-3xy^2). Norm Factor: 0.36969351
-            f3_n = 0.36969351
-
-            sph_f = [
-                # f(0): 2ZZZ - 3XXZ - 3YYZ.
-                [
-                    (2.0 * f0_n, (0, 0, 3)),
-                    (-3.0 * f0_n, (2, 0, 1)),
-                    (-3.0 * f0_n, (0, 2, 1)),
-                ],
-                # 1: x(5z^2-r^2) -> 4XZZ - XXX - XYY
-                [
-                    (4.0 * f1_n, (1, 0, 2)),
-                    (-1.0 * f1_n, (3, 0, 0)),
-                    (-1.0 * f1_n, (1, 2, 0)),
-                ],
-                # 2: y(5z^2-r^2) -> 4YZZ - XXY - YYY
-                [
-                    (4.0 * f1_n, (0, 1, 2)),
-                    (-1.0 * f1_n, (2, 1, 0)),
-                    (-1.0 * f1_n, (0, 3, 0)),
-                ],
-                # 3: z(x^2-y^2) -> X2Z - Y2Z
-                [(1.0 * f2_n, (2, 0, 1)), (-1.0 * f2_n, (0, 2, 1))],
-                # 4: xyz
+            # Spherical F (7 components), Gaussian m order 0,+1,-1,+2,-2,+3,-3.
+            # Polynomials are the real solid harmonics r^3 * Y_3m in Cartesian
+            # monomials; _build_sph_defs supplies the normalization.
+            f_polys = [
+                # f(0): z(5z^2-3r^2) -> 2ZZZ - 3XXZ - 3YYZ
+                [(2.0, (0, 0, 3)), (-3.0, (2, 0, 1)), (-3.0, (0, 2, 1))],
+                # f(+1): x(5z^2-r^2) -> 4XZZ - XXX - XYY
+                [(4.0, (1, 0, 2)), (-1.0, (3, 0, 0)), (-1.0, (1, 2, 0))],
+                # f(-1): y(5z^2-r^2) -> 4YZZ - XXY - YYY
+                [(4.0, (0, 1, 2)), (-1.0, (2, 1, 0)), (-1.0, (0, 3, 0))],
+                # f(+2): z(x^2-y^2)
+                [(1.0, (2, 0, 1)), (-1.0, (0, 2, 1))],
+                # f(-2): xyz
                 [(1.0, (1, 1, 1))],
-                # 5: x(x^2-3y^2) -> XXX - 3XYY
-                [(1.0 * f3_n, (3, 0, 0)), (-3.0 * f3_n, (1, 2, 0))],
-                # 6: y(3x^2-y^2) -> 3XXY - YYY
-                [(3.0 * f3_n, (2, 1, 0)), (-1.0 * f3_n, (0, 3, 0))],
+                # f(+3): x(x^2-3y^2)
+                [(1.0, (3, 0, 0)), (-3.0, (1, 2, 0))],
+                # f(-3): y(3x^2-y^2)
+                [(3.0, (2, 1, 0)), (-1.0, (0, 3, 0))],
             ]
-            self.basis_definitions[3] = sph_f
+            self.basis_definitions[3] = self._build_sph_defs(f_polys)
+
+        # Spherical G (9 components), same m ordering. Gaussian's
+        # "Pure/Cartesian f shells" flag governs f and every higher shell, so
+        # g purity follows f_is_cart. Cartesian 15G is NOT defined here: its
+        # 15-monomial ordering cannot be confirmed without a sample file, and
+        # a guessed ordering would render a confidently wrong orbital. Such
+        # files are rejected outright by _reject_unsupported_shells.
+        #
+        # Before this, a g shell was skipped without reserving its
+        # coefficient slots, which shifted every later shell's start_idx AND
+        # shrank n_basis -- so mo_coeffs_all[mo_idx * n_basis : ...] strided
+        # into the wrong place and every orbital past the first was garbage.
+        g_polys = [
+            # g(0): (35z^4 - 30z^2 r^2 + 3r^4)/8
+            [
+                (1.0, (0, 0, 4)),
+                (-3.0, (2, 0, 2)),
+                (-3.0, (0, 2, 2)),
+                (0.375, (4, 0, 0)),
+                (0.375, (0, 4, 0)),
+                (0.75, (2, 2, 0)),
+            ],
+            # g(+1): xz(7z^2 - 3r^2)
+            [(4.0, (1, 0, 3)), (-3.0, (3, 0, 1)), (-3.0, (1, 2, 1))],
+            # g(-1): yz(7z^2 - 3r^2)
+            [(4.0, (0, 1, 3)), (-3.0, (0, 3, 1)), (-3.0, (2, 1, 1))],
+            # g(+2): (x^2-y^2)(7z^2 - r^2)
+            [(6.0, (2, 0, 2)), (-6.0, (0, 2, 2)), (-1.0, (4, 0, 0)), (1.0, (0, 4, 0))],
+            # g(-2): xy(7z^2 - r^2)
+            [(6.0, (1, 1, 2)), (-1.0, (3, 1, 0)), (-1.0, (1, 3, 0))],
+            # g(+3): xz(x^2 - 3y^2)
+            [(1.0, (3, 0, 1)), (-3.0, (1, 2, 1))],
+            # g(-3): yz(3x^2 - y^2)
+            [(3.0, (2, 1, 1)), (-1.0, (0, 3, 1))],
+            # g(+4): x^4 - 6x^2y^2 + y^4
+            [(1.0, (4, 0, 0)), (-6.0, (2, 2, 0)), (1.0, (0, 4, 0))],
+            # g(-4): xy(x^2 - y^2)
+            [(4.0, (3, 1, 0)), (-4.0, (1, 3, 0))],
+        ]
+        if not f_is_cart:
+            self.basis_definitions[4] = self._build_sph_defs(g_polys)
+
+        self._reject_unsupported_shells(shell_types, d_is_cart, f_is_cart)
 
         # Check for P-modifiers (used for SP shells P-component)
         # Try both tag variations
@@ -339,14 +500,11 @@ class BasisSetEngine:
                 if effective_type < -1:
                     effective_type = abs(effective_type)
 
-                defs_list = self.basis_definitions.get(effective_type, None)
-                if defs_list is None:
-                    print(
-                        f"Warning: Shell type {stype} (Effective {effective_type}) not supported. Skipping."
-                    )
-                    exp_ptr += n_prim
-                    coeff_ptr += n_prim
-                    continue
+                # _reject_unsupported_shells has already refused any type
+                # without an exactly-sized definition, so this lookup cannot
+                # come back None. Skipping a shell here would desync every
+                # later shell's coefficient indexing.
+                defs_list = self.basis_definitions[effective_type]
 
                 current_shells_to_add.append(
                     {

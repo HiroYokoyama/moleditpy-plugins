@@ -1266,7 +1266,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Gaussian MO Analyzer",
-    "version": "2026.07.30",
+    "version": "2026.07.31",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes Molecular Orbitals from Gaussian FCHK files by generating Cube files. The current implementation supports S, P, D, and F shells",
@@ -1283,8 +1283,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Gaussian_MO_Analyzer/gaussian_fchk_mo_analyzer.zip",
-    "lastUpdated": "2026-07-30",
-    "sha256": "d7ca3dc72b6e1b0ed8e6a2e17051af0046730f173ae28f92f0041cd33b4a97c7",
+    "lastUpdated": "2026-07-31",
+    "sha256": "bc393430eede8fd1622ec117e96bcc71376b5b91de0e5033f0d1b5f0b7f1bc37",
     "firstAppeared": "2026-01-23",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
