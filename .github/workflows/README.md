@@ -162,14 +162,32 @@ curl -s -X POST \
 
 ## 3. Plugin Tests (`test-plugins.yml`)
 
-An automated CI workflow triggered on every `push` and `pull_request` to `main`. It runs:
-1. Registry JSON validation (`scripts/validate_json.py`) to check formatting and prevent duplicate IDs or SHA-256 hashes.
-2. Full automated pytest execution on `tests/` (including validation of local files, source metadata conventions, and remote registration script unit tests).
-3. API compatibility checks against the main `python_molecular_editor` repository.
+An automated CI workflow triggered on every `push` and `pull_request` to `main`,
+plus `workflow_dispatch`. Six jobs:
+
+1. `changes` — decides whether anything outside `REGISTRY/` changed, so a
+   registry-only commit skips the GUI and API jobs.
+2. `test-registry` — registry JSON validation (`scripts/validate_json.py`) for
+   formatting and duplicate IDs or SHA-256 hashes, the registry integrity
+   tests, and a re-run of `update_intra_repo_metadata.py` that fails on any
+   diff.
+3. `test-plugins` — `tests/` across Python 3.9 – 3.14.
+4. `test-gui` — `tests_gui/` with real PyQt6 (offscreen) across 3.9 – 3.14;
+   without pyvista/vtk the rendering modules skip.
+5. `test-gui-render` — those skipped modules, with pyvista/vtk installed under
+   `xvfb-run`.
+6. `test-api` — API compatibility against the main `python_molecular_editor`
+   repository, which it clones at `--depth 1`.
 
 ---
 
-## 4. Release Workflow for External Plugin Repos (`release.yml`)
+## 4. Release Workflow for External Plugin Repos (`release.yml` — *in those repos*)
+
+> [!IMPORTANT]
+> This section is about the `release.yml` that lives in **each external plugin
+> repository**, not the one in this repo. They share a filename and do
+> different jobs: this repo's publishes a snapshot of the collection (section
+> 5), theirs publishes one plugin and notifies the registry.
 
 Each external plugin repository (e.g. `moleditpy_cif_viewer`, `moleditpy_reaction_sketcher_plugin`) contains its own `.github/workflows/release.yml`. This is the **sending side** of the cross-repo pipeline.
 
@@ -258,3 +276,51 @@ For the release and registry update to succeed, the plugin source must define:
 | `PLUGIN_SUPPORTED_PYTHON_VERSION` | No | Auto-synced to `supported_python_version` in registry (visible plugins default to `>=3.9, <3.15`) |
 | `PLUGIN_TAGS` | No | Registry tags (list or comma-separated string) |
 | `PLUGIN_DEPENDENCIES` | No | Required pip packages |
+
+---
+
+## 5. Collection Release (`release.yml` — *this repo*)
+
+Publishes a snapshot of the whole collection. Triggered by pushing a
+`v`-prefixed date tag:
+
+```bash
+git pull --ff-only origin main
+git tag v2026.08.01
+git push origin v2026.08.01
+```
+
+It creates the GitHub release, titled `Up to the release of 2026.08.01` — the
+leading `v` is dropped so it matches the releases made before the prefix was
+adopted. There is no asset: this repo publishes no build artifacts, so the
+tag's source archive is the payload.
+
+| Guard | Behaviour |
+| :--- | :--- |
+| Tag pattern | Only `v[0-9][0-9][0-9][0-9].[0-9][0-9].[0-9][0-9]` fires it. A bare `2026.08.01`, the pre-prefix scheme, publishes **nothing** — dispatch manually with the tag as input. |
+| Nonexistent tag | A `workflow_dispatch` naming a tag that is not in the repo fails loudly, rather than releasing the default branch. |
+| Already released | Re-running for a released tag is a no-op, not an error. |
+
+---
+
+## 6. Zenodo Archiving (`zenodo.yml`, `test-zenodo.yml`)
+
+`zenodo.yml` uploads a release to Zenodo and mints a DOI, updating record
+`21522477` — this collection's own record, hardcoded once as `DEPOSITION_ID` in
+`scripts/update_zenodo.py` rather than repeated in workflow inputs. Pointing a
+release at the wrong record would file it as a new version of somebody else's
+software.
+
+Triggers on `release: published`, so section 5 chains straight into it, and on
+`workflow_dispatch` for archiving an older tag.
+
+| Guard | Behaviour |
+| :--- | :--- |
+| Pre-releases | Skipped. A permanent DOI should not point at one. |
+| Duplicate version | `update_zenodo.py` refuses a version identical to the record's current one, so a re-run cannot mint a duplicate DOI. |
+| Leftover draft | That refusal happens *after* the file uploads, leaving an unpublished draft. Zenodo permits one draft per record, so discard it in the Zenodo UI or the next upload cannot start. |
+
+`test-zenodo.yml` is the same flow against Zenodo Sandbox. Its deposition ID is
+a **required** input: the production default does not exist on sandbox.
+
+Secrets: `ZENODO_TOKEN`, and `ZENODO_SANDBOX_TOKEN` for the sandbox workflow.

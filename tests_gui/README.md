@@ -118,16 +118,19 @@ in [`gui_test_helpers.py`](file:///e:/Research/Calculation/moleditpy/DEV_MAIN/mo
 
 ## CI
 
-The `test-gui` job in `.github/workflows/test-plugins.yml` runs these tests on every push and PR:
+Two jobs in `.github/workflows/test-plugins.yml` run these tests on every push
+and PR:
 
-```yaml
-test-gui:
-  runs-on: ubuntu-latest
-  steps:
-    - pip install pytest PyQt6
-    - run: pytest tests_gui/ -v --tb=short
-      env:
-        QT_QPA_PLATFORM: offscreen
-```
+| Job | Python | Installs | Runs |
+|---|---|---|---|
+| `test-gui` | 3.9 – 3.14 | `PyQt6`, plus `rdkit numpy pillow` best-effort | the whole suite; the pyvista/vtk-gated modules skip |
+| `test-gui-render` | 3.12 | also `pyvista vtk`, under `xvfb-run` | only those gated modules |
 
-No chemistry stack (rdkit, numpy, etc.) is required — all are mocked by `mock_chemistry_imports()`.
+Both set `QT_QPA_PLATFORM=offscreen`.
+
+The suite runs without a chemistry stack — `mock_chemistry_imports()` stands in
+for whatever is absent. CI installs rdkit/numpy/pillow anyway so the
+rdkit-gated tests execute instead of silently skipping, which is the failure
+mode worth knowing about: **a green run does not by itself mean everything
+ran.** Check the skip count, and see `## Running locally` for the same trap on
+a workstation.

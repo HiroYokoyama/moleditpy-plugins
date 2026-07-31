@@ -217,9 +217,13 @@ On CI the `test-api` job clones the main app at `--depth 1` before running.
 
 ## CI
 
-Two jobs in `.github/workflows/test-plugins.yml`:
+Six jobs in `.github/workflows/test-plugins.yml`:
 
 | Job | Python matrix | Main app cloned | Tests run |
 |---|---|---|---|
-| `test` | 3.11, 3.12, 3.13 | No | All except `test_api` (skipped) |
+| `changes` | — | No | None: decides whether anything outside `REGISTRY/` changed, gating the GUI and API jobs |
+| `test-registry` | 3.12 | No | `validate_json.py`, registry integrity, and the registry-sync check |
+| `test-plugins` | 3.9 – 3.14 | No | `tests/` except `test_registry` |
+| `test-gui` | 3.9 – 3.14 | Auto-cloned by fixture | `tests_gui/` without pyvista/vtk, so the rendering modules skip |
+| `test-gui-render` | 3.12 | Auto-cloned by fixture | Only the pyvista/vtk-gated `tests_gui/` modules, under `xvfb-run` |
 | `test-api` | 3.11 | Yes (`--depth 1`) | `test_api.py` only |
