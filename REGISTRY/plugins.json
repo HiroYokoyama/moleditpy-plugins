@@ -2144,5 +2144,35 @@
       "Linux",
       "WSL"
     ]
+  },
+  {
+    "id": "orbital_comparator",
+    "visible": true,
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
+    "name": "Orbital Comparator",
+    "version": "2026.07.31",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Load and compare up to four .cube files at once (orbitals, densities, ESP), each with its own colours, isovalue, opacity and style.",
+    "tags": [
+      "Analysis",
+      "Visualization"
+    ],
+    "dependencies": [
+      "PyQt6",
+      "numpy",
+      "pyvista"
+    ],
+    "downloadUrl": "../plugins/Orbital_Comparator/orbital_comparator.py",
+    "lastUpdated": "2026-07-31",
+    "sha256": "9cf98dc3c68f562f881cbca216845cfddc12f6138d576957ab45e8d7b679f297",
+    "firstAppeared": "2026-07-31",
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   }
 ]
