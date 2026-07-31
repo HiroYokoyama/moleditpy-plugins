@@ -56,6 +56,12 @@ BOHR_TO_ANG = 0.529177249
 SLOT_COUNT = 4
 STYLES = ["Surface", "Wireframe", "Points"]
 
+#: The Cube File Viewers register .cube/.cub openers at the default 0, so this
+#: has to be negative to stay under them: a cube named on the command line, or
+#: opened from the File menu, belongs to the viewer whenever one is installed.
+#: This is the fallback for when none is.
+FILE_OPENER_PRIORITY = -10
+
 #: Distinct lobe colours so four orbitals stay tellable apart.
 DEFAULT_COLORS = [
     ("#ff0000", "#0000ff"),
@@ -319,12 +325,16 @@ class OrbitalComparator(QWidget):
 
     def init_ui(self):
         layout = QVBoxLayout(self)
-        layout.addWidget(
-            QLabel(
-                "Load .cube files to overlay them on the current structure. "
-                "Colour, isovalue, opacity and style apply instantly."
-            )
+        hint = QLabel(
+            "Drop .cube files here to overlay them on the current structure — "
+            "several at once is fine. Colour, isovalue, opacity and style "
+            "apply instantly."
         )
+        hint.setWordWrap(True)
+        hint.setStyleSheet(
+            "border: 1px dashed palette(mid); border-radius: 4px; padding: 8px;"
+        )
+        layout.addWidget(hint)
 
         for i in range(SLOT_COUNT):
             slot = CubeSlot(i, self)
@@ -332,8 +342,12 @@ class OrbitalComparator(QWidget):
             layout.addWidget(slot.box)
 
         btns = QHBoxLayout()
-        btn_load_many = QPushButton("Load Cube Files…")
-        btn_load_many.setToolTip("Fill the empty slots from a multi-file selection.")
+        # Secondary to dropping files on the window, which is the usual route.
+        btn_load_many = QPushButton("Open Files…")
+        btn_load_many.setToolTip(
+            "Fill the empty slots from a multi-file selection. Dropping the "
+            "files onto this window does the same thing."
+        )
         btn_load_many.clicked.connect(self.load_many)
         btns.addWidget(btn_load_many)
 
@@ -590,6 +604,31 @@ def initialize(context):
             win.close()
 
     context.register_document_reset_handler(on_reset)
+
+    # No register_drop_handler here on purpose: a drop on the MAIN window
+    # belongs to the Cube File Viewers, and a second claimant would only make
+    # which plugin answers depend on load order. Cubes reach this plugin by
+    # being dropped onto its own window, which is unambiguous.
+
+    def open_cube(file_path):
+        """Last-resort opener: show the comparison window with this cube in it.
+
+        Only reached when no Cube File Viewer is installed to take it first.
+        """
+        mw = context.get_main_window()
+        win = getattr(mw, "orbital_comparator_window", None)
+        if win is None:
+            win = OrbitalComparator(context)
+            mw.orbital_comparator_window = win
+        win.show()
+        win.raise_()
+        win.load_paths([file_path])
+
+    if hasattr(context, "register_file_opener"):
+        for ext in (".cube", ".cub"):
+            context.register_file_opener(
+                ext, open_cube, priority=FILE_OPENER_PRIORITY
+            )
 
 
 def run(mw):

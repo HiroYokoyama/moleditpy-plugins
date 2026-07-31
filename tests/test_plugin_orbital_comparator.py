@@ -83,6 +83,97 @@ class TestOrbitalComparatorMetadata:
         assert len(set(positives)) == mod.SLOT_COUNT
 
 
+class TestCubeViewerPrecedence:
+    """The Cube File Viewers own .cube files; this plugin must never outrank
+    them, or which plugin answers a drop or a command-line file would depend
+    on plugin load order."""
+
+    CUBE_VIEWERS = [
+        PLUGINS_DIR / "Cube_File_Viewer" / "cube_viewer.py",
+        PLUGINS_DIR / "Cube_File_Viewer_Advanced" / "cube_viewer_advanced.py",
+    ]
+
+    def _register_calls(self, path, method):
+        with mock_optional_imports():
+            mod = load_plugin(path)
+            ctx = make_context()
+            mod.initialize(ctx)
+        return getattr(ctx, method).call_args_list
+
+    def _opener_priority(self, call):
+        if "priority" in call.kwargs:
+            return call.kwargs["priority"]
+        return call.args[3] if len(call.args) > 3 else 0
+
+    def test_it_claims_no_main_window_drops_at_all(self):
+        """Drops reach this plugin through its own window only."""
+        calls = self._register_calls(ORBITAL_COMPARATOR_PATH, "register_drop_handler")
+        assert calls == []
+
+    def test_the_cube_viewers_still_claim_drops(self):
+        """Guards the assumption above: if they stopped, this plugin taking no
+        drops would leave main-window drops unhandled."""
+        for path in self.CUBE_VIEWERS:
+            if path.exists():
+                assert self._register_calls(path, "register_drop_handler")
+
+    def test_its_file_opener_sits_below_every_cube_viewer(self):
+        mine = self._register_calls(ORBITAL_COMPARATOR_PATH, "register_file_opener")
+        assert mine, "the fallback opener should still be registered"
+        worst = max(self._opener_priority(c) for c in mine)
+
+        for path in self.CUBE_VIEWERS:
+            if not path.exists():
+                continue
+            for call in self._register_calls(path, "register_file_opener"):
+                assert worst < self._opener_priority(call)
+
+    def test_the_fallback_opener_covers_both_extensions(self):
+        calls = self._register_calls(ORBITAL_COMPARATOR_PATH, "register_file_opener")
+        assert {c.args[0] for c in calls} == {".cube", ".cub"}
+
+    def test_the_opener_priority_is_negative(self):
+        """The viewers register at the default 0, so equal is not below."""
+        with mock_optional_imports():
+            mod = load_plugin(ORBITAL_COMPARATOR_PATH)
+        assert mod.FILE_OPENER_PRIORITY < 0
+
+
+class TestFallbackOpener:
+    def test_it_opens_the_window_with_the_cube_loaded(self, tmp_path):
+        from orbital_comparator_harness import load_with_stateful_qt
+
+        mod = load_with_stateful_qt(ORBITAL_COMPARATOR_PATH)
+        mw = SimpleNamespace(plotter=MagicMock())
+        ctx = MagicMock()
+        ctx.get_main_window.return_value = mw
+        mod.initialize(ctx)
+
+        opener = ctx.register_file_opener.call_args_list[0].args[1]
+        opener(str(_write_cube(tmp_path, name="fallback.cube")))
+
+        win = mw.orbital_comparator_window
+        assert win.isVisible()
+        assert win.slots[0].path.endswith("fallback.cube")
+
+    def test_it_reuses_an_open_window(self, tmp_path):
+        from orbital_comparator_harness import load_with_stateful_qt
+
+        mod = load_with_stateful_qt(ORBITAL_COMPARATOR_PATH)
+        mw = SimpleNamespace(plotter=MagicMock())
+        ctx = MagicMock()
+        ctx.get_main_window.return_value = mw
+        mod.initialize(ctx)
+        opener = ctx.register_file_opener.call_args_list[0].args[1]
+
+        opener(str(_write_cube(tmp_path, name="a.cube")))
+        first = mw.orbital_comparator_window
+        opener(str(_write_cube(tmp_path, name="b.cube")))
+
+        assert mw.orbital_comparator_window is first
+        assert first.slots[1].path.endswith("b.cube")
+
+
 class TestComparatorResetHandler:
     def _handler(self, mw):
         with mock_optional_imports():
