@@ -9,7 +9,7 @@ Exports molecular structures as Blender Python scripts
 import logging
 
 PLUGIN_NAME = "Blender Export"
-PLUGIN_VERSION = "2026.07.30"
+PLUGIN_VERSION = "2026.07.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Export molecular structures as Blender Python scripts that create 3D visualizations"
@@ -66,7 +66,7 @@ def export_to_blender(context):
                 os.path.basename(mw.init_manager.current_file_path)
             )[0]
             default_name = f"{base_name}_blender"
-    except Exception as _e:
+    except IndexError as _e:
         logging.warning("[blender_export.py:48] silenced: %s", _e)
 
     default_path = (
@@ -199,7 +199,7 @@ def generate_blender_script(mol, mw):
         try:
             mol_to_draw = Chem.Mol(mol)
             Chem.Kekulize(mol_to_draw, clearAromaticFlags=True)
-        except Exception:
+        except (RuntimeError, AttributeError, TypeError, ValueError):
             mol_to_draw = mol
 
     # Get atom and bond data
@@ -230,7 +230,7 @@ def generate_blender_script(mol, mw):
     ):
         try:
             actual_radii = mw.view_3d_manager.glyph_source["radii"]
-        except Exception as _e:
+        except (RuntimeError, AttributeError, KeyError, IndexError, TypeError, ValueError) as _e:
             logging.warning("[blender_export.py:181] silenced: %s", _e)
 
     # Bond parameters from settings
@@ -265,7 +265,7 @@ def generate_blender_script(mol, mw):
             try:
                 r = pt.GetRvdw(pt.GetAtomicNumber(symbol))
                 return (r if r > 0.1 else 1.5) * scale
-            except Exception:
+            except (RuntimeError, AttributeError, TypeError, ValueError):
                 return 1.5 * scale
         elif current_style == "stick":
             return settings.get("stick_bond_radius", 0.15)
@@ -277,7 +277,7 @@ def generate_blender_script(mol, mw):
                 # App VDW_RADII is already scaled by 0.3 in constants.py
                 r = pt.GetRvdw(pt.GetAtomicNumber(symbol))
                 return (r if r > 0.1 else 1.5) * 0.3 * scale
-            except Exception:
+            except (RuntimeError, AttributeError, TypeError, ValueError):
                 return 0.4 * scale  # App default fallback
 
     # CPK colors for common elements (RGB 0-1 range) - fallback only

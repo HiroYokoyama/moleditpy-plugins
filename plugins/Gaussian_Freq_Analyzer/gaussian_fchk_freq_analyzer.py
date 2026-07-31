@@ -32,7 +32,7 @@ except ImportError:
     Chem = None
 
 PLUGIN_NAME = "Gaussian Freq Analyzer"
-PLUGIN_VERSION = "2026.07.30"
+PLUGIN_VERSION = "2026.07.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -617,7 +617,7 @@ class GaussianFCHKFreqAnalyzer(QWidget):
 
             rdDetermineBonds.DetermineConnectivity(mol)
             rdDetermineBonds.DetermineBondOrders(mol, charge=int(self.parser.charge))
-        except Exception:
+        except (ImportError, RuntimeError, AttributeError, TypeError, ValueError):
             if hasattr(self.mw, "io_manager") and hasattr(
                 self.mw.io_manager, "estimate_bonds_from_distances"
             ):
@@ -725,7 +725,7 @@ class GaussianFCHKFreqAnalyzer(QWidget):
         if self.vector_actor:
             try:
                 self.context.plotter.remove_actor(self.vector_actor)
-            except Exception as _e:
+            except (RuntimeError, AttributeError, KeyError, TypeError, ValueError) as _e:
                 logging.warning("[gaussian_fchk_freq_analyzer.py:659] silenced: %s", _e)
         self.vector_actor = None
 
@@ -781,7 +781,7 @@ class GaussianFCHKFreqAnalyzer(QWidget):
                 color="lightgreen",
                 show_scalar_bar=False,
             )
-        except Exception as e:
+        except (RuntimeError, AttributeError, KeyError, TypeError, ValueError) as e:
             logging.warning("Error adding arrows: %s", e)
 
     def save_as_gif(self):
@@ -1068,7 +1068,7 @@ class SpectrumDialog(QDialog):
                     for xi, yi in zip(x, y):
                         f.write(f"{xi:.2f},{yi:.4f}\n")
                 QMessageBox.information(self, "Success", "Saved CSV.")
-            except Exception as e:
+            except (OSError, RuntimeError, AttributeError, TypeError, ValueError) as e:
                 QMessageBox.critical(self, "Error", str(e))
 
     def export_png(self):
@@ -1083,7 +1083,7 @@ class SpectrumDialog(QDialog):
                 pixmap = self.plot_widget.grab()
                 pixmap.save(fname)
                 QMessageBox.information(self, "Success", "Saved Image.")
-            except Exception as e:
+            except (RuntimeError, AttributeError) as e:
                 QMessageBox.critical(self, "Error", str(e))
 
 

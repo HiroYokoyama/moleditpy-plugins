@@ -22,7 +22,7 @@ import pyvista as pv
 
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Vector Viewer"
-PLUGIN_VERSION = "2026.06.20"
+PLUGIN_VERSION = "2026.07.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Visualizes vectors and exports PNGs using the V3 API."
@@ -161,7 +161,7 @@ class VectorViewerPlugin(QWidget):
                 ]
                 coords = np.array([[p.x, p.y, p.z] for p in positions])
                 return np.mean(coords, axis=0)
-            except Exception as _e:
+            except (RuntimeError, AttributeError, IndexError, TypeError, ValueError) as _e:
                 logging.debug("Could not get COM from conformer: %s", _e)
         return np.array([0.0, 0.0, 0.0])
 
@@ -214,7 +214,7 @@ class VectorViewerPlugin(QWidget):
         if self.vis_actor:
             try:
                 plotter.remove_actor(self.vis_actor)
-            except Exception:
+            except (RuntimeError, AttributeError, KeyError, TypeError, ValueError):
                 pass
             self.vis_actor = None
 
@@ -242,7 +242,7 @@ class VectorViewerPlugin(QWidget):
             if plotter is not None:
                 plotter.remove_actor(self.vis_actor)
                 plotter.render()
-        except Exception:
+        except (RuntimeError, AttributeError, KeyError, TypeError, ValueError):
             pass
         self.vis_actor = None
         super().closeEvent(event)
@@ -265,7 +265,7 @@ class VectorViewerPlugin(QWidget):
         try:
             plotter.screenshot(filename, transparent_background=transparent)
             self.context.show_status_message(f"Saved to {filename}")
-        except Exception as e:
+        except (RuntimeError, AttributeError, KeyError, TypeError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to save image:\n{e}")
 
 

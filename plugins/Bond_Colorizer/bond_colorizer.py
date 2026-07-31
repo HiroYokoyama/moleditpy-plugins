@@ -14,7 +14,7 @@ import logging
 
 # Plugin Metadata
 PLUGIN_NAME = "Bond Colorizer"
-PLUGIN_VERSION = "2026.07.12"
+PLUGIN_VERSION = "2026.07.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Select bonds by index or atom pair in the 3D viewer and apply color."
@@ -69,7 +69,7 @@ class BondColorizerWindow(QDialog):
                     mw.init_manager.measurement_action.setChecked(True)
                 e3d.toggle_measurement_mode(True)
                 self._forced_measurement_mode = True
-        except Exception as _e:
+        except (RuntimeError, AttributeError) as _e:
             logging.warning("[bond_colorizer] enter select mode silenced: %s", _e)
 
     def _restore_select_mode(self):
@@ -103,7 +103,7 @@ class BondColorizerWindow(QDialog):
             e3d.toggle_measurement_mode(self._restore_measurement_mode)
             if hasattr(mw, "ui_manager"):
                 mw.ui_manager.toggle_3d_edit_mode(self._restore_edit_mode)
-        except Exception as _e:
+        except (RuntimeError, AttributeError) as _e:
             logging.warning("[bond_colorizer] restore mode silenced: %s", _e)
 
     def init_ui(self):
@@ -386,7 +386,7 @@ def initialize(context):
         for bond_idx_str, hex_color in bond_colors.items():
             try:
                 controller.set_bond_color(int(bond_idx_str), hex_color)
-            except Exception as _e:
+            except (TypeError, ValueError) as _e:
                 logging.warning("[bond_colorizer.py:268] silenced: %s", _e)
         context.refresh_3d_view()
 

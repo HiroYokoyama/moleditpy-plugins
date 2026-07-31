@@ -1,5 +1,5 @@
 PLUGIN_NAME = "Compound Info Report"
-PLUGIN_VERSION = "2026.06.26"
+PLUGIN_VERSION = "2026.07.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Generate a compound info report with properties, adducts, and structure. Refactored for V3 API."
@@ -61,7 +61,7 @@ class PubChemFetcher:
                     information = data.get("InformationList", {}).get("Information", [])
                     if information:
                         return information[0].get("Synonym", [])
-        except Exception as _e:
+        except (OSError, IndexError, TypeError, ValueError) as _e:
             logging.warning("[compound_info_report.py:52] silenced: %s", _e)
         return []
 
@@ -80,7 +80,7 @@ class PubChemFetcher:
                     cids = data.get("IdentifierList", {}).get("CID", [])
                     if cids:
                         return cids[0]
-        except Exception as _e:
+        except (OSError, IndexError, TypeError, ValueError) as _e:
             logging.warning("[compound_info_report.py:69] silenced: %s", _e)
         return None
 
@@ -349,7 +349,7 @@ class ReportDialog(QDialog):
                 img.save(buffered, format="PNG")
                 mol_b64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
                 img_w, img_h = 400, 300
-            except Exception as _e:
+            except (ImportError, RuntimeError, AttributeError, TypeError, ValueError) as _e:
                 logging.warning("[compound_info_report.py:302] silenced: %s", _e)
 
         return mol_b64, img_w, img_h
@@ -688,7 +688,7 @@ def show_report(context):
     try:
         if mol.GetNumConformers() == 0:
             AllChem.Compute2DCoords(mol)
-    except Exception as _e:
+    except (RuntimeError, AttributeError, TypeError, ValueError) as _e:
         logging.warning("[compound_info_report.py:614] silenced: %s", _e)
 
     dialog = ReportDialog(mol, mw)

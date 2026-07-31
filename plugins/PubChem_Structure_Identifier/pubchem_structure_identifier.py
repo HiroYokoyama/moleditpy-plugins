@@ -21,7 +21,7 @@ from PyQt6.QtCore import Qt
 
 # --- Metadata ---
 PLUGIN_NAME = "PubChem Structure Identifier"
-PLUGIN_VERSION = "2026.07.09"
+PLUGIN_VERSION = "2026.07.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Resolve chemical names and fetch molecular properties (Name, Formula, Weight) via PubChem."
@@ -102,7 +102,7 @@ class PubChemResolver:
                             if title:
                                 details["Common Name"] = title
                                 break
-            except Exception:
+            except (OSError, KeyError, IndexError, TypeError, ValueError):
                 details["Common Name"] = "Unknown"
 
             # 2. Get Physical Properties (No SMILES, No XLogP, No TPSA)
@@ -267,7 +267,7 @@ def resolve_and_load(context):
         if mw and hasattr(mw, "string_importer_manager"):
             mw.string_importer_manager.load_from_smiles(smiles)
             context.show_status_message(f"Loaded '{name}' from PubChem.", 5000)
-    except Exception as e:
+    except (RuntimeError, AttributeError, IndexError, TypeError, ValueError) as e:
         QMessageBox.critical(mw, "Import Error", f"Failed to load SMILES:\n{e}")
 
 
@@ -288,7 +288,7 @@ def identify_current_molecule(context):
     # Calculate InChIKey Locally
     try:
         inchikey = Chem.MolToInchiKey(mol)
-    except Exception as e:
+    except (RuntimeError, AttributeError, TypeError, ValueError) as e:
         QMessageBox.warning(mw, "Error", f"Failed to calculate InChIKey: {e}")
         return
 

@@ -19,7 +19,7 @@ except ImportError:
     Chem = None
 
 PLUGIN_NAME = "Paste XYZ"
-PLUGIN_VERSION = "2026.07.30"
+PLUGIN_VERSION = "2026.07.31"
 PLUGIN_CATEGORY = "File"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
@@ -74,7 +74,7 @@ def _apply_bonds(rwmol: "Chem.RWMol", charge: int, mw) -> "Chem.Mol":
         result = candidate.GetMol()
         result.SetIntProp("_xyz_charge", int(charge))
         return result
-    except Exception:
+    except (ImportError, RuntimeError, AttributeError, TypeError, ValueError):
         pass
 
     if hasattr(mw, "io_manager") and hasattr(mw.io_manager, "estimate_bonds_from_distances"):

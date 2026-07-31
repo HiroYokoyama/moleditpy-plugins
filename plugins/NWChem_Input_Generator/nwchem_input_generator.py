@@ -23,7 +23,7 @@ from rdkit import Chem
 import logging
 
 PLUGIN_NAME = "NWChem Input Generator"
-PLUGIN_VERSION = "2026.07.30"
+PLUGIN_VERSION = "2026.07.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Generate NWChem input files for quantum chemistry calculations."
@@ -338,7 +338,7 @@ class NwchemSetupDialog(QDialog):
             try:
                 with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
                     self.presets_data = json.load(f)
-            except Exception as e:
+            except (OSError, TypeError, ValueError) as e:
                 logging.warning("Error loading presets: %s", e)
         self.update_preset_combo()
 
@@ -414,7 +414,7 @@ class NwchemSetupDialog(QDialog):
         try:
             with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
                 json.dump(self.presets_data, f, indent=4)
-        except Exception as e:
+        except (OSError, TypeError, ValueError) as e:
             QMessageBox.warning(self, "Error", f"Failed to save presets: {e}")
 
 

@@ -13,7 +13,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 
 PLUGIN_NAME = "Structural Updater"
-PLUGIN_VERSION = "2026.07.23"
+PLUGIN_VERSION = "2026.07.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Applies 2D structural changes to 3D conformation without full re-embedding. Refactored for V3 API."
@@ -120,7 +120,7 @@ class StructuralUpdaterPlugin:
             else:
                 # Create default settings if file doesn't exist
                 self.save_settings()
-        except Exception as e:
+        except (OSError, TypeError, ValueError) as e:
             logging.warning("[%s] Error loading settings: %s", PLUGIN_NAME, e)
 
     def save_settings(self):
@@ -128,7 +128,7 @@ class StructuralUpdaterPlugin:
             data = {"enabled": self.enabled}
             with open(self.settings_file, "w") as f:
                 json.dump(data, f)
-        except Exception as e:
+        except (OSError, TypeError, ValueError) as e:
             logging.warning("[%s] Error saving settings: %s", PLUGIN_NAME, e)
 
     def open_settings(self):
@@ -169,7 +169,7 @@ class StructuralUpdaterPlugin:
         try:
             # # [DIRECT ACCESS] to button signals
             self.mw.init_manager.convert_button.clicked.disconnect()
-        except Exception as _e:
+        except Exception as _e:  # noqa: BLE001 - disconnect() raises freely when unconnected
             logging.warning("[structural_updater.py:153] silenced: %s", _e)
         self.mw.init_manager.convert_button.clicked.connect(self.new_trigger_conversion)
 
@@ -197,7 +197,7 @@ class StructuralUpdaterPlugin:
         # ensuring it points to our wrapper
         try:
             self.mw.init_manager.convert_button.clicked.disconnect()
-        except Exception as _e:
+        except Exception as _e:  # noqa: BLE001 - disconnect() raises freely when unconnected
             logging.warning("[structural_updater.py:181] silenced: %s", _e)
         self.mw.init_manager.convert_button.clicked.connect(self.new_trigger_conversion)
 
@@ -276,7 +276,7 @@ class StructuralUpdaterPlugin:
         # Get Conformer from Old Mol
         try:
             old_conf = old_mol.GetConformer()
-        except Exception:
+        except (RuntimeError, AttributeError, TypeError, ValueError):
             self.force_full_conversion()
             return
 
@@ -431,7 +431,7 @@ class StructuralUpdaterPlugin:
 
                     # Minimize with iteration limit to prevent hanging on complex/strained systems
                     ff.Minimize(maxIts=200)
-            except Exception:
+            except (RuntimeError, AttributeError, KeyError, TypeError, ValueError):
                 # If optimization explodes (e.g. Invariant Violation), fallback is safer
                 # print(f"[{PLUGIN_NAME}] Optimization failed: {e}") # Suppress scary error
                 self.context.show_status_message(

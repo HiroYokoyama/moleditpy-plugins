@@ -30,7 +30,7 @@ except ImportError:
         OBABEL_AVAILABLE = False
 
 PLUGIN_NAME = "OpenBabel Conversion Tool"
-PLUGIN_VERSION = "2026.07.10"
+PLUGIN_VERSION = "2026.07.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -150,7 +150,7 @@ def open_file_with_openbabel(file_path, context):
                 os.close(fd)
                 shutil.copy2(file_path, temp_file_path)
                 path_to_open = temp_file_path
-            except Exception as e:
+            except OSError as e:
                 logging.warning("[%s] Failed to create temp file for non-ascii path: %s", PLUGIN_NAME, e)
                 # Fallback to original path
                 path_to_open = file_path
@@ -165,7 +165,7 @@ def open_file_with_openbabel(file_path, context):
             if temp_file_path and os.path.exists(temp_file_path):
                 try:
                     os.remove(temp_file_path)
-                except Exception as _e:
+                except OSError as _e:
                     logging.warning(
                         "[openbabel_conversion_tool.py:153] silenced: %s", _e
                     )
@@ -320,7 +320,7 @@ def export_with_openbabel(context):
         # RDKit -> MolBlock
         try:
             mol_block = Chem.MolToMolBlock(mol)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - any conversion failure is reported to the user
             QMessageBox.critical(
                 mw,
                 "Conversion Error",

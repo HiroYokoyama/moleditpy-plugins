@@ -43,7 +43,7 @@ from PyQt6.QtWidgets import (
 # ---------------------------------------------------------------------------
 
 PLUGIN_NAME = "Metadata Saver"
-PLUGIN_VERSION = "2026.07.13"
+PLUGIN_VERSION = "2026.07.31"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
     "Saves debug/trace metadata (timestamp, file path, username, OS info, …) "
@@ -181,7 +181,7 @@ def load_config() -> dict:
                 cfg["enabled_fields"].update(data["enabled_fields"])
             cfg["custom_note"] = data.get("custom_note", "")
             return cfg
-        except Exception:
+        except (OSError, KeyError, IndexError, TypeError, ValueError):
             logging.debug(
                 "Metadata Saver: failed to load config — using defaults", exc_info=True
             )
@@ -193,7 +193,7 @@ def save_config(cfg: dict) -> None:
     try:
         with open(_config_path(), "w", encoding="utf-8") as fh:
             json.dump(cfg, fh, indent=4, ensure_ascii=False)
-    except Exception:
+    except (OSError, TypeError, ValueError):
         logging.warning("Metadata Saver: failed to save config", exc_info=True)
 
 
@@ -215,7 +215,7 @@ def _try_getattr_chain(obj, *attr_paths: str) -> str | None:
                     break
             if current and isinstance(current, str) and current.strip():
                 return current
-        except Exception:
+        except IndexError:
             pass
     return None
 
@@ -387,7 +387,7 @@ def on_load_project(data: dict) -> None:
                 )
         else:
             _LOADED_METADATA = {}
-    except Exception:
+    except (KeyError, IndexError):
         logging.debug("Metadata Saver: on_load_project failed", exc_info=True)
         _LOADED_METADATA = {}
 

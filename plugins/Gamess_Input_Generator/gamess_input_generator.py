@@ -23,7 +23,7 @@ from rdkit import Chem
 import logging
 
 PLUGIN_NAME = "GAMESS Input Generator"
-PLUGIN_VERSION = "2026.07.30"
+PLUGIN_VERSION = "2026.07.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Generate GAMESS input files for ab initio quantum chemistry."
@@ -323,7 +323,7 @@ class GamessSetupDialog(QDialog):
                     f.write(content)
                 QMessageBox.information(self, "Success", f"File saved to {path}")
                 # Do not close dialog automatically
-            except Exception as e:
+            except (OSError, TypeError, ValueError) as e:
                 QMessageBox.critical(self, "Error", str(e))
 
     # --- Preset Management ---
@@ -333,7 +333,7 @@ class GamessSetupDialog(QDialog):
             try:
                 with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
                     self.presets_data = json.load(f)
-            except Exception as e:
+            except (OSError, TypeError, ValueError) as e:
                 logging.warning("Error loading presets: %s", e)
         self.update_preset_combo()
 
@@ -419,7 +419,7 @@ class GamessSetupDialog(QDialog):
         try:
             with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
                 json.dump(self.presets_data, f, indent=4)
-        except Exception as e:
+        except (OSError, TypeError, ValueError) as e:
             QMessageBox.warning(self, "Error", f"Failed to save presets: {e}")
 
 

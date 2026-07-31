@@ -45,7 +45,7 @@ from rdkit import Chem
 # ---------------------------------------------------------------------------
 
 PLUGIN_NAME = "xTB Optimizer"
-PLUGIN_VERSION = "2026.07.29"
+PLUGIN_VERSION = "2026.07.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -177,7 +177,7 @@ class XtbWorker(QThread):
                         energy = float(atoms.get_potential_energy())
                         forces = atoms.get_forces()
                         fmax_val = float(np.sqrt((forces**2).sum(axis=1).max()))
-                    except Exception:
+                    except Exception:  # noqa: BLE001 - a bad step callback must not abort the run
                         energy = float("nan")
                         fmax_val = float("nan")
 
@@ -554,7 +554,7 @@ class XtbOptimizerDialog(QDialog):
             conf = mol.GetConformer()
             for i, (x, y, z) in enumerate(new_positions):
                 conf.SetAtomPosition(i, (x, y, z))
-        except Exception as exc:
+        except (RuntimeError, AttributeError, TypeError, ValueError) as exc:
             logger.exception("XtbOptimizer: failed to apply optimized coordinates")
             self.lbl_status.setText(f"Error applying coordinates: {exc}")
             return

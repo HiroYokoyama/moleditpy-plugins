@@ -18,7 +18,7 @@ from rdkit.Chem import AllChem, rdMolTransforms
 import logging
 
 PLUGIN_NAME = "Complex Molecule Untangler"
-PLUGIN_VERSION = "2026.07.30"
+PLUGIN_VERSION = "2026.07.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Untangle overlapping fragments in complex molecules."
@@ -51,14 +51,14 @@ class UntangleWorker(QThread):
                     props = AllChem.MMFFGetMoleculeProperties(work_mol)
                     if props:
                         ff = AllChem.MMFFGetMoleculeForceField(work_mol, props)
-                except Exception as _e:
+                except (RuntimeError, AttributeError, TypeError, ValueError) as _e:
                     logging.warning(
                         "[complex_molecule_untangler.py:43] silenced: %s", _e
                     )
             elif self.force_field == "UFF":
                 try:
                     ff = AllChem.UFFGetMoleculeForceField(work_mol)
-                except Exception as _e:
+                except (RuntimeError, AttributeError, TypeError, ValueError) as _e:
                     logging.warning(
                         "[complex_molecule_untangler.py:48] silenced: %s", _e
                     )
@@ -147,14 +147,14 @@ class UntangleWorker(QThread):
             if self.force_field == "MMFF94":
                 try:
                     AllChem.MMFFOptimizeMolecule(work_mol, maxIters=50)
-                except Exception as _e:
+                except (RuntimeError, AttributeError, TypeError, ValueError) as _e:
                     logging.warning(
                         "[complex_molecule_untangler.py:127] silenced: %s", _e
                     )
             elif self.force_field == "UFF":
                 try:
                     AllChem.UFFOptimizeMolecule(work_mol, maxIters=50)
-                except Exception as _e:
+                except (RuntimeError, AttributeError, TypeError, ValueError) as _e:
                     logging.warning(
                         "[complex_molecule_untangler.py:132] silenced: %s", _e
                     )

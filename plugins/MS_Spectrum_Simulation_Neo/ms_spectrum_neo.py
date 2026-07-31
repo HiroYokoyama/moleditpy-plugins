@@ -48,7 +48,7 @@ except ImportError:
     Descriptors = None
     Draw = None
 
-PLUGIN_VERSION = "2026.07.30"
+PLUGIN_VERSION = "2026.07.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 
@@ -149,7 +149,7 @@ class MSSpectrumDialog(QDialog):
             try:
                 formula = Chem.rdMolDescriptors.CalcMolFormula(self.mol)
                 self.formula_input.setText(str(formula))
-            except Exception as _e:
+            except (RuntimeError, AttributeError, TypeError, ValueError) as _e:
                 logging.warning("[ms_spectrum_neo.py:79] silenced: %s", _e)
         settings_layout.addRow("Formula:", self.formula_input)
 
@@ -608,7 +608,7 @@ class MSSpectrumDialog(QDialog):
                 for m, i in data:
                     f.write(f"{m:.5f},{i:.5f}\n")
             QMessageBox.information(self, "Success", f"Saved to {filename}")
-        except Exception as e:
+        except (OSError, RuntimeError, AttributeError, TypeError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to save CSV: {e}")
 
     def recalc_peaks(self, reset=True):
@@ -663,7 +663,7 @@ class MSSpectrumDialog(QDialog):
             self.lbl_ion.setText(f"<b>Monoisotopic m/z:</b> {ion_mz:.4f}")
             self.lbl_mw.setText(f"<b>Neutral Avg Mass:</b> {final_mw:.4f}")
             self.lbl_em.setText(f"<b>Neutral Exact Mass:</b> {neutral_exact_mw:.4f}")
-        except Exception as _e:
+        except (RuntimeError, AttributeError) as _e:
             logging.warning("[ms_spectrum_neo.py:500] silenced: %s", _e)
 
     def apply_gaussian_broadening(self, peaks, sigma):
@@ -928,7 +928,7 @@ class MSSpectrumDialog(QDialog):
 
                     mol_b64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
                     img_w, img_h = 300, 300
-                except Exception as e:
+                except (ImportError, RuntimeError, AttributeError, TypeError, ValueError) as e:
                     logging.warning("Mol Image Error: %s", e)
 
         # Calculate Scaled Dimensions for Report (Max 260x190 inside 270x200 frame)

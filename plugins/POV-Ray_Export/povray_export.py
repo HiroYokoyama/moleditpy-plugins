@@ -9,7 +9,7 @@ Exports molecular structures as POV-Ray scene files for high-quality ray-traced 
 import logging
 
 PLUGIN_NAME = "POV-Ray Export"
-PLUGIN_VERSION = "2026.07.30"
+PLUGIN_VERSION = "2026.07.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Export molecular structures as POV-Ray scene files for professional ray-traced rendering"
@@ -67,7 +67,7 @@ def export_to_povray(context):
                 os.path.basename(mw.init_manager.current_file_path)
             )[0]
             default_name = base_name
-    except Exception as _e:
+    except Exception as _e:  # noqa: BLE001 - path derivation falls back to a default name
         logging.warning("[povray_export.py:49] silenced: %s", _e)
 
     default_path = (
@@ -215,7 +215,7 @@ def generate_povray_scene(mol, mw):
     ):
         try:
             actual_radii = mw.view_3d_manager.glyph_source["radii"]
-        except Exception as _e:
+        except (RuntimeError, AttributeError, KeyError, IndexError, TypeError, ValueError) as _e:
             logging.warning("[povray_export.py:167] silenced: %s", _e)
 
     # Bond parameters from settings
@@ -247,7 +247,7 @@ def generate_povray_scene(mol, mw):
 
         q_bg = QColor(bg_hex)
         bg_rgb = (q_bg.redF(), q_bg.greenF(), q_bg.blueF())
-    except Exception:
+    except Exception:  # noqa: BLE001 - colour parse must fall back, not fail
         bg_rgb = (0.31, 0.31, 0.31)  # Default gray
 
     # Calculate molecule center and bounds for camera positioning (fallback only)
@@ -630,7 +630,7 @@ def generate_povray_scene(mol, mw):
                         try:
                             r = pt.GetRvdw(pt.GetAtomicNumber(symbol))
                             radius = (r if r > 0.1 else 1.5) * scale
-                        except Exception:
+                        except (RuntimeError, AttributeError, TypeError, ValueError):
                             radius = 1.5 * scale
                     else:  # ball_and_stick
                         scale = settings.get("ball_stick_atom_scale", 1.0)
@@ -638,7 +638,7 @@ def generate_povray_scene(mol, mw):
                             # Use 0.3 factor matching app's constants.py VDW_RADII
                             r = pt.GetRvdw(pt.GetAtomicNumber(symbol))
                             radius = (r if r > 0.1 else 1.5) * 0.3 * scale
-                        except Exception:
+                        except (RuntimeError, AttributeError, TypeError, ValueError):
                             radius = 0.4 * scale
                 atoms_to_draw.append(
                     (np.array([pos.x, pos.y, pos.z]), radius, color, symbol, idx)

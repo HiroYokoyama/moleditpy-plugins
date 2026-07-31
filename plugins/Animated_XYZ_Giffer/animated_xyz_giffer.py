@@ -37,7 +37,7 @@ try:
 except ImportError:
     rdDetermineBonds = None
 
-PLUGIN_VERSION = "2026.07.16"
+PLUGIN_VERSION = "2026.07.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_NAME = "Animated XYZ Giffer"
@@ -303,7 +303,7 @@ class AnimatedXYZPlayer(QDialog):
             # Handle unknown symbols or numbers
             try:
                 atom = Chem.Atom(sym)
-            except Exception:
+            except (RuntimeError, AttributeError, TypeError, ValueError):
                 atom = Chem.Atom("C")  # Fallback
             mol.AddAtom(atom)
 
@@ -764,7 +764,7 @@ class AnimatedXYZPlayer(QDialog):
                 self.context.current_molecule = self.base_mol
 
             self.context.push_undo_checkpoint()
-        except Exception as _e:
+        except Exception as _e:  # noqa: BLE001 - closing must never raise
             logging.warning("[animated_xyz_giffer.py:653] silenced: %s", _e)
 
         """

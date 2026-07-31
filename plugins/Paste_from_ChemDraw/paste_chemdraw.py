@@ -7,7 +7,7 @@ import logging
 
 # --- Plugin Basic Information ---
 PLUGIN_NAME = "Paste from ChemDraw"
-PLUGIN_VERSION = "2026.07.18"
+PLUGIN_VERSION = "2026.07.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Paste chemical structures from ChemDraw clipboard data (MDLCT/MDLSK). Optimized for MoleditPy V3."
@@ -122,7 +122,7 @@ def run(context):
             if mol is None:
                 mol = reconstruct_from_flat_text(mol_text)
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - any clipboard decode failure is reported
             QMessageBox.critical(main_window, PLUGIN_NAME, f"Paste Error: {e}")
             # print(f"[{PLUGIN_NAME}] Error: {e}")
 
@@ -134,7 +134,7 @@ def run(context):
                 mol = Chem.MolFromMolBlock(text)
                 if mol is None:
                     mol = reconstruct_from_flat_text(text)
-        except Exception as _e:
+        except Exception as _e:  # noqa: BLE001 - clipboard decode is best-effort
             logging.warning("[paste_chemdraw.py:131] silenced: %s", _e)
 
     # 4. Drawing Logic
@@ -159,7 +159,7 @@ def run(context):
             try:
                 Chem.Kekulize(mol, clearAromaticFlags=True)
                 AllChem.AssignStereochemistry(mol, force=True)
-            except Exception as _e:
+            except Exception as _e:  # noqa: BLE001 - kekulization is best-effort
                 logging.warning("[paste_chemdraw.py:154] silenced: %s", _e)
 
             SCALE_FACTOR = 50.0  # Normalized to MoleditPy standard bond length

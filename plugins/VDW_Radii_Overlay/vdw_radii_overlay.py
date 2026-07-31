@@ -24,14 +24,14 @@ except ImportError:
         from rdkit import Chem
 
         pt = Chem.GetPeriodicTable()
-    except Exception:
+    except (ImportError, RuntimeError, AttributeError, TypeError, ValueError):
         pt = None
     CPK_COLORS_PV = {}  # Last resort fallback
 
 
 # Plugin Metadata
 PLUGIN_NAME = "VDW Radii Overlay"
-PLUGIN_VERSION = "2026.07.30"
+PLUGIN_VERSION = "2026.07.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Visualizes VDW radii as a translucent surface overlay using PyVista. Refactored for V3 API."
@@ -69,7 +69,7 @@ def load_settings():
                     _vdw_settings["resolution"] = float(saved["resolution"])
                 if "base_style" in saved and saved["base_style"] in _BASE_STYLE_TO_OVERRIDE:
                     _vdw_settings["base_style"] = saved["base_style"]
-    except Exception as e:
+    except (OSError, KeyError, IndexError, TypeError, ValueError) as e:
         logging.warning("Error loading VDW settings: %s", e)
 
 
@@ -77,7 +77,7 @@ def save_settings():
     try:
         with open(SETTINGS_FILE, "w") as f:
             json.dump(_vdw_settings, f, indent=4)
-    except Exception as e:
+    except (OSError, TypeError, ValueError) as e:
         logging.warning("Error saving VDW settings: %s", e)
 
 
