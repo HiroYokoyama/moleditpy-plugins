@@ -41,7 +41,7 @@ except ImportError:
 
 PLUGIN_NAME = "ORCA Freq Analyzer"
 PLUGIN_DESCRIPTION = "Parse ORCA output files and visualize vibrational frequencies."
-PLUGIN_VERSION = "2026.07.31"
+PLUGIN_VERSION = "2026.08.01"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_CONTEXT = None
@@ -119,13 +119,13 @@ class OrcaParser:
                 parts = line.split()
                 try:
                     self.charge = int(parts[-1])
-                except Exception as _e:
+                except (IndexError, TypeError, ValueError) as _e:
                     logging.warning("[orca_out_freq_analyzer.py:76] silenced: %s", _e)
             elif "Multiplicity" in line and "Mult" in line:
                 parts = line.split()
                 try:
                     self.multiplicity = int(parts[-1])
-                except Exception as _e:
+                except (IndexError, TypeError, ValueError) as _e:
                     logging.warning("[orca_out_freq_analyzer.py:81] silenced: %s", _e)
 
         # Parse Geometry (Last one)
@@ -209,7 +209,7 @@ class OrcaParser:
                             # ORCA Normal Modes output block usually includes all 3*N modes.
                             pass
                         self.frequencies.append(val)
-                    except Exception as _e:
+                    except (IndexError, TypeError, ValueError) as _e:
                         logging.warning(
                             "[orca_out_freq_analyzer.py:162] silenced: %s", _e
                         )
@@ -260,7 +260,7 @@ class OrcaParser:
                         if len(parts) > ir_col:
                             inten = float(parts[ir_col])
                             intensity_map[mode_id] = inten
-                    except Exception as _e:
+                    except (IndexError, TypeError, ValueError) as _e:
                         logging.warning(
                             "[orca_out_freq_analyzer.py:208] silenced: %s", _e
                         )
@@ -365,7 +365,7 @@ class OrcaParser:
                             mid = int(parts[0].strip())
                             freq_val = float(parts[1].split()[0])
                             freq_map[mid] = freq_val
-                        except Exception as _e:
+                        except (IndexError, TypeError, ValueError) as _e:
                             logging.warning(
                                 "[orca_out_freq_analyzer.py:310] silenced: %s", _e
                             )
@@ -633,7 +633,7 @@ class OrcaOutFreqAnalyzer(QWidget):
                 self.mw.current_file_path = filename
                 PLUGIN_CONTEXT.refresh_ui()
 
-        except Exception as e:
+        except (RuntimeError, AttributeError) as e:
             logging.exception("Failed to parse Output: %s", e)
             QMessageBox.critical(self, "Error", f"Failed to parse Output:\n{e}")
 
@@ -816,7 +816,7 @@ class OrcaOutFreqAnalyzer(QWidget):
         if self.vector_actor:
             try:
                 PLUGIN_CONTEXT.plotter.remove_actor(self.vector_actor)
-            except Exception as _e:
+            except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
                 logging.warning("[orca_out_freq_analyzer.py:847] silenced: %s", _e)
         self.vector_actor = None
 
@@ -873,7 +873,7 @@ class OrcaOutFreqAnalyzer(QWidget):
                 color="lightgreen",
                 show_scalar_bar=False,
             )
-        except Exception as e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as e:
             logging.warning("Error adding arrows: %s", e)
 
     def save_as_gif(self):
@@ -1143,7 +1143,7 @@ class SpectrumDialog(QDialog):
                     for xi, yi in zip(x, y):
                         f.write(f"{xi:.2f},{yi:.4f}\n")
                 QMessageBox.information(self, "Success", "Saved CSV.")
-            except Exception as e:
+            except (OSError, RuntimeError, AttributeError, ValueError) as e:
                 QMessageBox.critical(self, "Error", str(e))
 
     def export_png(self):
@@ -1158,7 +1158,7 @@ class SpectrumDialog(QDialog):
                 pixmap = self.plot_widget.grab()
                 pixmap.save(fname)
                 QMessageBox.information(self, "Success", "Saved Image.")
-            except Exception as e:
+            except (RuntimeError, AttributeError) as e:
                 QMessageBox.critical(self, "Error", str(e))
 
 
@@ -1391,7 +1391,7 @@ def is_valid_orca_file(filepath):
                 if "ORCA" in line or "O   R   C   A" in line:
                     return True
         return False
-    except Exception:
+    except (OSError, ValueError):
         return False
 
 

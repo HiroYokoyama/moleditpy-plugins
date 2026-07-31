@@ -38,7 +38,7 @@ except ImportError:
     Geometry = None
     rdDetermineBonds = None
 
-PLUGIN_VERSION = "2026.07.30"
+PLUGIN_VERSION = "2026.07.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Visualize Gaussian cube files (electron density, MOs)."
@@ -87,7 +87,7 @@ def parse_cube_data(filename):
             parts = lines[current_line].split()
             if len(parts) != 5:
                 current_line += 1
-        except Exception:
+        except IndexError:
             current_line += 1
 
     for _ in range(n_atoms):
@@ -96,7 +96,7 @@ def parse_cube_data(filename):
         atomic_num = int(line[0])
         try:
             x, y, z = float(line[2]), float(line[3]), float(line[4])
-        except Exception:
+        except (IndexError, TypeError, ValueError):
             x, y, z = 0.0, 0.0, 0.0
         atoms.append((atomic_num, np.array([x, y, z])))
 
@@ -114,7 +114,7 @@ def parse_cube_data(filename):
             while consumed < n_datasets and current_line < len(lines):
                 consumed += len(lines[current_line].split())
                 current_line += 1
-        except Exception:
+        except (IndexError, TypeError, ValueError):
             n_datasets = 1
 
     # --- Volumetric Data Parsing ---
@@ -518,7 +518,7 @@ class CubeViewerWidget(QWidget):
             with open(self.get_settings_path(), "w") as f:
                 json.dump(settings, f, indent=4)
 
-        except Exception as e:
+        except (OSError, RuntimeError, AttributeError, ValueError) as e:
             logging.warning("Error saving settings: %s", e)
 
     def on_comp_color_toggled(self, checked):
@@ -749,7 +749,7 @@ class CubeViewerWidget(QWidget):
             self.plotter.remove_actor("cube_iso_p")
             self.plotter.remove_actor("cube_iso_n")
             self.plotter.render()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - teardown must never raise
             logging.warning("[cube_viewer.py] silenced: %s", e)
 
         try:
@@ -790,7 +790,7 @@ class CubeViewerWidget(QWidget):
                 self.mw.ui_manager, "restore_ui_for_editing"
             ):
                 self.mw.ui_manager.restore_ui_for_editing()
-        except Exception as _e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
             logging.warning("[cube_viewer.py:636] silenced: %s", _e)
 
         if self.dock:
@@ -869,7 +869,7 @@ def open_cube_viewer(context, fname):
                 widget.close_plugin()
             else:
                 old_dock.close()
-        except Exception as _e:
+        except (RuntimeError, AttributeError) as _e:
             logging.warning("[cube_viewer.py:716] silenced: %s", _e)
 
     try:
@@ -978,7 +978,7 @@ def open_cube_viewer(context, fname):
                 data_max = float(np.max(np.abs(flat_data)))
             else:
                 data_max = 1.0
-        except Exception:
+        except (KeyError, IndexError, TypeError, ValueError):
             data_max = 1.0
 
         viewer = CubeViewerWidget(main_window, dock, grid, data_max=data_max)

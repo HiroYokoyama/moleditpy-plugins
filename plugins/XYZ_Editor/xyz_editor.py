@@ -29,7 +29,7 @@ import logging
 
 
 PLUGIN_NAME = "XYZ Editor"
-PLUGIN_VERSION = "2026.07.23"
+PLUGIN_VERSION = "2026.07.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "A table-based editor for atom coordinates and symbols, supporting ghost atoms. Refactored for V3 API."
@@ -228,7 +228,7 @@ class XYZEditorWindow(QWidget):
                 return
             self._click_filter = _ClickFilter(self._on_plotter_click, parent=self)
             interactor.installEventFilter(self._click_filter)
-        except Exception as _e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
             logging.warning("[xyz_editor.py:_enable_plotter_picking] silenced: %s", _e)
 
     def _disable_plotter_picking(self):
@@ -238,7 +238,7 @@ class XYZEditorWindow(QWidget):
             interactor = getattr(plotter, "interactor", None) if plotter else None
             if interactor and self._click_filter:
                 interactor.removeEventFilter(self._click_filter)
-        except Exception as _e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
             logging.warning("[xyz_editor.py:_disable_plotter_picking] silenced: %s", _e)
         self._click_filter = None
 
@@ -320,7 +320,7 @@ class XYZEditorWindow(QWidget):
             for frag in frags:
                 if atom_idx in frag:
                     return set(frag)
-        except Exception as _e:
+        except (RuntimeError, AttributeError, ValueError) as _e:
             logging.warning("[xyz_editor.py:_fragment_atom_indices] silenced: %s", _e)
         return {atom_idx}
 
@@ -398,7 +398,7 @@ class XYZEditorWindow(QWidget):
                 sig.append(coord_hash)
 
             return tuple(sig)
-        except Exception:
+        except (RuntimeError, AttributeError, IndexError, TypeError, ValueError):
             return None
 
     def check_molecule_update(self):
@@ -566,7 +566,7 @@ class XYZEditorWindow(QWidget):
 
             try:
                 Chem.SanitizeMol(rw)
-            except Exception:
+            except (RuntimeError, AttributeError, ValueError):
                 rw.UpdatePropertyCache(strict=False)
                 Chem.GetSSSR(rw)
 
@@ -659,7 +659,7 @@ class XYZEditorWindow(QWidget):
 
             try:
                 Chem.SanitizeMol(rw)
-            except Exception:
+            except (RuntimeError, AttributeError, ValueError):
                 rw.UpdatePropertyCache(strict=False)
 
             kwargs = {"addCoords": True}
@@ -718,7 +718,7 @@ class XYZEditorWindow(QWidget):
             with open(file_path, "w", encoding="utf-8") as f:
                 f.write("\n".join(lines))
             self.context.show_status_message(f"XYZ saved to {file_path}")
-        except Exception as e:
+        except (OSError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to save XYZ: {str(e)}")
 
     def _generate_xyz_content(self):
@@ -870,7 +870,7 @@ class XYZEditorWindow(QWidget):
                         potential_num = pt.GetAtomicNumber(symbol)
                         if pt.GetElementSymbol(potential_num) == symbol:
                             at_num = potential_num
-                    except Exception as _e:
+                    except (RuntimeError, AttributeError, ValueError) as _e:
                         logging.warning("[xyz_editor.py:484] silenced: %s", _e)
 
                     if at_num > 0:
@@ -892,7 +892,7 @@ class XYZEditorWindow(QWidget):
 
                                     found_atomic_num = p_num
                                     break
-                            except Exception:
+                            except (RuntimeError, AttributeError, IndexError, ValueError):
                                 continue
 
                         # Create atom (defaults to dummy 0 if no prefix found)
@@ -936,7 +936,7 @@ class XYZEditorWindow(QWidget):
             # Update properties and ring info to avoid RDKit errors
             try:
                 Chem.SanitizeMol(new_rw_mol)
-            except Exception:
+            except (RuntimeError, AttributeError, ValueError):
                 new_rw_mol.UpdatePropertyCache(strict=False)
                 Chem.GetSSSR(new_rw_mol)
             self.context.current_molecule = new_rw_mol.GetMol()
@@ -1004,7 +1004,7 @@ def initialize(context):
             try:
                 mol.GetAtomWithIdx(int(idx)).SetProp("custom_symbol", lbl)
                 applied = True
-            except Exception as _e:
+            except Exception as _e:  # noqa: BLE001 - one bad label must not stop the rest
                 logging.warning("[xyz_editor.py:_apply_custom_labels] silenced: %s", _e)
         if not applied:
             return

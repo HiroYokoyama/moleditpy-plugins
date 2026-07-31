@@ -45,7 +45,7 @@ import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.07.29"
+PLUGIN_VERSION = "2026.07.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_SUPPORTED_PYTHON_VERSION = ">=3.9, <3.15"
 PLUGIN_SUPPORTED_OS = ["Windows", "macOS", "Linux", "WSL"]
@@ -223,7 +223,9 @@ def _read_plugin_version_ast(filepath: str) -> str:
                     if isinstance(target, ast.Name) and target.id == "PLUGIN_VERSION":
                         if isinstance(node.value, ast.Constant):
                             return str(node.value.value)
-    except Exception as e:
+    except (OSError, ValueError, SyntaxError) as e:
+        # SyntaxError is not a ValueError: a plugin file that does not parse
+        # must report "Unknown", not propagate out of a version probe.
         logging.warning(
             "Plugin Installer: AST version read failed for %s: %s", filepath, e
         )
@@ -278,7 +280,7 @@ def load_settings():
         try:
             with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except Exception as e:
+        except (OSError, ValueError) as e:
             logging.warning("Plugin Installer: failed to load settings: %s", e)
     return {}
 
@@ -287,7 +289,7 @@ def save_settings(settings):
     try:
         with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
             json.dump(settings, f)
-    except Exception as e:
+    except (OSError, ValueError) as e:
         logging.warning("Plugin Installer: failed to save settings: %s", e)
 
 
@@ -388,7 +390,7 @@ def is_app_version_compatible(app_version: str, specifier: str) -> bool:
                 prefix_parts = [int(x) for x in re.findall(r"\d+", prefix)]
                 if app_v[: len(prefix_parts)] != tuple(prefix_parts):
                     return False
-            except Exception:
+            except (IndexError, TypeError, ValueError):
                 pass
             continue
 
@@ -598,7 +600,7 @@ class _FetchWorker(QThread):
                 with urllib.request.urlopen(url, timeout=5) as r:
                     if r.status == 200:
                         return json.loads(r.read().decode("utf-8"))["info"]["version"]
-            except Exception as e:
+            except (OSError, KeyError, IndexError, ValueError) as e:
                 logging.warning(
                     "Plugin Installer: PyPI fetch attempt %d/%d failed: %s",
                     attempt,
@@ -615,7 +617,7 @@ class _FetchWorker(QThread):
                 with urllib.request.urlopen(self._url, timeout=5) as r:
                     if r.status == 200:
                         return json.loads(r.read().decode("utf-8-sig"))
-            except Exception as e:
+            except (OSError, ValueError) as e:
                 logging.warning(
                     "Plugin Installer: registry fetch attempt %d/%d failed: %s",
                     attempt,
@@ -949,7 +951,7 @@ class PluginInstallerWindow(QDialog):
         if self._fetch_worker and self._fetch_worker.isRunning():
             try:
                 self._fetch_worker.done.disconnect()
-            except Exception:
+            except (RuntimeError, AttributeError):
                 pass
             self._fetch_worker.quit()
             self._fetch_worker.wait(300)
@@ -1053,7 +1055,7 @@ class PluginInstallerWindow(QDialog):
                 )
                 if attempt < _MAX_RETRIES:
                     time.sleep(2)
-            except Exception as e:
+            except (OSError, TypeError, ValueError) as e:
                 logging.exception(
                     "Plugin Installer: download failed from %s: %s", url, e
                 )
@@ -1088,7 +1090,7 @@ class PluginInstallerWindow(QDialog):
             try:
                 with open(settings_path, "rb") as f:
                     settings_backup = f.read()
-            except Exception as e:
+            except (OSError, ValueError) as e:
                 logging.warning(
                     "Plugin Installer: failed to back up settings.json: %s", e
                 )
@@ -1102,7 +1104,7 @@ class PluginInstallerWindow(QDialog):
                 with open(os.path.join(target_dir, "settings.json"), "wb") as f:
                     f.write(settings_backup)
                 logging.info("Plugin Installer: restored settings.json")
-            except Exception as e:
+            except (OSError, ValueError) as e:
                 logging.warning(
                     "Plugin Installer: failed to restore settings.json: %s", e
                 )
@@ -1130,7 +1132,7 @@ class PluginInstallerWindow(QDialog):
                     )
                 else:
                     self.btn_upgrade_app.setVisible(False)
-            except Exception as e:
+            except (RuntimeError, AttributeError) as e:
                 logging.warning(
                     "Plugin Installer: upgrade button version check failed: %s", e
                 )
@@ -1415,7 +1417,7 @@ class PluginInstallerWindow(QDialog):
             if p1 < p2:
                 return -1
             return 0
-        except Exception as e:
+        except (IndexError, TypeError, ValueError) as e:
             logging.warning(
                 "Plugin Installer: version comparison failed (%r vs %r): %s", v1, v2, e
             )
@@ -1931,7 +1933,7 @@ class PluginInstallerWindow(QDialog):
                             )
                             shutil.copy2(download_path, target_file)
                             did_manual_overwrite = True
-                        except Exception as e:
+                        except OSError as e:
                             logging.warning(
                                 "Plugin Installer: manual overwrite failed: %s "
                                 "— falling back to manager",
@@ -2000,7 +2002,7 @@ class PluginInstallerWindow(QDialog):
                                     ) as f:
                                         saved_settings_content = f.read()
                                     target_dir_for_restore = folder_dir
-                                except Exception as e:
+                                except (OSError, ValueError) as e:
                                     logging.warning(
                                         "Plugin Installer: failed to backup "
                                         "settings.json: %s",
@@ -2020,7 +2022,7 @@ class PluginInstallerWindow(QDialog):
                                 with open(settings_json, "w", encoding="utf-8") as f:
                                     f.write(saved_settings_content)
                                 logging.info("Plugin Installer: restored settings.json")
-                            except Exception as e:
+                            except (OSError, ValueError) as e:
                                 logging.warning(
                                     "Plugin Installer: failed to restore "
                                     "settings.json: %s",
@@ -2036,7 +2038,7 @@ class PluginInstallerWindow(QDialog):
                         if new_is_zip and old_is_py and not old_is_init:
                             try:
                                 os.remove(target_file)
-                            except Exception as e:
+                            except OSError as e:
                                 logging.warning(
                                     "Plugin Installer: failed to remove old .py: %s",
                                     e,
@@ -2045,7 +2047,7 @@ class PluginInstallerWindow(QDialog):
                             try:
                                 parent_dir = os.path.dirname(target_file)
                                 shutil.rmtree(parent_dir)
-                            except Exception as e:
+                            except OSError as e:
                                 logging.warning(
                                     "Plugin Installer: failed to remove old folder: %s",
                                     e,
@@ -2180,7 +2182,7 @@ class PluginInstallerWindow(QDialog):
                 if hasattr(widget, "refresh_plugin_list"):
                     try:
                         widget.refresh_plugin_list()
-                    except Exception as e:
+                    except (RuntimeError, AttributeError) as e:
                         logging.warning(
                             "Plugin Installer: failed to sync PluginManagerWindow: %s",
                             e,
@@ -2191,7 +2193,7 @@ class PluginInstallerWindow(QDialog):
         if self._fetch_worker and self._fetch_worker.isRunning():
             try:
                 self._fetch_worker.done.disconnect()
-            except Exception:
+            except (RuntimeError, AttributeError):
                 pass
             self._fetch_worker.quit()
             self._fetch_worker.wait(500)

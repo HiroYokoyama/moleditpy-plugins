@@ -23,7 +23,7 @@ from PyQt6.QtCore import Qt, QTimer
 import logging
 
 PLUGIN_NAME = "Settings Saver"
-PLUGIN_VERSION = "2026.07.30"
+PLUGIN_VERSION = "2026.07.31"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Save, load, and manage settings presets in a unified dialog."
 PLUGIN_CATEGORY = "Utility"
@@ -263,7 +263,7 @@ def load_library():
     try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
-    except Exception:
+    except (OSError, ValueError):
         # print(f"Error loading settings library: {e}")
         return {}
 
@@ -274,7 +274,7 @@ def save_library(data, parent_window=None):
     try:
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4)
-    except Exception as e:
+    except (OSError, ValueError) as e:
         if parent_window:
             QMessageBox.critical(
                 parent_window, "Error", f"Failed to save settings library:\n{e}"
@@ -332,7 +332,7 @@ def apply_settings_hot(mw):
                         w.refresh_ui()
                     except Exception as _e:
                         logging.warning("[settings_saver.py:293] silenced: %s", _e)
-        except Exception as _e:
+        except IndexError as _e:
             logging.warning("[settings_saver.py:294] silenced: %s", _e)
 
         # 4. Redraw 3D Molecule
@@ -373,7 +373,7 @@ def apply_settings_hot(mw):
                 mw.edit_actions_manager, "push_undo_state"
             ):
                 mw.edit_actions_manager.push_undo_state()
-        except Exception as e:
+        except (TypeError, ValueError) as e:
             logging.warning("[settings_saver.py:324] silenced: %s", e)
 
         # 7. Refresh 2D/3D scene state after settings are loaded.
@@ -396,7 +396,7 @@ def refresh_loaded_scene(mw, defer=False):
                     views = mw.scene.views()
                     if views:
                         views[0].viewport().update()
-                except Exception as _e:
+                except IndexError as _e:
                     logging.warning("[settings_saver.py:346] silenced: %s", _e)
 
             if (
@@ -762,7 +762,7 @@ class SettingsSaverDialog(QDialog):
                 QMessageBox.information(
                     self, "Exported", f"Exported '{name}' to {os.path.basename(path)}"
                 )
-            except Exception as e:
+            except (OSError, ValueError) as e:
                 QMessageBox.critical(self, "Error", f"Export failed:\n{e}")
 
     def on_export_all(self):
@@ -785,7 +785,7 @@ class SettingsSaverDialog(QDialog):
                     "Exported",
                     f"All presets exported to {os.path.basename(path)}",
                 )
-            except Exception as e:
+            except (OSError, ValueError) as e:
                 QMessageBox.critical(self, "Error", f"Export failed:\n{e}")
 
     def on_import(self):

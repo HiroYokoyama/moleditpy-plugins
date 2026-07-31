@@ -40,13 +40,13 @@ except ImportError:
             from rdkit import Chem
 
             pt = Chem.GetPeriodicTable()
-        except Exception:
+        except (ImportError, RuntimeError, AttributeError, ValueError):
             pt = None
 
 __author__ = "HiroYokoyama"
 PLUGIN_AUTHOR = __author__
 PLUGIN_NAME = "Mapped Cube Viewer"
-PLUGIN_VERSION = "2026.07.29"
+PLUGIN_VERSION = "2026.07.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_DESCRIPTION = "Visualizes electrostatic potential or other properties mapped onto an isosurface from Gaussian Cube files."
 
@@ -88,7 +88,7 @@ def parse_cube_data(filename):
             parts = lines[current_line].split()
             if len(parts) != 5:
                 current_line += 1
-        except Exception:
+        except IndexError:
             current_line += 1
 
     for _ in range(n_atoms):
@@ -97,7 +97,7 @@ def parse_cube_data(filename):
         atomic_num = int(line[0])
         try:
             x, y, z = float(line[2]), float(line[3]), float(line[4])
-        except Exception:
+        except (IndexError, TypeError, ValueError):
             x, y, z = 0.0, 0.0, 0.0
         atoms.append((atomic_num, np.array([x, y, z])))
 
@@ -115,7 +115,7 @@ def parse_cube_data(filename):
             while consumed < n_datasets and current_line < len(lines):
                 consumed += len(lines[current_line].split())
                 current_line += 1
-        except Exception:
+        except (IndexError, TypeError, ValueError):
             n_datasets = 1
 
     # --- Volumetric Data Parsing (Skip Metadata) ---
@@ -453,7 +453,7 @@ class MappedWidget(QWidget):
                     f, transparent_background=self.check_transparent.isChecked()
                 )
                 QMessageBox.information(self, "Success", f"Saved View to {f}")
-            except Exception as e:
+            except (RuntimeError, AttributeError, KeyError, ValueError) as e:
                 QMessageBox.critical(self, "Error", f"Save failed: {e}")
 
     def export_colorbar(self):
@@ -564,7 +564,7 @@ class MappedWidget(QWidget):
         try:
             self.context.plotter.remove_actor(self.actor)
             self.context.plotter.render()
-        except Exception as _e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
             logging.warning("[mapped_cube_viewer.py:485] silenced: %s", _e)
         # Restore 2D editing UI when leaving the 3D viewer mode
         try:
@@ -625,7 +625,9 @@ def run_plugin(context):
                 from rdkit.Chem import rdDetermineBonds
 
                 rdDetermineBonds.DetermineConnectivity(mol)
-            except Exception as _e:
+            except Exception as _e:  # noqa: BLE001 - bond perception is optional here
+                # Connectivity is cosmetic; failing it must not stop the viewer
+                # from opening, so this stays broad on purpose.
                 logging.warning("[mapped_cube_viewer.py:538] silenced: %s", _e)
 
             context.enter_3d_mode()
@@ -640,7 +642,7 @@ def run_plugin(context):
                     widget.close_plugin()
                 else:
                     old_dock.close()
-            except Exception as _e:
+            except (RuntimeError, AttributeError) as _e:
                 logging.warning("[mapped_cube_viewer.py:559] silenced: %s", _e)
 
         dock = QDockWidget("Mapped Viewer", mw)

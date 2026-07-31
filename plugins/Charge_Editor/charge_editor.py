@@ -19,7 +19,7 @@ from functools import partial
 
 
 PLUGIN_NAME = "Charge Editor"
-PLUGIN_VERSION = "2026.07.30"
+PLUGIN_VERSION = "2026.07.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -137,7 +137,7 @@ class ChargeEditorWindow(QWidget):
                 return
             self._click_filter = _ClickFilter(self._on_plotter_click, parent=self)
             interactor.installEventFilter(self._click_filter)
-        except Exception as _e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
             logging.warning(
                 "[charge_editor.py:_enable_plotter_picking] silenced: %s", _e
             )
@@ -148,7 +148,7 @@ class ChargeEditorWindow(QWidget):
             interactor = getattr(plotter, "interactor", None) if plotter else None
             if interactor and self._click_filter:
                 interactor.removeEventFilter(self._click_filter)
-        except Exception as _e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
             logging.warning(
                 "[charge_editor.py:_disable_plotter_picking] silenced: %s", _e
             )
@@ -244,7 +244,8 @@ class ChargeEditorWindow(QWidget):
             )
             sig.append(hash(atom_sig))
             return tuple(sig)
-        except Exception:
+        except Exception:  # noqa: BLE001 - signature probe must never raise
+            logging.debug("Charge Editor: molecule signature failed", exc_info=True)
             return None
 
     def check_molecule_update(self):
@@ -335,11 +336,11 @@ class ChargeEditorWindow(QWidget):
     def _commit(self, rw, message):
         try:
             Chem.SanitizeMol(rw)
-        except Exception:
+        except (RuntimeError, AttributeError, ValueError):
             try:
                 rw.UpdatePropertyCache(strict=False)
                 Chem.GetSSSR(rw)
-            except Exception as _e:
+            except (RuntimeError, AttributeError, ValueError) as _e:
                 logging.warning("[charge_editor.py:_commit] sanitize fallback: %s", _e)
         self.context.current_molecule = rw.GetMol()
         self.context.push_undo_checkpoint()
@@ -369,7 +370,7 @@ class ChargeEditorWindow(QWidget):
             return True
         try:
             actual = getter(mol.GetAtomWithIdx(int(atom_idx)))
-        except Exception as _e:
+        except (TypeError, ValueError) as _e:
             logging.warning("[charge_editor.py:_verify_applied] %s", _e)
             return True
         # Only a genuine int is evidence of a mismatch. A stand-in object
@@ -404,7 +405,7 @@ class ChargeEditorWindow(QWidget):
                 "formal charge",
                 "The structure could not accept that charge.",
             )
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to set charge: {str(e)}")
 
     def on_radical_changed(self, atom_idx, value):
@@ -425,7 +426,7 @@ class ChargeEditorWindow(QWidget):
                 "The atom has no free valence — remove a bond or a hydrogen "
                 "first, then set the unpaired electrons.",
             )
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to set radicals: {str(e)}")
 
     def clear_all_charges(self):
@@ -438,7 +439,7 @@ class ChargeEditorWindow(QWidget):
             for atom in rw.GetAtoms():
                 atom.SetFormalCharge(0)
             self._commit(rw, "Cleared all formal charges.")
-        except Exception as e:
+        except (RuntimeError, AttributeError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to clear charges: {str(e)}")
 
     def clear_all_radicals(self):
@@ -451,7 +452,7 @@ class ChargeEditorWindow(QWidget):
             for atom in rw.GetAtoms():
                 atom.SetNumRadicalElectrons(0)
             self._commit(rw, "Cleared all radical electrons.")
-        except Exception as e:
+        except (RuntimeError, AttributeError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to clear radicals: {str(e)}")
 
     # ------------------------------------------------------------------
@@ -466,7 +467,7 @@ class ChargeEditorWindow(QWidget):
             if atomic_num > 0:
                 pt = Chem.GetPeriodicTable()
                 return pt.GetRvdw(atomic_num) * 1.2 * 0.3
-        except Exception as _e:
+        except (RuntimeError, AttributeError, ValueError) as _e:
             logging.warning("[charge_editor.py:_highlight_radius] silenced: %s", _e)
         return 1.5 * 0.3  # ghost/unknown atoms keep the old fixed size
 

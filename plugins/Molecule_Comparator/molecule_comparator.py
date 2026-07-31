@@ -33,7 +33,7 @@ import copy
 import logging
 
 PLUGIN_NAME = "Molecule Comparator"
-PLUGIN_VERSION = "2026.07.10"
+PLUGIN_VERSION = "2026.07.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Side-by-side comparison and alignment of multiple molecules."
@@ -248,7 +248,7 @@ class AlignmentWorker(QThread):
                                                     reflect=False,
                                                 )
                                                 best_transform = probe_final
-                                            except Exception as _e:
+                                            except (RuntimeError, AttributeError, ValueError) as _e:
                                                 logging.warning(
                                                     "[molecule_comparator.py:169] silenced: %s",
                                                     _e,
@@ -480,7 +480,7 @@ class MoleculeComparator(QWidget):
                 print(Chem.MolToXYZBlock(mol), file=open(file_path, "w"))
 
             QMessageBox.information(self.mw, "Exported", f"Saved to:\n{file_path}")
-        except Exception as e:
+        except (OSError, RuntimeError, AttributeError, TypeError, ValueError) as e:
             QMessageBox.critical(self.mw, "Error", f"Failed to export:\n{str(e)}")
 
     def closeEvent(self, event):
@@ -585,7 +585,7 @@ class MoleculeComparator(QWidget):
             # Sanitize to ensure proper 3D rendering properties
             try:
                 Chem.SanitizeMol(mol)
-            except Exception as _e:
+            except (RuntimeError, AttributeError, ValueError) as _e:
                 logging.warning("[molecule_comparator.py:489] silenced: %s", _e)
 
             # Determine name
@@ -715,7 +715,7 @@ class MoleculeComparator(QWidget):
 
             # Return white text for dark backgrounds, black for light backgrounds
             return "white" if luminance < 0.5 else "black"
-        except Exception:
+        except (IndexError, TypeError, ValueError):
             # Fallback to black if parsing fails
             return "black"
 
@@ -949,7 +949,7 @@ class MoleculeComparator(QWidget):
             QMessageBox.information(
                 self.mw, "Exported", f"Image saved to:\n{file_path}"
             )
-        except Exception as e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as e:
             QMessageBox.critical(self.mw, "Error", f"Failed to export image:\n{str(e)}")
 
     def update_visualization(self):
@@ -1157,7 +1157,7 @@ class MoleculeComparator(QWidget):
             try:
                 self.context.reset_3d_camera()
                 self.context.plotter.render()
-            except Exception as _e:
+            except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
                 logging.warning("[molecule_comparator.py:1010] silenced: %s", _e)
 
         QTimer.singleShot(100, _do_reset)

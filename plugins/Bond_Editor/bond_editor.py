@@ -21,7 +21,7 @@ from functools import partial
 
 
 PLUGIN_NAME = "Bond Editor"
-PLUGIN_VERSION = "2026.07.30"
+PLUGIN_VERSION = "2026.07.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -184,7 +184,7 @@ class BondEditorWindow(QWidget):
                 return
             self._click_filter = _ClickFilter(self._on_plotter_click, parent=self)
             interactor.installEventFilter(self._click_filter)
-        except Exception as _e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
             logging.warning("[bond_editor.py:_enable_plotter_picking] silenced: %s", _e)
 
     def _disable_plotter_picking(self):
@@ -193,7 +193,7 @@ class BondEditorWindow(QWidget):
             interactor = getattr(plotter, "interactor", None) if plotter else None
             if interactor and self._click_filter:
                 interactor.removeEventFilter(self._click_filter)
-        except Exception as _e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
             logging.warning(
                 "[bond_editor.py:_disable_plotter_picking] silenced: %s", _e
             )
@@ -340,7 +340,7 @@ class BondEditorWindow(QWidget):
                     color="orange",
                 )
             plotter.render()
-        except Exception as _e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
             logging.warning("[bond_editor.py:_update_mode_overlay] silenced: %s", _e)
 
     def _nearest_atom_to_point(self, mol, pick_pos):
@@ -459,7 +459,7 @@ class BondEditorWindow(QWidget):
                 pos_array = mol.GetConformer().GetPositions()
                 sig.append(hash(np.round(pos_array, 4).tobytes()))
             return tuple(sig)
-        except Exception:
+        except (RuntimeError, AttributeError, IndexError, TypeError, ValueError):
             return None
 
     def check_molecule_update(self):
@@ -541,7 +541,7 @@ class BondEditorWindow(QWidget):
     def _commit(self, rw, message):
         try:
             Chem.SanitizeMol(rw)
-        except Exception:
+        except (RuntimeError, AttributeError, ValueError):
             rw.UpdatePropertyCache(strict=False)
             Chem.GetSSSR(rw)
         self.context.current_molecule = rw.GetMol()
@@ -574,7 +574,7 @@ class BondEditorWindow(QWidget):
             self._commit(
                 rw, f"Added {self.add_type_combo.currentText().lower()} bond {a1}-{a2}."
             )
-        except Exception as e:
+        except (RuntimeError, AttributeError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to add bond: {str(e)}")
 
     def delete_selected_bonds(self):
@@ -592,7 +592,7 @@ class BondEditorWindow(QWidget):
             for a1, a2 in pairs:
                 rw.RemoveBond(a1, a2)
             self._commit(rw, f"Deleted {len(pairs)} bond(s).")
-        except Exception as e:
+        except (RuntimeError, AttributeError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to delete bonds: {str(e)}")
 
     def _verify_bond_type(self, pair, requested, label):
@@ -607,7 +607,7 @@ class BondEditorWindow(QWidget):
             return True
         try:
             bond = mol.GetBondBetweenAtoms(int(pair[0]), int(pair[1]))
-        except Exception as _e:
+        except (IndexError, TypeError, ValueError) as _e:
             logging.warning("[bond_editor.py:_verify_bond_type] %s", _e)
             return True
         if bond is None or bond.GetBondType() == requested:
@@ -657,7 +657,7 @@ class BondEditorWindow(QWidget):
                 bond.GetEndAtom().SetIsAromatic(True)
             self._commit(rw, f"Bond {pair[0]}-{pair[1]} set to {label.lower()}.")
             self._verify_bond_type(pair, new_type, label)
-        except Exception as e:
+        except (RuntimeError, AttributeError, IndexError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to change bond type: {str(e)}")
 
     # ------------------------------------------------------------------
@@ -737,7 +737,7 @@ class BondEditorWindow(QWidget):
             self._commit(
                 rw, f"Bond {begin_idx}-{end_idx} length set to {target:.4f} Å."
             )
-        except Exception as e:
+        except (RuntimeError, AttributeError, IndexError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to set bond length: {str(e)}")
 
     # ------------------------------------------------------------------

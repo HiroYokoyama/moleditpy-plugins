@@ -46,7 +46,7 @@ except ImportError:
     vtk = None
 
 PLUGIN_NAME = "Advanced Rendering"
-PLUGIN_VERSION = "2026.07.30"
+PLUGIN_VERSION = "2026.07.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Fine-grained control over Scene lighting, shadows, and PBR effects. Refactored for V3 API."
@@ -137,7 +137,7 @@ def load_plugin_from_mw(mw):
         dialog.show()
         dialog.raise_()
         dialog.activateWindow()
-    except Exception:
+    except (RuntimeError, AttributeError):
         # Detected deleted C++ object or other error, force recreate
         mw._adv_graphics_dialog = None
         load_plugin_from_mw(mw)
@@ -156,14 +156,14 @@ def initialize(context):
             if hasattr(old_viewer, "_sync_timer"):
                 old_viewer._sync_timer.stop()
             old_viewer.deleteLater()
-        except Exception as _e:
+        except (RuntimeError, AttributeError) as _e:
             logging.warning("[advanced_rendering.py:140] silenced: %s", _e)
 
     if hasattr(mw, "_adv_graphics_dialog") and mw._adv_graphics_dialog:
         try:
             mw._adv_graphics_dialog.close()
             mw._adv_graphics_dialog.deleteLater()
-        except Exception as _e:
+        except (RuntimeError, AttributeError) as _e:
             logging.warning("[advanced_rendering.py:146] silenced: %s", _e)
         mw._adv_graphics_dialog = None
 
@@ -300,7 +300,7 @@ class AdvancedGraphicsWidget(QWidget):
             plotter = self.safe_plotter
             if plotter and hasattr(plotter, "renderer") and plotter.renderer:
                 ready = True
-        except Exception as _e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
             logging.warning("[advanced_rendering.py:249] silenced: %s", _e)
 
         if ready:
@@ -715,7 +715,7 @@ class AdvancedGraphicsWidget(QWidget):
                 if hasattr(prop, "SetInterpolationToPhong"):
                     prop.SetInterpolationToPhong()
             self.plotter.render()
-        except Exception as e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as e:
             logging.error(f"Clear Settings Error: {e}")
 
     # SCENE HANDLERS
@@ -755,7 +755,7 @@ class AdvancedGraphicsWidget(QWidget):
                     self._env_texture_obj = None
                     self._env_texture_cache_path = ""
                     self.plotter.remove_environment_texture()
-            except Exception as e:
+            except (RuntimeError, AttributeError, KeyError, ValueError) as e:
                 logging.error(f"Failed to load environment texture: {e}")
                 self._env_texture_obj = None
                 self._env_texture_cache_path = ""
@@ -804,7 +804,7 @@ class AdvancedGraphicsWidget(QWidget):
             # Note: Do NOT call render() here. Rendering with None passes can cause
             # VTK to complain about missing resources or invalid state.
             # self.plotter.render()
-        except Exception as e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as e:
             logging.warning(f"Pipeline clean error: {e}")
 
     def _reset_stale_shadow_pass(self):
@@ -818,7 +818,7 @@ class AdvancedGraphicsWidget(QWidget):
             rp = getattr(self.plotter.renderer, "_render_passes", None)
             if rp is not None and getattr(rp, "_shadow_map_pass", None) is not None:
                 rp._shadow_map_pass = None
-        except Exception as e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as e:
             logging.warning(f"Shadow pass reset error: {e}")
 
     def _enable_shadows(self):
@@ -862,7 +862,7 @@ class AdvancedGraphicsWidget(QWidget):
                 self.plotter.enable_anti_aliasing()
 
             self.plotter.render()
-        except Exception as e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as e:
             logging.warning(f"Shadow error: {e}")
         self.save_settings()
 
@@ -881,7 +881,7 @@ class AdvancedGraphicsWidget(QWidget):
                 try:
                     self.plotter.disable_eye_dome_lighting()
                     self.plotter.render()  # Added to clean up EDL resources
-                except Exception as _e:
+                except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
                     logging.warning("[advanced_rendering.py:744] silenced: %s", _e)
 
             if self.use_shadows:
@@ -889,7 +889,7 @@ class AdvancedGraphicsWidget(QWidget):
                 self.use_shadows = False
                 try:
                     self.plotter.disable_shadows()
-                except Exception as _e:
+                except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
                     logging.warning("[advanced_rendering.py:750] silenced: %s", _e)
 
             if self.use_ssao:
@@ -897,7 +897,7 @@ class AdvancedGraphicsWidget(QWidget):
                 self.use_ssao = False
                 try:
                     self.plotter.disable_ssao()
-                except Exception as _e:
+                except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
                     logging.warning("[advanced_rendering.py:756] silenced: %s", _e)
 
         elif exclude in ["edl", "shadows", "ssao"]:
@@ -906,7 +906,7 @@ class AdvancedGraphicsWidget(QWidget):
                 self.use_depth_peeling = False
                 try:
                     self.plotter.disable_depth_peeling()
-                except Exception as _e:
+                except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
                     logging.warning("[advanced_rendering.py:763] silenced: %s", _e)
 
         self.blockSignals(False)
@@ -1019,7 +1019,7 @@ class AdvancedGraphicsWidget(QWidget):
             else:
                 self.plotter.disable_ssao()
             self.plotter.render()
-        except Exception as _e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
             logging.warning("[advanced_rendering.py:872] silenced: %s", _e)
 
     def on_depth_peeling_toggled(self, checked):
@@ -1040,7 +1040,7 @@ class AdvancedGraphicsWidget(QWidget):
             else:
                 self.plotter.disable_depth_peeling()
             self.plotter.render()
-        except Exception as _e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
             logging.warning("[advanced_rendering.py:890] silenced: %s", _e)
 
     def on_aa_toggled(self, checked):
@@ -1051,7 +1051,7 @@ class AdvancedGraphicsWidget(QWidget):
             else:
                 self.plotter.disable_anti_aliasing()
             self.plotter.render()
-        except Exception as _e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
             logging.warning("[advanced_rendering.py:898] silenced: %s", _e)
 
     def on_edl_toggled(self, checked):
@@ -1084,7 +1084,7 @@ class AdvancedGraphicsWidget(QWidget):
                 self.plotter.enable_anti_aliasing()
 
             self.plotter.render()
-        except Exception as e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as e:
             logging.warning(f"EDL Apply error: {e}")
 
     def teardown_scene_effects(self):
@@ -1102,7 +1102,7 @@ class AdvancedGraphicsWidget(QWidget):
             self.plotter.disable_ssao()
             self.plotter.disable_depth_peeling()
             self.plotter.render()
-        except Exception as e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as e:
             logging.warning(f"Scene effect teardown error: {e}")
 
     def closeEvent(self, event):
@@ -1112,7 +1112,7 @@ class AdvancedGraphicsWidget(QWidget):
                 self.plotter.disable_eye_dome_lighting()
                 self.plotter.disable_shadows()
                 self.plotter.disable_ssao()
-        except Exception as _e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
             logging.warning("[advanced_rendering.py:977] silenced: %s", _e)
         super().closeEvent(event)
 
@@ -1343,5 +1343,5 @@ class AdvancedGraphicsWidget(QWidget):
                     self.update_preset_combo()
 
                 self.apply_settings_dict(data)
-        except Exception as e:
+        except (OSError, KeyError, IndexError, ValueError) as e:
             logging.error(f"Load adv gfx error: {e}")
