@@ -184,6 +184,16 @@ class TestComparatorResetHandler:
         return ctx.register_document_reset_handler.call_args[0][0]
 
     def test_reset_closes_open_window(self):
+        win = MagicMock()
+        # A MagicMock answers any attribute truthily, so the load guard has to
+        # test `is True` or a real File-New would never close the window.
+        win._loading_structure = False
+        mw = SimpleNamespace(orbital_comparator_window=win)
+        handler = self._handler(mw)
+        handler()
+        win.close.assert_called_once()
+
+    def test_reset_closes_a_window_that_has_no_guard_attribute(self):
         mw = SimpleNamespace(orbital_comparator_window=MagicMock())
         handler = self._handler(mw)
         handler()
@@ -1090,12 +1100,131 @@ class TestStructurePicker:
         assert comparator.win.btn_load_structure.isEnabled() is False
 
 
+class TestLoadStructureDoesNotCloseTheWindow:
+    """show_xyz_data clears the document, which fires every plugin's
+    document-reset handler — including this plugin's, which closes the window.
+    Pressing Load Structure therefore shut the window instantly."""
+
+    def _wired(self, tmp_path):
+        from orbital_comparator_harness import load_with_stateful_qt
+
+        mod = load_with_stateful_qt(ORBITAL_COMPARATOR_PATH)
+        mw = SimpleNamespace(plotter=MagicMock())
+        ctx = MagicMock()
+        ctx.get_main_window.return_value = mw
+        mod.initialize(ctx)
+        reset = ctx.register_document_reset_handler.call_args[0][0]
+
+        win = mod.OrbitalComparator(ctx)
+        mw.orbital_comparator_window = win
+        win.mw = mw
+        win.show()
+        # The real host clears the document from inside show_xyz_data.
+        ctx.show_xyz_data.side_effect = lambda *a, **k: reset()
+        return SimpleNamespace(mod=mod, win=win, ctx=ctx, reset=reset, tmp=tmp_path)
+
+    def test_the_window_survives_loading_a_structure(self, tmp_path):
+        env = self._wired(tmp_path)
+        env.win.load_into(env.win.slots[0], str(_write_cube(tmp_path)))
+        env.win.show()
+        env.win.load_structure()
+        assert env.win.isVisible()
+
+    def test_a_real_document_reset_still_closes_it(self, tmp_path):
+        """The guard must not disarm the handler for genuine File→New."""
+        env = self._wired(tmp_path)
+        env.reset()
+        assert not env.win.isVisible()
+
+    def test_the_guard_is_released_after_loading(self, tmp_path):
+        env = self._wired(tmp_path)
+        env.win.load_into(env.win.slots[0], str(_write_cube(tmp_path)))
+        env.win.load_structure()
+        assert env.win._loading_structure is False
+
+    def test_the_guard_is_released_even_when_the_host_refuses(self, tmp_path):
+        env = self._wired(tmp_path)
+        env.win.load_into(env.win.slots[0], str(_write_cube(tmp_path)))
+        env.ctx.show_xyz_data.side_effect = RuntimeError("no")
+        env.mod.QMessageBox = MagicMock()
+        env.win.load_structure()
+        assert env.win._loading_structure is False
+
+    def test_a_reset_after_a_failed_load_still_closes(self, tmp_path):
+        env = self._wired(tmp_path)
+        env.win.load_into(env.win.slots[0], str(_write_cube(tmp_path)))
+        env.ctx.show_xyz_data.side_effect = RuntimeError("no")
+        env.mod.QMessageBox = MagicMock()
+        env.win.load_structure()
+        env.win.show()
+        env.reset()
+        assert not env.win.isVisible()
+
+
+class TestFirstCubeLoadsItsStructure:
+    def test_the_first_cube_loads_its_own_geometry(self, comparator):
+        comparator.win.load_into(
+            comparator.win.slots[0], str(_write_cube(comparator.tmp, n_atoms=2))
+        )
+        comparator.win.context.show_xyz_data.assert_called_once()
+        assert comparator.win.context.show_xyz_data.call_args.args[0].splitlines()[0] == "2"
+
+    def test_a_later_cube_does_not_replace_the_structure(self, comparator):
+        """Otherwise every dropped file would yank the geometry out from
+        under the orbitals already on screen."""
+        comparator.win.load_into(
+            comparator.win.slots[0], str(_write_cube(comparator.tmp, "a.cube"))
+        )
+        comparator.win.context.show_xyz_data.reset_mock()
+        comparator.win.load_into(
+            comparator.win.slots[1], str(_write_cube(comparator.tmp, "b.cube"))
+        )
+        comparator.win.context.show_xyz_data.assert_not_called()
+
+    def test_the_spin_box_points_at_the_cube_that_supplied_it(self, comparator):
+        comparator.win.load_into(
+            comparator.win.slots[0], str(_write_cube(comparator.tmp))
+        )
+        assert comparator.win.spin_structure.value() == 1
+
+    def test_a_cube_without_atoms_loads_no_structure(self, comparator):
+        comparator.win.load_into(
+            comparator.win.slots[0], str(_write_cube(comparator.tmp, n_atoms=0))
+        )
+        comparator.win.context.show_xyz_data.assert_not_called()
+
+    def test_clearing_everything_re_arms_the_auto_load(self, comparator):
+        comparator.win.load_into(
+            comparator.win.slots[0], str(_write_cube(comparator.tmp, "a.cube"))
+        )
+        comparator.win.clear_all()
+        comparator.win.context.show_xyz_data.reset_mock()
+        comparator.win.load_into(
+            comparator.win.slots[0], str(_write_cube(comparator.tmp, "b.cube"))
+        )
+        comparator.win.context.show_xyz_data.assert_called_once()
+
+    def test_dropping_several_files_loads_one_structure(self, comparator):
+        paths = [
+            str(_write_cube(comparator.tmp, name=f"c{i}.cube")) for i in range(3)
+        ]
+        comparator.win.load_paths(paths)
+        assert comparator.win.context.show_xyz_data.call_count == 1
+
+
 class Test3DViewerMode:
     def test_loading_a_structure_enters_3d_viewer_mode(self, comparator):
         comparator.win.load_into(
             comparator.win.slots[0], str(_write_cube(comparator.tmp))
         )
+        comparator.win.context.enter_3d_viewer_mode.reset_mock()
         comparator.win.load_structure()
+        comparator.win.context.enter_3d_viewer_mode.assert_called_once()
+
+    def test_the_auto_loaded_first_cube_also_enters_it(self, comparator):
+        comparator.win.load_into(
+            comparator.win.slots[0], str(_write_cube(comparator.tmp))
+        )
         comparator.win.context.enter_3d_viewer_mode.assert_called_once()
 
     def test_it_falls_back_to_the_ui_manager_on_older_hosts(self, comparator):

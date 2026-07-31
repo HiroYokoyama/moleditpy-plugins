@@ -345,6 +345,8 @@ class OrbitalComparator(QWidget):
         self.slots = []
         self._ready = False
         self._suspend = 0
+        self._loading_structure = False
+        self._structure_loaded = False
         self.init_ui()
 
     def init_ui(self):
@@ -473,6 +475,17 @@ class OrbitalComparator(QWidget):
             self._suspend -= 1
         self.render_all()
         self.refresh_structure_label()
+
+        # The first cube to arrive brings the geometry with it; showing its
+        # lobes over whatever was already in the viewer would be misleading.
+        if not self._structure_loaded and meta.get("atoms"):
+            self._suspend += 1
+            try:
+                self.spin_structure.setValue(slot.index + 1)
+            finally:
+                self._suspend -= 1
+            self.refresh_structure_label()
+            self.load_structure()
         return True
 
     def load_many(self):
@@ -523,6 +536,7 @@ class OrbitalComparator(QWidget):
                 self.clear_slot(slot)
         finally:
             self._suspend -= 1
+        self._structure_loaded = False
         self.render_all()
 
     # -- interaction -------------------------------------------------------
@@ -558,22 +572,24 @@ class OrbitalComparator(QWidget):
         if not atoms:
             return
 
-        xyz = atoms_to_xyz(
-            atoms,
-            slot.meta.get("is_angstrom", False),
-            source_name=os.path.basename(slot.path or "cube"),
-        )
+        name = os.path.basename(slot.path or "cube")
+        xyz = atoms_to_xyz(atoms, slot.meta.get("is_angstrom", False), source_name=name)
         try:
-            self.context.show_xyz_data(
-                xyz, source_name=os.path.basename(slot.path or "cube")
-            )
+            # Held across the call: show_xyz_data clears the document, which
+            # fires the reset handlers, and ours must not close this window
+            # for a reset it caused itself.
+            self._loading_structure = True
+            self.context.show_xyz_data(xyz, source_name=name)
         except (AttributeError, RuntimeError, ValueError) as e:
             logging.warning("Could not load the cube structure: %s", e)
             QMessageBox.warning(
                 self, "Could not load structure", f"The host refused it:\n{e}"
             )
             return
+        finally:
+            self._loading_structure = False
 
+        self._structure_loaded = True
         self.enter_3d_viewer_mode()
         # The host redraws the scene, which drops the isosurfaces with it.
         self.render_all()
@@ -727,8 +743,17 @@ def initialize(context):
     def on_reset():
         mw = context.get_main_window()
         win = getattr(mw, "orbital_comparator_window", None)
-        if win is not None:
-            win.close()
+        if win is None:
+            return
+        # Loading a structure goes through show_xyz_data, which clears the
+        # document and fires these handlers -- so pressing Load Structure used
+        # to close this window instantly. A reset we caused ourselves is not a
+        # new document.
+        # `is True` rather than truthiness: the flag is only ever a bool, and
+        # anything else answering this attribute must not disarm a real reset.
+        if getattr(win, "_loading_structure", False) is True:
+            return
+        win.close()
 
     context.register_document_reset_handler(on_reset)
 

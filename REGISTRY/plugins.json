@@ -2165,7 +2165,7 @@
     ],
     "downloadUrl": "../plugins/Orbital_Comparator/orbital_comparator.py",
     "lastUpdated": "2026-07-31",
-    "sha256": "d458afcb0bd5ca2fa76a9f8625bff03abf0270a04721c8f177e2755960b36b16",
+    "sha256": "ea268dbfef190e5c8c9eed2d503b3226733eaae6f0f64bf5583ba5f3c70111a2",
     "firstAppeared": "2026-07-31",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
