@@ -593,6 +593,22 @@ class OrbitalComparator(QWidget):
         self.enter_3d_viewer_mode()
         # The host redraws the scene, which drops the isosurfaces with it.
         self.render_all()
+        self.reset_camera()
+
+    def reset_camera(self):
+        """Frame the new structure.
+
+        The camera still points at whatever was on screen before, which for a
+        differently sized or positioned molecule can leave the view empty.
+        """
+        plotter = getattr(self.mw, "plotter", None)
+        if plotter is None:
+            return
+        try:
+            plotter.reset_camera()
+            plotter.render()
+        except (AttributeError, RuntimeError) as _e:
+            logging.warning("silenced: %s", _e)
 
     def enter_3d_viewer_mode(self):
         """Collapse the 2D panel and disable the editing tools.

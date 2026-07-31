@@ -1212,6 +1212,39 @@ class TestFirstCubeLoadsItsStructure:
         assert comparator.win.context.show_xyz_data.call_count == 1
 
 
+class TestCameraReset:
+    def test_loading_a_structure_reframes_the_view(self, comparator):
+        """The camera still points at the previous molecule, which for a
+        differently sized or placed one can leave the view empty."""
+        comparator.win.load_into(
+            comparator.win.slots[0], str(_write_cube(comparator.tmp))
+        )
+        comparator.mw.plotter.reset_camera.assert_called()
+
+    def test_the_reset_happens_after_the_lobes_are_drawn(self, comparator):
+        """Resetting first would frame the structure alone and clip the
+        isosurfaces that arrive immediately after."""
+        order = []
+        comparator.mw.plotter.add_mesh.side_effect = lambda *a, **k: order.append(
+            "mesh"
+        )
+        comparator.mw.plotter.reset_camera.side_effect = lambda *a, **k: order.append(
+            "camera"
+        )
+        comparator.win.load_into(
+            comparator.win.slots[0], str(_write_cube(comparator.tmp))
+        )
+        assert order and order[-1] == "camera"
+
+    def test_a_missing_plotter_is_harmless(self, comparator):
+        comparator.win.mw = SimpleNamespace()
+        comparator.win.reset_camera()  # must not raise
+
+    def test_a_failing_plotter_is_harmless(self, comparator):
+        comparator.mw.plotter.reset_camera.side_effect = RuntimeError("gone")
+        comparator.win.reset_camera()  # must not raise
+
+
 class Test3DViewerMode:
     def test_loading_a_structure_enters_3d_viewer_mode(self, comparator):
         comparator.win.load_into(
