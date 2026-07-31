@@ -10,7 +10,7 @@ moleditpy-plugins/
 │   └── _old/         # RETIRED hidden plugins — never modify (see below)
 ├── REGISTRY/
 │   └── plugins.json  # AUTO-GENERATED — never edit manually (script-maintained)
-├── scripts/          # Registry update / trust-store scripts
+├── scripts/          # Registry update / trust-store / Zenodo release scripts
 ├── tests/            # Shared pytest suite (all headless)
 └── api-checker/      # Static API compatibility scanner
 ```
@@ -29,8 +29,15 @@ python -m pytest tests/ -q
 QT_QPA_PLATFORM=offscreen PYTEST_QT_API=pyqt6 python -m pytest tests_gui/ -q
 ```
 
-Expected baseline: `tests/` ~2200 passed / 96 skipped, `tests_gui/` ~2800
-passed / 55 skipped. On Windows use the full interpreter path
+Both suites must be green, with no test left failing or newly skipped. There is
+no pass-count to compare against — it changes with every added test, so a
+remembered number only ever tells you it has changed, not whether anything
+broke. What is expected instead: **every visible plugin above 80% coverage, and
+anything testable tested.** Logic that can be exercised headlessly has no
+excuse for being uncovered; see the coverage recipe below for the per-plugin
+number, which is the one that matters.
+
+On Windows use the full interpreter path
 (`C:/Users/<you>/AppData/Local/Programs/Python/Python313/python.exe`) — the
 Store alias cannot launch pytest.
 
@@ -216,11 +223,13 @@ MY_FUNC = mod.my_function
 
 ## CI
 
-Four GitHub Actions jobs in `.github/workflows/test-plugins.yml`:
+Six GitHub Actions jobs in `.github/workflows/test-plugins.yml`:
 
 | Job | Python | Main app cloned | Tests |
 |---|---|---|---|
-| `test` | 3.9 – 3.14 | No | `tests/` except `test_api`, plus a registry-sync check |
+| `changes` | — | No | No tests: decides whether anything outside `REGISTRY/` changed, gating the GUI and API jobs |
+| `test-registry` | 3.12 | No | `validate_json.py`, registry integrity tests, and the registry-sync check |
+| `test-plugins` | 3.9 – 3.14 | No | `tests/` except `test_registry` |
 | `test-gui` | 3.9 – 3.14 | Auto-cloned by fixture | `tests_gui/` (real PyQt6, `QT_QPA_PLATFORM=offscreen`); no pyvista/vtk, so the rendering modules skip |
 | `test-gui-render` | 3.12 | Auto-cloned by fixture | Only the pyvista/vtk-gated `tests_gui/` modules, with those packages installed under `xvfb-run` |
 | `test-api` | 3.11 | Yes (`--depth 1`) | `test_api.py` only |
@@ -229,11 +238,16 @@ The matrix spans the full range declared by `PLUGIN_SUPPORTED_PYTHON_VERSION`
 (`>=3.9, <3.15`). Both matrices use `fail-fast: false` so one interpreter
 failing does not cancel the others.
 
-The `test` job also runs `scripts/update_intra_repo_metadata.py` and fails if
-it produces a diff. This catches two things at once: a registry left stale
-after a plugin version bump, and a registry script that no longer imports on a
-supported interpreter — scripts are not imported by any test, so nothing else
-would notice.
+The `test-registry` job also runs `scripts/update_intra_repo_metadata.py` and
+fails if it produces a diff. This catches two things at once: a registry left
+stale after a plugin version bump, and a registry script that no longer imports
+on a supported interpreter — scripts are not imported by any test, so nothing
+else would notice.
+
+Beyond that workflow: `release.yml` and `zenodo.yml` handle publishing (see
+**Releasing**), and `test-zenodo.yml` rehearses an upload against Zenodo
+Sandbox. `auto-register-remote-plugin.yml` / `register-remote-plugin.yml` add
+externally hosted plugins to the registry when their own repos release.
 
 ## Releasing
 
@@ -274,9 +288,8 @@ Guards, so a mistake is loud rather than silent:
 - Both workflows also accept `workflow_dispatch`, for archiving an older tag or
   rehearsing against a draft (`draft: true` uploads without publishing).
 
-`ZENODO_TOKEN` must exist as a repository secret. `roll_zenodo_token.py` at the
-DEV_MAIN root sets it across every repo that references it, verifying the token
-against the Zenodo API before writing it anywhere.
+`ZENODO_TOKEN` must exist as a repository secret (and `ZENODO_SANDBOX_TOKEN`
+for `test-zenodo.yml`).
 
 ## Adding a New Plugin
 
