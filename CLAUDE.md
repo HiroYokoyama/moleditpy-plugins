@@ -37,9 +37,10 @@ anything testable tested.** Logic that can be exercised headlessly has no
 excuse for being uncovered; see the coverage recipe below for the per-plugin
 number, which is the one that matters.
 
-On Windows use the full interpreter path
-(`C:/Users/<you>/AppData/Local/Programs/Python/Python313/python.exe`) — the
-Store alias cannot launch pytest.
+On Windows `python -m pytest` is normally fine: a real installation puts its
+`python.exe` ahead of the `WindowsApps` stub on PATH. Only if `where python`
+shows the stub first does `python` need spelling out as a full path
+(`C:/Users/<you>/AppData/Local/Programs/Python/Python313/python.exe`).
 
 ```bash
 # Single file / single test
