@@ -169,6 +169,14 @@ class TestOrbitalComparator:
         comp.render_all()
         assert "1 shown" in comp.lbl_status.text()
 
+    def test_the_refresh_button_redraws_the_orbitals(self, comp):
+        """A real click, through the real signal: the host can rebuild its
+        scene at any time and drop the actors."""
+        self._load(comp, 0)
+        comp.mw.plotter.add_mesh.reset_mock()
+        comp.btn_refresh.click()
+        assert "orb_cmp0_p" in self._drawn(comp)
+
     # -- teardown --------------------------------------------------------
 
     def test_clearing_empties_every_slot(self, comp):

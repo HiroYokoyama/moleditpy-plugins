@@ -400,6 +400,15 @@ class OrbitalComparator(QWidget):
         btn_load_many.clicked.connect(self.load_many)
         btns.addWidget(btn_load_many)
 
+        self.btn_refresh = QPushButton("Refresh")
+        self.btn_refresh.setToolTip(
+            "Redraw the orbitals. Anything that rebuilds the 3D scene — "
+            "loading a structure elsewhere, changing the display style — "
+            "removes them, and this puts them back."
+        )
+        self.btn_refresh.clicked.connect(self.refresh_view)
+        btns.addWidget(self.btn_refresh)
+
         btn_sync = QPushButton("Sync Iso from Cube 1")
         btn_sync.setToolTip(
             "Give every slot Cube 1's contour level, so the shapes compare."
@@ -500,6 +509,7 @@ class OrbitalComparator(QWidget):
         empty = [s for s in self.slots if s.grid is None]
         targets = empty + [s for s in self.slots if s.grid is not None]
         loaded = 0
+        had_structure = self._structure_loaded
         self._suspend += 1
         try:
             for path, slot in zip(paths, targets):
@@ -508,6 +518,11 @@ class OrbitalComparator(QWidget):
         finally:
             self._suspend -= 1
         self.render_all()
+        # The auto-load inside the loop reset the camera while redraws were
+        # suspended, so it framed a scene with no isosurfaces in it yet. Do it
+        # again now that they are drawn.
+        if self._structure_loaded and not had_structure:
+            self.reset_camera()
         if len(paths) > SLOT_COUNT:
             self.lbl_status.setText(
                 f"Loaded {loaded}; only {SLOT_COUNT} cubes can be shown at once."
@@ -637,6 +652,20 @@ class OrbitalComparator(QWidget):
         if not self._ready:
             return
         self.render_all()
+
+    def refresh_view(self):
+        """Redraw the orbitals on demand.
+
+        Anything that rebuilds the host's scene drops the actors, and the
+        plugin gets no say in when that happens, so there has to be a way to
+        ask for them back without touching a setting. Runs even while redraws
+        are suspended -- this is an explicit request, not a side effect.
+        """
+        suspended, self._suspend = self._suspend, 0
+        try:
+            self.render_all()
+        finally:
+            self._suspend = suspended
 
     def pick_color(self, slot, which):
         from PyQt6.QtGui import QColor

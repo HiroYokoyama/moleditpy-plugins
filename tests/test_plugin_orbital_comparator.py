@@ -1245,6 +1245,75 @@ class TestCameraReset:
         comparator.win.reset_camera()  # must not raise
 
 
+class TestRefreshButton:
+    def test_it_redraws_the_orbitals(self, comparator):
+        _fill(comparator, 0)
+        comparator.mw.plotter.add_mesh.reset_mock()
+        comparator.win.refresh_view()
+        assert "orb_cmp0_p" in _meshes(comparator)
+
+    def test_it_works_even_while_redraws_are_suspended(self, comparator):
+        """It is an explicit request, not a side effect of a setting."""
+        _fill(comparator, 0)
+        comparator.mw.plotter.add_mesh.reset_mock()
+        comparator.win._suspend += 1
+        try:
+            comparator.win.refresh_view()
+        finally:
+            comparator.win._suspend -= 1
+        assert "orb_cmp0_p" in _meshes(comparator)
+
+    def test_it_leaves_the_suspend_count_as_it_found_it(self, comparator):
+        comparator.win._suspend += 2
+        comparator.win.refresh_view()
+        assert comparator.win._suspend == 2
+        comparator.win._suspend -= 2
+
+    def test_it_is_harmless_with_nothing_loaded(self, comparator):
+        comparator.win.refresh_view()
+        assert _meshes(comparator) == []
+
+
+class TestAutoLoadCameraReset:
+    """Drag-and-drop and the file dialog both go through load_paths, which
+    suspends redraws -- so the auto-load's camera reset framed a scene whose
+    isosurfaces had not been drawn yet."""
+
+    def test_dropping_a_cube_reframes_after_the_lobes_are_drawn(self, comparator):
+        order = []
+        comparator.mw.plotter.add_mesh.side_effect = lambda *a, **k: order.append("mesh")
+        comparator.mw.plotter.reset_camera.side_effect = lambda *a, **k: order.append(
+            "camera"
+        )
+        comparator.win.load_paths([str(_write_cube(comparator.tmp))])
+        assert "mesh" in order
+        assert order[-1] == "camera"
+
+    def test_loading_several_files_reframes_once_at_the_end(self, comparator):
+        paths = [str(_write_cube(comparator.tmp, name=f"c{i}.cube")) for i in range(3)]
+        order = []
+        comparator.mw.plotter.add_mesh.side_effect = lambda *a, **k: order.append("mesh")
+        comparator.mw.plotter.reset_camera.side_effect = lambda *a, **k: order.append(
+            "camera"
+        )
+        comparator.win.load_paths(paths)
+        assert order[-1] == "camera"
+
+    def test_a_later_load_does_not_reframe(self, comparator):
+        """Only the load that brought the structure in should move the camera;
+        otherwise adding a cube yanks the view the user just set."""
+        comparator.win.load_paths([str(_write_cube(comparator.tmp, "a.cube"))])
+        comparator.mw.plotter.reset_camera.reset_mock()
+        comparator.win.load_paths([str(_write_cube(comparator.tmp, "b.cube"))])
+        comparator.mw.plotter.reset_camera.assert_not_called()
+
+    def test_a_cube_without_atoms_does_not_reframe(self, comparator):
+        comparator.win.load_paths(
+            [str(_write_cube(comparator.tmp, n_atoms=0))]
+        )
+        comparator.mw.plotter.reset_camera.assert_not_called()
+
+
 class Test3DViewerMode:
     def test_loading_a_structure_enters_3d_viewer_mode(self, comparator):
         comparator.win.load_into(
