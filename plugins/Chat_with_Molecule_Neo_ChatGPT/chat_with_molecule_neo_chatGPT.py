@@ -3,7 +3,7 @@
 
 
 PLUGIN_NAME = "Chat with Molecule Neo (ChatGPT)"
-PLUGIN_VERSION = "2026.07.30"
+PLUGIN_VERSION = "2026.07.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with OpenAI ChatGPT about the current molecule. Automatically injects SMILES context. (Neo Version)"
@@ -409,7 +409,7 @@ def load_settings():
         try:
             with open(SETTINGS_FILE, "r") as f:
                 return json.load(f)
-        except Exception as _e:
+        except (OSError, TypeError, ValueError) as _e:
             logging.warning("[chat_with_molecule_neo_chatGPT.py:390] silenced: %s", _e)
     return {}
 
@@ -420,7 +420,7 @@ def save_settings(settings):
     try:
         with open(SETTINGS_FILE, "w") as f:
             json.dump(settings, f)
-    except Exception as e:
+    except (OSError, TypeError, ValueError) as e:
         logging.warning("Error saving settings: %s", e)
 
 
@@ -432,7 +432,7 @@ def append_log(sender, text):
     try:
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(f"[{timestamp}] {sender}: {text}\n")
-    except Exception as e:
+    except (OSError, IndexError, TypeError, ValueError) as e:
         logging.warning("Logging failed: %s", e)
 
 
@@ -534,7 +534,7 @@ class InitWorker(QThread):
             # specific sort or prioritization could go here
             models.sort()
             self.finished.emit(models, "")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - the dialog only unblocks on finished
             self.finished.emit([], str(e))
 
 
@@ -708,7 +708,7 @@ class ChatMoleculeWindow(QDialog):
                         mol = Chem.MolFromSmiles(current_smiles)
                         if mol:
                             self.last_inchikey = Chem.MolToInchiKey(mol)
-                    except Exception as _e:
+                    except (RuntimeError, AttributeError, TypeError, ValueError) as _e:
                         logging.warning(
                             "[chat_with_molecule_neo_chatGPT.py:682] silenced: %s", _e
                         )
@@ -802,7 +802,7 @@ class ChatMoleculeWindow(QDialog):
                     os.path.abspath(main_window_main_init.__file__)
                 )
                 icon_path = os.path.join(script_dir, "assets", "icon.png")
-            except Exception:
+            except ImportError:
                 icon_path = None
 
         if icon_path and os.path.exists(icon_path):
@@ -1000,25 +1000,25 @@ class ChatMoleculeWindow(QDialog):
             if self.worker and self.worker.isRunning():
                 try:
                     self.worker.chunk_received.disconnect()
-                except Exception as _e:
+                except (RuntimeError, AttributeError) as _e:
                     logging.warning(
                         "[chat_with_molecule_neo_chatGPT.py:944] silenced: %s", _e
                     )
                 try:
                     self.worker.response_received.disconnect()
-                except Exception as _e:
+                except (RuntimeError, AttributeError) as _e:
                     logging.warning(
                         "[chat_with_molecule_neo_chatGPT.py:946] silenced: %s", _e
                     )
                 try:
                     self.worker.finished.disconnect()
-                except Exception as _e:
+                except (RuntimeError, AttributeError) as _e:
                     logging.warning(
                         "[chat_with_molecule_neo_chatGPT.py:948] silenced: %s", _e
                     )
                 try:
                     self.worker.error_occurred.disconnect()
-                except Exception as _e:
+                except (RuntimeError, AttributeError) as _e:
                     logging.warning(
                         "[chat_with_molecule_neo_chatGPT.py:950] silenced: %s", _e
                     )
@@ -1030,7 +1030,7 @@ class ChatMoleculeWindow(QDialog):
             ):
                 try:
                     self.init_worker.finished.disconnect()
-                except Exception as _e:
+                except (RuntimeError, AttributeError) as _e:
                     logging.warning(
                         "[chat_with_molecule_neo_chatGPT.py:954] silenced: %s", _e
                     )
@@ -1216,7 +1216,7 @@ class ChatMoleculeWindow(QDialog):
                 processed_text = markdown.markdown(
                     processed_text, extensions=["fenced_code", "tables"]
                 )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - markdown is optional; fall back to plain text
                 logging.warning("Markdown error: %s", e)
                 processed_text = processed_text.replace(chr(10), "<br>")
         else:
@@ -1432,7 +1432,7 @@ class ChatMoleculeWindow(QDialog):
             api_key = self.settings.get("api_key", None)
             self.client = openai.OpenAI(api_key=api_key)
             self.chat_history_state = [{"role": "system", "content": SYSTEM_PROMPT}]
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - client creation failure must leave it None, not raise
             self.append_message(
                 "System", f"Error initializing OpenAI client: {e}", "red"
             )
@@ -1450,7 +1450,7 @@ class ChatMoleculeWindow(QDialog):
                 mol = Chem.MolFromSmiles(smiles)
                 if mol:
                     self.last_inchikey = Chem.MolToInchiKey(mol)
-            except Exception as _e:
+            except (RuntimeError, AttributeError, TypeError, ValueError) as _e:
                 logging.warning(
                     "[chat_with_molecule_neo_chatGPT.py:1331] silenced: %s", _e
                 )
@@ -1630,7 +1630,7 @@ class ChatMoleculeWindow(QDialog):
             mol_clean = Chem.RemoveHs(mol)
 
             return Chem.MolToSmiles(mol_clean), None
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError, ValueError) as e:
             return None, f"SMILES conversion failed: {str(e)}"
 
     def load_smiles_undo_safe(self, smiles_string):
@@ -1654,7 +1654,7 @@ class ChatMoleculeWindow(QDialog):
                             "Warning: Molecule loaded with relaxed validation (check structure).",
                             "orange",
                         )
-                except Exception:
+                except (RuntimeError, AttributeError, TypeError, ValueError):
                     mol = None
 
             if mol is None:
@@ -1739,7 +1739,7 @@ class ChatMoleculeWindow(QDialog):
                                     adata["item"], "atom_id"
                                 ):
                                     adata["item"].atom_id = target_id
-                            except Exception as e:
+                            except (KeyError, IndexError) as e:
                                 logging.warning("ID Remap Failed: %s", e)
                         else:
                             logging.debug(
@@ -1887,7 +1887,7 @@ class ChatMoleculeWindow(QDialog):
                     try:
                         mol = Chem.AddHs(mol)
                         AllChem.EmbedMolecule(mol, AllChem.ETKDGv3())
-                    except Exception as _e:
+                    except (RuntimeError, AttributeError, TypeError, ValueError) as _e:
                         logging.warning(
                             "[chat_with_molecule_neo_chatGPT.py:1721] silenced: %s", _e
                         )
@@ -2220,7 +2220,7 @@ class ChatMoleculeWindow(QDialog):
             # Reaction Logic
             try:
                 rxn = AllChem.ReactionFromSmarts(reaction_smarts)
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError, ValueError) as e:
                 self.append_message("System", f"Invalid SMARTS: {e}", "red")
                 return
 
@@ -2379,7 +2379,7 @@ class ChatMoleculeWindow(QDialog):
             # Sanitize
             try:
                 Chem.SanitizeMol(new_mol)
-            except Exception as _e:
+            except (RuntimeError, AttributeError, TypeError, ValueError) as _e:
                 logging.warning(
                     "[chat_with_molecule_neo_chatGPT.py:2170] silenced: %s", _e
                 )
@@ -2389,7 +2389,7 @@ class ChatMoleculeWindow(QDialog):
                 new_mol = Chem.RemoveHs(
                     new_mol, implicitOnly=False, updateExplicitCount=True, sanitize=True
                 )
-            except Exception as _e:
+            except (RuntimeError, AttributeError, TypeError, ValueError) as _e:
                 logging.warning(
                     "[chat_with_molecule_neo_chatGPT.py:2174] silenced: %s", _e
                 )
@@ -2404,7 +2404,7 @@ class ChatMoleculeWindow(QDialog):
             # Enforce Stereo assignment on product before SMILES generation
             try:
                 Chem.AssignStereochemistry(new_mol, force=True, cleanIt=True)
-            except Exception as _e:
+            except (RuntimeError, AttributeError, TypeError, ValueError) as _e:
                 logging.warning(
                     "[chat_with_molecule_neo_chatGPT.py:2185] silenced: %s", _e
                 )
@@ -2426,7 +2426,7 @@ class ChatMoleculeWindow(QDialog):
                     AllChem.GenerateDepictionMatching2DStructure(clean_mol, ref_mol)
                 else:
                     raise Exception("Ref mol failed")
-            except Exception:
+            except (RuntimeError, AttributeError, TypeError, ValueError):
                 # Fallback if matching fails (e.g. significant structural change)
                 AllChem.Compute2DCoords(clean_mol)
 
@@ -2681,7 +2681,7 @@ class ChatMoleculeWindow(QDialog):
                         f"Applied Electronic State Changes. (Net Charge: {total_charge})",
                         "green",
                     )
-                except Exception as e:
+                except (RuntimeError, AttributeError, TypeError, ValueError) as e:
                     self.append_message("System", f"Error applying state: {e}", "red")
             else:
                 # DEBUG INFO
@@ -2997,7 +2997,7 @@ class ChatMoleculeWindow(QDialog):
                     "green",
                 )
                 return None
-            except Exception as e:
+            except (OSError, TypeError, ValueError) as e:
                 self.append_message(
                     "Error",
                     f"Failed to save: {e}\n(Tip: Check file permissions.)",
@@ -3215,25 +3215,25 @@ class ChatMoleculeWindow(QDialog):
             # Disconnect signals to prevent zombie updates
             try:
                 self.worker.chunk_received.disconnect()
-            except Exception as _e:
+            except (RuntimeError, AttributeError) as _e:
                 logging.warning(
                     "[chat_with_molecule_neo_chatGPT.py:2890] silenced: %s", _e
                 )
             try:
                 self.worker.response_received.disconnect()
-            except Exception as _e:
+            except (RuntimeError, AttributeError) as _e:
                 logging.warning(
                     "[chat_with_molecule_neo_chatGPT.py:2892] silenced: %s", _e
                 )
             try:
                 self.worker.finished.disconnect()
-            except Exception as _e:
+            except (RuntimeError, AttributeError) as _e:
                 logging.warning(
                     "[chat_with_molecule_neo_chatGPT.py:2894] silenced: %s", _e
                 )
             try:
                 self.worker.error_occurred.disconnect()
-            except Exception as _e:
+            except (RuntimeError, AttributeError) as _e:
                 logging.warning(
                     "[chat_with_molecule_neo_chatGPT.py:2896] silenced: %s", _e
                 )
@@ -3307,7 +3307,7 @@ class ChatMoleculeWindow(QDialog):
         # Disconnect old send, connect stop
         try:
             self.btn_send.clicked.disconnect()
-        except Exception as _e:
+        except (RuntimeError, AttributeError) as _e:
             logging.warning("[chat_with_molecule_neo_chatGPT.py:2962] silenced: %s", _e)
         self.btn_send.clicked.connect(self.stop_generation)
 
@@ -3685,7 +3685,7 @@ class ChatMoleculeWindow(QDialog):
             # This prevents them from being cast to single bonds (1.0) during int conversion for visualization.
             try:
                 Chem.Kekulize(mol, clearAromaticFlags=True)
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError, ValueError) as e:
                 logging.warning("Kekulize Warning: %s", e)
 
             # 1. 座標生成 (2D)
@@ -3801,7 +3801,7 @@ class ChatMoleculeWindow(QDialog):
                                         adata["item"], "atom_id"
                                     ):
                                         adata["item"].atom_id = target_id
-                                except Exception as _e:
+                                except (KeyError, IndexError) as _e:
                                     logging.warning(
                                         "[chat_with_molecule_neo_chatGPT.py:3596] silenced: %s",
                                         _e,
