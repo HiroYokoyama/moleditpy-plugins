@@ -5,9 +5,13 @@ compares volumetric data. Load any .cube files (molecular orbitals, densities,
 ESP maps) and show up to four of them at once over the current structure, each
 with its own lobe colours, contour level, opacity and style.
 
-Cubes written by the ORCA Result Analyzer record the grid and margin they were
-built with on their second comment line; those are read back and shown, so two
-orbitals are never compared at settings that make them incomparable.
+Each slot reports its grid shape, atom count and units, read from the cube
+format itself — the comment lines are free text and belong to whichever
+program wrote them, so nothing there is interpreted.
+
+Cubes also carry the geometry they were computed on. A spin box at the top
+picks which loaded cube supplies the structure shown underneath the
+isosurfaces, which matters when the files come from different jobs.
 """
 
 import logging
@@ -22,10 +26,9 @@ from PyQt6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
-    QListWidget,
-    QListWidgetItem,
     QMessageBox,
     QPushButton,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
@@ -76,47 +79,37 @@ DEFAULT_COLORS = [
 # ---------------------------------------------------------------------------
 
 
-def read_generation_settings(filepath):
-    """Grid settings recorded in a cube's second comment line.
+#: Enough of the periodic table to name the atoms a cube carries.
+ELEMENTS = (
+    "X H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co "
+    "Ni Cu Zn Ga Ge As Se Br Kr Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te "
+    "I Xe Cs Ba La Ce Pr Nd Pm Sm Eu Gd Tb Dy Ho Er Tm Yb Lu Hf Ta W Re Os Ir "
+    "Pt Au Hg Tl Pb Bi Po At Rn Fr Ra Ac Th Pa U Np Pu Am Cm Bk Cf Es Fm Md No "
+    "Lr Rf Db Sg Bh Hs Mt Ds Rg Cn Nh Fl Mc Lv Ts Og"
+).split()
 
-    The ORCA Result Analyzer writes "... v3.13.2 | grid=40 | margin=4.00".
-    Anything absent comes back as None so the caller says "unknown" rather
-    than inventing a value.
-    """
-    import re
 
-    info = {"version": None, "grid": None, "margin": None}
+def element_symbol(z):
+    """Symbol for atomic number *z*, or "X" if it is out of range."""
     try:
-        with open(filepath, "r", encoding="utf-8", errors="replace") as fh:
-            fh.readline()
-            stamp = fh.readline()
-    except OSError as e:
-        logging.warning("Could not read cube header %s: %s", filepath, e)
-        return info
-
-    m = re.search(r"Analyzer v(\S+)", stamp)
-    if m:
-        info["version"] = m.group(1)
-    m = re.search(r"grid=(\d+)", stamp)
-    if m:
-        info["grid"] = int(m.group(1))
-    m = re.search(r"margin=([0-9.]+)", stamp)
-    if m:
-        try:
-            info["margin"] = float(m.group(1))
-        except ValueError:
-            logging.warning("Unparsable margin in %s", filepath)
-    return info
+        z = int(z)
+    except (TypeError, ValueError):
+        return "X"
+    return ELEMENTS[z] if 0 <= z < len(ELEMENTS) else "X"
 
 
-def describe_settings(info):
-    """One-line summary of what a cube was generated with."""
-    grid = info.get("grid")
-    margin = info.get("margin")
-    grid_s = f"{grid} pts" if grid is not None else "unknown grid"
-    margin_s = f"margin {margin:.2f} Bohr" if margin is not None else "unknown margin"
-    version = info.get("version")
-    return f"{grid_s}, {margin_s}" + (f" — v{version}" if version else "")
+def describe_cube(meta):
+    """One line of generic cube facts: grid shape and atom count.
+
+    Deliberately reads only what the cube format itself defines. The comment
+    lines are free text — the ORCA Result Analyzer happens to record its
+    version and grid settings there, but that is one program's private
+    convention and not something this plugin should claim to understand.
+    """
+    nx, ny, nz = meta["dims"]
+    n_atoms = len(meta.get("atoms") or ())
+    units = "Å" if meta.get("is_angstrom") else "Bohr"
+    return f"{nx}×{ny}×{nz} grid, {n_atoms} atoms, {units}"
 
 
 def parse_cube(filename):
@@ -138,6 +131,18 @@ def parse_cube(filename):
     nz, *z_vec = lines[5].split()
     nz = int(nz)
     z_vec = np.array([float(x) for x in z_vec])
+
+    atoms = []
+    for line in lines[6 : 6 + n_atoms]:
+        fields = line.split()
+        if len(fields) < 5:
+            continue
+        atoms.append(
+            (
+                element_symbol(float(fields[0])),
+                (float(fields[2]), float(fields[3]), float(fields[4])),
+            )
+        )
 
     start_line = 6 + n_atoms
     n_datasets = 1
@@ -171,8 +176,25 @@ def parse_cube(filename):
         "origin": origin,
         "vectors": (x_vec, y_vec, z_vec),
         "data": data,
+        "atoms": atoms,
         "is_angstrom": nx < 0,
     }
+
+
+def atoms_to_xyz(atoms, is_angstrom, source_name="cube"):
+    """An XYZ block from a cube's atom records.
+
+    Cube coordinates are Bohr unless the file flags Angstrom, and the host
+    expects Angstrom — skipping the conversion shrinks the molecule to 53% and
+    it no longer lines up with its own isosurface.
+    """
+    scale = 1.0 if is_angstrom else BOHR_TO_ANG
+    lines = [str(len(atoms)), source_name]
+    for symbol, (x, y, z) in atoms:
+        lines.append(
+            f"{symbol} {x * scale:.6f} {y * scale:.6f} {z * scale:.6f}"
+        )
+    return "\n".join(lines)
 
 
 def build_grid(meta):
@@ -229,7 +251,7 @@ class CubeSlot:
         self.prefix = f"orb_cmp{index}"
         self.path = None
         self.grid = None
-        self.settings = {}
+        self.meta = None
 
         self.box = QGroupBox(f"Cube {index + 1}: (empty)")
         outer = QVBoxLayout(self.box)
@@ -304,7 +326,9 @@ class CubeSlot:
     def describe(self):
         if not self.path:
             return "no file"
-        return f"{os.path.basename(self.path)} — {describe_settings(self.settings)}"
+        if not self.meta:
+            return os.path.basename(self.path)
+        return f"{os.path.basename(self.path)} — {describe_cube(self.meta)}"
 
 
 class OrbitalComparator(QWidget):
@@ -335,6 +359,29 @@ class OrbitalComparator(QWidget):
             "border: 1px dashed palette(mid); border-radius: 4px; padding: 8px;"
         )
         layout.addWidget(hint)
+
+        # Structure picker, above the slots: cubes from different jobs carry
+        # different geometries, so which one the lobes sit on is a choice.
+        struct_row = QHBoxLayout()
+        struct_row.addWidget(QLabel("Structure from:"))
+        self.spin_structure = QSpinBox()
+        self.spin_structure.setRange(1, SLOT_COUNT)
+        self.spin_structure.setPrefix("Cube ")
+        self.spin_structure.setToolTip(
+            "Which loaded cube's atoms to show under the isosurfaces."
+        )
+        struct_row.addWidget(self.spin_structure)
+
+        self.btn_load_structure = QPushButton("Load Structure")
+        self.btn_load_structure.setToolTip(
+            "Replace the structure in the 3D view with this cube's atoms."
+        )
+        self.btn_load_structure.clicked.connect(self.load_structure)
+        struct_row.addWidget(self.btn_load_structure)
+
+        self.lbl_structure = QLabel("")
+        struct_row.addWidget(self.lbl_structure, 1)
+        layout.addLayout(struct_row)
 
         for i in range(SLOT_COUNT):
             slot = CubeSlot(i, self)
@@ -377,7 +424,11 @@ class OrbitalComparator(QWidget):
             slot.spin_opacity.valueChanged.connect(self.on_live_change)
             slot.combo_style.currentTextChanged.connect(self.on_live_change)
             slot.check_smooth.toggled.connect(self.on_live_change)
+        self.spin_structure.valueChanged.connect(
+            lambda *_: self.refresh_structure_label()
+        )
         self._ready = True
+        self.refresh_structure_label()
 
     # -- loading -----------------------------------------------------------
 
@@ -412,7 +463,7 @@ class OrbitalComparator(QWidget):
             return False
 
         slot.path = path
-        slot.settings = read_generation_settings(path)
+        slot.meta = meta
         slot.lbl_info.setText(slot.describe())
         slot.box.setTitle(f"Cube {slot.index + 1}: {os.path.basename(path)}")
         self._suspend += 1
@@ -421,6 +472,7 @@ class OrbitalComparator(QWidget):
         finally:
             self._suspend -= 1
         self.render_all()
+        self.refresh_structure_label()
         return True
 
     def load_many(self):
@@ -452,7 +504,7 @@ class OrbitalComparator(QWidget):
     def clear_slot(self, slot):
         slot.grid = None
         slot.path = None
-        slot.settings = {}
+        slot.meta = None
         slot.lbl_info.setText("no file")
         slot.box.setTitle(f"Cube {slot.index + 1}: (empty)")
         self._suspend += 1
@@ -462,6 +514,7 @@ class OrbitalComparator(QWidget):
             self._suspend -= 1
         self._remove_actors(slot.prefix)
         self.render_all()
+        self.refresh_structure_label()
 
     def clear_all(self):
         self._suspend += 1
@@ -473,6 +526,80 @@ class OrbitalComparator(QWidget):
         self.render_all()
 
     # -- interaction -------------------------------------------------------
+
+    def structure_slot(self):
+        """The slot the spin box points at, 1-based in the UI."""
+        index = self.spin_structure.value() - 1
+        if 0 <= index < len(self.slots):
+            return self.slots[index]
+        return None
+
+    def refresh_structure_label(self):
+        """Say what the picked slot would load, or why it cannot."""
+        slot = self.structure_slot()
+        if slot is None or slot.meta is None:
+            self.lbl_structure.setText("(no cube loaded in that slot)")
+            self.btn_load_structure.setEnabled(False)
+            return
+        atoms = slot.meta.get("atoms") or []
+        if not atoms:
+            self.lbl_structure.setText("(that cube carries no atoms)")
+            self.btn_load_structure.setEnabled(False)
+            return
+        self.lbl_structure.setText(f"{len(atoms)} atoms")
+        self.btn_load_structure.setEnabled(True)
+
+    def load_structure(self):
+        """Show the picked cube's atoms in the host's 3D view."""
+        slot = self.structure_slot()
+        if slot is None or slot.meta is None:
+            return
+        atoms = slot.meta.get("atoms") or []
+        if not atoms:
+            return
+
+        xyz = atoms_to_xyz(
+            atoms,
+            slot.meta.get("is_angstrom", False),
+            source_name=os.path.basename(slot.path or "cube"),
+        )
+        try:
+            self.context.show_xyz_data(
+                xyz, source_name=os.path.basename(slot.path or "cube")
+            )
+        except (AttributeError, RuntimeError, ValueError) as e:
+            logging.warning("Could not load the cube structure: %s", e)
+            QMessageBox.warning(
+                self, "Could not load structure", f"The host refused it:\n{e}"
+            )
+            return
+
+        self.enter_3d_viewer_mode()
+        # The host redraws the scene, which drops the isosurfaces with it.
+        self.render_all()
+
+    def enter_3d_viewer_mode(self):
+        """Collapse the 2D panel and disable the editing tools.
+
+        Same handshake the Cube File Viewer uses: prefer the context call,
+        fall back to the ui_manager method on hosts that predate it. Purely
+        cosmetic, so a host offering neither is not an error.
+        """
+        enter = getattr(self.context, "enter_3d_viewer_mode", None)
+        if enter is not None:
+            try:
+                enter()
+                return
+            except (AttributeError, RuntimeError, TypeError) as _e:
+                logging.warning("silenced: %s", _e)
+
+        ui = getattr(self.mw, "ui_manager", None)
+        legacy = getattr(ui, "enter_3d_viewer_ui_mode", None) if ui else None
+        if legacy is not None:
+            try:
+                legacy()
+            except (AttributeError, RuntimeError, TypeError) as _e:
+                logging.warning("silenced: %s", _e)
 
     def on_live_change(self, *_args):
         if not self._ready:
@@ -648,3 +775,4 @@ def run(mw):
     else:
         win.show()
         win.raise_()
+        win.enter_3d_viewer_mode()

@@ -227,48 +227,92 @@ class TestContrastText:
 # ---------------------------------------------------------------------------
 
 
-class TestGenerationSettings:
+class TestCubeDescription:
+    """Only facts the cube format itself defines. The comment lines are free
+    text owned by whichever program wrote the file — the ORCA Result Analyzer
+    records its version and grid settings there, but that is its private
+    convention and this plugin must not claim to read it."""
+
     def _fns(self):
         with mock_optional_imports():
             mod = load_plugin(ORBITAL_COMPARATOR_PATH)
-        return mod.read_generation_settings, mod.describe_settings
+        return mod.describe_cube, mod.element_symbol
 
-    def test_reads_grid_margin_and_version(self, tmp_path):
-        read, _ = self._fns()
-        info = read(str(_write_cube(tmp_path)))
-        assert info["grid"] == 40
-        assert info["margin"] == pytest.approx(4.00)
-        assert info["version"] == "3.13.2"
+    def test_it_reports_the_grid_shape_and_atom_count(self):
+        describe, _ = self._fns()
+        meta = {"dims": (40, 41, 42), "atoms": [("C", (0, 0, 0))], "is_angstrom": False}
+        text = describe(meta)
+        assert "40×41×42" in text
+        assert "1 atoms" in text
 
-    def test_a_foreign_cube_reports_everything_unknown(self, tmp_path):
-        read, _ = self._fns()
-        info = read(str(_write_cube(tmp_path, stamp="SCF density")))
-        assert info == {"version": None, "grid": None, "margin": None}
+    def test_it_names_the_units(self):
+        describe, _ = self._fns()
+        assert "Bohr" in describe({"dims": (2, 2, 2), "atoms": [], "is_angstrom": False})
+        assert "Å" in describe({"dims": (2, 2, 2), "atoms": [], "is_angstrom": True})
 
-    def test_a_missing_file_reports_everything_unknown(self, tmp_path):
-        read, _ = self._fns()
-        info = read(str(tmp_path / "nope.cube"))
-        assert info == {"version": None, "grid": None, "margin": None}
+    def test_it_does_not_mention_a_writing_program(self):
+        describe, _ = self._fns()
+        text = describe({"dims": (2, 2, 2), "atoms": [], "is_angstrom": False})
+        assert "v" not in text.split(",")[-1].lower().replace("bohr", "")
+        assert "margin" not in text.lower()
 
-    def test_description_names_the_settings(self):
-        _, describe = self._fns()
-        text = describe({"grid": 60, "margin": 5.5, "version": "3.13.2"})
-        assert "60 pts" in text
-        assert "5.50 Bohr" in text
-        assert "3.13.2" in text
+    def test_a_cube_with_no_atoms_says_zero(self):
+        describe, _ = self._fns()
+        assert "0 atoms" in describe({"dims": (2, 2, 2), "atoms": [], "is_angstrom": False})
 
-    def test_description_says_unknown_rather_than_guessing(self):
-        """Never describe a foreign cube with plausible-looking defaults."""
-        _, describe = self._fns()
-        text = describe({"grid": None, "margin": None, "version": None})
-        assert "unknown grid" in text
-        assert "unknown margin" in text
 
-    def test_description_reports_a_partial_stamp(self):
-        _, describe = self._fns()
-        text = describe({"grid": 40, "margin": None, "version": None})
-        assert "40 pts" in text
-        assert "unknown margin" in text
+class TestElementSymbol:
+    def _fn(self):
+        with mock_optional_imports():
+            mod = load_plugin(ORBITAL_COMPARATOR_PATH)
+        return mod.element_symbol
+
+    def test_it_names_common_elements(self):
+        fn = self._fn()
+        assert fn(1) == "H"
+        assert fn(6) == "C"
+        assert fn(8) == "O"
+
+    def test_a_float_atomic_number_is_accepted(self):
+        """Cube atom records write the number as a float."""
+        assert self._fn()(6.0) == "C"
+
+    def test_an_out_of_range_number_is_not_guessed(self):
+        fn = self._fn()
+        assert fn(999) == "X"
+        assert fn(-1) == "X"
+
+    def test_junk_does_not_raise(self):
+        assert self._fn()("carbon") == "X"
+
+
+class TestAtomsToXyz:
+    def _fn(self):
+        with mock_optional_imports():
+            mod = load_plugin(ORBITAL_COMPARATOR_PATH)
+        return mod.atoms_to_xyz
+
+    def test_it_writes_a_well_formed_block(self):
+        xyz = self._fn()([("C", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 2.0))], True)
+        lines = xyz.splitlines()
+        assert lines[0] == "2"
+        assert lines[2].split()[0] == "C"
+        assert len(lines) == 4
+
+    def test_bohr_coordinates_are_converted(self):
+        """The host expects Angstrom; skipping this shrinks the molecule to
+        53% and it no longer lines up with its own isosurface."""
+        xyz = self._fn()([("H", (0.0, 0.0, 1.0))], False)
+        z = float(xyz.splitlines()[2].split()[3])
+        assert z == pytest.approx(0.529177249)
+
+    def test_angstrom_coordinates_are_left_alone(self):
+        xyz = self._fn()([("H", (0.0, 0.0, 1.0))], True)
+        z = float(xyz.splitlines()[2].split()[3])
+        assert z == pytest.approx(1.0)
+
+    def test_no_atoms_still_produces_a_valid_block(self):
+        assert self._fn()([], True).splitlines()[0] == "0"
 
 
 # ---------------------------------------------------------------------------
@@ -786,17 +830,21 @@ class TestLoading:
         comparator.win.load_into(comparator.win.slots[0], str(path))
         assert comparator.win.slots[0].is_on()
 
-    def test_the_slot_reports_the_file_and_its_settings(self, comparator):
-        path = _write_cube(comparator.tmp, name="homo.cube")
+    def test_the_slot_reports_the_file_and_its_grid(self, comparator):
+        path = _write_cube(comparator.tmp, name="homo.cube", dims=(2, 3, 4))
         comparator.win.load_into(comparator.win.slots[0], str(path))
         text = comparator.win.slots[0].lbl_info.text()
         assert "homo.cube" in text
-        assert "40 pts" in text
+        assert "2×3×4" in text
+        assert "1 atoms" in text
 
-    def test_a_foreign_cube_reports_unknown_settings(self, comparator):
-        path = _write_cube(comparator.tmp, stamp="SCF density")
+    def test_the_slot_description_ignores_the_comment_lines(self, comparator):
+        """Whatever a writing program puts there is its own business."""
+        path = _write_cube(comparator.tmp, stamp="SCF density | grid=40")
         comparator.win.load_into(comparator.win.slots[0], str(path))
-        assert "unknown" in comparator.win.slots[0].lbl_info.text()
+        text = comparator.win.slots[0].lbl_info.text()
+        assert "SCF" not in text
+        assert "40 pts" not in text
 
     def test_an_unreadable_file_is_reported_and_leaves_the_slot_empty(
         self, comparator
@@ -955,6 +1003,116 @@ class TestSlotDescription:
         comparator.win.load_into(comparator.win.slots[0], path)
         comparator.win.clear_slot(comparator.win.slots[0])
         assert "(empty)" in comparator.win.slots[0].box.title()
+
+
+class TestStructurePicker:
+    """Cubes from different jobs carry different geometries, so which one the
+    lobes sit on is the user's choice."""
+
+    def test_it_defaults_to_the_first_cube(self, comparator):
+        assert comparator.win.spin_structure.value() == 1
+
+    def test_it_cannot_point_outside_the_slots(self, comparator):
+        comparator.win.spin_structure.setValue(99)
+        assert comparator.win.spin_structure.value() <= comparator.mod.SLOT_COUNT
+        comparator.win.spin_structure.setValue(0)
+        assert comparator.win.spin_structure.value() >= 1
+
+    def test_loading_is_refused_while_that_slot_is_empty(self, comparator):
+        assert comparator.win.btn_load_structure.isEnabled() is False
+        assert "no cube loaded" in comparator.win.lbl_structure.text()
+
+    def test_a_loaded_cube_enables_loading_its_structure(self, comparator):
+        comparator.win.load_into(
+            comparator.win.slots[0], str(_write_cube(comparator.tmp))
+        )
+        assert comparator.win.btn_load_structure.isEnabled() is True
+        assert "1 atoms" in comparator.win.lbl_structure.text()
+
+    def test_pointing_at_an_empty_slot_disables_it_again(self, comparator):
+        comparator.win.load_into(
+            comparator.win.slots[0], str(_write_cube(comparator.tmp))
+        )
+        comparator.win.spin_structure.setValue(3)
+        comparator.win.refresh_structure_label()
+        assert comparator.win.btn_load_structure.isEnabled() is False
+
+    def test_it_hands_the_host_an_xyz_block(self, comparator):
+        comparator.win.load_into(
+            comparator.win.slots[0], str(_write_cube(comparator.tmp, n_atoms=3))
+        )
+        comparator.win.load_structure()
+        xyz = comparator.win.context.show_xyz_data.call_args.args[0]
+        assert xyz.splitlines()[0] == "3"
+        assert xyz.splitlines()[2].split()[0] == "O"
+
+    def test_it_loads_the_picked_slot_not_the_first(self, comparator):
+        comparator.win.load_into(
+            comparator.win.slots[0], str(_write_cube(comparator.tmp, "a.cube"))
+        )
+        comparator.win.load_into(
+            comparator.win.slots[1], str(_write_cube(comparator.tmp, "b.cube"))
+        )
+        comparator.win.spin_structure.setValue(2)
+        comparator.win.load_structure()
+        assert "b.cube" in comparator.win.context.show_xyz_data.call_args.kwargs[
+            "source_name"
+        ]
+
+    def test_loading_an_empty_slot_does_nothing(self, comparator):
+        comparator.win.spin_structure.setValue(4)
+        comparator.win.load_structure()
+        comparator.win.context.show_xyz_data.assert_not_called()
+
+    def test_a_host_refusal_is_reported_not_crashed(self, comparator):
+        comparator.win.load_into(
+            comparator.win.slots[0], str(_write_cube(comparator.tmp))
+        )
+        comparator.win.context.show_xyz_data.side_effect = RuntimeError("no")
+        comparator.mod.QMessageBox = MagicMock()
+        comparator.win.load_structure()
+        comparator.mod.QMessageBox.warning.assert_called_once()
+
+    def test_the_isosurfaces_are_redrawn_after_the_structure_loads(self, comparator):
+        """The host redraws the scene, which drops the actors with it."""
+        comparator.win.load_into(
+            comparator.win.slots[0], str(_write_cube(comparator.tmp))
+        )
+        comparator.mw.plotter.add_mesh.reset_mock()
+        comparator.win.load_structure()
+        assert "orb_cmp0_p" in _meshes(comparator)
+
+    def test_clearing_a_slot_disables_the_button_again(self, comparator):
+        comparator.win.load_into(
+            comparator.win.slots[0], str(_write_cube(comparator.tmp))
+        )
+        comparator.win.clear_slot(comparator.win.slots[0])
+        assert comparator.win.btn_load_structure.isEnabled() is False
+
+
+class Test3DViewerMode:
+    def test_loading_a_structure_enters_3d_viewer_mode(self, comparator):
+        comparator.win.load_into(
+            comparator.win.slots[0], str(_write_cube(comparator.tmp))
+        )
+        comparator.win.load_structure()
+        comparator.win.context.enter_3d_viewer_mode.assert_called_once()
+
+    def test_it_falls_back_to_the_ui_manager_on_older_hosts(self, comparator):
+        del comparator.win.context.enter_3d_viewer_mode
+        ui = MagicMock()
+        comparator.win.mw = SimpleNamespace(plotter=MagicMock(), ui_manager=ui)
+        comparator.win.enter_3d_viewer_mode()
+        ui.enter_3d_viewer_ui_mode.assert_called_once()
+
+    def test_a_host_offering_neither_is_not_an_error(self, comparator):
+        del comparator.win.context.enter_3d_viewer_mode
+        comparator.win.mw = SimpleNamespace(plotter=MagicMock())
+        comparator.win.enter_3d_viewer_mode()  # must not raise
+
+    def test_a_failing_context_call_falls_through_quietly(self, comparator):
+        comparator.win.context.enter_3d_viewer_mode.side_effect = RuntimeError("x")
+        comparator.win.enter_3d_viewer_mode()  # must not raise
 
 
 class TestClearing:
