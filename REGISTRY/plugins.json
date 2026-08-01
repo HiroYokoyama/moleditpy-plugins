@@ -2180,7 +2180,7 @@
     "visible": false,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "ORCA NICS Analyzer",
-    "version": "0.3.6",
+    "version": "0.3.7",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_orca_nics_analyzer",
@@ -2195,9 +2195,9 @@
       "matplotlib",
       "pyvista"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_nics_analyzer/releases/download/v0.3.6/orca_nics_analyzer_0.3.6.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_nics_analyzer/releases/download/v0.3.7/orca_nics_analyzer_0.3.7.zip",
     "lastUpdated": "2026-08-01",
-    "sha256": "9ac218571b917d3bc6062a63321c045a93cb154be071838c60532d92654afb2b",
+    "sha256": "1c35b41837529f9314952721139a6306774e0f32db6674141ca42cf7667f38fc",
     "firstAppeared": "2026-08-01"
   }
 ]
