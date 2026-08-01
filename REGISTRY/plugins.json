@@ -2174,5 +2174,30 @@
       "Linux",
       "WSL"
     ]
+  },
+  {
+    "id": "orca_nics_analyzer",
+    "visible": false,
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
+    "name": "ORCA NICS Analyzer",
+    "version": "0.1.0",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "projectUrl": "https://github.com/HiroYokoyama/moleditpy_orca_nics_analyzer",
+    "description": "Analyze NICS data in ORCA output files: single-probe tables, 2D NICS maps and 3D ICSS isosurfaces, with Gaussian cube export.",
+    "tags": [
+      "Analysis",
+      "Visualization"
+    ],
+    "dependencies": [
+      "PyQt6",
+      "numpy",
+      "matplotlib",
+      "pyvista"
+    ],
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_nics_analyzer/releases/download/v0.1.0/orca_nics_analyzer_0.1.0.zip",
+    "lastUpdated": "2026-08-01",
+    "sha256": "577b9ca2a43a15fd8a66d926a8a443c49b73d7188a54bd3ae29d0a55fd4c19cb",
+    "firstAppeared": "2026-08-01"
   }
 ]
