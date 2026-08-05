@@ -2212,7 +2212,7 @@
     "visible": false,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "VASP Input Generator",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_vasp_input_generator",
@@ -2224,9 +2224,9 @@
     "dependencies": [
       "numpy"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_vasp_input_generator/releases/download/v0.3.0/vasp_input_generator_0.3.0.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_vasp_input_generator/releases/download/v0.3.1/vasp_input_generator_0.3.1.zip",
     "lastUpdated": "2026-08-06",
-    "sha256": "7eed88747cd577b40bac49df517616962ab2cc0b7a97726b2a1e1cd878be87b9",
+    "sha256": "287d0cfc37a0164eed4b21e0c492307f0b807a391acedbb34c7144a5ca1ffffa",
     "firstAppeared": "2026-08-05",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -2241,7 +2241,7 @@
     "visible": false,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Quantum ESPRESSO Input Generator",
-    "version": "0.4.0",
+    "version": "0.4.1",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_quantum_espresso_input_generator",
@@ -2253,9 +2253,9 @@
     "dependencies": [
       "numpy"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_quantum_espresso_input_generator/releases/download/v0.4.0/qe_input_generator_0.4.0.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_quantum_espresso_input_generator/releases/download/v0.4.1/qe_input_generator_0.4.1.zip",
     "lastUpdated": "2026-08-06",
-    "sha256": "fc5f19c1a4623f35aa736284059f65322313fd38e3cd3055b088a2bc578e5181",
+    "sha256": "48e768bc2bbd9a32aec631e54c6cb9b1df95d31bc22b3351a3f621a2bd5bfa9d",
     "firstAppeared": "2026-08-05",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -2270,7 +2270,7 @@
     "visible": false,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "CP2K Input Generator",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_cp2k_input_generator",
@@ -2282,9 +2282,9 @@
     "dependencies": [
       "numpy"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_cp2k_input_generator/releases/download/v0.3.0/cp2k_input_generator_0.3.0.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_cp2k_input_generator/releases/download/v0.3.1/cp2k_input_generator_0.3.1.zip",
     "lastUpdated": "2026-08-06",
-    "sha256": "83241ab80762619a6d0fba0c7020acd0b7251042bfe4e7e541088b5f5717dbd2",
+    "sha256": "00f17f8131068c8a22b9049307c5f37f0c13d411e8be00100c4a65684881ebe2",
     "firstAppeared": "2026-08-05",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -2299,7 +2299,7 @@
     "visible": false,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Slab Builder",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_slab_builder",
@@ -2311,9 +2311,9 @@
     "dependencies": [
       "numpy"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_slab_builder/releases/download/v0.1.0/slab_builder_0.1.0.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_slab_builder/releases/download/v0.1.1/slab_builder_0.1.1.zip",
     "lastUpdated": "2026-08-06",
-    "sha256": "829534ddb8086349514a2471acfddbfb8ef9a418c59f152c9a66f8896690d6b2",
+    "sha256": "0e233fb1b0c028cf64b338ba349abefa9d997c905d92a89fdfd4f54daf84112d",
     "firstAppeared": "2026-08-06"
   }
 ]
