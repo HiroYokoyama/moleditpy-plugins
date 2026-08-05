@@ -2227,14 +2227,7 @@
     "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_vasp_input_generator/releases/download/v0.3.0/vasp_input_generator_0.3.0.zip",
     "lastUpdated": "2026-08-06",
     "sha256": "7eed88747cd577b40bac49df517616962ab2cc0b7a97726b2a1e1cd878be87b9",
-    "firstAppeared": "2026-08-05",
-    "supported_python_version": ">=3.9, <3.15",
-    "supported_os": [
-      "Windows",
-      "macOS",
-      "Linux",
-      "WSL"
-    ]
+    "firstAppeared": "2026-08-05"
   },
   {
     "id": "qe_input_generator_0.1.0",
@@ -2256,14 +2249,7 @@
     "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_quantum_espresso_input_generator/releases/download/v0.4.0/qe_input_generator_0.4.0.zip",
     "lastUpdated": "2026-08-06",
     "sha256": "fc5f19c1a4623f35aa736284059f65322313fd38e3cd3055b088a2bc578e5181",
-    "firstAppeared": "2026-08-05",
-    "supported_python_version": ">=3.9, <3.15",
-    "supported_os": [
-      "Windows",
-      "macOS",
-      "Linux",
-      "WSL"
-    ]
+    "firstAppeared": "2026-08-05"
   },
   {
     "id": "cp2k_input_generator_0.1.0",
@@ -2285,14 +2271,7 @@
     "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_cp2k_input_generator/releases/download/v0.3.0/cp2k_input_generator_0.3.0.zip",
     "lastUpdated": "2026-08-06",
     "sha256": "83241ab80762619a6d0fba0c7020acd0b7251042bfe4e7e541088b5f5717dbd2",
-    "firstAppeared": "2026-08-05",
-    "supported_python_version": ">=3.9, <3.15",
-    "supported_os": [
-      "Windows",
-      "macOS",
-      "Linux",
-      "WSL"
-    ]
+    "firstAppeared": "2026-08-05"
   },
   {
     "id": "slab_builder_0.1.0",
