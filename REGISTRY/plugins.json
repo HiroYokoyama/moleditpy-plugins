@@ -2177,7 +2177,7 @@
   },
   {
     "id": "orca_nics_analyzer",
-    "visible": false,
+    "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "ORCA NICS Analyzer",
     "version": "0.4.3",
@@ -2198,7 +2198,14 @@
     "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_nics_analyzer/releases/download/v0.4.3/orca_nics_analyzer_0.4.3.zip",
     "lastUpdated": "2026-08-05",
     "sha256": "a0eba6cd5a1b11d6f8d635b141ef72e59d216cc762801efb2ede61daa910f1f8",
-    "firstAppeared": "2026-08-01"
+    "firstAppeared": "2026-08-01",
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   },
   {
     "id": "vasp_input_generator_0.1.0",
@@ -2297,3 +2304,4 @@
     ]
   }
 ]
+

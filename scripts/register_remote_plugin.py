@@ -259,7 +259,7 @@ def main():
     parser.add_argument("--id", dest="plugin_id", help="Plugin ID (optional, derived for new plugins if omitted)")
     parser.add_argument("--tags", help="Comma-separated tags for new plugins")
     parser.add_argument("--dependencies", help="Comma-separated dependencies for new plugins")
-    parser.add_argument("--visible", default="true", help="Set visibility of the plugin (default: true)")
+    parser.add_argument("--visible", default=None, help="Set visibility of the plugin (new plugins default to true; for an existing plugin the current value is kept unless this is passed)")
     parser.add_argument("--dry-run", action="store_true", help="Perform checks and downloads but do not write to the registry")
     parser.add_argument("--expected-sha256", dest="expected_sha256", help="Expected SHA-256 hash (Required for non-HiroYokoyama plugins)")
     parser.add_argument("--date", help="Override registration date (YYYY-MM-DD, optional)")
@@ -474,11 +474,26 @@ def main():
                         rebuilt_entry["supported_moleditpy_version"] = supported_ver
                 existing_entry.clear()
                 existing_entry.update(rebuilt_entry)
+        # An explicit --visible is the only way to un-hide (or hide) a plugin that
+        # is already in the registry; without it the stored value is kept.
+        if args.visible is not None:
+            existing_entry["visible"] = args.visible.lower() == "true"
+
         supported_py = args.supported_python or meta.get("supported_python_version") or existing_entry.get("supported_python_version")
         if not supported_py and existing_entry.get("visible", True):
             supported_py = DEFAULT_PYTHON_SPEC
         if supported_py:
             existing_entry["supported_python_version"] = supported_py
+
+        # supported_os is mandatory for visible entries, so a plugin turned
+        # visible here needs one even though the update path never set it before.
+        supported_os = canonicalize_os_list(
+            meta.get("supported_os") or existing_entry.get("supported_os") or []
+        )
+        if not supported_os and existing_entry.get("visible", True):
+            supported_os = list(DEFAULT_OS_LIST)
+        if supported_os:
+            existing_entry["supported_os"] = supported_os
 
         existing_entry["version"] = normalized_code_version
         existing_entry["downloadUrl"] = args.release_url
@@ -507,7 +522,7 @@ def main():
         elif not deps_list:
             deps_list = []
             
-        visible_flag = args.visible.lower() == "true"
+        visible_flag = args.visible is None or args.visible.lower() == "true"
         # Determine supported MoleditPy version (prefer CLI argument, then code constant)
         supported_ver = args.supported_version or meta.get("supported_moleditpy_version")
         
@@ -559,8 +574,10 @@ def main():
         print(json.dumps(target_entry, indent=2, ensure_ascii=False))
     else:
         # Write back to JSON
-        with open(registry_path, "w", encoding="utf-8") as f:
-            json.dump(plugins, f, indent=2, ensure_ascii=False)
+        # newline="\n": plugins.json is committed LF (.gitattributes: * -text), so
+        # letting Windows translate would rewrite all ~2300 lines as CRLF.
+        with open(registry_path, "w", encoding="utf-8", newline="\n") as f:
+            f.write(json.dumps(plugins, indent=2, ensure_ascii=False) + "\n")
             f.write("\n")
         print(f"Successfully saved changes to REGISTRY/plugins.json!")
     
