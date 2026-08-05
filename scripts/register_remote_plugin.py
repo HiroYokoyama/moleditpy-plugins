@@ -577,7 +577,7 @@ def main():
         # newline="\n": plugins.json is committed LF (.gitattributes: * -text), so
         # letting Windows translate would rewrite all ~2300 lines as CRLF.
         with open(registry_path, "w", encoding="utf-8", newline="\n") as f:
-            f.write(json.dumps(plugins, indent=2, ensure_ascii=False) + "\n")
+            json.dump(plugins, f, indent=2, ensure_ascii=False)
             f.write("\n")
         print(f"Successfully saved changes to REGISTRY/plugins.json!")
     
