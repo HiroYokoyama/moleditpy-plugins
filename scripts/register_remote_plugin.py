@@ -500,12 +500,6 @@ def main():
         if supported_os:
             existing_entry["supported_os"] = supported_os
 
-        # Hidden entries carry neither field: they are not installable, and
-        # test_registry_all_visible_have_python_spec enforces it.
-        if not existing_entry.get("visible", True):
-            existing_entry.pop("supported_python_version", None)
-            existing_entry.pop("supported_os", None)
-
         existing_entry["version"] = normalized_code_version
         existing_entry["downloadUrl"] = args.release_url
         existing_entry["sha256"] = sha256_hash

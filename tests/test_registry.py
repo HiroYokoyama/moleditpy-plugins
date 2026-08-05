@@ -179,3 +179,21 @@ def test_invisible_plugins_are_not_required_to_declare_supported_os():
     hidden = [p for p in registry if not p.get("visible", False)]
     assert hidden, "expected at least one hidden entry in the registry"
     # No assertion on their supported_os; this test documents the exemption.
+
+
+def test_registry_all_visible_have_python_spec():
+    """Every visible registry entry carries supported_python_version.
+
+    Hidden entries may carry it too: a plugin hidden while it is in flux keeps
+    its real metadata, so unhiding it does not need the values re-derived. The
+    long-retired entries simply predate the field.
+    """
+    registry = _load_registry()
+    visible_missing = [
+        p.get("id")
+        for p in registry
+        if p.get("visible", True) and not p.get("supported_python_version")
+    ]
+    assert not visible_missing, (
+        f"Visible entries missing supported_python_version: {visible_missing}"
+    )

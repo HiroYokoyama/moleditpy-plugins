@@ -1920,31 +1920,6 @@ class TestPythonVersionCheck:
         assert PI.is_app_version_compatible(PI.get_python_version(), "") is True
 
 
-def test_registry_all_visible_have_python_spec():
-    """Every visible registry entry carries supported_python_version; hidden entries never do."""
-    registry = json.loads(
-        (Path(__file__).resolve().parents[1] / "REGISTRY" / "plugins.json").read_text(
-            encoding="utf-8-sig"
-        )
-    )
-    visible_missing = [
-        p.get("id")
-        for p in registry
-        if p.get("visible", True) and not p.get("supported_python_version")
-    ]
-    hidden_with = [
-        p.get("id")
-        for p in registry
-        if not p.get("visible", True) and p.get("supported_python_version")
-    ]
-    assert not visible_missing, (
-        f"Visible entries missing supported_python_version: {visible_missing}"
-    )
-    assert not hidden_with, (
-        f"Hidden entries should not carry supported_python_version: {hidden_with}"
-    )
-
-
 # ---------------------------------------------------------------------------
 # pyproject.toml parsing (source-checkout version fallback)
 # ---------------------------------------------------------------------------
