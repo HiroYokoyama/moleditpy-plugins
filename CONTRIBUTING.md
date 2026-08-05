@@ -2,6 +2,35 @@
 
 Thank you for your interest in contributing to the MoleditPy plugin collection! This repository serves as a hub for official and community-developed plugins.
 
+## Starting a New Plugin: Use the Template
+
+The fastest way to start an external plugin is the
+**[plugin template repository](https://github.com/HiroYokoyama/moleditpy-plugin-template)** — press *Use this template* on
+GitHub and you get a working plugin plus the scaffolding that this repository
+expects:
+
+| What it gives you | Why it matters here |
+|---|---|
+| An example plugin with every `PLUGIN_*` constant already in place | Registration reads these constants; a missing or misspelled one fails validation |
+| `initialize(context)`, one menu entry, and the save/load/reset handlers | The shapes described further down this document, already wired |
+| Metadata and registration tests | Catches the usual mistakes (wrong version format, duplicate menu entry, writing to a project the user never touched) |
+| A host **API compatibility check** (`tests/test_api.py`) | Fails the build if you call a `mw.*` / `context.*` attribute that does not exist, instead of crashing on a user's machine |
+| A release workflow triggered by a `v*.*.*` tag | Produces exactly the kind of release asset the registration flow below expects, and refuses a tag that disagrees with `PLUGIN_VERSION` |
+
+Two notes on the template's defaults:
+
+* **CI is off by default.** A freshly copied template should not start failing
+  before you have written anything, so the test workflow only runs when you
+  dispatch it by hand; uncomment two lines in `.github/workflows/test.yml` to
+  enable it on every push.
+* **Registration is not automatic for third parties.** The release workflow
+  attempts a registry dispatch only when a `REGISTRY_PAT` secret exists, which
+  only the registry maintainer can issue. Without it the step is a harmless
+  no-op that prints the manual route — the registration issue described below.
+
+Using the template is a recommendation, not a requirement: any repository that
+satisfies the requirements below can be registered.
+
 ## Plugin Development Requirements
 
 All plugins must follow the standard MoleditPy plugin structure. For detailed API documentation, please refer to the [Plugin Development Manual](https://github.com/HiroYokoyama/python_molecular_editor/blob/main/docs/PLUGIN_DEVELOPMENT_MANUAL_V4.md).
@@ -35,6 +64,7 @@ Contributions are handled differently depending on whether the plugin's source c
 All new registrations and updates to external plugins **must be requested by opening a GitHub Issue**. Direct Pull Requests modifying the registry file (`REGISTRY/plugins.json`) for external URLs will be closed.
 
 #### Standard Flow for External Developers:
+0.  **Start from the [template repository](https://github.com/HiroYokoyama/moleditpy-plugin-template)** (optional but recommended): it ships the metadata, tests, API check and release workflow that the steps below assume.
 1.  **Host your plugin**: Upload your plugin file (`.py`) or package (`.zip`) to a public repository. **The plugin must be hosted in your own GitHub repository** (the repository owner must match your GitHub username and the `PLUGIN_AUTHOR` metadata constant). We recommend using GitHub Releases to host stable tag versions (e.g. `v1.2.0` or `1.2.0`).
 2.  **Ensure Metadata Consistency**: Your plugin code **must** define the required metadata constants (`PLUGIN_NAME`, `PLUGIN_VERSION`, etc.) at the top of your python file. The version constant must match the release tag version.
 3.  **Calculate SHA-256**: Calculate the SHA-256 hash of your release file.

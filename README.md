@@ -124,7 +124,14 @@ MoleditPy features a robust plugin architecture allowing deep integration via th
 
 ### Quick Start
 
-Create a `.py` file with an `initialize(context)` function:
+For a new external plugin, start from the
+**[plugin template repository](https://github.com/HiroYokoyama/moleditpy-plugin-template)** (*Use this template* on GitHub):
+it comes with an example plugin, headless tests, a check that validates every
+host API call against the application source, and a tag-driven release
+workflow. See [CONTRIBUTING.md](CONTRIBUTING.md) for how a released plugin then
+gets into this registry.
+
+By hand, the minimum is a `.py` file with an `initialize(context)` function:
 
 ```python
 PLUGIN_NAME = "My New Plugin"
