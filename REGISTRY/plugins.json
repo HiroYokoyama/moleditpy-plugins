@@ -2212,24 +2212,21 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "VASP Input Generator",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_vasp_input_generator",
     "description": "Generate VASP POSCAR/INCAR/KPOINTS inputs from the current molecule (in a vacuum box) or from a CIF crystal structure, with supercells and recommended PAW potential hints.",
     "tags": [
-      "vasp",
-      "periodic",
-      "dft",
-      "solid-state",
-      "input"
+      "DFT",
+      "Generator"
     ],
     "dependencies": [
       "numpy"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_vasp_input_generator/releases/download/v0.1.0/vasp_input_generator_0.1.0.zip",
-    "lastUpdated": "2026-08-05",
-    "sha256": "9000945624abaadf6238de9c185eb35412315e5b5ebd8dd543cd991ea2414c29",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_vasp_input_generator/releases/download/v0.2.0/vasp_input_generator_0.2.0.zip",
+    "lastUpdated": "2026-08-06",
+    "sha256": "e224fd02505678745370424a9b469ca627826e3afeeb883510344540d3a74be9",
     "firstAppeared": "2026-08-05",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -2244,24 +2241,21 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Quantum ESPRESSO Input Generator",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_quantum_espresso_input_generator",
     "description": "Generate Quantum ESPRESSO pw.x inputs from the current molecule (in a vacuum box) or from a CIF crystal structure, with supercells, k-point meshes and pseudopotential filename patterns.",
     "tags": [
-      "quantum-espresso",
-      "pwscf",
-      "periodic",
-      "dft",
-      "input"
+      "DFT",
+      "Generator"
     ],
     "dependencies": [
       "numpy"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_quantum_espresso_input_generator/releases/download/v0.1.0/qe_input_generator_0.1.0.zip",
-    "lastUpdated": "2026-08-05",
-    "sha256": "5b11daa0a6fd8c9825ae39d5a5c319f0f42158a1b04f6155cdd73d1395499dae",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_quantum_espresso_input_generator/releases/download/v0.2.0/qe_input_generator_0.2.0.zip",
+    "lastUpdated": "2026-08-06",
+    "sha256": "89b8af7d5ddbc1da16f7225a3947bd2a474f33b447712f4e2a4c2cbdb1936c28",
     "firstAppeared": "2026-08-05",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -2276,24 +2270,21 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "CP2K Input Generator",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_cp2k_input_generator",
     "description": "Generate CP2K Quickstep inputs from the current molecule (in a vacuum box) or from a CIF crystal structure, with supercells, GTH/MOLOPT kinds and OT or smeared-diagonalisation SCF.",
     "tags": [
-      "cp2k",
-      "quickstep",
-      "periodic",
-      "dft",
-      "input"
+      "DFT",
+      "Generator"
     ],
     "dependencies": [
       "numpy"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_cp2k_input_generator/releases/download/v0.1.0/cp2k_input_generator_0.1.0.zip",
-    "lastUpdated": "2026-08-05",
-    "sha256": "1036bc72d18323af544b9fdb6768d8ef21eb60250c6e61489a055ffaae8b0b07",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_cp2k_input_generator/releases/download/v0.2.0/cp2k_input_generator_0.2.0.zip",
+    "lastUpdated": "2026-08-06",
+    "sha256": "1b65c0030b6df6f766777ce2cb4f0df5ef8dd5fd4bb7734e778c455f795b4fa6",
     "firstAppeared": "2026-08-05",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

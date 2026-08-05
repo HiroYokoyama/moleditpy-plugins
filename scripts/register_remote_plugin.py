@@ -257,7 +257,7 @@ def main():
     parser = argparse.ArgumentParser(description="Register or update a remote plugin in the registry.")
     parser.add_argument("release_url", help="GitHub Release file URL")
     parser.add_argument("--id", dest="plugin_id", help="Plugin ID (optional, derived for new plugins if omitted)")
-    parser.add_argument("--tags", help="Comma-separated tags for new plugins")
+    parser.add_argument("--tags", help="Comma-separated tags. New plugins take them from the code; for an existing plugin the curated tags are kept unless this is passed.")
     parser.add_argument("--dependencies", help="Comma-separated dependencies for new plugins")
     parser.add_argument("--visible", default=None, help="Set visibility of the plugin (new plugins default to true; for an existing plugin the current value is kept unless this is passed)")
     parser.add_argument("--dry-run", action="store_true", help="Perform checks and downloads but do not write to the registry")
@@ -478,6 +478,11 @@ def main():
         # is already in the registry; without it the stored value is kept.
         if args.visible is not None:
             existing_entry["visible"] = args.visible.lower() == "true"
+
+        # Tags and descriptions are curated in the registry, so a routine version
+        # bump must not overwrite them -- only an explicit --tags does.
+        if args.tags is not None:
+            existing_entry["tags"] = [tag.strip() for tag in args.tags.split(",") if tag.strip()]
 
         supported_py = args.supported_python or meta.get("supported_python_version") or existing_entry.get("supported_python_version")
         if not supported_py and existing_entry.get("visible", True):
