@@ -484,6 +484,16 @@ def main():
         if args.tags is not None:
             existing_entry["tags"] = [tag.strip() for tag in args.tags.split(",") if tag.strip()]
 
+        # Dependencies are not curated: they are a fact about the release, and a
+        # plugin that gains one had no way to say so before this.
+        code_deps = meta.get("dependencies")
+        if args.dependencies is not None:
+            existing_entry["dependencies"] = [
+                dep.strip() for dep in args.dependencies.split(",") if dep.strip()
+            ]
+        elif code_deps is not None:
+            existing_entry["dependencies"] = [str(dep).strip() for dep in code_deps if str(dep).strip()]
+
         supported_py = args.supported_python or meta.get("supported_python_version") or existing_entry.get("supported_python_version")
         if not supported_py and existing_entry.get("visible", True):
             supported_py = DEFAULT_PYTHON_SPEC
