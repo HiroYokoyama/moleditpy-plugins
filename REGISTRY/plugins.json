@@ -2243,7 +2243,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Quantum ESPRESSO Input Generator",
-    "version": "0.6.1",
+    "version": "0.6.2",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_quantum_espresso_input_generator",
@@ -2257,9 +2257,9 @@
       "pyvista",
       "rdkit"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_quantum_espresso_input_generator/releases/download/v0.6.1/qe_input_generator_0.6.1.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_quantum_espresso_input_generator/releases/download/v0.6.2/qe_input_generator_0.6.2.zip",
     "lastUpdated": "2026-08-06",
-    "sha256": "02dd962579f25a0f9a5702928b611cb8b07a073959c03ed62de2ec839d2cc13a",
+    "sha256": "7a2722de034895493a0cd80c51328154ff73b76b51cb58ac0951e2e1ac3c8479",
     "firstAppeared": "2026-08-05",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
