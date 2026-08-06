@@ -2336,11 +2336,11 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Job Manager",
-    "version": "0.3.0",
+    "version": "0.4.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_job_manager",
-    "description": "Submit calculations to remote HPC clusters over SSH, track queue status, and fetch results back into MoleditPy. Ready-made command lines for ORCA, Gaussian, CP2K, GAMESS, MOPAC, NWChem, Psi4, PySCF, Quantum ESPRESSO, VASP and xTB; job lists export to CSV or .pmejbs and reopen by drag and drop.",
+    "description": "Submit calculations to remote HPC clusters over SSH, track queue status, and fetch results back into MoleditPy. Ready-made command lines for ORCA, Gaussian, CP2K, GAMESS, MOPAC, NWChem, Psi4, PySCF, Quantum ESPRESSO, VASP and xTB; job lists export to CSV or .pmejbs and reopen by drag and drop. Runs on this machine too, with no SSH, and chains jobs where there is no queue to order them.",
     "tags": [
       "hpc",
       "ssh",
@@ -2348,9 +2348,9 @@
       "utility"
     ],
     "dependencies": [],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_job_manager/releases/download/v0.3.0/job_manager_0.3.0.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_job_manager/releases/download/v0.4.0/job_manager_0.4.0.zip",
     "lastUpdated": "2026-08-07",
-    "sha256": "ddbffa0e6c05ba1b0b03141d10eed6184e7b5e9c0eac3876d06b1c2d0531a214",
+    "sha256": "cc64a0da56ac74cc56c6e1a3b8c148d6041aed081f5a45517b0c6e061d325ec6",
     "firstAppeared": "2026-08-06",
     "supported_os": [
       "Windows",
