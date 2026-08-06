@@ -2330,5 +2330,33 @@
       "Linux",
       "WSL"
     ]
+  },
+  {
+    "id": "job_manager",
+    "visible": false,
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
+    "name": "Job Manager",
+    "version": "0.1.0",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "projectUrl": "https://github.com/HiroYokoyama/moleditpy_job_manager",
+    "description": "Submit calculations to remote HPC clusters over SSH, track queue status, and fetch results back into MoleditPy.",
+    "tags": [
+      "hpc",
+      "ssh",
+      "job",
+      "utility"
+    ],
+    "dependencies": [],
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_job_manager/releases/download/v0.1.0/job_manager_0.1.0.zip",
+    "lastUpdated": "2026-08-06",
+    "sha256": "e3e4d3998e97c33bc39706e1aef9558bae45096de5511a35e74696ac609685c3",
+    "firstAppeared": "2026-08-06",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   }
 ]
