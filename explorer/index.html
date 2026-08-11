@@ -173,13 +173,20 @@
 
         .filter-container {
             text-align: center;
-            margin-bottom: 2.5rem;
+            margin-bottom: 0.75rem;
             padding: 8px;
             background: var(--bg-color);
             width: fit-content;
             margin-left: auto;
             margin-right: auto;
             border-radius: 30px;
+        }
+
+        .result-count {
+            text-align: center;
+            margin-bottom: 1.75rem;
+            color: var(--text-muted);
+            font-size: 0.85rem;
         }
 
         .filter-btn {
@@ -790,6 +797,8 @@
         <button class="filter-btn active" data-filter="all">ALL</button>
     </div>
 
+    <p class="result-count" id="resultCount"></p>
+
     <div class="container" id="pluginGrid">
         <p style="text-align: center; width: 100%; color: #64748b;">Loading plugins...</p>
     </div>
@@ -804,7 +813,7 @@
 
     <script>
         // Bump on every change to this page.
-        const EXPLORER_VERSION = "2026.08.12";
+        const EXPLORER_VERSION = "2026.08.12.1";
 
         let allPlugins = [];
 
@@ -834,6 +843,13 @@
         function renderPlugins(plugins) {
             const grid = document.getElementById('pluginGrid');
             grid.innerHTML = '';
+
+            const resultCount = document.getElementById('resultCount');
+            if (resultCount) {
+                resultCount.textContent = plugins.length === allPlugins.length
+                    ? `${allPlugins.length} plugins`
+                    : `Showing ${plugins.length} of ${allPlugins.length} plugins`;
+            }
 
             if (plugins.length === 0) {
                 grid.innerHTML = '<p style="text-align:center; width:100%;">No plugins found matching your search.</p>';
