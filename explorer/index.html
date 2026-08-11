@@ -811,7 +811,7 @@
 
     <script>
         // Bump on every change to this page.
-        const EXPLORER_VERSION = "2026.08.12.2";
+        const EXPLORER_VERSION = "2026.08.12.3";
 
         let allPlugins = [];
 
@@ -905,17 +905,26 @@
                     </div>
                     ${plugin.supported_moleditpy_version ? `
                     <div class="meta-row">
-                        <span class="meta-label">MoleditPy</span>
+                        <span class="meta-label">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
+                            MoleditPy
+                        </span>
                         <span class="meta-value mono">${plugin.supported_moleditpy_version}</span>
                     </div>` : ''}
                     ${plugin.supported_python_version ? `
                     <div class="meta-row">
-                        <span class="meta-label">Python</span>
+                        <span class="meta-label">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 3h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-4a2 2 0 0 0-2 2v2"></path><path d="M14.5 21h-3a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h4a2 2 0 0 0 2-2V10"></path><circle cx="8.5" cy="5.5" r="0.6" fill="currentColor" stroke="none"></circle><circle cx="15.5" cy="18.5" r="0.6" fill="currentColor" stroke="none"></circle></svg>
+                            Python
+                        </span>
                         <span class="meta-value mono">${plugin.supported_python_version}</span>
                     </div>` : ''}
                     ${plugin.supported_os && plugin.supported_os.length > 0 ? `
                     <div class="meta-row">
-                        <span class="meta-label">Platforms</span>
+                        <span class="meta-label">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                            Platforms
+                        </span>
                         <span class="meta-value" title="WSL = Windows Subsystem for Linux">${plugin.supported_os.join(', ')}</span>
                     </div>` : ''}
                     ${plugin.sha256 ? `
