@@ -48,6 +48,7 @@ PLUGIN_SUPPORTED_PYTHON_VERSION = ">=3.9, <3.15"       # Optional: parsed automa
 PLUGIN_SUPPORTED_OS = ["Windows", "macOS", "Linux", "WSL"]  # Optional: only declare it when the plugin is OS-restricted
 PLUGIN_TAGS = ["Visualization", "Utility"]             # Optional: parsed automatically by script
 PLUGIN_DEPENDENCIES = ["numpy>=1.20", "rdkit>=2022.03"] # Optional: parsed automatically by script (supports PEP-508 constraints)
+PLUGIN_OPTIONAL_DEPENDENCIES = ["matplotlib>=3.5"]     # Optional: extra-feature packages the plugin runs without
 
 def initialize(context):
     # Register hooks, menus, and tools using the context API
@@ -110,6 +111,7 @@ The `REGISTRY/plugins.json` file is the registry that the application uses to di
 - `description`: A clear, concise description.
 - `tags`: Array of categories (e.g., `["Analysis", "Visualization"]`).
 - `dependencies`: Array of required Python packages. Supports standard PEP-508 version constraints (e.g. `numpy>=1.20`, `rdkit>=2022.03,<2023.0`, or `rdkit~=2022.03.1`). Listing a library without any version constraint (e.g. just `numpy` or `rdkit`) is also fully supported.
+- `optional_dependencies`: Optional array, same format, for packages that enable **extra features** but are not needed for the plugin to run. Omit the field entirely when there are none. A missing optional package is shown as "Not installed" in the Plugin Installer and never blocks or warns during installation, so anything the plugin cannot start without belongs in `dependencies` instead.
 - `downloadUrl`: 
     - For external: `https://github.com/.../my_plugin.zip`
     - For internal: `../plugins/My_Plugin/my_plugin.py`
@@ -135,6 +137,7 @@ When adding or updating a plugin, use the following structure:
   "description": "A brief description of what your plugin does.",
   "tags": ["Utility", "Visualization"],
   "dependencies": ["numpy>=1.20", "rdkit>=2022.03,<2023.0"],
+  "optional_dependencies": ["matplotlib>=3.5"],
   "downloadUrl": "https://github.com/YourUsername/my-awesome-plugin/releases/download/v1.0.0/my_plugin.py",
   "sha256": "YOUR_SHA256_HASH_HERE",
   "lastUpdated": "2026-02-18",
@@ -158,7 +161,7 @@ shasum -a 256 my_plugin.py
 ## Best Practices
 - **Isolation**: Ensure your plugin does not interfere with core application functions unless intended.
 - **Error Handling**: Wrap UI callbacks in `try...except` blocks to prevent application crashes.
-- **Dependencies**: Keep dependencies to a minimum. If you use external libraries, list them in the `dependencies` field in `plugins.json`.
+- **Dependencies**: Keep dependencies to a minimum. If you use external libraries, list them in the `dependencies` field in `plugins.json` — or in `optional_dependencies` when the plugin still works without them (guard the import and degrade gracefully).
 
 ## Security and Verification Policy
 

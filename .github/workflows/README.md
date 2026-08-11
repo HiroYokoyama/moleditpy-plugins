@@ -16,6 +16,7 @@ A manual workflow (`workflow_dispatch`) used to automatically register new third
 | `plugin_id` | No | The unique ID for the plugin. For new plugins, if omitted, it will be automatically derived from the release file name (stem). |
 | `tags` | No | A comma-separated list of tags (only used when registering a new plugin, e.g., `Analysis, Visualization`). |
 | `dependencies` | No | A comma-separated list of required Python packages (only used when registering a new plugin, e.g., `numpy, rdkit`). |
+| `optional_dependencies` | No | A comma-separated list of optional Python packages — extra features only, the plugin runs without them (e.g., `matplotlib, pillow`). Overrides `PLUGIN_OPTIONAL_DEPENDENCIES` when given. |
 | `visible` | **Yes** | Visibility flag in the registry (`true` or `false`). Defaults to `true`. |
 | `expected_sha256` | *Conditional* | The expected SHA-256 hash. **Mandatory** for security verification if the repository owner is not `HiroYokoyama`. |
 | `date` | No | Override registration/update date (`YYYY-MM-DD`). If omitted or empty, automatically falls back to the current system date. |
@@ -42,6 +43,7 @@ When registering or updating a plugin, the entry in `REGISTRY/plugins.json` is g
 | `description` | **Code Constant** | Extracted from `PLUGIN_DESCRIPTION` defined in the downloaded code. |
 | `tags` | **Code Constant / Input** | Extracted from `PLUGIN_TAGS` list/string in the code. If missing in code, falls back to the `tags` input list from the workflow. |
 | `dependencies` | **Code Constant / Input** | Extracted from `PLUGIN_DEPENDENCIES` list/string in the code. If missing in code, falls back to the `dependencies` input list from the workflow. |
+| `optional_dependencies` | **Code Constant / Input** | Extracted from `PLUGIN_OPTIONAL_DEPENDENCIES` list/string in the code, or the `optional_dependencies` input (which wins when given). Written only when non-empty, so entries without optional packages keep the key absent. |
 | `downloadUrl` | **Input** | Set to the exact provided `release_url`. |
 | `sha256` | **Computed** | Calculated as the SHA-256 hash of the downloaded asset file. (Must match `expected_sha256` for external plugins). |
 | `lastUpdated` | **System Date / Input** | Set to the provided `date` input (if valid `YYYY-MM-DD`), otherwise defaults to the current system date. |
@@ -276,6 +278,7 @@ For the release and registry update to succeed, the plugin source must define:
 | `PLUGIN_SUPPORTED_PYTHON_VERSION` | No | Auto-synced to `supported_python_version` in registry (visible plugins default to `>=3.9, <3.15`) |
 | `PLUGIN_TAGS` | No | Registry tags (list or comma-separated string) |
 | `PLUGIN_DEPENDENCIES` | No | Required pip packages |
+| `PLUGIN_OPTIONAL_DEPENDENCIES` | No | Extra-feature pip packages the plugin runs without |
 
 ---
 

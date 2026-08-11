@@ -7,7 +7,7 @@ performs strict validation on the version tag and internal code version constant
 and automatically updates or registers the plugin entry in REGISTRY/plugins.json.
 
 Usage:
-    python scripts/register_remote_plugin.py <release_url> [--id <plugin_id>] [--tags <tags>] [--dependencies <dependencies>] [--visible <true|false>]
+    python scripts/register_remote_plugin.py <release_url> [--id <plugin_id>] [--tags <tags>] [--dependencies <dependencies>] [--optional-dependencies <dependencies>] [--visible <true|false>]
 """
 
 import argparse
@@ -29,6 +29,7 @@ PLUGIN_AUTHOR_RE = re.compile(r"^\s*PLUGIN_AUTHOR\s*=\s*(['\"])(?P<val>.*?)\1", 
 PLUGIN_DESCRIPTION_RE = re.compile(r"^\s*PLUGIN_DESCRIPTION\s*=\s*(['\"])(?P<val>.*?)\1", re.MULTILINE)
 PLUGIN_TAGS_RE = re.compile(r"^\s*PLUGIN_TAGS\s*=\s*(?P<val>.*?)\s*$", re.MULTILINE)
 PLUGIN_DEPENDENCIES_RE = re.compile(r"^\s*PLUGIN_DEPENDENCIES\s*=\s*(?P<val>.*?)\s*$", re.MULTILINE)
+PLUGIN_OPTIONAL_DEPENDENCIES_RE = re.compile(r"^\s*PLUGIN_OPTIONAL_DEPENDENCIES\s*=\s*(?P<val>.*?)\s*$", re.MULTILINE)
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION_RE = re.compile(r"^\s*PLUGIN_SUPPORTED_MOLEDITPY_VERSION\s*=\s*(['\"])(?P<val>.*?)\1", re.MULTILINE)
 PLUGIN_SUPPORTED_PYTHON_VERSION_RE = re.compile(r"^\s*PLUGIN_SUPPORTED_PYTHON_VERSION\s*=\s*(['\"])(?P<val>.*?)\1", re.MULTILINE)
 PLUGIN_SUPPORTED_OS_RE = re.compile(r"^\s*PLUGIN_SUPPORTED_OS\s*=\s*(?P<val>.*?)\s*$", re.MULTILINE)
@@ -55,6 +56,24 @@ def canonicalize_os_list(items) -> list:
         if canonical and canonical not in result:
             result.append(canonical)
     return result
+
+
+def _set_after(entry: dict, anchor_key: str, key: str, value) -> None:
+    """Set entry[key], inserting it right after anchor_key when it is new.
+
+    Registry entries are written in a canonical field order, so appending a
+    newly introduced key at the end would churn the diff of every entry.
+    """
+    if key in entry or anchor_key not in entry:
+        entry[key] = value
+        return
+    rebuilt = {}
+    for k, v in entry.items():
+        rebuilt[k] = v
+        if k == anchor_key:
+            rebuilt[key] = value
+    entry.clear()
+    entry.update(rebuilt)
 
 
 def parse_python_list_or_string(raw_val: str) -> list:
@@ -118,6 +137,7 @@ def extract_metadata_from_code_regex(code_text: str) -> dict:
     for key, regex in [
         ("tags", PLUGIN_TAGS_RE),
         ("dependencies", PLUGIN_DEPENDENCIES_RE),
+        ("optional_dependencies", PLUGIN_OPTIONAL_DEPENDENCIES_RE),
     ]:
         match = regex.search(code_text)
         if match:
@@ -151,7 +171,7 @@ def extract_metadata_from_code(code_text: str) -> dict:
             if isinstance(node, ast.Assign):
                 for target in node.targets:
                     if isinstance(target, ast.Name) and target.id in [
-                        "PLUGIN_NAME", "PLUGIN_VERSION", "PLUGIN_AUTHOR", "PLUGIN_DESCRIPTION", "PLUGIN_TAGS", "PLUGIN_DEPENDENCIES", "PLUGIN_SUPPORTED_MOLEDITPY_VERSION", "PLUGIN_SUPPORTED_PYTHON_VERSION", "PLUGIN_SUPPORTED_OS"
+                        "PLUGIN_NAME", "PLUGIN_VERSION", "PLUGIN_AUTHOR", "PLUGIN_DESCRIPTION", "PLUGIN_TAGS", "PLUGIN_DEPENDENCIES", "PLUGIN_OPTIONAL_DEPENDENCIES", "PLUGIN_SUPPORTED_MOLEDITPY_VERSION", "PLUGIN_SUPPORTED_PYTHON_VERSION", "PLUGIN_SUPPORTED_OS"
                     ]:
                         try:
                             val = ast.literal_eval(node.value)
@@ -178,13 +198,14 @@ def extract_metadata_from_code(code_text: str) -> dict:
                                     meta["tags"] = [x.strip() for x in val.split(",") if x.strip()]
                                 else:
                                     meta["tags"] = [str(val).strip()]
-                            elif target.id == "PLUGIN_DEPENDENCIES":
+                            elif target.id in ("PLUGIN_DEPENDENCIES", "PLUGIN_OPTIONAL_DEPENDENCIES"):
+                                dep_key = "dependencies" if target.id == "PLUGIN_DEPENDENCIES" else "optional_dependencies"
                                 if isinstance(val, (list, tuple)):
-                                    meta["dependencies"] = [str(x).strip() for x in val if x]
+                                    meta[dep_key] = [str(x).strip() for x in val if x]
                                 elif isinstance(val, str):
-                                    meta["dependencies"] = [x.strip() for x in val.split(",") if x.strip()]
+                                    meta[dep_key] = [x.strip() for x in val.split(",") if x.strip()]
                                 else:
-                                    meta["dependencies"] = [str(val).strip()]
+                                    meta[dep_key] = [str(val).strip()]
                         except Exception as e:
                             print(f"Warning: Failed to evaluate constant {target.id}: {e}")
         # Validate we got at least some fields before returning, otherwise fallback
@@ -259,6 +280,7 @@ def main():
     parser.add_argument("--id", dest="plugin_id", help="Plugin ID (optional, derived for new plugins if omitted)")
     parser.add_argument("--tags", help="Comma-separated tags. New plugins take them from the code; for an existing plugin the curated tags are kept unless this is passed.")
     parser.add_argument("--dependencies", help="Comma-separated dependencies for new plugins")
+    parser.add_argument("--optional-dependencies", dest="optional_dependencies", help="Comma-separated optional dependencies (packages that unlock extra features but are not needed to run the plugin)")
     parser.add_argument("--visible", default=None, help="Set visibility of the plugin (new plugins default to true; for an existing plugin the current value is kept unless this is passed)")
     parser.add_argument("--dry-run", action="store_true", help="Perform checks and downloads but do not write to the registry")
     parser.add_argument("--expected-sha256", dest="expected_sha256", help="Expected SHA-256 hash (Required for non-HiroYokoyama plugins)")
@@ -494,6 +516,19 @@ def main():
         elif code_deps is not None:
             existing_entry["dependencies"] = [str(dep).strip() for dep in code_deps if str(dep).strip()]
 
+        # Same for optional dependencies. The key is only written once a plugin
+        # declares one, so entries without any stay byte-identical.
+        code_opt_deps = meta.get("optional_dependencies")
+        if args.optional_dependencies is not None:
+            optional_deps = [dep.strip() for dep in args.optional_dependencies.split(",") if dep.strip()]
+        elif code_opt_deps is not None:
+            optional_deps = [str(dep).strip() for dep in code_opt_deps if str(dep).strip()]
+        else:
+            optional_deps = None
+        if optional_deps is not None:
+            if optional_deps or "optional_dependencies" in existing_entry:
+                _set_after(existing_entry, "dependencies", "optional_dependencies", optional_deps)
+
         supported_py = args.supported_python or meta.get("supported_python_version") or existing_entry.get("supported_python_version")
         if not supported_py and existing_entry.get("visible", True):
             supported_py = DEFAULT_PYTHON_SPEC
@@ -536,7 +571,13 @@ def main():
             deps_list = [d.strip() for d in args.dependencies.split(",")]
         elif not deps_list:
             deps_list = []
-            
+
+        optional_deps_list = meta.get("optional_dependencies")
+        if not optional_deps_list and args.optional_dependencies:
+            optional_deps_list = [d.strip() for d in args.optional_dependencies.split(",") if d.strip()]
+        elif not optional_deps_list:
+            optional_deps_list = []
+
         visible_flag = args.visible is None or args.visible.lower() == "true"
         # Determine supported MoleditPy version (prefer CLI argument, then code constant)
         supported_ver = args.supported_version or meta.get("supported_moleditpy_version")
@@ -570,6 +611,10 @@ def main():
             "description": meta["description"],
             "tags": tags_list,
             "dependencies": deps_list,
+        })
+        if optional_deps_list:
+            new_entry["optional_dependencies"] = optional_deps_list
+        new_entry.update({
             "downloadUrl": args.release_url,
             "lastUpdated": today_str,
             "sha256": sha256_hash,

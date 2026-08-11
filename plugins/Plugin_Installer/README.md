@@ -19,6 +19,7 @@ A management plugin for MoleditPy that installs, updates, and removes plugins di
 - **Python version compatibility check**: The registry's `supported_python_version` spec (e.g. `>=3.9, <3.15`) is checked against the running interpreter — incompatible plugins are marked in the table (tooltip shows the required range) and a warning dialog asks for confirmation before install/update. Entries without the field are treated as compatible.
 - **OS compatibility check**: The registry's `supported_os` list (`Windows` / `macOS` / `Linux` / `WSL`) is checked against the running machine, the same way as the Python version — incompatible plugins are marked and confirmed before install. Entries without the field are treated as compatible. WSL reports as Linux, so a plain `Linux` entry satisfies it.
 - **Dependency install hints**: Highlights missing vs installed dependencies in the details dialog with pip-safe quoted commands.
+- **Optional dependencies**: `optional_dependencies` entries get their own details section — missing ones read "Not installed" (amber) with a separate copy-install-command button. They never trigger the missing-dependency prompt, so an install is never gated on a package the plugin only needs for extras.
 - **State Preservation**: Backs up and restores plugin `settings.json` when overwriting an existing installation.
 - **Startup check**: On first launch asks whether to enable automatic update checks; thereafter runs a silent background check at startup if opted in.
 
@@ -55,6 +56,7 @@ Plugin downloads are a third request, one per plugin, made by `_download_chunked
 | `_needs_plugin_reload` | Set `True` after any successful install; cleared in `_on_finished` |
 | `_on_finished(result)` | Connected to `finished` signal — runs `discover_plugins` + menu rebuild once on close |
 | `_update_status_label(count)` | Updates the status label above Update All |
+| `PluginDetailsDialog._add_dependency_section(...)` | Renders one dependency block (required or optional) and returns its missing entries |
 | `_download_chunked(url, dest, on_progress)` | 8 KB chunked download; `on_progress(received, total) -> bool` callback |
 
 ## Module-Level Helpers (unit-testable)
@@ -83,4 +85,5 @@ The installer reads these constants from each plugin file (via the registry or A
 | `PLUGIN_SUPPORTED_PYTHON_VERSION` | Optional PEP-440-style specifier checked against the running Python (registry field `supported_python_version`; visible plugins default to `>=3.9, <3.15`) |
 | `PLUGIN_SUPPORTED_OS` | Optional list of `Windows` / `macOS` / `Linux` / `WSL` (registry field `supported_os`). Declare it only for a plugin that actually needs an OS-restricted backend; omitting it means every OS. |
 | `PLUGIN_TAGS` | List of category strings |
-| `PLUGIN_DEPENDENCIES` | List of PEP-508 requirement strings |
+| `PLUGIN_DEPENDENCIES` | List of PEP-508 requirement strings the plugin requires |
+| `PLUGIN_OPTIONAL_DEPENDENCIES` | Optional list of PEP-508 requirement strings for extra features (registry field `optional_dependencies`); shown in its own details section and never warned about on install |

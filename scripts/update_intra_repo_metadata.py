@@ -12,6 +12,7 @@ Usage:
 # the floor this repo's plugins declare support for.
 from __future__ import annotations
 
+import ast
 import hashlib
 import json
 import re
@@ -25,6 +26,7 @@ GENERIC_VERSION_RE = re.compile(r"^\s*VERSION\s*=\s*(['\"])(?P<version>.+?)\1", 
 DATE_VERSION_RE = re.compile(r"^\d{4}\.\d{2}\.\d{2}$")
 SUPPORTED_VER_RE = re.compile(r"^\s*PLUGIN_SUPPORTED_MOLEDITPY_VERSION\s*=\s*(['\"])(?P<ver>.+?)\1", re.MULTILINE)
 SUPPORTED_PY_RE = re.compile(r"^\s*PLUGIN_SUPPORTED_PYTHON_VERSION\s*=\s*(['\"])(?P<ver>.+?)\1", re.MULTILINE)
+OPTIONAL_DEPS_RE = re.compile(r"^\s*PLUGIN_OPTIONAL_DEPENDENCIES\s*=\s*(?P<val>\[.*?\])", re.MULTILINE | re.DOTALL)
 
 # Applied to visible plugins whose source does not declare
 # PLUGIN_SUPPORTED_PYTHON_VERSION.
@@ -91,6 +93,42 @@ def infer_supported_python_from_target(target: Path) -> str | None:
     return _infer_constant_from_target(target, SUPPORTED_PY_RE)
 
 
+def _read_optional_dependencies(path: Path) -> list | None:
+    """Read PLUGIN_OPTIONAL_DEPENDENCIES from one source file, if declared."""
+    try:
+        text = path.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return None
+    match = OPTIONAL_DEPS_RE.search(text)
+    if not match:
+        return None
+    try:
+        value = ast.literal_eval(match.group("val"))
+    except (ValueError, SyntaxError):
+        return None
+    if not isinstance(value, (list, tuple)):
+        return None
+    return [str(item).strip() for item in value if str(item).strip()]
+
+
+def infer_optional_dependencies_from_target(target: Path) -> list | None:
+    if target.suffix.lower() == ".py":
+        return _read_optional_dependencies(target)
+    if target.suffix.lower() == ".zip":
+        package_dir = target.parent / target.stem
+        if package_dir.exists() and package_dir.is_dir():
+            init_py = package_dir / "__init__.py"
+            if init_py.exists():
+                deps = _read_optional_dependencies(init_py)
+                if deps is not None:
+                    return deps
+            for py_path in sorted(package_dir.rglob("*.py")):
+                deps = _read_optional_dependencies(py_path)
+                if deps is not None:
+                    return deps
+    return None
+
+
 def read_package_version(package_dir: Path) -> str | None:
     init_py = package_dir / "__init__.py"
     if init_py.exists():
@@ -128,7 +166,24 @@ def find_target_json_files(repo_root: Path) -> list[Path]:
     return []
 
 
-def update_single_json(json_path: Path) -> tuple[int, int, int, int, int, list[str]]:
+def _set_after(entry: dict, anchor_key: str, key: str, value) -> None:
+    """Set entry[key], inserting it right after anchor_key when it is new.
+
+    Keeps the canonical registry field order instead of appending at the end.
+    """
+    if key in entry or anchor_key not in entry:
+        entry[key] = value
+        return
+    rebuilt = {}
+    for k, v in entry.items():
+        rebuilt[k] = v
+        if k == anchor_key:
+            rebuilt[key] = value
+    entry.clear()
+    entry.update(rebuilt)
+
+
+def update_single_json(json_path: Path) -> tuple[int, int, int, int, int, int, list[str]]:
     data = json.loads(json_path.read_text(encoding="utf-8-sig"))
     if not isinstance(data, list):
         raise ValueError(f"{json_path} root must be a list")
@@ -138,6 +193,7 @@ def update_single_json(json_path: Path) -> tuple[int, int, int, int, int, list[s
     updated_date = 0
     updated_supported = 0
     updated_supported_py = 0
+    updated_optional = 0
     missing = []
 
     # Every visible entry (external ones included) gets a python spec; the
@@ -182,9 +238,22 @@ def update_single_json(json_path: Path) -> tuple[int, int, int, int, int, list[s
             plugin["supported_python_version"] = new_supported_py
             updated_supported_py += 1
 
+        # Only written once a plugin declares the constant, so entries without
+        # optional packages keep the key absent.
+        new_optional = infer_optional_dependencies_from_target(target)
+        if (
+            new_optional is not None
+            and plugin.get("optional_dependencies") != new_optional
+        ):
+            if new_optional or "optional_dependencies" in plugin:
+                _set_after(
+                    plugin, "dependencies", "optional_dependencies", new_optional
+                )
+                updated_optional += 1
+
     with json_path.open("w", encoding="utf-8", newline="\n") as f:
         f.write(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
-    return updated_sha, updated_ver, updated_date, updated_supported, updated_supported_py, missing
+    return updated_sha, updated_ver, updated_date, updated_supported, updated_supported_py, updated_optional, missing
 
 
 def main() -> int:
@@ -199,15 +268,17 @@ def main() -> int:
     total_date = 0
     total_supported = 0
     total_supported_py = 0
+    total_optional = 0
     total_missing = 0
 
     for json_path in targets:
-        updated_sha, updated_ver, updated_date, updated_supported, updated_supported_py, missing = update_single_json(json_path)
+        updated_sha, updated_ver, updated_date, updated_supported, updated_supported_py, updated_optional, missing = update_single_json(json_path)
         total_sha += updated_sha
         total_ver += updated_ver
         total_date += updated_date
         total_supported += updated_supported
         total_supported_py += updated_supported_py
+        total_optional += updated_optional
         total_missing += len(missing)
         rel = json_path.relative_to(repo_root)
         print(f"[{rel}] Updated sha256: {updated_sha}")
@@ -215,6 +286,7 @@ def main() -> int:
         print(f"[{rel}] Updated lastUpdated: {updated_date}")
         print(f"[{rel}] Updated supported_moleditpy_version: {updated_supported}")
         print(f"[{rel}] Updated supported_python_version: {updated_supported_py}")
+        print(f"[{rel}] Updated optional_dependencies: {updated_optional}")
         print(f"[{rel}] Missing local targets: {len(missing)}")
         for item in missing:
             print(f"  - {item}")
@@ -224,6 +296,7 @@ def main() -> int:
     print(f"Total updated lastUpdated: {total_date}")
     print(f"Total updated supported_moleditpy_version: {total_supported}")
     print(f"Total updated supported_python_version: {total_supported_py}")
+    print(f"Total updated optional_dependencies: {total_optional}")
     print(f"Total missing local targets: {total_missing}")
     return 0
 

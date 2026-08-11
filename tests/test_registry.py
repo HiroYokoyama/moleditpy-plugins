@@ -148,6 +148,57 @@ def test_supported_os_tokens_are_canonical():
     assert not bad, "Invalid supported_os:\n" + "\n".join(bad)
 
 
+def test_optional_dependencies_are_well_formed():
+    """When present, optional_dependencies is a list of non-empty strings.
+
+    An optional package that is also required would make the installer show it
+    twice and warn about it, defeating the point of the field.
+    """
+    bad = []
+    for p in _load_registry():
+        if "optional_dependencies" not in p:
+            continue
+        value = p["optional_dependencies"]
+        if not isinstance(value, list):
+            bad.append(
+                f"{p['name']}: optional_dependencies must be a list, got {value!r}"
+            )
+            continue
+        if not all(isinstance(d, str) and d.strip() for d in value):
+            bad.append(f"{p['name']}: non-empty strings only, got {value!r}")
+        overlap = set(value) & set(p.get("dependencies") or [])
+        if overlap:
+            bad.append(
+                f"{p['name']}: {sorted(overlap)} listed as both required and optional"
+            )
+    assert not bad, "Invalid optional_dependencies:\n" + "\n".join(bad)
+
+
+def test_optional_dependencies_match_source_constant():
+    """A plugin declaring PLUGIN_OPTIONAL_DEPENDENCIES agrees with its registry entry."""
+    import ast
+
+    pat = re.compile(
+        r"^PLUGIN_OPTIONAL_DEPENDENCIES\s*=\s*(\[.*?\])", re.MULTILINE | re.DOTALL
+    )
+    mismatches = []
+    for p in _visible_plugins():
+        local = _resolve_local_path(p.get("downloadUrl", ""))
+        if local is None or not local.exists() or local.suffix != ".py":
+            continue
+        m = pat.search(local.read_text(encoding="utf-8", errors="ignore"))
+        if not m:
+            continue
+        declared = [
+            str(x).strip() for x in ast.literal_eval(m.group(1)) if str(x).strip()
+        ]
+        if declared != (p.get("optional_dependencies") or []):
+            mismatches.append(
+                f"{p['name']}: source={declared} registry={p.get('optional_dependencies')}"
+            )
+    assert not mismatches, "optional_dependencies mismatches:\n" + "\n".join(mismatches)
+
+
 def test_supported_os_matches_source_constant():
     """A plugin declaring PLUGIN_SUPPORTED_OS agrees with its registry entry."""
     import ast

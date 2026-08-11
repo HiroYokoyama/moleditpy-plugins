@@ -275,6 +275,38 @@ def test_extract_metadata_with_tags_and_dependencies():
     meta = register_remote_plugin.extract_metadata_from_code(code)
     assert meta["tags"] == ["Visualization", "Utility"]
     assert meta["dependencies"] == ["numpy", "rdkit"]
+    assert "optional_dependencies" not in meta
+
+
+def test_extract_metadata_with_optional_dependencies():
+    code = """
+    PLUGIN_NAME = "Advanced Tool"
+    PLUGIN_VERSION = "1.0.0"
+    PLUGIN_DEPENDENCIES = ["numpy"]
+    PLUGIN_OPTIONAL_DEPENDENCIES = ["matplotlib>=3.5", "pillow"]
+    """
+    meta = register_remote_plugin.extract_metadata_from_code(code)
+    assert meta["dependencies"] == ["numpy"]
+    assert meta["optional_dependencies"] == ["matplotlib>=3.5", "pillow"]
+
+
+def test_extract_optional_dependencies_regex_fallback():
+    """The regex path must not mistake PLUGIN_OPTIONAL_DEPENDENCIES for the required list."""
+    code = 'PLUGIN_OPTIONAL_DEPENDENCIES = "matplotlib, pillow"\n'
+    meta = register_remote_plugin.extract_metadata_from_code_regex(code)
+    assert meta["optional_dependencies"] == ["matplotlib", "pillow"]
+    assert "dependencies" not in meta
+
+
+def test_set_after_inserts_key_in_canonical_position():
+    entry = {"id": "x", "dependencies": ["numpy"], "downloadUrl": "u"}
+    register_remote_plugin._set_after(entry, "dependencies", "optional_dependencies", ["pillow"])
+    assert list(entry) == ["id", "dependencies", "optional_dependencies", "downloadUrl"]
+
+    # An existing key is updated in place, keeping its position.
+    register_remote_plugin._set_after(entry, "dependencies", "optional_dependencies", [])
+    assert list(entry) == ["id", "dependencies", "optional_dependencies", "downloadUrl"]
+    assert entry["optional_dependencies"] == []
 
 @patch('sys.exit')
 @patch('urllib.request.urlopen')

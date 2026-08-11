@@ -1112,12 +1112,13 @@ class TestUpdateSkipsDependencyWarning:
         inst._last_install_succeeded = False
         return inst
 
-    def _btn(self, target_file, deps):
+    def _btn(self, target_file, deps, optional_deps=None):
         props = {
             "plugin_name": "Demo",
             "download_url": "https://example.com/demo.zip",
             "target_file": target_file,
             "dependencies": deps,
+            "optional_dependencies": optional_deps or [],
         }
         btn = MagicMock()
         btn.property.side_effect = lambda k: props.get(k)
@@ -1163,6 +1164,51 @@ class TestUpdateSkipsDependencyWarning:
             inst.on_update_clicked()
 
         assert any("Missing Dependencies" in t for t in self._question_titles(q))
+
+    def test_missing_optional_dependency_does_not_warn(self, tmp_path, monkeypatch):
+        """An optional package is never a reason to interrupt a fresh install."""
+        inst = self._make_installer()
+        btn = self._btn(
+            str(tmp_path / "missing.py"),
+            [],
+            optional_deps=["definitely_missing_pkg_xyz"],
+        )
+        monkeypatch.setattr(inst, "sender", lambda: btn, raising=False)
+
+        with (
+            patch.object(
+                PI.QMessageBox,
+                "question",
+                return_value=PI.QMessageBox.StandardButton.No,
+            ) as q,
+            patch.object(PI, "PluginDetailsDialog"),
+        ):
+            inst.on_update_clicked()
+
+        assert not any("Missing Dependencies" in t for t in self._question_titles(q))
+
+    def test_optional_dependencies_reach_the_details_dialog(
+        self, tmp_path, monkeypatch
+    ):
+        inst = self._make_installer()
+        btn = self._btn(
+            str(tmp_path / "missing.py"),
+            ["definitely_missing_pkg_xyz"],
+            optional_deps=["optional_pkg_xyz"],
+        )
+        monkeypatch.setattr(inst, "sender", lambda: btn, raising=False)
+
+        with (
+            patch.object(
+                PI.QMessageBox,
+                "question",
+                return_value=PI.QMessageBox.StandardButton.No,
+            ),
+            patch.object(PI, "PluginDetailsDialog") as dlg,
+        ):
+            inst.on_update_clicked()
+
+        assert dlg.call_args.args[-1] == ["optional_pkg_xyz"]
 
 
 class _Item:
@@ -1699,6 +1745,21 @@ class TestPluginDetailsDialogActions:
         warn.assert_called_once()
         cmd = clipboard.setText.call_args[0][0]
         assert cmd == "pip install rdkit"
+
+    def test_copy_optional_install_command_uses_optional_list(self):
+        d = self._dialog(missing_deps=["numpy"])
+        d.missing_optional_deps = ["matplotlib>=3.5"]
+        clipboard = MagicMock()
+        with patch.object(PI.QApplication, "clipboard", return_value=clipboard):
+            with patch.object(PI.QMessageBox, "information"):
+                d.copy_optional_install_command()
+        assert clipboard.setText.call_args[0][0] == 'pip install "matplotlib>=3.5"'
+
+    def test_copy_optional_install_command_without_optional_deps_is_noop(self):
+        d = self._dialog(missing_deps=["numpy"])
+        with patch.object(PI.QApplication, "clipboard") as clip:
+            d.copy_optional_install_command()
+        clip.assert_not_called()
 
     def test_copy_install_all_all_unsafe_sets_nothing(self):
         d = self._dialog(missing_deps=["numpy;pkg", "rdkit&x"])

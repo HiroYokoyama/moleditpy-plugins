@@ -129,7 +129,16 @@ PLUGIN_SUPPORTED_OS = ["Windows", "macOS", "Linux", "WSL"]  # optional; declare 
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_NAME = "My Plugin"
 PLUGIN_DESCRIPTION = "One-line description."
+PLUGIN_DEPENDENCIES = ["numpy"]                   # optional; packages the plugin cannot run without
+PLUGIN_OPTIONAL_DEPENDENCIES = ["matplotlib"]     # optional; extra-feature packages, install never gated on them
 ```
+
+`PLUGIN_OPTIONAL_DEPENDENCIES` maps to the registry's `optional_dependencies`
+field (written only when non-empty). The Plugin Installer lists those packages
+in their own details section as "Installed" / "Not installed" and never raises
+the missing-dependency prompt for them — so an import the plugin needs at
+startup belongs in `PLUGIN_DEPENDENCIES`, and one behind a guarded
+`try: import …` belongs here.
 
 ### Entry points
 

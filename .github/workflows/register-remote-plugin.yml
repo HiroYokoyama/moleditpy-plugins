@@ -19,6 +19,10 @@ on:
         description: 'Comma-separated Python dependencies (only used for new plugins, e.g., numpy, rdkit)'
         required: false
         type: string
+      optional_dependencies:
+        description: 'Comma-separated optional Python dependencies (extra features only, e.g., pillow, matplotlib)'
+        required: false
+        type: string
       visible:
         description: 'Visibility of the plugin in the registry'
         required: true
@@ -80,6 +84,7 @@ jobs:
           PLUGIN_ID: ${{ github.event.inputs.plugin_id }}
           TAGS: ${{ github.event.inputs.tags }}
           DEPS: ${{ github.event.inputs.dependencies }}
+          OPT_DEPS: ${{ github.event.inputs.optional_dependencies }}
           VISIBLE: ${{ github.event.inputs.visible }}
           EXPECTED_SHA: ${{ github.event.inputs.expected_sha256 }}
           DRY_RUN: ${{ github.event.inputs.dry_run }}
@@ -97,6 +102,9 @@ jobs:
           fi
           if [ -n "$DEPS" ]; then
             ARGS="$ARGS --dependencies \"$DEPS\""
+          fi
+          if [ -n "$OPT_DEPS" ]; then
+            ARGS="$ARGS --optional-dependencies \"$OPT_DEPS\""
           fi
           if [ -n "$VISIBLE" ]; then
             ARGS="$ARGS --visible \"$VISIBLE\""

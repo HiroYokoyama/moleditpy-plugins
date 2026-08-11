@@ -58,7 +58,9 @@ def _no_qt_event_pump(monkeypatch):
 # ===========================================================================
 
 
-def _make_details_dialog(*, dependencies=None, local_info=None) -> object:
+def _make_details_dialog(
+    *, dependencies=None, local_info=None, optional_dependencies=None
+) -> object:
     """Create a PluginDetailsDialog with safe defaults."""
     return _plugin_installer.PluginDetailsDialog(
         None,
@@ -70,6 +72,9 @@ def _make_details_dialog(*, dependencies=None, local_info=None) -> object:
         local_info,
         None,
         ">=4.0.0",
+        "Unknown",
+        None,
+        optional_dependencies,
     )
 
 
@@ -101,6 +106,42 @@ class TestPluginDetailsDialog:
     def test_no_error_with_installed_dependency(self, qapp):
         d = _make_details_dialog(dependencies=["pytest"])
         assert d is not None
+        d.destroy()
+
+    def test_optional_dependencies_get_their_own_section(self, qapp):
+        from PyQt6.QtWidgets import QLabel, QPushButton
+
+        d = _make_details_dialog(
+            dependencies=["fake-nonexistent-pkg-xyz"],
+            optional_dependencies=["fake-optional-pkg-xyz"],
+        )
+        texts = [w.text() for w in d.findChildren(QLabel)]
+        assert any("Optional dependencies:" in t for t in texts)
+        assert any("Not installed" in t for t in texts)
+        assert d.missing_deps == ["fake-nonexistent-pkg-xyz"]
+        assert d.missing_optional_deps == ["fake-optional-pkg-xyz"]
+
+        # One copy button per section, distinguishable by label.
+        buttons = [b.text() for b in d.findChildren(QPushButton)]
+        assert "Copy install command (1)" in buttons
+        assert "Copy optional install command (1)" in buttons
+        d.destroy()
+
+    def test_installed_optional_dependency_needs_no_button(self, qapp):
+        from PyQt6.QtWidgets import QPushButton
+
+        d = _make_details_dialog(optional_dependencies=["pytest"])
+        assert d.missing_optional_deps == []
+        buttons = [b.text() for b in d.findChildren(QPushButton)]
+        assert not any("optional install" in b for b in buttons)
+        d.destroy()
+
+    def test_no_optional_section_without_optional_dependencies(self, qapp):
+        from PyQt6.QtWidgets import QLabel
+
+        d = _make_details_dialog(dependencies=["pytest"])
+        texts = [w.text() for w in d.findChildren(QLabel)]
+        assert not any("Optional dependencies:" in t for t in texts)
         d.destroy()
 
     def test_target_file_stored(self, qapp):

@@ -45,7 +45,7 @@ import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.07.31"
+PLUGIN_VERSION = "2026.08.12"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_SUPPORTED_PYTHON_VERSION = ">=3.9, <3.15"
 PLUGIN_SUPPORTED_OS = ["Windows", "macOS", "Linux", "WSL"]
@@ -648,10 +648,11 @@ class PluginDetailsDialog(QDialog):
         supported_version="Unknown",
         supported_python="Unknown",
         supported_os=None,
+        optional_dependencies=None,
     ):
         super().__init__(parent)
         self.setWindowTitle(f"{name} - Details")
-        self.resize(400, 395)
+        self.resize(400, 470 if optional_dependencies else 395)
         self.parent_installer = parent
         self.plugin_name = name
         self.target_file = target_file
@@ -687,42 +688,29 @@ class PluginDetailsDialog(QDialog):
         layout.addWidget(lbl_desc)
 
         if dependencies:
-            layout.addSpacing(10)
-            lbl_dep_header = QLabel("<b>Dependencies:</b>")
-            layout.addWidget(lbl_dep_header)
+            self.missing_deps = self._add_dependency_section(
+                layout,
+                "Dependencies:",
+                dependencies,
+                missing_word="Missing",
+                missing_color="red",
+                on_copy=self.copy_install_all_command,
+                button_label="Copy install command",
+            )
 
-            installed_deps = []
-            missing_deps = []
-            for dep in dependencies:
-                if check_dependency_satisfied(dep):
-                    installed_deps.append(dep)
-                else:
-                    missing_deps.append(dep)
-
-            dep_text_parts = []
-            if installed_deps:
-                text = ", ".join(installed_deps)
-                dep_text_parts.append(
-                    f"<span style='color:green'>{text} (Installed)</span>"
-                )
-            if missing_deps:
-                text = ", ".join(missing_deps)
-                dep_text_parts.append(
-                    f"<span style='color:red'>{text} (Missing)</span>"
-                )
-
-            lbl_deps = QLabel("<br>".join(dep_text_parts))
-            lbl_deps.setWordWrap(True)
-            layout.addWidget(lbl_deps)
-
-            if missing_deps:
-                self.missing_deps = missing_deps
-                btn_install_all = QPushButton(
-                    f"Copy install command ({len(missing_deps)})"
-                )
-                btn_install_all.setStyleSheet("color: blue;")
-                btn_install_all.clicked.connect(self.copy_install_all_command)
-                layout.addWidget(btn_install_all)
+        # Optional dependencies unlock extra features; a missing one is never a
+        # reason to warn on install, so this section is purely informational.
+        if optional_dependencies:
+            self.missing_optional_deps = self._add_dependency_section(
+                layout,
+                "Optional dependencies:",
+                optional_dependencies,
+                missing_word="Not installed",
+                missing_color="#b8860b",
+                on_copy=self.copy_optional_install_command,
+                button_label="Copy optional install command",
+                note="Only needed for the extra features listed in the description.",
+            )
 
         layout.addStretch()
 
@@ -741,15 +729,73 @@ class PluginDetailsDialog(QDialog):
         btn_layout.addWidget(btn_close)
         layout.addLayout(btn_layout)
 
+    def _add_dependency_section(
+        self,
+        layout,
+        header,
+        deps,
+        missing_word,
+        missing_color,
+        on_copy,
+        button_label,
+        note=None,
+    ):
+        """Render one dependency block and return its missing entries."""
+        layout.addSpacing(10)
+        layout.addWidget(QLabel(f"<b>{header}</b>"))
+
+        installed_deps = []
+        missing_deps = []
+        for dep in deps:
+            if check_dependency_satisfied(dep):
+                installed_deps.append(dep)
+            else:
+                missing_deps.append(dep)
+
+        dep_text_parts = []
+        if installed_deps:
+            text = ", ".join(installed_deps)
+            dep_text_parts.append(
+                f"<span style='color:green'>{text} (Installed)</span>"
+            )
+        if missing_deps:
+            text = ", ".join(missing_deps)
+            dep_text_parts.append(
+                f"<span style='color:{missing_color}'>{text} ({missing_word})</span>"
+            )
+
+        lbl_deps = QLabel("<br>".join(dep_text_parts))
+        lbl_deps.setWordWrap(True)
+        layout.addWidget(lbl_deps)
+
+        if missing_deps:
+            if note:
+                lbl_note = QLabel(f"<i>{note}</i>")
+                lbl_note.setWordWrap(True)
+                lbl_note.setStyleSheet("color: gray;")
+                layout.addWidget(lbl_note)
+            btn_install_all = QPushButton(f"{button_label} ({len(missing_deps)})")
+            btn_install_all.setStyleSheet("color: blue;")
+            btn_install_all.clicked.connect(on_copy)
+            layout.addWidget(btn_install_all)
+
+        return missing_deps
+
+    def copy_optional_install_command(self):
+        self._copy_install_command(getattr(self, "missing_optional_deps", None))
+
     def copy_install_all_command(self):
-        if not getattr(self, "missing_deps", None):
+        self._copy_install_command(getattr(self, "missing_deps", None))
+
+    def _copy_install_command(self, deps):
+        if not deps:
             return
         safe_deps = []
-        for d in self.missing_deps:
+        for d in deps:
             sanitized = sanitize_and_quote_dependency(d)
             if sanitized:
                 safe_deps.append(sanitized)
-        if len(safe_deps) != len(self.missing_deps):
+        if len(safe_deps) != len(deps):
             QMessageBox.warning(
                 self,
                 "Security Warning",
@@ -1333,6 +1379,10 @@ class PluginInstallerWindow(QDialog):
                     btn_action.setProperty(
                         "dependencies", remote_info.get("dependencies", [])
                     )
+                    btn_action.setProperty(
+                        "optional_dependencies",
+                        remote_info.get("optional_dependencies", []),
+                    )
                     if not row_data["is_installed"] and not row_data["is_compatible"]:
                         req_parts = []
                         if row_data["supported_ver_str"]:
@@ -1569,6 +1619,7 @@ class PluginInstallerWindow(QDialog):
         author = "Unknown"
         version = "Unknown"
         dependencies = []
+        optional_dependencies = []
         target_file = None
 
         if remote_info:
@@ -1576,6 +1627,7 @@ class PluginInstallerWindow(QDialog):
             author = remote_info.get("author", author)
             version = remote_info.get("version", version)
             dependencies = remote_info.get("dependencies", [])
+            optional_dependencies = remote_info.get("optional_dependencies", [])
 
         if local_info:
             if description == "No description available.":
@@ -1613,6 +1665,7 @@ class PluginInstallerWindow(QDialog):
             supported_version,
             supported_python,
             supported_os,
+            optional_dependencies,
         )
         dialog.exec()
 
@@ -1629,6 +1682,7 @@ class PluginInstallerWindow(QDialog):
         download_url = btn.property("download_url")
         target_file = btn.property("target_file")
         dependencies = btn.property("dependencies") or []
+        optional_dependencies = btn.property("optional_dependencies") or []
         missing_deps = []
         user_confirmed_intent = False
         self._last_install_succeeded = False
@@ -1766,6 +1820,7 @@ class PluginInstallerWindow(QDialog):
                         supported_version,
                         supported_python,
                         supported_os,
+                        optional_dependencies,
                     )
                     dialog.exec()
                     return
@@ -2126,6 +2181,7 @@ class PluginInstallerWindow(QDialog):
                         supported_version,
                         supported_python,
                         supported_os,
+                        optional_dependencies,
                     )
                     dialog.exec()
                 elif not self._batch_updating:

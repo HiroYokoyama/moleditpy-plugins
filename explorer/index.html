@@ -371,6 +371,12 @@
             font-family: monospace;
         }
 
+        .dep-chip.optional {
+            background: transparent;
+            border-style: dashed;
+            color: var(--text-muted);
+        }
+
         .tags {
             display: flex;
             flex-wrap: wrap;
@@ -522,6 +528,18 @@
             color: var(--primary);
             text-decoration: none;
             font-weight: 500;
+        }
+
+        footer .explorer-version {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 4px 12px;
+            border: 1px solid var(--footer-border);
+            border-radius: 999px;
+            font-family: monospace;
+            font-size: 0.75rem;
+            letter-spacing: 0.02em;
+            color: var(--text-muted);
         }
 
         footer a:hover {
@@ -781,9 +799,13 @@
                 target="_blank">https://github.com/HiroYokoyama/moleditpy-plugins/</a></p>
         <p>MoleditPy Application: <br> <a href="https://hiroyokoyama.github.io/python_molecular_editor/"
                 target="_blank">https://hiroyokoyama.github.io/python_molecular_editor/</a></p>
+        <p class="explorer-version" id="explorerVersion"></p>
     </footer>
 
     <script>
+        // Bump on every change to this page.
+        const EXPLORER_VERSION = "2026.08.12";
+
         let allPlugins = [];
 
         // 1. Fetch Data
@@ -906,6 +928,14 @@
                             Requires
                         </span>
                         ${plugin.dependencies.map(d => `<span class="dep-chip">${d}</span>`).join('')}
+                     </div>` : ''}
+                ${plugin.optional_dependencies && plugin.optional_dependencies.length > 0 ?
+                        `<div class="plugin-deps">
+                        <span class="deps-label" title="Only needed for optional features; the plugin runs without them">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                            Optional
+                        </span>
+                        ${plugin.optional_dependencies.map(d => `<span class="dep-chip optional">${d}</span>`).join('')}
                      </div>` : ''}
                 <div class="tags">${tagsHtml}</div>
                 <div class="actions">
@@ -1119,6 +1149,8 @@
 
         // Initialize
         document.addEventListener('DOMContentLoaded', async () => {
+            document.getElementById('explorerVersion').textContent = `Plugin Explorer v${EXPLORER_VERSION}`;
+
             await loadPlugins();
 
             // Apply search param if present
