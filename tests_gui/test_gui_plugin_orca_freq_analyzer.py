@@ -1208,10 +1208,15 @@ class TestLoadFromFileReal:
         mw.deleteLater()
 
 
+def _host_with_file(path):
+    """A stand-in shaped like MainWindow: the open file lives on init_manager."""
+    return SimpleNamespace(init_manager=SimpleNamespace(current_file_path=path))
+
+
 class TestRunReal:
-    def test_smart_open_uses_current_file_path(self, monkeypatch, tmp_path):
+    def test_smart_open_uses_the_hosts_open_file(self, monkeypatch, tmp_path):
         path = _write_orca_out(tmp_path)
-        mw = SimpleNamespace(current_file_path=path)
+        mw = _host_with_file(path)
         called = {}
         monkeypatch.setattr(
             _onp, "load_from_file", lambda m, f: called.update(mw=m, fname=f)
@@ -1219,10 +1224,33 @@ class TestRunReal:
         _onp.run(mw)
         assert called == {"mw": mw, "fname": path}
 
+    def test_smart_open_prefers_the_public_accessor(self, monkeypatch, tmp_path):
+        path = _write_orca_out(tmp_path)
+        mw = SimpleNamespace(
+            get_current_file_path=lambda: path,
+            init_manager=SimpleNamespace(current_file_path=None),
+        )
+        called = {}
+        monkeypatch.setattr(
+            _onp, "load_from_file", lambda m, f: called.update(fname=f)
+        )
+        _onp.run(mw)
+        assert called == {"fname": path}
+
+    def test_the_bare_attribute_is_not_where_the_path_lives(self, monkeypatch, tmp_path):
+        # mw.current_file_path is not a MainWindow proxy; reading it must not
+        # be mistaken for the open file.
+        path = _write_orca_out(tmp_path)
+        mw = SimpleNamespace(current_file_path=path)
+        monkeypatch.setattr(_onp, "load_from_file", MagicMock())
+        with patch.object(_onp.QFileDialog, "getOpenFileName", return_value=("", "")):
+            _onp.run(mw)
+        _onp.load_from_file.assert_not_called()
+
     def test_smart_open_skips_invalid_content(self, monkeypatch, tmp_path):
         bad = tmp_path / "not_orca.out"
         bad.write_text(_NOT_ORCA)
-        mw = SimpleNamespace(current_file_path=str(bad))
+        mw = _host_with_file(str(bad))
         called = {}
         monkeypatch.setattr(
             _onp, "load_from_file", lambda m, f: called.update(fname=f)
@@ -1232,7 +1260,7 @@ class TestRunReal:
         assert called == {}  # falls through to file dialog, which is cancelled
 
     def test_falls_back_to_file_dialog(self, monkeypatch, tmp_path):
-        mw = SimpleNamespace(current_file_path="")
+        mw = _host_with_file("")
         path = _write_orca_out(tmp_path)
         called = {}
         monkeypatch.setattr(
@@ -1243,7 +1271,7 @@ class TestRunReal:
         assert called["fname"] == path
 
     def test_file_dialog_cancel_is_noop(self, monkeypatch):
-        mw = SimpleNamespace(current_file_path="")
+        mw = _host_with_file("")
         called = {}
         monkeypatch.setattr(
             _onp, "load_from_file", lambda m, f: called.update(fname=f)
@@ -1253,7 +1281,7 @@ class TestRunReal:
         assert called == {}
 
     def test_file_dialog_invalid_selection_shows_warning(self, monkeypatch, tmp_path):
-        mw = SimpleNamespace(current_file_path="")
+        mw = _host_with_file("")
         bad = tmp_path / "not_orca.out"
         bad.write_text(_NOT_ORCA)
         calls = _no_block_msgbox(monkeypatch)
@@ -1265,8 +1293,8 @@ class TestRunReal:
         assert calls["warning"]
         _onp.load_from_file.assert_not_called()
 
-    def test_no_current_file_path_attr_falls_back_to_dialog(self, monkeypatch):
-        mw = SimpleNamespace()  # no current_file_path attribute at all
+    def test_a_host_without_the_managers_falls_back_to_dialog(self, monkeypatch):
+        mw = SimpleNamespace()  # neither accessor nor init_manager
         with patch.object(_onp.QFileDialog, "getOpenFileName", return_value=("", "")):
             _onp.run(mw)  # should not raise; falls through, dialog cancelled
 

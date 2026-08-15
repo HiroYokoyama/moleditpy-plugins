@@ -41,7 +41,7 @@ except ImportError:
 
 PLUGIN_NAME = "ORCA Freq Analyzer"
 PLUGIN_DESCRIPTION = "Parse ORCA output files and visualize vibrational frequencies."
-PLUGIN_VERSION = "2026.08.01"
+PLUGIN_VERSION = "2026.08.15"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_CONTEXT = None
@@ -627,11 +627,6 @@ class OrcaOutFreqAnalyzer(QWidget):
 
             # Reset SF if needed? Or keep user setting?
             # self.spin_sf.setValue(1.0)
-
-            # Update Main Window Context
-            if hasattr(self.mw, "current_file_path"):
-                self.mw.current_file_path = filename
-                PLUGIN_CONTEXT.refresh_ui()
 
         except (RuntimeError, AttributeError) as e:
             logging.exception("Failed to parse Output: %s", e)
@@ -1395,13 +1390,27 @@ def is_valid_orca_file(filepath):
         return False
 
 
+def get_host_file_path(mw):
+    """The file the host currently has open.
+
+    It lives on ``init_manager``; ``mw.current_file_path`` is not a proxy, so
+    reading it always came back empty.
+    """
+    getter = getattr(mw, "get_current_file_path", None)
+    if callable(getter):
+        return getter()
+    im = getattr(mw, "init_manager", None)
+    return getattr(im, "current_file_path", None) if im is not None else None
+
+
 def run(mw):
     # Smart Open Logic
-    if hasattr(mw, "current_file_path") and mw.current_file_path:
-        fpath = mw.current_file_path.lower()
+    current = get_host_file_path(mw)
+    if current:
+        fpath = current.lower()
         if fpath.endswith((".out", ".log")):
-            if is_valid_orca_file(mw.current_file_path):
-                load_from_file(mw, mw.current_file_path)
+            if is_valid_orca_file(current):
+                load_from_file(mw, current)
                 return
 
     fname, _ = QFileDialog.getOpenFileName(
