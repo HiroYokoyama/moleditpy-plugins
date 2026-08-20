@@ -1104,7 +1104,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "XYZ Editor",
-    "version": "2026.07.31",
+    "version": "2026.08.21",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A table-based editor for atom coordinates and symbols, supporting ghost atoms, adding and deleting atoms.",
@@ -1117,8 +1117,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/XYZ_Editor/xyz_editor.py",
-    "lastUpdated": "2026-07-31",
-    "sha256": "b7f1053194771e15db35968865cddd2f33b29e2d992ecdf08bbc3f9435a5ef54",
+    "lastUpdated": "2026-08-21",
+    "sha256": "1bc05b1bad6ba6bfcb82e9195ac1bc29e76d2fd6d73ee4af33e53258274765c6",
     "firstAppeared": "2026-01-03",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

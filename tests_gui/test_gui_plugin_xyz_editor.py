@@ -1141,3 +1141,228 @@ class TestXYZHighlightSelectedAtomsRealChem:
         item = win.table.item(0, 2)
         item.setText("9.0")
         win.context.plotter.add_mesh.assert_not_called()
+
+
+# ===========================================================================
+# Rectangle (box) selection in the 3D view
+# ===========================================================================
+
+
+class _FakeRenderer:
+    """Projects world coords to display coords with a fixed 100x scale."""
+
+    def __init__(self):
+        self._display = (0.0, 0.0, 0.0)
+
+    def SetWorldPoint(self, x, y, z, w):
+        self._display = (x * 100.0, y * 100.0, 0.0)
+
+    def WorldToDisplay(self):
+        pass
+
+    def GetDisplayPoint(self):
+        return self._display
+
+
+class _Sel:
+    def __init__(self, viewport):
+        self.viewport = viewport
+
+
+class _NoIrenPlotter:
+    """Plotter stub without pyvista's `iren` bookkeeping. A plain class, not a
+    MagicMock — a MagicMock answers every attribute, so the fallback never runs."""
+
+    def __init__(self):
+        self.style = object()
+        self.interactor = MagicMock()
+        self.interactor.GetInteractorStyle.return_value = self.style
+        self.enable_rectangle_picking = MagicMock()
+        self.disable_picking = MagicMock()
+
+
+def _two_fragment_mol():
+    """C0-C1 and a separate C2-C3, laid out along x at 0, 1, 5, 6."""
+    rw = _Chem.RWMol()
+    for _ in range(4):
+        rw.AddAtom(_Chem.Atom(6))
+    rw.AddBond(0, 1, _Chem.BondType.SINGLE)
+    rw.AddBond(2, 3, _Chem.BondType.SINGLE)
+    conf = _Chem.Conformer(4)
+    for i, x in enumerate([0.0, 1.0, 5.0, 6.0]):
+        conf.SetAtomPosition(i, _Point3D(x, 0.0, 0.0))
+    rw.AddConformer(conf, assignId=True)
+    mol = rw.GetMol()
+    mol.UpdatePropertyCache(strict=False)
+    return mol
+
+
+class TestXYZBoxSelectionToggle:
+    @pytest.fixture
+    def win(self, qapp):
+        ctx = _real_ctx(mol=_real_mol())
+        ctx.plotter = MagicMock()
+        w = _xyzrn.XYZEditorWindow(context=ctx)
+        yield w
+        w.box_select_btn.setChecked(False)
+        w.update_timer.stop()
+        w.destroy()
+
+    def test_button_starts_off(self, win):
+        assert win.box_select_btn.isCheckable()
+        assert not win.box_select_btn.isChecked()
+        assert win.box_select_btn.text() == "Box Selection: OFF"
+
+    def test_enabling_starts_rectangle_picking(self, win):
+        win.box_select_btn.setChecked(True)
+        win.context.plotter.enable_rectangle_picking.assert_called_once()
+        kwargs = win.context.plotter.enable_rectangle_picking.call_args[1]
+        assert kwargs["callback"] == win._on_rectangle_picked
+        assert kwargs["start"] is True
+        assert win.box_select_btn.text() == "Box Selection: ON"
+
+    def test_enabling_saves_original_style(self, win):
+        style = object()
+        win.context.plotter.interactor.GetInteractorStyle.return_value = style
+        win.box_select_btn.setChecked(True)
+        assert win._original_style is style
+
+    def test_disabling_restores_style_and_stops_picking(self, win):
+        style = object()
+        win.context.plotter.interactor.GetInteractorStyle.return_value = style
+        win.box_select_btn.setChecked(True)
+        win.box_select_btn.setChecked(False)
+        win.context.plotter.disable_picking.assert_called_once()
+        assert win.context.plotter.iren.style is style
+        assert win._original_style is None
+        assert win.box_select_btn.text() == "Box Selection: OFF"
+
+    def test_no_plotter_unchecks_button(self, qapp):
+        ctx = _real_ctx(mol=_real_mol())
+        ctx.plotter = None
+        w = _xyzrn.XYZEditorWindow(context=ctx)
+        w.box_select_btn.setChecked(True)
+        assert not w.box_select_btn.isChecked()
+        w.update_timer.stop()
+        w.destroy()
+
+    def test_close_leaves_box_mode(self, win):
+        win.box_select_btn.setChecked(True)
+        win.close()
+        assert not win.box_select_btn.isChecked()
+        win.context.plotter.disable_picking.assert_called_once()
+
+    def test_style_restore_falls_back_to_interactor(self, win):
+        """Older pyvista has no `iren` bookkeeping — fall back to the raw VTK call."""
+        plotter = _NoIrenPlotter()
+        win.context.plotter = plotter
+        win.box_select_btn.setChecked(True)
+        win.box_select_btn.setChecked(False)
+        plotter.interactor.SetInteractorStyle.assert_called_once_with(plotter.style)
+        assert win._original_style is None
+
+    def test_disable_picking_failure_is_survived(self, win):
+        win.box_select_btn.setChecked(True)
+        win.context.plotter.disable_picking.side_effect = RuntimeError("boom")
+        win.box_select_btn.setChecked(False)  # must not raise
+        assert win.box_select_btn.text() == "Box Selection: OFF"
+
+
+class TestXYZRectanglePicked:
+    @pytest.fixture
+    def win(self, qapp):
+        ctx = _real_ctx(mol=_real_mol())
+        ctx.plotter = MagicMock()
+        ctx.plotter.renderer = _FakeRenderer()
+        w = _xyzrn.XYZEditorWindow(context=ctx)
+        yield w
+        w.update_timer.stop()
+        w.destroy()
+
+    @staticmethod
+    def _rows(w):
+        return {i.row() for i in w.table.selectedIndexes()}
+
+    def test_box_selects_enclosed_atoms(self, win):
+        # atoms project to x = 0, 150, 250; the box stops short of the third
+        win._on_rectangle_picked(_Sel((-10, -10, 200, 50)))
+        assert self._rows(win) == {0, 1}
+
+    def test_box_selection_replaces_previous_without_ctrl(self, win):
+        win.table.selectRow(2)
+        win._on_rectangle_picked(_Sel((-10, -10, 100, 50)))
+        assert self._rows(win) == {0}
+
+    def test_ctrl_adds_to_existing_selection(self, win, monkeypatch):
+        from types import SimpleNamespace
+
+        ctrl = _xyzrn.Qt.KeyboardModifier.ControlModifier
+        monkeypatch.setattr(
+            _xyzrn,
+            "QApplication",
+            SimpleNamespace(keyboardModifiers=lambda: ctrl),
+        )
+        win.table.selectRow(2)
+        win._on_rectangle_picked(_Sel((-10, -10, 100, 50)))
+        assert self._rows(win) == {0, 2}
+
+    def test_tiny_box_clears_selection(self, win):
+        win.table.selectRow(1)
+        win._on_rectangle_picked(_Sel((10, 10, 20, 20)))
+        assert self._rows(win) == set()
+
+    def test_empty_box_leaves_selection_untouched(self, win):
+        win.table.selectRow(1)
+        win._on_rectangle_picked(_Sel((900, 900, 1200, 1200)))
+        assert self._rows(win) == {1}
+
+    def test_selection_without_viewport_is_ignored(self, win):
+        win.table.selectRow(1)
+        win._on_rectangle_picked(object())
+        assert self._rows(win) == {1}
+
+    def test_box_selection_highlights_in_3d(self, win):
+        win.context.plotter.reset_mock()
+        win._on_rectangle_picked(_Sel((-10, -10, 200, 50)))
+        win.context.plotter.add_mesh.assert_called()
+        assert win.context.plotter.add_mesh.call_args[1]["name"] == "xyz_selection"
+
+    def test_atoms_missing_from_table_are_ignored(self, win):
+        win.table.setRowCount(0)
+        win._on_rectangle_picked(_Sel((-10, -10, 200, 50)))
+        assert self._rows(win) == set()
+
+    def test_renderer_failure_is_survived(self, win):
+        win.table.selectRow(1)
+        win.context.plotter.renderer = MagicMock(
+            **{"SetWorldPoint.side_effect": RuntimeError("boom")}
+        )
+        win._on_rectangle_picked(_Sel((-10, -10, 200, 50)))  # must not raise
+        assert self._rows(win) == {1}
+
+    def test_no_molecule_is_ignored(self, win):
+        win.context.current_mol = None
+        win._on_rectangle_picked(_Sel((-10, -10, 200, 50)))  # must not raise
+        assert self._rows(win) == set()
+
+    def test_whole_molecule_mode_expands_to_fragment(self, qapp):
+        ctx = _real_ctx(mol=_two_fragment_mol())
+        ctx.plotter = MagicMock()
+        ctx.plotter.renderer = _FakeRenderer()
+        w = _xyzrn.XYZEditorWindow(context=ctx)
+        w.whole_mol_cb.setChecked(True)
+        # atoms project to x = 0, 100, 500, 600; the box catches only atom 0
+        w._on_rectangle_picked(_Sel((-10, -10, 50, 50)))
+        assert {i.row() for i in w.table.selectedIndexes()} == {0, 1}
+        w.update_timer.stop()
+        w.destroy()
+
+    def test_whole_molecule_mode_off_selects_single_atom(self, qapp):
+        ctx = _real_ctx(mol=_two_fragment_mol())
+        ctx.plotter = MagicMock()
+        ctx.plotter.renderer = _FakeRenderer()
+        w = _xyzrn.XYZEditorWindow(context=ctx)
+        w._on_rectangle_picked(_Sel((-10, -10, 50, 50)))
+        assert {i.row() for i in w.table.selectedIndexes()} == {0}
+        w.update_timer.stop()
+        w.destroy()

@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import (
     QCheckBox,
     QDoubleSpinBox,
     QLabel,
+    QApplication,
 )
 from PyQt6.QtCore import (
     Qt,
@@ -29,7 +30,7 @@ import logging
 
 
 PLUGIN_NAME = "XYZ Editor"
-PLUGIN_VERSION = "2026.07.31"
+PLUGIN_VERSION = "2026.08.21"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "A table-based editor for atom coordinates and symbols, supporting ghost atoms. Refactored for V3 API."
@@ -76,6 +77,7 @@ class XYZEditorWindow(QWidget):
         self.setWindowTitle("XYZ Editor")
         self.resize(600, 400)
         self._click_filter = None
+        self._original_style = None
         self.init_ui()
 
         # Register window for V3 lifecycle management
@@ -188,6 +190,17 @@ class XYZEditorWindow(QWidget):
             "Hold Ctrl to add/remove fragments or atoms from the selection."
         )
         select_layout.addWidget(self.whole_mol_cb)
+
+        self.box_select_btn = QPushButton("Box Selection: OFF")
+        self.box_select_btn.setCheckable(True)
+        self.box_select_btn.setToolTip(
+            "Drag a rectangle in the 3D view to select every atom inside it. "
+            "The selection is replaced unless Ctrl is held, which adds to it. "
+            "Camera rotation is disabled while this mode is on."
+        )
+        self.box_select_btn.toggled.connect(self.toggle_box_selection)
+        select_layout.addWidget(self.box_select_btn)
+
         select_layout.addStretch()
         layout.addLayout(select_layout)
 
@@ -362,12 +375,120 @@ class XYZEditorWindow(QWidget):
         sm.select(selection, flag)
         self.table.blockSignals(False)
 
+    def toggle_box_selection(self, checked):
+        """Turn PyVista's rectangle picker on/off on the host 3D view."""
+        plotter = self.context.plotter
+        if plotter is None or getattr(plotter, "interactor", None) is None:
+            if checked:
+                self.box_select_btn.setChecked(False)
+            return
+
+        if checked:
+            self.box_select_btn.setText("Box Selection: ON")
+            if self._original_style is None:
+                self._original_style = plotter.interactor.GetInteractorStyle()
+            plotter.enable_rectangle_picking(
+                callback=self._on_rectangle_picked,
+                show_message=False,
+                start=True,
+                color="red",
+            )
+        else:
+            self.box_select_btn.setText("Box Selection: OFF")
+            try:
+                plotter.disable_picking()
+            except (RuntimeError, AttributeError, TypeError) as _e:
+                logging.warning("[xyz_editor.py:toggle_box_selection] silenced: %s", _e)
+            if self._original_style is not None:
+                # Restore through pyvista's own bookkeeping so its later
+                # update_style() re-asserts this style instead of RubberBandPick.
+                try:
+                    plotter.iren.style = self._original_style
+                except (RuntimeError, AttributeError, TypeError):
+                    plotter.interactor.SetInteractorStyle(self._original_style)
+                self._original_style = None
+
+    def _on_rectangle_picked(self, selection):
+        """Select every atom whose projected position falls inside the dragged box."""
+        try:
+            viewport = getattr(selection, "viewport", None)
+            if viewport is None:
+                return
+            x0, y0, x1, y1 = viewport
+            x_min, x_max = min(x0, x1), max(x0, x1)
+            y_min, y_max = min(y0, y1), max(y0, y1)
+
+            # A near-zero drag is a click, not a box — clear instead of selecting all.
+            if abs(x_max - x_min) < 15 and abs(y_max - y_min) < 15:
+                self.unselect_all()
+                self.highlight_selected_atoms()
+                return
+
+            plotter = self.context.plotter
+            mol = self.context.current_mol
+            if plotter is None or not mol or not mol.GetNumConformers():
+                return
+            renderer = plotter.renderer
+            conf = mol.GetConformer()
+
+            hits = set()
+            for atom in mol.GetAtoms():
+                idx = atom.GetIdx()
+                pos = conf.GetAtomPosition(idx)
+                renderer.SetWorldPoint(float(pos.x), float(pos.y), float(pos.z), 1.0)
+                renderer.WorldToDisplay()
+                dx, dy = renderer.GetDisplayPoint()[:2]
+                if x_min <= dx <= x_max and y_min <= dy <= y_max:
+                    hits.add(idx)
+
+            if not hits:
+                return
+            if self.whole_mol_cb.isChecked():
+                expanded = set()
+                for idx in hits:
+                    expanded |= self._fragment_atom_indices(mol, idx)
+                hits = expanded
+
+            row_map = self._atom_index_to_row_map()
+            rows = {row_map[i] for i in hits if i in row_map}
+            if not rows:
+                return
+
+            ctrl_held = bool(
+                QApplication.keyboardModifiers() & Qt.KeyboardModifier.ControlModifier
+            )
+            model = self.table.model()
+            sm = self.table.selectionModel()
+            last_col = self.table.columnCount() - 1
+            sel = QItemSelection()
+            for r in sorted(rows):
+                sel.select(model.index(r, 0), model.index(r, last_col))
+            # _select_rows() would *deselect* on Ctrl when the anchor is already
+            # selected; a box drag should only ever add.
+            flag = (
+                QItemSelectionModel.SelectionFlag.Select
+                if ctrl_held
+                else QItemSelectionModel.SelectionFlag.ClearAndSelect
+            )
+            self.table.blockSignals(True)
+            sm.select(sel, flag)
+            self.table.blockSignals(False)
+
+            self.table.scrollTo(model.index(min(rows), 0))
+            self.highlight_selected_atoms()
+        except Exception as _e:
+            logging.warning("[xyz_editor.py:_on_rectangle_picked] silenced: %s", _e)
+
     def closeEvent(self, event):
         try:
             if self.update_timer.isActive():
                 self.update_timer.stop()
         except Exception as _e:
             logging.warning("[xyz_editor.py:closeEvent] stop timer silenced: %s", _e)
+        # Leaving box mode on would strand the host view in RubberBandPick,
+        # with camera rotation dead after the editor is gone.
+        if self.box_select_btn.isChecked():
+            self.box_select_btn.setChecked(False)
         self._disable_plotter_picking()
         plotter = self.context.plotter
         if plotter:
