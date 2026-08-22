@@ -45,7 +45,7 @@ import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.08.12"
+PLUGIN_VERSION = "2026.08.22"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_SUPPORTED_PYTHON_VERSION = ">=3.9, <3.15"
 PLUGIN_SUPPORTED_OS = ["Windows", "macOS", "Linux", "WSL"]
@@ -301,7 +301,17 @@ def initialize(context):
         dlg = PluginInstallerWindow(context.get_main_window())
         dlg.exec()
 
-    context.add_menu_action("Plugin/Plugin Installer...", _open_installer)
+    # pin="header" asks to sit next to "Plugin Manager...", above the first
+    # divider, rather than among the plugins this installs. MoleditPy < 4.8.1
+    # has no such parameter and would raise TypeError out of initialize(),
+    # dropping the plugin entirely; those releases recognise the installer by
+    # name instead, so plain registration lands in the same place.
+    try:
+        context.add_menu_action(
+            "Plugin/Plugin Installer...", _open_installer, pin="header"
+        )
+    except TypeError:
+        context.add_menu_action("Plugin/Plugin Installer...", _open_installer)
 
     mw = context.get_main_window()
     if not mw:

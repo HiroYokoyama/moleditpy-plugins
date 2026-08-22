@@ -277,6 +277,28 @@ class TestInitialize:
         path, _callback = ctx.add_menu_action.call_args[0]
         assert "Plugin Installer" in path
 
+    def test_asks_for_the_header_slot(self):
+        """MoleditPy >= 4.8.1 is told where this entry belongs."""
+        ctx = self._make_context()
+        PI.initialize(ctx)
+        assert ctx.add_menu_action.call_args.kwargs.get("pin") == "header"
+
+    def test_falls_back_when_pin_is_unsupported(self):
+        """An older host has no `pin` parameter and must not lose the plugin.
+
+        Letting the TypeError escape initialize() would drop the installer
+        entirely; those releases place it by name instead.
+        """
+        ctx = self._make_context()
+        ctx.add_menu_action.side_effect = [TypeError("unexpected keyword 'pin'"), None]
+
+        PI.initialize(ctx)
+
+        assert ctx.add_menu_action.call_count == 2
+        retry_args, retry_kwargs = ctx.add_menu_action.call_args
+        assert "pin" not in retry_kwargs
+        assert "Plugin Installer" in retry_args[0]
+
     def test_registers_menu_action_even_when_no_main_window(self):
         ctx = MagicMock()
         ctx.get_main_window.return_value = None
