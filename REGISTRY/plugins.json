@@ -2372,9 +2372,7 @@
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_group_template",
     "description": "Searchable palette of 310 substituent group abbreviations (Me, Ph, Boc, Ts, TBS, ...) placed with the 2D editor's user-template mode.",
     "tags": [
-      "2D Editor",
-      "Templates",
-      "Structure Drawing"
+      "Utility"
     ],
     "dependencies": [
       "PyQt6",
@@ -2401,12 +2399,9 @@
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_opsin_name_to_structure",
-    "description": "Convert systematic IUPAC names into structures offline with OPSIN and load them into the 2D editor.",
+    "description": "Convert systematic IUPAC names into structures offline with OPSIN and load them into the 2D editor. Requires Java Runtime (JRE).",
     "tags": [
-      "2D Editor",
-      "Name Resolution",
-      "IUPAC",
-      "Offline"
+      "Utility"
     ],
     "dependencies": [
       "py2opsin"
