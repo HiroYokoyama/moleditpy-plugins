@@ -2391,5 +2391,36 @@
       "Linux",
       "WSL"
     ]
+  },
+  {
+    "id": "opsin_name_to_structure_0.1.0",
+    "visible": true,
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
+    "name": "OPSIN Name to Structure",
+    "version": "0.1.0",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "projectUrl": "https://github.com/HiroYokoyama/moleditpy_opsin_name_to_structure",
+    "description": "Convert systematic IUPAC names into structures offline with OPSIN and load them into the 2D editor.",
+    "tags": [
+      "2D Editor",
+      "Name Resolution",
+      "IUPAC",
+      "Offline"
+    ],
+    "dependencies": [
+      "py2opsin"
+    ],
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_opsin_name_to_structure/releases/download/v0.1.0/opsin_name_to_structure_0.1.0.zip",
+    "lastUpdated": "2026-08-22",
+    "sha256": "09500adaa636935ee563dc9149f15080792bf79138d06a096af940f6f34e4fff",
+    "firstAppeared": "2026-08-22",
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   }
 ]
