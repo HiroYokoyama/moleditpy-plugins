@@ -2370,7 +2370,7 @@
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_group_template",
-    "description": "Palette of ~300 substituent group abbreviations (Me, Ph, Boc, Ts, TBS, ...) placed with the 2D editor's user-template mode.",
+    "description": "Searchable palette of 310 substituent group abbreviations (Me, Ph, Boc, Ts, TBS, ...) placed with the 2D editor's user-template mode.",
     "tags": [
       "2D Editor",
       "Templates",
