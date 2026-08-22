@@ -1074,6 +1074,13 @@ class TestParseValue:
         with pytest.raises(ValueError):
             MOD.parse_value("[3, ", [1, 2])
 
+    def test_null_original_falls_back_to_text(self):
+        # A null says nothing about the type, so free text is accepted.
+        assert MOD.parse_value("not json", None) == "not json"
+
+    def test_null_original_still_reads_json_when_it_can(self):
+        assert MOD.parse_value("42", None) == 42
+
     def test_new_key_falls_back_to_text(self):
         # A row added by the user starts with an empty-string original.
         assert MOD.parse_value("dark", "") == "dark"

@@ -28,7 +28,7 @@ from PyQt6.QtCore import Qt, QTimer
 import logging
 
 PLUGIN_NAME = "Settings Saver"
-PLUGIN_VERSION = "2026.08.22"
+PLUGIN_VERSION = "2026.08.23"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
     "Save, load, edit, and manage settings presets in a unified dialog."
@@ -335,20 +335,17 @@ def set_skipped_map(library, name, skipped):
         library.pop(SKIPPED_STORE_KEY, None)
 
 
-MISSING_VALUE_PLACEHOLDER = "(no value)"
-MISSING_VALUE_TIP = (
-    "This preset carries no value for this key, so it is skipped and cannot "
-    "be edited. Remove the key if you no longer need it."
+EMPTY_VALUE_TIP = (
+    "The value is empty, so this key is skipped. Type a value to apply it."
 )
-EMPTIED_VALUE_TIP = "The value is empty, so this key will be skipped."
 
 
 def is_missing_value(value):
     """True when a preset carries a key but no usable value for it.
 
     Presets written by older versions of this plugin -- or hand-edited JSON --
-    can hold keys whose value is null or blank. Those cannot be applied, so
-    they are treated as skipped and are not editable.
+    can hold keys whose value is null or blank. Such a row simply starts out
+    empty: it is skipped until the user types a value.
     """
     if value is None:
         return True
@@ -384,7 +381,9 @@ def parse_value(text, original):
     try:
         parsed = json.loads(text)
     except ValueError:
-        if original is None or isinstance(original, (dict, list, int, float)):
+        # A null original says nothing about the intended type, so -- like a
+        # freshly added key -- whatever was typed is taken as text.
+        if isinstance(original, (dict, list, int, float)):
             raise ValueError("expected valid JSON")
         return text
     if isinstance(original, (int, float)) and not isinstance(
@@ -546,16 +545,14 @@ class PresetEditorDialog(QDialog):
 
     Each row is one setting. The checkbox decides whether the key is applied
     (stored in the preset and pushed on load) or skipped (kept aside so the
-    application's current value survives a load of this preset). A row whose
-    value is left empty is always skipped; a key that arrives with no value at
-    all is skipped and locked, since there is nothing to apply or edit.
+    application's current value survives a load of this preset). A row with an
+    empty value -- whether it arrived that way or was cleared here -- is greyed
+    out and skipped, and goes back to normal as soon as a value is typed.
     """
 
     COL_INCLUDE = 0
     COL_KEY = 1
     COL_VALUE = 2
-
-    ROLE_MISSING = "missing"
 
 
     def __init__(self, name, settings, skipped=None, existing_names=(), parent=None):
@@ -594,9 +591,9 @@ class PresetEditorDialog(QDialog):
 
         hint = QLabel(
             "Checked keys are applied when the preset is loaded. Unchecked keys "
-            "are skipped and the current value is left untouched. A key with an "
-            "empty value is skipped as well; a key that carries no value at all "
-            "is greyed out and cannot be applied or edited."
+            "are skipped and the current value is left untouched. A key whose "
+            "value is empty is greyed out and skipped; type a value to bring it "
+            "back."
         )
         hint.setWordWrap(True)
         layout.addWidget(hint)
@@ -664,71 +661,54 @@ class PresetEditorDialog(QDialog):
         row = self.table.rowCount()
         self.table.insertRow(row)
         self._originals[key] = value
-        missing = is_missing_value(value)
+        empty = is_missing_value(value)
 
         check = QTableWidgetItem()
-        if missing:
-            # Nothing to apply -- the box is shown unchecked and locked.
-            check.setFlags(Qt.ItemFlag.ItemIsSelectable)
-            check.setCheckState(Qt.CheckState.Unchecked)
-        else:
-            check.setFlags(
-                Qt.ItemFlag.ItemIsUserCheckable
-                | Qt.ItemFlag.ItemIsEnabled
-                | Qt.ItemFlag.ItemIsSelectable
-            )
-            check.setCheckState(
-                Qt.CheckState.Checked if included else Qt.CheckState.Unchecked
-            )
+        check.setFlags(
+            Qt.ItemFlag.ItemIsUserCheckable
+            | Qt.ItemFlag.ItemIsEnabled
+            | Qt.ItemFlag.ItemIsSelectable
+        )
+        check.setCheckState(
+            Qt.CheckState.Checked if included and not empty else Qt.CheckState.Unchecked
+        )
         self.table.setItem(row, self.COL_INCLUDE, check)
 
         key_item = QTableWidgetItem(key)
         key_item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
-        if missing:
-            key_item.setData(Qt.ItemDataRole.UserRole, self.ROLE_MISSING)
-            key_item.setForeground(QColor("gray"))
-            key_item.setToolTip(MISSING_VALUE_TIP)
-            check.setToolTip(MISSING_VALUE_TIP)
         self.table.setItem(row, self.COL_KEY, key_item)
 
-        value_item = QTableWidgetItem("" if missing else format_value(value))
-        if missing:
-            value_item.setFlags(
-                Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
-            )
-            value_item.setText(MISSING_VALUE_PLACEHOLDER)
-            value_item.setForeground(QColor("gray"))
-            value_item.setToolTip(MISSING_VALUE_TIP)
+        # A value that arrived empty shows as an empty, editable cell; setting
+        # it fires itemChanged, which greys the row exactly as clearing one by
+        # hand does.
+        value_item = QTableWidgetItem("" if empty else format_value(value))
         self.table.setItem(row, self.COL_VALUE, value_item)
         return row
 
-    def is_missing_row(self, row):
-        """True when the row's key came in without a usable value."""
-        item = self.table.item(row, self.COL_KEY)
-        return bool(item) and item.data(Qt.ItemDataRole.UserRole) == self.ROLE_MISSING
+    def is_empty_row(self, row):
+        """True when the row currently holds no value, so it is skipped."""
+        item = self.table.item(row, self.COL_VALUE)
+        return not (item and item.text().strip())
 
     # -- Actions ----------------------------------------------------------
 
     def on_item_changed(self, item):
-        """Grey out (and uncheck) a value the user has just emptied."""
+        """Grey out an empty value, and restore the row once one is typed."""
         if self._updating or item.column() != self.COL_VALUE:
             return
         row = item.row()
-        if self.is_missing_row(row):
-            return
+        check = self.table.item(row, self.COL_INCLUDE)
         self._updating = True
         try:
             if not item.text().strip():
                 item.setForeground(QColor("gray"))
-                item.setToolTip(EMPTIED_VALUE_TIP)
-                check = self.table.item(row, self.COL_INCLUDE)
+                item.setToolTip(EMPTY_VALUE_TIP)
                 if check:
                     check.setCheckState(Qt.CheckState.Unchecked)
-                    check.setToolTip(EMPTIED_VALUE_TIP)
+                    check.setToolTip(EMPTY_VALUE_TIP)
             else:
                 item.setForeground(QBrush())
                 item.setToolTip("")
-                check = self.table.item(row, self.COL_INCLUDE)
                 if check:
                     check.setToolTip("")
         finally:
@@ -744,7 +724,8 @@ class PresetEditorDialog(QDialog):
     def set_all_checked(self, checked):
         state = Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked
         for row in range(self.table.rowCount()):
-            if self.table.isRowHidden(row) or self.is_missing_row(row):
+            # An empty row has nothing to apply, so Apply All leaves it alone.
+            if self.table.isRowHidden(row) or self.is_empty_row(row):
                 continue
             item = self.table.item(row, self.COL_INCLUDE)
             if item:
@@ -771,8 +752,7 @@ class PresetEditorDialog(QDialog):
             return
         row = self.add_row(key, value, True)
         self.table.setCurrentCell(row, self.COL_VALUE)
-        if not self.is_missing_row(row):
-            self.table.editItem(self.table.item(row, self.COL_VALUE))
+        self.table.editItem(self.table.item(row, self.COL_VALUE))
 
     def on_remove_key(self):
         row = self.table.currentRow()
@@ -801,12 +781,6 @@ class PresetEditorDialog(QDialog):
             if not key_item:
                 continue
             key = key_item.text()
-
-            # A key that arrived without a value is skipped, never parsed.
-            if self.is_missing_row(row):
-                skipped[key] = self._originals.get(key)
-                continue
-
             value_item = self.table.item(row, self.COL_VALUE)
             text = value_item.text() if value_item else ""
             check_item = self.table.item(row, self.COL_INCLUDE)
@@ -815,7 +789,8 @@ class PresetEditorDialog(QDialog):
                 and check_item.checkState() == Qt.CheckState.Checked
             )
 
-            # An emptied value carries no information -- always skipped.
+            # No value to apply -- skipped, and never parsed. The original
+            # is stashed so ticking the key again later restores it.
             if not text.strip():
                 skipped[key] = self._originals.get(key, "")
                 continue

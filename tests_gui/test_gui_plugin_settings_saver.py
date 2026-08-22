@@ -738,6 +738,19 @@ class TestPresetEditorDialog:
             dlg.on_add_key()
         assert dlg.table.rowCount() == before
 
+    def test_added_key_with_empty_value_starts_greyed(self, dlg):
+        with patch.object(
+            _settings.QInputDialog,
+            "getText",
+            side_effect=[("theme", True), ("", True)],
+        ):
+            dlg.on_add_key()
+        row = _row_of(dlg, "theme")
+        assert dlg.is_empty_row(row)
+        assert dlg.table.item(row, dlg.COL_VALUE).foreground().color().name() == (
+            QColor("gray").name()
+        )
+
     def test_added_key_with_empty_value_is_skipped(self, dlg):
         with patch.object(
             _settings.QInputDialog,
@@ -1093,7 +1106,7 @@ class TestSettingsSaverDialogEdit:
 
 
 class TestMissingValues:
-    """Keys that arrive without a value: skipped, greyed, locked."""
+    """Keys that arrive without a value: greyed and skipped, but not locked."""
 
     @pytest.fixture
     def dlg(self, qapp):
@@ -1101,56 +1114,79 @@ class TestMissingValues:
         yield d
         d.destroy()
 
-    def test_null_value_row_is_flagged_missing(self, dlg):
-        assert dlg.is_missing_row(_row_of(dlg, "gone"))
+    def test_null_value_row_reads_as_empty(self, dlg):
+        assert dlg.is_empty_row(_row_of(dlg, "gone"))
 
-    def test_blank_string_row_is_flagged_missing(self, dlg):
-        assert dlg.is_missing_row(_row_of(dlg, "blank"))
+    def test_blank_string_row_reads_as_empty(self, dlg):
+        assert dlg.is_empty_row(_row_of(dlg, "blank"))
 
-    def test_normal_row_is_not_flagged(self, dlg):
-        assert not dlg.is_missing_row(_row_of(dlg, "bg"))
+    def test_normal_row_does_not(self, dlg):
+        assert not dlg.is_empty_row(_row_of(dlg, "bg"))
 
-    def test_missing_row_value_is_not_editable(self, dlg):
+    def test_empty_row_value_stays_editable(self, dlg):
         item = dlg.table.item(_row_of(dlg, "gone"), dlg.COL_VALUE)
-        assert not (item.flags() & Qt.ItemFlag.ItemIsEditable)
+        assert item.flags() & Qt.ItemFlag.ItemIsEditable
 
-    def test_missing_row_checkbox_is_locked(self, dlg):
+    def test_empty_row_checkbox_stays_usable(self, dlg):
         item = dlg.table.item(_row_of(dlg, "gone"), dlg.COL_INCLUDE)
-        assert not (item.flags() & Qt.ItemFlag.ItemIsUserCheckable)
+        assert item.flags() & Qt.ItemFlag.ItemIsUserCheckable
         assert item.checkState() == Qt.CheckState.Unchecked
 
-    def test_missing_row_shows_a_placeholder(self, dlg):
+    def test_empty_row_shows_no_placeholder_text(self, dlg):
         item = dlg.table.item(_row_of(dlg, "gone"), dlg.COL_VALUE)
-        assert item.text() == _settings.MISSING_VALUE_PLACEHOLDER
+        assert item.text() == ""
 
-    def test_missing_row_is_greyed_out(self, dlg):
+    def test_empty_row_value_is_greyed_out(self, dlg):
+        item = dlg.table.item(_row_of(dlg, "gone"), dlg.COL_VALUE)
+        assert item.foreground().color().name() == QColor("gray").name()
+
+    def test_empty_row_has_a_tooltip(self, dlg):
         row = _row_of(dlg, "gone")
-        grey = QColor("gray").name()
-        assert dlg.table.item(row, dlg.COL_VALUE).foreground().color().name() == grey
-        assert dlg.table.item(row, dlg.COL_KEY).foreground().color().name() == grey
+        assert dlg.table.item(row, dlg.COL_VALUE).toolTip() == (
+            _settings.EMPTY_VALUE_TIP
+        )
 
-    def test_missing_row_has_a_tooltip(self, dlg):
-        row = _row_of(dlg, "gone")
-        tip = _settings.MISSING_VALUE_TIP
-        assert dlg.table.item(row, dlg.COL_VALUE).toolTip() == tip
-        assert dlg.table.item(row, dlg.COL_KEY).toolTip() == tip
-
-    def test_collect_skips_missing_rows_with_their_original_value(self, dlg):
+    def test_collect_skips_empty_rows_with_their_original_value(self, dlg):
         settings, skipped, errors = dlg.collect()
         assert errors == []
         assert settings == {"bg": "#FFF"}
         assert skipped == {"gone": None, "blank": "   "}
 
-    def test_placeholder_is_never_stored_as_a_value(self, dlg):
-        _, skipped, _ = dlg.collect()
-        assert _settings.MISSING_VALUE_PLACEHOLDER not in skipped.values()
-
-    def test_apply_all_cannot_revive_a_missing_row(self, dlg):
+    def test_apply_all_leaves_an_empty_row_alone(self, dlg):
         dlg.set_all_checked(True)
         settings, _, _ = dlg.collect()
         assert "gone" not in settings
 
-    def test_missing_row_can_still_be_removed(self, dlg):
+    def test_typing_a_value_revives_the_row(self, dlg):
+        _set_value(dlg, "gone", "42")
+        assert not dlg.is_empty_row(_row_of(dlg, "gone"))
+        _set_checked(dlg, "gone", True)
+        settings, skipped, errors = dlg.collect()
+        assert errors == []
+        assert settings["gone"] == 42
+        assert "gone" not in skipped
+
+    def test_reviving_a_row_clears_its_grey(self, dlg):
+        _set_value(dlg, "gone", "42")
+        item = dlg.table.item(_row_of(dlg, "gone"), dlg.COL_VALUE)
+        assert item.foreground().color().name() != QColor("gray").name()
+        assert item.toolTip() == ""
+
+    def test_revived_row_answers_to_apply_all(self, dlg):
+        _set_value(dlg, "gone", "42")
+        dlg.set_all_checked(True)
+        settings, _, _ = dlg.collect()
+        assert settings["gone"] == 42
+
+    def test_a_revived_null_row_parses_as_free_text(self, dlg):
+        # The original is None, so the typed text is taken verbatim.
+        _set_value(dlg, "gone", "not json")
+        _set_checked(dlg, "gone", True)
+        settings, _, errors = dlg.collect()
+        assert errors == []
+        assert settings["gone"] == "not json"
+
+    def test_empty_row_can_still_be_removed(self, dlg):
         dlg.table.setCurrentCell(_row_of(dlg, "gone"), dlg.COL_KEY)
         with patch.object(
             _settings.QMessageBox,
@@ -1160,7 +1196,7 @@ class TestMissingValues:
             dlg.on_remove_key()
         assert "gone" not in dlg.existing_keys()
 
-    def test_accept_is_not_blocked_by_missing_rows(self, dlg):
+    def test_accept_is_not_blocked_by_empty_rows(self, dlg):
         dlg.on_accept()
         assert dlg.result_settings == {"bg": "#FFF"}
 
@@ -1182,7 +1218,7 @@ class TestEmptiedValueFeedback:
     def test_emptying_a_value_adds_a_tooltip(self, dlg):
         _set_value(dlg, "bg", "")
         item = dlg.table.item(_row_of(dlg, "bg"), dlg.COL_VALUE)
-        assert item.toolTip() == _settings.EMPTIED_VALUE_TIP
+        assert item.toolTip() == _settings.EMPTY_VALUE_TIP
 
     def test_emptying_a_value_unchecks_the_row(self, dlg):
         _set_value(dlg, "bg", "")
@@ -1203,13 +1239,16 @@ class TestEmptiedValueFeedback:
         assert settings == {"bg": "#000"}
         assert skipped == {}
 
-    def test_locked_row_stays_locked_when_its_text_changes(self, qapp):
+    def test_a_row_that_arrived_empty_follows_the_same_rules(self, qapp):
         d = _editor({"gone": None})
         try:
+            assert d.is_empty_row(0)
             d.table.item(0, d.COL_VALUE).setText("x")
-            assert d.is_missing_row(0)
-            _, skipped, _ = d.collect()
-            assert skipped == {"gone": None}
+            assert not d.is_empty_row(0)
+            d.table.item(0, d.COL_INCLUDE).setCheckState(Qt.CheckState.Checked)
+            settings, skipped, _ = d.collect()
+            assert settings == {"gone": "x"}
+            assert skipped == {}
         finally:
             d.destroy()
 
