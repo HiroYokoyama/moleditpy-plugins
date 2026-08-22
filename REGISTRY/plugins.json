@@ -1327,10 +1327,10 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Settings Saver",
-    "version": "2026.07.31",
+    "version": "2026.08.22",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "Save, load, and manage settings presets in a unified dialog.",
+    "description": "Save, load, edit, and manage settings presets in a unified dialog.",
     "tags": [
       "Utility"
     ],
@@ -1338,8 +1338,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Settings_Saver/settings_saver.py",
-    "lastUpdated": "2026-07-31",
-    "sha256": "8166630e0ed8d3149299b5cdc464779f2d7a6adee0eed5226d0b62f50e1a5a97",
+    "lastUpdated": "2026-08-22",
+    "sha256": "4f6e20d871b98a6dc3b8224c6ce2d52eca5f9565bcedcf5f3427ddb80d1e161f",
     "firstAppeared": "2026-01-25",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

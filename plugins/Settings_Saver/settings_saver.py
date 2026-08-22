@@ -17,15 +17,22 @@ from PyQt6.QtWidgets import (
     QGroupBox,
     QCheckBox,
     QListWidgetItem,
+    QTableWidget,
+    QTableWidgetItem,
+    QHeaderView,
+    QLineEdit,
+    QDialogButtonBox,
 )
-from PyQt6.QtGui import QColor
+from PyQt6.QtGui import QColor, QBrush
 from PyQt6.QtCore import Qt, QTimer
 import logging
 
 PLUGIN_NAME = "Settings Saver"
-PLUGIN_VERSION = "2026.07.31"
+PLUGIN_VERSION = "2026.08.22"
 PLUGIN_AUTHOR = "HiroYokoyama"
-PLUGIN_DESCRIPTION = "Save, load, and manage settings presets in a unified dialog."
+PLUGIN_DESCRIPTION = (
+    "Save, load, edit, and manage settings presets in a unified dialog."
+)
 PLUGIN_CATEGORY = "Utility"
 PLUGIN_TAGS = ["Settings", "Utility"]
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
@@ -75,22 +82,25 @@ def enable_project_mode(mw):
     """Enable strict Project Mode protection."""
     EMBED_SETTINGS["enabled"] = True
 
+    if mw is None:
+        return
+
     # 1. Reset Global Dirty Flag
-    # # [DIRECT ACCESS] to settings_dirty flag
-    if hasattr(mw, "settings_dirty"):
-        mw.init_manager.settings_dirty = False
+    # # [DIRECT ACCESS] to settings_dirty flag (lives on init_manager)
+    _set_settings_dirty(mw, False)
 
     # 2. Alias initial_settings (Clean Exit Check)
-    # # [DIRECT ACCESS] to baseline settings
-    if hasattr(mw, "initial_settings"):
-        settings = _get_live_settings(mw)
-        if isinstance(settings, dict):
-            mw.initial_settings = settings.copy()
+    # # [DIRECT ACCESS] to baseline settings (lives on the main window)
+    settings = _get_live_settings(mw)
+    if isinstance(settings, dict):
+        mw.initial_settings = settings.copy()
 
     # 3. Monkey-patch save_settings (Strict Protection)
     # Even if User changes settings manually -> dirty=True.
     # We must BLOCK the actual save to file.
-    if hasattr(mw, "save_settings") and not hasattr(mw, "_original_save_settings"):
+    if hasattr(getattr(mw, "init_manager", None), "save_settings") and not hasattr(
+        mw, "_original_save_settings"
+    ):
         mw._original_save_settings = mw.init_manager.save_settings
 
         # Define proxy
@@ -107,6 +117,9 @@ def disable_project_mode(mw, restore_content=True):
     global ORIGINAL_SETTINGS
     EMBED_SETTINGS["enabled"] = False
 
+    if mw is None:
+        return
+
     # 1. Restore Original Save Function
     if hasattr(mw, "_original_save_settings"):
         mw.init_manager.save_settings = mw._original_save_settings
@@ -115,8 +128,7 @@ def disable_project_mode(mw, restore_content=True):
 
     # 2. Restore Original Settings Content & Alias
     if restore_content and ORIGINAL_SETTINGS is not None:
-        if hasattr(mw, "initial_settings"):
-            mw.initial_settings = ORIGINAL_SETTINGS.copy()
+        mw.initial_settings = ORIGINAL_SETTINGS.copy()
 
         settings = _get_live_settings(mw)
         if isinstance(settings, dict):
@@ -234,6 +246,19 @@ def _get_live_settings(mw):
     return None
 
 
+def _set_settings_dirty(mw, value):
+    """Set the app's settings-dirty flag on whichever object owns it."""
+    if mw is None:
+        return
+    try:
+        if hasattr(mw, "set_settings_dirty"):
+            mw.set_settings_dirty(value)
+        elif hasattr(mw, "init_manager"):
+            mw.init_manager.settings_dirty = value
+    except Exception as _e:
+        logging.warning("[settings_saver] could not set settings_dirty: %s", _e)
+
+
 def _sync_legacy_settings_alias(mw, settings):
     """Mirror settings to init_manager.settings when present and distinct."""
     try:
@@ -281,6 +306,94 @@ def save_library(data, parent_window=None):
             )
 
 
+# --- Preset Editing Helpers ---
+
+SKIPPED_STORE_KEY = "_SKIPPED"
+
+
+def get_skipped_map(library, name):
+    """Return the stash of keys the user deliberately excluded from a preset."""
+    store = library.get(SKIPPED_STORE_KEY)
+    if not isinstance(store, dict):
+        return {}
+    entry = store.get(name)
+    return dict(entry) if isinstance(entry, dict) else {}
+
+
+def set_skipped_map(library, name, skipped):
+    """Persist (or clear) the skipped-key stash for a preset."""
+    store = library.get(SKIPPED_STORE_KEY)
+    if not isinstance(store, dict):
+        store = {}
+    if skipped:
+        store[name] = dict(skipped)
+    else:
+        store.pop(name, None)
+    if store:
+        library[SKIPPED_STORE_KEY] = store
+    else:
+        library.pop(SKIPPED_STORE_KEY, None)
+
+
+MISSING_VALUE_PLACEHOLDER = "(no value)"
+MISSING_VALUE_TIP = (
+    "This preset carries no value for this key, so it is skipped and cannot "
+    "be edited. Remove the key if you no longer need it."
+)
+EMPTIED_VALUE_TIP = "The value is empty, so this key will be skipped."
+
+
+def is_missing_value(value):
+    """True when a preset carries a key but no usable value for it.
+
+    Presets written by older versions of this plugin -- or hand-edited JSON --
+    can hold keys whose value is null or blank. Those cannot be applied, so
+    they are treated as skipped and are not editable.
+    """
+    if value is None:
+        return True
+    if isinstance(value, str) and not value.strip():
+        return True
+    return False
+
+
+def format_value(value):
+    """Render a settings value as editable text."""
+    if isinstance(value, str):
+        return value
+    try:
+        return json.dumps(value, ensure_ascii=False)
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def parse_value(text, original):
+    """Parse edited text back into a value, keeping the original type where sane.
+
+    Raises ValueError when the text cannot be read as the original's type.
+    """
+    if isinstance(original, str):
+        return text
+    if isinstance(original, bool):
+        lowered = text.strip().lower()
+        if lowered in ("true", "1", "yes"):
+            return True
+        if lowered in ("false", "0", "no"):
+            return False
+        raise ValueError("expected true or false")
+    try:
+        parsed = json.loads(text)
+    except ValueError:
+        if original is None or isinstance(original, (dict, list, int, float)):
+            raise ValueError("expected valid JSON")
+        return text
+    if isinstance(original, (int, float)) and not isinstance(
+        parsed, (int, float)
+    ):
+        raise ValueError("expected a number")
+    return parsed
+
+
 # --- Logic for Hot Loading (Reused) ---
 
 
@@ -293,16 +406,9 @@ def apply_settings_hot(mw):
         _sync_legacy_settings_alias(mw, settings)
 
         # Mark settings dirty, UNLESS we are in Project Mode
-        try:
-            # # [DIRECT ACCESS] to settings_dirty
-            if EMBED_SETTINGS.get("enabled", False):
-                # If enabled, logic is handled by enable_project_mode elsewhere,
-                # but ensure dirty flag is cleared here too just in case
-                mw.init_manager.settings_dirty = False
-            else:
-                mw.init_manager.settings_dirty = True
-        except Exception as _e:
-            logging.warning("[settings_saver.py:269] silenced: %s", _e)
+        # If Project Mode is on, the dirty flag is owned by enable_project_mode;
+        # clear it here too so the clean-exit check stays quiet.
+        _set_settings_dirty(mw, not EMBED_SETTINGS.get("enabled", False))
 
         # 1. Apply 3D Settings
         try:
@@ -432,6 +538,335 @@ def refresh_loaded_scene(mw, defer=False):
         _do_refresh()
 
 
+# --- Preset Editor Dialog ---
+
+
+class PresetEditorDialog(QDialog):
+    """Edit the contents of a single saved preset.
+
+    Each row is one setting. The checkbox decides whether the key is applied
+    (stored in the preset and pushed on load) or skipped (kept aside so the
+    application's current value survives a load of this preset). A row whose
+    value is left empty is always skipped; a key that arrives with no value at
+    all is skipped and locked, since there is nothing to apply or edit.
+    """
+
+    COL_INCLUDE = 0
+    COL_KEY = 1
+    COL_VALUE = 2
+
+    ROLE_MISSING = "missing"
+
+
+    def __init__(self, name, settings, skipped=None, existing_names=(), parent=None):
+        super().__init__(parent)
+        self.original_name = name
+        self.existing_names = {n for n in existing_names if n != name}
+        self.result_name = name
+        self.result_settings = {}
+        self.result_skipped = {}
+        self._originals = {}
+        self._updating = False
+
+        self.setWindowTitle(f"Edit Preset - {name}")
+        self.resize(640, 560)
+        self.init_ui()
+        self.populate(settings or {}, skipped or {})
+
+    # -- UI ---------------------------------------------------------------
+
+    def init_ui(self):
+        layout = QVBoxLayout(self)
+
+        name_row = QHBoxLayout()
+        name_row.addWidget(QLabel("Preset name:"))
+        self.edit_name = QLineEdit(self.original_name)
+        name_row.addWidget(self.edit_name)
+        layout.addLayout(name_row)
+
+        filter_row = QHBoxLayout()
+        filter_row.addWidget(QLabel("Filter:"))
+        self.edit_filter = QLineEdit()
+        self.edit_filter.setPlaceholderText("Type to filter keys...")
+        self.edit_filter.textChanged.connect(self.apply_filter)
+        filter_row.addWidget(self.edit_filter)
+        layout.addLayout(filter_row)
+
+        hint = QLabel(
+            "Checked keys are applied when the preset is loaded. Unchecked keys "
+            "are skipped and the current value is left untouched. A key with an "
+            "empty value is skipped as well; a key that carries no value at all "
+            "is greyed out and cannot be applied or edited."
+        )
+        hint.setWordWrap(True)
+        layout.addWidget(hint)
+
+        self.table = QTableWidget(0, 3)
+        self.table.setHorizontalHeaderLabels(["Apply", "Key", "Value"])
+        self.table.verticalHeader().setVisible(False)
+        self.table.setSelectionBehavior(
+            QAbstractItemView.SelectionBehavior.SelectRows
+        )
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(
+            self.COL_INCLUDE, QHeaderView.ResizeMode.ResizeToContents
+        )
+        header.setSectionResizeMode(
+            self.COL_KEY, QHeaderView.ResizeMode.ResizeToContents
+        )
+        header.setSectionResizeMode(self.COL_VALUE, QHeaderView.ResizeMode.Stretch)
+        self.table.itemChanged.connect(self.on_item_changed)
+        layout.addWidget(self.table)
+
+        btn_row = QHBoxLayout()
+        self.btn_add = QPushButton("Add Key...")
+        self.btn_add.clicked.connect(self.on_add_key)
+        btn_row.addWidget(self.btn_add)
+
+        self.btn_remove = QPushButton("Remove Key")
+        self.btn_remove.setToolTip("Drop the selected key from this preset entirely.")
+        self.btn_remove.clicked.connect(self.on_remove_key)
+        btn_row.addWidget(self.btn_remove)
+
+        self.btn_check_all = QPushButton("Apply All")
+        self.btn_check_all.clicked.connect(lambda: self.set_all_checked(True))
+        btn_row.addWidget(self.btn_check_all)
+
+        self.btn_check_none = QPushButton("Skip All")
+        self.btn_check_none.clicked.connect(lambda: self.set_all_checked(False))
+        btn_row.addWidget(self.btn_check_none)
+
+        btn_row.addStretch()
+        layout.addLayout(btn_row)
+
+        self.buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok
+            | QDialogButtonBox.StandardButton.Cancel
+        )
+        self.buttons.accepted.connect(self.on_accept)
+        self.buttons.rejected.connect(self.reject)
+        layout.addWidget(self.buttons)
+
+    def populate(self, settings, skipped):
+        rows = [(key, settings[key], True) for key in sorted(settings.keys())]
+        rows += [
+            (key, skipped[key], False)
+            for key in sorted(skipped.keys())
+            if key not in settings
+        ]
+
+        self.table.setRowCount(0)
+        self._originals.clear()
+        for key, value, included in rows:
+            self.add_row(key, value, included)
+
+    def add_row(self, key, value, included=True):
+        row = self.table.rowCount()
+        self.table.insertRow(row)
+        self._originals[key] = value
+        missing = is_missing_value(value)
+
+        check = QTableWidgetItem()
+        if missing:
+            # Nothing to apply -- the box is shown unchecked and locked.
+            check.setFlags(Qt.ItemFlag.ItemIsSelectable)
+            check.setCheckState(Qt.CheckState.Unchecked)
+        else:
+            check.setFlags(
+                Qt.ItemFlag.ItemIsUserCheckable
+                | Qt.ItemFlag.ItemIsEnabled
+                | Qt.ItemFlag.ItemIsSelectable
+            )
+            check.setCheckState(
+                Qt.CheckState.Checked if included else Qt.CheckState.Unchecked
+            )
+        self.table.setItem(row, self.COL_INCLUDE, check)
+
+        key_item = QTableWidgetItem(key)
+        key_item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+        if missing:
+            key_item.setData(Qt.ItemDataRole.UserRole, self.ROLE_MISSING)
+            key_item.setForeground(QColor("gray"))
+            key_item.setToolTip(MISSING_VALUE_TIP)
+            check.setToolTip(MISSING_VALUE_TIP)
+        self.table.setItem(row, self.COL_KEY, key_item)
+
+        value_item = QTableWidgetItem("" if missing else format_value(value))
+        if missing:
+            value_item.setFlags(
+                Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
+            )
+            value_item.setText(MISSING_VALUE_PLACEHOLDER)
+            value_item.setForeground(QColor("gray"))
+            value_item.setToolTip(MISSING_VALUE_TIP)
+        self.table.setItem(row, self.COL_VALUE, value_item)
+        return row
+
+    def is_missing_row(self, row):
+        """True when the row's key came in without a usable value."""
+        item = self.table.item(row, self.COL_KEY)
+        return bool(item) and item.data(Qt.ItemDataRole.UserRole) == self.ROLE_MISSING
+
+    # -- Actions ----------------------------------------------------------
+
+    def on_item_changed(self, item):
+        """Grey out (and uncheck) a value the user has just emptied."""
+        if self._updating or item.column() != self.COL_VALUE:
+            return
+        row = item.row()
+        if self.is_missing_row(row):
+            return
+        self._updating = True
+        try:
+            if not item.text().strip():
+                item.setForeground(QColor("gray"))
+                item.setToolTip(EMPTIED_VALUE_TIP)
+                check = self.table.item(row, self.COL_INCLUDE)
+                if check:
+                    check.setCheckState(Qt.CheckState.Unchecked)
+                    check.setToolTip(EMPTIED_VALUE_TIP)
+            else:
+                item.setForeground(QBrush())
+                item.setToolTip("")
+                check = self.table.item(row, self.COL_INCLUDE)
+                if check:
+                    check.setToolTip("")
+        finally:
+            self._updating = False
+
+    def apply_filter(self, text):
+        needle = text.strip().lower()
+        for row in range(self.table.rowCount()):
+            item = self.table.item(row, self.COL_KEY)
+            key = item.text().lower() if item else ""
+            self.table.setRowHidden(row, bool(needle) and needle not in key)
+
+    def set_all_checked(self, checked):
+        state = Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked
+        for row in range(self.table.rowCount()):
+            if self.table.isRowHidden(row) or self.is_missing_row(row):
+                continue
+            item = self.table.item(row, self.COL_INCLUDE)
+            if item:
+                item.setCheckState(state)
+
+    def existing_keys(self):
+        keys = []
+        for row in range(self.table.rowCount()):
+            item = self.table.item(row, self.COL_KEY)
+            if item:
+                keys.append(item.text())
+        return keys
+
+    def on_add_key(self):
+        key, ok = QInputDialog.getText(self, "Add Key", "Setting key:")
+        if not ok or not key.strip():
+            return
+        key = key.strip()
+        if key in self.existing_keys():
+            QMessageBox.warning(self, "Duplicate Key", f"'{key}' is already listed.")
+            return
+        value, ok = QInputDialog.getText(self, "Add Key", f"Value for '{key}':")
+        if not ok:
+            return
+        row = self.add_row(key, value, True)
+        self.table.setCurrentCell(row, self.COL_VALUE)
+        if not self.is_missing_row(row):
+            self.table.editItem(self.table.item(row, self.COL_VALUE))
+
+    def on_remove_key(self):
+        row = self.table.currentRow()
+        if row < 0:
+            QMessageBox.information(self, "Remove Key", "Select a row first.")
+            return
+        key_item = self.table.item(row, self.COL_KEY)
+        key = key_item.text() if key_item else ""
+        reply = QMessageBox.question(
+            self,
+            "Confirm Remove",
+            f"Remove '{key}' from this preset?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self.table.removeRow(row)
+            self._originals.pop(key, None)
+
+    def collect(self):
+        """Read the table back. Returns (settings, skipped, errors)."""
+        settings = {}
+        skipped = {}
+        errors = []
+        for row in range(self.table.rowCount()):
+            key_item = self.table.item(row, self.COL_KEY)
+            if not key_item:
+                continue
+            key = key_item.text()
+
+            # A key that arrived without a value is skipped, never parsed.
+            if self.is_missing_row(row):
+                skipped[key] = self._originals.get(key)
+                continue
+
+            value_item = self.table.item(row, self.COL_VALUE)
+            text = value_item.text() if value_item else ""
+            check_item = self.table.item(row, self.COL_INCLUDE)
+            included = (
+                check_item is not None
+                and check_item.checkState() == Qt.CheckState.Checked
+            )
+
+            # An emptied value carries no information -- always skipped.
+            if not text.strip():
+                skipped[key] = self._originals.get(key, "")
+                continue
+
+            try:
+                value = parse_value(text, self._originals.get(key, ""))
+            except ValueError as e:
+                errors.append(f"{key}: {e}")
+                continue
+
+            if included:
+                settings[key] = value
+            else:
+                skipped[key] = value
+        return settings, skipped, errors
+
+    def on_accept(self):
+        name = self.edit_name.text().strip()
+        if not name:
+            QMessageBox.warning(self, "Invalid Name", "Preset name cannot be empty.")
+            return
+        if name.startswith("_"):
+            QMessageBox.warning(
+                self, "Invalid Name", "Preset names cannot start with underscore '_'."
+            )
+            return
+        if name in self.existing_names:
+            reply = QMessageBox.question(
+                self,
+                "Overwrite?",
+                f"'{name}' already exists. Overwrite it?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+
+        settings, skipped, errors = self.collect()
+        if errors:
+            QMessageBox.warning(
+                self,
+                "Invalid Values",
+                "These values could not be read:\n\n" + "\n".join(errors[:10]),
+            )
+            return
+
+        self.result_name = name
+        self.result_settings = settings
+        self.result_skipped = skipped
+        self.accept()
+
+
 # --- Main Dialog Class ---
 
 
@@ -484,6 +919,14 @@ class SettingsSaverDialog(QDialog):
         )
         right_layout.addWidget(self.btn_set_global)
 
+        self.btn_edit = QPushButton("Edit...")
+        self.btn_edit.clicked.connect(self.on_edit)
+        self.btn_edit.setToolTip(
+            "Edit the selected preset: change values, rename, and choose which "
+            "keys are applied or skipped."
+        )
+        right_layout.addWidget(self.btn_edit)
+
         self.btn_delete = QPushButton("Delete")
         self.btn_delete.clicked.connect(self.on_delete)
         right_layout.addWidget(self.btn_delete)
@@ -501,15 +944,11 @@ class SettingsSaverDialog(QDialog):
         project_layout.addWidget(self.chk_embed)
 
         # Enforce dirty flag logic on open
-        if EMBED_SETTINGS["enabled"] and hasattr(
-            self.main_window.edit_actions_manager, "settings_dirty"
-        ):
-            self.main_window.edit_actions_manager.settings_dirty = False
-
-            if hasattr(self.main_window.init_manager, "initial_settings"):
-                self.main_window.init_manager.initial_settings = (
-                    self.main_window.init_manager.settings.copy()
-                )
+        if EMBED_SETTINGS["enabled"] and self.main_window is not None:
+            _set_settings_dirty(self.main_window, False)
+            live = _get_live_settings(self.main_window)
+            if isinstance(live, dict):
+                self.main_window.initial_settings = live.copy()
 
         # --- Plugin Preference: Always Save ---
         self.chk_always_save = QCheckBox("Default: Always enable for new projects")
@@ -593,17 +1032,19 @@ class SettingsSaverDialog(QDialog):
 
     def on_embed_toggled(self, checked):
         self.btn_set_global.setEnabled(checked)
-        if hasattr(self.main_window.edit_actions_manager, "settings_dirty"):
-            if checked:
-                # ENABLE PROJECT MODE (Strict Protection)
-                enable_project_mode(self.main_window)
-            else:
-                # DISABLE PROJECT MODE (Restore)
-                disable_project_mode(self.main_window, restore_content=False)
-                # Note: We don't restore content here because user might just want to
-                # stop saving to project but keep current look.
-                # However, we DO want to restore the save_settings function.
-                self.main_window.edit_actions_manager.settings_dirty = True
+        EMBED_SETTINGS["enabled"] = checked
+        if self.main_window is None:
+            return
+        if checked:
+            # ENABLE PROJECT MODE (Strict Protection)
+            enable_project_mode(self.main_window)
+        else:
+            # DISABLE PROJECT MODE (Restore)
+            disable_project_mode(self.main_window, restore_content=False)
+            # Note: We don't restore content here because user might just want to
+            # stop saving to project but keep current look.
+            # However, we DO want to restore the save_settings function.
+            _set_settings_dirty(self.main_window, True)
 
     def on_load(self):
         items = self.preset_list.selectedItems()
@@ -620,13 +1061,74 @@ class SettingsSaverDialog(QDialog):
         else:
             settings_data = self.library.get(name, None)
 
-        if settings_data and hasattr(self.main_window.init_manager, "settings"):
-            self.main_window.init_manager.settings.update(settings_data)
+        live = _get_live_settings(self.main_window)
+        if isinstance(settings_data, dict) and isinstance(live, dict):
+            live.update(settings_data)
+            _sync_legacy_settings_alias(self.main_window, live)
             apply_settings_hot(self.main_window)
             refresh_loaded_scene(self.main_window)
             self.context.show_status_message(f"Preset '{name}' loaded.")
         else:
             QMessageBox.warning(self, "Error", "Could not load settings.")
+
+    def on_edit(self):
+        """Open the per-key editor for the selected preset."""
+        items = self.preset_list.selectedItems()
+        if not items:
+            QMessageBox.warning(self, "Warning", "Please select a preset to edit.")
+            return
+
+        item = items[0]
+        name = item.text()
+        is_project = self.is_project_preset(item)
+
+        if is_project:
+            data = PROJECT_PRESETS.get(name)
+            skipped = {}
+            existing = list(PROJECT_PRESETS.keys())
+        else:
+            data = self.library.get(name)
+            skipped = get_skipped_map(self.library, name)
+            existing = [k for k in self.library if not k.startswith("_")]
+
+        if not isinstance(data, dict):
+            QMessageBox.warning(self, "Error", f"Preset '{name}' has no settings.")
+            return
+
+        editor = PresetEditorDialog(
+            name,
+            data,
+            skipped=skipped,
+            existing_names=existing,
+            parent=self,
+        )
+        if editor.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        new_name = editor.result_name
+
+        if is_project:
+            if new_name != name:
+                PROJECT_PRESETS.pop(name, None)
+            PROJECT_PRESETS[new_name] = editor.result_settings
+        else:
+            if new_name != name:
+                self.library.pop(name, None)
+                set_skipped_map(self.library, name, {})
+            self.library[new_name] = editor.result_settings
+            set_skipped_map(self.library, new_name, editor.result_skipped)
+            save_library(self.library, self)
+
+        self.refresh_list()
+        self.select_preset(new_name, project=is_project)
+        self.context.show_status_message(f"Preset '{new_name}' updated.")
+
+    def select_preset(self, name, project=False):
+        """Reselect a preset by name after the list has been rebuilt."""
+        for it in self.preset_list.findItems(name, Qt.MatchFlag.MatchExactly):
+            if self.is_project_preset(it) == project:
+                self.preset_list.setCurrentItem(it)
+                return
 
     def on_save_as_global_default(self):
         """Overwrite the main application's global settings.json."""
@@ -650,19 +1152,21 @@ class SettingsSaverDialog(QDialog):
             save_func = None
             if hasattr(mw, "_original_save_settings"):
                 save_func = mw._original_save_settings
-            elif hasattr(mw.init_manager, "save_settings"):
+            elif hasattr(getattr(mw, "init_manager", None), "save_settings"):
                 save_func = mw.init_manager.save_settings
 
             if save_func:
                 save_func()  # Execute actual save
 
-                # Also update our "Initial Settings" baseline so the app doesn't think we have diffs anymore
-                if hasattr(mw.init_manager, "settings"):
+                # Also update our "Initial Settings" baseline so the app doesn't
+                # think we have diffs anymore
+                live = _get_live_settings(mw)
+                if isinstance(live, dict):
                     global ORIGINAL_SETTINGS
-                    if hasattr(mw.init_manager, "initial_settings"):
-                        mw.initial_settings = mw.init_manager.settings.copy()
-                    # Update our plugin's backup too so "Reset" goes back to this new default
-                    ORIGINAL_SETTINGS = mw.init_manager.settings.copy()
+                    mw.initial_settings = live.copy()
+                    # Update our plugin's backup too so "Reset" goes back to
+                    # this new default
+                    ORIGINAL_SETTINGS = live.copy()
 
                 QMessageBox.information(
                     self, "Success", "Global settings has been updated."
@@ -699,16 +1203,13 @@ class SettingsSaverDialog(QDialog):
             if reply != QMessageBox.StandardButton.Yes:
                 return
 
-        if hasattr(self.main_window.init_manager, "settings"):
-            self.library[name] = self.main_window.init_manager.settings.copy()
+        live = _get_live_settings(self.main_window)
+        if isinstance(live, dict):
+            self.library[name] = live.copy()
+            set_skipped_map(self.library, name, {})
             save_library(self.library, self)
             self.refresh_list()
-            # Select the new item
-            items = self.preset_list.findItems(name, Qt.MatchFlag.MatchExactly)
-            for it in items:
-                if not self.is_project_preset(it):
-                    self.preset_list.setCurrentItem(it)
-                    break
+            self.select_preset(name, project=False)
             QMessageBox.information(self, "Saved", f"Global preset '{name}' saved.")
         else:
             QMessageBox.warning(self, "Error", "Main window missing 'settings'.")
@@ -735,7 +1236,8 @@ class SettingsSaverDialog(QDialog):
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply == QMessageBox.StandardButton.Yes:
-            del self.library[name]
+            self.library.pop(name, None)
+            set_skipped_map(self.library, name, {})
             save_library(self.library, self)
             self.refresh_list()
 
@@ -751,6 +1253,10 @@ class SettingsSaverDialog(QDialog):
             data = PROJECT_PRESETS.get(name, None)
         else:
             data = self.library.get(name, None)
+
+        if not isinstance(data, dict):
+            QMessageBox.warning(self, "Error", f"Preset '{name}' has no settings.")
+            return
 
         path, _ = QFileDialog.getSaveFileName(
             self, "Export Preset", f"{name}.json", "JSON Files (*.json)"
@@ -813,6 +1319,7 @@ class SettingsSaverDialog(QDialog):
                         continue  # Skip config
                     if isinstance(v, dict):
                         self.library[k] = v
+                        set_skipped_map(self.library, k, {})
                         count += 1
                 save_library(self.library, self)
                 self.refresh_list()
@@ -836,6 +1343,7 @@ class SettingsSaverDialog(QDialog):
                         )
                         return
                     self.library[name] = data
+                    set_skipped_map(self.library, name, {})
                     save_library(self.library, self)
                     self.refresh_list()
                     QMessageBox.information(self, "Imported", f"Imported '{name}'.")

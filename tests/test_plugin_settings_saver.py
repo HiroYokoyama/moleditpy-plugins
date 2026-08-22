@@ -726,6 +726,7 @@ def _fake_dialog_self(mw=None, library=None):
         context=make_context(),
         btn_set_global=MagicMock(),
         refresh_list=MagicMock(),
+        select_preset=MagicMock(),
         is_project_preset=lambda item: item.data(None) == "project",
     )
 
@@ -787,7 +788,17 @@ class TestSettingsSaverDialogMethods:
         self_ = _fake_dialog_self(mw=mw)
         fn(self_, False)
         assert MOD.EMBED_SETTINGS["enabled"] is False
-        assert mw.edit_actions_manager.settings_dirty is True
+        mw.set_settings_dirty.assert_called_with(True)
+
+    def test_on_embed_toggled_tolerates_missing_main_window(self):
+        fn = _extract_dialog_method("on_embed_toggled")
+        self_ = _fake_dialog_self(mw=None)
+        self_.main_window = None
+        try:
+            fn(self_, True)
+            assert MOD.EMBED_SETTINGS["enabled"] is True
+        finally:
+            MOD.EMBED_SETTINGS["enabled"] = False
 
     def test_on_save_adds_new_preset(self):
         fn = _extract_dialog_method("on_save")
@@ -839,10 +850,14 @@ class TestSettingsSaverDialogMethods:
     def test_on_load_applies_library_preset(self):
         fn = _extract_dialog_method("on_load")
         mw = MagicMock()
+        mw.init_manager.settings = {"x": 0, "y": 9}
         self_ = _fake_dialog_self(mw=mw, library={"P1": {"x": 1}})
         self_.preset_list = _FakePresetList([_FakeListItem("P1")])
-        fn(self_)
-        mw.init_manager.settings.update.assert_called_once_with({"x": 1})
+        with patch.object(MOD, "apply_settings_hot"), patch.object(
+            MOD, "refresh_loaded_scene"
+        ):
+            fn(self_)
+        assert mw.init_manager.settings == {"x": 1, "y": 9}
 
     def test_on_load_missing_preset_warns(self):
         fn = _extract_dialog_method("on_load")
@@ -970,3 +985,95 @@ class TestOpenManager:
         monkeypatch.setattr(MOD, "get_plugin_data_path", lambda: data_path)
         ctx = make_context()
         MOD.open_manager(ctx)  # must not raise
+
+
+# ---------------------------------------------------------------------------
+# Preset editing helpers
+# ---------------------------------------------------------------------------
+
+class TestSkippedMap:
+    def test_missing_store_returns_empty(self):
+        assert MOD.get_skipped_map({}, "P1") == {}
+
+    def test_roundtrip(self):
+        lib = {}
+        MOD.set_skipped_map(lib, "P1", {"a": 1})
+        assert lib[MOD.SKIPPED_STORE_KEY] == {"P1": {"a": 1}}
+        assert MOD.get_skipped_map(lib, "P1") == {"a": 1}
+
+    def test_empty_map_clears_entry_and_store(self):
+        lib = {}
+        MOD.set_skipped_map(lib, "P1", {"a": 1})
+        MOD.set_skipped_map(lib, "P1", {})
+        assert MOD.SKIPPED_STORE_KEY not in lib
+
+    def test_other_presets_survive_a_clear(self):
+        lib = {}
+        MOD.set_skipped_map(lib, "P1", {"a": 1})
+        MOD.set_skipped_map(lib, "P2", {"b": 2})
+        MOD.set_skipped_map(lib, "P1", {})
+        assert MOD.get_skipped_map(lib, "P1") == {}
+        assert MOD.get_skipped_map(lib, "P2") == {"b": 2}
+
+    def test_store_key_is_underscore_prefixed(self):
+        # refresh_list() and export filter on the underscore prefix.
+        assert MOD.SKIPPED_STORE_KEY.startswith("_")
+
+    def test_non_dict_store_is_ignored(self):
+        assert MOD.get_skipped_map({MOD.SKIPPED_STORE_KEY: "junk"}, "P1") == {}
+
+
+class TestFormatValue:
+    def test_string_is_returned_raw(self):
+        assert MOD.format_value("#FFFFFF") == "#FFFFFF"
+
+    def test_number_is_json(self):
+        assert MOD.format_value(1.5) == "1.5"
+
+    def test_bool_is_json(self):
+        assert MOD.format_value(True) == "true"
+
+    def test_list_is_json(self):
+        assert MOD.format_value([1, 2]) == "[1, 2]"
+
+    def test_unserialisable_falls_back_to_str(self):
+        assert MOD.format_value(object) == str(object)
+
+
+class TestParseValue:
+    def test_string_original_keeps_text_verbatim(self):
+        assert MOD.parse_value("1.5", "old") == "1.5"
+
+    def test_bool_true_words(self):
+        for text in ("true", "True", "1", "yes"):
+            assert MOD.parse_value(text, False) is True
+
+    def test_bool_false_words(self):
+        for text in ("false", "False", "0", "no"):
+            assert MOD.parse_value(text, True) is False
+
+    def test_bool_rejects_garbage(self):
+        with pytest.raises(ValueError):
+            MOD.parse_value("maybe", True)
+
+    def test_number_original_parses_number(self):
+        assert MOD.parse_value("2.5", 1.0) == 2.5
+
+    def test_number_original_rejects_text(self):
+        with pytest.raises(ValueError):
+            MOD.parse_value("big", 1.0)
+
+    def test_number_original_rejects_json_of_wrong_type(self):
+        with pytest.raises(ValueError):
+            MOD.parse_value('"12"', 1)
+
+    def test_list_original_parses_json(self):
+        assert MOD.parse_value("[3, 4]", [1, 2]) == [3, 4]
+
+    def test_list_original_rejects_bad_json(self):
+        with pytest.raises(ValueError):
+            MOD.parse_value("[3, ", [1, 2])
+
+    def test_new_key_falls_back_to_text(self):
+        # A row added by the user starts with an empty-string original.
+        assert MOD.parse_value("dark", "") == "dark"
