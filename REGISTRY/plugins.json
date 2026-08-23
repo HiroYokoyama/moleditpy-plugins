@@ -2417,5 +2417,36 @@
       "Linux",
       "WSL"
     ]
+  },
+  {
+    "id": "camera_position_setter",
+    "visible": true,
+    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
+    "name": "Camera Position Setter",
+    "version": "1.1.0",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "projectUrl": "https://github.com/HiroYokoyama/moleditpy_camera_position_setter",
+    "description": "Precise 3D camera controller, axis view aligner, and viewpoint manager for MoleditPy.",
+    "tags": [
+      "Visualization",
+      "Utility"
+    ],
+    "dependencies": [
+      "pyvista",
+      "PyQt6",
+      "numpy"
+    ],
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_camera_position_setter/releases/download/v1.1.0/camera_position_setter.py",
+    "lastUpdated": "2026-08-23",
+    "sha256": "247217ce5bf129325f15b7683ecb35a8cba1f7d65ade2ffa53f914492730de8b",
+    "firstAppeared": "2026-08-23",
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   }
 ]
