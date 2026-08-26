@@ -2423,7 +2423,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Camera Position Setter",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_camera_position_setter",
@@ -2437,9 +2437,9 @@
       "PyQt6",
       "numpy"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_camera_position_setter/releases/download/v1.1.0/camera_position_setter.py",
-    "lastUpdated": "2026-08-23",
-    "sha256": "247217ce5bf129325f15b7683ecb35a8cba1f7d65ade2ffa53f914492730de8b",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_camera_position_setter/releases/download/v1.2.0/camera_position_setter.py",
+    "lastUpdated": "2026-08-26",
+    "sha256": "fc4f22b61d83ac2440ce91e9a6264d814330c90aac960e2f80f330b1c5109abe",
     "firstAppeared": "2026-08-23",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
