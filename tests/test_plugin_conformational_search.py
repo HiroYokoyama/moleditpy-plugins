@@ -219,6 +219,10 @@ class TestConfSearchUpdateTable:
 class _FakeFF:
     def __init__(self, energy):
         self._energy = energy
+        self.initialized = 0
+
+    def Initialize(self):
+        self.initialized += 1
 
     def CalcEnergy(self):
         return self._energy
@@ -241,11 +245,13 @@ class _FakeAllChem:
     def ETKDGv3(self):
         if self.etkdg_raises:
             raise RuntimeError("boom")
-        return SimpleNamespace(useSmallRingTorsions=None)
+        return SimpleNamespace(useSmallRingTorsions=None, clearConfs=True)
 
     def EmbedMultipleConfs(self, mol, numConfs=None, params=None):
         self.embed_calls.append((numConfs, params))
-        return self.embed_return
+        # Embedding runs in batches; hand out the next slice each call.
+        start = sum(n for n, _ in self.embed_calls[:-1])
+        return self.embed_return[start : start + (numConfs or 0)]
 
     def MMFFOptimizeMolecule(self, mol, confId=None):
         self.mmff_optimize_calls.append(confId)
@@ -276,109 +282,232 @@ class _FakeConfSearchMol:
         return SimpleNamespace(GetAtomPosition=lambda i: (0.0, 0.0, 0.0))
 
 
-def _run_search_fn(allchem, qmessage=None):
+class _SignalRecorder:
+    """Stands in for a pyqtSignal: records every emit()."""
+
+    def __init__(self):
+        self.emissions = []
+
+    def emit(self, *args):
+        self.emissions.append(args)
+
+
+def _worker_run_fn(allchem, chem=None):
+    return extract_function(
+        CONF_SEARCH_PATH,
+        "ConformerSearchWorker",
+        "run",
+        {
+            "Chem": chem
+            or SimpleNamespace(AssignStereochemistryFrom3D=lambda m: None),
+            "AllChem": allchem,
+        },
+    )
+
+
+def _optimize_fn(allchem):
+    return extract_function(
+        CONF_SEARCH_PATH, "ConformerSearchWorker", "_optimize", {"AllChem": allchem}
+    )
+
+
+def _worker_self(allchem, mol=None, ff="MMFF94", num_confs=30, stop_after=None):
+    """Fake worker instance.
+
+    ``stop_after``: flip the stop flag once that many conformers have been
+    optimized, standing in for the user hitting Stop mid-run.
+    """
+    optimize = _optimize_fn(allchem)
+    self_ = SimpleNamespace(
+        mol=mol if mol is not None else _FakeConfSearchMol(),
+        num_confs=num_confs,
+        force_field=ff,
+        _stop=False,
+        EMBED_BATCH=5,
+        progress=_SignalRecorder(),
+        failed=_SignalRecorder(),
+        completed=_SignalRecorder(),
+    )
+    optimized = []
+
+    def _optimize(mol_calc, cid):
+        optimized.append(cid)
+        if stop_after is not None and len(optimized) >= stop_after:
+            self_._stop = True
+        return optimize(self_, mol_calc, cid)
+
+    self_._optimize = _optimize
+    self_.optimized = optimized
+    return self_
+
+
+class TestConfSearchWorkerRun:
+    def test_embed_called_in_batches_with_expected_params(self):
+        allchem = _FakeAllChem()
+        fn = _worker_run_fn(allchem)
+        self_ = _worker_self(allchem)
+        fn(self_)
+        num_confs, params = allchem.embed_calls[0]
+        assert num_confs == 5  # EMBED_BATCH, so Stop is honoured mid-embedding
+        assert params.useSmallRingTorsions is True
+        assert params.clearConfs is False  # batches accumulate
+
+    def test_mmff_energies_sorted_ascending(self):
+        allchem = _FakeAllChem()
+        fn = _worker_run_fn(allchem)
+        mol = _FakeConfSearchMol()
+        self_ = _worker_self(allchem, mol=mol, ff="MMFF94")
+        fn(self_)
+        assert len(self_.completed.emissions) == 1
+        emitted_mol, results, was_stopped = self_.completed.emissions[0]
+        assert emitted_mol is mol
+        assert [e for e, _ in results] == [3.0, 5.0, 8.0]
+        assert was_stopped is False
+
+    def test_uff_branch_uses_uff_functions_only(self):
+        allchem = _FakeAllChem()
+        fn = _worker_run_fn(allchem)
+        self_ = _worker_self(allchem, ff="UFF")
+        fn(self_)
+        assert allchem.uff_optimize_calls == [0, 1, 2]
+        assert allchem.mmff_optimize_calls == []
+        _, results, _ = self_.completed.emissions[0]
+        assert [e for e, _ in results] == [0.5, 1.0, 2.0]
+
+    def test_embed_failure_reports_failure(self):
+        allchem = _FakeAllChem()
+        allchem.embed_return = []
+        fn = _worker_run_fn(allchem)
+        self_ = _worker_self(allchem)
+        fn(self_)
+        assert self_.completed.emissions == []
+        assert self_.failed.emissions == [("Failed to generate conformers.",)]
+
+    def test_all_optimizations_fail_reports_force_field(self):
+        allchem = _FakeAllChem()
+        allchem.mmff_optimize_return = -1
+        fn = _worker_run_fn(allchem)
+        self_ = _worker_self(allchem)
+        fn(self_)
+        assert self_.completed.emissions == []
+        assert "MMFF94" in self_.failed.emissions[0][0]
+
+    def test_exception_is_reported_not_raised(self):
+        allchem = _FakeAllChem()
+        allchem.etkdg_raises = True
+        fn = _worker_run_fn(allchem)
+        self_ = _worker_self(allchem)
+        fn(self_)  # must not raise
+        assert self_.failed.emissions[0][0].startswith("Error during search:")
+
+    def test_progress_is_emitted_per_conformer(self):
+        allchem = _FakeAllChem()
+        fn = _worker_run_fn(allchem)
+        self_ = _worker_self(allchem)
+        fn(self_)
+        optimizing = [e for e in self_.progress.emissions if "Optimizing" in e[2]]
+        assert [done for done, _, _ in optimizing] == [1, 2, 3]
+        assert all(total == 3 for _, total, _ in optimizing)
+
+
+class TestConfSearchWorkerStop:
+    def test_stop_before_embedding_completes_with_no_results(self):
+        allchem = _FakeAllChem()
+        fn = _worker_run_fn(allchem)
+        self_ = _worker_self(allchem)
+        self_._stop = True
+        fn(self_)
+        assert allchem.embed_calls == []
+        assert self_.failed.emissions == []
+        assert self_.completed.emissions == [(self_.mol, [], True)]
+
+    def test_stop_mid_optimization_keeps_conformers_found_so_far(self):
+        allchem = _FakeAllChem()
+        fn = _worker_run_fn(allchem)
+        self_ = _worker_self(allchem, stop_after=2)
+        fn(self_)
+        # Third conformer never optimized; the first two survive.
+        assert self_.optimized == [0, 1]
+        _, results, was_stopped = self_.completed.emissions[0]
+        assert [cid for _, cid in results] == [1, 0]  # sorted by energy 3.0, 5.0
+        assert was_stopped is True
+
+    def test_stop_with_zero_optimized_reports_no_failure(self):
+        allchem = _FakeAllChem()
+        fn = _worker_run_fn(allchem)
+        self_ = _worker_self(allchem, stop_after=1)
+        allchem.mmff_optimize_return = -1  # the one attempt also fails
+        fn(self_)
+        assert self_.failed.emissions == []
+        _, results, was_stopped = self_.completed.emissions[0]
+        assert results == []
+        assert was_stopped is True
+
+
+# ---------------------------------------------------------------------------
+# run_search: dialog-side guards and worker hand-off
+# ---------------------------------------------------------------------------
+
+
+def _dialog_run_search_fn(qmessage=None, worker_cls=None):
     return extract_function(
         CONF_SEARCH_PATH,
         "ConformerSearchDialog",
         "run_search",
         {
-            "Chem": SimpleNamespace(AssignStereochemistryFrom3D=lambda m: None),
-            "AllChem": allchem,
             "QMessageBox": qmessage if qmessage is not None else MagicMock(),
-            "QApplication": SimpleNamespace(processEvents=lambda: None),
             "copy": __import__("copy"),
             "PLUGIN_NAME": "Conformational Search",
+            "ConformerSearchWorker": worker_cls or MagicMock(),
         },
     )
 
 
-def _run_search_self(mol, ff="MMFF94"):
+def _dialog_run_search_self(mol, ff="MMFF94"):
     return SimpleNamespace(
         context=SimpleNamespace(current_mol=mol),
         target_mol=mol,
         original_coords=[],
-        btn_run=MagicMock(),
+        worker=None,
         lbl_info=MagicMock(),
         combo_ff=MagicMock(currentText=lambda: ff),
-        results_raw=[],
-        temp_mol=None,
-        apply_filter_and_update=MagicMock(),
+        spin_confs=MagicMock(value=lambda: 30),
+        _set_running=MagicMock(),
+        on_progress=MagicMock(),
+        on_failed=MagicMock(),
+        on_completed=MagicMock(),
     )
 
 
 class TestConfSearchRunSearch:
-    def test_embed_called_with_expected_params(self):
-        allchem = _FakeAllChem()
-        fn = _run_search_fn(allchem)
+    def test_worker_started_with_dialog_settings(self):
+        worker_cls = MagicMock()
+        fn = _dialog_run_search_fn(worker_cls=worker_cls)
         mol = _FakeConfSearchMol()
-        self_ = _run_search_self(mol)
+        self_ = _dialog_run_search_self(mol, ff="UFF")
         fn(self_)
-        assert len(allchem.embed_calls) == 1
-        num_confs, params = allchem.embed_calls[0]
+        args, kwargs = worker_cls.call_args
+        mol_calc, num_confs, force_field = args
+        assert mol_calc is not mol  # deep-copied, not the molecule on screen
         assert num_confs == 30
-        assert params.useSmallRingTorsions is True
+        assert force_field == "UFF"
+        assert kwargs["parent"] is self_
+        self_.worker.start.assert_called_once()
+        self_._set_running.assert_called_once_with(True)
 
-    def test_mmff_energies_sorted_ascending(self):
-        allchem = _FakeAllChem()
-        fn = _run_search_fn(allchem)
-        mol = _FakeConfSearchMol()
-        self_ = _run_search_self(mol, ff="MMFF94")
+    def test_second_click_while_running_is_ignored(self):
+        worker_cls = MagicMock()
+        fn = _dialog_run_search_fn(worker_cls=worker_cls)
+        self_ = _dialog_run_search_self(_FakeConfSearchMol())
+        self_.worker = MagicMock()
         fn(self_)
-        energies = [e for e, _ in self_.results_raw]
-        assert energies == sorted(energies)
-        assert energies == [3.0, 5.0, 8.0]
-        self_.apply_filter_and_update.assert_called_once()
-        assert self_.temp_mol is not None
-        assert self_.temp_mol is not mol  # deep-copied, not the original
-
-    def test_uff_branch_uses_uff_functions_only(self):
-        allchem = _FakeAllChem()
-        fn = _run_search_fn(allchem)
-        mol = _FakeConfSearchMol()
-        self_ = _run_search_self(mol, ff="UFF")
-        fn(self_)
-        assert allchem.uff_optimize_calls == [0, 1, 2]
-        assert allchem.mmff_optimize_calls == []
-        energies = [e for e, _ in self_.results_raw]
-        assert energies == [0.5, 1.0, 2.0]
-
-    def test_embed_failure_warns_and_stops(self):
-        allchem = _FakeAllChem()
-        allchem.embed_return = []
-        fn = _run_search_fn(allchem)
-        mol = _FakeConfSearchMol()
-        self_ = _run_search_self(mol)
-        fn(self_)
-        self_.apply_filter_and_update.assert_not_called()
-        assert self_.lbl_info.setText.call_args_list[-1][0][0] == "Failed."
-        self_.btn_run.setEnabled.assert_any_call(True)
-
-    def test_all_optimizations_fail_warns_and_stops(self):
-        allchem = _FakeAllChem()
-        allchem.mmff_optimize_return = -1
-        fn = _run_search_fn(allchem)
-        mol = _FakeConfSearchMol()
-        self_ = _run_search_self(mol)
-        fn(self_)
-        self_.apply_filter_and_update.assert_not_called()
-        assert self_.results_raw == []
-
-    def test_exception_during_search_shows_critical(self):
-        allchem = _FakeAllChem()
-        allchem.etkdg_raises = True
-        fn = _run_search_fn(allchem)
-        mol = _FakeConfSearchMol()
-        self_ = _run_search_self(mol)
-        fn(self_)  # must not raise
-        assert self_.lbl_info.setText.call_args_list[-1][0][0] == "Error occurred."
-        self_.btn_run.setEnabled.assert_any_call(True)
+        worker_cls.assert_not_called()
 
     def test_target_mol_refreshed_when_current_mol_changed(self):
-        allchem = _FakeAllChem()
-        fn = _run_search_fn(allchem)
+        fn = _dialog_run_search_fn()
         old_mol = _FakeConfSearchMol()
         new_mol = _FakeConfSearchMol(n=3)
-        self_ = _run_search_self(old_mol)
+        self_ = _dialog_run_search_self(old_mol)
         self_.context.current_mol = new_mol
         fn(self_)
         assert self_.target_mol is new_mol
@@ -387,10 +516,122 @@ class TestConfSearchRunSearch:
 class TestConfSearchNoMoleculeWarning:
     def test_no_molecule_warns(self):
         qmsg = MagicMock()
-        fn = _run_search_fn(_FakeAllChem(), qmessage=qmsg)
-        self_ = _run_search_self(None)
+        worker_cls = MagicMock()
+        fn = _dialog_run_search_fn(qmessage=qmsg, worker_cls=worker_cls)
+        self_ = _dialog_run_search_self(None)
         fn(self_)
         qmsg.warning.assert_called_once()
+        worker_cls.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# stop_search / progress / completion handlers
+# ---------------------------------------------------------------------------
+
+
+def _dialog_method(name, extra_globals=None):
+    return extract_function(
+        CONF_SEARCH_PATH, "ConformerSearchDialog", name, extra_globals or {}
+    )
+
+
+class TestConfSearchStopHandlers:
+    def test_stop_search_flags_worker_and_disables_button(self):
+        fn = _dialog_method("stop_search")
+        self_ = SimpleNamespace(
+            worker=MagicMock(), btn_stop=MagicMock(), lbl_info=MagicMock()
+        )
+        fn(self_)
+        self_.worker.stop.assert_called_once()
+        self_.btn_stop.setEnabled.assert_called_once_with(False)
+
+    def test_stop_search_without_worker_is_a_no_op(self):
+        fn = _dialog_method("stop_search")
+        self_ = SimpleNamespace(
+            worker=None, btn_stop=MagicMock(), lbl_info=MagicMock()
+        )
+        fn(self_)  # must not raise
+        self_.btn_stop.setEnabled.assert_not_called()
+
+    def test_shutdown_worker_stops_and_waits(self):
+        fn = _dialog_method("_shutdown_worker")
+        worker = MagicMock()
+        self_ = SimpleNamespace(worker=worker)
+        fn(self_)
+        worker.stop.assert_called_once()
+        worker.wait.assert_called_once()
+        assert self_.worker is None
+
+    def test_on_failed_clears_worker_and_warns(self):
+        qmsg = MagicMock()
+        fn = _dialog_method("on_failed", {"QMessageBox": qmsg, "PLUGIN_NAME": "P"})
+        self_ = SimpleNamespace(
+            worker=MagicMock(), _set_running=MagicMock(), lbl_info=MagicMock()
+        )
+        fn(self_, "boom")
+        assert self_.worker is None
+        self_._set_running.assert_called_once_with(False)
+        qmsg.warning.assert_called_once()
+
+    def test_on_completed_publishes_results(self):
+        fn = _dialog_method("on_completed")
+        results = [(1.0, 0)]
+        self_ = SimpleNamespace(
+            worker=MagicMock(),
+            _set_running=MagicMock(),
+            lbl_info=MagicMock(),
+            temp_mol=None,
+            results_raw=[],
+            apply_filter_and_update=MagicMock(),
+        )
+        mol = object()
+        fn(self_, mol, results, False)
+        assert self_.temp_mol is mol
+        assert self_.results_raw == results
+        self_.apply_filter_and_update.assert_called_once()
+        assert self_.worker is None
+
+    def test_on_completed_with_no_results_keeps_previous_preview(self):
+        fn = _dialog_method("on_completed")
+        self_ = SimpleNamespace(
+            worker=MagicMock(),
+            _set_running=MagicMock(),
+            lbl_info=MagicMock(),
+            temp_mol="previous",
+            results_raw=[],
+            apply_filter_and_update=MagicMock(),
+        )
+        fn(self_, object(), [], True)
+        assert self_.temp_mol == "previous"
+        self_.apply_filter_and_update.assert_not_called()
+
+    def test_on_progress_scales_percentage(self):
+        fn = _dialog_method("on_progress")
+        self_ = SimpleNamespace(progress=MagicMock(), lbl_info=MagicMock())
+        fn(self_, 3, 4, "Optimizing 3/4...")
+        self_.progress.setValue.assert_called_once_with(75)
+        self_.lbl_info.setText.assert_called_once_with("Optimizing 3/4...")
+
+    def test_on_progress_ignores_zero_total(self):
+        fn = _dialog_method("on_progress")
+        self_ = SimpleNamespace(progress=MagicMock(), lbl_info=MagicMock())
+        fn(self_, 0, 0, "Embedding...")
+        self_.progress.setValue.assert_not_called()
+
+    def test_set_running_toggles_controls(self):
+        fn = _dialog_method("_set_running")
+        self_ = SimpleNamespace(
+            btn_run=MagicMock(),
+            btn_stop=MagicMock(),
+            combo_ff=MagicMock(),
+            spin_confs=MagicMock(),
+            progress=MagicMock(),
+        )
+        fn(self_, True)
+        self_.btn_run.setEnabled.assert_called_once_with(False)
+        self_.btn_stop.setEnabled.assert_called_once_with(True)
+        self_.spin_confs.setEnabled.assert_called_once_with(False)
+        self_.progress.setVisible.assert_called_once_with(True)
 
 
 # ---------------------------------------------------------------------------
@@ -420,7 +661,9 @@ class _RSMol:
 
 
 def _accept_self(target_mol, ctx):
-    return SimpleNamespace(context=ctx, target_mol=target_mol)
+    return SimpleNamespace(
+        context=ctx, target_mol=target_mol, _shutdown_worker=lambda: None
+    )
 
 
 # accept()/reject() call super().accept()/reject(); zero-arg super() needs a
@@ -459,7 +702,10 @@ class TestConfSearchAcceptReject:
         ctx = make_context()
         mol = _RSMol(2, ["p0_new", "p1_new"])
         self_ = SimpleNamespace(
-            context=ctx, target_mol=mol, original_coords=["p0", "p1"]
+            context=ctx,
+            target_mol=mol,
+            original_coords=["p0", "p1"],
+            _shutdown_worker=lambda: None,
         )
         fn(self_)
         assert mol.set_calls == [(0, "p0"), (1, "p1")]
@@ -471,7 +717,12 @@ class TestConfSearchAcceptReject:
             CONF_SEARCH_PATH, "ConformerSearchDialog", "reject", _FAKE_SUPER_GLOBALS
         )
         ctx = make_context()
-        self_ = SimpleNamespace(context=ctx, target_mol=None, original_coords=[])
+        self_ = SimpleNamespace(
+            context=ctx,
+            target_mol=None,
+            original_coords=[],
+            _shutdown_worker=lambda: None,
+        )
         fn(self_)  # must not raise
         ctx.register_window.assert_called_with("main_panel", None)
 
@@ -668,6 +919,8 @@ def _init_ui_fn():
                 EditTrigger=SimpleNamespace(NoEditTriggers=1),
             ),
             "QPushButton": MagicMock(),
+            "QSpinBox": MagicMock(),
+            "QProgressBar": MagicMock(),
         },
     )
 
@@ -680,6 +933,7 @@ class TestConfSearchDefaultForceField:
             combo_ff=MagicMock(),
             apply_filter_and_update=MagicMock(),
             run_search=MagicMock(),
+            stop_search=MagicMock(),
             accept=MagicMock(),
             preview_conformer=MagicMock(),
         )
@@ -693,6 +947,7 @@ class TestConfSearchDefaultForceField:
             combo_ff=MagicMock(),
             apply_filter_and_update=MagicMock(),
             run_search=MagicMock(),
+            stop_search=MagicMock(),
             accept=MagicMock(),
             preview_conformer=MagicMock(),
         )
@@ -706,6 +961,7 @@ class TestConfSearchDefaultForceField:
             combo_ff=MagicMock(),
             apply_filter_and_update=MagicMock(),
             run_search=MagicMock(),
+            stop_search=MagicMock(),
             accept=MagicMock(),
             preview_conformer=MagicMock(),
         )
@@ -722,56 +978,35 @@ class TestStereochemistryPreservation:
     the user is looking at.
     """
 
-    @staticmethod
-    def _run_search_fn(chem, allchem, calls):
-        return extract_function(
-            CONF_SEARCH_PATH,
-            "ConformerSearchDialog",
-            "run_search",
-            extra_globals={
-                "Chem": chem,
-                "AllChem": allchem,
-                "copy": SimpleNamespace(deepcopy=lambda m: m),
-                "QMessageBox": MagicMock(),
-                "QApplication": SimpleNamespace(processEvents=lambda: None),
-                "PLUGIN_NAME": "Conformational Search",
-            },
-        )
-
-    def _drive(self):
+    def _drive(self, assign):
         calls = []
         mol = MagicMock(name="mol")
-        chem = SimpleNamespace(
-            AssignStereochemistryFrom3D=lambda m: calls.append(
-                ("assign_from_3d", m)
-            )
-        )
+        chem = SimpleNamespace(AssignStereochemistryFrom3D=lambda m: assign(calls, m))
 
         def embed(m, numConfs=0, params=None):
             calls.append(("embed", m))
-            return []  # no conformers -> run_search returns early
+            return []  # no conformers -> the worker stops after one batch
 
         allchem = SimpleNamespace(
-            ETKDGv3=lambda: SimpleNamespace(useSmallRingTorsions=False),
+            ETKDGv3=lambda: SimpleNamespace(
+                useSmallRingTorsions=False, clearConfs=True
+            ),
             EmbedMultipleConfs=embed,
         )
-        fn = self._run_search_fn(chem, allchem, calls)
-        self_ = SimpleNamespace(
-            context=SimpleNamespace(current_mol=mol),
-            target_mol=mol,
-            original_coords=[],
-            btn_run=MagicMock(),
-            lbl_info=MagicMock(),
-            combo_ff=MagicMock(),
-        )
+        fn = _worker_run_fn(allchem, chem=chem)
+        self_ = _worker_self(MagicMock(), mol=mol)
         fn(self_)
         return calls, mol
 
+    @staticmethod
+    def _record(calls, m):
+        calls.append(("assign_from_3d", m))
+
     def test_stereo_is_reperceived_from_3d_before_embedding(self):
-        calls, mol = self._drive()
+        calls, mol = self._drive(self._record)
         names = [name for name, _ in calls]
         assert "assign_from_3d" in names, (
-            "run_search must call Chem.AssignStereochemistryFrom3D; without it "
+            "the worker must call Chem.AssignStereochemistryFrom3D; without it "
             "ETKDG follows stale/absent chiral tags and can invert the molecule"
         )
         assert names.index("assign_from_3d") < names.index("embed"), (
@@ -780,38 +1015,17 @@ class TestStereochemistryPreservation:
 
     def test_stereo_is_reperceived_on_the_calculation_copy(self):
         """It must run on the working copy, never mutate the user's molecule."""
-        calls, mol = self._drive()
+        calls, mol = self._drive(self._record)
         assigned = [m for name, m in calls if name == "assign_from_3d"]
         embedded = [m for name, m in calls if name == "embed"]
         assert assigned == embedded, "the embedded mol must be the one re-perceived"
 
     def test_stereo_failure_does_not_abort_the_search(self):
         """A molecule with no conformer must not kill the whole search."""
-        calls = []
-        mol = MagicMock(name="mol")
 
-        def boom(m):
+        def boom(calls, m):
             calls.append(("assign_from_3d", m))
             raise ValueError("no conformer")
 
-        chem = SimpleNamespace(AssignStereochemistryFrom3D=boom)
-
-        def embed(m, numConfs=0, params=None):
-            calls.append(("embed", m))
-            return []
-
-        allchem = SimpleNamespace(
-            ETKDGv3=lambda: SimpleNamespace(useSmallRingTorsions=False),
-            EmbedMultipleConfs=embed,
-        )
-        fn = self._run_search_fn(chem, allchem, calls)
-        self_ = SimpleNamespace(
-            context=SimpleNamespace(current_mol=mol),
-            target_mol=mol,
-            original_coords=[],
-            btn_run=MagicMock(),
-            lbl_info=MagicMock(),
-            combo_ff=MagicMock(),
-        )
-        fn(self_)
+        calls, mol = self._drive(boom)
         assert [n for n, _ in calls] == ["assign_from_3d", "embed"]

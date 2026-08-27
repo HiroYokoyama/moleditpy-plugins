@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import contextlib
 import sys
+import time
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -89,6 +90,47 @@ def _no_block_msgbox(monkeypatch, mod):
             staticmethod(lambda *a, _k=kind, **kw: calls[_k].append(a)),
         )
     return calls
+
+
+def _run_search_sync(dlg, timeout_s=120.0):
+    """Start the search and pump the event loop until the worker is done.
+
+    run_search() now hands the work to a QThread, so the results the tests
+    assert on only exist once the worker's completion signal has been
+    delivered back to the GUI thread.
+    """
+    from PyQt6.QtWidgets import QApplication
+
+    dlg.run_search()
+    worker = dlg.worker
+    if worker is None:
+        return
+    deadline = time.monotonic() + timeout_s
+    while dlg.worker is not None and time.monotonic() < deadline:
+        worker.wait(20)
+        QApplication.processEvents()
+    assert dlg.worker is None, "conformer search worker did not finish in time"
+
+
+def _run_search_sync_existing(dlg, timeout_s=120.0):
+    """Pump the event loop until an already-started search has finished."""
+    from PyQt6.QtWidgets import QApplication
+
+    worker = dlg.worker
+    if worker is None:
+        return
+    deadline = time.monotonic() + timeout_s
+    while dlg.worker is not None and time.monotonic() < deadline:
+        worker.wait(20)
+        QApplication.processEvents()
+    assert dlg.worker is None, "conformer search worker did not finish in time"
+
+
+def _fast_dialog(module, ctx, num_confs=5):
+    """Dialog wired for a quick real search (fewer conformers than the default)."""
+    d = module.ConformerSearchDialog(context=ctx, parent=None)
+    d.spin_confs.setValue(num_confs)
+    return d
 
 
 # ===========================================================================
@@ -173,8 +215,9 @@ class TestAcceptRejectCloseReal:
     def dlg(self, qapp):
         ctx = _ctx_no_mol()
         ctx.current_mol = _real_mol_with_conformer()
-        d = _conf_rn.ConformerSearchDialog(context=ctx, parent=None)
+        d = _fast_dialog(_conf_rn, ctx)
         yield d
+        d._shutdown_worker()
         d.destroy()
 
     def test_accept_pushes_undo_checkpoint_and_unregisters_window(self, dlg):
@@ -232,13 +275,14 @@ class TestRunSearchReal:
     def dlg(self, qapp):
         ctx = _ctx_no_mol()
         ctx.current_mol = _real_mol_with_conformer()
-        d = _conf_rn.ConformerSearchDialog(context=ctx, parent=None)
+        d = _fast_dialog(_conf_rn, ctx)
         yield d
+        d._shutdown_worker()
         d.destroy()
 
     def test_mmff94_search_populates_table_and_sorts_ascending(self, dlg):
         dlg.combo_ff.setCurrentText("MMFF94")
-        dlg.run_search()
+        _run_search_sync(dlg)
         assert dlg.btn_run.isEnabled()
         assert len(dlg.results_raw) > 0
         energies = [e for e, _ in dlg.results_raw]
@@ -249,7 +293,7 @@ class TestRunSearchReal:
 
     def test_uff_search_populates_table(self, dlg):
         dlg.combo_ff.setCurrentText("UFF")
-        dlg.run_search()
+        _run_search_sync(dlg)
         assert len(dlg.results_raw) > 0
         assert dlg.table.rowCount() > 0
 
@@ -257,7 +301,7 @@ class TestRunSearchReal:
         ctx = _ctx_no_mol()
         d = _conf_rn.ConformerSearchDialog(context=ctx, parent=None)
         calls = _no_block_msgbox(monkeypatch, _conf_rn)
-        d.run_search()
+        _run_search_sync(d)
         assert len(calls["warning"]) == 1
         assert d.results_raw == []
         d.destroy()
@@ -265,9 +309,11 @@ class TestRunSearchReal:
     def test_embed_failure_warns_and_resets_label(self, dlg, monkeypatch):
         calls = _no_block_msgbox(monkeypatch, _conf_rn)
         monkeypatch.setattr(
-            _conf_rn.AllChem, "EmbedMultipleConfs", lambda mol, numConfs, params: []
+            _conf_rn.AllChem,
+            "EmbedMultipleConfs",
+            lambda mol, numConfs=0, params=None: [],
         )
-        dlg.run_search()
+        _run_search_sync(dlg)
         assert len(calls["warning"]) == 1
         assert dlg.lbl_info.text() == "Failed."
         assert dlg.btn_run.isEnabled()
@@ -278,27 +324,28 @@ class TestRunSearchReal:
             _conf_rn.AllChem, "MMFFOptimizeMolecule", lambda mol, confId=None: -1
         )
         dlg.combo_ff.setCurrentText("MMFF94")
-        dlg.run_search()
+        _run_search_sync(dlg)
         assert len(calls["warning"]) == 1
         assert dlg.results_raw == []
         assert dlg.btn_run.isEnabled()
 
-    def test_exception_during_search_shows_critical(self, dlg, monkeypatch):
+    def test_exception_during_search_is_reported_not_raised(self, dlg, monkeypatch):
         calls = _no_block_msgbox(monkeypatch, _conf_rn)
 
         def _boom(*a, **k):
             raise RuntimeError("boom")
 
         monkeypatch.setattr(_conf_rn.AllChem, "ETKDGv3", _boom)
-        dlg.run_search()
-        assert len(calls["critical"]) == 1
-        assert dlg.lbl_info.text() == "Error occurred."
+        _run_search_sync(dlg)
+        assert len(calls["warning"]) == 1
+        assert "Error during search" in calls["warning"][0][2]
+        assert dlg.lbl_info.text() == "Failed."
         assert dlg.btn_run.isEnabled()
 
     def test_target_mol_refreshed_when_current_mol_changes(self, dlg):
         new_mol = _real_mol_with_conformer("CCO", seed=7)
         dlg.context.current_mol = new_mol
-        dlg.run_search()
+        _run_search_sync(dlg)
         assert dlg.target_mol is new_mol
 
 
@@ -312,9 +359,10 @@ class TestApplyFilterAndUpdateReal:
     def dlg(self, qapp):
         ctx = _ctx_no_mol()
         ctx.current_mol = _real_mol_with_conformer()
-        d = _conf_rn.ConformerSearchDialog(context=ctx, parent=None)
-        d.run_search()
+        d = _fast_dialog(_conf_rn, ctx)
+        _run_search_sync(d)
         yield d
+        d._shutdown_worker()
         d.destroy()
 
     def test_default_filter_deduplicates_by_energy(self, dlg):
@@ -350,9 +398,10 @@ class TestPreviewConformerReal:
     def dlg(self, qapp):
         ctx = _ctx_no_mol()
         ctx.current_mol = _real_mol_with_conformer()
-        d = _conf_rn.ConformerSearchDialog(context=ctx, parent=None)
-        d.run_search()
+        d = _fast_dialog(_conf_rn, ctx)
+        _run_search_sync(d)
         yield d
+        d._shutdown_worker()
         d.destroy()
 
     def test_selecting_row_copies_coordinates_and_refreshes_view(self, dlg):
@@ -366,3 +415,203 @@ class TestPreviewConformerReal:
         dlg.target_mol = _real_mol_with_conformer("CC", seed=1)
         dlg.table.setCurrentCell(0, 0)
         assert "Restart search" in dlg.lbl_info.text()
+
+
+# ===========================================================================
+# Stop / threading — the search runs on a QThread and must be interruptible
+# ===========================================================================
+
+
+class TestStopSearchReal:
+    @pytest.fixture
+    def dlg(self, qapp):
+        ctx = _ctx_no_mol()
+        ctx.current_mol = _real_mol_with_conformer()
+        d = _fast_dialog(_conf_rn, ctx)
+        yield d
+        d._shutdown_worker()
+        d.destroy()
+
+    def test_stop_button_disabled_until_a_search_runs(self, dlg):
+        assert dlg.btn_stop.isEnabled() is False
+
+    def test_search_runs_off_the_gui_thread(self, dlg):
+        from PyQt6.QtCore import QThread
+
+        dlg.run_search()
+        assert isinstance(dlg.worker, QThread)
+        assert dlg.btn_run.isEnabled() is False
+        assert dlg.btn_stop.isEnabled() is True
+        _run_search_sync_existing(dlg)
+
+    def test_stop_ends_the_search_and_restores_the_ui(self, dlg):
+        dlg.spin_confs.setValue(500)  # long enough that Stop lands mid-run
+        dlg.run_search()
+        dlg.stop_search()
+        _run_search_sync_existing(dlg)
+        assert dlg.worker is None
+        assert dlg.btn_run.isEnabled() is True
+        assert dlg.btn_stop.isEnabled() is False
+        # Whatever was optimized before the stop is kept and shown.
+        assert len(dlg.results_raw) < 500
+        assert dlg.table.rowCount() == len(dlg.conformer_data)
+
+    def test_conformer_count_comes_from_the_spin_box(self, dlg):
+        dlg.spin_confs.setValue(3)
+        _run_search_sync(dlg)
+        assert 0 < len(dlg.results_raw) <= 3
+
+    def test_worker_stopped_before_embedding_reports_no_failure(self, qapp, monkeypatch):
+        ctx = _ctx_no_mol()
+        ctx.current_mol = _real_mol_with_conformer()
+        d = _fast_dialog(_conf_rn, ctx)
+        calls = _no_block_msgbox(monkeypatch, _conf_rn)
+        d.run_search()
+        d.worker.stop()
+        _run_search_sync_existing(d)
+        assert calls["warning"] == []  # a deliberate stop is not an error
+        d.destroy()
+
+    def test_close_while_running_stops_the_worker(self, dlg):
+        dlg.spin_confs.setValue(500)
+        dlg.run_search()
+        worker = dlg.worker
+        dlg.accept()
+        assert dlg.worker is None
+        assert worker.isFinished()
+
+
+# ===========================================================================
+# ConformerSearchWorker driven synchronously
+#
+# run() is called directly here rather than through start(): a QThread's own
+# thread is created by Qt, so nothing that happens inside it is traced. Driving
+# run() on this thread exercises the same code with signals delivered directly.
+# ===========================================================================
+
+
+class _WorkerSignals:
+    def __init__(self, worker):
+        self.progress = []
+        self.failed = []
+        self.completed = []
+        worker.progress.connect(lambda *a: self.progress.append(a))
+        worker.failed.connect(self.failed.append)
+        worker.completed.connect(lambda *a: self.completed.append(a))
+
+
+class TestConformerSearchWorkerReal:
+    def _worker(self, num_confs=3, ff="MMFF94", smiles="CCCC"):
+        mol = _real_mol_with_conformer(smiles)
+        w = _conf_rn.ConformerSearchWorker(mol, num_confs, ff)
+        return w, _WorkerSignals(w)
+
+    def test_mmff_run_emits_sorted_results(self, qapp):
+        w, sig = self._worker()
+        w.run()
+        assert sig.failed == []
+        mol_calc, results, was_stopped = sig.completed[0]
+        assert was_stopped is False
+        assert 0 < len(results) <= 3
+        assert [e for e, _ in results] == sorted(e for e, _ in results)
+        # every reported conformer id exists on the emitted molecule
+        for _, cid in results:
+            assert mol_calc.GetConformer(cid) is not None
+
+    def test_uff_run_emits_results(self, qapp):
+        w, sig = self._worker(ff="UFF")
+        w.run()
+        assert sig.failed == []
+        assert len(sig.completed[0][1]) > 0
+
+    def test_progress_reports_embedding_then_optimization(self, qapp):
+        w, sig = self._worker()
+        w.run()
+        messages = [m for _, _, m in sig.progress]
+        assert any(m.startswith("Embedding") for m in messages)
+        assert any(m.startswith("Optimizing") for m in messages)
+
+    def test_stopped_worker_never_embeds(self, qapp):
+        w, sig = self._worker()
+        w.stop()
+        w.run()
+        assert sig.progress == []
+        assert sig.failed == []
+        assert sig.completed[0][1] == []
+        assert sig.completed[0][2] is True
+
+    def test_embed_failure_is_reported(self, qapp, monkeypatch):
+        monkeypatch.setattr(
+            _conf_rn.AllChem,
+            "EmbedMultipleConfs",
+            lambda mol, numConfs=0, params=None: [],
+        )
+        w, sig = self._worker()
+        w.run()
+        assert sig.failed == ["Failed to generate conformers."]
+        assert sig.completed == []
+
+    def test_optimization_failure_is_reported_with_the_force_field(
+        self, qapp, monkeypatch
+    ):
+        monkeypatch.setattr(
+            _conf_rn.AllChem, "MMFFOptimizeMolecule", lambda mol, confId=None: -1
+        )
+        w, sig = self._worker()
+        w.run()
+        assert sig.completed == []
+        assert "MMFF94" in sig.failed[0]
+
+    def test_unexpected_exception_is_reported_not_raised(self, qapp, monkeypatch):
+        def _boom(*a, **k):
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(_conf_rn.AllChem, "ETKDGv3", _boom)
+        w, sig = self._worker()
+        w.run()  # must not raise
+        assert sig.failed[0].startswith("Error during search:")
+
+    def test_stereochemistry_is_reperceived_before_embedding(self, qapp, monkeypatch):
+        order = []
+        real_assign = _conf_rn.Chem.AssignStereochemistryFrom3D
+        real_embed = _conf_rn.AllChem.EmbedMultipleConfs
+        monkeypatch.setattr(
+            _conf_rn.Chem,
+            "AssignStereochemistryFrom3D",
+            lambda m: (order.append("assign"), real_assign(m))[1],
+        )
+        monkeypatch.setattr(
+            _conf_rn.AllChem,
+            "EmbedMultipleConfs",
+            lambda mol, numConfs=0, params=None: (
+                order.append("embed"),
+                real_embed(mol, numConfs=numConfs, params=params),
+            )[1],
+        )
+        w, _sig = self._worker()
+        w.run()
+        assert order[0] == "assign"
+        assert "embed" in order
+
+    def test_embedding_runs_in_batches_so_stop_is_honoured(self, qapp, monkeypatch):
+        batches = []
+        real_embed = _conf_rn.AllChem.EmbedMultipleConfs
+
+        def _embed(mol, numConfs=0, params=None):
+            batches.append(numConfs)
+            return real_embed(mol, numConfs=numConfs, params=params)
+
+        monkeypatch.setattr(_conf_rn.AllChem, "EmbedMultipleConfs", _embed)
+        w, sig = self._worker(num_confs=12)
+        w.run()
+        assert batches == [5, 5, 2]  # EMBED_BATCH-sized slices
+        assert len(sig.completed[0][1]) <= 12
+
+    def test_conformers_accumulate_across_batches(self, qapp):
+        w, sig = self._worker(num_confs=12)
+        w.run()
+        mol_calc, results, _ = sig.completed[0]
+        # clearConfs must be off on the params object, or each batch would wipe
+        # the previous one and only the last few conformers would survive.
+        assert mol_calc.GetNumConformers() > 5
+        assert len({cid for _, cid in results}) == len(results)
