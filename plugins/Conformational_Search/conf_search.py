@@ -9,20 +9,125 @@ from PyQt6.QtWidgets import (
     QLabel,
     QHeaderView,
     QAbstractItemView,
-    QApplication,
     QComboBox,
     QCheckBox,
+    QSpinBox,
+    QProgressBar,
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from rdkit import Chem
 from rdkit.Chem import AllChem
 import copy
 
 PLUGIN_NAME = "Conformational Search"
-PLUGIN_VERSION = "2026.07.29"
+PLUGIN_VERSION = "2026.08.27"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Perform conformational search using RDKit ETKDG."
+
+
+class ConformerSearchWorker(QThread):
+    """Embeds and optimizes conformers off the GUI thread, stoppable at any point."""
+
+    progress = pyqtSignal(int, int, str)
+    failed = pyqtSignal(str)
+    completed = pyqtSignal(object, list, bool)
+
+    # A single EmbedMultipleConfs() call cannot be interrupted, so embedding is
+    # done in small batches with a stop check between them.
+    EMBED_BATCH = 5
+
+    def __init__(self, mol, num_confs, force_field, parent=None):
+        super().__init__(parent)
+        self.mol = mol
+        self.num_confs = num_confs
+        self.force_field = force_field
+        self._stop = False
+
+    def stop(self):
+        self._stop = True
+
+    def run(self):
+        try:
+            mol_calc = self.mol
+
+            # ETKDG embeds from the graph, so it follows the chiral tags rather
+            # than the coordinates on screen.  Re-perceive stereochemistry from
+            # the displayed 3D geometry first: without this, a molecule whose
+            # tags are unset yields a mix of both enantiomers, and one whose
+            # tags are stale after a 3D edit yields conformers that are all the
+            # mirror image of what the user is looking at.
+            try:
+                Chem.AssignStereochemistryFrom3D(mol_calc)
+            except (ValueError, RuntimeError):
+                pass
+
+            params = AllChem.ETKDGv3()
+            params.useSmallRingTorsions = True
+            # Batches accumulate. clearConfs is not a keyword of the params
+            # overload of EmbedMultipleConfs; it has to be set on params.
+            params.clearConfs = False
+
+            cids = []
+            while len(cids) < self.num_confs and not self._stop:
+                batch = min(self.EMBED_BATCH, self.num_confs - len(cids))
+                new_cids = AllChem.EmbedMultipleConfs(
+                    mol_calc, numConfs=batch, params=params
+                )
+                if not new_cids:
+                    break
+                cids.extend(new_cids)
+                self.progress.emit(
+                    0, self.num_confs, f"Embedding {len(cids)}/{self.num_confs}..."
+                )
+
+            if not cids:
+                if self._stop:
+                    self.completed.emit(mol_calc, [], True)
+                else:
+                    self.failed.emit("Failed to generate conformers.")
+                return
+
+            results = []
+            total = len(cids)
+            for i, cid in enumerate(cids):
+                if self._stop:
+                    break
+                energy = self._optimize(mol_calc, cid)
+                if energy is not None:
+                    results.append((energy, cid))
+                self.progress.emit(
+                    i + 1, total, f"Optimizing {i + 1}/{total} ({self.force_field})..."
+                )
+
+            if not results and not self._stop:
+                self.failed.emit(f"Optimization failed with {self.force_field}.")
+                return
+
+            results.sort(key=lambda x: x[0])
+            self.completed.emit(mol_calc, results, self._stop)
+
+        except Exception as e:
+            self.failed.emit(f"Error during search: {str(e)}")
+
+    def _optimize(self, mol_calc, cid):
+        """Optimize one conformer in place; return its energy, or None on failure."""
+        if self.force_field == "MMFF94":
+            if AllChem.MMFFOptimizeMolecule(mol_calc, confId=cid) == -1:
+                return None
+            prop = AllChem.MMFFGetMoleculeProperties(mol_calc)
+            if not prop:
+                return None
+            ff = AllChem.MMFFGetMoleculeForceField(mol_calc, prop, confId=cid)
+        else:
+            if AllChem.UFFOptimizeMolecule(mol_calc, confId=cid) == -1:
+                return None
+            ff = AllChem.UFFGetMoleculeForceField(mol_calc, confId=cid)
+        if not ff:
+            return None
+        # CalcEnergy() reads the snapshot taken at the first call; rebind first.
+        ff.Initialize()
+        return ff.CalcEnergy()
 
 
 class ConformerSearchDialog(QDialog):
@@ -31,7 +136,7 @@ class ConformerSearchDialog(QDialog):
         self.context = context
         self.main_window = context.get_main_window()
         self.setWindowTitle("Conformational Search & Preview")
-        self.resize(400, 500)
+        self.resize(400, 560)
 
         # メインウィンドウの分子への参照
         self.target_mol = context.current_mol
@@ -42,6 +147,7 @@ class ConformerSearchDialog(QDialog):
         self.conformer_data = []
         # 全ての計算結果（未フィルタ）
         self.results_raw = []
+        self.worker = None
 
         # Original coordinates for restoration on cancel
         self.original_coords = []
@@ -68,6 +174,12 @@ class ConformerSearchDialog(QDialog):
         self.combo_ff = QComboBox()
         self.combo_ff.addItems(["MMFF94", "UFF"])
         hbox_ff.addWidget(self.combo_ff)
+        hbox_ff.addSpacing(12)
+        hbox_ff.addWidget(QLabel("Conformers:"))
+        self.spin_confs = QSpinBox()
+        self.spin_confs.setRange(1, 1000)
+        self.spin_confs.setValue(30)
+        hbox_ff.addWidget(self.spin_confs)
         hbox_ff.addStretch()
         layout.addLayout(hbox_ff)
 
@@ -76,6 +188,12 @@ class ConformerSearchDialog(QDialog):
         self.cb_show_all.setChecked(False)
         self.cb_show_all.toggled.connect(self.apply_filter_and_update)
         layout.addWidget(self.cb_show_all)
+
+        self.progress = QProgressBar()
+        self.progress.setRange(0, 100)
+        self.progress.setValue(0)
+        self.progress.setVisible(False)
+        layout.addWidget(self.progress)
 
         # Set default based on main window setting
         default_method = self.context.get_setting("optimization_method", "MMFF_RDKIT")
@@ -104,16 +222,22 @@ class ConformerSearchDialog(QDialog):
         self.btn_run = QPushButton("Run Search")
         self.btn_run.clicked.connect(self.run_search)
 
+        self.btn_stop = QPushButton("Stop")
+        self.btn_stop.setEnabled(False)
+        self.btn_stop.clicked.connect(self.stop_search)
+
         self.btn_close = QPushButton("Close")
         self.btn_close.clicked.connect(
             self.accept
         )  # 閉じる（現在のプレビュー状態で確定）
 
         btn_layout.addWidget(self.btn_run)
+        btn_layout.addWidget(self.btn_stop)
         btn_layout.addWidget(self.btn_close)
         layout.addLayout(btn_layout)
 
     def accept(self):
+        self._shutdown_worker()
         # Commit current conformer state to the main window
         if self.target_mol:
             self.context.push_undo_checkpoint()
@@ -122,6 +246,7 @@ class ConformerSearchDialog(QDialog):
         self.context.register_window("main_panel", None)
 
     def reject(self):
+        self._shutdown_worker()
         # Restore original coordinates if user cancels/closes without 'Accept'
         if self.target_mol and self.original_coords:
             conf = self.target_mol.GetConformer()
@@ -137,7 +262,27 @@ class ConformerSearchDialog(QDialog):
         self.accept()
         event.ignore()
 
+    def _shutdown_worker(self):
+        """Stop a running search and wait for the thread before tearing down."""
+        worker = self.worker
+        if worker is None:
+            return
+        worker.stop()
+        worker.wait()
+        self.worker = None
+
+    def _set_running(self, running):
+        self.btn_run.setEnabled(not running)
+        self.btn_stop.setEnabled(running)
+        self.combo_ff.setEnabled(not running)
+        self.spin_confs.setEnabled(not running)
+        self.progress.setVisible(running)
+        if running:
+            self.progress.setValue(0)
+
     def run_search(self):
+        if self.worker is not None:
+            return
         # Always pick up the molecule currently loaded in the main window
         current_mol = self.context.current_mol
         if not current_mol:
@@ -151,90 +296,51 @@ class ConformerSearchDialog(QDialog):
                 conf.GetAtomPosition(i) for i in range(self.target_mol.GetNumAtoms())
             ]
 
-        self.btn_run.setEnabled(False)
-        self.lbl_info.setText("Running conformational search... please wait.")
-        QApplication.processEvents()
+        self._set_running(True)
+        self.lbl_info.setText("Running conformational search...")
 
-        try:
-            # 計算用に分子を複製（水素が付加されていることを推奨）
-            mol_calc = copy.deepcopy(self.target_mol)
+        # 計算用に分子を複製（水素が付加されていることを推奨）
+        # Copied on the GUI thread so the worker never touches the molecule the
+        # main window is drawing.
+        mol_calc = copy.deepcopy(self.target_mol)
 
-            # ETKDG embeds from the graph, so it follows the chiral tags rather
-            # than the coordinates on screen.  Re-perceive stereochemistry from
-            # the displayed 3D geometry first: without this, a molecule whose
-            # tags are unset yields a mix of both enantiomers, and one whose
-            # tags are stale after a 3D edit yields conformers that are all the
-            # mirror image of what the user is looking at.
-            try:
-                Chem.AssignStereochemistryFrom3D(mol_calc)
-            except (ValueError, RuntimeError):
-                pass
+        self.worker = ConformerSearchWorker(
+            mol_calc, self.spin_confs.value(), self.combo_ff.currentText(), parent=self
+        )
+        self.worker.progress.connect(self.on_progress)
+        self.worker.failed.connect(self.on_failed)
+        self.worker.completed.connect(self.on_completed)
+        self.worker.start()
 
-            # 1. 配座生成 (ETKDGv3)
-            params = AllChem.ETKDGv3()
-            params.useSmallRingTorsions = True
-            cids = AllChem.EmbedMultipleConfs(mol_calc, numConfs=30, params=params)
+    def stop_search(self):
+        if self.worker is None:
+            return
+        self.worker.stop()
+        self.btn_stop.setEnabled(False)
+        self.lbl_info.setText("Stopping... (keeping conformers found so far)")
 
-            if not cids:
-                QMessageBox.warning(self, PLUGIN_NAME, "Failed to generate conformers.")
-                self.lbl_info.setText("Failed.")
-                self.btn_run.setEnabled(True)
-                return
+    def on_progress(self, done, total, message):
+        if total > 0:
+            self.progress.setValue(int(done * 100 / total))
+        self.lbl_info.setText(message)
 
-            # 2. 構造最適化とエネルギー計算
-            results = []
-            selected_ff = self.combo_ff.currentText()
+    def on_failed(self, message):
+        self._set_running(False)
+        self.worker = None
+        QMessageBox.warning(self, PLUGIN_NAME, message)
+        self.lbl_info.setText("Failed.")
 
-            for i, cid in enumerate(cids):
-                energy = None
-
-                if selected_ff == "MMFF94":
-                    # MMFF94 Optimize
-                    if AllChem.MMFFOptimizeMolecule(mol_calc, confId=cid) != -1:
-                        # Calculate Energy
-                        prop = AllChem.MMFFGetMoleculeProperties(mol_calc)
-                        if prop:
-                            ff = AllChem.MMFFGetMoleculeForceField(
-                                mol_calc, prop, confId=cid
-                            )
-                            if ff:
-                                energy = ff.CalcEnergy()
-
-                elif selected_ff == "UFF":
-                    # UFF Optimize
-                    if AllChem.UFFOptimizeMolecule(mol_calc, confId=cid) != -1:
-                        # Calculate Energy
-                        ff = AllChem.UFFGetMoleculeForceField(mol_calc, confId=cid)
-                        if ff:
-                            energy = ff.CalcEnergy()
-
-                if energy is not None:
-                    results.append((energy, cid))
-
-                # UIの応答性を維持
-                if i % 5 == 0:
-                    QApplication.processEvents()
-
-            if not results:
-                QMessageBox.warning(
-                    self, PLUGIN_NAME, f"Optimization failed with {selected_ff}."
-                )
-                self.btn_run.setEnabled(True)
-                return
-
-            # エネルギーが低い順にソート
-            results.sort(key=lambda x: x[0])
-            self.results_raw = results
-
-            # データを保持 & 更新
-            self.temp_mol = mol_calc
-            self.apply_filter_and_update()
-
-        except Exception as e:
-            QMessageBox.critical(self, PLUGIN_NAME, f"Error during search: {str(e)}")
-            self.lbl_info.setText("Error occurred.")
-        finally:
-            self.btn_run.setEnabled(True)
+    def on_completed(self, mol_calc, results, was_stopped):
+        self._set_running(False)
+        self.worker = None
+        if not results:
+            self.lbl_info.setText("Stopped before any conformer was optimized.")
+            return
+        self.temp_mol = mol_calc
+        self.results_raw = results
+        self.apply_filter_and_update()
+        if was_stopped:
+            self.lbl_info.setText(f"Stopped. {self.lbl_info.text()}")
 
     def apply_filter_and_update(self):
         """現在のフィルタ設定に基づいてデータを抽出し、テーブルを更新する"""

@@ -157,7 +157,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Conformational Search",
-    "version": "2026.07.29",
+    "version": "2026.08.27",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Performs conformational sampling and energy minimization.",
@@ -168,8 +168,8 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/Conformational_Search/conf_search.py",
-    "lastUpdated": "2026-07-29",
-    "sha256": "dd98533acb1ff3831bbff0f0d48ab0602e8e7e4b0738ccb1948ddbd1eff3cc5b",
+    "lastUpdated": "2026-08-27",
+    "sha256": "e120b80d73181c1d61c92a110b04d8555877ca1f8c10091abbe6dab68fde77a9",
     "firstAppeared": "2025-12-15",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
