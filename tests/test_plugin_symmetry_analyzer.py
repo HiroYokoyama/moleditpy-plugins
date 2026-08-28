@@ -74,7 +74,8 @@ class _FakeWorker:
         self.mol_pmg = MagicMock()
         self.min_tol = min_tol
         self.max_tol = max_tol
-        self.finished = MagicMock()
+        self.analysis_finished = MagicMock()
+        self._abort = False
 
 
 class TestSymmetryAnalyzer:
@@ -106,14 +107,14 @@ class TestSymmetryAnalyzer:
         worker = _FakeWorker(0.1, 0.1)
         with mock_optional_imports():
             _sym_run_raw(worker)
-        worker.finished.emit.assert_called_once()
+        worker.analysis_finished.emit.assert_called_once()
 
     def test_worker_run_emits_dict_and_bool(self):
         """finished.emit(group_data, found_any): group_data is dict, found_any is bool."""
         worker = _FakeWorker(0.05, 0.2)
         with mock_optional_imports():
             _sym_run_raw(worker)
-        args = worker.finished.emit.call_args[0]
+        args = worker.analysis_finished.emit.call_args[0]
         assert len(args) == 2
         group_data, found_any = args
         assert isinstance(group_data, dict)
@@ -131,7 +132,7 @@ class TestSymmetryAnalyzer:
         )
         worker = _FakeWorker(min_tol, max_tol)
         run(worker)
-        return worker.finished.emit.call_args[0]
+        return worker.analysis_finished.emit.call_args[0]
 
     def test_tolerances_pymatgen_rejects_are_skipped_not_fatal(self):
         """pymatgen raises ValueError at tolerances that fit no axis.
@@ -274,12 +275,58 @@ class TestSymmetryAnalyzer:
         group_data, _ = self._run_with(pga, min_tol=0.1, max_tol=0.4)
         assert len(group_data["C2v"]["bands"]) == 1
 
+    def test_abort_stops_the_scan(self):
+        """The close path has to stop a CPU-bound scan without terminate()."""
+        seen = []
+
+        def pga(mol, tolerance):
+            seen.append(tolerance)
+            worker._abort = True
+            return SimpleNamespace(sch_symbol="C1")
+
+        run = _extract_method_as_fn(
+            SYMMETRY_PATH,
+            "SymmetryAnalysisWorker",
+            "run",
+            extra_globals={"np": np, "PointGroupAnalyzer": pga},
+        )
+        worker = _FakeWorker(0.01, 0.5)
+        run(worker)
+        assert len(seen) == 1, "the scan kept going after abort"
+        worker.analysis_finished.emit.assert_called_once()
+
+    def test_partial_results_survive_an_abort(self):
+        """Whatever the scan found before the abort is still reported."""
+
+        def pga(mol, tolerance):
+            worker._abort = True
+            return SimpleNamespace(sch_symbol="D2h")
+
+        run = _extract_method_as_fn(
+            SYMMETRY_PATH,
+            "SymmetryAnalysisWorker",
+            "run",
+            extra_globals={"np": np, "PointGroupAnalyzer": pga},
+        )
+        worker = _FakeWorker(0.01, 0.5)
+        run(worker)
+        group_data, found_any = worker.analysis_finished.emit.call_args[0]
+        assert found_any is True
+        assert "D2h" in group_data
+
+    def test_signal_does_not_shadow_qthread_finished(self):
+        """QThread already has a `finished` signal; naming the scan's payload
+        signal the same hands thread-completion listeners two arguments."""
+        src = SYMMETRY_PATH.read_text(encoding="utf-8")
+        assert "analysis_finished = pyqtSignal(dict, bool)" in src
+        assert "\n    finished = pyqtSignal" not in src
+
     def test_worker_found_any_false_when_no_real_analysis(self):
         """With mocked pymatgen the loop body is never entered → found_any=False."""
         worker = _FakeWorker(0.1, 0.5)
         with mock_optional_imports():
             _sym_run_raw(worker)
-        _, found_any = worker.finished.emit.call_args[0]
+        _, found_any = worker.analysis_finished.emit.call_args[0]
         assert found_any is False
 
 
@@ -534,6 +581,14 @@ class TestGetPymatgenMolecule:
         s = SimpleNamespace(context=SimpleNamespace(current_molecule=None))
         assert fn(s) is None
 
+    def test_atomless_molecule_returns_none(self):
+        """pymatgen's Molecule constructor raises IndexError on empty input,
+        which would escape as an uncaught-exception dialog."""
+        fn = self._fn(MagicMock())
+        rd_mol = FakeMol([], [])
+        s = SimpleNamespace(context=SimpleNamespace(current_molecule=rd_mol))
+        assert fn(s) is None
+
     def test_no_conformer_returns_none(self):
         fn = self._fn(MagicMock())
         rd_mol = _RdMolStub(
@@ -683,11 +738,13 @@ class TestOnGroupSelected:
         s.update_ops_list.assert_not_called()
         s.selected_group_label.setText.assert_not_called()
 
-    def test_symbol_not_in_group_data_sets_label_but_no_ops(self):
+    def test_placeholder_row_is_not_treated_as_a_group(self):
+        """"No point groups found." is a selectable row; selecting it used to
+        set the label to the point group "N" with subscript "o"."""
         fn = self._fn()
         s = self._make_self("No point groups found.", {})
         fn(s)
-        s.selected_group_label.setText.assert_called_once()
+        s.selected_group_label.setText.assert_not_called()
         s.update_ops_list.assert_not_called()
         s.sym_btn.setEnabled.assert_not_called()
 
@@ -710,7 +767,10 @@ class TestOnGroupSelected:
 
     def test_label_uses_html_format_for_html_symbols(self):
         fn = self._fn()
-        s = self._make_self("C2v  (Tol: 0.10 - 1.00 Å)", {})
+        s = self._make_self(
+            "C2v  (Tol: 0.10 - 1.00 Å)",
+            {"C2v": {"analyzer": SimpleNamespace(get_symmetry_operations=lambda: [])}},
+        )
         fn(s)
         text = s.selected_group_label.setText.call_args[0][0]
         assert "Point Group:" in text
@@ -1014,7 +1074,8 @@ _WATER_OPS = [
 class TestSymmetrizeStructure:
     def _fn(self):
         return _extract_raw(
-            "symmetrize_structure", {"np": np, "QMessageBox": MagicMock()}
+            "symmetrize_structure",
+            {"np": np, "QMessageBox": MagicMock(), "logging": logging},
         )
 
     def _make_self(self, coords, species, ops, sch_symbol="C2v"):
@@ -1035,7 +1096,43 @@ class TestSymmetrizeStructure:
             analyzer=analyzer,
             get_pymatgen_molecule=lambda: mol_pmg,
             update_rdkit_coords=MagicMock(),
+            # The guard compares the molecule now against the one scanned.
+            _molecule_fingerprint=lambda: "fingerprint",
+            _scanned_fingerprint="fingerprint",
+            _invalidate_analysis=MagicMock(),
         )
+
+    def test_stale_analysis_is_refused_and_cleared(self):
+        """Issue #11: water's C2v operations moved benzene's atoms 0.15 A and
+        the dialog still reported "Structure symmetrized to C2v"."""
+        qmb = MagicMock()
+        fn = _extract_raw(
+            "symmetrize_structure",
+            {"np": np, "QMessageBox": qmb, "logging": logging},
+        )
+        s = self._make_self(_WATER_COORDS, _WATER_SPECIES, _WATER_OPS)
+        s._molecule_fingerprint = lambda: "a different molecule"
+        fn(s)
+        s.update_rdkit_coords.assert_not_called()
+        qmb.warning.assert_called_once()
+        s._invalidate_analysis.assert_called_once()
+
+    def test_matching_fingerprint_symmetrizes_normally(self):
+        fn = self._fn()
+        s = self._make_self(_WATER_COORDS, _WATER_SPECIES, _WATER_OPS)
+        fn(s)
+        s.update_rdkit_coords.assert_called_once()
+        s._invalidate_analysis.assert_not_called()
+
+    def test_applying_the_result_refreshes_the_fingerprint(self):
+        """Symmetrize moves the atoms, so without this the next press would be
+        refused as stale even though the structure is the one just written."""
+        fn = self._fn()
+        s = self._make_self(_WATER_COORDS, _WATER_SPECIES, _WATER_OPS)
+        s._molecule_fingerprint = lambda: "after the write"
+        s._scanned_fingerprint = "after the write"
+        fn(s)
+        assert s._scanned_fingerprint == "after the write"
 
     def test_no_analyzer_returns_immediately(self):
         fn = self._fn()
@@ -1104,7 +1201,10 @@ class TestSymmetrizeStructure:
         qmb.StandardButton.No = 0x10000
         qmb.StandardButton.Yes = 0x4000
         qmb.question.return_value = 0x10000
-        fn2 = _extract_raw("symmetrize_structure", {"np": np, "QMessageBox": qmb})
+        fn2 = _extract_raw(
+            "symmetrize_structure",
+            {"np": np, "QMessageBox": qmb, "logging": logging},
+        )
         with mock.patch.dict("sys.modules", {"scipy": None}):
             fn2(s)
         qmb.question.assert_called_once()
@@ -1127,7 +1227,10 @@ class TestSymmetrizeStructure:
         qmb.StandardButton.No = 0x10000
         qmb.StandardButton.Yes = 0x4000
         qmb.question.return_value = 0x4000  # accept this time
-        fn2 = _extract_raw("symmetrize_structure", {"np": np, "QMessageBox": qmb})
+        fn2 = _extract_raw(
+            "symmetrize_structure",
+            {"np": np, "QMessageBox": qmb, "logging": logging},
+        )
         with mock.patch.dict("sys.modules", {"scipy": None}):
             fn2(s)
         # Accepting still applies it, so the user keeps the escape hatch.
@@ -1199,17 +1302,15 @@ class TestUpdateRdkitCoords:
 
 class TestCloseEvent:
     def _fn(self):
-        src = _extract_method_source(
-            SYMMETRY_PATH, "SymmetryAnalysisPlugin", "closeEvent"
-        )
-        # super().closeEvent(event) requires a real __class__ closure cell that
-        # only exists when compiled inside an actual class body; strip it for
-        # standalone extraction (QDialog.closeEvent is a mocked no-op anyway).
-        src = src.replace(
-            "super().closeEvent(event)",
-            "pass  # super() stripped for standalone extraction",
-        )
-        return _make_function(src, {})
+        """_cleanup() is what both closeEvent and reject() route through."""
+        invalidate = _extract_raw("_invalidate_analysis")
+        cleanup = _extract_raw("_cleanup")
+
+        def run(s, _event=None):
+            s._invalidate_analysis = lambda: invalidate(s)
+            return cleanup(s)
+
+        return run
 
     def _make_self(self, worker=None, plotter=None):
         return SimpleNamespace(
@@ -1224,6 +1325,7 @@ class TestCloseEvent:
             group_data={"x": 1},
             symmetry_ops=[1, 2],
             analyzer=object(),
+            _scanned_fingerprint="stale",
         )
 
     def test_no_worker_no_plotter_resets_state(self):
@@ -1236,13 +1338,14 @@ class TestCloseEvent:
         s.sym_btn.setEnabled.assert_called_once_with(False)
 
     def test_running_worker_is_stopped_cleanly(self):
+        """quit() cannot stop run(): the scan loop has no event loop to quit."""
         fn = self._fn()
         worker = MagicMock()
         worker.isRunning.side_effect = [True, False]
         s = self._make_self(worker=worker)
         fn(s, MagicMock())
-        worker.quit.assert_called_once()
-        worker.wait.assert_called_once_with(1000)
+        worker.abort.assert_called_once()
+        worker.wait.assert_called_once_with(5000)
         worker.terminate.assert_not_called()
 
     def test_worker_still_running_after_wait_is_terminated(self):
@@ -1291,41 +1394,28 @@ class TestInitializeToggleWindow:
             callback()  # should not raise
 
 
-class TestRunEntryPoint:
-    def test_run_without_plugin_manager_returns(self):
-        with mock_optional_imports():
-            mod = load_plugin(SYMMETRY_PATH)
-            mw = SimpleNamespace()
-            mod.run(mw)  # no plugin_manager attr -> early return, no crash
+class TestNoLegacyRunEntryPoint:
+    def test_module_defines_no_run(self):
+        """The host adds a Plugin-menu entry for every module with run(), so a
+        plugin that also calls add_menu_action() appeared in the menus twice."""
+        src = SYMMETRY_PATH.read_text(encoding="utf-8")
+        tree = ast.parse(src)
+        top_level = {
+            node.name
+            for node in tree.body
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        }
+        assert "run" not in top_level
+        assert "autorun" not in top_level
+        assert "initialize" in top_level
 
-    def test_run_without_context_returns(self):
-        with mock_optional_imports():
-            mod = load_plugin(SYMMETRY_PATH)
-            mod.PLUGIN_CONTEXT = None
-            mw = SimpleNamespace(plugin_manager=MagicMock())
-            mod.run(mw)  # PLUGIN_CONTEXT falsy -> early return, no crash
-
-    def test_run_shows_existing_window(self):
+    def test_menu_action_is_registered_once(self):
         with mock_optional_imports():
             mod = load_plugin(SYMMETRY_PATH)
             ctx = make_context()
             mod.initialize(ctx)
-            existing = MagicMock()
-            ctx.get_window.return_value = existing
-            mw = SimpleNamespace(plugin_manager=MagicMock())
-            mod.run(mw)
-            existing.show.assert_called_once()
-            existing.raise_.assert_called_once()
-            existing.activateWindow.assert_called_once()
-
-    def test_run_creates_new_window(self):
-        with mock_optional_imports():
-            mod = load_plugin(SYMMETRY_PATH)
-            ctx = make_context()
-            mod.initialize(ctx)
-            ctx.get_window.return_value = None
-            mw = SimpleNamespace(plugin_manager=MagicMock())
-            mod.run(mw)  # should not raise
+            assert ctx.add_menu_action.call_count == 1
+            assert not hasattr(mod, "run")
 
 
 # ---------------------------------------------------------------------------
