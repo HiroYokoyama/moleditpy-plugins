@@ -70,13 +70,16 @@ _sym_run_raw = _extract_method_as_fn(
 class _FakeWorker:
     """Minimal self-object for the extracted run() — carries only what run() reads."""
 
-    def __init__(self, min_tol, max_tol, step=0.005):
+    def __init__(self, min_tol, max_tol):
         self.mol_pmg = MagicMock()
         self.min_tol = min_tol
         self.max_tol = max_tol
-        self.step = step
         self.analysis_finished = MagicMock()
         self._abort = False
+
+    def _reconcile_symbol(self, sym, analyzer):
+        """Passthrough: the real one is exercised in TestReconcileSymbol."""
+        return sym
 
 
 class TestSymmetryAnalyzer:
@@ -124,14 +127,14 @@ class TestSymmetryAnalyzer:
     # -- tolerance-scan resilience ------------------------------------------
     # Real numpy + a stub PointGroupAnalyzer, so the loop body actually runs.
 
-    def _run_with(self, pga, min_tol=0.1, max_tol=0.3, step=0.005):
+    def _run_with(self, pga, min_tol=0.1, max_tol=0.3):
         run = _extract_method_as_fn(
             SYMMETRY_PATH,
             "SymmetryAnalysisWorker",
             "run",
             extra_globals={"np": np, "PointGroupAnalyzer": pga},
         )
-        worker = _FakeWorker(min_tol, max_tol, step)
+        worker = _FakeWorker(min_tol, max_tol)
         run(worker)
         return worker.analysis_finished.emit.call_args[0]
 
@@ -231,35 +234,16 @@ class TestSymmetryAnalyzer:
         assert "C2" in group_data, "the true point group was stepped over"
         assert min(group_data["C2"]["tols"]) < min(group_data["D2"]["tols"])
 
-    def test_tolerance_grid_follows_the_step_setting(self):
-        """Near-symmetric geometries live in windows a few hundredths wide."""
+    def test_the_grid_only_has_to_bracket_the_transitions(self):
+        """A coarse walk is enough because every transition is bisected."""
         group_data, _ = self._run_with(
             lambda mol, tolerance: SimpleNamespace(sch_symbol="C1"),
             min_tol=0.01,
             max_tol=0.1,
         )
         tols = group_data["C1"]["tols"]
-        assert max(b - a for a, b in zip(tols, tols[1:])) <= 0.005 + 1e-9
-
-    def test_a_coarser_step_scans_fewer_tolerances(self):
-        def pga(mol, tolerance):
-            return SimpleNamespace(sch_symbol="C1")
-
-        fine, _ = self._run_with(pga, min_tol=0.01, max_tol=0.1, step=0.005)
-        coarse, _ = self._run_with(pga, min_tol=0.01, max_tol=0.1, step=0.02)
-        assert len(coarse["C1"]["tols"]) < len(fine["C1"]["tols"])
-        gaps = coarse["C1"]["tols"]
-        assert max(b - a for a, b in zip(gaps, gaps[1:])) <= 0.02 + 1e-9
-
-    def test_a_degenerate_step_does_not_hang_the_scan(self):
-        """np.arange with a zero step never terminates."""
-        group_data, _ = self._run_with(
-            lambda mol, tolerance: SimpleNamespace(sch_symbol="C1"),
-            min_tol=0.01,
-            max_tol=0.05,
-            step=0.0,
-        )
-        assert len(group_data["C1"]["tols"]) < 1000
+        assert max(b - a for a, b in zip(tols, tols[1:])) <= 0.01 + 1e-9
+        assert len(tols) == 10  # 0.01 .. 0.10
 
     def test_a_group_that_reappears_gets_two_bands(self):
         """Hydrazine goes C2 -> D2 -> C2; one min-max span hides the D2 island."""
@@ -325,7 +309,7 @@ class TestSymmetryAnalyzer:
             return SimpleNamespace(sch_symbol="D6h")
 
         self._run_with(pga, min_tol=0.01, max_tol=0.1)
-        assert len(calls) == len(set(calls)) == 19  # 0.010..0.100 by 0.005 step
+        assert len(calls) == len(set(calls)) == 10  # 0.010..0.100 by 0.01
 
     def test_bisection_is_bounded(self):
         """A stub that changes its answer at every tolerance must still end."""
@@ -335,8 +319,8 @@ class TestSymmetryAnalyzer:
 
         group_data, _ = self._run_with(pga, min_tol=0.01, max_tol=0.05)
         total = sum(len(d["tols"]) for d in group_data.values())
-        # 9 grid points (0.010..0.050 by 0.005) plus the refinement budget.
-        assert total <= 9 + 60, "the refinement pass did not terminate"
+        # 5 grid points (0.010..0.050 by 0.01) plus the refinement budget.
+        assert total <= 5 + 60, "the refinement pass did not terminate"
 
     def test_abort_stops_the_bisection_too(self):
         seen = []
@@ -423,6 +407,147 @@ class TestSymmetryAnalyzer:
             _sym_run_raw(worker)
         _, found_any = worker.analysis_finished.emit.call_args[0]
         assert found_any is False
+
+
+# ---------------------------------------------------------------------------
+# _reconcile_symbol / _group_from_operations — pymatgen names groups whose
+# operations it cannot produce (upstream 2025.10.7: _check_rot_sym counts the
+# trivial 360-degree rotation as an axis, so _proc_sym_top takes the dihedral
+# branch and a C2 molecule is named D2).
+# ---------------------------------------------------------------------------
+
+
+class _Op:
+    def __init__(self, matrix):
+        self.rotation_matrix = np.array(matrix, dtype=float)
+
+
+_E = np.eye(3)
+_C2_Z = np.diag([-1.0, -1.0, 1.0])
+_C2_X = np.diag([1.0, -1.0, -1.0])
+_C2_Y = np.diag([-1.0, 1.0, -1.0])
+_SIGMA_Z = np.diag([1.0, 1.0, -1.0])
+_SIGMA_X = np.diag([-1.0, 1.0, 1.0])
+_INV = -np.eye(3)
+_S4_Z = np.array([[0.0, 1.0, 0.0], [-1.0, 0.0, 0.0], [0.0, 0.0, -1.0]])
+_C3_Z = np.array(
+    [
+        [-0.5, -(3**0.5) / 2, 0.0],
+        [(3**0.5) / 2, -0.5, 0.0],
+        [0.0, 0.0, 1.0],
+    ]
+)
+
+
+def _classify(ops):
+    fn = _extract_method_as_fn(
+        SYMMETRY_PATH,
+        "SymmetryAnalysisWorker",
+        "_group_from_operations",
+        extra_globals={"np": np},
+    )
+    return fn(SimpleNamespace(), [_Op(m) for m in ops])
+
+
+class TestGroupFromOperations:
+    def test_identity_only_is_c1(self):
+        assert _classify([_E]) == "C1"
+
+    def test_one_mirror_is_cs(self):
+        assert _classify([_E, _SIGMA_Z]) == "Cs"
+
+    def test_inversion_only_is_ci(self):
+        assert _classify([_E, _INV]) == "Ci"
+
+    def test_one_axis_is_c2(self):
+        assert _classify([_E, _C2_Z]) == "C2"
+
+    def test_three_perpendicular_axes_are_d2(self):
+        assert _classify([_E, _C2_X, _C2_Y, _C2_Z]) == "D2"
+
+    def test_axis_with_two_vertical_mirrors_is_c2v(self):
+        assert _classify([_E, _C2_Z, _SIGMA_X, np.diag([1.0, -1.0, 1.0])]) == "C2v"
+
+    def test_axis_with_a_horizontal_mirror_is_c2h(self):
+        assert _classify([_E, _C2_Z, _SIGMA_Z, _INV]) == "C2h"
+
+    def test_s4_axis_without_perpendicular_axes(self):
+        assert _classify([_E, _C2_Z, _S4_Z, _S4_Z.T]) == "S4"
+
+    def test_three_fold_axis_is_c3(self):
+        assert _classify([_E, _C3_Z, _C3_Z.T]) == "C3"
+
+    def test_cubic_groups_are_left_to_pymatgen(self):
+        c3_body = np.array([[0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+        other = np.array([[0.0, 0.0, -1.0], [-1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+        assert _classify([_E, c3_body, c3_body.T, other, other.T]) is None
+
+
+class TestReconcileSymbol:
+    def _fn(self):
+        return _extract_method_as_fn(
+            SYMMETRY_PATH,
+            "SymmetryAnalysisWorker",
+            "_reconcile_symbol",
+            extra_globals={"np": np, "logging": logging},
+        )
+
+    def _worker(self):
+        group_fn = _extract_method_as_fn(
+            SYMMETRY_PATH,
+            "SymmetryAnalysisWorker",
+            "_group_from_operations",
+            extra_globals={"np": np},
+        )
+        w = SimpleNamespace()
+        w._group_from_operations = lambda ops: group_fn(w, ops)
+        return w
+
+    def _analyzer(self, matrices):
+        return SimpleNamespace(get_symmetry_operations=lambda: [_Op(m) for m in matrices])
+
+    def test_d2_with_only_two_operations_is_reported_as_c2(self):
+        """The user's case: pymatgen said D2, its own op set held E and one C2."""
+        fn = self._fn()
+        assert fn(self._worker(), "D2", self._analyzer([_E, _C2_Z])) == "C2"
+
+    def test_a_real_d2_is_left_alone(self):
+        fn = self._fn()
+        analyzer = self._analyzer([_E, _C2_X, _C2_Y, _C2_Z])
+        assert fn(self._worker(), "D2", analyzer) == "D2"
+
+    def test_d2h_with_four_operations_drops_to_c2h(self):
+        fn = self._fn()
+        analyzer = self._analyzer([_E, _C2_Z, _SIGMA_Z, _INV])
+        assert fn(self._worker(), "D2h", analyzer) == "C2h"
+
+    def test_duplicate_operations_do_not_count_twice(self):
+        """generate_full_symmops can hand back the same matrix twice."""
+        fn = self._fn()
+        analyzer = self._analyzer([_E, _C2_Z, _C2_Z, _E])
+        assert fn(self._worker(), "D2", analyzer) == "C2"
+
+    def test_symbols_outside_the_table_are_untouched(self):
+        """Linear, cubic and icosahedral groups stay pymatgen's call."""
+        fn = self._fn()
+        for sym in ("Td", "Oh", "D*h", "C*v", "Ih"):
+            assert fn(self._worker(), sym, self._analyzer([_E])) == sym
+
+    def test_an_analyzer_without_operations_is_not_second_guessed(self):
+        fn = self._fn()
+        analyzer = SimpleNamespace()
+        assert fn(self._worker(), "D2", analyzer) == "D2"
+
+    def test_an_inconsistent_derivation_keeps_the_original_symbol(self):
+        """Only a self-consistent smaller group may override the name."""
+        fn = self._fn()
+        w = self._worker()
+        w._group_from_operations = lambda ops: "D6h"  # order 24, not 2
+        assert fn(w, "D2", self._analyzer([_E, _C2_Z])) == "D2"
+
+    def test_reconciliation_runs_inside_the_scan(self):
+        src = SYMMETRY_PATH.read_text(encoding="utf-8")
+        assert "sym = self._reconcile_symbol(analyzer.sch_symbol, analyzer)" in src
 
 
 # ---------------------------------------------------------------------------
