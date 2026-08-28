@@ -884,7 +884,7 @@
     ],
     "downloadUrl": "../plugins/Symmetry_Analyzer/symmetry_analyzer.py",
     "lastUpdated": "2026-07-31",
-    "sha256": "368db4c9667c80153341e94abf20a7ddd06c4b008692b0644a72efd0704ea1bf",
+    "sha256": "de6d2649e9dc0648955a27cb120217046c4e6f8bb748777c22f1d222e8cb5093",
     "firstAppeared": "2025-12-31",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

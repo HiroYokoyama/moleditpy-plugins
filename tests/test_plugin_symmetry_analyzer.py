@@ -214,6 +214,66 @@ class TestSymmetryAnalyzer:
         group_data, _ = self._run_with(pga)
         assert set(group_data) == {"C1", "C2v"}
 
+    def test_narrow_window_below_the_old_floor_is_still_found(self):
+        """Issue #9: a C2 biphenyl whose C2 window is 0.02-0.04 A was reported
+        as D2, because the scan started at 0.05 A and stepped by 0.05 A."""
+
+        def pga(mol, tolerance):
+            if tolerance < 0.02:
+                return SimpleNamespace(sch_symbol="C1")
+            if tolerance <= 0.04:
+                return SimpleNamespace(sch_symbol="C2")
+            return SimpleNamespace(sch_symbol="D2")
+
+        group_data, _ = self._run_with(pga, min_tol=0.01, max_tol=0.5)
+        assert "C2" in group_data, "the true point group was stepped over"
+        assert min(group_data["C2"]["tols"]) < min(group_data["D2"]["tols"])
+
+    def test_tolerance_grid_is_dense_below_a_tenth_of_an_angstrom(self):
+        """Near-symmetric geometries live in windows a few hundredths wide."""
+        group_data, _ = self._run_with(
+            lambda mol, tolerance: SimpleNamespace(sch_symbol="C1"),
+            min_tol=0.01,
+            max_tol=0.1,
+        )
+        tols = group_data["C1"]["tols"]
+        assert max(b - a for a, b in zip(tols, tols[1:])) <= 0.005 + 1e-9
+
+    def test_a_group_that_reappears_gets_two_bands(self):
+        """Hydrazine goes C2 -> D2 -> C2; one min-max span hides the D2 island."""
+
+        def pga(mol, tolerance):
+            return SimpleNamespace(sch_symbol="D2" if 0.2 < tolerance < 0.3 else "C2")
+
+        group_data, _ = self._run_with(pga, min_tol=0.1, max_tol=0.5)
+        assert len(group_data["C2"]["bands"]) == 2
+        assert len(group_data["D2"]["bands"]) == 1
+        first, second = group_data["C2"]["bands"]
+        assert first[1] < group_data["D2"]["bands"][0][0] < second[0]
+
+    def test_bands_span_the_tolerances_of_the_group(self):
+        group_data, _ = self._run_with(
+            lambda mol, tolerance: SimpleNamespace(sch_symbol="Cs"),
+            min_tol=0.1,
+            max_tol=0.3,
+        )
+        (band,) = group_data["Cs"]["bands"]
+        assert band == (
+            min(group_data["Cs"]["tols"]),
+            max(group_data["Cs"]["tols"]),
+        )
+
+    def test_a_gap_pymatgen_rejected_does_not_split_a_band(self):
+        """A tolerance pymatgen refuses is a hole in the scan, not a boundary."""
+
+        def pga(mol, tolerance):
+            if 0.2 < tolerance < 0.25:
+                raise ValueError("min() arg is an empty sequence")
+            return SimpleNamespace(sch_symbol="C2v")
+
+        group_data, _ = self._run_with(pga, min_tol=0.1, max_tol=0.4)
+        assert len(group_data["C2v"]["bands"]) == 1
+
     def test_worker_found_any_false_when_no_real_analysis(self):
         """With mocked pymatgen the loop body is never entered → found_any=False."""
         worker = _FakeWorker(0.1, 0.5)
@@ -567,7 +627,26 @@ class TestOnAnalysisFinished:
         fn = self._fn()
         s = self._self()
         fn(s, {"Td": {"tols": [0.1, 0.35]}}, True)
-        assert s.groups_list.items == ["Td  (Tol: 0.10 - 0.35 Å)"]
+        assert s.groups_list.items == ["Td  (Tol: 0.100 - 0.350 Å)"]
+
+    def test_disjoint_bands_are_listed_separately(self):
+        """Hydrazine is C2, then D2, then C2 again -- one min-max span would
+        hide the D2 island sitting inside the C2 range."""
+        fn = self._fn()
+        s = self._self()
+        fn(
+            s,
+            {
+                "C2": {
+                    "tols": [0.01, 0.65, 0.75, 0.825],
+                    "bands": [(0.01, 0.65), (0.75, 0.825)],
+                },
+                "D2": {"tols": [0.675, 0.725], "bands": [(0.675, 0.725)]},
+            },
+            True,
+        )
+        assert s.groups_list.items[0] == "C2  (Tol: 0.010 - 0.650, 0.750 - 0.825 Å)"
+        assert s.groups_list.items[1] == "D2  (Tol: 0.675 - 0.725 Å)"
 
 
 # ---------------------------------------------------------------------------
@@ -1372,7 +1451,14 @@ class TestToleranceScanFloor:
         reports C1, adding a meaningless first row to every scan."""
         src = SYMMETRY_PATH.read_text(encoding="utf-8")
         assert "min_tol = 0.0\n" not in src
-        assert "min_tol = 0.05" in src
+        assert "min_tol = self.min_tol_spin.value()" in src
+        assert "self.min_tol_spin.setRange(0.001, 10.0)" in src
+
+    def test_floor_is_not_hard_coded_at_a_twentieth_of_an_angstrom(self):
+        """A hard-coded 0.05 A floor reported D2 for a C2 biphenyl whose true
+        C2 window was 0.02-0.04 A (issue #9)."""
+        src = SYMMETRY_PATH.read_text(encoding="utf-8")
+        assert "min_tol = 0.05" not in src
 
 
 class TestMangledGeometryConfirmation:
