@@ -104,10 +104,6 @@ class TestSymmetryAnalysisPlugin:
         # artefact, so the default scan stops well short of that.
         assert dlg.max_tol_spin.value() == pytest.approx(0.5)
 
-    def test_step_spin_default(self, dlg):
-        assert dlg.step_spin.value() == pytest.approx(0.005)
-        assert dlg.step_spin.minimum() > 0.0
-
     def test_min_tol_spin_default(self, dlg):
         """Issue #9: the floor used to be hard-coded at 0.05 A, which reported
         D2 for a C2 molecule whose true C2 window was 0.02-0.04 A."""
@@ -945,13 +941,167 @@ class TestStopScan:
         assert dlgnp.calc_btn.text() == "Analyze (Scan)"
         assert dlgnp.calc_btn.isEnabled()
 
-    def test_step_setting_reaches_the_worker(self, dlgnp, monkeypatch):
+    def test_tolerance_range_reaches_the_worker(self, dlgnp, monkeypatch):
         _no_block_msgbox(monkeypatch)
         captured = {}
-        monkeypatch.setattr(_symnp.SymmetryAnalysisWorker, "start", lambda self: captured.update(step=self.step, lo=self.min_tol, hi=self.max_tol))
+        monkeypatch.setattr(
+            _symnp.SymmetryAnalysisWorker,
+            "start",
+            lambda self: captured.update(lo=self.min_tol, hi=self.max_tol),
+        )
         dlgnp.context.current_molecule = _NPMol([8, 1, 1], _WATER_COORDS)
-        dlgnp.step_spin.setValue(0.02)
         dlgnp.min_tol_spin.setValue(0.005)
         dlgnp.max_tol_spin.setValue(0.3)
         dlgnp.analyze_symmetry()
-        assert captured == pytest.approx({"step": 0.02, "lo": 0.005, "hi": 0.3})
+        assert captured == pytest.approx({"lo": 0.005, "hi": 0.3})
+
+    def test_no_step_control_is_offered(self, dlgnp):
+        """The refinement pass makes the result step-independent, so a Step
+        setting only looked like it did nothing."""
+        assert not hasattr(dlgnp, "step_spin")
+
+
+# ===========================================================================
+# pymatgen names groups whose operations it cannot produce
+# ===========================================================================
+
+
+class TestSymbolReconciliation:
+    def _analyzer(self, matrices):
+        return SimpleNamespace(
+            get_symmetry_operations=lambda: [
+                SimpleNamespace(rotation_matrix=np.array(m, dtype=float))
+                for m in matrices
+            ]
+        )
+
+    def test_a_scan_reports_c2_when_only_two_operations_exist(
+        self, dlgnp, monkeypatch
+    ):
+        """pymatgen 2025.10.7 names tetramethylhydrazine D2 while its own
+        get_symmetry_operations() returns just E and one C2."""
+        _no_block_msgbox(monkeypatch)
+        eye = np.eye(3)
+        c2z = np.diag([-1.0, -1.0, 1.0])
+
+        class _Claims:
+            sch_symbol = "D2"
+
+            def get_symmetry_operations(self):
+                return [
+                    SimpleNamespace(rotation_matrix=eye),
+                    SimpleNamespace(rotation_matrix=c2z),
+                ]
+
+        monkeypatch.setattr(_symnp, "PointGroupAnalyzer", lambda mol, tolerance: _Claims())
+        monkeypatch.setattr(
+            _symnp.SymmetryAnalysisWorker, "start", _symnp.SymmetryAnalysisWorker.run
+        )
+        dlgnp.context.current_molecule = _NPMol([8, 1, 1], _WATER_COORDS)
+        dlgnp.analyze_symmetry()
+
+        rows = [dlgnp.groups_list.item(i).text() for i in range(dlgnp.groups_list.count())]
+        assert rows and all(r.startswith("C2 ") for r in rows), rows
+        assert "D2" not in " ".join(rows)
+
+    def test_a_real_d2_survives_the_scan(self, dlgnp, monkeypatch):
+        _no_block_msgbox(monkeypatch)
+        mats = [
+            np.eye(3),
+            np.diag([-1.0, -1.0, 1.0]),
+            np.diag([1.0, -1.0, -1.0]),
+            np.diag([-1.0, 1.0, -1.0]),
+        ]
+
+        class _Claims:
+            sch_symbol = "D2"
+
+            def get_symmetry_operations(self):
+                return [SimpleNamespace(rotation_matrix=m) for m in mats]
+
+        monkeypatch.setattr(_symnp, "PointGroupAnalyzer", lambda mol, tolerance: _Claims())
+        monkeypatch.setattr(
+            _symnp.SymmetryAnalysisWorker, "start", _symnp.SymmetryAnalysisWorker.run
+        )
+        dlgnp.context.current_molecule = _NPMol([8, 1, 1], _WATER_COORDS)
+        dlgnp.analyze_symmetry()
+
+        rows = [dlgnp.groups_list.item(i).text() for i in range(dlgnp.groups_list.count())]
+        assert rows and all(r.startswith("D2 ") for r in rows), rows
+
+
+# ===========================================================================
+# _group_from_operations on the real worker (executes the module's own lines)
+# ===========================================================================
+
+
+def _ops(*matrices):
+    return [
+        SimpleNamespace(rotation_matrix=np.array(m, dtype=float)) for m in matrices
+    ]
+
+
+_EYE = np.eye(3)
+_C2Z = np.diag([-1.0, -1.0, 1.0])
+_C2X = np.diag([1.0, -1.0, -1.0])
+_C2Y = np.diag([-1.0, 1.0, -1.0])
+_SGZ = np.diag([1.0, 1.0, -1.0])
+_SGX = np.diag([-1.0, 1.0, 1.0])
+_SGY = np.diag([1.0, -1.0, 1.0])
+_INVERSION = -np.eye(3)
+_S4Z = np.array([[0.0, 1.0, 0.0], [-1.0, 0.0, 0.0], [0.0, 0.0, -1.0]])
+_C3Z = np.array(
+    [[-0.5, -(3**0.5) / 2, 0.0], [(3**0.5) / 2, -0.5, 0.0], [0.0, 0.0, 1.0]]
+)
+_C4Z = np.array([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
+
+
+class TestGroupFromOperationsReal:
+    @pytest.fixture
+    def worker(self):
+        return _symnp.SymmetryAnalysisWorker(MagicMock(), 0.01, 0.5)
+
+    @pytest.mark.parametrize(
+        "matrices,expected",
+        [
+            ((_EYE,), "C1"),
+            ((_EYE, _SGZ), "Cs"),
+            ((_EYE, _INVERSION), "Ci"),
+            ((_EYE, _C2Z), "C2"),
+            ((_EYE, _C2X, _C2Y, _C2Z), "D2"),
+            ((_EYE, _C2Z, _SGX, _SGY), "C2v"),
+            ((_EYE, _C2Z, _SGZ, _INVERSION), "C2h"),
+            ((_EYE, _C2Z, _S4Z, _S4Z.T), "S4"),
+            ((_EYE, _C3Z, _C3Z.T), "C3"),
+            ((_EYE, _C4Z, _C4Z.T, _C2Z), "C4"),
+            ((_EYE, _C2X, _C2Y, _C2Z, _SGZ, _SGX, _SGY, _INVERSION), "D2h"),
+        ],
+    )
+    def test_symbol_derived_from_operations(self, worker, matrices, expected):
+        assert worker._group_from_operations(_ops(*matrices)) == expected
+
+    def test_cubic_is_left_to_pymatgen(self, worker):
+        body = np.array([[0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+        other = np.array([[0.0, 0.0, -1.0], [-1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+        assert worker._group_from_operations(_ops(_EYE, body, body.T, other, other.T)) is None
+
+    def test_a_repeated_axis_counts_once(self, worker):
+        """A rotation and its inverse share an axis."""
+        assert worker._group_from_operations(_ops(_EYE, _C2Z, _C2Z)) == "C2"
+
+    def test_reconcile_downgrades_an_unsupported_name(self, worker):
+        analyzer = SimpleNamespace(get_symmetry_operations=lambda: _ops(_EYE, _C2Z))
+        assert worker._reconcile_symbol("D2", analyzer) == "C2"
+
+    def test_reconcile_keeps_a_supported_name(self, worker):
+        analyzer = SimpleNamespace(
+            get_symmetry_operations=lambda: _ops(_EYE, _C2X, _C2Y, _C2Z)
+        )
+        assert worker._reconcile_symbol("D2", analyzer) == "D2"
+
+    def test_reconcile_ignores_groups_outside_the_table(self, worker):
+        analyzer = SimpleNamespace(get_symmetry_operations=lambda: _ops(_EYE))
+        assert worker._reconcile_symbol("Td", analyzer) == "Td"
+
+    def test_reconcile_survives_an_analyzer_without_operations(self, worker):
+        assert worker._reconcile_symbol("D2", SimpleNamespace()) == "D2"

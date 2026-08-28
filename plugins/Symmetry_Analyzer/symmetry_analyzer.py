@@ -1,6 +1,6 @@
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Symmetry Analyzer"
-PLUGIN_VERSION = "2026.08.29"
+PLUGIN_VERSION = "2026.08.30"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Analyzes molecular symmetry (point group) and symmetrizes structures. Refactored for MoleditPy V3.0 API."
@@ -47,27 +47,193 @@ class SymmetryAnalysisWorker(QThread):
     # scan's two-argument payload instead.
     analysis_finished = pyqtSignal(dict, bool)  # processed_data, found_any
 
-    def __init__(self, mol_pmg, min_tol, max_tol, step=0.005):
+    def __init__(self, mol_pmg, min_tol, max_tol):
         super().__init__()
         self.mol_pmg = mol_pmg
         self.min_tol = min_tol
         self.max_tol = max_tol
-        self.step = step
         self._abort = False
 
     def abort(self):
         """Ask the scan to stop. quit() cannot: run() has no event loop."""
         self._abort = True
 
+    def _group_from_operations(self, ops):
+        """Schoenflies symbol implied by a set of symmetry operations.
+
+        Returns None for the cubic, icosahedral and linear groups, which are
+        left to pymatgen.
+        """
+        tol = 1e-2
+
+        def axis_for(matrix, eigenvalue):
+            eigvals, eigvecs = np.linalg.eig(matrix)
+            idx = np.where(np.isclose(eigvals, eigenvalue, atol=tol))[0]
+            if len(idx) == 0:
+                return None
+            vec = np.real(eigvecs[:, idx[0]])
+            norm = np.linalg.norm(vec)
+            return None if norm < 1e-6 else vec / norm
+
+        def order_for(angle):
+            return int(round(360.0 / angle)) if angle >= 1.0 else 0
+
+        axes, mirrors, improper = [], [], []
+        has_inversion = False
+        for op in ops:
+            m = np.asarray(op.rotation_matrix, dtype=float)
+            if np.allclose(m, np.eye(3), atol=tol):
+                continue
+            trace = np.trace(m)
+            if np.linalg.det(m) > 0:
+                angle = np.degrees(np.arccos(np.clip((trace - 1) / 2.0, -1.0, 1.0)))
+                order = order_for(angle)
+                axis = axis_for(m, 1.0)
+                if order > 1 and axis is not None:
+                    axes.append((axis, order))
+            elif np.isclose(trace, -3.0, atol=tol):
+                has_inversion = True
+            elif np.isclose(trace, 1.0, atol=tol):
+                normal = axis_for(m, -1.0)
+                if normal is not None:
+                    mirrors.append(normal)
+            else:
+                angle = np.degrees(np.arccos(np.clip((trace + 1) / 2.0, -1.0, 1.0)))
+                order = order_for(angle)
+                axis = axis_for(m, -1.0)
+                if order > 1 and axis is not None:
+                    improper.append((axis, order))
+
+        if not axes:
+            if has_inversion:
+                return "Ci"
+            return "Cs" if mirrors else "C1"
+
+        # A rotation and its inverse share an axis; keep one entry per axis.
+        unique = []
+        for axis, order in axes:
+            for i, (known, known_order) in enumerate(unique):
+                if abs(abs(float(np.dot(axis, known))) - 1.0) < tol:
+                    if order > known_order:
+                        unique[i] = (known, order)
+                    break
+            else:
+                unique.append((axis, order))
+
+        if sum(1 for _, order in unique if order >= 3) > 1:
+            return None  # cubic or icosahedral
+
+        n_max = max(order for _, order in unique)
+        principal = next(axis for axis, order in unique if order == n_max)
+        perpendicular = sum(
+            1
+            for axis, order in unique
+            if order == 2 and abs(float(np.dot(axis, principal))) < tol
+        )
+        sigma_h = any(
+            abs(abs(float(np.dot(normal, principal))) - 1.0) < tol for normal in mirrors
+        )
+        sigma_v = sum(
+            1 for normal in mirrors if abs(float(np.dot(normal, principal))) < tol
+        )
+
+        if n_max >= 2 and perpendicular == n_max:
+            if sigma_h:
+                return f"D{n_max}h"
+            return f"D{n_max}d" if sigma_v >= n_max else f"D{n_max}"
+        if sigma_h:
+            return f"C{n_max}h"
+        if sigma_v:
+            return f"C{n_max}v"
+        for axis, order in improper:
+            if (
+                order == 2 * n_max
+                and abs(abs(float(np.dot(axis, principal))) - 1.0) < tol
+            ):
+                return f"S{2 * n_max}"
+        return f"C{n_max}"
+
+    def _reconcile_symbol(self, sym, analyzer):
+        """Trust the operations over the name when pymatgen's disagree.
+
+        Tetramethylhydrazine is named D2 while get_symmetry_operations() yields
+        only E and one C2: the second axis counted while naming the group is
+        numerically the first one again. Four atoms' worth of C2 symmetry does
+        not become D2 because an axis was counted twice.
+        """
+        orders = {
+            "C1": 1,
+            "Cs": 2,
+            "Ci": 2,
+            "C2": 2,
+            "C3": 3,
+            "C4": 4,
+            "C5": 5,
+            "C6": 6,
+            "C2v": 4,
+            "C3v": 6,
+            "C4v": 8,
+            "C5v": 10,
+            "C6v": 12,
+            "C2h": 4,
+            "C3h": 6,
+            "C4h": 8,
+            "C5h": 10,
+            "C6h": 12,
+            "D2": 4,
+            "D3": 6,
+            "D4": 8,
+            "D5": 10,
+            "D6": 12,
+            "D2h": 8,
+            "D3h": 12,
+            "D4h": 16,
+            "D5h": 20,
+            "D6h": 24,
+            "D2d": 8,
+            "D3d": 12,
+            "D4d": 16,
+            "D5d": 20,
+            "D6d": 24,
+            "S4": 4,
+            "S6": 6,
+            "S8": 8,
+        }
+        expected = orders.get(sym)
+        if not expected:
+            return sym  # linear, cubic or icosahedral: pymatgen's call
+
+        try:
+            ops = list(analyzer.get_symmetry_operations())
+        except Exception:
+            return sym
+
+        distinct = []
+        for op in ops:
+            m = np.asarray(op.rotation_matrix, dtype=float)
+            if not any(np.allclose(m, seen, atol=1e-2) for seen in distinct):
+                distinct.append(m)
+        if len(distinct) >= expected:
+            return sym
+
+        derived = self._group_from_operations(ops)
+        if derived and orders.get(derived) == len(distinct):
+            logging.debug(
+                "Symmetry: %s has only %d operations; reporting %s",
+                sym,
+                len(distinct),
+                derived,
+            )
+            return derived
+        return sym
+
     def run(self):
-        # A near-symmetric geometry is only reported as its true group over a
-        # window a few hundredths of an Angstrom wide -- sometimes thinner than
-        # one step -- so the grid is a starting point, not the answer: the
-        # refinement pass below bisects whatever falls between two steps.
-        step = max(float(self.step), 1e-4)
+        # The grid only has to bracket the transitions; the refinement pass
+        # below bisects them, so a coarse walk is both faster and no less
+        # accurate than the dense one it replaces.
         tolerances = [
             float(t)
-            for t in np.round(np.arange(self.min_tol, self.max_tol + 1e-9, step), 6)
+            for t in np.round(np.arange(self.min_tol, self.max_tol + 1e-9, 0.01), 6)
             if t >= self.min_tol - 1e-9
         ]
 
@@ -79,7 +245,7 @@ class SymmetryAnalysisWorker(QThread):
             """Point group at one tolerance, or None if pymatgen refuses it."""
             try:
                 analyzer = PointGroupAnalyzer(self.mol_pmg, tolerance=tol_val)
-                sym = analyzer.sch_symbol
+                sym = self._reconcile_symbol(analyzer.sch_symbol, analyzer)
             except ValueError as exc:
                 # Routine: pymatgen's axis search raises ValueError ("min()
                 # arg is an empty sequence") at tolerances that fit no axis
@@ -123,7 +289,7 @@ class SymmetryAnalysisWorker(QThread):
             work = [(a, b, 0) for a, b in zip(edges, edges[1:]) if seen[a] != seen[b]]
             while work and budget > 0 and not self._abort:
                 lo, hi, depth = work.pop(0)
-                if depth >= 6 or hi - lo <= 1e-4:
+                if depth >= 7 or hi - lo <= 1e-4:
                     continue
                 mid = round((lo + hi) / 2.0, 6)
                 if mid <= lo or mid >= hi:
@@ -243,21 +409,6 @@ class SymmetryAnalysisPlugin(QDialog):
         settings_layout.addWidget(tol_label, 1, 0)
         settings_layout.addWidget(self.max_tol_spin, 1, 1)
 
-        # Scan Step Input
-        step_label = QLabel("Step (Å):")
-        self.step_spin = QDoubleSpinBox()
-        self.step_spin.setRange(0.001, 1.0)
-        self.step_spin.setSingleStep(0.005)
-        self.step_spin.setDecimals(3)
-        self.step_spin.setValue(0.005)  # Default
-        self.step_spin.setToolTip(
-            "Spacing of the scanned tolerances. Groups that fall between two "
-            "steps are still found: every transition is bisected."
-        )
-
-        settings_layout.addWidget(step_label, 2, 0)
-        settings_layout.addWidget(self.step_spin, 2, 1)
-
         # Analyze Button
         self.calc_btn = QPushButton("Analyze (Scan)")
         self.calc_btn.setToolTip("Scan tolerances to find likely point groups.")
@@ -271,8 +422,8 @@ class SymmetryAnalysisPlugin(QDialog):
         self.sym_btn.clicked.connect(self.symmetrize_structure)
         self.sym_btn.setEnabled(False)
 
-        settings_layout.addWidget(self.calc_btn, 3, 0)
-        settings_layout.addWidget(self.sym_btn, 3, 1)
+        settings_layout.addWidget(self.calc_btn, 2, 0)
+        settings_layout.addWidget(self.sym_btn, 2, 1)
 
         settings_group.setLayout(settings_layout)
         main_layout.addWidget(settings_group)
@@ -416,12 +567,11 @@ class SymmetryAnalysisPlugin(QDialog):
         # to "exact coordinates only" and always reports C1.
         min_tol = self.min_tol_spin.value()
         max_tol = max(self.max_tol_spin.value(), min_tol)
-        step = self.step_spin.value()
 
         self._scanned_fingerprint = self._molecule_fingerprint()
 
         # Start Worker Thread
-        self.worker = SymmetryAnalysisWorker(mol_pmg, min_tol, max_tol, step)
+        self.worker = SymmetryAnalysisWorker(mol_pmg, min_tol, max_tol)
         self.worker.analysis_finished.connect(self.on_analysis_finished)
         self.worker.start()
 
