@@ -53,12 +53,25 @@ class SymmetryAnalysisWorker(QThread):
         self.max_tol = max_tol
 
     def run(self):
-        # Scan from min_tol to max_tol
-        # Note: np.arange excludes the stop value, so we add a small buffer (0.05) if we want to include max_tol
-        tolerances = np.arange(self.min_tol, self.max_tol + 0.001, 0.05)
+        # The tight end has to be sampled finely: a C2 geometry sitting 0.03 A
+        # away from D2 is only reported as C2 over a window a few hundredths of
+        # an Angstrom wide, and a uniform 0.05 A grid steps straight over it,
+        # leaving the looser -- higher-symmetry -- group as the only answer.
+        fine_step, coarse_step, fine_limit = 0.005, 0.025, 0.1
+        grids = [
+            np.arange(self.min_tol, min(self.max_tol, fine_limit) + 1e-9, fine_step)
+        ]
+        if self.max_tol > fine_limit:
+            grids.append(np.arange(fine_limit, self.max_tol + 1e-9, coarse_step))
+        tolerances = [
+            t
+            for t in np.unique(np.round(np.concatenate(grids), 4))
+            if t >= self.min_tol - 1e-9
+        ]
 
         group_data = {}
         found_any = False
+        scan_order = []  # (symbol, tol) for the tolerances pymatgen resolved
 
         try:
             for tol in tolerances:
@@ -93,12 +106,26 @@ class SymmetryAnalysisWorker(QThread):
                     group_data[sym] = {"analyzer": analyzer, "tols": [tol_val]}
                 else:
                     group_data[sym]["tols"].append(tol_val)
+                scan_order.append((sym, tol_val))
                 found_any = True
         except Exception:
             # The dialog only unblocks when `finished` is emitted, so an
             # unexpected error must still report whatever the scan found
             # rather than leaving the UI waiting forever.
             logging.exception("Symmetry: scan aborted early; reporting partial results")
+
+        # A group can drop out and come back (hydrazine is C2, then D2, then C2
+        # again), so a single min-max span would hide the group in between.
+        for sym, data in group_data.items():
+            bands = []
+            for i, (found_sym, tol_val) in enumerate(scan_order):
+                if found_sym != sym:
+                    continue
+                if bands and scan_order[i - 1][0] == sym:
+                    bands[-1][1] = tol_val
+                else:
+                    bands.append([tol_val, tol_val])
+            data["bands"] = [tuple(b) for b in bands]
 
         self.finished.emit(group_data, found_any)
 
@@ -154,16 +181,35 @@ class SymmetryAnalysisPlugin(QDialog):
         settings_group = QGroupBox("Actions")
         settings_layout = QGridLayout()
 
+        # Min Tolerance Input
+        min_tol_label = QLabel("Min Tol (Å):")
+        self.min_tol_spin = QDoubleSpinBox()
+        self.min_tol_spin.setRange(0.001, 10.0)
+        self.min_tol_spin.setSingleStep(0.005)
+        self.min_tol_spin.setDecimals(3)
+        self.min_tol_spin.setValue(0.01)  # Default
+        self.min_tol_spin.setToolTip(
+            "Tightest tolerance to test. A near-symmetric geometry is reported "
+            "as the higher point group at any tolerance above its distortion."
+        )
+
+        settings_layout.addWidget(min_tol_label, 0, 0)
+        settings_layout.addWidget(self.min_tol_spin, 0, 1)
+
         # Max Tolerance Input
         tol_label = QLabel("Max Tol (Å):")
         self.max_tol_spin = QDoubleSpinBox()
-        self.max_tol_spin.setRange(0.05, 10.0)
+        self.max_tol_spin.setRange(0.01, 10.0)
         self.max_tol_spin.setSingleStep(0.05)
         self.max_tol_spin.setDecimals(2)
-        self.max_tol_spin.setValue(1.0)  # Default
+        self.max_tol_spin.setValue(0.5)  # Default
+        self.max_tol_spin.setToolTip(
+            "Loosest tolerance to test. Beyond ~0.7 Å distinct atoms merge "
+            "and the reported groups are artefacts."
+        )
 
-        settings_layout.addWidget(tol_label, 0, 0)
-        settings_layout.addWidget(self.max_tol_spin, 0, 1)
+        settings_layout.addWidget(tol_label, 1, 0)
+        settings_layout.addWidget(self.max_tol_spin, 1, 1)
 
         # Analyze Button
         self.calc_btn = QPushButton("Analyze (Scan)")
@@ -178,8 +224,8 @@ class SymmetryAnalysisPlugin(QDialog):
         self.sym_btn.clicked.connect(self.symmetrize_structure)
         self.sym_btn.setEnabled(False)
 
-        settings_layout.addWidget(self.calc_btn, 1, 0)
-        settings_layout.addWidget(self.sym_btn, 1, 1)
+        settings_layout.addWidget(self.calc_btn, 2, 0)
+        settings_layout.addWidget(self.sym_btn, 2, 1)
 
         settings_group.setLayout(settings_layout)
         main_layout.addWidget(settings_group)
@@ -284,10 +330,10 @@ class SymmetryAnalysisPlugin(QDialog):
         self.calc_btn.setEnabled(False)
         self.calc_btn.setText("Scanning...")
 
-        # A zero tolerance degenerates to "exact coordinates only" and always
-        # reports C1, adding a meaningless first row to every scan.
-        min_tol = 0.05
-        max_tol = self.max_tol_spin.value()
+        # The spin box floor keeps this above zero; a zero tolerance degenerates
+        # to "exact coordinates only" and always reports C1.
+        min_tol = self.min_tol_spin.value()
+        max_tol = max(self.max_tol_spin.value(), min_tol)
 
         # Start Worker Thread
         self.worker = SymmetryAnalysisWorker(mol_pmg, min_tol, max_tol)
@@ -316,11 +362,11 @@ class SymmetryAnalysisPlugin(QDialog):
 
         for sym in sorted_keys:
             data = self.group_data[sym]
-            min_t = min(data["tols"])
-            max_t = max(data["tols"])
+            bands = data.get("bands") or [(min(data["tols"]), max(data["tols"]))]
 
-            # リスト表示： "Td (Tol: 0.10 - 2.00)" のようにシンプルに
-            item_text = f"{sym}  (Tol: {min_t:.2f} - {max_t:.2f} Å)"
+            # リスト表示： "Td (Tol: 0.100 - 2.000)" のようにシンプルに
+            span = ", ".join(f"{lo:.3f} - {hi:.3f}" for lo, hi in bands)
+            item_text = f"{sym}  (Tol: {span} Å)"
             self.groups_list.addItem(item_text)
 
         # 1つ目をデフォルトで選択 (Auto-select first item) but prioritize non-C1

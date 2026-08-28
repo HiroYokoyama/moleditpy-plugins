@@ -97,7 +97,15 @@ class TestSymmetryAnalysisPlugin:
         assert dlg.op_details.isReadOnly()
 
     def test_max_tol_spin_default(self, dlg):
-        assert dlg.max_tol_spin.value() == pytest.approx(1.0)
+        # Beyond ~0.7 A distinct atoms merge and every reported group is an
+        # artefact, so the default scan stops well short of that.
+        assert dlg.max_tol_spin.value() == pytest.approx(0.5)
+
+    def test_min_tol_spin_default(self, dlg):
+        """Issue #9: the floor used to be hard-coded at 0.05 A, which reported
+        D2 for a C2 molecule whose true C2 window was 0.02-0.04 A."""
+        assert dlg.min_tol_spin.value() == pytest.approx(0.01)
+        assert dlg.min_tol_spin.minimum() > 0.0
 
     def test_symmetrize_button_initially_disabled(self, dlg):
         assert not dlg.sym_btn.isEnabled()
@@ -329,9 +337,12 @@ class TestWorkerRunReal:
         worker.run()
         assert received["found_any"] is True
         assert set(received["group_data"].keys()) == {"C2v", "Cs"}
-        # tol 0.0, 0.05, 0.1 -> C2v; 0.15, 0.2 -> Cs (arange step 0.05)
-        assert received["group_data"]["C2v"]["tols"] == pytest.approx([0.0, 0.05, 0.1])
-        assert received["group_data"]["Cs"]["tols"] == pytest.approx([0.15, 0.2])
+        # The grid is dense (0.005) below 0.1 and coarser (0.025) above, so the
+        # split at 0.15 lands exactly on a sampled tolerance.
+        assert max(received["group_data"]["C2v"]["tols"]) == pytest.approx(0.125)
+        assert min(received["group_data"]["Cs"]["tols"]) == pytest.approx(0.15)
+        assert received["group_data"]["Cs"]["tols"] == pytest.approx([0.15, 0.175, 0.2])
+        assert received["group_data"]["C2v"]["bands"] == [(0.0, 0.125)]
 
     def test_run_tolerates_analyzer_exceptions(self, monkeypatch):
         def _boom(mol, tolerance):
