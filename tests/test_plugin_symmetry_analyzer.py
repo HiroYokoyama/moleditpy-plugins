@@ -13,6 +13,7 @@ from unittest import mock
 from unittest.mock import MagicMock
 
 import numpy as np
+import pytest
 
 from conftest import (
     FakeMol,
@@ -76,10 +77,6 @@ class _FakeWorker:
         self.max_tol = max_tol
         self.analysis_finished = MagicMock()
         self._abort = False
-
-    def _reconcile_symbol(self, sym, analyzer):
-        """Passthrough: the real one is exercised in TestReconcileSymbol."""
-        return sym
 
 
 class TestSymmetryAnalyzer:
@@ -407,147 +404,6 @@ class TestSymmetryAnalyzer:
             _sym_run_raw(worker)
         _, found_any = worker.analysis_finished.emit.call_args[0]
         assert found_any is False
-
-
-# ---------------------------------------------------------------------------
-# _reconcile_symbol / _group_from_operations — pymatgen names groups whose
-# operations it cannot produce (upstream 2025.10.7: _check_rot_sym counts the
-# trivial 360-degree rotation as an axis, so _proc_sym_top takes the dihedral
-# branch and a C2 molecule is named D2).
-# ---------------------------------------------------------------------------
-
-
-class _Op:
-    def __init__(self, matrix):
-        self.rotation_matrix = np.array(matrix, dtype=float)
-
-
-_E = np.eye(3)
-_C2_Z = np.diag([-1.0, -1.0, 1.0])
-_C2_X = np.diag([1.0, -1.0, -1.0])
-_C2_Y = np.diag([-1.0, 1.0, -1.0])
-_SIGMA_Z = np.diag([1.0, 1.0, -1.0])
-_SIGMA_X = np.diag([-1.0, 1.0, 1.0])
-_INV = -np.eye(3)
-_S4_Z = np.array([[0.0, 1.0, 0.0], [-1.0, 0.0, 0.0], [0.0, 0.0, -1.0]])
-_C3_Z = np.array(
-    [
-        [-0.5, -(3**0.5) / 2, 0.0],
-        [(3**0.5) / 2, -0.5, 0.0],
-        [0.0, 0.0, 1.0],
-    ]
-)
-
-
-def _classify(ops):
-    fn = _extract_method_as_fn(
-        SYMMETRY_PATH,
-        "SymmetryAnalysisWorker",
-        "_group_from_operations",
-        extra_globals={"np": np},
-    )
-    return fn(SimpleNamespace(), [_Op(m) for m in ops])
-
-
-class TestGroupFromOperations:
-    def test_identity_only_is_c1(self):
-        assert _classify([_E]) == "C1"
-
-    def test_one_mirror_is_cs(self):
-        assert _classify([_E, _SIGMA_Z]) == "Cs"
-
-    def test_inversion_only_is_ci(self):
-        assert _classify([_E, _INV]) == "Ci"
-
-    def test_one_axis_is_c2(self):
-        assert _classify([_E, _C2_Z]) == "C2"
-
-    def test_three_perpendicular_axes_are_d2(self):
-        assert _classify([_E, _C2_X, _C2_Y, _C2_Z]) == "D2"
-
-    def test_axis_with_two_vertical_mirrors_is_c2v(self):
-        assert _classify([_E, _C2_Z, _SIGMA_X, np.diag([1.0, -1.0, 1.0])]) == "C2v"
-
-    def test_axis_with_a_horizontal_mirror_is_c2h(self):
-        assert _classify([_E, _C2_Z, _SIGMA_Z, _INV]) == "C2h"
-
-    def test_s4_axis_without_perpendicular_axes(self):
-        assert _classify([_E, _C2_Z, _S4_Z, _S4_Z.T]) == "S4"
-
-    def test_three_fold_axis_is_c3(self):
-        assert _classify([_E, _C3_Z, _C3_Z.T]) == "C3"
-
-    def test_cubic_groups_are_left_to_pymatgen(self):
-        c3_body = np.array([[0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
-        other = np.array([[0.0, 0.0, -1.0], [-1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
-        assert _classify([_E, c3_body, c3_body.T, other, other.T]) is None
-
-
-class TestReconcileSymbol:
-    def _fn(self):
-        return _extract_method_as_fn(
-            SYMMETRY_PATH,
-            "SymmetryAnalysisWorker",
-            "_reconcile_symbol",
-            extra_globals={"np": np, "logging": logging},
-        )
-
-    def _worker(self):
-        group_fn = _extract_method_as_fn(
-            SYMMETRY_PATH,
-            "SymmetryAnalysisWorker",
-            "_group_from_operations",
-            extra_globals={"np": np},
-        )
-        w = SimpleNamespace()
-        w._group_from_operations = lambda ops: group_fn(w, ops)
-        return w
-
-    def _analyzer(self, matrices):
-        return SimpleNamespace(get_symmetry_operations=lambda: [_Op(m) for m in matrices])
-
-    def test_d2_with_only_two_operations_is_reported_as_c2(self):
-        """The user's case: pymatgen said D2, its own op set held E and one C2."""
-        fn = self._fn()
-        assert fn(self._worker(), "D2", self._analyzer([_E, _C2_Z])) == "C2"
-
-    def test_a_real_d2_is_left_alone(self):
-        fn = self._fn()
-        analyzer = self._analyzer([_E, _C2_X, _C2_Y, _C2_Z])
-        assert fn(self._worker(), "D2", analyzer) == "D2"
-
-    def test_d2h_with_four_operations_drops_to_c2h(self):
-        fn = self._fn()
-        analyzer = self._analyzer([_E, _C2_Z, _SIGMA_Z, _INV])
-        assert fn(self._worker(), "D2h", analyzer) == "C2h"
-
-    def test_duplicate_operations_do_not_count_twice(self):
-        """generate_full_symmops can hand back the same matrix twice."""
-        fn = self._fn()
-        analyzer = self._analyzer([_E, _C2_Z, _C2_Z, _E])
-        assert fn(self._worker(), "D2", analyzer) == "C2"
-
-    def test_symbols_outside_the_table_are_untouched(self):
-        """Linear, cubic and icosahedral groups stay pymatgen's call."""
-        fn = self._fn()
-        for sym in ("Td", "Oh", "D*h", "C*v", "Ih"):
-            assert fn(self._worker(), sym, self._analyzer([_E])) == sym
-
-    def test_an_analyzer_without_operations_is_not_second_guessed(self):
-        fn = self._fn()
-        analyzer = SimpleNamespace()
-        assert fn(self._worker(), "D2", analyzer) == "D2"
-
-    def test_an_inconsistent_derivation_keeps_the_original_symbol(self):
-        """Only a self-consistent smaller group may override the name."""
-        fn = self._fn()
-        w = self._worker()
-        w._group_from_operations = lambda ops: "D6h"  # order 24, not 2
-        assert fn(w, "D2", self._analyzer([_E, _C2_Z])) == "D2"
-
-    def test_reconciliation_runs_inside_the_scan(self):
-        src = SYMMETRY_PATH.read_text(encoding="utf-8")
-        assert "sym = self._reconcile_symbol(analyzer.sch_symbol, analyzer)" in src
 
 
 # ---------------------------------------------------------------------------
@@ -1779,3 +1635,57 @@ class TestMangledGeometryConfirmation:
         src = SYMMETRY_PATH.read_text(encoding="utf-8")
         assert "QMessageBox.question" in src
         assert "Apply anyway?" in src
+
+
+# ---------------------------------------------------------------------------
+# Upstream defect, no longer worked around here (v2026.08.31): pymatgen's
+# _check_rot_sym() records the trivial 360-degree rotation as an axis, so
+# _proc_sym_top() takes the dihedral branch and tetramethylhydrazine -- one C2
+# axis, two operations -- is named D2. Fixed in pymatgen-core
+# (HiroYokoyama:fix/point-group-identity-recorded-as-axis); remove the skip
+# once that release is what the plugin runs against.
+# ---------------------------------------------------------------------------
+
+_TMH_SPECIES = ["C", "N", "C", "N", "C", "C"] + ["H"] * 12
+_TMH_COORDS = [
+    [0.8948, 1.3308, -0.3279],
+    [0.4193, 0.3558, 0.6535],
+    [1.5180, -0.4396, 1.2017],
+    [-0.6422, -0.5314, 0.1861],
+    [-0.4927, -1.0142, -1.1867],
+    [-1.9424, 0.1054, 0.3967],
+    [1.4337, 0.8671, -1.1618],
+    [0.0689, 1.9255, -0.7326],
+    [1.5775, 2.0403, 0.1538],
+    [2.0269, -1.0364, 0.4363],
+    [1.1545, -1.1179, 1.9824],
+    [2.2609, 0.2123, 1.6749],
+    [-1.2478, -1.7807, -1.3954],
+    [0.4809, -1.4926, -1.3379],
+    [-0.6121, -0.2201, -1.9323],
+    [-2.0816, 0.9933, -0.2303],
+    [-2.0646, 0.4012, 1.4452],
+    [-2.7519, -0.5990, 0.1742],
+]
+
+
+@pytest.mark.skip(
+    reason="pymatgen names tetramethylhydrazine D2; awaiting the upstream "
+    "pymatgen-core fix. Unskip when that release is the one in use."
+)
+def test_tetramethylhydrazine_is_reported_as_c2():
+    """One C2 axis and two operations must not be named D2 (order 4).
+
+    Real pymatgen, so it needs the package itself -- the rest of this file
+    runs against MagicMock stubs.
+    """
+    Molecule = pytest.importorskip("pymatgen.core").Molecule
+    PointGroupAnalyzer = pytest.importorskip(
+        "pymatgen.symmetry.analyzer"
+    ).PointGroupAnalyzer
+
+    analyzer = PointGroupAnalyzer(
+        Molecule(_TMH_SPECIES, _TMH_COORDS), tolerance=0.1
+    )
+    assert len(analyzer.get_symmetry_operations()) == 2
+    assert analyzer.sch_symbol == "C2"

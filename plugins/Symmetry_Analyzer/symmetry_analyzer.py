@@ -1,6 +1,6 @@
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Symmetry Analyzer"
-PLUGIN_VERSION = "2026.08.30"
+PLUGIN_VERSION = "2026.08.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Analyzes molecular symmetry (point group) and symmetrizes structures. Refactored for MoleditPy V3.0 API."
@@ -58,175 +58,6 @@ class SymmetryAnalysisWorker(QThread):
         """Ask the scan to stop. quit() cannot: run() has no event loop."""
         self._abort = True
 
-    def _group_from_operations(self, ops):
-        """Schoenflies symbol implied by a set of symmetry operations.
-
-        Returns None for the cubic, icosahedral and linear groups, which are
-        left to pymatgen.
-        """
-        tol = 1e-2
-
-        def axis_for(matrix, eigenvalue):
-            eigvals, eigvecs = np.linalg.eig(matrix)
-            idx = np.where(np.isclose(eigvals, eigenvalue, atol=tol))[0]
-            if len(idx) == 0:
-                return None
-            vec = np.real(eigvecs[:, idx[0]])
-            norm = np.linalg.norm(vec)
-            return None if norm < 1e-6 else vec / norm
-
-        def order_for(angle):
-            return int(round(360.0 / angle)) if angle >= 1.0 else 0
-
-        axes, mirrors, improper = [], [], []
-        has_inversion = False
-        for op in ops:
-            m = np.asarray(op.rotation_matrix, dtype=float)
-            if np.allclose(m, np.eye(3), atol=tol):
-                continue
-            trace = np.trace(m)
-            if np.linalg.det(m) > 0:
-                angle = np.degrees(np.arccos(np.clip((trace - 1) / 2.0, -1.0, 1.0)))
-                order = order_for(angle)
-                axis = axis_for(m, 1.0)
-                if order > 1 and axis is not None:
-                    axes.append((axis, order))
-            elif np.isclose(trace, -3.0, atol=tol):
-                has_inversion = True
-            elif np.isclose(trace, 1.0, atol=tol):
-                normal = axis_for(m, -1.0)
-                if normal is not None:
-                    mirrors.append(normal)
-            else:
-                angle = np.degrees(np.arccos(np.clip((trace + 1) / 2.0, -1.0, 1.0)))
-                order = order_for(angle)
-                axis = axis_for(m, -1.0)
-                if order > 1 and axis is not None:
-                    improper.append((axis, order))
-
-        if not axes:
-            if has_inversion:
-                return "Ci"
-            return "Cs" if mirrors else "C1"
-
-        # A rotation and its inverse share an axis; keep one entry per axis.
-        unique = []
-        for axis, order in axes:
-            for i, (known, known_order) in enumerate(unique):
-                if abs(abs(float(np.dot(axis, known))) - 1.0) < tol:
-                    if order > known_order:
-                        unique[i] = (known, order)
-                    break
-            else:
-                unique.append((axis, order))
-
-        if sum(1 for _, order in unique if order >= 3) > 1:
-            return None  # cubic or icosahedral
-
-        n_max = max(order for _, order in unique)
-        principal = next(axis for axis, order in unique if order == n_max)
-        perpendicular = sum(
-            1
-            for axis, order in unique
-            if order == 2 and abs(float(np.dot(axis, principal))) < tol
-        )
-        sigma_h = any(
-            abs(abs(float(np.dot(normal, principal))) - 1.0) < tol for normal in mirrors
-        )
-        sigma_v = sum(
-            1 for normal in mirrors if abs(float(np.dot(normal, principal))) < tol
-        )
-
-        if n_max >= 2 and perpendicular == n_max:
-            if sigma_h:
-                return f"D{n_max}h"
-            return f"D{n_max}d" if sigma_v >= n_max else f"D{n_max}"
-        if sigma_h:
-            return f"C{n_max}h"
-        if sigma_v:
-            return f"C{n_max}v"
-        for axis, order in improper:
-            if (
-                order == 2 * n_max
-                and abs(abs(float(np.dot(axis, principal))) - 1.0) < tol
-            ):
-                return f"S{2 * n_max}"
-        return f"C{n_max}"
-
-    def _reconcile_symbol(self, sym, analyzer):
-        """Trust the operations over the name when pymatgen's disagree.
-
-        Tetramethylhydrazine is named D2 while get_symmetry_operations() yields
-        only E and one C2: the second axis counted while naming the group is
-        numerically the first one again. Four atoms' worth of C2 symmetry does
-        not become D2 because an axis was counted twice.
-        """
-        orders = {
-            "C1": 1,
-            "Cs": 2,
-            "Ci": 2,
-            "C2": 2,
-            "C3": 3,
-            "C4": 4,
-            "C5": 5,
-            "C6": 6,
-            "C2v": 4,
-            "C3v": 6,
-            "C4v": 8,
-            "C5v": 10,
-            "C6v": 12,
-            "C2h": 4,
-            "C3h": 6,
-            "C4h": 8,
-            "C5h": 10,
-            "C6h": 12,
-            "D2": 4,
-            "D3": 6,
-            "D4": 8,
-            "D5": 10,
-            "D6": 12,
-            "D2h": 8,
-            "D3h": 12,
-            "D4h": 16,
-            "D5h": 20,
-            "D6h": 24,
-            "D2d": 8,
-            "D3d": 12,
-            "D4d": 16,
-            "D5d": 20,
-            "D6d": 24,
-            "S4": 4,
-            "S6": 6,
-            "S8": 8,
-        }
-        expected = orders.get(sym)
-        if not expected:
-            return sym  # linear, cubic or icosahedral: pymatgen's call
-
-        try:
-            ops = list(analyzer.get_symmetry_operations())
-        except Exception:
-            return sym
-
-        distinct = []
-        for op in ops:
-            m = np.asarray(op.rotation_matrix, dtype=float)
-            if not any(np.allclose(m, seen, atol=1e-2) for seen in distinct):
-                distinct.append(m)
-        if len(distinct) >= expected:
-            return sym
-
-        derived = self._group_from_operations(ops)
-        if derived and orders.get(derived) == len(distinct):
-            logging.debug(
-                "Symmetry: %s has only %d operations; reporting %s",
-                sym,
-                len(distinct),
-                derived,
-            )
-            return derived
-        return sym
-
     def run(self):
         # The grid only has to bracket the transitions; the refinement pass
         # below bisects them, so a coarse walk is both faster and no less
@@ -245,7 +76,7 @@ class SymmetryAnalysisWorker(QThread):
             """Point group at one tolerance, or None if pymatgen refuses it."""
             try:
                 analyzer = PointGroupAnalyzer(self.mol_pmg, tolerance=tol_val)
-                sym = self._reconcile_symbol(analyzer.sch_symbol, analyzer)
+                sym = analyzer.sch_symbol
             except ValueError as exc:
                 # Routine: pymatgen's axis search raises ValueError ("min()
                 # arg is an empty sequence") at tolerances that fit no axis

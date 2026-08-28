@@ -870,7 +870,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Symmetry Analyzer",
-    "version": "2026.08.30",
+    "version": "2026.08.31",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Analyzes molecular symmetry (point group) and symmetrizes structures.",
@@ -883,8 +883,8 @@
       "pymatgen"
     ],
     "downloadUrl": "../plugins/Symmetry_Analyzer/symmetry_analyzer.py",
-    "lastUpdated": "2026-08-30",
-    "sha256": "82f279036ae3072c69634f6a53f62c415f4d0e76cbe837bba849440476296a2e",
+    "lastUpdated": "2026-08-31",
+    "sha256": "740a5ba90d8a626cd25b11f4b5d270fab13ce29b17c90d2f24830bb0a38ec032",
     "firstAppeared": "2025-12-31",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
