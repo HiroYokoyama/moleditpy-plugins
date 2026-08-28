@@ -1,6 +1,6 @@
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Symmetry Analyzer"
-PLUGIN_VERSION = "2026.08.28"
+PLUGIN_VERSION = "2026.08.29"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Analyzes molecular symmetry (point group) and symmetrizes structures. Refactored for MoleditPy V3.0 API."
@@ -47,11 +47,12 @@ class SymmetryAnalysisWorker(QThread):
     # scan's two-argument payload instead.
     analysis_finished = pyqtSignal(dict, bool)  # processed_data, found_any
 
-    def __init__(self, mol_pmg, min_tol, max_tol):
+    def __init__(self, mol_pmg, min_tol, max_tol, step=0.005):
         super().__init__()
         self.mol_pmg = mol_pmg
         self.min_tol = min_tol
         self.max_tol = max_tol
+        self.step = step
         self._abort = False
 
     def abort(self):
@@ -59,72 +60,93 @@ class SymmetryAnalysisWorker(QThread):
         self._abort = True
 
     def run(self):
-        # The tight end has to be sampled finely: a C2 geometry sitting 0.03 A
-        # away from D2 is only reported as C2 over a window a few hundredths of
-        # an Angstrom wide, and a uniform 0.05 A grid steps straight over it,
-        # leaving the looser -- higher-symmetry -- group as the only answer.
-        fine_step, coarse_step, fine_limit = 0.005, 0.025, 0.1
-        grids = [
-            np.arange(self.min_tol, min(self.max_tol, fine_limit) + 1e-9, fine_step)
-        ]
-        if self.max_tol > fine_limit:
-            grids.append(np.arange(fine_limit, self.max_tol + 1e-9, coarse_step))
+        # A near-symmetric geometry is only reported as its true group over a
+        # window a few hundredths of an Angstrom wide -- sometimes thinner than
+        # one step -- so the grid is a starting point, not the answer: the
+        # refinement pass below bisects whatever falls between two steps.
+        step = max(float(self.step), 1e-4)
         tolerances = [
-            t
-            for t in np.unique(np.round(np.concatenate(grids), 4))
+            float(t)
+            for t in np.round(np.arange(self.min_tol, self.max_tol + 1e-9, step), 6)
             if t >= self.min_tol - 1e-9
         ]
 
         group_data = {}
         found_any = False
-        scan_order = []  # (symbol, tol) for the tolerances pymatgen resolved
+        seen = {}  # tolerance -> symbol, for the tolerances pymatgen resolved
+
+        def classify(tol_val):
+            """Point group at one tolerance, or None if pymatgen refuses it."""
+            try:
+                analyzer = PointGroupAnalyzer(self.mol_pmg, tolerance=tol_val)
+                sym = analyzer.sch_symbol
+            except ValueError as exc:
+                # Routine: pymatgen's axis search raises ValueError ("min()
+                # arg is an empty sequence") at tolerances that fit no axis
+                # for this geometry. Neighbouring tolerances still resolve
+                # the group -- ammonia fails 30 of 40 steps and is still
+                # correctly reported as C3v.
+                logging.debug(
+                    "Symmetry: tolerance %.4f rejected by pymatgen: %s", tol_val, exc
+                )
+                return None
+            except Exception:
+                # Anything else is not expected from a point-group search.
+                # Keep scanning the remaining tolerances -- one bad step
+                # should not cost the whole result -- but log the traceback
+                # instead of hiding it, which is how this stayed invisible.
+                logging.exception(
+                    "Symmetry: unexpected failure at tolerance %.4f", tol_val
+                )
+                return None
+
+            if sym not in group_data:
+                group_data[sym] = {"analyzer": analyzer, "tols": [tol_val]}
+            else:
+                group_data[sym]["tols"].append(tol_val)
+            seen[tol_val] = sym
+            return sym
 
         try:
             for tol in tolerances:
                 if self._abort:
                     break
-                tol_val = float(tol)
-                try:
-                    # Heavy calculation here
-                    analyzer = PointGroupAnalyzer(self.mol_pmg, tolerance=tol_val)
-                    sym = analyzer.sch_symbol
-                except ValueError as exc:
-                    # Routine: pymatgen's axis search raises ValueError ("min()
-                    # arg is an empty sequence") at tolerances that fit no axis
-                    # for this geometry. Neighbouring tolerances still resolve
-                    # the group -- ammonia fails 30 of 40 steps and is still
-                    # correctly reported as C3v.
-                    logging.debug(
-                        "Symmetry: tolerance %.3f rejected by pymatgen: %s",
-                        tol_val,
-                        exc,
-                    )
-                    continue
-                except Exception:
-                    # Anything else is not expected from a point-group search.
-                    # Keep scanning the remaining tolerances -- one bad step
-                    # should not cost the whole result -- but log the traceback
-                    # instead of hiding it, which is how this stayed invisible.
-                    logging.exception(
-                        "Symmetry: unexpected failure at tolerance %.3f", tol_val
-                    )
-                    continue
+                if classify(float(tol)) is not None:
+                    found_any = True
 
-                if sym not in group_data:
-                    group_data[sym] = {"analyzer": analyzer, "tols": [tol_val]}
-                else:
-                    group_data[sym]["tols"].append(tol_val)
-                scan_order.append((sym, tol_val))
-                found_any = True
+            # A group can occupy a window narrower than one grid step and be
+            # stepped over entirely, which is how a C2 structure came back as
+            # D2 with no C2 row at all. Bisect every transition instead of
+            # trusting the grid to land inside the window.
+            budget = 60
+            edges = sorted(seen)
+            work = [(a, b, 0) for a, b in zip(edges, edges[1:]) if seen[a] != seen[b]]
+            while work and budget > 0 and not self._abort:
+                lo, hi, depth = work.pop(0)
+                if depth >= 6 or hi - lo <= 1e-4:
+                    continue
+                mid = round((lo + hi) / 2.0, 6)
+                if mid <= lo or mid >= hi:
+                    continue
+                budget -= 1
+                sym = classify(mid)
+                if sym is None:
+                    continue
+                if sym != seen[lo]:
+                    work.append((lo, mid, depth + 1))
+                if sym != seen[hi]:
+                    work.append((mid, hi, depth + 1))
         except Exception:
-            # The dialog only unblocks when `finished` is emitted, so an
-            # unexpected error must still report whatever the scan found
+            # The dialog only unblocks when `analysis_finished` is emitted, so
+            # an unexpected error must still report whatever the scan found
             # rather than leaving the UI waiting forever.
             logging.exception("Symmetry: scan aborted early; reporting partial results")
 
         # A group can drop out and come back (hydrazine is C2, then D2, then C2
         # again), so a single min-max span would hide the group in between.
+        scan_order = [(seen[t], t) for t in sorted(seen)]
         for sym, data in group_data.items():
+            data["tols"].sort()
             bands = []
             for i, (found_sym, tol_val) in enumerate(scan_order):
                 if found_sym != sym:
@@ -221,10 +243,25 @@ class SymmetryAnalysisPlugin(QDialog):
         settings_layout.addWidget(tol_label, 1, 0)
         settings_layout.addWidget(self.max_tol_spin, 1, 1)
 
+        # Scan Step Input
+        step_label = QLabel("Step (Å):")
+        self.step_spin = QDoubleSpinBox()
+        self.step_spin.setRange(0.001, 1.0)
+        self.step_spin.setSingleStep(0.005)
+        self.step_spin.setDecimals(3)
+        self.step_spin.setValue(0.005)  # Default
+        self.step_spin.setToolTip(
+            "Spacing of the scanned tolerances. Groups that fall between two "
+            "steps are still found: every transition is bisected."
+        )
+
+        settings_layout.addWidget(step_label, 2, 0)
+        settings_layout.addWidget(self.step_spin, 2, 1)
+
         # Analyze Button
         self.calc_btn = QPushButton("Analyze (Scan)")
         self.calc_btn.setToolTip("Scan tolerances to find likely point groups.")
-        self.calc_btn.clicked.connect(self.analyze_symmetry)
+        self.calc_btn.clicked.connect(self.on_analyze_clicked)
 
         # Symmetrize Button
         self.sym_btn = QPushButton("Symmetrize Detected")
@@ -234,8 +271,8 @@ class SymmetryAnalysisPlugin(QDialog):
         self.sym_btn.clicked.connect(self.symmetrize_structure)
         self.sym_btn.setEnabled(False)
 
-        settings_layout.addWidget(self.calc_btn, 2, 0)
-        settings_layout.addWidget(self.sym_btn, 2, 1)
+        settings_layout.addWidget(self.calc_btn, 3, 0)
+        settings_layout.addWidget(self.sym_btn, 3, 1)
 
         settings_group.setLayout(settings_layout)
         main_layout.addWidget(settings_group)
@@ -342,6 +379,21 @@ class SymmetryAnalysisPlugin(QDialog):
             ),
         )
 
+    def on_analyze_clicked(self):
+        """The Analyze button doubles as the Stop button while a scan runs."""
+        if self.worker is not None and self.worker.isRunning():
+            self.stop_analysis()
+        else:
+            self.analyze_symmetry()
+
+    def stop_analysis(self):
+        """Ask the running scan to stop; it still reports what it found."""
+        if self.worker is None or not self.worker.isRunning():
+            return
+        self.calc_btn.setText("Stopping...")
+        self.calc_btn.setEnabled(False)
+        self.worker.abort()
+
     def analyze_symmetry(self):
         """Scan the point group over a range of tolerances and list the results."""
         mol_pmg = self.get_pymatgen_molecule()
@@ -356,19 +408,20 @@ class SymmetryAnalysisPlugin(QDialog):
         self.sym_btn.setEnabled(False)
         self.group_data = {}
 
-        # UI controls update
-        self.calc_btn.setEnabled(False)
-        self.calc_btn.setText("Scanning...")
+        # The button becomes the way to stop the scan it started.
+        self.calc_btn.setText("Stop")
+        self.calc_btn.setToolTip("Stop the scan and report what it found so far.")
 
         # The spin box floor keeps this above zero; a zero tolerance degenerates
         # to "exact coordinates only" and always reports C1.
         min_tol = self.min_tol_spin.value()
         max_tol = max(self.max_tol_spin.value(), min_tol)
+        step = self.step_spin.value()
 
         self._scanned_fingerprint = self._molecule_fingerprint()
 
         # Start Worker Thread
-        self.worker = SymmetryAnalysisWorker(mol_pmg, min_tol, max_tol)
+        self.worker = SymmetryAnalysisWorker(mol_pmg, min_tol, max_tol, step)
         self.worker.analysis_finished.connect(self.on_analysis_finished)
         self.worker.start()
 
@@ -376,6 +429,7 @@ class SymmetryAnalysisPlugin(QDialog):
         """Handle the finished scan."""
         self.calc_btn.setEnabled(True)
         self.calc_btn.setText("Analyze (Scan)")
+        self.calc_btn.setToolTip("Scan tolerances to find likely point groups.")
         self.group_data = group_data
 
         if not found_any:
@@ -397,7 +451,9 @@ class SymmetryAnalysisPlugin(QDialog):
             bands = data.get("bands") or [(min(data["tols"]), max(data["tols"]))]
 
             # One plain row per group: "Td (Tol: 0.100 - 2.000)"
-            span = ", ".join(f"{lo:.3f} - {hi:.3f}" for lo, hi in bands)
+            # 4 decimals: the refinement pass locates a boundary to ~1e-4, and
+            # at 3 the two bands either side of it print the same edge.
+            span = ", ".join(f"{lo:.4f} - {hi:.4f}" for lo, hi in bands)
             item_text = f"{sym}  (Tol: {span} Å)"
             self.groups_list.addItem(item_text)
 
