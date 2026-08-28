@@ -104,6 +104,10 @@ class TestSymmetryAnalysisPlugin:
         # artefact, so the default scan stops well short of that.
         assert dlg.max_tol_spin.value() == pytest.approx(0.5)
 
+    def test_step_spin_default(self, dlg):
+        assert dlg.step_spin.value() == pytest.approx(0.005)
+        assert dlg.step_spin.minimum() > 0.0
+
     def test_min_tol_spin_default(self, dlg):
         """Issue #9: the floor used to be hard-coded at 0.05 A, which reported
         D2 for a C2 molecule whose true C2 window was 0.02-0.04 A."""
@@ -340,12 +344,13 @@ class TestWorkerRunReal:
         worker.run()
         assert received["found_any"] is True
         assert set(received["group_data"].keys()) == {"C2v", "Cs"}
-        # The grid is dense (0.005) below 0.1 and coarser (0.025) above, so the
-        # split at 0.15 lands exactly on a sampled tolerance.
-        assert max(received["group_data"]["C2v"]["tols"]) == pytest.approx(0.125)
+        # The refinement pass bisects the C2v/Cs transition, so the boundary is
+        # located to ~1e-4 A rather than to the nearest grid step.
+        highest_c2v = max(received["group_data"]["C2v"]["tols"])
+        assert 0.1499 <= highest_c2v < 0.15
         assert min(received["group_data"]["Cs"]["tols"]) == pytest.approx(0.15)
-        assert received["group_data"]["Cs"]["tols"] == pytest.approx([0.15, 0.175, 0.2])
-        assert received["group_data"]["C2v"]["bands"] == [(0.0, 0.125)]
+        assert received["group_data"]["C2v"]["bands"] == [(0.0, highest_c2v)]
+        assert len(received["group_data"]["Cs"]["bands"]) == 1
 
     def test_run_tolerates_analyzer_exceptions(self, monkeypatch):
         def _boom(mol, tolerance):
@@ -871,3 +876,82 @@ class TestDegenerateInputs:
         assert dlgnp.groups_list.item(0).text() == "No point groups found."
         assert dlgnp.selected_group_label.text() == "Point Group: -"
         assert not dlgnp.sym_btn.isEnabled()
+
+
+# ===========================================================================
+# Stopping a running scan
+# ===========================================================================
+
+
+class TestStopScan:
+    def test_button_starts_a_scan_when_idle(self, dlgnp, monkeypatch):
+        started = []
+        monkeypatch.setattr(dlgnp, "analyze_symmetry", lambda: started.append(1))
+        dlgnp.worker = None
+        dlgnp.on_analyze_clicked()
+        assert started == [1]
+
+    def test_button_stops_the_scan_while_it_runs(self, dlgnp, monkeypatch):
+        monkeypatch.setattr(
+            dlgnp, "analyze_symmetry", lambda: pytest.fail("started a second scan")
+        )
+        worker = MagicMock()
+        worker.isRunning.return_value = True
+        dlgnp.worker = worker
+
+        dlgnp.on_analyze_clicked()
+
+        worker.abort.assert_called_once()
+        assert dlgnp.calc_btn.text() == "Stopping..."
+        assert not dlgnp.calc_btn.isEnabled()
+
+    def test_stop_is_a_no_op_without_a_running_scan(self, dlgnp):
+        worker = MagicMock()
+        worker.isRunning.return_value = False
+        dlgnp.worker = worker
+        dlgnp.stop_analysis()
+        worker.abort.assert_not_called()
+        assert dlgnp.calc_btn.text() == "Analyze (Scan)"
+
+    def test_button_offers_stop_while_scanning(self, dlgnp, monkeypatch):
+        _no_block_msgbox(monkeypatch)
+        monkeypatch.setattr(_symnp.SymmetryAnalysisWorker, "start", lambda self: None)
+        dlgnp.context.current_molecule = _NPMol([8, 1, 1], _WATER_COORDS)
+        dlgnp.analyze_symmetry()
+        assert dlgnp.calc_btn.text() == "Stop"
+        assert dlgnp.calc_btn.isEnabled()
+
+    def test_a_stopped_scan_still_reports_what_it_found(self, dlgnp, monkeypatch):
+        """Aborting is not cancelling: the partial bands are still useful."""
+        _no_block_msgbox(monkeypatch)
+
+        def pga(mol, tolerance):
+            worker_ref["w"]._abort = True
+            return _FakeAnalyzer(tolerance)
+
+        worker_ref = {}
+        real_start = _symnp.SymmetryAnalysisWorker.run
+
+        def start(self):
+            worker_ref["w"] = self
+            real_start(self)
+
+        monkeypatch.setattr(_symnp, "PointGroupAnalyzer", pga)
+        monkeypatch.setattr(_symnp.SymmetryAnalysisWorker, "start", start)
+        dlgnp.context.current_molecule = _NPMol([8, 1, 1], _WATER_COORDS)
+        dlgnp.analyze_symmetry()
+
+        assert dlgnp.groups_list.count() >= 1
+        assert dlgnp.calc_btn.text() == "Analyze (Scan)"
+        assert dlgnp.calc_btn.isEnabled()
+
+    def test_step_setting_reaches_the_worker(self, dlgnp, monkeypatch):
+        _no_block_msgbox(monkeypatch)
+        captured = {}
+        monkeypatch.setattr(_symnp.SymmetryAnalysisWorker, "start", lambda self: captured.update(step=self.step, lo=self.min_tol, hi=self.max_tol))
+        dlgnp.context.current_molecule = _NPMol([8, 1, 1], _WATER_COORDS)
+        dlgnp.step_spin.setValue(0.02)
+        dlgnp.min_tol_spin.setValue(0.005)
+        dlgnp.max_tol_spin.setValue(0.3)
+        dlgnp.analyze_symmetry()
+        assert captured == pytest.approx({"step": 0.02, "lo": 0.005, "hi": 0.3})

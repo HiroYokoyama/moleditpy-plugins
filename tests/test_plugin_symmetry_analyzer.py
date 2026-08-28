@@ -70,10 +70,11 @@ _sym_run_raw = _extract_method_as_fn(
 class _FakeWorker:
     """Minimal self-object for the extracted run() — carries only what run() reads."""
 
-    def __init__(self, min_tol, max_tol):
+    def __init__(self, min_tol, max_tol, step=0.005):
         self.mol_pmg = MagicMock()
         self.min_tol = min_tol
         self.max_tol = max_tol
+        self.step = step
         self.analysis_finished = MagicMock()
         self._abort = False
 
@@ -123,14 +124,14 @@ class TestSymmetryAnalyzer:
     # -- tolerance-scan resilience ------------------------------------------
     # Real numpy + a stub PointGroupAnalyzer, so the loop body actually runs.
 
-    def _run_with(self, pga, min_tol=0.1, max_tol=0.3):
+    def _run_with(self, pga, min_tol=0.1, max_tol=0.3, step=0.005):
         run = _extract_method_as_fn(
             SYMMETRY_PATH,
             "SymmetryAnalysisWorker",
             "run",
             extra_globals={"np": np, "PointGroupAnalyzer": pga},
         )
-        worker = _FakeWorker(min_tol, max_tol)
+        worker = _FakeWorker(min_tol, max_tol, step)
         run(worker)
         return worker.analysis_finished.emit.call_args[0]
 
@@ -230,7 +231,7 @@ class TestSymmetryAnalyzer:
         assert "C2" in group_data, "the true point group was stepped over"
         assert min(group_data["C2"]["tols"]) < min(group_data["D2"]["tols"])
 
-    def test_tolerance_grid_is_dense_below_a_tenth_of_an_angstrom(self):
+    def test_tolerance_grid_follows_the_step_setting(self):
         """Near-symmetric geometries live in windows a few hundredths wide."""
         group_data, _ = self._run_with(
             lambda mol, tolerance: SimpleNamespace(sch_symbol="C1"),
@@ -239,6 +240,26 @@ class TestSymmetryAnalyzer:
         )
         tols = group_data["C1"]["tols"]
         assert max(b - a for a, b in zip(tols, tols[1:])) <= 0.005 + 1e-9
+
+    def test_a_coarser_step_scans_fewer_tolerances(self):
+        def pga(mol, tolerance):
+            return SimpleNamespace(sch_symbol="C1")
+
+        fine, _ = self._run_with(pga, min_tol=0.01, max_tol=0.1, step=0.005)
+        coarse, _ = self._run_with(pga, min_tol=0.01, max_tol=0.1, step=0.02)
+        assert len(coarse["C1"]["tols"]) < len(fine["C1"]["tols"])
+        gaps = coarse["C1"]["tols"]
+        assert max(b - a for a, b in zip(gaps, gaps[1:])) <= 0.02 + 1e-9
+
+    def test_a_degenerate_step_does_not_hang_the_scan(self):
+        """np.arange with a zero step never terminates."""
+        group_data, _ = self._run_with(
+            lambda mol, tolerance: SimpleNamespace(sch_symbol="C1"),
+            min_tol=0.01,
+            max_tol=0.05,
+            step=0.0,
+        )
+        assert len(group_data["C1"]["tols"]) < 1000
 
     def test_a_group_that_reappears_gets_two_bands(self):
         """Hydrazine goes C2 -> D2 -> C2; one min-max span hides the D2 island."""
@@ -274,6 +295,80 @@ class TestSymmetryAnalyzer:
 
         group_data, _ = self._run_with(pga, min_tol=0.1, max_tol=0.4)
         assert len(group_data["C2v"]["bands"]) == 1
+
+    def test_window_narrower_than_the_grid_step_is_bisected_out(self):
+        """A group can occupy a window narrower than one 0.005 A step and be
+        stepped over completely: a real C2 structure came back as C1 up to
+        0.030 and D2 from 0.035, with no C2 row at all."""
+        calls = []
+
+        def pga(mol, tolerance):
+            calls.append(tolerance)
+            if tolerance < 0.0301:
+                return SimpleNamespace(sch_symbol="C1")
+            if tolerance < 0.0342:
+                return SimpleNamespace(sch_symbol="C2")
+            return SimpleNamespace(sch_symbol="D2")
+
+        group_data, _ = self._run_with(pga, min_tol=0.01, max_tol=0.5)
+        assert "C2" in group_data, "the window between two grid points was missed"
+        (band,) = group_data["C2"]["bands"]
+        assert 0.0301 <= band[0] <= band[1] < 0.0342
+        assert not any(0.0301 <= c < 0.0342 for c in [0.030, 0.035]), "sanity"
+
+    def test_bisection_only_refines_transitions(self):
+        """A scan with one answer everywhere must cost exactly the grid."""
+        calls = []
+
+        def pga(mol, tolerance):
+            calls.append(tolerance)
+            return SimpleNamespace(sch_symbol="D6h")
+
+        self._run_with(pga, min_tol=0.01, max_tol=0.1)
+        assert len(calls) == len(set(calls)) == 19  # 0.010..0.100 by 0.005 step
+
+    def test_bisection_is_bounded(self):
+        """A stub that changes its answer at every tolerance must still end."""
+
+        def pga(mol, tolerance):
+            return SimpleNamespace(sch_symbol=f"G{int(tolerance * 1e6) % 7}")
+
+        group_data, _ = self._run_with(pga, min_tol=0.01, max_tol=0.05)
+        total = sum(len(d["tols"]) for d in group_data.values())
+        # 9 grid points (0.010..0.050 by 0.005) plus the refinement budget.
+        assert total <= 9 + 60, "the refinement pass did not terminate"
+
+    def test_abort_stops_the_bisection_too(self):
+        seen = []
+
+        def pga(mol, tolerance):
+            seen.append(tolerance)
+            if len(seen) >= 20:
+                worker._abort = True
+            return SimpleNamespace(sch_symbol="C1" if tolerance < 0.05 else "D2")
+
+        run = _extract_method_as_fn(
+            SYMMETRY_PATH,
+            "SymmetryAnalysisWorker",
+            "run",
+            extra_globals={"np": np, "PointGroupAnalyzer": pga},
+        )
+        worker = _FakeWorker(0.01, 0.5)
+        run(worker)
+        assert len(seen) <= 21
+        worker.analysis_finished.emit.assert_called_once()
+
+    def test_bands_stay_in_tolerance_order_after_refinement(self):
+        """Refined points are evaluated out of order; the bands must not be."""
+
+        def pga(mol, tolerance):
+            return SimpleNamespace(sch_symbol="C1" if tolerance < 0.037 else "Cs")
+
+        group_data, _ = self._run_with(pga, min_tol=0.01, max_tol=0.1)
+        for data in group_data.values():
+            assert data["tols"] == sorted(data["tols"])
+            for lo, hi in data["bands"]:
+                assert lo <= hi
 
     def test_abort_stops_the_scan(self):
         """The close path has to stop a CPU-bound scan without terminate()."""
@@ -682,7 +777,7 @@ class TestOnAnalysisFinished:
         fn = self._fn()
         s = self._self()
         fn(s, {"Td": {"tols": [0.1, 0.35]}}, True)
-        assert s.groups_list.items == ["Td  (Tol: 0.100 - 0.350 Å)"]
+        assert s.groups_list.items == ["Td  (Tol: 0.1000 - 0.3500 Å)"]
 
     def test_disjoint_bands_are_listed_separately(self):
         """Hydrazine is C2, then D2, then C2 again -- one min-max span would
@@ -700,8 +795,8 @@ class TestOnAnalysisFinished:
             },
             True,
         )
-        assert s.groups_list.items[0] == "C2  (Tol: 0.010 - 0.650, 0.750 - 0.825 Å)"
-        assert s.groups_list.items[1] == "D2  (Tol: 0.675 - 0.725 Å)"
+        assert s.groups_list.items[0] == "C2  (Tol: 0.0100 - 0.6500, 0.7500 - 0.8250 Å)"
+        assert s.groups_list.items[1] == "D2  (Tol: 0.6750 - 0.7250 Å)"
 
 
 # ---------------------------------------------------------------------------
