@@ -1,12 +1,11 @@
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Symmetry Analyzer"
-PLUGIN_VERSION = "2026.07.31"
+PLUGIN_VERSION = "2026.08.28"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Analyzes molecular symmetry (point group) and symmetrizes structures. Refactored for MoleditPy V3.0 API."
 PLUGIN_CONTEXT = None
 
-import sys
 import logging
 import numpy as np
 from PyQt6.QtWidgets import (
@@ -26,10 +25,9 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal
 
 # --- RDKit Imports ---
 try:
-    from rdkit import Chem
     from rdkit.Geometry import Point3D
 except ImportError:
-    pass  # MoleditPy環境なら入っているはず
+    pass  # always present in a MoleditPy environment
 
 # --- Pymatgen Imports ---
 try:
@@ -44,13 +42,21 @@ except ImportError:
 class SymmetryAnalysisWorker(QThread):
     """Background worker for symmetry analysis to prevent UI freezing"""
 
-    finished = pyqtSignal(dict, bool)  # processed_data, found_any
+    # Deliberately not called `finished`: QThread already has a signal by that
+    # name, and shadowing it hands anyone connecting to thread completion this
+    # scan's two-argument payload instead.
+    analysis_finished = pyqtSignal(dict, bool)  # processed_data, found_any
 
     def __init__(self, mol_pmg, min_tol, max_tol):
         super().__init__()
         self.mol_pmg = mol_pmg
         self.min_tol = min_tol
         self.max_tol = max_tol
+        self._abort = False
+
+    def abort(self):
+        """Ask the scan to stop. quit() cannot: run() has no event loop."""
+        self._abort = True
 
     def run(self):
         # The tight end has to be sampled finely: a C2 geometry sitting 0.03 A
@@ -75,6 +81,8 @@ class SymmetryAnalysisWorker(QThread):
 
         try:
             for tol in tolerances:
+                if self._abort:
+                    break
                 tol_val = float(tol)
                 try:
                     # Heavy calculation here
@@ -127,18 +135,18 @@ class SymmetryAnalysisWorker(QThread):
                     bands.append([tol_val, tol_val])
             data["bands"] = [tuple(b) for b in bands]
 
-        self.finished.emit(group_data, found_any)
+        self.analysis_finished.emit(group_data, found_any)
 
 
 class SymmetryAnalysisPlugin(QDialog):
     """
     MoleditPy Plugin: Molecular Symmetry Analyzer & Symmetrizer
 
-    [機能]
-    1. 分子の点群 (Point Group) の判定
-    2. 対称操作 (回転・鏡映など) のリスト表示
-    3. 許容誤差 (Tolerance) の調整
-    4. 射影演算子法による構造の対照化 (Symmetrization)
+    Features:
+    1. Point group determination
+    2. Listing of the symmetry operations (rotations, mirrors, ...)
+    3. Tolerance control
+    4. Symmetrization of the structure by the projection-operator method
     """
 
     def __init__(self, context):
@@ -153,8 +161,9 @@ class SymmetryAnalysisPlugin(QDialog):
         self.analyzer = None  # pymatgen PointGroupAnalyzer instance
         self.symmetry_ops = []  # Detected symmetry operations
         self.worker = None  # QThread instance
+        self._scanned_fingerprint = None  # geometry the operations belong to
 
-        # 選択色を薄くするスタイルシート (Light Sky Blue)
+        # Lighter selection colour (Light Sky Blue)
         self.setStyleSheet("""
             QListWidget::item:selected {
                 background-color: #87CEFA;
@@ -170,6 +179,7 @@ class SymmetryAnalysisPlugin(QDialog):
 
         # Namespaced window registration for V3 lifecycle management
         self.context.register_window("main_panel", self)
+        self.context.register_document_reset_handler(self._invalidate_analysis)
 
         # Initial view update via context
         self.context.refresh_3d_view()
@@ -259,7 +269,7 @@ class SymmetryAnalysisPlugin(QDialog):
         self.ops_list = QListWidget()
         self.ops_list.setSelectionMode(
             QListWidget.SelectionMode.ExtendedSelection
-        )  # 複数選択可(Ctrl/Shift)
+        )  # multi-select with Ctrl/Shift
         self.ops_list.setAlternatingRowColors(True)
         self.ops_list.itemSelectionChanged.connect(self.on_op_selection_changed)
         ops_layout.addWidget(self.ops_list)
@@ -297,7 +307,23 @@ class SymmetryAnalysisPlugin(QDialog):
         self.group_data = {}  # Symbol -> {'analyzer': obj, 'tols': [float]}
 
     def get_pymatgen_molecule(self):
-        """MoleditPy(RDKit)の分子をpymatgen形式に変換"""
+        """Convert the MoleditPy (RDKit) molecule to pymatgen form."""
+        rd_mol = self.context.current_molecule
+        if rd_mol is None or rd_mol.GetNumAtoms() == 0:
+            return None
+
+        try:
+            conf = rd_mol.GetConformer()
+        except ValueError:
+            return None  # no conformer
+
+        species = [atom.GetAtomicNum() for atom in rd_mol.GetAtoms()]
+        coords = [list(conf.GetAtomPosition(i)) for i in range(rd_mol.GetNumAtoms())]
+
+        return Molecule(species, coords)
+
+    def _molecule_fingerprint(self):
+        """Identity of the current molecule: its elements and coordinates."""
         rd_mol = self.context.current_molecule
         if rd_mol is None:
             return None
@@ -305,15 +331,19 @@ class SymmetryAnalysisPlugin(QDialog):
         try:
             conf = rd_mol.GetConformer()
         except ValueError:
-            return None  # Conformerがない場合
+            return None
 
-        species = [atom.GetAtomicNum() for atom in rd_mol.GetAtoms()]
-        coords = [list(conf.GetAtomPosition(i)) for i in range(rd_mol.GetNumAtoms())]
-
-        return Molecule(species, coords)
+        return (
+            tuple(atom.GetAtomicNum() for atom in rd_mol.GetAtoms()),
+            tuple(
+                round(float(v), 6)
+                for i in range(rd_mol.GetNumAtoms())
+                for v in list(conf.GetAtomPosition(i))
+            ),
+        )
 
     def analyze_symmetry(self):
-        """許容誤差を変えながら点群をスキャンし、UIにリストアップする"""
+        """Scan the point group over a range of tolerances and list the results."""
         mol_pmg = self.get_pymatgen_molecule()
         if mol_pmg is None:
             QMessageBox.warning(self, "Error", "No molecule to analyze.")
@@ -335,13 +365,15 @@ class SymmetryAnalysisPlugin(QDialog):
         min_tol = self.min_tol_spin.value()
         max_tol = max(self.max_tol_spin.value(), min_tol)
 
+        self._scanned_fingerprint = self._molecule_fingerprint()
+
         # Start Worker Thread
         self.worker = SymmetryAnalysisWorker(mol_pmg, min_tol, max_tol)
-        self.worker.finished.connect(self.on_analysis_finished)
+        self.worker.analysis_finished.connect(self.on_analysis_finished)
         self.worker.start()
 
     def on_analysis_finished(self, group_data, found_any):
-        """スレッド完了後の処理"""
+        """Handle the finished scan."""
         self.calc_btn.setEnabled(True)
         self.calc_btn.setText("Analyze (Scan)")
         self.group_data = group_data
@@ -350,8 +382,8 @@ class SymmetryAnalysisPlugin(QDialog):
             self.groups_list.addItem("No point groups found.")
             return
 
-        # ユーザー要望: Range(Tolerance)が小さい(=厳密に合致している)順に表示
-        # ソートキー: (最小許容誤差, -最大許容誤差) -> 小さい誤差で見つかり、かつ範囲が広いものを優先
+        # Strictest first: the group found at the smallest tolerance is the
+        # one the geometry actually matches, and a wider range breaks ties.
         sorted_keys = sorted(
             self.group_data.keys(),
             key=lambda k: (
@@ -364,12 +396,12 @@ class SymmetryAnalysisPlugin(QDialog):
             data = self.group_data[sym]
             bands = data.get("bands") or [(min(data["tols"]), max(data["tols"]))]
 
-            # リスト表示： "Td (Tol: 0.100 - 2.000)" のようにシンプルに
+            # One plain row per group: "Td (Tol: 0.100 - 2.000)"
             span = ", ".join(f"{lo:.3f} - {hi:.3f}" for lo, hi in bands)
             item_text = f"{sym}  (Tol: {span} Å)"
             self.groups_list.addItem(item_text)
 
-        # 1つ目をデフォルトで選択 (Auto-select first item) but prioritize non-C1
+        # Auto-select the first row, but prefer anything over C1
         if self.groups_list.count() > 0:
             target_row = 0
             for i, sym in enumerate(sorted_keys):
@@ -384,8 +416,8 @@ class SymmetryAnalysisPlugin(QDialog):
 
     def _get_op_sort_key(self, op):
         """
-        対称操作のソート順を決定するキーを生成
-        順序: Identity -> Rotation(Cn) -> Reflection(sigma) -> Inversion(i) -> Improper(Sn)
+        Sort key for the symmetry operations.
+        Order: Identity -> Rotation(Cn) -> Reflection(sigma) -> Inversion(i) -> Improper(Sn)
         """
         m = op.rotation_matrix
         det = np.linalg.det(m)
@@ -423,14 +455,16 @@ class SymmetryAnalysisPlugin(QDialog):
         return (4, -order)
 
     def on_group_selected(self):
-        """グループが選択されたら、そのオペレーションを表示"""
+        """Show the operations of the selected group."""
         item = self.groups_list.currentItem()
         if not item:
             return
 
         text = item.text()
-        # "Td  (Range...)" から "Td" を取り出す
         sym = text.split()[0]
+        if sym not in self.group_data:
+            # "No point groups found." is a selectable row; it is not a group.
+            return
 
         # Display nicely formatted symbol
         s = self._format_symmetry_symbol(sym)
@@ -441,19 +475,18 @@ class SymmetryAnalysisPlugin(QDialog):
         else:
             self.selected_group_label.setText(f"Point Group: {s}")
 
-        if sym in self.group_data:
-            self.analyzer = self.group_data[sym]["analyzer"]
-            ops = self.analyzer.get_symmetry_operations()
-            # クラス順にソート (Identity -> Rotation -> Reflection -> Inversion -> Improper)
-            ops.sort(key=self._get_op_sort_key)
-            self.symmetry_ops = ops
+        self.analyzer = self.group_data[sym]["analyzer"]
+        ops = self.analyzer.get_symmetry_operations()
+        # Identity -> Rotation -> Reflection -> Inversion -> Improper
+        ops.sort(key=self._get_op_sort_key)
+        self.symmetry_ops = ops
 
-            self.update_ops_list()
-            self.sym_btn.setEnabled(True)
-            self.op_details.clear()
+        self.update_ops_list()
+        self.sym_btn.setEnabled(True)
+        self.op_details.clear()
 
     def _format_symmetry_symbol(self, sym):
-        """SchoenfliesシンボルをHTML形式に整形 (イタリック体 + 下付き文字)"""
+        """Render a Schoenflies symbol as HTML (italic letter + subscript)."""
         import re
         # C2v -> C, 2v
         # D3h -> D, 3h
@@ -465,16 +498,15 @@ class SymmetryAnalysisPlugin(QDialog):
             main = match.group(1)
             sub = match.group(2)
 
-            # 無限の処理
+            # infinity axis
             sub = sub.replace("*", "∞")
 
-            # 視認性を高めるためのフォント調整等はスタイルシートで行っていますが、
-            # ここでは構造的なマークアップを提供します。
+            # Font tuning lives in the style sheet; this is the markup only.
             return f"<html><i>{main}</i><sub>{sub}</sub></html>"
         return sym
 
     def update_ops_list(self):
-        """リストウィジェットの更新"""
+        """Refresh the operations list widget."""
         self.ops_list.clear()
         self.op_details.clear()
 
@@ -484,8 +516,8 @@ class SymmetryAnalysisPlugin(QDialog):
 
     def _get_op_label(self, op, i):
         """
-        回転行列から操作へのラベルを生成 (Unicode表記)
-        順序やロジックはソートキーと整合させています。
+        Label an operation from its rotation matrix (Unicode notation).
+        The classification order matches the sort key.
         Order: Identity -> Rotation -> Reflection -> Inversion -> Improper
         """
         m = op.rotation_matrix
@@ -493,22 +525,22 @@ class SymmetryAnalysisPlugin(QDialog):
         trace = np.trace(m)
         tol = 1e-2
 
-        # Helper for subscripts (下付き文字生成)
+        # Subscript digits
         def to_sub(n):
             return str(n).translate(str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉"))
 
-        # 1. Identity (恒等操作)
+        # 1. Identity
         if np.allclose(m, np.eye(3), atol=tol):
             return f"#{i + 1}: E (Identity)"
 
-        # 2. Proper Rotation (回転操作)
+        # 2. Proper rotation
         # Det = +1
         if np.isclose(det, 1.0, atol=tol):
             val = (trace - 1) / 2.0
             val = np.clip(val, -1.0, 1.0)
             angle = np.degrees(np.arccos(val))
 
-            # 角度がほとんど0ならIdentity
+            # an angle of ~0 is the identity
             if angle < 1.0:
                 return f"#{i + 1}: E (Identity)"
 
@@ -516,18 +548,18 @@ class SymmetryAnalysisPlugin(QDialog):
             return f"#{i + 1}: C{to_sub(order)} (Rotation)"
 
         else:
-            # Improper Operations (回映・鏡映・反転)
+            # Improper operations (rotoreflection, mirror, inversion)
             # Det = -1
 
-            # 3. Reflection (鏡映: Trace = 1)
+            # 3. Reflection (trace = 1)
             if np.isclose(trace, 1.0, atol=tol):
                 return f"#{i + 1}: σ (Reflection)"
 
-            # 4. Inversion (反転: Trace = -3)
+            # 4. Inversion (trace = -3)
             if np.isclose(trace, -3.0, atol=tol):
                 return f"#{i + 1}: i (Inversion)"
 
-            # 5. Improper Rotation (回映)
+            # 5. Improper rotation
             val = (trace + 1) / 2.0
             val = np.clip(val, -1.0, 1.0)
             angle = np.degrees(np.arccos(val))
@@ -537,14 +569,14 @@ class SymmetryAnalysisPlugin(QDialog):
 
             order = round(360.0 / angle)
 
-            # S2 は Inversion と等価
+            # S2 is the inversion
             if order == 2:
                 return f"#{i + 1}: i (Inversion)"
 
             return f"#{i + 1}: S{to_sub(order)} (Improper Rotation)"
 
     def on_op_selection_changed(self):
-        """操作の選択状態が変わったときの処理 (複数選択対応)"""
+        """Handle a change of the operation selection (multi-select)."""
         items = self.ops_list.selectedItems()
 
         ops_to_show = []
@@ -553,14 +585,14 @@ class SymmetryAnalysisPlugin(QDialog):
             if 0 <= row < len(self.symmetry_ops):
                 ops_to_show.append(self.symmetry_ops[row])
 
-        # 3D可視化の更新
+        # Update the 3D visualisation
         self.visualize_ops(ops_to_show)
 
-        # テキスト詳細の更新
+        # Update the detail text
         if len(ops_to_show) == 0:
             self.op_details.clear()
         elif len(ops_to_show) == 1:
-            # 1つだけ選ばれているなら詳細を表示
+            # a single selection gets its full details
             self._display_single_op_details(ops_to_show[0])
         else:
             self.op_details.setText(
@@ -569,7 +601,7 @@ class SymmetryAnalysisPlugin(QDialog):
             )
 
     def _display_single_op_details(self, op):
-        """単一操作の詳細テキスト表示"""
+        """Show the details of one operation."""
         mat_str = np.array2string(op.rotation_matrix, precision=3, suppress_small=True)
         trans_str = np.array2string(
             op.translation_vector, precision=3, suppress_small=True
@@ -589,7 +621,7 @@ class SymmetryAnalysisPlugin(QDialog):
         self.op_details.setText(text)
 
     def visualize_ops(self, ops_list):
-        """指定された複数の対称操作を3Dビューに描画する"""
+        """Draw the given symmetry operations in the 3D view."""
         if not self.context.plotter:
             return
 
@@ -602,7 +634,7 @@ class SymmetryAnalysisPlugin(QDialog):
 
         plotter = self.context.plotter
 
-        # 以前の表示をクリア
+        # Clear the previous drawing
         if getattr(self, "vis_actors", None) is None:
             self.vis_actors = []
 
@@ -614,7 +646,7 @@ class SymmetryAnalysisPlugin(QDialog):
             plotter.render()
             return
 
-        # 分子の重心(COM)を計算 (共通)
+        # Centre of mass, shared by every element drawn
         rd_mol = self.context.current_molecule
 
         if rd_mol:
@@ -632,24 +664,24 @@ class SymmetryAnalysisPlugin(QDialog):
                 com = (coords * masses[:, None]).sum(axis=0) / total_mass
             else:
                 com = np.mean(coords, axis=0)
-            # 分子の大きさ (最大半径) を計算
+            # molecule size (largest radius)
             dists = np.linalg.norm(coords - com, axis=1)
             mol_radius = np.max(dists) if len(dists) > 0 else 2.0
         else:
             com = np.array([0.0, 0.0, 0.0])
             mol_radius = 2.0
 
-        # 少し余裕を持たせる
+        # leave a little margin
         scale = mol_radius
 
-        # 各操作を描画
+        # Draw each operation
         for op in ops_list:
             self._add_op_visualization(plotter, op, com, pv, scale)
 
         plotter.render()
 
     def _add_op_visualization(self, plotter, op, com, pv, scale=2.0):
-        """単一の操作をシーンに追加 (内部ヘルパー)"""
+        """Add one operation to the scene (internal helper)."""
         m = op.rotation_matrix
         det = np.linalg.det(m)
         trace = np.trace(m)
@@ -723,6 +755,19 @@ class SymmetryAnalysisPlugin(QDialog):
         if mol_pmg is None:
             return
 
+        # The operations belong to the geometry that was scanned; applying them
+        # to anything else silently distorts it -- water's C2v moved benzene's
+        # atoms 0.15 A and still reported success.
+        if self._molecule_fingerprint() != self._scanned_fingerprint:
+            QMessageBox.warning(
+                self,
+                "Analysis Out of Date",
+                "The molecule changed since the last scan.\n"
+                "Run 'Analyze (Scan)' again before symmetrizing.",
+            )
+            self._invalidate_analysis()
+            return
+
         original_coords = mol_pmg.cart_coords
         # pymatgen derives the symmetry operations in the centre-of-mass frame,
         # so the coordinates fed through them must be centred the same way.
@@ -743,7 +788,9 @@ class SymmetryAnalysisPlugin(QDialog):
             HAS_SCIPY = False
 
         if not HAS_SCIPY:
-            print("Install 'scipy' for better symmetrization results.")
+            logging.warning(
+                "Symmetry: scipy is missing; falling back to greedy atom mapping."
+            )
 
         new_coords = np.zeros_like(centered_coords)
         n_ops = len(ops)
@@ -751,23 +798,23 @@ class SymmetryAnalysisPlugin(QDialog):
         mapping_error = False
 
         for op in ops:
-            # rotated_coords[j] は 「原子 j を操作 R で動かした先の座標」
+            # rotated_coords[j] is where operation R sends atom j
             rotated_coords = np.array([op.operate(p) for p in centered_coords])
 
-            # --- コスト行列計算 (変更なし) ---
+            # --- Cost matrix ---
             cost_matrix = np.zeros((n_atoms, n_atoms))
             # Broadcasting: (N, 1, 3) - (1, N, 3) -> (N, N, 3) -> norm -> (N, N)
-            # 行 i (ターゲット位置) と 列 j (回転後の候補) の距離
+            # distance between target position i and rotated candidate j
             diff = centered_coords[:, np.newaxis, :] - rotated_coords[np.newaxis, :, :]
             dist_mat = np.linalg.norm(diff, axis=2)
 
-            # 元素種チェック
+            # elements must match
             sp_array = np.array([s.symbol for s in species])
             species_mask = sp_array[:, np.newaxis] != sp_array[np.newaxis, :]
             cost_matrix = dist_mat
             cost_matrix[species_mask] = 1e9
 
-            # --- マッピング (変更なし) ---
+            # --- Mapping ---
             if HAS_SCIPY:
                 row_ind, col_ind = linear_sum_assignment(cost_matrix)
             else:
@@ -786,7 +833,7 @@ class SymmetryAnalysisPlugin(QDialog):
                         mapping_error = True
                         col_ind[i] = i
 
-            # --- 座標加算 (【修正箇所】) ---
+            # --- Accumulate ---
             for i, j in zip(row_ind, col_ind):
                 if cost_matrix[i, j] > 1.5:
                     mapping_error = True
@@ -820,6 +867,7 @@ class SymmetryAnalysisPlugin(QDialog):
 
         final_coords = new_coords + center_of_mass
         self.update_rdkit_coords(final_coords)
+        self._scanned_fingerprint = self._molecule_fingerprint()
 
         QMessageBox.information(
             self,
@@ -829,33 +877,27 @@ class SymmetryAnalysisPlugin(QDialog):
         )
 
     def update_rdkit_coords(self, new_coords):
-        """計算された座標をRDKitオブジェクトに戻し、ビューを更新"""
+        """Write the computed coordinates back to RDKit and refresh the view."""
         rd_mol = self.context.current_molecule
         if rd_mol is None:
             return
 
-        # Undo stateを保存 (Manual Section 4)
+        # Save the undo state (Manual Section 4)
         self.context.push_undo_checkpoint()
 
         conf = rd_mol.GetConformer()
         for i in range(rd_mol.GetNumAtoms()):
-            # floatキャスト (numpy.float64 は RDKit C++ API で弾かれることがあるため)
+            # cast to float: the RDKit C++ API can reject numpy.float64
             x, y, z = map(float, new_coords[i])
             conf.SetAtomPosition(i, Point3D(x, y, z))
 
-        # 3Dビューの全再描画 (conformerを更新したのでdraw_molecule_3dで再描画)
+        # Full redraw: the conformer changed
         self.context.current_mol = rd_mol
         self.context.refresh_3d_view()
 
-    def closeEvent(self, event):
-        """ウィンドウが閉じられるときの処理 (クリーンアップ)"""
-        if self.worker and self.worker.isRunning():
-            self.worker.quit()
-            self.worker.wait(1000)  # 1秒待機
-            if self.worker.isRunning():
-                self.worker.terminate()  # 強制終了
-
-        # 1. 3D可視化の消去
+    def _invalidate_analysis(self):
+        """Discard the scan results and the 3D overlay; reset the UI."""
+        # 1. Remove the 3D visualisation
         if self.context.plotter and getattr(self, "vis_actors", None) is not None:
             plotter = self.context.plotter
             for actor in self.vis_actors:
@@ -863,7 +905,7 @@ class SymmetryAnalysisPlugin(QDialog):
             self.vis_actors = []
             plotter.render()
 
-        # 2. UIと内部データのリセット
+        # 2. Reset the UI and the internal data
         self.groups_list.clear()
         self.ops_list.clear()
         self.selected_group_label.setText("Point Group: -")
@@ -872,8 +914,29 @@ class SymmetryAnalysisPlugin(QDialog):
         self.group_data = {}
         self.symmetry_ops = []
         self.analyzer = None
+        self._scanned_fingerprint = None
 
-        super().closeEvent(event)
+    def _cleanup(self):
+        """Everything that must happen when the dialog goes away."""
+        if self.worker and self.worker.isRunning():
+            self.worker.abort()
+            self.worker.wait(5000)
+            if self.worker.isRunning():
+                self.worker.terminate()  # last resort
+
+        self._invalidate_analysis()
+
+    def closeEvent(self, event):
+        self._cleanup()
+        # QDialog.closeEvent routes back through reject(), so accepting here
+        # rather than calling super() keeps the two paths from recursing.
+        event.accept()
+
+    def reject(self):
+        # Esc closes a QDialog through reject(), which never delivers a close
+        # event: the 3D overlay and the scan thread used to survive it.
+        self._cleanup()
+        super().reject()
 
 
 def initialize(context):
@@ -897,74 +960,3 @@ def initialize(context):
         new_win.show()
 
     context.add_menu_action("3D Edit/Symmetrize...", toggle_window)
-
-
-if __name__ == "__main__":
-    from PyQt6.QtWidgets import QApplication
-
-    # Mock Interface for testing
-    class MockInterface:
-        def __init__(self):
-            self.mol = None
-            self._create_sample_molecule()
-
-        def _create_sample_molecule(self):
-            try:
-                # Create Methane (CH4) with 3D coordinates
-                from rdkit.Chem import AllChem
-
-                m = Chem.MolFromSmiles("C")
-                m = Chem.AddHs(m)
-                AllChem.EmbedMolecule(m, randomSeed=42)  # Generate 3D coords
-                AllChem.MMFFOptimizeMolecule(m)  # Optimize
-                self.mol = m
-                logging.debug("Mock: Created sample molecule (CH4) - Optimized.")
-            except ImportError:
-                logging.debug("Mock: RDKit not found or error creating molecule.")
-
-        def get_molecule(self):
-            return self.mol
-
-        def update_view(self):
-            logging.debug("Mock: View updated.")
-
-    app = QApplication(sys.argv)
-
-    # Check if dependencies are met for the mock
-    try:
-        print("Dependencies found.")
-    except ImportError as e:
-        logging.warning("Warning: Missing dependencies for full functionality: %s", e)
-
-    interface = MockInterface()
-    window = SymmetryAnalysisPlugin(interface)
-    window.setWindowTitle("Symmetry Analyzer (Standalone Test)")
-    window.resize(400, 600)
-    window.show()
-
-    sys.exit(app.exec())
-
-
-def run(mw):
-    if not hasattr(mw, "plugin_manager"):
-        return
-
-    context = PLUGIN_CONTEXT
-    if not context:
-        return
-
-    # We need the toggle_window function defined in initialize,
-    # but since we can't add functions, we'll replicate the core logic here.
-    win = context.get_window("main_panel")
-    if win:
-        win.show()
-        win.raise_()
-        win.activateWindow()
-        return
-
-    new_win = SymmetryAnalysisPlugin(context)
-    new_win.setWindowTitle("Symmetry Analyzer")
-    new_win.resize(400, 600)
-    new_win.show()
-    new_win.raise_()
-    new_win.activateWindow()
