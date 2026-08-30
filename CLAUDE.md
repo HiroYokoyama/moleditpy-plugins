@@ -239,8 +239,8 @@ Six GitHub Actions jobs in `.github/workflows/test-plugins.yml`:
 |---|---|---|---|
 | `changes` | — | No | No tests: decides whether anything outside `REGISTRY/` changed, gating the GUI and API jobs |
 | `test-registry` | 3.12 | No | `validate_json.py`, registry integrity tests, and the registry-sync check |
-| `test-plugins` | 3.9 – 3.14 | No | `tests/` except `test_registry` |
-| `test-gui` | 3.9 – 3.14 | Auto-cloned by fixture | `tests_gui/` (real PyQt6, `QT_QPA_PLATFORM=offscreen`); no pyvista/vtk, so the rendering modules skip |
+| `test-plugins` | 3.9 – 3.14 | No | `tests/` except `test_registry` (installs `rdkit`, `scipy`, `pymatgen-core`, `pillow` best-effort) |
+| `test-gui` | 3.9 – 3.14 | Auto-cloned by fixture | `tests_gui/` (real PyQt6, `QT_QPA_PLATFORM=offscreen`, plus chemistry/scientific libs best-effort); no pyvista/vtk, so the rendering modules skip |
 | `test-gui-render` | 3.12 | Auto-cloned by fixture | Only the pyvista/vtk-gated `tests_gui/` modules, with those packages installed under `xvfb-run` |
 | `test-api` | 3.11 | Yes (`--depth 1`) | `test_api.py` only |
 
