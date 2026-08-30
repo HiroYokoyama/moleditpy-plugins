@@ -94,6 +94,12 @@ jobs:
       - name: Install dependencies
         run: pip install pytest pytest-mock numpy
 
+      # Real scientific / chemistry libs let scipy/pymatgen/rdkit-gated tests run
+      # on CI instead of skipping. Best-effort fallback on interpreters where binary
+      # wheels might not be published yet.
+      - name: Install scientific libraries (best effort)
+        run: pip install rdkit scipy pymatgen-core pillow || echo "scientific wheels unavailable on this interpreter; gated tests will skip"
+
       - name: Run plugin tests
         run: pytest tests/ --ignore=tests/test_registry.py -v --tb=short
 
@@ -133,14 +139,14 @@ jobs:
       - name: Install Python dependencies
         run: pip install pytest PyQt6
 
-      # Real chemistry libs let the rdkit-gated GUI tests actually run on CI
+      # Real chemistry/scientific libs let the gated GUI tests actually run on CI
       # instead of being importorskip-skipped (they hold real logic, not just
       # rendering). Best-effort: on an interpreter without wheels (e.g. a very
       # new 3.x), the install no-ops and those tests fall back to skipping, as
       # before. VTK/pyvista are deliberately NOT installed — their offscreen
       # render paths are abort-prone on headless CI.
-      - name: Install real chemistry libs (best effort)
-        run: pip install rdkit numpy pillow || echo "chemistry wheels unavailable on this interpreter; rdkit-gated tests will skip"
+      - name: Install real chemistry & scientific libs (best effort)
+        run: pip install rdkit numpy pillow scipy pymatgen-core || echo "chemistry wheels unavailable on this interpreter; rdkit-gated tests will skip"
 
       - name: Run headless GUI tests
         run: pytest tests_gui/ -v --tb=short
@@ -185,7 +191,7 @@ jobs:
             xvfb
 
       - name: Install Python dependencies
-        run: pip install pytest PyQt6 rdkit numpy pillow pyvista vtk
+        run: pip install pytest PyQt6 rdkit numpy pillow pyvista vtk scipy pymatgen-core
 
       - name: Run rendering GUI tests
         run: |
