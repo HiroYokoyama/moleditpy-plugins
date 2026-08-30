@@ -1638,12 +1638,10 @@ class TestMangledGeometryConfirmation:
 
 
 # ---------------------------------------------------------------------------
-# Upstream defect, no longer worked around here (v2026.08.31): pymatgen's
-# _check_rot_sym() records the trivial 360-degree rotation as an axis, so
-# _proc_sym_top() takes the dihedral branch and tetramethylhydrazine -- one C2
-# axis, two operations -- is named D2. Fixed in pymatgen-core
-# (HiroYokoyama:fix/point-group-identity-recorded-as-axis); remove the skip
-# once that release is what the plugin runs against.
+# Fixed upstream in pymatgen-core 2026.08.30 (materialsproject/pymatgen-core#134):
+# pymatgen's _check_rot_sym() recorded the trivial 360-degree rotation as an
+# axis, so _proc_sym_top() took the dihedral branch and tetramethylhydrazine
+# -- one C2 axis, two operations -- was incorrectly named D2.
 # ---------------------------------------------------------------------------
 
 _TMH_SPECIES = ["C", "N", "C", "N", "C", "C"] + ["H"] * 12
@@ -1669,10 +1667,6 @@ _TMH_COORDS = [
 ]
 
 
-@pytest.mark.skip(
-    reason="pymatgen names tetramethylhydrazine D2; awaiting the upstream "
-    "pymatgen-core fix. Unskip when that release is the one in use."
-)
 def test_tetramethylhydrazine_is_reported_as_c2():
     """One C2 axis and two operations must not be named D2 (order 4).
 
