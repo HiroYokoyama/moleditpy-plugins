@@ -2276,7 +2276,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "CP2K Input Generator",
-    "version": "0.7.2",
+    "version": "0.7.3",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_cp2k_input_generator",
@@ -2290,9 +2290,9 @@
       "pyvista",
       "rdkit"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_cp2k_input_generator/releases/download/v0.7.2/cp2k_input_generator_0.7.2.zip",
-    "lastUpdated": "2026-08-06",
-    "sha256": "7afb777438b66489ac5ed6ca217d2f62dd57abbf4bc052e26c6d2dd1c819ee53",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_cp2k_input_generator/releases/download/v0.7.3/cp2k_input_generator_0.7.3.zip",
+    "lastUpdated": "2026-08-30",
+    "sha256": "8017044c628d0c0a5146be60ab61e35b11927157cea4996ba248733536b29969",
     "firstAppeared": "2026-08-05",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
