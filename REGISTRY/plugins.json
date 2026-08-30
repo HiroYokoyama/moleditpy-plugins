@@ -2214,7 +2214,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "VASP Input Generator",
-    "version": "0.6.2",
+    "version": "0.6.3",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_vasp_input_generator",
@@ -2228,9 +2228,9 @@
       "pyvista",
       "rdkit"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_vasp_input_generator/releases/download/v0.6.2/vasp_input_generator_0.6.2.zip",
-    "lastUpdated": "2026-08-06",
-    "sha256": "8e02077e0cf609479054b0b2aa60f51da3b6c107125bcab1075dbbec1b440089",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_vasp_input_generator/releases/download/v0.6.3/vasp_input_generator_0.6.3.zip",
+    "lastUpdated": "2026-08-30",
+    "sha256": "1f3d8f909e0dfc38a9da7ae7dfec68af8767245247ef406bcbe7fa8fd11b3696",
     "firstAppeared": "2026-08-05",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
