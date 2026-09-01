@@ -435,3 +435,59 @@ class TestRunLegacyEntryPoint:
         win = ctx.register_window.call_args.args[1]
         win.sel_timer.stop()
         win.destroy()
+
+
+class TestClosingItHandsTheViewerBack:
+    """The same contract as the Atom Colorizer's, and it was broken the same way.
+
+    Esc leaves a QDialog through reject() -> done(), which raises no
+    QCloseEvent, so cleanup kept in closeEvent alone never ran: the picking
+    timer carried on, the viewer stayed stuck in select mode, and the still
+    registered window came back on the next open instead of a live one.
+    """
+
+    def _closed_via(self, route):
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtTest import QTest
+
+        ctx = _bond_context()
+        win = _bond.BondColorizerWindow(context=ctx)
+        restored = []
+        win._restore_select_mode = lambda: restored.append(1)
+        ctx.register_window.reset_mock()
+        win.show()
+        if route == "escape":
+            QTest.keyClick(win, Qt.Key.Key_Escape)
+        else:
+            getattr(win, route)()
+        deregistered = [
+            c for c in ctx.register_window.call_args_list if c.args[1] is None
+        ]
+        result = (len(restored), len(deregistered), win.sel_timer.isActive())
+        win.sel_timer.stop()
+        win.destroy()
+        return result
+
+    @pytest.mark.parametrize("route", ["close", "escape", "reject", "accept"])
+    def test_the_viewer_mode_is_restored(self, qapp, route):
+        assert self._closed_via(route)[0] == 1
+
+    @pytest.mark.parametrize("route", ["close", "escape", "reject", "accept"])
+    def test_the_window_is_deregistered(self, qapp, route):
+        assert self._closed_via(route)[1] == 1
+
+    @pytest.mark.parametrize("route", ["close", "escape", "reject", "accept"])
+    def test_the_picking_timer_stops(self, qapp, route):
+        assert not self._closed_via(route)[2]
+
+    def test_closing_twice_cleans_up_once(self, qapp):
+        ctx = _bond_context()
+        win = _bond.BondColorizerWindow(context=ctx)
+        restored = []
+        win._restore_select_mode = lambda: restored.append(1)
+        win.show()
+        win.close()
+        win.reject()
+        assert restored == [1]
+        win.sel_timer.stop()
+        win.destroy()

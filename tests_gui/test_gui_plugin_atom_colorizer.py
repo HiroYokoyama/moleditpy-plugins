@@ -419,3 +419,107 @@ class TestRunLegacyEntryPoint:
         _atom_colorizer.run(_MW())
         assert called == [ctx]
         _atom_colorizer.PLUGIN_CONTEXT = None
+
+
+class TestClosingItHandsTheViewerBack:
+    """Every way out of the window, not just the one that raises a close event.
+
+    Esc and the Close button leave a QDialog through reject() -> done(), which
+    never raises a QCloseEvent. The cleanup lived in closeEvent alone, so Esc
+    skipped all of it: the picking timer kept running, the 3D viewer stayed
+    stuck in select mode, and the window stayed registered -- which meant
+    reopening the plugin handed back the same dead dialog rather than a live
+    one that would have re-entered select mode.
+    """
+
+    def _closed_via(self, route):
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtTest import QTest
+
+        ctx = _colorizer_context()
+        win = _atom_colorizer.AtomColorizerWindow(context=ctx)
+        restored = []
+        win._restore_select_mode = lambda: restored.append(1)
+        ctx.register_window.reset_mock()
+        win.show()
+        if route == "escape":
+            QTest.keyClick(win, Qt.Key.Key_Escape)
+        else:
+            getattr(win, route)()
+        deregistered = [
+            c for c in ctx.register_window.call_args_list if c.args[1] is None
+        ]
+        result = (len(restored), len(deregistered), win.sel_timer.isActive())
+        win.sel_timer.stop()
+        win.destroy()
+        return result
+
+    @pytest.mark.parametrize("route", ["close", "escape", "reject", "accept"])
+    def test_the_viewer_mode_is_restored(self, qapp, route):
+        restored, _, _ = self._closed_via(route)
+        assert restored == 1
+
+    @pytest.mark.parametrize("route", ["close", "escape", "reject", "accept"])
+    def test_the_window_is_deregistered(self, qapp, route):
+        _, deregistered, _ = self._closed_via(route)
+        assert deregistered == 1
+
+    @pytest.mark.parametrize("route", ["close", "escape", "reject", "accept"])
+    def test_the_picking_timer_stops(self, qapp, route):
+        _, _, still_running = self._closed_via(route)
+        assert not still_running
+
+    def test_closing_twice_cleans_up_once(self, qapp):
+        ctx = _colorizer_context()
+        win = _atom_colorizer.AtomColorizerWindow(context=ctx)
+        restored = []
+        win._restore_select_mode = lambda: restored.append(1)
+        win.show()
+        win.close()
+        win.reject()
+        assert restored == [1]
+        win.sel_timer.stop()
+        win.destroy()
+
+
+class TestClosingKeepsTheColours:
+    """Closing the window is not an undo.
+
+    The teardown restores the 3D *interaction mode* and drops the picking
+    selection; the colours themselves belong to the document and are cleared
+    only by "Reset to Element Colors" or by the document-reset handler. Worth
+    pinning, because the teardown now runs on close routes it did not use to
+    run on -- Esc among them.
+    """
+
+    def _apply_then_close(self, route):
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtTest import QTest
+
+        ctx = _colorizer_context()
+        win = _atom_colorizer.AtomColorizerWindow(context=ctx)
+        ctx.current_molecule.GetNumAtoms.return_value = 3
+        win.le_indices.setText("0, 2")
+        win.apply_color()
+        controller = ctx.get_3d_controller.return_value
+        applied = [c.args for c in controller.set_atom_color.call_args_list]
+        controller.set_atom_color.reset_mock()
+        win.show()
+        if route == "escape":
+            QTest.keyClick(win, Qt.Key.Key_Escape)
+        else:
+            getattr(win, route)()
+        during_close = [c.args for c in controller.set_atom_color.call_args_list]
+        win.sel_timer.stop()
+        win.destroy()
+        return applied, during_close
+
+    @pytest.mark.parametrize("route", ["close", "escape", "reject"])
+    def test_the_colours_were_applied(self, qapp, route):
+        applied, _ = self._apply_then_close(route)
+        assert applied == [(0, "#ff0000"), (2, "#ff0000")]
+
+    @pytest.mark.parametrize("route", ["close", "escape", "reject"])
+    def test_closing_repaints_nothing(self, qapp, route):
+        _, during_close = self._apply_then_close(route)
+        assert during_close == []

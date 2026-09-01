@@ -14,7 +14,7 @@ import logging
 
 # Plugin Metadata
 PLUGIN_NAME = "Bond Colorizer"
-PLUGIN_VERSION = "2026.07.31"
+PLUGIN_VERSION = "2026.09.02"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Select bonds by index or atom pair in the 3D viewer and apply color."
@@ -30,6 +30,7 @@ class BondColorizerWindow(QDialog):
     def __init__(self, context):
         super().__init__(parent=context.get_main_window())
         self.context = context
+        self._torn_down = False
         self._restore_measurement_mode = False
         self._restore_edit_mode = False
         self._forced_measurement_mode = False
@@ -328,8 +329,19 @@ class BondColorizerWindow(QDialog):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to reset colors: {e}")
 
-    def closeEvent(self, event: QCloseEvent):
-        """Reset selection and restore the prior 3D interaction mode on close."""
+    def _teardown(self):
+        """Reset selection, restore the prior 3D mode, and deregister. Once.
+
+        Reached from done() as well as closeEvent, because Esc and the Close
+        button leave a QDialog through reject() -> done(), which never raises a
+        QCloseEvent. Cleanup that lived in closeEvent alone was therefore
+        skipped entirely by Esc: the picking timer kept running and the viewer
+        stayed stuck in select mode, with no way back -- reopening the plugin
+        handed back the same still-registered window.
+        """
+        if self._torn_down:
+            return
+        self._torn_down = True
         try:
             if self.sel_timer.isActive():
                 self.sel_timer.stop()
@@ -339,11 +351,21 @@ class BondColorizerWindow(QDialog):
         # Always reset — even if this window did not force select mode — so the
         # viewer is never left stuck with a stale selection / interactor state.
         self._restore_select_mode()
-        super().closeEvent(event)
         # Unregister so the next open builds a fresh dialog that re-enters select
         # mode and restarts the picking timer; reusing the closed one left the
         # viewer non-selectable.
         self.context.register_window("main_panel", None)
+
+    def done(self, result: int):
+        """Where accept(), reject() and Esc all arrive."""
+        self._teardown()
+        super().done(result)
+
+    def closeEvent(self, event: QCloseEvent):
+        # The one case done() does not cover: QDialog's own closeEvent calls
+        # reject() only while the dialog is visible.
+        self._teardown()
+        super().closeEvent(event)
 
 
 def launch(context):

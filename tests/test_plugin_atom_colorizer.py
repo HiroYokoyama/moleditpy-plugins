@@ -8,6 +8,7 @@ plugin source via AST and invoked with a fake self object.
 
 from __future__ import annotations
 
+import pytest
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -253,18 +254,43 @@ class TestAtomColorizerLoadRefresh:
 
 
 class TestAtomColorizerClose:
-    def test_close_unregisters_window_so_reopen_is_fresh(self):
-        """closeEvent must unregister 'main_panel' so the next open builds a
-        fresh dialog (re-entering select mode)."""
-        fn = extract_function(
-            COLORIZER_PATH, "AtomColorizerWindow", "closeEvent",
-            extra_globals={
-                "super": lambda *a: MagicMock(),
-                "logging": MagicMock(),
-            },
+    def _teardown(self):
+        return extract_function(
+            COLORIZER_PATH, "AtomColorizerWindow", "_teardown",
+            extra_globals={"logging": MagicMock()},
         )
+
+    def test_teardown_unregisters_window_so_reopen_is_fresh(self):
+        """Cleanup must unregister 'main_panel' so the next open builds a
+        fresh dialog (re-entering select mode)."""
+        fn = self._teardown()
         self_ = MagicMock()
+        self_._torn_down = False
         self_.sel_timer.isActive.return_value = True
-        fn(self_, MagicMock())
+        fn(self_)
+        self_.sel_timer.stop.assert_called_once()
         self_._restore_select_mode.assert_called_once()
         self_.context.register_window.assert_called_with("main_panel", None)
+
+    def test_teardown_runs_once(self):
+        fn = self._teardown()
+        self_ = MagicMock()
+        self_._torn_down = False
+        fn(self_)
+        fn(self_)
+        self_._restore_select_mode.assert_called_once()
+
+    @pytest.mark.parametrize(
+        "name,args", [("closeEvent", (MagicMock(),)), ("done", (0,))]
+    )
+    def test_every_close_route_reaches_it(self, name, args):
+        """Esc leaves a QDialog through reject() -> done(), which raises no
+        QCloseEvent -- so done() has to tear down as well, or Esc left the
+        picking timer running and the viewer stuck in select mode."""
+        fn = extract_function(
+            COLORIZER_PATH, "AtomColorizerWindow", name,
+            extra_globals={"super": lambda *a: MagicMock()},
+        )
+        self_ = MagicMock()
+        fn(self_, *args)
+        self_._teardown.assert_called_once()

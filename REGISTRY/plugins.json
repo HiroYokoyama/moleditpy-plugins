@@ -341,7 +341,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Atom Colorizer",
-    "version": "2026.07.31",
+    "version": "2026.09.02",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Select atoms in the 3D viewer and apply color.",
@@ -355,8 +355,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Atom_Colorizer/atom_colorizer.py",
-    "lastUpdated": "2026-07-31",
-    "sha256": "7404c9aa8b00a4303bec0dac3b785cd058127283c3853685f6359ccaf1cf6a97",
+    "lastUpdated": "2026-09-02",
+    "sha256": "f582867cbfe1ace4c3e25daf211762ba5b0a52444f22a26a2d927c5b8b05bf53",
     "firstAppeared": "2025-12-16",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -371,7 +371,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Bond Colorizer",
-    "version": "2026.07.31",
+    "version": "2026.09.02",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Select bonds by index or atom pair in the 3D viewer and apply color.",
@@ -385,8 +385,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Bond_Colorizer/bond_colorizer.py",
-    "lastUpdated": "2026-07-31",
-    "sha256": "3e700d8d1abc7b0303cd096763602f6e81e960d5afb06eeb23ea19b368d13425",
+    "lastUpdated": "2026-09-02",
+    "sha256": "61a21c96ea16d4d9e5f050ef75b82b872b2458e81619d17e8419366cb1c58023",
     "firstAppeared": "2026-07-12",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
