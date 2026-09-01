@@ -425,8 +425,12 @@ def test_on_finished_success_sets_each_atom_position():
 # ---------------------------------------------------------------------------
 
 
-def test_dialog_has_close_event():
-    assert _source_has_class_method("XtbOptimizerDialog", "closeEvent")
+def test_dialog_routes_every_close_through_done():
+    # Not closeEvent: Esc leaves a QDialog through reject() -> done(), and
+    # the guard that asks about a running optimization has to sit where
+    # every route passes.
+    assert _source_has_class_method("XtbOptimizerDialog", "done")
+    assert _source_has_class_method("XtbOptimizerDialog", "_may_close")
 
 
 def test_dialog_has_build_ui():
@@ -604,8 +608,8 @@ class TestMoleculeSwapGuard:
         ctx.refresh_3d_view.assert_called_once()
 
 
-class TestImplicitHydrogenGuard:
-    """Implicit hydrogens have no coordinates and would be silently omitted.
+class TestMissingHydrogenGuard:
+    """Hydrogens that are not atoms have no coordinates and would be silently omitted.
 
     xTB would optimise the heavy-atom skeleton and report success, so this has
     to be caught before the run rather than surfacing as a bad geometry.
@@ -629,7 +633,7 @@ class TestImplicitHydrogenGuard:
         atoms = []
         for n in implicit_counts:
             a = MagicMock()
-            a.GetNumImplicitHs.return_value = n
+            a.GetTotalNumHs.return_value = n
             a.GetSymbol.return_value = "C"
             a.GetIdx.return_value = 0
             atoms.append(a)

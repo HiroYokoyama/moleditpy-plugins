@@ -45,7 +45,7 @@ from rdkit import Chem
 # ---------------------------------------------------------------------------
 
 PLUGIN_NAME = "xTB Optimizer"
-PLUGIN_VERSION = "2026.07.31"
+PLUGIN_VERSION = "2026.09.02"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -424,17 +424,27 @@ class XtbOptimizerDialog(QDialog):
             from rdkit.Chem import GetPeriodicTable
             pt = GetPeriodicTable()
 
-            # Implicit hydrogens have no coordinates, so they would simply be
-            # absent from the structure handed to xTB -- ethanol would be
-            # optimised as a bare C-C-O fragment, and it would "succeed".
+            # Hydrogens that are not atoms in the graph have no coordinates, so
+            # they would simply be absent from the structure handed to xTB --
+            # ethanol would be optimised as a bare C-C-O fragment, and it would
+            # "succeed".
+            #
+            # GetTotalNumHs(), not GetNumImplicitHs(): a hydrogen count written
+            # into the atom rather than inferred is held in NumExplicitHs, and
+            # counting only the implicit ones missed it entirely. Water or
+            # methane written with its valence spelled out ([OH2], [CH4]) has
+            # no implicit hydrogen at all, so the guard passed and xTB was
+            # handed a lone O or C. Both figures exclude hydrogens that really
+            # are atoms, which is the point: those carry coordinates.
+            #
             # Inside the try: reading a corrupt molecule must still report
             # "Failed to read molecule" rather than raise out of the slot.
-            implicit_h = sum(atom.GetNumImplicitHs() for atom in mol.GetAtoms())
-            if implicit_h:
+            missing_h = sum(atom.GetTotalNumHs() for atom in mol.GetAtoms())
+            if missing_h:
                 QMessageBox.warning(
                     self, PLUGIN_NAME,
-                    f"The molecule has {implicit_h} implicit hydrogen(s), which "
-                    "have no 3D coordinates and would be left out of the "
+                    f"The molecule has {missing_h} hydrogen(s) with no 3D "
+                    "coordinates, which would be left out of the "
                     "calculation.\n\nAdd explicit hydrogens before optimizing."
                 )
                 return
@@ -581,32 +591,47 @@ class XtbOptimizerDialog(QDialog):
     # Dialog lifecycle
     # ------------------------------------------------------------------
 
-    def closeEvent(self, event):
-        if self._worker and self._worker.isRunning():
-            reply = QMessageBox.question(
-                self, PLUGIN_NAME,
-                "Optimization is still running. Cancel and close?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No,
-            )
-            if reply == QMessageBox.StandardButton.Yes:
-                self._on_cancel()
-                self._worker.wait(3000)   # give the thread 3 s to exit cleanly
-                event.accept()
-            else:
-                event.ignore()
-                return
-        self.context.register_window("main_panel", None)
-        event.accept()
+    def _may_close(self) -> bool:
+        """Ask before abandoning a running optimization. False keeps the window.
 
-    def accept(self):
-        if self._worker and self._worker.isRunning():
-            self.closeEvent(
-                type("FakeEvent", (), {"accept": lambda s: None, "ignore": lambda s: None})()
-            )
+        Cancels and waits for the worker when the user agrees, so the thread is
+        not left running against a window that has gone.
+        """
+        if not (self._worker and self._worker.isRunning()):
+            return True
+        reply = QMessageBox.question(
+            self, PLUGIN_NAME,
+            "Optimization is still running. Cancel and close?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return False
+        self._on_cancel()
+        self._worker.wait(3000)   # give the thread 3 s to exit cleanly
+        return True
+
+    def done(self, result: int):
+        """The single way out, because every close route arrives here.
+
+        It used to be split between closeEvent and accept(), and both were
+        wrong. Esc reaches neither -- a QDialog leaves through reject() ->
+        done(), raising no QCloseEvent -- so Esc closed the window without ever
+        asking about a running optimization, left the worker running, and never
+        deregistered "main_panel", so reopening the plugin returned the dead
+        dialog. And accept() returned unconditionally after delegating to
+        closeEvent with a stand-in event whose accept() did nothing, so
+        answering "Yes, cancel and close" cancelled the run and then left the
+        window sitting open.
+
+        No closeEvent override: QDialog's own already calls reject() and then
+        ignores the event while the dialog is still visible, which is the veto
+        below. Asking here as well would ask twice.
+        """
+        if not self._may_close():
             return
         self.context.register_window("main_panel", None)
-        super().accept()
+        super().done(result)
 
 
 # ---------------------------------------------------------------------------

@@ -405,8 +405,8 @@ class TestXtbOptimizerDialogFullLifecycle:
             a.GetSymbol.return_value = sym
             a.GetIdx.return_value = i
             # Explicit: a MagicMock would sum() to a truthy value and
-            # trip the implicit-hydrogen guard into a blocking modal.
-            a.GetNumImplicitHs.return_value = 0
+            # trip the missing-hydrogen guard into a blocking modal.
+            a.GetTotalNumHs.return_value = 0
             atoms.append(a)
         mol = MagicMock()
         mol.GetNumConformers.return_value = 1
@@ -491,50 +491,66 @@ class TestXtbOptimizerDialogFullLifecycle:
         dlg._on_finished(True, [[0.0, 0.0, 0.0]])
         assert "Error applying coordinates" in dlg.lbl_status.text()
 
-    def test_close_event_no_worker_unregisters_and_accepts(self, dlg):
-        event = MagicMock()
+    def test_closing_with_no_worker_unregisters(self, dlg):
         dlg._worker = None
-        dlg.closeEvent(event)
+        dlg.done(0)
         dlg.context.register_window.assert_called_with("main_panel", None)
-        event.accept.assert_called_once()
 
-    def test_close_event_running_worker_confirm_yes_cancels_and_waits(self, dlg, no_msgbox):
+    @pytest.mark.parametrize("route", ["close", "escape", "reject", "accept"])
+    def test_every_route_asks_before_abandoning_a_run(self, dlg, no_msgbox, route):
+        """Esc used to ask nothing at all.
+
+        A QDialog leaves through reject() -> done() and raises no QCloseEvent,
+        so the guard that lived in closeEvent never ran for Esc: the window
+        closed, the worker carried on, and "main_panel" stayed registered, so
+        reopening the plugin handed back the dead dialog.
+        """
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtTest import QTest
+
         box = no_msgbox[_xtb.__name__]
         box.StandardButton.Yes = 1
-        box.question.return_value = 1
+        box.StandardButton.No = 2
+        box.question.return_value = 2  # No -- keep optimizing
         worker = MagicMock()
         worker.isRunning.return_value = True
         dlg._worker = worker
-        event = MagicMock()
-        dlg.closeEvent(event)
+        dlg.show()
+        if route == "escape":
+            QTest.keyClick(dlg, Qt.Key.Key_Escape)
+        else:
+            getattr(dlg, route)()
+        assert box.question.call_count == 1
+        worker.cancel.assert_not_called()
+        assert dlg.isVisible()
+
+    @pytest.mark.parametrize("route", ["close", "escape", "reject", "accept"])
+    def test_answering_yes_cancels_and_actually_closes(self, dlg, no_msgbox, route):
+        """accept() used to cancel the run and then leave the window open.
+
+        It delegated to closeEvent with a stand-in event whose accept() did
+        nothing, then returned unconditionally -- so the user said "yes, cancel
+        and close" and the window stayed exactly where it was.
+        """
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtTest import QTest
+
+        box = no_msgbox[_xtb.__name__]
+        box.StandardButton.Yes = 1
+        box.StandardButton.No = 2
+        box.question.return_value = 1  # Yes
+        worker = MagicMock()
+        worker.isRunning.return_value = True
+        dlg._worker = worker
+        dlg.show()
+        if route == "escape":
+            QTest.keyClick(dlg, Qt.Key.Key_Escape)
+        else:
+            getattr(dlg, route)()
         worker.cancel.assert_called_once()
         worker.wait.assert_called_once_with(3000)
-        assert event.accept.called  # accept() is called from both branches
-
-    def test_close_event_running_worker_confirm_no_ignores(self, dlg, no_msgbox):
-        box = no_msgbox[_xtb.__name__]
-        box.StandardButton.Yes = 1
-        box.StandardButton.No = 2
-        box.question.return_value = 2
-        worker = MagicMock()
-        worker.isRunning.return_value = True
-        dlg._worker = worker
-        event = MagicMock()
-        dlg.closeEvent(event)
-        worker.cancel.assert_not_called()
-        event.ignore.assert_called_once()
-        event.accept.assert_not_called()
-
-    def test_accept_defers_to_close_event_when_running(self, dlg, no_msgbox):
-        box = no_msgbox[_xtb.__name__]
-        box.StandardButton.Yes = 1
-        box.StandardButton.No = 2
-        box.question.return_value = 2
-        worker = MagicMock()
-        worker.isRunning.return_value = True
-        dlg._worker = worker
-        dlg.accept()  # must not raise; delegates to closeEvent's fake-event branch
-        worker.cancel.assert_not_called()
+        assert not dlg.isVisible()
+        dlg.context.register_window.assert_called_with("main_panel", None)
 
 
 class TestRunPluginCreatesDialog:
