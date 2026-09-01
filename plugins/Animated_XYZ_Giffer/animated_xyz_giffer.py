@@ -37,7 +37,7 @@ try:
 except ImportError:
     rdDetermineBonds = None
 
-PLUGIN_VERSION = "2026.07.31"
+PLUGIN_VERSION = "2026.09.02"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_NAME = "Animated XYZ Giffer"
@@ -50,6 +50,7 @@ class AnimatedXYZPlayer(QDialog):
     def __init__(self, context):
         super().__init__(context.get_main_window())
         self.context = context
+        self._torn_down = False
         # [DIRECT ACCESS] to main window for legacy UI parenting
         self.mw = context.get_main_window()
         self.setWindowTitle("Animated XYZ Player")
@@ -749,7 +750,19 @@ class AnimatedXYZPlayer(QDialog):
         elif self._reload_attempts >= 15:
             self._reload_timer.stop()
 
-    def closeEvent(self, event):
+    def _teardown(self):
+        """Stop the animation and keep the frame on screen. Once, however closed.
+
+        Reached from done() as well as closeEvent: Esc and the Close button
+        leave a QDialog through reject() -> done(), which raises no
+        QCloseEvent. Closing with Esc therefore left both timers running --
+        still stepping the animation and reloading the file behind a window
+        that had gone -- and never handed the displayed frame back, so the
+        molecule the user was looking at was silently not the one they kept.
+        """
+        if self._torn_down:
+            return
+        self._torn_down = True
         self.timer.stop()
         self._reload_timer.stop()
 
@@ -799,6 +812,15 @@ class AnimatedXYZPlayer(QDialog):
             del self.mw._plugin_animated_xyz_player
         """
 
+    def done(self, result: int):
+        """Where accept(), reject() and Esc all arrive."""
+        self._teardown()
+        super().done(result)
+
+    def closeEvent(self, event):
+        # QDialog's own closeEvent calls reject() only while the dialog is
+        # visible, so done() does not cover a window closed before it is shown.
+        self._teardown()
         super().closeEvent(event)
 
 

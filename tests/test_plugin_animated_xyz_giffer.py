@@ -519,13 +519,22 @@ class TestGifferCreateBaseMolecule:
 # ---------------------------------------------------------------------------
 
 def _fake_super_factory():
-    return SimpleNamespace(closeEvent=lambda event: None)
+    return SimpleNamespace(closeEvent=lambda event: None, done=lambda result: None)
 
 
-_g_close_event = _extract_method_as_fn(
-    GIFFER_PATH, "AnimatedXYZPlayer", "closeEvent",
-    extra_globals={"super": _fake_super_factory},
+# The body moved out of closeEvent into a guarded _teardown() that done()
+# reaches too: Esc leaves a QDialog through reject() -> done() and raises no
+# QCloseEvent, so closing the player that way used to leave both timers running
+# and never hand the displayed frame back.
+_g_teardown = _extract_method_as_fn(
+    GIFFER_PATH, "AnimatedXYZPlayer", "_teardown",
 )
+
+
+def _g_close_event(fake, _event=None):
+    """Drive the teardown the way any close route does."""
+    fake._torn_down = False
+    return _g_teardown(fake)
 
 
 class TestGifferCloseEvent:

@@ -84,7 +84,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Animated XYZ Giffer",
-    "version": "2026.07.31",
+    "version": "2026.09.02",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A player for viewing multi-frame XYZ files and recording GIF animations using PIL.",
@@ -96,8 +96,8 @@
       "Pillow"
     ],
     "downloadUrl": "../plugins/Animated_XYZ_Giffer/animated_xyz_giffer.py",
-    "lastUpdated": "2026-07-31",
-    "sha256": "cab4508e77137b536948573e2250429dd7e5fd9d6badb05d2ebbb62dfd0d02aa",
+    "lastUpdated": "2026-09-02",
+    "sha256": "ff623652dc53a47294a1399b0b414eb8638433328c3de525498a6dee16582949",
     "firstAppeared": "2025-12-15",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -562,7 +562,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "MS Spectrum Simulation Neo",
-    "version": "2026.07.31",
+    "version": "2026.09.02",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Simulates the Mass Spectrum for the currently loaded molecule using RDKit descriptors. Includes Gaussian broadening and interactive zoom/pan.",
@@ -575,8 +575,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/MS_Spectrum_Simulation_Neo/ms_spectrum_neo.py",
-    "lastUpdated": "2026-07-31",
-    "sha256": "ee0c1f8bae9bdf8ce4caf1e9a7d821e19bf1c5e588d97a870fd41d57104b57bb",
+    "lastUpdated": "2026-09-02",
+    "sha256": "998691bbd23b3928eee75816bded784b353b2a5f5fa6efa186c82cb10479d36e",
     "firstAppeared": "2025-12-18",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -699,7 +699,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Plugin Installer",
-    "version": "2026.08.22",
+    "version": "2026.09.02",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Checks for updates, installs new plugins, and allows manual reinstallation.",
@@ -710,8 +710,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Plugin_Installer/plugin_installer.py",
-    "lastUpdated": "2026-08-22",
-    "sha256": "fbd64794200b234df85626c2cff0f87ff3f6e80dfe729b79e75a650ba7120d4a",
+    "lastUpdated": "2026-09-02",
+    "sha256": "8750fc3654fc37a8e5a234d700d67bbb7cacc0adc7b1945280e479e0f72c9b0a",
     "firstAppeared": "2026-01-04",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -749,7 +749,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Chat with Molecule Neo (Gemini)",
-    "version": "2026.07.31",
+    "version": "2026.09.02",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with Google Gemini about the current molecule. Automatically injects SMILES context. (Neo Version)",
@@ -764,8 +764,8 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo/chat_with_molecule_neo.py",
-    "lastUpdated": "2026-07-31",
-    "sha256": "7aa307dfd5cf9a4954efaaf272f2456b4597b9c5d6679440cfa20956eb96a066",
+    "lastUpdated": "2026-09-02",
+    "sha256": "021e9152f94473639f88832cd19bedbf0535da36b7d7a7f4e2fc295cf91ca043",
     "firstAppeared": "2025-12-28",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -808,7 +808,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Chat with Molecule Neo (ChatGPT)",
-    "version": "2026.07.31",
+    "version": "2026.09.02",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with OpenAI ChatGPT about the current molecule. Automatically injects SMILES context. (Neo Version)",
@@ -823,8 +823,8 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_ChatGPT/chat_with_molecule_neo_chatGPT.py",
-    "lastUpdated": "2026-07-31",
-    "sha256": "17812166b07124ef0685b54af33988ac9089bb3333a1103e731cfc5ffe563018",
+    "lastUpdated": "2026-09-02",
+    "sha256": "20bf53318d92b907b272daf6a8e70534dfe3550fea9e4b110706ae7cad1380f8",
     "firstAppeared": "2025-12-30",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -839,7 +839,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Chat with Molecule Neo (Local)",
-    "version": "2026.07.31",
+    "version": "2026.09.02",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with local LLM about the current molecule. Automatically injects SMILES context. (Neo Version)",
@@ -854,8 +854,8 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_Local/chat_with_molecule_neo_local.py",
-    "lastUpdated": "2026-07-31",
-    "sha256": "9d2223e59f449c5c80d8c83c719af060edf843702e6571624b530f04d96c049b",
+    "lastUpdated": "2026-09-02",
+    "sha256": "dd644854c9c6ca851917b32f9c77ef014245d991016b0863184ecb8e18e47d9c",
     "firstAppeared": "2025-12-30",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1482,7 +1482,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Advanced Rendering",
-    "version": "2026.07.31",
+    "version": "2026.09.02",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Fine-grained control over Scene lighting, shadows, post-processing effects (SSAO, Depth Peeling, EDL), and Atom/Bond rendering (PBR, Silhouette).",
@@ -1495,8 +1495,8 @@
       "numpy"
     ],
     "downloadUrl": "../plugins/Advanced_Rendering/advanced_rendering.py",
-    "lastUpdated": "2026-07-31",
-    "sha256": "c7d48b103a633aa6ddc8734250a0fa0dd24bf96e795b558efd2abda1a67236e7",
+    "lastUpdated": "2026-09-02",
+    "sha256": "508f70bf881fb1a1fd0bb70ec22d2bd1b47f491d8c2fcdbb6d93daedc24a47aa",
     "firstAppeared": "2026-02-03",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

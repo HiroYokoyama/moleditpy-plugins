@@ -3,7 +3,7 @@
 
 
 PLUGIN_NAME = "Chat with Molecule Neo (Local) (truststore)"
-PLUGIN_VERSION = "2026.07.31"
+PLUGIN_VERSION = "2026.09.02"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with Local LLM (OpenAI-Compatible) about the current molecule. Automatically injects SMILES context. (Neo Version) Note: InChIKey is sent to PubChem."
@@ -1206,8 +1206,15 @@ class ChatMoleculeWindow(QDialog):
             "</div>"
         )
 
-    def closeEvent(self, event):
-        """Handle window closure to clean up workers"""
+    def _release_workers(self):
+        """Stop the workers talking to this window.
+
+        Called from done(), which every way out of a QDialog reaches. Esc and
+        the Close button go through reject() -> done() and raise no
+        QCloseEvent, so doing this in closeEvent alone left a streaming reply
+        still connected: the worker went on emitting chunks into a window the
+        user had dismissed.
+        """
         try:
             # Clean up ThreadPool
             if getattr(self, "thread_pool", None) is not None:
@@ -1255,6 +1262,14 @@ class ChatMoleculeWindow(QDialog):
         except Exception as e:
             logging.warning("CloseEvent Error: %s", e)
 
+    def done(self, result):
+        self._release_workers()
+        super().done(result)
+
+    def closeEvent(self, event):
+        # QDialog's own closeEvent calls reject() only while the dialog is
+        # visible, so done() does not cover one closed before it is shown.
+        self._release_workers()
         event.accept()
 
     def fetch_models(self):

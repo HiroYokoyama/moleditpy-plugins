@@ -46,7 +46,7 @@ except ImportError:
     vtk = None
 
 PLUGIN_NAME = "Advanced Rendering"
-PLUGIN_VERSION = "2026.07.31"
+PLUGIN_VERSION = "2026.09.02"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Fine-grained control over Scene lighting, shadows, and PBR effects. Refactored for V3 API."
@@ -67,10 +67,20 @@ class HideOnCloseDialog(QDialog):
     def set_viewer(self, viewer):
         self.viewer = viewer
 
-    def closeEvent(self, event: QCloseEvent):
-        # Save settings before hiding
+    def _save_viewer_settings(self):
         if self.viewer and hasattr(self.viewer, "save_settings"):
             self.viewer.save_settings()
+
+    def done(self, result: int):
+        # Esc reaches reject() -> done() and raises no QCloseEvent, so the save
+        # in closeEvent alone was skipped: a window dismissed with Esc lost
+        # whatever rendering settings had been changed since it was opened.
+        self._save_viewer_settings()
+        super().done(result)
+
+    def closeEvent(self, event: QCloseEvent):
+        # Save settings before hiding
+        self._save_viewer_settings()
 
         # Do not destroy the widget, just hide it
         event.ignore()

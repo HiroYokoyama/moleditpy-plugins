@@ -45,7 +45,7 @@ import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.08.22"
+PLUGIN_VERSION = "2026.09.02"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_SUPPORTED_PYTHON_VERSION = ">=3.9, <3.15"
 PLUGIN_SUPPORTED_OS = ["Windows", "macOS", "Linux", "WSL"]
@@ -2254,8 +2254,14 @@ class PluginInstallerWindow(QDialog):
                             e,
                         )
 
-    def closeEvent(self, event):
-        # Stop any in-flight fetch thread before closing
+    def _stop_fetch_worker(self):
+        """Stop any in-flight fetch thread and stop it talking to this window.
+
+        Called from done(), which every way out of a QDialog reaches: Esc and
+        the Close button go through reject() -> done() and raise no
+        QCloseEvent, so doing this in closeEvent alone left the thread running
+        and still connected, free to emit `done` into a window that had gone.
+        """
         if self._fetch_worker and self._fetch_worker.isRunning():
             try:
                 self._fetch_worker.done.disconnect()
@@ -2264,6 +2270,14 @@ class PluginInstallerWindow(QDialog):
             self._fetch_worker.quit()
             self._fetch_worker.wait(500)
 
+    def done(self, result: int):
+        self._stop_fetch_worker()
+        super().done(result)
+
+    def closeEvent(self, event):
+        # QDialog's own closeEvent calls reject() only while the dialog is
+        # visible, so done() does not cover a window closed before it is shown.
+        self._stop_fetch_worker()
         super().closeEvent(event)
 
     def copy_upgrade_command(self):

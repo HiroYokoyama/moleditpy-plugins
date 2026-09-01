@@ -48,7 +48,7 @@ except ImportError:
     Descriptors = None
     Draw = None
 
-PLUGIN_VERSION = "2026.07.31"
+PLUGIN_VERSION = "2026.09.02"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 
@@ -276,9 +276,20 @@ class MSSpectrumDialog(QDialog):
         self.check_update()
         self.recalc_peaks(reset=True)
 
-    def closeEvent(self, event):
+    def _stop_sync_timer(self):
         if getattr(self, "timer", None) is not None and self.timer.isActive():
             self.timer.stop()
+
+    def done(self, result: int):
+        # Every way out of a QDialog arrives here. Stopping the live-sync timer
+        # in closeEvent alone left it polling the molecule twice a second after
+        # the window was closed with Esc, which reaches reject() -> done() and
+        # raises no QCloseEvent.
+        self._stop_sync_timer()
+        super().done(result)
+
+    def closeEvent(self, event):
+        self._stop_sync_timer()
         event.accept()
 
     def toggle_sync(self, state):
