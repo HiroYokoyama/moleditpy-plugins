@@ -32,7 +32,7 @@ except ImportError:
     Chem = None
 
 PLUGIN_NAME = "Gaussian Freq Analyzer"
-PLUGIN_VERSION = "2026.07.31"
+PLUGIN_VERSION = "2026.09.02"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -59,7 +59,7 @@ class FCHKParser:
         self.intensities = []  # IR Intensities
         self.vib_modes = []  # list of list of (dx, dy, dz)
 
-        with open(filename, "r") as f:
+        with open(filename, "r", encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
 
         data = {}
@@ -1063,7 +1063,7 @@ class SpectrumDialog(QDialog):
                 fname += ".csv"
             try:
                 x, y = self.plot_widget.get_curve_data()
-                with open(fname, "w") as f:
+                with open(fname, "w", encoding="utf-8") as f:
                     f.write("Frequency,Intensity\n")
                     for xi, yi in zip(x, y):
                         f.write(f"{xi:.2f},{yi:.4f}\n")

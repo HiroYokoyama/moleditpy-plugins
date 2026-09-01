@@ -33,7 +33,7 @@ import copy
 import logging
 
 PLUGIN_NAME = "Molecule Comparator"
-PLUGIN_VERSION = "2026.07.31"
+PLUGIN_VERSION = "2026.09.02"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Side-by-side comparison and alignment of multiple molecules."
@@ -474,10 +474,21 @@ class MoleculeComparator(QWidget):
             return
 
         try:
-            if format_type == "mol":
-                print(Chem.MolToMolBlock(mol), file=open(file_path, "w"))
-            elif format_type == "xyz":
-                print(Chem.MolToXYZBlock(mol), file=open(file_path, "w"))
+            # Written through a `with`, and as UTF-8. The file handed to
+            # print(file=...) was never closed, so the export was left to
+            # whenever the garbage collector got round to it -- and on a
+            # non-UTF-8 Windows locale the default encoding could not write a
+            # molecule whose name carries an accent at all.
+            block = (
+                Chem.MolToMolBlock(mol)
+                if format_type == "mol"
+                else Chem.MolToXYZBlock(mol)
+                if format_type == "xyz"
+                else None
+            )
+            if block is not None:
+                with open(file_path, "w", encoding="utf-8") as handle:
+                    print(block, file=handle)
 
             QMessageBox.information(self.mw, "Exported", f"Saved to:\n{file_path}")
         except (OSError, RuntimeError, AttributeError, TypeError, ValueError) as e:
@@ -563,7 +574,7 @@ class MoleculeComparator(QWidget):
                 # Bug fix (2026.07.10): the file dialog advertises *.xyz but
                 # this branch was previously missing entirely, so XYZ files
                 # always failed to load with "Failed to load molecule".
-                with open(file_path, "r") as f:
+                with open(file_path, "r", encoding="utf-8", errors="replace") as f:
                     xyz_content = f.read()
                 mol = Chem.MolFromXYZBlock(xyz_content)
                 if mol is not None and mol.GetNumBonds() == 0 and rdDetermineBonds is not None:

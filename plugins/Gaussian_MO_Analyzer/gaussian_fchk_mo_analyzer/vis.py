@@ -24,7 +24,7 @@ class CubeVisualizer:
             return False
 
     def _parse_cube(self, filename):
-        with open(filename, "r") as f:
+        with open(filename, "r", encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
 
         # Skip comments

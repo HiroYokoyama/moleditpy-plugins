@@ -184,7 +184,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Cube File Viewer",
-    "version": "2026.07.31",
+    "version": "2026.09.02",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes Gaussian Cube files (.cube) containing volumetric data (e.g., orbitals, densities).",
@@ -197,8 +197,8 @@
       "numpy"
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer/cube_viewer.py",
-    "lastUpdated": "2026-07-31",
-    "sha256": "d6398c7e4b60b65ae1df42830982a7304b2ddbc823359a84a7e163c0688cdf03",
+    "lastUpdated": "2026-09-02",
+    "sha256": "594c2e5b0e728275838f2114e6ca0ab2eb56675465a99367c4349f417064552a",
     "firstAppeared": "2025-12-15",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -479,7 +479,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Mapped Cube Viewer",
-    "version": "2026.07.31",
+    "version": "2026.09.02",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes a property (e.g. ESP) mapped onto an isosurface (e.g. electron density) from two Cube files.",
@@ -494,8 +494,8 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/Mapped_Cube_Viewer/mapped_cube_viewer.py",
-    "lastUpdated": "2026-07-31",
-    "sha256": "8b2261db786335ab58a31fe1a1ae9f0d2d47322ba1bb9409dc26a17ff3f8b5df",
+    "lastUpdated": "2026-09-02",
+    "sha256": "0937ef8c2b7558343b1da1de26b827a674a4890df11096ca10e1b54bfe9bb031",
     "firstAppeared": "2025-12-17",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -591,7 +591,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Gaussian Freq Analyzer",
-    "version": "2026.07.31",
+    "version": "2026.09.02",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Analyzes vibrational frequencies from Gaussian FCHK files. View IR spectrum, animate normal modes, and export GIF animations.",
@@ -607,8 +607,8 @@
       "Pillow"
     ],
     "downloadUrl": "../plugins/Gaussian_Freq_Analyzer/gaussian_fchk_freq_analyzer.py",
-    "lastUpdated": "2026-07-31",
-    "sha256": "a5b9f3d16242a1335b4e194f7ade9aa607068b83e1bce36de99919fe307b810e",
+    "lastUpdated": "2026-09-02",
+    "sha256": "8d44e70f73dc24a8a839fc076a4326c165365715cf86bf33fdc8cbdede8ddd00",
     "firstAppeared": "2025-12-20",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -623,7 +623,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "ORCA Freq Analyzer",
-    "version": "2026.08.15",
+    "version": "2026.09.02",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Analyzes vibrational frequencies from ORCA output files. View IR spectrum, animate normal modes, and export GIF animations.",
@@ -639,8 +639,8 @@
       "Pillow"
     ],
     "downloadUrl": "../plugins/ORCA_Freq_Analyzer/orca_out_freq_analyzer.py",
-    "lastUpdated": "2026-08-15",
-    "sha256": "5f5a4d478e9ca8e1982b9d363661e8d8e485aaf0e7fe7631ceb4c24960583218",
+    "lastUpdated": "2026-09-02",
+    "sha256": "c9d0e696e357639935a5fd5ab3b4135ba91c1d17bb4807d3d4681352dcf1dcf2",
     "firstAppeared": "2025-12-20",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1046,7 +1046,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Molecule Comparator",
-    "version": "2026.07.31",
+    "version": "2026.09.02",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Compare multiple molecules in 3D, calculate RMSD, and align them.",
@@ -1059,8 +1059,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Molecule_Comparator/molecule_comparator.py",
-    "lastUpdated": "2026-07-31",
-    "sha256": "9a6016bc2a060c4eed09bf86b4aaa51f1f84f2b0cff4f5ac8900499b4ececce9",
+    "lastUpdated": "2026-09-02",
+    "sha256": "d16852d95ce02a9f5b378d9cf7bbf5867e8aa6a2d76cd879640054f63fb2262a",
     "firstAppeared": "2026-01-03",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1266,7 +1266,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Gaussian MO Analyzer",
-    "version": "2026.08.01",
+    "version": "2026.09.02",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes Molecular Orbitals from Gaussian FCHK files by generating Cube files. Supports S, P, D, F and spherical G shells; files using basis functions it cannot render exactly are rejected rather than shown wrong.",
@@ -1283,8 +1283,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Gaussian_MO_Analyzer/gaussian_fchk_mo_analyzer.zip",
-    "lastUpdated": "2026-08-01",
-    "sha256": "552873879fc4acc2f3f6b99557bb21392364129bd63dbd5de2075973d1fda107",
+    "lastUpdated": "2026-09-02",
+    "sha256": "e5b2d70625783cfeaf1307611b4c4d288370c607806c2fd0561e87bae7418c29",
     "firstAppeared": "2026-01-23",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1451,7 +1451,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Cube File Viewer Advanced",
-    "version": "2026.07.31",
+    "version": "2026.09.02",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Advanced 3D visualization for Gaussian Cube files with PBR, SSAO, and other effects.",
@@ -1466,8 +1466,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer_Advanced/cube_viewer_advanced.py",
-    "lastUpdated": "2026-07-31",
-    "sha256": "8ada76dba0db8a407ac326f67af88b0cf38391039630e27a066259158a5f5bc6",
+    "lastUpdated": "2026-09-02",
+    "sha256": "aedb12cd4d922bdee0d279669637ad56f95da789f50722dda0adcc4b31063c87",
     "firstAppeared": "2026-02-02",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

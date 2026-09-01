@@ -43,7 +43,7 @@ except ImportError:
 __author__ = "HiroYokoyama"
 PLUGIN_AUTHOR = __author__
 PLUGIN_NAME = "Cube File Viewer Advanced"
-PLUGIN_VERSION = "2026.07.31"
+PLUGIN_VERSION = "2026.09.02"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_DESCRIPTION = "Advanced 3D visualization for Gaussian Cube files with PBR, SSAO, and other effects."
 PLUGIN_CONTEXT = None
@@ -54,7 +54,7 @@ def parse_cube_data(filename):
     Parses a Gaussian Cube file and returns raw data structures.
     Adapted from test.py with robust header handling.
     """
-    with open(filename, "r") as f:
+    with open(filename, "r", encoding="utf-8", errors="replace") as f:
         lines = f.readlines()
 
     if len(lines) < 6:
@@ -663,7 +663,7 @@ class CubeViewerWidget(QWidget):
         try:
             settings_path = self.get_settings_path()
             if os.path.exists(settings_path):
-                with open(settings_path, "r") as f:
+                with open(settings_path, "r", encoding="utf-8") as f:
                     settings = json.load(f)
 
                 # Apply settings
@@ -870,7 +870,7 @@ class CubeViewerWidget(QWidget):
 
             clean_settings = sanitize(settings)
 
-            with open(self.get_settings_path(), "w") as f:
+            with open(self.get_settings_path(), "w", encoding="utf-8") as f:
                 json.dump(clean_settings, f, indent=4)
 
         except Exception as e:

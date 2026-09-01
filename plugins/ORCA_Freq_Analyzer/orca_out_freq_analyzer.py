@@ -41,7 +41,7 @@ except ImportError:
 
 PLUGIN_NAME = "ORCA Freq Analyzer"
 PLUGIN_DESCRIPTION = "Parse ORCA output files and visualize vibrational frequencies."
-PLUGIN_VERSION = "2026.08.15"
+PLUGIN_VERSION = "2026.09.02"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_CONTEXT = None
@@ -1133,7 +1133,7 @@ class SpectrumDialog(QDialog):
                 fname += ".csv"
             try:
                 x, y = self.plot_widget.get_curve_data()
-                with open(fname, "w") as f:
+                with open(fname, "w", encoding="utf-8") as f:
                     f.write("Frequency,Intensity\n")
                     for xi, yi in zip(x, y):
                         f.write(f"{xi:.2f},{yi:.4f}\n")
@@ -1377,7 +1377,7 @@ def load_from_file(main_window, fname):
 
 def is_valid_orca_file(filepath):
     try:
-        with open(filepath, "r", errors="ignore") as f:
+        with open(filepath, "r", encoding="utf-8", errors="replace") as f:
             # Check first 500 lines for "ORCA" keyword to be safe
             for _ in range(500):
                 line = f.readline()

@@ -36,7 +36,7 @@ class FCHKReader:
         self.parse()
 
     def parse(self):
-        with open(self.filepath, "r") as f:
+        with open(self.filepath, "r", encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
 
         i = 0
@@ -704,7 +704,7 @@ class CubeWriter:
         except ImportError:  # loaded flat (tests)
             PLUGIN_NAME, PLUGIN_VERSION = "Gaussian MO Analyzer", "unknown"
 
-        with open(filepath, "w") as f:
+        with open(filepath, "w", encoding="utf-8") as f:
             f.write(f"Moleditpy Cube File: {comment}\n")
             # Stamp the generating version: the f/g normalization fix changed
             # the values in every cube built from a basis carrying those

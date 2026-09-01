@@ -46,7 +46,7 @@ except ImportError:
 __author__ = "HiroYokoyama"
 PLUGIN_AUTHOR = __author__
 PLUGIN_NAME = "Mapped Cube Viewer"
-PLUGIN_VERSION = "2026.07.31"
+PLUGIN_VERSION = "2026.09.02"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_DESCRIPTION = "Visualizes electrostatic potential or other properties mapped onto an isosurface from Gaussian Cube files."
 
@@ -57,7 +57,7 @@ def parse_cube_data(filename):
     """
     Robust Cube file parser copied from cube_viewer.py
     """
-    with open(filename, "r") as f:
+    with open(filename, "r", encoding="utf-8", errors="replace") as f:
         lines = f.readlines()
 
     if len(lines) < 6:
