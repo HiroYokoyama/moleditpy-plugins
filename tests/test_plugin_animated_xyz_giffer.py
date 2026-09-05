@@ -701,13 +701,19 @@ class TestGifferReloadPoll:
 
 
 class TestGifferInitialize:
-    def test_registers_document_reset_handler(self):
+    def test_registers_menu_action_and_document_reset_handler(self):
         with mock_optional_imports():
             mod = load_plugin(GIFFER_PATH)
             ctx = MagicMock()
             mod.initialize(ctx)
             ctx.register_document_reset_handler.assert_called_once()
-            ctx.add_menu_action.assert_not_called()  # run() auto-registers the menu
+            ctx.add_menu_action.assert_called_once()
+            args = ctx.add_menu_action.call_args[0]
+            assert args[0] == "File/Animated XYZ Giffer..."
+            called = []
+            mod.run_plugin = lambda c: called.append(c)
+            args[1]()
+            assert called == [ctx]
 
     def test_handler_dispatches_to_visible_window(self):
         with mock_optional_imports():

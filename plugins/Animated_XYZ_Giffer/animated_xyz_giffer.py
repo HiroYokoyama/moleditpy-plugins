@@ -37,7 +37,7 @@ try:
 except ImportError:
     rdDetermineBonds = None
 
-PLUGIN_VERSION = "2026.09.02"
+PLUGIN_VERSION = "2026.09.05"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_NAME = "Animated XYZ Giffer"
@@ -826,9 +826,9 @@ class AnimatedXYZPlayer(QDialog):
 
 def initialize(context):
     """
-    V4 init: registered once at plugin load so an open player window
-    refreshes in place on document reset. Menu entry comes from run().
+    V4 init: registers File menu action and document reset handler.
     """
+    context.add_menu_action("File/Animated XYZ Giffer...", lambda: run_plugin(context))
 
     def on_document_reset():
         win = context.get_window("main_panel")
