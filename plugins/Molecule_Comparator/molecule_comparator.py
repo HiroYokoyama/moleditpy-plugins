@@ -142,8 +142,6 @@ class AlignmentWorker(QThread):
 
                 # --- Method B: MCS (修正箇所) ---
                 elif self.method == "Substructure (MCS)":
-                    from rdkit.Chem import rdFMCS
-
                     if not ref_calc.GetNumBonds() or not probe_calc.GetNumBonds():
                         # A geometry imported from XYZ may have no bonds at all,
                         # and an MCS over bond-free graphs matches nothing. Fall
@@ -168,6 +166,8 @@ class AlignmentWorker(QThread):
                             result_entry["rms"] = best_rms
                         results.append(result_entry)
                         continue
+
+                    from rdkit.Chem import rdFMCS
 
                     # タイムアウトを少し短く設定 (5秒は長い場合があるため適宜調整)
                     res = rdFMCS.FindMCS(

@@ -1060,7 +1060,7 @@
     ],
     "downloadUrl": "../plugins/Molecule_Comparator/molecule_comparator.py",
     "lastUpdated": "2026-09-15",
-    "sha256": "9993d10fc6f5430976a899fd7aebd8830fe831c3f18349f2b16f88a923be0de4",
+    "sha256": "50f82939658a1ab249fd853241ed60aec876c3c9861193dd8bfd38dd208f5d09",
     "firstAppeared": "2026-01-03",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
