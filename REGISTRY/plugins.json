@@ -1046,7 +1046,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Molecule Comparator",
-    "version": "2026.09.02",
+    "version": "2026.09.15",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Compare multiple molecules in 3D, calculate RMSD, and align them.",
@@ -1059,8 +1059,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Molecule_Comparator/molecule_comparator.py",
-    "lastUpdated": "2026-09-02",
-    "sha256": "d16852d95ce02a9f5b378d9cf7bbf5867e8aa6a2d76cd879640054f63fb2262a",
+    "lastUpdated": "2026-09-15",
+    "sha256": "9993d10fc6f5430976a899fd7aebd8830fe831c3f18349f2b16f88a923be0de4",
     "firstAppeared": "2026-01-03",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

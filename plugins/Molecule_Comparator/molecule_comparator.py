@@ -29,11 +29,15 @@ try:
     from rdkit.Chem import rdDetermineBonds
 except ImportError:
     rdDetermineBonds = None
+try:
+    from rdkit.Geometry import Point3D
+except ImportError:
+    Point3D = None
 import copy
 import logging
 
 PLUGIN_NAME = "Molecule Comparator"
-PLUGIN_VERSION = "2026.09.02"
+PLUGIN_VERSION = "2026.09.15"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Side-by-side comparison and alignment of multiple molecules."
@@ -139,6 +143,31 @@ class AlignmentWorker(QThread):
                 # --- Method B: MCS (修正箇所) ---
                 elif self.method == "Substructure (MCS)":
                     from rdkit.Chem import rdFMCS
+
+                    if not ref_calc.GetNumBonds() or not probe_calc.GetNumBonds():
+                        # A geometry imported from XYZ may have no bonds at all,
+                        # and an MCS over bond-free graphs matches nothing. Fall
+                        # back to the positional map rather than reporting N/A.
+                        result_entry["fallback"] = "Atom IDs"
+                        if probe_work.GetNumAtoms() == self.ref_work.GetNumAtoms():
+                            atom_map = [(k, k) for k in range(probe_work.GetNumAtoms())]
+                            try:
+                                best_rms = AllChem.AlignMol(
+                                    probe_work,
+                                    self.ref_work,
+                                    atomMap=atom_map,
+                                    reflect=False,
+                                )
+                                result_entry["mol"] = probe_work
+                            except RuntimeError as _e:
+                                logging.warning(
+                                    "[molecule_comparator.py] fallback align failed: %s",
+                                    _e,
+                                )
+                        if best_rms != float("inf"):
+                            result_entry["rms"] = best_rms
+                        results.append(result_entry)
+                        continue
 
                     # タイムアウトを少し短く設定 (5秒は長い場合があるため適宜調整)
                     res = rdFMCS.FindMCS(
@@ -271,6 +300,145 @@ class AlignmentWorker(QThread):
         except Exception as e:
             logging.exception("Worker error: %s", e)
             self.error_signal.emit(str(e))
+
+
+# Editors on Japanese (and other non-UTF-8) locales write XYZ comment lines in
+# the system codepage, so a strict utf-8 read refuses the whole file.
+_TEXT_ENCODINGS = ("utf-8-sig", "utf-8", "cp932", "latin-1")
+
+
+def read_text_flexible(file_path):
+    """Read a text file, tolerating the encodings editors actually produce."""
+    with open(file_path, "rb") as handle:
+        raw = handle.read()
+    for encoding in _TEXT_ENCODINGS:
+        try:
+            return raw.decode(encoding)
+        except (UnicodeDecodeError, LookupError):
+            continue
+    return raw.decode("utf-8", errors="replace")
+
+
+def _xyz_atom(symbol):
+    """Build an RDKit atom from an XYZ symbol token, or a dummy if unreadable."""
+    token = symbol.strip()
+    try:
+        return Chem.Atom(token.capitalize() if token.isalpha() else token)
+    except (RuntimeError, ValueError):
+        pass
+    try:
+        return Chem.Atom(int(token))
+    except (RuntimeError, ValueError, TypeError):
+        return Chem.Atom(0)
+
+
+def parse_xyz_rows(text):
+    """Parse XYZ text into [(symbol, x, y, z), ...], ignoring everything else.
+
+    Deliberately forgiving: comment lines, a missing or wrong atom count, blank
+    lines and trailing frames of a trajectory are all survivable, because the
+    alternative here is refusing a file the user can see is a structure.
+    """
+    lines = [line.strip() for line in text.splitlines()]
+    limit = None
+    body = lines
+    if lines:
+        head = lines[0].split()
+        if head:
+            try:
+                limit = int(head[0])
+                # A headed file states its atom count; honour it so only the
+                # first frame of a trajectory is read, not every frame at once.
+                body = lines[2:]
+            except ValueError:
+                limit = None
+
+    rows = []
+    for line in body:
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split()
+        if len(parts) < 4:
+            continue
+        try:
+            x, y, z = (float(value) for value in parts[1:4])
+        except ValueError:
+            continue
+        rows.append((parts[0], x, y, z))
+        if limit is not None and len(rows) >= limit:
+            break
+    return rows
+
+
+def mol_from_xyz_lines(text):
+    """Build a molecule from XYZ text the RDKit reader would not accept."""
+    rows = parse_xyz_rows(text)
+    if not rows or Point3D is None:
+        return None
+
+    mol = Chem.RWMol()
+    conformer = Chem.Conformer(len(rows))
+    for index, (symbol, x, y, z) in enumerate(rows):
+        mol.AddAtom(_xyz_atom(symbol))
+        conformer.SetAtomPosition(index, Point3D(x, y, z))
+    built = mol.GetMol()
+    built.AddConformer(conformer)
+    return built
+
+
+def perceive_bonds(mol):
+    """Give a bond-free XYZ molecule something to draw, best effort."""
+    if rdDetermineBonds is None or mol is None:
+        return mol
+    try:
+        rdDetermineBonds.DetermineConnectivity(mol)
+    except (RuntimeError, ValueError, TypeError, AttributeError) as exc:
+        logging.warning("[molecule_comparator.py] XYZ bond perception failed: %s", exc)
+        return mol
+    try:
+        rdDetermineBonds.DetermineBondOrders(mol)
+    except (RuntimeError, ValueError, TypeError, AttributeError) as exc:
+        # Single bonds are enough for an overlay; orders need the right charge.
+        logging.warning("[molecule_comparator.py] XYZ bond orders failed: %s", exc)
+    return mol
+
+
+def mol_from_xyz_text(text, host=None):
+    """Build a molecule from XYZ text, in order of decreasing fidelity.
+
+    The host's own importer goes first: it reads the headerless, commented,
+    mis-counted and dummy-atom files that RDKit's MolFromXYZBlock simply
+    returns None for — which is why Load File used to fail on XYZ that the
+    main window opens without complaint.
+    """
+    loader = getattr(getattr(host, "io_manager", None), "load_xyz_block", None)
+    if callable(loader):
+        try:
+            mol = loader(text)
+        except (RuntimeError, ValueError, TypeError, AttributeError, KeyError) as exc:
+            logging.warning("[molecule_comparator.py] host XYZ import failed: %s", exc)
+            mol = None
+        if mol is not None and mol.GetNumAtoms():
+            return mol if mol.GetNumBonds() else perceive_bonds(mol)
+
+    mol = None
+    try:
+        mol = Chem.MolFromXYZBlock(text)
+    except (RuntimeError, ValueError, TypeError) as exc:
+        logging.warning("[molecule_comparator.py] MolFromXYZBlock failed: %s", exc)
+    if mol is None or not mol.GetNumAtoms():
+        mol = mol_from_xyz_lines(text)
+    if mol is None:
+        return None
+    return mol if mol.GetNumBonds() else perceive_bonds(mol)
+
+
+def has_3d_coords(mol):
+    """True when the molecule carries a conformer to overlay."""
+    try:
+        return mol.GetNumConformers() > 0
+    except (AttributeError, RuntimeError, TypeError):
+        return False
 
 
 # Default Palette
@@ -503,6 +671,7 @@ class MoleculeComparator(QWidget):
         self.hide()
 
     def cleanup_and_close(self):
+        self._closing = True
         # Restore original state
         if hasattr(self.mw.view_3d_manager, "_plugin_color_overrides"):
             self.mw.view_3d_manager._plugin_color_overrides = {}
@@ -519,6 +688,15 @@ class MoleculeComparator(QWidget):
         mol = self.context.current_molecule
         if not mol:
             QMessageBox.warning(self.mw, "Error", "No molecule loaded in Main Window.")
+            return
+
+        if not has_3d_coords(mol):
+            QMessageBox.warning(
+                self.mw,
+                "No 3D coordinates",
+                "The current molecule has no 3D structure yet.\n"
+                "Convert it to 3D first, then add it here.",
+            )
             return
 
         # Create a copy to preserve state
@@ -550,78 +728,113 @@ class MoleculeComparator(QWidget):
         self.reset_view()
 
     def load_from_file(self):
-        file_path, _ = QFileDialog.getOpenFileName(
+        file_paths, _ = QFileDialog.getOpenFileNames(
             self.mw,
-            "Open Molecule File",
+            "Open Molecule Files",
             "",
-            "Molecule Files (*.mol *.sdf *.pdb *.xyz);;All Files (*)",
+            "Molecule Files (*.mol *.sdf *.pdb *.xyz *.mol2);;All Files (*)",
         )
 
-        if not file_path:
+        if not file_paths:
             return
 
-        self.add_molecule_from_path(file_path)
+        self.add_molecules_from_paths(file_paths)
+
+    def _read_molecules(self, file_path):
+        """Return [(name, mol), ...] read from one file; empty if none loaded."""
+        ext = os.path.splitext(file_path)[1].lower()
+        base = os.path.basename(file_path)
+
+        if ext == ".sdf":
+            # An SDF routinely holds a whole set of conformers or candidates,
+            # and loading only its first record threw the rest away silently.
+            records = []
+            for index, mol in enumerate(Chem.SDMolSupplier(file_path, removeHs=False)):
+                if mol is None:
+                    continue
+                name = mol.GetProp("_Name") if mol.HasProp("_Name") else ""
+                records.append((name.strip() or f"{base} #{index + 1}", mol))
+            if len(records) == 1:
+                records[0] = (base, records[0][1])
+            return records
+
+        if ext == ".mol":
+            mol = Chem.MolFromMolFile(file_path, removeHs=False)
+        elif ext == ".pdb":
+            mol = Chem.MolFromPDBFile(file_path, removeHs=False)
+        elif ext == ".mol2":
+            mol = Chem.MolFromMol2File(file_path, removeHs=False)
+        else:
+            # Unknown extensions get one attempt as XYZ, which is the format
+            # people most often save under some other name.
+            mol = mol_from_xyz_text(read_text_flexible(file_path), self.mw)
+
+        return [(base, mol)] if mol else []
 
     def add_molecule_from_path(self, file_path):
-        try:
-            ext = os.path.splitext(file_path)[1].lower()
-            mol = None
-            if ext in [".mol", ".sdf"]:
-                mol = Chem.MolFromMolFile(file_path, removeHs=False)
-            elif ext == ".pdb":
-                mol = Chem.MolFromPDBFile(file_path, removeHs=False)
-            elif ext == ".xyz":
-                # Bug fix (2026.07.10): the file dialog advertises *.xyz but
-                # this branch was previously missing entirely, so XYZ files
-                # always failed to load with "Failed to load molecule".
-                with open(file_path, "r", encoding="utf-8", errors="replace") as f:
-                    xyz_content = f.read()
-                mol = Chem.MolFromXYZBlock(xyz_content)
-                if mol is not None and mol.GetNumBonds() == 0 and rdDetermineBonds is not None:
-                    try:
-                        rdDetermineBonds.DetermineConnectivity(mol)
-                        rdDetermineBonds.DetermineBondOrders(mol)
-                    except Exception as _e:
-                        logging.warning(
-                            "[molecule_comparator.py] XYZ bond perception failed: %s",
-                            _e,
-                        )
+        """Load one file and append every molecule it holds."""
+        self.add_molecules_from_paths([file_path])
 
-            if not mol:
-                QMessageBox.warning(
-                    self.mw, "Error", f"Failed to load molecule from {file_path}"
-                )
-                return
+    def add_molecules_from_paths(self, file_paths):
+        added = 0
+        problems = []
 
-            # Sanitize to ensure proper 3D rendering properties
+        for file_path in file_paths:
             try:
-                Chem.SanitizeMol(mol)
-            except (RuntimeError, AttributeError, ValueError) as _e:
-                logging.warning("[molecule_comparator.py:489] silenced: %s", _e)
+                records = self._read_molecules(file_path)
+            except (
+                OSError,
+                RuntimeError,
+                ValueError,
+                TypeError,
+                AttributeError,
+                KeyError,
+            ) as exc:
+                problems.append(f"{os.path.basename(file_path)}: {exc}")
+                continue
 
-            # Determine name
-            name = os.path.basename(file_path)
+            if not records:
+                problems.append(
+                    f"{os.path.basename(file_path)}: no molecule could be read"
+                )
+                continue
 
-            # Determine Color (cycle)
-            color = DEFAULT_COLORS[len(self.molecules) % len(DEFAULT_COLORS)]
+            for name, mol in records:
+                try:
+                    Chem.SanitizeMol(mol)
+                except (RuntimeError, AttributeError, ValueError) as _e:
+                    logging.warning("[molecule_comparator.py] sanitize failed: %s", _e)
 
-            entry = {
-                "name": name,
-                "mol": mol,
-                "color": color,
-                "scope": "Carbon Only",
-                "rms": None,
-            }
+                if not has_3d_coords(mol):
+                    # Everything here works on coordinates, so a molecule with
+                    # no conformer would silently pile up on the origin.
+                    problems.append(f"{name}: no 3D coordinates to overlay")
+                    continue
 
-            self.molecules.append(entry)
+                self.molecules.append(
+                    {
+                        "name": name,
+                        "mol": mol,
+                        "color": DEFAULT_COLORS[
+                            len(self.molecules) % len(DEFAULT_COLORS)
+                        ],
+                        "scope": "Carbon Only",
+                        "rms": None,
+                    }
+                )
+                added += 1
+
+        if added:
             self.update_list()
             self.update_visualization()
             self.update_wireframe_lighting()
             self.reset_view()
 
-        except Exception as e:
-            QMessageBox.critical(
-                self.mw, "Error", f"An error occurred loading the file:\n{str(e)}"
+        if problems:
+            QMessageBox.warning(
+                self.mw,
+                "Some files were skipped" if added else "Could not load",
+                "\n".join(problems),
             )
 
     def set_as_reference(self):
@@ -637,15 +850,31 @@ class MoleculeComparator(QWidget):
         self.update_wireframe_lighting()
         self.reset_view()
 
+    @staticmethod
+    def _dropped_files(mime_data):
+        """Local files from a drag; directories and non-file URLs are dropped."""
+        paths = []
+        for url in mime_data.urls():
+            file_path = url.toLocalFile()
+            if file_path and os.path.isfile(file_path):
+                paths.append(file_path)
+        return paths
+
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
 
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+
     def dropEvent(self, event):
-        for url in event.mimeData().urls():
-            file_path = url.toLocalFile()
-            if os.path.isfile(file_path):
-                self.add_molecule_from_path(file_path)
+        paths = self._dropped_files(event.mimeData())
+        if not paths:
+            event.ignore()
+            return
+        event.acceptProposedAction()
+        self.add_molecules_from_paths(paths)
 
     def remove_molecule(self):
         row = self.mol_list.currentRow()
@@ -809,11 +1038,16 @@ class MoleculeComparator(QWidget):
         self.update_visualization()
         self.update_wireframe_lighting()
 
-        # Determine success count
+        # Say what happened: an unmatched pair used to leave nothing but an
+        # "N/A" cell, with no hint that the method was the problem.
         success_count = sum(1 for r in results if r["rms"] != -1.0)
+        fallbacks = sum(1 for r in results if r.get("fallback"))
+        message = f"Aligned {success_count} of {len(results)} molecule(s)"
+        if fallbacks:
+            message += f" ({fallbacks} matched by atom order: no bonds to compare)"
         if success_count < len(results):
-            # Maybe show a small distinct message if some failed/stopped?
-            pass
+            message += " — unmatched molecules show N/A; try the Atom IDs method"
+        self.context.show_status_message(message, 5000)
 
     def on_alignment_error(self, message):
         self.progress_dialog.close()
@@ -1165,6 +1399,10 @@ class MoleculeComparator(QWidget):
     def reset_view(self):
         # Use a timer to ensure the view is reset AFTER the visualization update is fully rendered/processed.
         def _do_reset():
+            if getattr(self, "_closing", False):
+                # The dialog was closed inside the delay; the plotter it would
+                # reset belongs to the main window again by now.
+                return
             try:
                 self.context.reset_3d_camera()
                 self.context.plotter.render()
@@ -1223,6 +1461,15 @@ class MoleculeComparator(QWidget):
             action.setEnabled(True)
 
 
+def _window_alive(win):
+    """True if the window still has a live C++ object behind it."""
+    try:
+        win.isVisible()
+        return True
+    except RuntimeError:
+        return False
+
+
 def initialize(context):
     """V3 entry point. Menu action is added automatically by run()."""
     global PLUGIN_CONTEXT
@@ -1230,8 +1477,9 @@ def initialize(context):
 
     def on_reset():
         mw = context.get_main_window()
-        if hasattr(mw, "molecule_comparator_window"):
-            mw.molecule_comparator_window.close()
+        win = getattr(mw, "molecule_comparator_window", None)
+        if win is not None and _window_alive(win):
+            win.close()
 
     context.register_document_reset_handler(on_reset)
 
@@ -1244,11 +1492,12 @@ def run(mw):
     if not context:
         return
 
-    if not hasattr(mw, "molecule_comparator_window"):
+    win = getattr(mw, "molecule_comparator_window", None)
+    if win is None or not _window_alive(win):
+        # A window whose C++ side is gone still leaves the attribute behind,
+        # and every later call on it raises instead of reopening the dialog.
         win = MoleculeComparator(context)
         mw.molecule_comparator_window = win
-
-    win = mw.molecule_comparator_window
     if win.isVisible():
         win.close()
     else:

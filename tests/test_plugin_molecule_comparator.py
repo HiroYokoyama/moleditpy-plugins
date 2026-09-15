@@ -5,6 +5,7 @@ Tests for the Molecule Comparator plugin.
 from __future__ import annotations
 
 import math
+import types
 import numpy as _ensure_real_numpy_imported  # noqa: F401  (see mocks_with_real_numpy note below)
 import pytest
 from pathlib import Path
@@ -494,29 +495,69 @@ H 0.930000 0.000000 -0.240000
 
 
 def _add_molecule_from_path_fn():
+    """Rebuild the real loading path (helpers included) against real rdkit."""
+    try:
+        from rdkit.Geometry import Point3D as _real_Point3D
+    except ImportError:
+        _real_Point3D = None
+
     globs = {
         "os": __import__("os"),
         "Chem": _real_Chem,
         "rdDetermineBonds": _real_rdDetermineBonds,
+        "Point3D": _real_Point3D,
         "QMessageBox": MagicMock(),
         "logging": __import__("logging"),
         "DEFAULT_COLORS": DEFAULT_COLORS,
+        "_TEXT_ENCODINGS": _mc_mod_for_colors._TEXT_ENCODINGS,
     }
-    fn = extract_function(
-        MOLECULE_COMPARATOR_PATH, "MoleculeComparator", "add_molecule_from_path", globs
+    # Extracted in dependency order: extract_function snapshots the globals it
+    # is given, so each helper has to be in place before the next one is built.
+    for helper in (
+        "read_text_flexible",
+        "_xyz_atom",
+        "parse_xyz_rows",
+        "mol_from_xyz_lines",
+        "perceive_bonds",
+        "mol_from_xyz_text",
+        "has_3d_coords",
+    ):
+        globs[helper] = extract_function(
+            MOLECULE_COMPARATOR_PATH, None, helper, globs
+        )
+
+    globs["_read_molecules"] = extract_function(
+        MOLECULE_COMPARATOR_PATH, "MoleculeComparator", "_read_molecules", globs
     )
-    return fn, globs
+    fn = extract_function(
+        MOLECULE_COMPARATOR_PATH,
+        "MoleculeComparator",
+        "add_molecules_from_paths",
+        globs,
+    )
+
+    def add_one(stub, file_path):
+        """Call the real worker the way add_molecule_from_path does."""
+        return fn(stub, [file_path])
+
+    return add_one, globs
 
 
-def _comparator_stub():
-    return SimpleNamespace(
+def _comparator_stub(globs=None):
+    stub = SimpleNamespace(
         molecules=[],
-        mw=MagicMock(),
+        # A plain namespace, not a MagicMock: the loader asks the host for
+        # io_manager.load_xyz_block, and a MagicMock would answer with a mock
+        # molecule instead of letting the rdkit path run.
+        mw=SimpleNamespace(io_manager=None),
         update_list=MagicMock(),
         update_visualization=MagicMock(),
         update_wireframe_lighting=MagicMock(),
         reset_view=MagicMock(),
     )
+    if globs is not None:
+        stub._read_molecules = types.MethodType(globs["_read_molecules"], stub)
+    return stub
 
 
 @pytest.mark.skipif(_real_Chem is None, reason="requires real rdkit")
@@ -525,7 +566,7 @@ class TestAddMoleculeFromPath:
         fn, globs = _add_molecule_from_path_fn()
         xyz_file = tmp_path / "water.xyz"
         xyz_file.write_text(_WATER_XYZ)
-        stub = _comparator_stub()
+        stub = _comparator_stub(globs)
 
         fn(stub, str(xyz_file))
 
@@ -539,28 +580,75 @@ class TestAddMoleculeFromPath:
         stub.update_list.assert_called_once()
         stub.update_visualization.assert_called_once()
 
-    def test_missing_file_shows_critical_not_warning(self, tmp_path):
+    def test_missing_file_is_reported_with_its_name(self, tmp_path):
         fn, globs = _add_molecule_from_path_fn()
-        stub = _comparator_stub()
+        stub = _comparator_stub(globs)
         fn(stub, str(tmp_path / "does_not_exist.xyz"))
-        globs["QMessageBox"].critical.assert_called_once()
-        globs["QMessageBox"].warning.assert_not_called()
+        warned = globs["QMessageBox"].warning
+        warned.assert_called_once()
+        assert "does_not_exist.xyz" in warned.call_args[0][2]
         assert stub.molecules == []
+
+    def test_unknown_extension_holding_xyz_still_loads(self, tmp_path):
+        fn, globs = _add_molecule_from_path_fn()
+        odd = tmp_path / "water.txt"
+        odd.write_text(_WATER_XYZ)
+        stub = _comparator_stub(globs)
+        fn(stub, str(odd))
+        assert len(stub.molecules) == 1
+        assert stub.molecules[0]["mol"].GetNumAtoms() == 3
+
+    def test_headerless_xyz_loads(self, tmp_path):
+        fn, globs = _add_molecule_from_path_fn()
+        f = tmp_path / "bare.xyz"
+        f.write_text(
+            "O 0.0 0.0 0.0\nH 0.0 0.0 0.96\nH 0.93 0.0 -0.24\n"
+        )
+        stub = _comparator_stub(globs)
+        fn(stub, str(f))
+        assert len(stub.molecules) == 1
+        assert stub.molecules[0]["mol"].GetNumAtoms() == 3
+
+    def test_trajectory_xyz_loads_only_its_first_frame(self, tmp_path):
+        fn, globs = _add_molecule_from_path_fn()
+        f = tmp_path / "traj.xyz"
+        f.write_text(_WATER_XYZ + _WATER_XYZ)
+        stub = _comparator_stub(globs)
+        fn(stub, str(f))
+        assert len(stub.molecules) == 1
+        assert stub.molecules[0]["mol"].GetNumAtoms() == 3
+
+    def test_two_files_land_as_two_entries(self, tmp_path):
+        fn, globs = _add_molecule_from_path_fn()
+        first = tmp_path / "a.xyz"
+        second = tmp_path / "b.xyz"
+        first.write_text(_WATER_XYZ)
+        second.write_text(_WATER_XYZ)
+        stub = _comparator_stub(globs)
+        add_all = extract_function(
+            MOLECULE_COMPARATOR_PATH,
+            "MoleculeComparator",
+            "add_molecules_from_paths",
+            globs,
+        )
+        add_all(stub, [str(first), str(second)])
+        assert [entry["name"] for entry in stub.molecules] == ["a.xyz", "b.xyz"]
+        stub.update_list.assert_called_once()
 
     def test_unparseable_mol_file_shows_warning(self, tmp_path):
         fn, globs = _add_molecule_from_path_fn()
         bad_mol = tmp_path / "bad.mol"
         bad_mol.write_text("not a real mol file\ngarbage\n")
-        stub = _comparator_stub()
+        stub = _comparator_stub(globs)
         fn(stub, str(bad_mol))
         globs["QMessageBox"].warning.assert_called_once()
         assert stub.molecules == []
 
-    def test_unsupported_extension_shows_warning(self, tmp_path):
+    def test_file_that_holds_no_structure_shows_warning(self, tmp_path):
         fn, globs = _add_molecule_from_path_fn()
         odd_file = tmp_path / "data.foobar"
         odd_file.write_text("irrelevant")
-        stub = _comparator_stub()
+        stub = _comparator_stub(globs)
         fn(stub, str(odd_file))
         globs["QMessageBox"].warning.assert_called_once()
         assert stub.molecules == []
@@ -569,7 +657,7 @@ class TestAddMoleculeFromPath:
         fn, globs = _add_molecule_from_path_fn()
         xyz_file = tmp_path / "water.xyz"
         xyz_file.write_text(_WATER_XYZ)
-        stub = _comparator_stub()
+        stub = _comparator_stub(globs)
         stub.molecules = [{"name": "existing", "mol": None, "color": "x", "rms": None}]
         fn(stub, str(xyz_file))
         assert stub.molecules[1]["color"] == DEFAULT_COLORS[1 % len(DEFAULT_COLORS)]

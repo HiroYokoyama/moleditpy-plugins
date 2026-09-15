@@ -25,6 +25,16 @@ with mock_chemistry_imports():
     _comparator = load_plugin_for_gui(COMPARATOR_PATH)
 
 
+@pytest.fixture(autouse=True)
+def _no_modal_dialogs(monkeypatch):
+    """A real QMessageBox blocks the offscreen run forever; stub all of them.
+
+    Tests that care about a dialog patch it again with their own mock.
+    """
+    for name in ("warning", "critical", "information", "question"):
+        monkeypatch.setattr(_comparator.QMessageBox, name, MagicMock(), raising=False)
+
+
 def _ctx_no_mol() -> MagicMock:
     """Context with no main window and no active molecule."""
     ctx = MagicMock()
@@ -101,6 +111,8 @@ def _fake_entry_mol(name=None):
     mol = MagicMock()
     mol.HasProp.return_value = name is not None
     mol.GetProp.return_value = name
+    # The comparator refuses a molecule with no conformer to overlay.
+    mol.GetNumConformers.return_value = 1
     return mol
 
 
@@ -434,15 +446,23 @@ class _WAtom:
 class _WMol:
     """Minimal fake rdkit Mol for AlignmentWorker.run()."""
 
-    def __init__(self, atoms, matches=()):
+    def __init__(self, atoms, matches=(), conformers=1, bonds=1):
         self._atoms = list(atoms)
         self._matches = matches
+        self._conformers = conformers
+        self._bonds = bonds
 
     def GetAtoms(self):
         return list(self._atoms)
 
     def GetNumAtoms(self):
         return len(self._atoms)
+
+    def GetNumConformers(self):
+        return self._conformers
+
+    def GetNumBonds(self):
+        return self._bonds
 
     def GetSubstructMatches(self, patt, uniquify=False):
         return self._matches
@@ -802,21 +822,25 @@ class TestLoadAndDrop:
         from PyQt6.QtWidgets import QFileDialog
 
         w, _ctx = _make_comp()
-        monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a, **k: ("", ""))
-        w.add_molecule_from_path = MagicMock()
+        monkeypatch.setattr(QFileDialog, "getOpenFileNames", lambda *a, **k: ([], ""))
+        w.add_molecules_from_paths = MagicMock()
         w.load_from_file()
-        w.add_molecule_from_path.assert_not_called()
+        w.add_molecules_from_paths.assert_not_called()
         w.destroy()
 
-    def test_load_from_file_delegates_to_add(self, qapp, monkeypatch, tmp_path):
+    def test_load_from_file_takes_every_selected_file(
+        self, qapp, monkeypatch, tmp_path
+    ):
         from PyQt6.QtWidgets import QFileDialog
 
         w, _ctx = _make_comp()
-        path = str(tmp_path / "mol.mol")
-        monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a, **k: (path, ""))
-        w.add_molecule_from_path = MagicMock()
+        paths = [str(tmp_path / "a.mol"), str(tmp_path / "b.xyz")]
+        monkeypatch.setattr(
+            QFileDialog, "getOpenFileNames", lambda *a, **k: (paths, "")
+        )
+        w.add_molecules_from_paths = MagicMock()
         w.load_from_file()
-        w.add_molecule_from_path.assert_called_once_with(path)
+        w.add_molecules_from_paths.assert_called_once_with(paths)
         w.destroy()
 
     def test_add_molecule_from_path_mol_success(self, qapp, monkeypatch, tmp_path):
@@ -851,6 +875,7 @@ class TestLoadAndDrop:
         f.write_text("dummy")
         fake_mol = MagicMock()
         fake_mol.GetNumBonds.return_value = 0
+        fake_mol.GetNumConformers.return_value = 1
         monkeypatch.setattr(_comparator.Chem, "MolFromXYZBlock", lambda s: fake_mol)
         monkeypatch.setattr(_comparator.Chem, "SanitizeMol", lambda m: None)
         determine = MagicMock()
@@ -869,6 +894,7 @@ class TestLoadAndDrop:
         f.write_text("dummy")
         fake_mol = MagicMock()
         fake_mol.GetNumBonds.return_value = 0
+        fake_mol.GetNumConformers.return_value = 1
         monkeypatch.setattr(_comparator.Chem, "MolFromXYZBlock", lambda s: fake_mol)
         monkeypatch.setattr(_comparator.Chem, "SanitizeMol", lambda m: None)
         determine = MagicMock()
@@ -918,10 +944,11 @@ class TestLoadAndDrop:
             raise ValueError("catastrophic")
 
         monkeypatch.setattr(_comparator.Chem, "MolFromMolFile", _boom)
-        critical = MagicMock()
-        monkeypatch.setattr(_comparator.QMessageBox, "critical", critical)
+        warned = MagicMock()
+        monkeypatch.setattr(_comparator.QMessageBox, "warning", warned)
         w.add_molecule_from_path(str(f))
-        critical.assert_called_once()
+        warned.assert_called_once()
+        assert "catastrophic" in warned.call_args[0][2]
         assert w.molecules == []
         w.destroy()
 
@@ -957,13 +984,14 @@ class TestLoadAndDrop:
         f = tmp_path / "dropped.mol"
         f.write_text("dummy")
         w, _ctx = _make_comp()
-        w.add_molecule_from_path = MagicMock()
+        w.add_molecules_from_paths = MagicMock()
         url = MagicMock()
         url.toLocalFile.return_value = str(f)
         event = MagicMock()
         event.mimeData.return_value.urls.return_value = [url]
         w.dropEvent(event)
-        w.add_molecule_from_path.assert_called_once_with(str(f))
+        w.add_molecules_from_paths.assert_called_once_with([str(f)])
+        event.acceptProposedAction.assert_called_once()
         w.destroy()
 
     def test_drop_event_skips_missing_files(self, qapp):
@@ -1596,3 +1624,345 @@ class TestEnter3DOnlyMode:
         w.exit_3d_only_mode()  # no enter() call first -> saved_splitter_sizes unset
         edit_action.setEnabled.assert_called_once_with(True)
         w.destroy()
+
+
+# ===========================================================================
+# XYZ import: the host importer first, then RDKit, then a hand parse
+# ===========================================================================
+
+
+class TestXyzParsing:
+    def test_headed_file_reads_its_atoms(self):
+        text = "2\ntitle line\nC 0.0 0.0 0.0\nO 1.2 0.0 0.0\n"
+        assert _comparator.parse_xyz_rows(text) == [
+            ("C", 0.0, 0.0, 0.0),
+            ("O", 1.2, 0.0, 0.0),
+        ]
+
+    def test_headerless_file_still_reads(self):
+        text = "C 0 0 0\nH 1 0 0\n"
+        assert len(_comparator.parse_xyz_rows(text)) == 2
+
+    def test_trajectory_stops_after_the_first_frame(self):
+        text = (
+            "2\nframe 1\nC 0 0 0\nO 1 0 0\n"
+            "2\nframe 2\nC 0 0 9\nO 1 0 9\n"
+        )
+        rows = _comparator.parse_xyz_rows(text)
+        assert len(rows) == 2
+        assert rows[0][3] == 0.0
+
+    def test_comments_blank_lines_and_junk_rows_are_skipped(self):
+        text = "C 0 0 0\n\n# a comment\nnot-an-atom\nO 1 0 0\n"
+        assert len(_comparator.parse_xyz_rows(text)) == 2
+
+    def test_wrong_atom_count_loads_the_rows_that_exist(self):
+        text = "5\ntitle\nC 0 0 0\nO 1 0 0\n"
+        assert len(_comparator.parse_xyz_rows(text)) == 2
+
+    def test_extra_columns_after_the_coordinates_are_ignored(self):
+        text = "1\ntitle\nC 0.0 1.0 2.0 -0.31 charge\n"
+        assert _comparator.parse_xyz_rows(text) == [("C", 0.0, 1.0, 2.0)]
+
+    def test_empty_text_has_no_rows(self):
+        assert _comparator.parse_xyz_rows("") == []
+
+
+class TestReadTextFlexible:
+    def test_utf8_with_bom(self, tmp_path):
+        f = tmp_path / "a.xyz"
+        f.write_bytes("\ufeff1\ntitle\nC 0 0 0\n".encode("utf-8"))
+        assert _comparator.read_text_flexible(str(f)).startswith("1")
+
+    def test_shift_jis_comment_does_not_refuse_the_file(self, tmp_path):
+        f = tmp_path / "b.xyz"
+        f.write_bytes("1\n\u6c34\u5206\u5b50\nO 0 0 0\n".encode("cp932"))
+        text = _comparator.read_text_flexible(str(f))
+        assert "O 0 0 0" in text
+
+
+class TestMolFromXyzText:
+    def test_host_importer_is_preferred(self):
+        mol = MagicMock()
+        mol.GetNumAtoms.return_value = 3
+        mol.GetNumBonds.return_value = 2
+        host = SimpleNamespace(io_manager=SimpleNamespace(load_xyz_block=lambda t: mol))
+        assert _comparator.mol_from_xyz_text("C 0 0 0", host) is mol
+
+    def test_host_failure_falls_back_to_rdkit(self, monkeypatch):
+        def _boom(_text):
+            raise RuntimeError("charge dialog exploded")
+
+        fallback = MagicMock()
+        fallback.GetNumAtoms.return_value = 1
+        fallback.GetNumBonds.return_value = 1
+        monkeypatch.setattr(_comparator.Chem, "MolFromXYZBlock", lambda t: fallback)
+        host = SimpleNamespace(io_manager=SimpleNamespace(load_xyz_block=_boom))
+        assert _comparator.mol_from_xyz_text("C 0 0 0", host) is fallback
+
+    def test_host_returning_none_falls_back_to_rdkit(self, monkeypatch):
+        fallback = MagicMock()
+        fallback.GetNumAtoms.return_value = 1
+        fallback.GetNumBonds.return_value = 1
+        monkeypatch.setattr(_comparator.Chem, "MolFromXYZBlock", lambda t: fallback)
+        host = SimpleNamespace(io_manager=SimpleNamespace(load_xyz_block=lambda t: None))
+        assert _comparator.mol_from_xyz_text("C 0 0 0", host) is fallback
+
+    def test_rdkit_refusal_falls_back_to_the_hand_parse(self, monkeypatch):
+        monkeypatch.setattr(_comparator.Chem, "MolFromXYZBlock", lambda t: None)
+        built = MagicMock()
+        built.GetNumBonds.return_value = 1
+        monkeypatch.setattr(_comparator, "mol_from_xyz_lines", lambda t: built)
+        assert _comparator.mol_from_xyz_text("C 0 0 0", None) is built
+
+    def test_returns_none_when_nothing_can_read_it(self, monkeypatch):
+        monkeypatch.setattr(_comparator.Chem, "MolFromXYZBlock", lambda t: None)
+        monkeypatch.setattr(_comparator, "mol_from_xyz_lines", lambda t: None)
+        assert _comparator.mol_from_xyz_text("garbage", None) is None
+
+    def test_bond_free_result_gets_bonds_perceived(self, monkeypatch):
+        mol = MagicMock()
+        mol.GetNumAtoms.return_value = 2
+        mol.GetNumBonds.return_value = 0
+        monkeypatch.setattr(_comparator.Chem, "MolFromXYZBlock", lambda t: mol)
+        determine = MagicMock()
+        monkeypatch.setattr(_comparator, "rdDetermineBonds", determine)
+        _comparator.mol_from_xyz_text("C 0 0 0", None)
+        determine.DetermineConnectivity.assert_called_once_with(mol)
+
+    def test_bond_orders_are_skipped_when_connectivity_fails(self, monkeypatch):
+        mol = MagicMock()
+        mol.GetNumBonds.return_value = 0
+        determine = MagicMock()
+        determine.DetermineConnectivity.side_effect = ValueError("no")
+        monkeypatch.setattr(_comparator, "rdDetermineBonds", determine)
+        _comparator.perceive_bonds(mol)
+        determine.DetermineBondOrders.assert_not_called()
+
+    def test_failing_bond_orders_keep_the_molecule(self, monkeypatch):
+        mol = MagicMock()
+        determine = MagicMock()
+        determine.DetermineBondOrders.side_effect = ValueError("charge unknown")
+        monkeypatch.setattr(_comparator, "rdDetermineBonds", determine)
+        assert _comparator.perceive_bonds(mol) is mol
+
+    def test_no_rddeterminebonds_returns_the_molecule_unchanged(self, monkeypatch):
+        mol = MagicMock()
+        monkeypatch.setattr(_comparator, "rdDetermineBonds", None)
+        assert _comparator.perceive_bonds(mol) is mol
+
+
+class TestHas3dCoords:
+    def test_true_with_a_conformer(self):
+        mol = MagicMock()
+        mol.GetNumConformers.return_value = 1
+        assert _comparator.has_3d_coords(mol) is True
+
+    def test_false_without_one(self):
+        mol = MagicMock()
+        mol.GetNumConformers.return_value = 0
+        assert _comparator.has_3d_coords(mol) is False
+
+    def test_false_for_an_object_that_cannot_answer(self):
+        assert _comparator.has_3d_coords(object()) is False
+
+
+# ===========================================================================
+# Multi-file / multi-record loading and the guards around it
+# ===========================================================================
+
+
+class TestLoadingGuards:
+    def test_sdf_adds_every_record(self, qapp, monkeypatch, tmp_path):
+        w, _ctx = _make_comp()
+        f = tmp_path / "set.sdf"
+        f.write_text("dummy")
+        first = _WMol([_WAtom(0)])
+        second = _WMol([_WAtom(0)])
+        for mol, name in ((first, "one"), (second, "two")):
+            mol.HasProp = lambda _k, _n=name: True
+            mol.GetProp = lambda _k, _n=name: _n
+        monkeypatch.setattr(
+            _comparator.Chem, "SDMolSupplier", lambda *a, **k: [first, None, second]
+        )
+        monkeypatch.setattr(_comparator.Chem, "SanitizeMol", lambda m: None)
+        w.add_molecule_from_path(str(f))
+        assert [entry["name"] for entry in w.molecules] == ["one", "two"]
+        w.destroy()
+
+    def test_single_record_sdf_is_named_after_the_file(self, qapp, monkeypatch, tmp_path):
+        w, _ctx = _make_comp()
+        f = tmp_path / "only.sdf"
+        f.write_text("dummy")
+        mol = _WMol([_WAtom(0)])
+        mol.HasProp = lambda _k: False
+        monkeypatch.setattr(_comparator.Chem, "SDMolSupplier", lambda *a, **k: [mol])
+        monkeypatch.setattr(_comparator.Chem, "SanitizeMol", lambda m: None)
+        w.add_molecule_from_path(str(f))
+        assert w.molecules[0]["name"] == "only.sdf"
+        w.destroy()
+
+    def test_unknown_extension_is_tried_as_xyz(self, qapp, monkeypatch, tmp_path):
+        w, _ctx = _make_comp()
+        f = tmp_path / "geometry.txt"
+        f.write_text("1\ntitle\nC 0 0 0\n")
+        mol = _WMol([_WAtom(0)])
+        monkeypatch.setattr(_comparator, "mol_from_xyz_text", lambda *a: mol)
+        monkeypatch.setattr(_comparator.Chem, "SanitizeMol", lambda m: None)
+        w.add_molecule_from_path(str(f))
+        assert len(w.molecules) == 1
+        w.destroy()
+
+    def test_molecule_without_coordinates_is_refused_with_a_reason(
+        self, qapp, monkeypatch, tmp_path
+    ):
+        w, _ctx = _make_comp()
+        f = tmp_path / "flat.mol"
+        f.write_text("dummy")
+        mol = _WMol([_WAtom(0)], conformers=0)
+        monkeypatch.setattr(_comparator.Chem, "MolFromMolFile", lambda *a, **k: mol)
+        monkeypatch.setattr(_comparator.Chem, "SanitizeMol", lambda m: None)
+        warned = MagicMock()
+        monkeypatch.setattr(_comparator.QMessageBox, "warning", warned)
+        w.add_molecule_from_path(str(f))
+        assert w.molecules == []
+        assert "no 3D coordinates" in warned.call_args[0][2]
+        w.destroy()
+
+    def test_one_bad_file_does_not_lose_the_good_one(self, qapp, monkeypatch, tmp_path):
+        w, _ctx = _make_comp()
+        good = tmp_path / "good.mol"
+        good.write_text("dummy")
+        bad = tmp_path / "bad.mol"
+        bad.write_text("dummy")
+        mol = _WMol([_WAtom(0)])
+
+        def _reader(path, **kwargs):
+            return None if path.endswith("bad.mol") else mol
+
+        monkeypatch.setattr(_comparator.Chem, "MolFromMolFile", _reader)
+        monkeypatch.setattr(_comparator.Chem, "SanitizeMol", lambda m: None)
+        warned = MagicMock()
+        monkeypatch.setattr(_comparator.QMessageBox, "warning", warned)
+        w.add_molecules_from_paths([str(good), str(bad)])
+        assert len(w.molecules) == 1
+        assert "bad.mol" in warned.call_args[0][2]
+        w.destroy()
+
+    def test_add_current_refuses_a_molecule_without_coordinates(self, qapp, monkeypatch):
+        w, ctx = _make_comp()
+        mol = MagicMock()
+        mol.GetNumConformers.return_value = 0
+        ctx.current_molecule = mol
+        warned = MagicMock()
+        monkeypatch.setattr(_comparator.QMessageBox, "warning", warned)
+        w.add_current_molecule()
+        assert w.molecules == []
+        warned.assert_called_once()
+        w.destroy()
+
+    def test_drop_of_a_directory_is_ignored(self, qapp, tmp_path):
+        w, _ctx = _make_comp()
+        w.add_molecules_from_paths = MagicMock()
+        url = MagicMock()
+        url.toLocalFile.return_value = str(tmp_path)
+        event = MagicMock()
+        event.mimeData.return_value.urls.return_value = [url]
+        w.dropEvent(event)
+        w.add_molecules_from_paths.assert_not_called()
+        event.ignore.assert_called_once()
+        w.destroy()
+
+    def test_drag_move_accepts_urls(self, qapp):
+        w, _ctx = _make_comp()
+        event = MagicMock()
+        event.mimeData.return_value.hasUrls.return_value = True
+        w.dragMoveEvent(event)
+        event.acceptProposedAction.assert_called_once()
+        w.destroy()
+
+    def test_queued_reset_is_dropped_after_close(self, qapp):
+        w, ctx = _make_comp()
+        del w.reset_view  # use the real implementation
+        w._closing = True
+        w.reset_view()
+        qapp.processEvents()
+        ctx.reset_3d_camera.assert_not_called()
+        w.destroy()
+
+
+class TestWindowReuse:
+    def test_dead_window_is_replaced_instead_of_reused(self, qapp, monkeypatch):
+        mw = SimpleNamespace()
+        dead = MagicMock()
+        dead.isVisible.side_effect = RuntimeError("wrapped C/C++ object deleted")
+        mw.molecule_comparator_window = dead
+
+        fresh = MagicMock()
+        fresh.isVisible.return_value = False
+        monkeypatch.setattr(_comparator, "MoleculeComparator", lambda ctx: fresh)
+        monkeypatch.setattr(_comparator, "PLUGIN_CONTEXT", MagicMock())
+        _comparator.run(mw)
+        assert mw.molecule_comparator_window is fresh
+        fresh.show.assert_called_once()
+
+    def test_reset_handler_tolerates_a_dead_window(self, qapp):
+        ctx = MagicMock()
+        mw = SimpleNamespace()
+        dead = MagicMock()
+        dead.isVisible.side_effect = RuntimeError("gone")
+        mw.molecule_comparator_window = dead
+        ctx.get_main_window.return_value = mw
+        _comparator.initialize(ctx)
+        handler = ctx.register_document_reset_handler.call_args[0][0]
+        handler()  # must not raise
+        dead.close.assert_not_called()
+
+
+class TestAlignmentWorkerBondFreeFallback:
+    """An XYZ import can have no bonds at all, and MCS then matches nothing."""
+
+    def test_bond_free_pair_falls_back_to_atom_order(self, qapp, monkeypatch):
+        align = MagicMock(return_value=0.25)
+        monkeypatch.setattr(_comparator.AllChem, "AlignMol", align)
+        ref = _WMol([_WAtom(0), _WAtom(1)], bonds=0)
+        probe = _WMol([_WAtom(0), _WAtom(1)], bonds=0)
+        worker = _comparator.AlignmentWorker(
+            ref, [(0, probe)], "Substructure (MCS)", False
+        )
+        results, err = _run_worker(worker)
+        assert err is None
+        assert results[0]["rms"] == 0.25
+        assert results[0]["fallback"] == "Atom IDs"
+
+    def test_bond_free_pair_of_different_sizes_reports_na(self, qapp, monkeypatch):
+        align = MagicMock()
+        monkeypatch.setattr(_comparator.AllChem, "AlignMol", align)
+        ref = _WMol([_WAtom(0)], bonds=0)
+        probe = _WMol([_WAtom(0), _WAtom(1)], bonds=0)
+        worker = _comparator.AlignmentWorker(
+            ref, [(0, probe)], "Substructure (MCS)", False
+        )
+        results, _err = _run_worker(worker)
+        align.assert_not_called()
+        assert results[0]["rms"] == -1.0
+
+    def test_finished_reports_the_fallback_on_the_status_bar(self, qapp, monkeypatch):
+        w, ctx = _make_comp()
+        _add_mols(w, 2)
+        w.progress_dialog = MagicMock()
+        w.on_alignment_finished(
+            [{"index": 1, "mol": MagicMock(), "rms": 0.5, "fallback": "Atom IDs"}]
+        )
+        message = ctx.show_status_message.call_args[0][0]
+        assert "Aligned 1 of 1" in message
+        assert "no bonds to compare" in message
+        w.destroy()
+
+    def test_finished_points_at_the_other_method_when_a_pair_fails(self, qapp):
+        w, ctx = _make_comp()
+        _add_mols(w, 2)
+        w.progress_dialog = MagicMock()
+        w.on_alignment_finished([{"index": 1, "mol": MagicMock(), "rms": -1.0}])
+        message = ctx.show_status_message.call_args[0][0]
+        assert "Atom IDs" in message
