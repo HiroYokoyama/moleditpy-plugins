@@ -269,16 +269,25 @@ git tag v2026.08.01                # today's date, v-prefixed
 git push origin v2026.08.01
 ```
 
-That sets off a two-step chain:
+That runs **`release.yml`** (trigger: tags matching
+`v[0-9][0-9][0-9][0-9].[0-9][0-9].[0-9][0-9]`), which has two jobs:
 
-1. **`release.yml`** (trigger: tags matching `v[0-9][0-9][0-9][0-9].[0-9][0-9].[0-9][0-9]`)
-   creates the GitHub release, titled `Up to the release of 2026.08.01` — the
-   leading `v` is dropped from the title so it reads like the releases made
-   before the prefix was adopted. This repo publishes no build artifacts; the
-   tag's source archive is the payload.
-2. **`zenodo.yml`** (trigger: `release: published`) uploads to Zenodo and mints
-   a DOI, updating record 21522477 — this collection's own record, hardcoded
-   once as `DEPOSITION_ID` in `scripts/update_zenodo.py`.
+1. `release` creates the GitHub release, titled `Up to the release of
+   2026.08.01` — the leading `v` is dropped from the title so it reads like the
+   releases made before the prefix was adopted. This repo publishes no build
+   artifacts; the tag's source archive is the payload.
+2. `zenodo-upload` uploads to Zenodo and mints a DOI, updating record 21522477
+   — this collection's own record, hardcoded once as `DEPOSITION_ID` in
+   `scripts/update_zenodo.py`. A tag push always archives; a manual dispatch can
+   opt out with the `zenodo` input.
+
+Archiving lives in `release.yml` rather than in `zenodo.yml` on a
+`release: published` trigger **because that trigger would never fire**: the
+release is minted with `GITHUB_TOKEN`, and GitHub raises no
+workflow-triggering events for token-authored actions. So do not go looking for
+a separate Zenodo workflow run after a tag — there isn't one, and its absence is
+not a failure. `zenodo.yml` still exists, but as `workflow_dispatch` only, for
+manual backfills and re-runs.
 
 Nothing else is needed. There is no version constant to bump: a release here
 marks a snapshot of the whole collection, and each plugin carries its own
@@ -295,8 +304,9 @@ Guards, so a mistake is loud rather than silent:
   so a re-run cannot mint a duplicate DOI. It fails *after* uploading the file,
   which leaves an unpublished draft behind — Zenodo permits only one draft per
   record, so discard it in the Zenodo UI or the next upload cannot start.
-- Both workflows also accept `workflow_dispatch`, for archiving an older tag or
-  rehearsing against a draft (`draft: true` uploads without publishing).
+- `release.yml` and `zenodo.yml` both accept `workflow_dispatch`, for archiving
+  an older tag or rehearsing against a draft (`draft: true` uploads without
+  publishing).
 
 `ZENODO_TOKEN` must exist as a repository secret (and `ZENODO_SANDBOX_TOKEN`
 for `test-zenodo.yml`).
