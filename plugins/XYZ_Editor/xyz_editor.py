@@ -30,11 +30,43 @@ import logging
 
 
 PLUGIN_NAME = "XYZ Editor"
-PLUGIN_VERSION = "2026.08.21"
+PLUGIN_VERSION = "2026.09.18"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "A table-based editor for atom coordinates and symbols, supporting ghost atoms. Refactored for V3 API."
 PLUGIN_CONTEXT = None
+
+
+def sanitize_or_clear_aromaticity(rw):
+    """Sanitize, retrying once with aromatic flags dropped if the first pass fails.
+
+    An edit that breaks a ring leaves atoms still flagged aromatic that are no
+    longer in one. UpdatePropertyCache does not clear those flags, so the
+    molecule commits looking valid and only blows up later, in MolToMolBlock or
+    MMFF atom typing, far from the edit that caused it.
+    """
+    try:
+        Chem.SanitizeMol(rw)
+        return
+    except (RuntimeError, AttributeError, ValueError) as _e:
+        logging.warning(
+            "[%s] sanitize failed, clearing aromaticity: %s", PLUGIN_NAME, _e
+        )
+    for atom in rw.GetAtoms():
+        atom.SetIsAromatic(False)
+    for bond in rw.GetBonds():
+        if bond.GetBondType() == Chem.BondType.AROMATIC:
+            bond.SetBondType(Chem.BondType.SINGLE)
+        bond.SetIsAromatic(False)
+    try:
+        Chem.SanitizeMol(rw)
+    except (RuntimeError, AttributeError, ValueError) as _e:
+        logging.warning("[%s] sanitize still failing: %s", PLUGIN_NAME, _e)
+        try:
+            rw.UpdatePropertyCache(strict=False)
+            Chem.GetSSSR(rw)
+        except (RuntimeError, AttributeError, ValueError) as _e2:
+            logging.warning("[%s] property cache fallback: %s", PLUGIN_NAME, _e2)
 
 
 class _ClickFilter(QObject):
@@ -148,7 +180,9 @@ class XYZEditorWindow(QWidget):
         edit_layout.addWidget(self.add_btn)
 
         self.remove_btn = QPushButton("Remove Selected")
-        self.remove_btn.setToolTip("Remove rows from the table only (press Apply to commit)")
+        self.remove_btn.setToolTip(
+            "Remove rows from the table only (press Apply to commit)"
+        )
         self.remove_btn.clicked.connect(self.remove_selected_rows)
         edit_layout.addWidget(self.remove_btn)
 
@@ -176,7 +210,9 @@ class XYZEditorWindow(QWidget):
         mol_layout.addWidget(self.add_h_btn)
 
         self.delete_btn = QPushButton("Delete Atoms")
-        self.delete_btn.setToolTip("Delete selected atoms from the molecule immediately")
+        self.delete_btn.setToolTip(
+            "Delete selected atoms from the molecule immediately"
+        )
         self.delete_btn.clicked.connect(self.delete_selected_atoms)
         mol_layout.addWidget(self.delete_btn)
 
@@ -346,7 +382,9 @@ class XYZEditorWindow(QWidget):
                 try:
                     row_map[int(item.text())] = row
                 except ValueError as _e:
-                    logging.warning("[xyz_editor.py:_atom_index_to_row_map] silenced: %s", _e)
+                    logging.warning(
+                        "[xyz_editor.py:_atom_index_to_row_map] silenced: %s", _e
+                    )
         return row_map
 
     def _select_rows(self, rows, ctrl_held, anchor_row):
@@ -685,11 +723,7 @@ class XYZEditorWindow(QWidget):
                 if b in mapping and e in mapping:
                     rw.AddBond(mapping[b], mapping[e], bond.GetBondType())
 
-            try:
-                Chem.SanitizeMol(rw)
-            except (RuntimeError, AttributeError, ValueError):
-                rw.UpdatePropertyCache(strict=False)
-                Chem.GetSSSR(rw)
+            sanitize_or_clear_aromaticity(rw)
 
             self.context.current_molecule = rw.GetMol()
             self.context.push_undo_checkpoint()
@@ -731,9 +765,7 @@ class XYZEditorWindow(QWidget):
                 continue
             if num in (7, 8, 15, 16):
                 allowed += atom.GetFormalCharge()
-            valence = round(
-                sum(b.GetBondTypeAsDouble() for b in atom.GetBonds())
-            )
+            valence = round(sum(b.GetBondTypeAsDouble() for b in atom.GetBonds()))
             excess = valence - allowed
             if excess <= 0:
                 continue
@@ -742,7 +774,7 @@ class XYZEditorWindow(QWidget):
                 for n in atom.GetNeighbors()
                 if n.GetAtomicNum() == 1 and n.GetDegree() == 1
             ]
-            to_remove.update(h_neighbors[len(h_neighbors) - excess:])
+            to_remove.update(h_neighbors[len(h_neighbors) - excess :])
         return sorted(to_remove)
 
     def adjust_hydrogens(self):
@@ -778,10 +810,7 @@ class XYZEditorWindow(QWidget):
                     if i not in removed
                 }
 
-            try:
-                Chem.SanitizeMol(rw)
-            except (RuntimeError, AttributeError, ValueError):
-                rw.UpdatePropertyCache(strict=False)
+            sanitize_or_clear_aromaticity(rw)
 
             kwargs = {"addCoords": True}
             if sel:
@@ -808,9 +837,7 @@ class XYZEditorWindow(QWidget):
                 f"Hydrogens adjusted: +{max(added, 0)}, -{len(removed)}."
             )
         except Exception as e:
-            QMessageBox.critical(
-                self, "Error", f"Failed to adjust hydrogens: {str(e)}"
-            )
+            QMessageBox.critical(self, "Error", f"Failed to adjust hydrogens: {str(e)}")
 
     def unselect_all(self):
         self.table.clearSelection()
@@ -1013,7 +1040,12 @@ class XYZEditorWindow(QWidget):
 
                                     found_atomic_num = p_num
                                     break
-                            except (RuntimeError, AttributeError, IndexError, ValueError):
+                            except (
+                                RuntimeError,
+                                AttributeError,
+                                IndexError,
+                                ValueError,
+                            ):
                                 continue
 
                         # Create atom (defaults to dummy 0 if no prefix found)
@@ -1054,12 +1086,7 @@ class XYZEditorWindow(QWidget):
 
             # Commit changes
             # self.mw.edit_actions_manager.push_undo_state()  # MOVED TO START
-            # Update properties and ring info to avoid RDKit errors
-            try:
-                Chem.SanitizeMol(new_rw_mol)
-            except (RuntimeError, AttributeError, ValueError):
-                new_rw_mol.UpdatePropertyCache(strict=False)
-                Chem.GetSSSR(new_rw_mol)
+            sanitize_or_clear_aromaticity(new_rw_mol)
             self.context.current_molecule = new_rw_mol.GetMol()
             self.context.push_undo_checkpoint()
             self.last_seen_signature = self.get_mol_signature(

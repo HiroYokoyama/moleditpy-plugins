@@ -129,6 +129,16 @@ def _extract_method_as_fn(
     raise AssertionError(f"{class_name}.{method_name} not found in {path}")
 
 
+def _sanitize_helper(chem_ns):
+    """The plugin's real sanitize_or_clear_aromaticity, bound to a fake Chem."""
+    return _extract_method_as_fn(
+        XYZ_EDITOR_PATH,
+        None,
+        "sanitize_or_clear_aromaticity",
+        extra_globals={"Chem": chem_ns, "PLUGIN_NAME": "XYZ Editor"},
+    )
+
+
 class FakePos:
     def __init__(self, x, y, z):
         self.x, self.y, self.z = x, y, z
@@ -696,9 +706,13 @@ class _FakeRDAtom:
     def __init__(self, num):
         self.num = num
         self.props = {}
+        self.aromatic = False
 
     def SetProp(self, key, val):
         self.props[key] = val
+
+    def SetIsAromatic(self, val):
+        self.aromatic = val
 
 
 class _FakeRWMol:
@@ -727,6 +741,12 @@ class _FakeRWMol:
     def UpdatePropertyCache(self, strict=False):
         self.upc_called = True
 
+    def GetAtoms(self):
+        return list(self.atoms)
+
+    def GetBonds(self):
+        return []
+
 
 class _FakeConformer:
     def __init__(self, n):
@@ -753,6 +773,7 @@ def _make_chem_ns(sanitize_raises=False):
         Conformer=lambda n: _FakeConformer(n),
         SanitizeMol=sanitize,
         GetSSSR=lambda m: None,
+        BondType=SimpleNamespace(AROMATIC="AROMATIC", SINGLE="SINGLE"),
     )
 
 
@@ -778,6 +799,7 @@ def _apply_changes_fn(chem_ns):
             "Chem": chem_ns,
             "Point3D": _FakePoint3D,
             "QMessageBox": MagicMock(),
+            "sanitize_or_clear_aromaticity": _sanitize_helper(chem_ns),
         },
     )
 
@@ -1164,6 +1186,12 @@ class _FakeDupRW:
     def AddBond(self, b, e, t):
         self.added_bonds.append((b, e, t))
 
+    def GetAtoms(self):
+        return list(self.added_atoms)
+
+    def GetBonds(self):
+        return []
+
     def GetMol(self):
         return self
 
@@ -1195,6 +1223,7 @@ def _duplicate_fn():
         Atom=_FakeDupRDAtom,
         SanitizeMol=lambda m: None,
         GetSSSR=lambda m: None,
+        BondType=SimpleNamespace(AROMATIC="AROMATIC", SINGLE="SINGLE"),
     )
     return _extract_method_as_fn(
         XYZ_EDITOR_PATH,
@@ -1204,6 +1233,7 @@ def _duplicate_fn():
             "Chem": chem_ns,
             "Point3D": _FakePoint3D,
             "QMessageBox": MagicMock(),
+            "sanitize_or_clear_aromaticity": _sanitize_helper(chem_ns),
         },
     )
 
@@ -1332,6 +1362,12 @@ def _adjust_h_fn(added=2, sanitize_raises=False, record=None):
             if record is not None:
                 record["upc"] = True
 
+        def GetAtoms(self):
+            return []
+
+        def GetBonds(self):
+            return []
+
     def sanitize(m):
         if sanitize_raises:
             raise RuntimeError("bad valence")
@@ -1341,12 +1377,22 @@ def _adjust_h_fn(added=2, sanitize_raises=False, record=None):
             record["kwargs"] = kwargs
         return _FakeAddHMol(m.GetNumAtoms() + added)
 
-    chem_ns = SimpleNamespace(RWMol=_RW, SanitizeMol=sanitize, AddHs=add_hs)
+    chem_ns = SimpleNamespace(
+        RWMol=_RW,
+        SanitizeMol=sanitize,
+        AddHs=add_hs,
+        GetSSSR=lambda m: None,
+        BondType=SimpleNamespace(AROMATIC="AROMATIC", SINGLE="SINGLE"),
+    )
     return _extract_method_as_fn(
         XYZ_EDITOR_PATH,
         "XYZEditorWindow",
         "adjust_hydrogens",
-        extra_globals={"Chem": chem_ns, "QMessageBox": MagicMock()},
+        extra_globals={
+            "Chem": chem_ns,
+            "QMessageBox": MagicMock(),
+            "sanitize_or_clear_aromaticity": _sanitize_helper(chem_ns),
+        },
     )
 
 

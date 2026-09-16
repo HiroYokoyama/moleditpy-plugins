@@ -1104,7 +1104,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "XYZ Editor",
-    "version": "2026.08.21",
+    "version": "2026.09.18",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A table-based editor for atom coordinates and symbols, supporting ghost atoms, adding and deleting atoms.",
@@ -1117,8 +1117,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/XYZ_Editor/xyz_editor.py",
-    "lastUpdated": "2026-08-21",
-    "sha256": "1bc05b1bad6ba6bfcb82e9195ac1bc29e76d2fd6d73ee4af33e53258274765c6",
+    "lastUpdated": "2026-09-18",
+    "sha256": "148841e7052790482cd4c9aa9e5b6a109d61ca56fed020eed541724cc302cea5",
     "firstAppeared": "2026-01-03",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -2062,7 +2062,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Bond Editor",
-    "version": "2026.07.31",
+    "version": "2026.09.18",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A table-based bond editor: add/delete bonds, change bond order, and set bond lengths by moving one side of the bond. In the 3D view pick a mode to select a bond by clicking it, or create a bond by clicking two atoms.",
@@ -2076,8 +2076,8 @@
       "numpy"
     ],
     "downloadUrl": "../plugins/Bond_Editor/bond_editor.py",
-    "lastUpdated": "2026-07-31",
-    "sha256": "67da2b17a72b9ad3b2b347bfe9516701b47e6c863a59971e859024e45ab34587",
+    "lastUpdated": "2026-09-18",
+    "sha256": "d54f014a93ef99bd922f8e43a55e7c8163bee10b8f74be8497cd8212e3231da6",
     "firstAppeared": "2026-07-15",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -2092,7 +2092,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Charge Editor",
-    "version": "2026.07.31",
+    "version": "2026.09.18",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A table-based editor for per-atom formal charge and radical electrons. Click atoms in the 3D view to select them, and read off the total charge and spin multiplicity for DFT input preparation.",
@@ -2106,8 +2106,8 @@
       "numpy"
     ],
     "downloadUrl": "../plugins/Charge_Editor/charge_editor.py",
-    "lastUpdated": "2026-07-31",
-    "sha256": "df86b851bfb5e09f9faccad41a31c53f385e2a65804939fa41d49459f6b74f99",
+    "lastUpdated": "2026-09-18",
+    "sha256": "ff8423f1c1cabf1eae328747a387ce0ca575f680aed03c4f9146ae0127a216da",
     "firstAppeared": "2026-07-16",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

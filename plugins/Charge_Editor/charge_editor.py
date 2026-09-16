@@ -19,7 +19,7 @@ from functools import partial
 
 
 PLUGIN_NAME = "Charge Editor"
-PLUGIN_VERSION = "2026.07.31"
+PLUGIN_VERSION = "2026.09.18"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -31,6 +31,38 @@ PLUGIN_CONTEXT = None
 
 CHARGE_MIN, CHARGE_MAX = -4, 4
 RADICAL_MIN, RADICAL_MAX = 0, 4
+
+
+def sanitize_or_clear_aromaticity(rw):
+    """Sanitize, retrying once with aromatic flags dropped if the first pass fails.
+
+    An edit that breaks a ring leaves atoms still flagged aromatic that are no
+    longer in one. UpdatePropertyCache does not clear those flags, so the
+    molecule commits looking valid and only blows up later, in MolToMolBlock or
+    MMFF atom typing, far from the edit that caused it.
+    """
+    try:
+        Chem.SanitizeMol(rw)
+        return
+    except (RuntimeError, AttributeError, ValueError) as _e:
+        logging.warning(
+            "[%s] sanitize failed, clearing aromaticity: %s", PLUGIN_NAME, _e
+        )
+    for atom in rw.GetAtoms():
+        atom.SetIsAromatic(False)
+    for bond in rw.GetBonds():
+        if bond.GetBondType() == Chem.BondType.AROMATIC:
+            bond.SetBondType(Chem.BondType.SINGLE)
+        bond.SetIsAromatic(False)
+    try:
+        Chem.SanitizeMol(rw)
+    except (RuntimeError, AttributeError, ValueError) as _e:
+        logging.warning("[%s] sanitize still failing: %s", PLUGIN_NAME, _e)
+        try:
+            rw.UpdatePropertyCache(strict=False)
+            Chem.GetSSSR(rw)
+        except (RuntimeError, AttributeError, ValueError) as _e2:
+            logging.warning("[%s] property cache fallback: %s", PLUGIN_NAME, _e2)
 
 
 class _ClickFilter(QObject):
@@ -334,14 +366,7 @@ class ChargeEditorWindow(QWidget):
     # ------------------------------------------------------------------
 
     def _commit(self, rw, message):
-        try:
-            Chem.SanitizeMol(rw)
-        except (RuntimeError, AttributeError, ValueError):
-            try:
-                rw.UpdatePropertyCache(strict=False)
-                Chem.GetSSSR(rw)
-            except (RuntimeError, AttributeError, ValueError) as _e:
-                logging.warning("[charge_editor.py:_commit] sanitize fallback: %s", _e)
+        sanitize_or_clear_aromaticity(rw)
         self.context.current_molecule = rw.GetMol()
         self.context.push_undo_checkpoint()
         self.last_seen_signature = self.get_mol_signature(self.context.current_molecule)

@@ -823,11 +823,27 @@ class TestEditOperationsRealChem:
         bond = new_mol.GetBondBetweenAtoms(0, 1)
         assert str(bond.GetBondType()).rsplit(".", 1)[-1] == "DOUBLE"
 
-    def test_on_type_changed_aromatic_flags_atoms(self, win):
+    def test_on_type_changed_aromatic_on_acyclic_bond_is_refused(
+        self, win, qapp, monkeypatch
+    ):
+        """An acyclic bond cannot be aromatic, so the edit must not stick.
+
+        It used to: sanitization failed, the fallback left atoms 0 and 1
+        flagged aromatic while in no ring, and the molecule only blew up
+        later in MolToMolBlock when the user pressed Optimize.
+        """
+        from PyQt6.QtWidgets import QMessageBox
+
+        warnings = []
+        monkeypatch.setattr(
+            QMessageBox, "warning", lambda *a, **k: warnings.append(a) or None
+        )
         win.on_type_changed(0, "Aromatic")
         new_mol = win.context.current_molecule
-        assert new_mol.GetAtomWithIdx(0).GetIsAromatic()
-        assert new_mol.GetAtomWithIdx(1).GetIsAromatic()
+        assert not new_mol.GetAtomWithIdx(0).GetIsAromatic()
+        assert not new_mol.GetAtomWithIdx(1).GetIsAromatic()
+        assert warnings, "the user must be told the bond type did not change"
+        _Chem.MolToMolBlock(new_mol)  # the Optimize path must not raise
 
     def test_on_type_changed_no_pair_is_noop(self, win):
         win.table.setRowCount(0)
