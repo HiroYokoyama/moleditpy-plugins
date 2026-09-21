@@ -1,0 +1,159 @@
+name: Update Plugin Metadata Only
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_url:
+        description: 'GitHub Release Asset URL (e.g., https://github.com/owner/repo/releases/download/v1.0.0/plugin.zip)'
+        required: true
+        type: string
+      plugin_id:
+        description: 'Plugin ID (optional, automatically matched from URL if omitted)'
+        required: false
+        type: string
+      tags:
+        description: 'Comma-separated tags (optional, if omitted tags are synced from PLUGIN_TAGS in code)'
+        required: false
+        type: string
+      description:
+        description: 'Plugin description override (optional, if omitted description is synced from code)'
+        required: false
+        type: string
+      name:
+        description: 'Plugin name override (optional, if omitted name is synced from code)'
+        required: false
+        type: string
+      supported_version:
+        description: 'Supported MoleditPy version (e.g. >=4.0.0, <5.0.0, optional)'
+        required: false
+        type: string
+      supported_python:
+        description: 'Supported Python version spec (e.g. >=3.9, <3.15, optional)'
+        required: false
+        type: string
+      supported_os:
+        description: 'Comma-separated supported OS list (e.g. Windows, macOS, Linux, WSL, optional)'
+        required: false
+        type: string
+      dependencies:
+        description: 'Comma-separated Python dependencies (optional)'
+        required: false
+        type: string
+      optional_dependencies:
+        description: 'Comma-separated optional Python dependencies (optional)'
+        required: false
+        type: string
+      visible:
+        description: 'Visibility of the plugin in the registry (optional)'
+        required: false
+        type: choice
+        options:
+          - ''
+          - 'true'
+          - 'false'
+        default: ''
+      dry_run:
+        description: 'Dry run (validate and show changes but do not commit/push)'
+        required: true
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+        default: 'false'
+
+permissions:
+  contents: write
+
+jobs:
+  update-metadata:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run Update Metadata Script
+        id: run_script
+        env:
+          RELEASE_URL: ${{ github.event.inputs.release_url }}
+          PLUGIN_ID: ${{ github.event.inputs.plugin_id }}
+          TAGS: ${{ github.event.inputs.tags }}
+          DESCRIPTION: ${{ github.event.inputs.description }}
+          NAME: ${{ github.event.inputs.name }}
+          SUPPORTED_VERSION: ${{ github.event.inputs.supported_version }}
+          SUPPORTED_PYTHON: ${{ github.event.inputs.supported_python }}
+          SUPPORTED_OS: ${{ github.event.inputs.supported_os }}
+          DEPS: ${{ github.event.inputs.dependencies }}
+          OPT_DEPS: ${{ github.event.inputs.optional_dependencies }}
+          VISIBLE: ${{ github.event.inputs.visible }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+        run: |
+          ARGS=""
+          if [ -n "$PLUGIN_ID" ]; then
+            ARGS="$ARGS --id \"$PLUGIN_ID\""
+          fi
+          if [ -n "$TAGS" ]; then
+            ARGS="$ARGS --tags \"$TAGS\""
+          fi
+          if [ -n "$DESCRIPTION" ]; then
+            ARGS="$ARGS --description \"$DESCRIPTION\""
+          fi
+          if [ -n "$NAME" ]; then
+            ARGS="$ARGS --name \"$NAME\""
+          fi
+          if [ -n "$SUPPORTED_VERSION" ]; then
+            ARGS="$ARGS --supported-version \"$SUPPORTED_VERSION\""
+          fi
+          if [ -n "$SUPPORTED_PYTHON" ]; then
+            ARGS="$ARGS --supported-python \"$SUPPORTED_PYTHON\""
+          fi
+          if [ -n "$SUPPORTED_OS" ]; then
+            ARGS="$ARGS --supported-os \"$SUPPORTED_OS\""
+          fi
+          if [ -n "$DEPS" ]; then
+            ARGS="$ARGS --dependencies \"$DEPS\""
+          fi
+          if [ -n "$OPT_DEPS" ]; then
+            ARGS="$ARGS --optional-dependencies \"$OPT_DEPS\""
+          fi
+          if [ -n "$VISIBLE" ]; then
+            ARGS="$ARGS --visible \"$VISIBLE\""
+          fi
+          if [ "$DRY_RUN" = "true" ]; then
+            ARGS="$ARGS --dry-run"
+          fi
+
+          eval "python scripts/update_plugin_metadata.py \"$RELEASE_URL\" $ARGS"
+
+      - name: Install test dependencies
+        run: pip install pytest
+
+      - name: Validate and test modified registry
+        run: |
+          python scripts/validate_json.py
+          pytest tests/test_registry.py -v
+
+      - name: Commit and Push changes
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            echo "Dry run enabled. Skipping commit and push."
+            exit 0
+          fi
+
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add REGISTRY/plugins.json
+
+          if ! git diff --cached --quiet; then
+            NAME="${{ steps.run_script.outputs.plugin_name }}"
+            FIELDS="${{ steps.run_script.outputs.changed_fields }}"
+            git commit -m "Update metadata for '$NAME' ($FIELDS)"
+            git push origin main
+          else
+            echo "No changes to commit."
+          fi
