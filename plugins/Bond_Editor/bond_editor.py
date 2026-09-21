@@ -17,11 +17,12 @@ from rdkit import Chem
 from rdkit.Geometry import Point3D
 import pyvista as pv
 import logging
+import inspect
 from functools import partial
 
 
 PLUGIN_NAME = "Bond Editor"
-PLUGIN_VERSION = "2026.09.18"
+PLUGIN_VERSION = "2026.09.21"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -88,30 +89,36 @@ def sanitize_or_clear_aromaticity(rw):
 
 
 class _ClickFilter(QObject):
-    """Qt event filter: detects non-drag left clicks on the 3D plotter widget."""
-
-    def __init__(self, callback, parent=None):
+    """Observe click and drag gestures without consuming camera events."""
+    def __init__(self, callback, parent=None, drag_callback=None):
         super().__init__(parent)
         self._callback = callback
+        self._drag_callback = drag_callback
         self._press_pos = None
+        self._press_button = None
 
     def eventFilter(self, obj, event):
         t = event.type()
-        if t == QEvent.Type.MouseButtonPress:
-            if event.button() == Qt.MouseButton.LeftButton:
-                self._press_pos = event.position().toPoint()
-        elif t == QEvent.Type.MouseButtonRelease:
-            if (
-                event.button() == Qt.MouseButton.LeftButton
-                and self._press_pos is not None
-            ):
-                rel = event.position().toPoint()
-                dx = rel.x() - self._press_pos.x()
-                dy = rel.y() - self._press_pos.y()
-                if dx * dx + dy * dy <= 25:  # ≤5 px → click, not drag
-                    self._callback(rel.x(), rel.y(), obj, event.modifiers())
-                self._press_pos = None
-        return False  # never consume — camera interaction still works
+        if t == QEvent.Type.MouseButtonPress and event.button() in (Qt.MouseButton.LeftButton, Qt.MouseButton.RightButton):
+            self._press_pos = event.position().toPoint()
+            self._press_button = event.button()
+        elif t == QEvent.Type.MouseButtonRelease and self._press_pos is not None:
+            rel = event.position().toPoint()
+            dx = rel.x() - self._press_pos.x()
+            dy = rel.y() - self._press_pos.y()
+            if dx * dx + dy * dy <= 25:
+                args = (rel.x(), rel.y(), obj, event.modifiers(), self._press_button)
+                try:
+                    inspect.signature(self._callback).bind(*args)
+                except (TypeError, ValueError):
+                    self._callback(*args[:4])
+                else:
+                    self._callback(*args)
+            elif self._drag_callback is not None and self._press_button == Qt.MouseButton.LeftButton:
+                self._drag_callback(rel.x(), rel.y(), obj, event.modifiers(), self._press_button)
+            self._press_pos = None
+            self._press_button = None
+        return False
 
 
 class BondEditorWindow(QWidget):
@@ -126,6 +133,8 @@ class BondEditorWindow(QWidget):
         self.setWindowTitle("Bond Editor")
         self.resize(560, 420)
         self._click_filter = None
+        self._interactive_mode = False
+        self._drag_start_atom = None
         self._first_pick_idx = None
         self._picked_atoms = {}
         self.init_ui()
@@ -157,6 +166,10 @@ class BondEditorWindow(QWidget):
         layout.addWidget(self.table)
 
         add_layout = QHBoxLayout()
+        self.interactive_btn = QPushButton("Interactive mode")
+        self.interactive_btn.setCheckable(True)
+        self.interactive_btn.toggled.connect(self._toggle_interactive_mode)
+        add_layout.addWidget(self.interactive_btn)
         add_layout.addWidget(QLabel("3D click:"))
         self.click_mode_combo = QComboBox()
         self.click_mode_combo.addItems(["Select bond", "Create bond"])
@@ -180,6 +193,9 @@ class BondEditorWindow(QWidget):
         layout.addLayout(add_layout)
 
         btn_layout = QHBoxLayout()
+        self.adjust_h_btn = QPushButton("Adjust H")
+        self.adjust_h_btn.clicked.connect(self.adjust_hydrogens)
+        btn_layout.addWidget(self.adjust_h_btn)
         self.delete_btn = QPushButton("Delete Selected Bonds")
         self.delete_btn.clicked.connect(self.delete_selected_bonds)
         btn_layout.addWidget(self.delete_btn)
@@ -214,7 +230,7 @@ class BondEditorWindow(QWidget):
             interactor = getattr(plotter, "interactor", None)
             if interactor is None:
                 return
-            self._click_filter = _ClickFilter(self._on_plotter_click, parent=self)
+            self._click_filter = _ClickFilter(self._on_plotter_click, parent=self, drag_callback=self._on_plotter_drag)
             interactor.installEventFilter(self._click_filter)
         except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
             logging.warning("[bond_editor.py:_enable_plotter_picking] silenced: %s", _e)
@@ -231,8 +247,11 @@ class BondEditorWindow(QWidget):
             )
         self._click_filter = None
 
-    def _on_plotter_click(self, x, y, widget, modifiers):
+    def _on_plotter_click(self, x, y, widget, modifiers, button=Qt.MouseButton.LeftButton):
         try:
+            if self._interactive_mode:
+                self._interactive_click(x, y, widget, button)
+                return
             import vtk
 
             mw = self.context.get_main_window()
@@ -289,6 +308,85 @@ class BondEditorWindow(QWidget):
                 self._select_bond_row_by_pair(pair)
         except Exception as _e:
             logging.warning("[bond_editor.py:_on_plotter_click] silenced: %s", _e)
+
+    def _toggle_interactive_mode(self, enabled):
+        self._interactive_mode = bool(enabled)
+        self.click_mode_combo.setEnabled(not enabled)
+        self.context.show_status_message("Interactive mode enabled." if enabled else "Interactive mode disabled.")
+
+    def _interactive_pick(self, x, y, widget):
+        import vtk
+        mol = self.context.current_mol
+        plotter = self.context.plotter
+        if not mol or not plotter or not mol.GetNumConformers():
+            return None
+        picker = vtk.vtkCellPicker()
+        ratio = widget.devicePixelRatioF()
+        picker.SetTolerance(0.005)
+        picker.Pick(x * ratio, (widget.height() - y) * ratio, 0, plotter.renderer)
+        return mol, picker.GetPickPosition()
+
+    def _interactive_click(self, x, y, widget, button):
+        picked = self._interactive_pick(x, y, widget)
+        if picked is None:
+            return
+        mol, pos = picked
+        atom = self._nearest_atom_to_point(mol, pos)
+        conf = mol.GetConformer()
+        atom_pos = conf.GetAtomPosition(atom) if atom is not None else None
+        atom_distance = None
+        if atom_pos is not None:
+            atom_distance = sum((a - b) ** 2 for a, b in zip(
+                (pos[0], pos[1], pos[2]), (atom_pos.x, atom_pos.y, atom_pos.z)
+            )) ** 0.5
+        if atom_distance is not None and atom_distance <= 0.35:
+            self._drag_start_atom = atom
+            return
+        pair = self._nearest_bond_to_point(mol, pos)
+        if button == Qt.MouseButton.RightButton and pair:
+            rw = Chem.RWMol(mol)
+            rw.RemoveBond(*pair)
+            self._commit(rw, f"Deleted bond {pair[0]}-{pair[1]}.")
+        elif pair:
+            current = label_from_bond_type(mol.GetBondBetweenAtoms(*pair).GetBondType())
+            label = BOND_TYPE_LABELS[(BOND_TYPE_LABELS.index(current) + 1) % len(BOND_TYPE_LABELS)]
+            self._set_interactive_bond_type(pair, label)
+
+    def _on_plotter_drag(self, x, y, widget, modifiers, button):
+        if not self._interactive_mode or self._drag_start_atom is None:
+            return
+        picked = self._interactive_pick(x, y, widget)
+        start = self._drag_start_atom; self._drag_start_atom = None
+        if picked is not None:
+            end = self._nearest_atom_to_point(picked[0], picked[1])
+            if end is not None and end != start:
+                self.add_bond(start, end)
+
+    def _set_interactive_bond_type(self, pair, label):
+        try:
+            rw = Chem.RWMol(self.context.current_mol)
+            bond = rw.GetBondBetweenAtoms(*pair)
+            bond.SetBondType(bond_type_from_label(label))
+            self._commit(rw, f"Bond {pair[0]}-{pair[1]} set to {label.lower()}.")
+        except (RuntimeError, AttributeError, ValueError) as exc:
+            QMessageBox.critical(self, "Error", f"Failed to change bond type: {exc}")
+
+    def adjust_hydrogens(self):
+        mol = self.context.current_mol
+        if not mol or not mol.GetNumConformers():
+            self.context.show_status_message("No 3D molecule to adjust hydrogens on.")
+            return
+        new_mol = Chem.AddHs(mol, addCoords=True)
+        if new_mol.GetNumAtoms() == mol.GetNumAtoms():
+            self.context.show_status_message("Hydrogens are already explicit.")
+            return
+        self.context.current_molecule = new_mol
+        self.context.push_undo_checkpoint()
+        refresh = getattr(self.context, "refresh_3d_view", None)
+        if callable(refresh): refresh()
+        else: self.context.reset_3d_camera()
+        self.load_molecule()
+        self.context.show_status_message("Hydrogens adjusted.")
 
     def _on_click_mode_changed(self, mode):
         """Reset the two-click pick state when the 3D click mode changes."""

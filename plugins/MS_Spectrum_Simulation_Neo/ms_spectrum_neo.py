@@ -48,7 +48,7 @@ except ImportError:
     Descriptors = None
     Draw = None
 
-PLUGIN_VERSION = "2026.09.02"
+PLUGIN_VERSION = "2026.09.21"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 
@@ -210,7 +210,7 @@ class MSSpectrumDialog(QDialog):
         # (connected below with reset=False — a direct connect here would
         # pass the signal payload as `reset` and wipe the zoom)
         self.gauss_check = QCheckBox("Gaussian Broadening")
-        self.gauss_check.setChecked(False)
+        self.gauss_check.setChecked(True)
 
         self.width_spin = QDoubleSpinBox()
         self.width_spin.setDecimals(3)

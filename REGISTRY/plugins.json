@@ -562,7 +562,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "MS Spectrum Simulation Neo",
-    "version": "2026.09.02",
+    "version": "2026.09.21",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Simulates the Mass Spectrum for the currently loaded molecule using RDKit descriptors. Includes Gaussian broadening and interactive zoom/pan.",
@@ -575,8 +575,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/MS_Spectrum_Simulation_Neo/ms_spectrum_neo.py",
-    "lastUpdated": "2026-09-02",
-    "sha256": "998691bbd23b3928eee75816bded784b353b2a5f5fa6efa186c82cb10479d36e",
+    "lastUpdated": "2026-09-21",
+    "sha256": "d6541c8299c2cae75e3c50a0ca64bb7fef0ae0ec870743350b510262736ba671",
     "firstAppeared": "2025-12-18",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -2062,7 +2062,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Bond Editor",
-    "version": "2026.09.18",
+    "version": "2026.09.21",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A table-based bond editor: add/delete bonds, change bond order, and set bond lengths by moving one side of the bond. In the 3D view pick a mode to select a bond by clicking it, or create a bond by clicking two atoms.",
@@ -2076,8 +2076,8 @@
       "numpy"
     ],
     "downloadUrl": "../plugins/Bond_Editor/bond_editor.py",
-    "lastUpdated": "2026-09-18",
-    "sha256": "d54f014a93ef99bd922f8e43a55e7c8163bee10b8f74be8497cd8212e3231da6",
+    "lastUpdated": "2026-09-21",
+    "sha256": "f2d1d7873e397e6381e1aa4b0e7af9193584fd04bbeb9411ec34971731547144",
     "firstAppeared": "2026-07-15",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -2441,6 +2441,34 @@
     "lastUpdated": "2026-08-26",
     "sha256": "fc4f22b61d83ac2440ce91e9a6264d814330c90aac960e2f80f330b1c5109abe",
     "firstAppeared": "2026-08-23",
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
+  },
+  {
+    "id": "functional_group_toolbox",
+    "visible": true,
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
+    "name": "Functional Group Toolbox",
+    "version": "2026.09.21",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Replace a selected atom with a common functional group while retaining its neighbours.",
+    "tags": [
+      "3D Edit"
+    ],
+    "dependencies": [
+      "rdkit",
+      "PyQt6"
+    ],
+    "downloadUrl": "../plugins/Functional_Group_Toolbox/functional_group_toolbox.py",
+    "lastUpdated": "2026-09-21",
+    "sha256": "a12f847e9f9fc112e7245991f70ec4fcf6607ea6009aa198cff894052a2a3845",
+    "firstAppeared": "2026-09-21",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
       "Windows",
