@@ -1111,7 +1111,10 @@ class TestInteractiveBtnAndEstimateBtnGUI:
         ctx = _real_ctx(mol=_real_mol())
         w = _bondrn.BondEditorWindow(context=ctx)
         assert hasattr(w, "estimate_btn")
-        assert w.estimate_btn.text() == "Estimate from coordinates"
+        assert w.estimate_btn.text() == "Estimate Bonds"
+        assert hasattr(w, "kekulize_btn")
+        assert w.kekulize_btn.isCheckable()
+        assert w.kekulize_btn.text() == "Kekulize"
         w.destroy()
 
 
@@ -1339,4 +1342,58 @@ class TestInteractiveHydrogenBondEditingGUI:
         # Bond between 0 and 1 should be deleted!
         bond = w.context.current_molecule.GetBondBetweenAtoms(0, 1)
         assert bond is None
+        w.destroy()
+
+
+class TestKekulizeGUI:
+    def _make_benzene(self):
+        m = _Chem.MolFromSmiles("c1ccccc1")
+        conf = _Chem.Conformer(6)
+        for i in range(6):
+            conf.SetAtomPosition(i, _Point3D(float(i), 0.0, 0.0))
+        m.AddConformer(conf, assignId=True)
+        return m
+
+    def test_kekulize_and_aromatize_toggle(self, qapp):
+        mol = self._make_benzene()
+        ctx = _real_ctx(mol=mol)
+        ctx.current_mol = mol
+        w = _bondrn.BondEditorWindow(context=ctx)
+
+        # Initially unchecked with label "Kekulize"
+        assert not w.kekulize_btn.isChecked()
+        assert w.kekulize_btn.text() == "Kekulize"
+
+        # 1. Toggle Kekulize ON
+        w.kekulize_btn.click()
+        assert w.kekulize_btn.isChecked()
+        assert w.kekulize_btn.text() == "Aromatize"
+        mol_kek = w.context.current_molecule
+        bond_types = {b.GetBondType() for b in mol_kek.GetBonds()}
+        assert _Chem.BondType.AROMATIC not in bond_types
+        assert _Chem.BondType.DOUBLE in bond_types
+        assert _Chem.BondType.SINGLE in bond_types
+
+        # 2. Toggle back to Aromatize
+        w.kekulize_btn.click()
+        assert not w.kekulize_btn.isChecked()
+        assert w.kekulize_btn.text() == "Kekulize"
+        mol_arom = w.context.current_molecule
+        arom_types = {b.GetBondType() for b in mol_arom.GetBonds()}
+        assert _Chem.BondType.AROMATIC in arom_types
+        w.destroy()
+
+    def test_kekulize_no_molecule(self, qapp):
+        ctx = _real_ctx(mol=None)
+        ctx.current_mol = None
+        w = _bondrn.BondEditorWindow(context=ctx)
+        w.context.show_status_message.reset_mock()
+        w.kekulize()
+        msg = w.context.show_status_message.call_args[0][0]
+        assert "No molecule" in msg
+
+        w.context.show_status_message.reset_mock()
+        w.aromatize()
+        msg = w.context.show_status_message.call_args[0][0]
+        assert "No molecule" in msg
         w.destroy()

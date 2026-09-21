@@ -240,12 +240,19 @@ class BondEditorWindow(QWidget):
         self.adjust_h_btn = QPushButton("Adjust H")
         self.adjust_h_btn.clicked.connect(self.adjust_hydrogens)
         btn_layout.addWidget(self.adjust_h_btn)
-        self.estimate_btn = QPushButton("Estimate from coordinates")
+        self.estimate_btn = QPushButton("Estimate Bonds")
         self.estimate_btn.setToolTip(
             "Estimate bonds and bond orders from 3D coordinates using RDKit"
         )
-        self.estimate_btn.clicked.connect(self.estimate_from_coordinates)
+        self.estimate_btn.clicked.connect(self.estimate_bonds)
         btn_layout.addWidget(self.estimate_btn)
+        self.kekulize_btn = QPushButton("Kekulize")
+        self.kekulize_btn.setCheckable(True)
+        self.kekulize_btn.setToolTip(
+            "Toggle between Kekulized (alternating single/double) and aromatic bonds"
+        )
+        self.kekulize_btn.toggled.connect(self.toggle_kekulize)
+        btn_layout.addWidget(self.kekulize_btn)
         self.delete_btn = QPushButton("Delete Selected Bonds")
         self.delete_btn.clicked.connect(self.delete_selected_bonds)
         btn_layout.addWidget(self.delete_btn)
@@ -645,6 +652,59 @@ class BondEditorWindow(QWidget):
 
         self._commit(candidate, "Estimated bonds from coordinates.")
 
+    def estimate_bonds(self):
+        """Estimate bonds and bond orders from 3D coordinates."""
+        return self.estimate_from_coordinates()
+
+    def toggle_kekulize(self, checked):
+        """Toggle between Kekulized (alternating single/double) and aromatic bonds."""
+        if checked:
+            self.kekulize()
+        else:
+            self.aromatize()
+
+    def kekulize(self):
+        """Convert aromatic bonds into explicit alternating single and double bonds."""
+        mol = self.context.current_molecule
+        if not mol or not mol.GetNumAtoms():
+            self.context.show_status_message("No molecule loaded.")
+            self._sync_kekulize_btn(False)
+            return
+        rw = Chem.RWMol(mol)
+        try:
+            Chem.Kekulize(rw, clearAromaticFlags=True)
+            self._commit(rw, "Kekulized aromatic bonds.", sanitize=False)
+            self._sync_kekulize_btn(True)
+        except Exception as e:
+            logging.warning("[bond_editor] Kekulize failed: %s", e)
+            self._sync_kekulize_btn(False)
+            QMessageBox.warning(self, "Kekulize", f"Failed to kekulize molecule: {e}")
+
+    def aromatize(self):
+        """Convert alternating single and double bonds in rings back to aromatic bonds."""
+        mol = self.context.current_molecule
+        if not mol or not mol.GetNumAtoms():
+            self.context.show_status_message("No molecule loaded.")
+            self._sync_kekulize_btn(False)
+            return
+        rw = Chem.RWMol(mol)
+        try:
+            Chem.SanitizeMol(rw)
+            self._commit(rw, "Aromatized bonds.", sanitize=True)
+            self._sync_kekulize_btn(False)
+        except Exception as e:
+            logging.warning("[bond_editor] Aromatize failed: %s", e)
+            self._sync_kekulize_btn(True)
+            QMessageBox.warning(self, "Aromatize", f"Failed to aromatize molecule: {e}")
+
+    def _sync_kekulize_btn(self, is_kekulized):
+        if not hasattr(self, "kekulize_btn"):
+            return
+        self.kekulize_btn.blockSignals(True)
+        self.kekulize_btn.setChecked(is_kekulized)
+        self.kekulize_btn.setText("Aromatize" if is_kekulized else "Kekulize")
+        self.kekulize_btn.blockSignals(False)
+
     def _on_click_mode_changed(self, mode):
         """Reset the two-click pick state when the 3D click mode changes."""
         self._first_pick_idx = None
@@ -910,6 +970,15 @@ class BondEditorWindow(QWidget):
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 self.table.setItem(row, self.COL_LEN, item)
 
+        if hasattr(self, "kekulize_btn"):
+            has_aromatic = any(
+                b.GetBondType() == Chem.BondType.AROMATIC
+                or (hasattr(b, "GetIsAromatic") and b.GetIsAromatic())
+                for b in mol.GetBonds()
+            )
+            if has_aromatic:
+                self._sync_kekulize_btn(False)
+
         self.table.blockSignals(False)
 
     def _row_bond_atoms(self, row):
@@ -925,8 +994,22 @@ class BondEditorWindow(QWidget):
     # edit operations (each commits immediately with an undo checkpoint)
     # ------------------------------------------------------------------
 
-    def _commit(self, rw, message):
-        sanitize_or_clear_aromaticity(rw)
+    def _commit(self, rw, message, sanitize=None):
+        if sanitize is None:
+            sanitize = not (
+                hasattr(self, "kekulize_btn") and self.kekulize_btn.isChecked()
+            )
+        if sanitize:
+            sanitize_or_clear_aromaticity(rw)
+        else:
+            try:
+                Chem.SanitizeMol(
+                    rw,
+                    sanitizeOps=Chem.SanitizeFlags.SANITIZE_ALL
+                    ^ Chem.SanitizeFlags.SANITIZE_SETAROMATICITY,
+                )
+            except Exception:
+                rw.UpdatePropertyCache(strict=False)
         self.context.current_molecule = rw.GetMol()
         self.context.push_undo_checkpoint()
         self.last_seen_signature = self.get_mol_signature(self.context.current_molecule)

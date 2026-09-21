@@ -838,6 +838,7 @@ class TestEstimateFromCoordinatesUnit:
             def DetermineBonds(candidate, charge=0):
                 if determine_raises:
                     raise RuntimeError("determine failed")
+
         chem_ns = SimpleNamespace(
             RWMol=lambda m: m,
             GetFormalCharge=lambda m: 0,
@@ -864,3 +865,60 @@ class TestEstimateFromCoordinatesUnit:
         ctx.show_status_message.assert_called_once_with(
             "No 3D molecule to estimate bonds for."
         )
+
+
+class TestKekulizeUnit:
+    def test_estimate_bonds_delegates_to_estimate_from_coordinates(self):
+        fn = extract_function(
+            BOND_EDITOR_PATH,
+            "BondEditorWindow",
+            "estimate_bonds",
+        )
+        self_ = SimpleNamespace(
+            estimate_from_coordinates=MagicMock(return_value="called")
+        )
+        res = fn(self_)
+        self_.estimate_from_coordinates.assert_called_once()
+        assert res == "called"
+
+    def test_toggle_kekulize_routes_to_kekulize_or_aromatize(self):
+        fn = extract_function(
+            BOND_EDITOR_PATH,
+            "BondEditorWindow",
+            "toggle_kekulize",
+        )
+        self_ = SimpleNamespace(kekulize=MagicMock(), aromatize=MagicMock())
+        fn(self_, True)
+        self_.kekulize.assert_called_once()
+        self_.aromatize.assert_not_called()
+
+        self_.kekulize.reset_mock()
+        fn(self_, False)
+        self_.aromatize.assert_called_once()
+        self_.kekulize.assert_not_called()
+
+    def test_kekulize_no_molecule(self):
+        fn = extract_function(
+            BOND_EDITOR_PATH,
+            "BondEditorWindow",
+            "kekulize",
+            extra_globals={"Chem": MagicMock()},
+        )
+        ctx = SimpleNamespace(current_molecule=None, show_status_message=MagicMock())
+        self_ = SimpleNamespace(context=ctx, _sync_kekulize_btn=MagicMock())
+        fn(self_)
+        ctx.show_status_message.assert_called_once_with("No molecule loaded.")
+        self_._sync_kekulize_btn.assert_called_once_with(False)
+
+    def test_aromatize_no_molecule(self):
+        fn = extract_function(
+            BOND_EDITOR_PATH,
+            "BondEditorWindow",
+            "aromatize",
+            extra_globals={"Chem": MagicMock()},
+        )
+        ctx = SimpleNamespace(current_molecule=None, show_status_message=MagicMock())
+        self_ = SimpleNamespace(context=ctx, _sync_kekulize_btn=MagicMock())
+        fn(self_)
+        ctx.show_status_message.assert_called_once_with("No molecule loaded.")
+        self_._sync_kekulize_btn.assert_called_once_with(False)
