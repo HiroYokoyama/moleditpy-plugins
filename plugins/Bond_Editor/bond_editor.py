@@ -22,7 +22,7 @@ from functools import partial
 
 
 PLUGIN_NAME = "Bond Editor"
-PLUGIN_VERSION = "0.3.0"
+PLUGIN_VERSION = "2026.09.21"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -1026,5 +1026,6 @@ def initialize(context):
             win.load_molecule()
 
     context.register_document_reset_handler(on_document_reset)
+
 
 
