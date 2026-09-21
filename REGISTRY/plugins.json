@@ -2454,7 +2454,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "3D Functional Group Toolbox",
-    "version": "0.5.0",
+    "version": "0.6.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_3d_functional_group_toolbox",
@@ -2468,9 +2468,9 @@
       "rdkit",
       "PyQt6"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_3d_functional_group_toolbox/releases/download/v0.5.0/functional_group_toolbox_3d_0.5.0.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_3d_functional_group_toolbox/releases/download/v0.6.0/functional_group_replacer_3d_0.6.0.zip",
     "lastUpdated": "2026-09-21",
-    "sha256": "dc4b399e213383c3359999f5a408805baedb82164be83c2709aa1af49f504f2d",
+    "sha256": "58c6b9e79acd8832b9baf3951521ceaaf69d4654e529aeb5f4ddcbaf62f1f867",
     "firstAppeared": "2026-09-21",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
