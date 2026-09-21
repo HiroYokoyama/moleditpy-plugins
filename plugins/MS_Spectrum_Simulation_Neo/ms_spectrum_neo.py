@@ -628,8 +628,18 @@ class MSSpectrumDialog(QDialog):
         # Apply Gaussian if checked
         if self.gauss_check.isChecked() and peaks:
             sigma = self.width_spin.value()
-            display_peaks = self.apply_gaussian_broadening(peaks, sigma)
-            self.plot_widget.draw_mode = "profile"
+            try:
+                display_peaks = self.apply_gaussian_broadening(peaks, sigma)
+            except ImportError:
+                # Gaussian profiles are optional; keep the default enabled even
+                # in lightweight installations that do not provide NumPy.
+                logging.warning(
+                    "NumPy is unavailable; displaying the theoretical stick spectrum."
+                )
+                display_peaks = peaks
+                self.plot_widget.draw_mode = "stick"
+            else:
+                self.plot_widget.draw_mode = "profile"
         else:
             display_peaks = peaks
             self.plot_widget.draw_mode = "stick"

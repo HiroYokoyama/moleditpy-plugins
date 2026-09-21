@@ -471,6 +471,20 @@ class TestMSExport:
 
 
 class TestMSGaussianBroadening:
+    def test_gaussian_broadening_without_numpy_falls_back_to_sticks(self, qapp, monkeypatch):
+        monkeypatch.setattr(_ms_neo, "Chem", _FakeChem)
+        d, ctx = _make_dlg()
+        d.formula_input.setText("Cl2")
+        monkeypatch.setattr(
+            d,
+            "apply_gaussian_broadening",
+            lambda peaks, sigma: (_ for _ in ()).throw(ImportError("numpy missing")),
+        )
+        d.recalc_peaks(reset=False)
+        assert d.peaks == d.plot_widget.stick_peaks
+        assert d.plot_widget.draw_mode == "stick"
+        d.destroy()
+
     def test_zero_sigma_does_not_crash(self, qapp):
         """Regression for zero division error when sigma is extremely small or 0"""
         pytest.importorskip("numpy")
@@ -611,7 +625,6 @@ class TestMSCalculatePeaksReal:
         d.formula_input.setText("H")
         assert d.peaks == []
         d.destroy()
-
     def test_gaussian_broadening_via_ui_checkbox(self, qapp, monkeypatch):
         pytest.importorskip("numpy")
         monkeypatch.setattr(_ms_neo, "Chem", _FakeChem)
