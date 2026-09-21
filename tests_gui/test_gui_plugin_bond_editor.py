@@ -215,6 +215,9 @@ class TestBondTypeMaps:
     def test_label_from_unknown_type_is_single(self):
         assert _bond.label_from_bond_type("DATIVE") == "Single"
 
+    def test_interactive_cycle_excludes_aromatic(self):
+        assert _bond.INTERACTIVE_BOND_TYPE_LABELS == ["Single", "Double", "Triple"]
+
     def test_bond_type_labels_constant(self):
         assert _bond.BOND_TYPE_LABELS == ["Single", "Double", "Triple", "Aromatic"]
 
@@ -601,6 +604,18 @@ class TestOnPlotterClick:
         widget = QWidget()
         widget.resize(400, 300)
         return widget
+
+    def test_interactive_drag_uses_screen_picked_target_atom(self, win, qapp, monkeypatch):
+        win._interactive_mode = True
+        win._drag_start_atom = 0
+        monkeypatch.setattr(
+            win,
+            "_interactive_pick",
+            lambda *args: (win.context.current_mol, (1.5, 0.0, 0.0), 1),
+        )
+        monkeypatch.setattr(win, "add_bond", MagicMock())
+        win._on_plotter_drag(10, 10, self._widget(qapp), None, None)
+        win.add_bond.assert_called_once_with(0, 1)
 
     def test_empty_space_click_select_mode_clears_selection(
         self, win, qapp, monkeypatch

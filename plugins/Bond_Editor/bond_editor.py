@@ -33,6 +33,7 @@ PLUGIN_DESCRIPTION = (
 PLUGIN_CONTEXT = None
 
 BOND_TYPE_LABELS = ["Single", "Double", "Triple", "Aromatic"]
+INTERACTIVE_BOND_TYPE_LABELS = ["Single", "Double", "Triple"]
 
 
 def bond_type_from_label(label):
@@ -272,21 +273,10 @@ class BondEditorWindow(QWidget):
         picked = self._interactive_pick(x, y, widget)
         if picked is None:
             return False
-        mol, pos = picked
-        atom = self._nearest_atom_to_point(mol, pos)
-        conf = mol.GetConformer()
-        atom_pos = conf.GetAtomPosition(atom) if atom is not None else None
-        if atom_pos is not None:
-            distance = sum(
-                (a - b) ** 2
-                for a, b in zip(
-                    (pos[0], pos[1], pos[2]),
-                    (atom_pos.x, atom_pos.y, atom_pos.z),
-                )
-            ) ** 0.5
-            if distance <= 0.35:
-                self._drag_start_atom = atom
-                return True
+        mol, pos, atom = picked
+        if atom is not None:
+            self._drag_start_atom = atom
+            return True
         return self._nearest_bond_to_point(mol, pos) is not None
     def _on_plotter_click(self, x, y, widget, modifiers, button=Qt.MouseButton.LeftButton):
         try:
@@ -366,22 +356,35 @@ class BondEditorWindow(QWidget):
         ratio = widget.devicePixelRatioF()
         picker.SetTolerance(0.005)
         picker.Pick(x * ratio, (widget.height() - y) * ratio, 0, plotter.renderer)
-        return mol, picker.GetPickPosition()
+        pos = picker.GetPickPosition()
+        atom = self._screen_atom_index(x, y, widget, mol)
+        if atom is None:
+            atom = self._nearest_atom_to_point(mol, pos)
+            atom_pos = mol.GetConformer().GetAtomPosition(atom)
+            distance = sum((a - b) ** 2 for a, b in zip((pos[0], pos[1], pos[2]), (atom_pos.x, atom_pos.y, atom_pos.z))) ** 0.5
+            if distance > 0.8:
+                atom = None
+        return mol, pos, atom
+
+    def _screen_atom_index(self, x, y, widget, mol):
+        """Use the host screen-space atom picker when available."""
+        try:
+            from moleditpy.ui.atom_picking import pick_atom_index_from_screen
+            main_window = self.context.get_main_window()
+            view_3d = getattr(main_window, "view_3d_manager", None)
+            if view_3d is None:
+                return None
+            ratio = widget.devicePixelRatioF()
+            return pick_atom_index_from_screen(view_3d, (int(x * ratio), int((widget.height() - y) * ratio)), mol)
+        except (ImportError, AttributeError, RuntimeError, TypeError, ValueError):
+            return None
 
     def _interactive_click(self, x, y, widget, button):
         picked = self._interactive_pick(x, y, widget)
         if picked is None:
             return
-        mol, pos = picked
-        atom = self._nearest_atom_to_point(mol, pos)
-        conf = mol.GetConformer()
-        atom_pos = conf.GetAtomPosition(atom) if atom is not None else None
-        atom_distance = None
-        if atom_pos is not None:
-            atom_distance = sum((a - b) ** 2 for a, b in zip(
-                (pos[0], pos[1], pos[2]), (atom_pos.x, atom_pos.y, atom_pos.z)
-            )) ** 0.5
-        if atom_distance is not None and atom_distance <= 0.35:
+        mol, pos, atom = picked
+        if atom is not None:
             self._drag_start_atom = atom
             return
         pair = self._nearest_bond_to_point(mol, pos)
@@ -391,7 +394,9 @@ class BondEditorWindow(QWidget):
             self._commit(rw, f"Deleted bond {pair[0]}-{pair[1]}.")
         elif pair:
             current = label_from_bond_type(mol.GetBondBetweenAtoms(*pair).GetBondType())
-            label = BOND_TYPE_LABELS[(BOND_TYPE_LABELS.index(current) + 1) % len(BOND_TYPE_LABELS)]
+            cycle = INTERACTIVE_BOND_TYPE_LABELS
+            index = cycle.index(current) if current in cycle else -1
+            label = cycle[(index + 1) % len(cycle)]
             self._set_interactive_bond_type(pair, label)
 
     def _on_plotter_drag(self, x, y, widget, modifiers, button):
@@ -400,7 +405,7 @@ class BondEditorWindow(QWidget):
         picked = self._interactive_pick(x, y, widget)
         start = self._drag_start_atom; self._drag_start_atom = None
         if picked is not None:
-            end = self._nearest_atom_to_point(picked[0], picked[1])
+            end = picked[2]
             if end is not None and end != start:
                 self.add_bond(start, end)
 
