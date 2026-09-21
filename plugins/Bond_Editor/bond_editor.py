@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (
     QTableWidgetItem,
     QPushButton,
     QComboBox,
+    QCheckBox,
     QLabel,
     QHeaderView,
     QMessageBox,
@@ -58,6 +59,17 @@ def label_from_bond_type(bond_type):
         "TRIPLE": "Triple",
         "AROMATIC": "Aromatic",
     }.get(name.rsplit(".", 1)[-1], "Single")
+
+
+def _has_aromatic_bonds(mol):
+    """Check whether the molecule contains any aromatic bonds or atoms."""
+    if not mol:
+        return False
+    return any(
+        b.GetBondType() == Chem.BondType.AROMATIC
+        or (hasattr(b, "GetIsAromatic") and b.GetIsAromatic())
+        for b in mol.GetBonds()
+    )
 
 
 def sanitize_or_clear_aromaticity(rw):
@@ -214,6 +226,13 @@ class BondEditorWindow(QWidget):
         )
         self.interactive_btn.toggled.connect(self._toggle_interactive_mode)
         add_layout.addWidget(self.interactive_btn)
+        self.auto_kekulize_cb = QCheckBox("Auto-kekulize")
+        self.auto_kekulize_cb.setChecked(True)
+        self.auto_kekulize_cb.setToolTip(
+            "If aromatic bonds exist, automatically kekulize them before editing "
+            "and re-perceive aromaticity afterwards."
+        )
+        add_layout.addWidget(self.auto_kekulize_cb)
         add_layout.addWidget(QLabel("3D click:"))
         self.click_mode_combo = QComboBox()
         self.click_mode_combo.addItems(["Select bond", "Create bond"])
@@ -480,6 +499,19 @@ class BondEditorWindow(QWidget):
         except (ImportError, AttributeError, RuntimeError, TypeError, ValueError):
             return None
 
+    def _prepare_rw_for_edit(self, mol):
+        rw = Chem.RWMol(mol)
+        if (
+            getattr(self, "auto_kekulize_cb", None)
+            and self.auto_kekulize_cb.isChecked()
+            and _has_aromatic_bonds(mol)
+        ):
+            try:
+                Chem.Kekulize(rw, clearAromaticFlags=True)
+            except Exception as e:
+                logging.warning("[bond_editor] Auto-kekulize failed: %s", e)
+        return rw
+
     def _interactive_click(self, x, y, widget, button):
         picked = self._interactive_pick(x, y, widget)
         if picked is None:
@@ -490,7 +522,7 @@ class BondEditorWindow(QWidget):
             self._drag_start_atom = atom
             return
         if button == Qt.MouseButton.RightButton and pair:
-            rw = Chem.RWMol(mol)
+            rw = self._prepare_rw_for_edit(mol)
             rw.RemoveBond(*pair)
             self._commit(rw, f"Deleted bond {pair[0]}-{pair[1]}.")
         elif pair:
@@ -513,9 +545,17 @@ class BondEditorWindow(QWidget):
 
     def _set_interactive_bond_type(self, pair, label):
         try:
-            rw = Chem.RWMol(self.context.current_mol)
+            rw = self._prepare_rw_for_edit(self.context.current_mol)
             bond = rw.GetBondBetweenAtoms(*pair)
-            bond.SetBondType(bond_type_from_label(label))
+            if bond is None:
+                return
+            new_type = bond_type_from_label(label)
+            bond.SetBondType(new_type)
+            aromatic = new_type == Chem.BondType.AROMATIC
+            bond.SetIsAromatic(aromatic)
+            if aromatic:
+                bond.GetBeginAtom().SetIsAromatic(True)
+                bond.GetEndAtom().SetIsAromatic(True)
             self._commit(rw, f"Bond {pair[0]}-{pair[1]} set to {label.lower()}.")
         except (RuntimeError, AttributeError, ValueError) as exc:
             QMessageBox.critical(self, "Error", f"Failed to change bond type: {exc}")
@@ -1035,7 +1075,11 @@ class BondEditorWindow(QWidget):
             )
             return
         try:
-            rw = Chem.RWMol(mol)
+            rw = (
+                self._prepare_rw_for_edit(mol)
+                if hasattr(self, "_prepare_rw_for_edit")
+                else Chem.RWMol(mol)
+            )
             rw.AddBond(a1, a2, bond_type_from_label(self.add_type_combo.currentText()))
             self._commit(
                 rw, f"Added {self.add_type_combo.currentText().lower()} bond {a1}-{a2}."
@@ -1054,7 +1098,11 @@ class BondEditorWindow(QWidget):
         if not pairs:
             return
         try:
-            rw = Chem.RWMol(mol)
+            rw = (
+                self._prepare_rw_for_edit(mol)
+                if hasattr(self, "_prepare_rw_for_edit")
+                else Chem.RWMol(mol)
+            )
             for a1, a2 in pairs:
                 rw.RemoveBond(a1, a2)
             self._commit(rw, f"Deleted {len(pairs)} bond(s).")

@@ -922,3 +922,47 @@ class TestKekulizeUnit:
         fn(self_)
         ctx.show_status_message.assert_called_once_with("No molecule loaded.")
         self_._sync_kekulize_btn.assert_called_once_with(False)
+
+
+class TestPrepareRwForEditUnit:
+    def test_auto_kekulize_enabled_with_aromatic_bonds(self):
+        mock_chem = MagicMock()
+        fn = extract_function(
+            BOND_EDITOR_PATH,
+            "BondEditorWindow",
+            "_prepare_rw_for_edit",
+            extra_globals={"Chem": mock_chem, "_has_aromatic_bonds": lambda m: True},
+        )
+        cb = SimpleNamespace(isChecked=lambda: True)
+        self_ = SimpleNamespace(auto_kekulize_cb=cb)
+        mol = MagicMock()
+        rw = fn(self_, mol)
+        mock_chem.Kekulize.assert_called_once_with(rw, clearAromaticFlags=True)
+
+    def test_auto_kekulize_disabled(self):
+        mock_chem = MagicMock()
+        fn = extract_function(
+            BOND_EDITOR_PATH,
+            "BondEditorWindow",
+            "_prepare_rw_for_edit",
+            extra_globals={"Chem": mock_chem, "_has_aromatic_bonds": lambda m: True},
+        )
+        cb = SimpleNamespace(isChecked=lambda: False)
+        self_ = SimpleNamespace(auto_kekulize_cb=cb)
+        mol = MagicMock()
+        fn(self_, mol)
+        mock_chem.Kekulize.assert_not_called()
+
+    def test_auto_kekulize_no_aromatic_bonds(self):
+        mock_chem = MagicMock()
+        fn = extract_function(
+            BOND_EDITOR_PATH,
+            "BondEditorWindow",
+            "_prepare_rw_for_edit",
+            extra_globals={"Chem": mock_chem, "_has_aromatic_bonds": lambda m: False},
+        )
+        cb = SimpleNamespace(isChecked=lambda: True)
+        self_ = SimpleNamespace(auto_kekulize_cb=cb)
+        mol = MagicMock()
+        fn(self_, mol)
+        mock_chem.Kekulize.assert_not_called()

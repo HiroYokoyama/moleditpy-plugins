@@ -1115,6 +1115,9 @@ class TestInteractiveBtnAndEstimateBtnGUI:
         assert hasattr(w, "kekulize_btn")
         assert w.kekulize_btn.isCheckable()
         assert w.kekulize_btn.text() == "Kekulize"
+        assert hasattr(w, "auto_kekulize_cb")
+        assert w.auto_kekulize_cb.isChecked()
+        assert w.auto_kekulize_cb.text() == "Auto-kekulize"
         w.destroy()
 
 
@@ -1396,4 +1399,42 @@ class TestKekulizeGUI:
         w.aromatize()
         msg = w.context.show_status_message.call_args[0][0]
         assert "No molecule" in msg
+        w.destroy()
+
+    def test_interactive_edit_auto_kekulizes_and_preserves_ring_double_bonds(
+        self, qapp, monkeypatch
+    ):
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtWidgets import QWidget
+
+        mol = self._make_benzene()
+        ctx = _real_ctx(mol=mol)
+        ctx.current_mol = mol
+        ctx.plotter = MagicMock()
+        w = _bondrn.BondEditorWindow(context=ctx)
+
+        widget = QWidget()
+        widget.resize(400, 300)
+
+        # Click on bond 0-1
+        bond_actor = object()
+        atom_actor = object()
+        mw = MagicMock()
+        mw.view_3d_manager = MagicMock()
+        mw.view_3d_manager.atom_actor = atom_actor
+        w.context.get_main_window = lambda: mw
+        monkeypatch.setattr(
+            _vtk,
+            "vtkCellPicker",
+            lambda: _FakePicker(actor=bond_actor, pos=(0.5, 0.0, 0.0)),
+        )
+
+        w._interactive_mode = True
+        assert w.auto_kekulize_cb.isChecked()
+        w._interactive_click(10, 10, widget, Qt.MouseButton.LeftButton)
+
+        # After edit, the molecule should have remaining double bonds rather than all single!
+        res_mol = w.context.current_molecule
+        bond_types = {b.GetBondType() for b in res_mol.GetBonds()}
+        assert _Chem.BondType.DOUBLE in bond_types
         w.destroy()
