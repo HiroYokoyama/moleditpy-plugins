@@ -72,6 +72,18 @@ All new registrations and updates to external plugins **must be requested by ope
 4.  **Open a Registration Issue**: Open a new issue on GitHub using the **Request Plugin Registration / Update** template.
 5.  **Review**: A repository maintainer will trigger the automated workflow with your inputs, which downloads, strictly validates (version tag alignment and SHA-256 match), and commits the update to `plugins.json`.
 
+> [!NOTE]
+> **Preserving Curated Metadata on Updates**:
+> When a routine plugin update (version bump) is processed, curated registry fields (such as `tags`, `name`, and custom descriptions) are preserved to avoid unintended overwrites. If you want any metadata fields (like tags or display name) updated at the same time or without a new release, check the appropriate metadata update options in the issue template.
+
+#### Requesting Metadata-Only Updates (No Version Bump):
+If you need to update only registry information for an already registered plugin—such as updating categorization `tags`, refining the `description`, updating the display `name`, or adjusting `supported_moleditpy_version`—without releasing a new version:
+1. Open an issue with the **Request Plugin Registration / Update** template.
+2. Under **Target Action**, check **Update Registry Metadata Only (No Version Bump)** and select the specific metadata checkboxes you want updated.
+3. Specify the release asset URL along with any updated fields (e.g. new tags, description, or sync from code).
+4. Maintainers will run the **Update Plugin Metadata Only** workflow, which updates `REGISTRY/plugins.json` without requiring a version bump.
+
+
 ### 2. Internal (Intra-Repo) Plugins
 *Plugins whose source code lives directly inside the `plugins/` directory of this repository.*
 

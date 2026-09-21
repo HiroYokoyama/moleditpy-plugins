@@ -14,8 +14,17 @@ Provide the direct link to your plugin's GitHub Release asset (must end in `.py`
 **URL:** 
 
 ### 2. Target Action
-* [ ] Register a New Plugin
-* [ ] Update an Existing Plugin
+* [ ] **Register a New Plugin**
+* [ ] **Update an Existing Plugin (New Release / Version Bump)**
+* [ ] **Update Registry Metadata Only (No Version Bump)**
+
+*(If updating an existing plugin or metadata, select which metadata fields you would like updated in the registry:)*
+* [ ] **Sync metadata from release code** (e.g. name, description, tags, dependencies)
+* [ ] **Update Tags** (specify in Section 5 below)
+* [ ] **Update Visibility** (specify in Section 7 below)
+* [ ] **Update Supported MoleditPy / Python Version** (specify in Section 8/9 below)
+* [ ] **Update Description or Display Name** (specify below if overriding code)
+
 
 ### 3. Plugin ID
 The unique lowercase identifier (e.g., `my_awesome_plugin`).
