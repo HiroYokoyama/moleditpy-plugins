@@ -2453,7 +2453,7 @@
     "id": "functional_group_toolbox_3d",
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
-    "name": "3D Functional Group Toolbox",
+    "name": "3D Functional Group Replacer",
     "version": "0.6.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
