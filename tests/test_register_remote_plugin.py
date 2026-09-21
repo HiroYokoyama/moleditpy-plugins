@@ -51,6 +51,17 @@ def test_parse_version():
     assert register_remote_plugin.parse_version("2.3.0") > register_remote_plugin.parse_version("2.2.9")
     assert register_remote_plugin.parse_version("10.0.0") > register_remote_plugin.parse_version("2.0.0")
 
+def test_derive_plugin_id():
+    assert register_remote_plugin.derive_plugin_id("functional_group_toolbox_3d_0.4.0.zip") == "functional_group_toolbox_3d"
+    assert register_remote_plugin.derive_plugin_id("gaussian_input_generator_pro_0.1.0.zip") == "gaussian_input_generator_pro"
+    assert register_remote_plugin.derive_plugin_id("my_plugin_v1.2.3.zip") == "my_plugin"
+    assert register_remote_plugin.derive_plugin_id("plugin-name-1.0.0.zip") == "plugin_name"
+    assert register_remote_plugin.derive_plugin_id("camera_position_setter.py") == "camera_position_setter"
+    assert register_remote_plugin.derive_plugin_id("3d_molecule_on_2d.py") == "3d_molecule_on_2d"
+    assert register_remote_plugin.derive_plugin_id("psi4_input_generator.py") == "psi4_input_generator"
+    assert register_remote_plugin.derive_plugin_id("nmr_predictor_nmrshiftdb2.py") == "nmr_predictor_nmrshiftdb2"
+    assert register_remote_plugin.derive_plugin_id("my_plugin_2026.09.21.zip") == "my_plugin"
+
 def test_extract_metadata_from_code():
     code = """
     # My Plugin
@@ -116,6 +127,12 @@ def test_find_existing_plugin():
         plugins, "HiroYokoyama", "moleditpy_cif_viewer", "cif_viewer_v2.zip"
     )
     assert p_proj["id"] == "cif_viewer"
+
+    # Match by clean derived ID even if project/download URL differs
+    p_derived = register_remote_plugin.find_existing_plugin(
+        plugins, "SomeFork", "cif_viewer_fork", "cif_viewer_1.5.0.zip"
+    )
+    assert p_derived["id"] == "cif_viewer"
 
     # No match
     p_none = register_remote_plugin.find_existing_plugin(
@@ -678,6 +695,38 @@ def test_update_prioritizes_cli_then_code_then_registry(mock_file, mock_extract,
             found_code = True
             break
     assert found_code, "Expected code constant to win when CLI omitted in UPDATE"
+
+
+@patch('sys.exit')
+@patch('urllib.request.urlopen')
+@patch('register_remote_plugin.extract_metadata_from_file')
+@patch('builtins.open', new_callable=mock_open, read_data='[]')
+def test_auto_id_omits_version_string_in_add_mode(mock_file, mock_extract, mock_urlopen, mock_exit):
+    mock_response = MagicMock()
+    mock_response.read.return_value = b"mock zip content"
+    mock_urlopen.return_value.__enter__.return_value = mock_response
+
+    mock_extract.return_value = {
+        "name": "3D Functional Group Toolbox",
+        "version": "0.4.0",
+        "author": "HiroYokoyama",
+        "description": "3D editing plugin",
+        "supported_moleditpy_version": ">=4.0.0, <5.0.0",
+    }
+
+    test_args = [
+        "scripts/register_remote_plugin.py",
+        "https://github.com/HiroYokoyama/moleditpy_3d_functional_group_toolbox/releases/download/v0.4.0/functional_group_toolbox_3d_0.4.0.zip",
+        "--dry-run"
+    ]
+
+    with patch('sys.argv', test_args), patch('builtins.print') as mock_print:
+        register_remote_plugin.main()
+
+    printed = "\n".join(str(c[0][0]) for c in mock_print.call_args_list if c[0])
+    assert '"id": "functional_group_toolbox_3d"' in printed
+    assert '"id": "functional_group_toolbox_3d_0.4.0"' not in printed
+
 
 
 

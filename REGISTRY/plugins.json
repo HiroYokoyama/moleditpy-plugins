@@ -2004,7 +2004,7 @@
     ]
   },
   {
-    "id": "gaussian_input_generator_pro_0.1.0",
+    "id": "gaussian_input_generator_pro",
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Gaussian Input Generator Pro",
@@ -2210,7 +2210,7 @@
     ]
   },
   {
-    "id": "vasp_input_generator_0.1.0",
+    "id": "vasp_input_generator",
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "VASP Input Generator",
@@ -2241,7 +2241,7 @@
     ]
   },
   {
-    "id": "qe_input_generator_0.1.0",
+    "id": "qe_input_generator",
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Quantum ESPRESSO Input Generator",
@@ -2272,7 +2272,7 @@
     ]
   },
   {
-    "id": "cp2k_input_generator_0.1.0",
+    "id": "cp2k_input_generator",
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "CP2K Input Generator",
@@ -2303,7 +2303,7 @@
     ]
   },
   {
-    "id": "slab_builder_0.1.0",
+    "id": "slab_builder",
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Slab Builder",
@@ -2362,7 +2362,7 @@
     "supported_python_version": ">=3.9, <3.15"
   },
   {
-    "id": "group_template_0.1.1",
+    "id": "group_template",
     "visible": true,
     "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "Group Template",
@@ -2391,7 +2391,7 @@
     ]
   },
   {
-    "id": "opsin_name_to_structure_0.1.0",
+    "id": "opsin_name_to_structure",
     "visible": true,
     "supported_moleditpy_version": ">=3.0.0, <5.0.0",
     "name": "OPSIN Name to Structure",
@@ -2441,37 +2441,6 @@
     "lastUpdated": "2026-08-26",
     "sha256": "fc4f22b61d83ac2440ce91e9a6264d814330c90aac960e2f80f330b1c5109abe",
     "firstAppeared": "2026-08-23",
-    "supported_python_version": ">=3.9, <3.15",
-    "supported_os": [
-      "Windows",
-      "macOS",
-      "Linux",
-      "WSL"
-    ]
-  },
-  {
-    "id": "functional_group_toolbox_3d_0.4.0",
-    "visible": true,
-    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
-    "name": "3D Functional Group Toolbox",
-    "version": "0.4.0",
-    "author": "HiroYokoyama",
-    "authorUrl": "https://github.com/HiroYokoyama",
-    "projectUrl": "https://github.com/HiroYokoyama/moleditpy_3d_functional_group_toolbox",
-    "description": "Replace a selected atom with a common functional group while retaining its neighbours.",
-    "tags": [
-      "3D",
-      "Editing",
-      "Chemistry"
-    ],
-    "dependencies": [
-      "rdkit",
-      "PyQt6"
-    ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_3d_functional_group_toolbox/releases/download/v0.4.0/functional_group_toolbox_3d_0.4.0.zip",
-    "lastUpdated": "2026-09-21",
-    "sha256": "786659101eb07d49033258e89466906883ad33dfa75bdde9d53383aef76be3de",
-    "firstAppeared": "2026-09-21",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
       "Windows",

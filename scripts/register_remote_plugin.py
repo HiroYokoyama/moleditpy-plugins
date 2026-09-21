@@ -249,6 +249,13 @@ def extract_metadata_from_file(file_path: Path) -> dict:
             
     raise ValueError(f"Unsupported file format '{suffix}'. Only .py and .zip are supported.")
 
+def derive_plugin_id(filename: str) -> str:
+    """Derives a clean plugin ID from filename, omitting trailing version string."""
+    stem = Path(filename).stem.lower().replace("-", "_")
+    # Strip trailing version patterns like _0.4.0, _v1.2.3, _2026.09.21, -1.0.0
+    stem = re.sub(r"[_.-]v?\d+([_.-]\d+)*$", "", stem)
+    return stem
+
 def find_existing_plugin(plugins: list, owner: str, repo: str, filename: str, plugin_id: str = None) -> dict:
     """Searches for an existing plugin entry in registry."""
     if plugin_id:
@@ -271,6 +278,12 @@ def find_existing_plugin(plugins: list, owner: str, repo: str, filename: str, pl
         target_project = f"https://github.com/{owner}/{repo}".lower().rstrip(".git").rstrip("/")
         if project_url == target_project:
             return p
+
+    derived_id = derive_plugin_id(filename)
+    if derived_id:
+        for p in plugins:
+            if p.get("id") == derived_id:
+                return p
             
     return None
 
@@ -338,8 +351,8 @@ def main():
     plugin_id = args.plugin_id
     if mode == "ADD":
         if not plugin_id:
-            # Derive ID from filename (excluding extension, converted to lowercase, dashes to underscores)
-            plugin_id = Path(filename).stem.lower().replace("-", "_")
+            # Derive ID from filename (excluding extension and version suffix, converted to lowercase, dashes to underscores)
+            plugin_id = derive_plugin_id(filename)
             print(f"Derived plugin ID from filename: '{plugin_id}'")
             
         # Ensure unique ID
