@@ -22,7 +22,7 @@ from functools import partial
 
 
 PLUGIN_NAME = "Bond Editor"
-PLUGIN_VERSION = "2026.09.21"
+PLUGIN_VERSION = "0.3.0"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -34,6 +34,8 @@ PLUGIN_CONTEXT = None
 
 BOND_TYPE_LABELS = ["Single", "Double", "Triple", "Aromatic"]
 INTERACTIVE_BOND_TYPE_LABELS = ["Single", "Double", "Triple"]
+INTERACTIVE_MODE_COLOR = "#d9f7e5"
+SELECTED_BOND_COLOR = "#ff9f1c"
 
 
 def bond_type_from_label(label):
@@ -187,6 +189,9 @@ class BondEditorWindow(QWidget):
         add_layout = QHBoxLayout()
         self.interactive_btn = QPushButton("Interactive mode")
         self.interactive_btn.setCheckable(True)
+        self.interactive_btn.setStyleSheet(
+            "QPushButton:checked { background-color: %s; }" % INTERACTIVE_MODE_COLOR
+        )
         self.interactive_btn.toggled.connect(self._toggle_interactive_mode)
         add_layout.addWidget(self.interactive_btn)
         add_layout.addWidget(QLabel("3D click:"))
@@ -356,15 +361,28 @@ class BondEditorWindow(QWidget):
         ratio = widget.devicePixelRatioF()
         picker.SetTolerance(0.005)
         picker.Pick(x * ratio, (widget.height() - y) * ratio, 0, plotter.renderer)
+        picked_actor = picker.GetActor()
         pos = picker.GetPickPosition()
         atom = self._screen_atom_index(x, y, widget, mol)
-        if atom is None:
+        if atom is None and self._pick_is_atom_actor(picked_actor):
             atom = self._nearest_atom_to_point(mol, pos)
             atom_pos = mol.GetConformer().GetAtomPosition(atom)
             distance = sum((a - b) ** 2 for a, b in zip((pos[0], pos[1], pos[2]), (atom_pos.x, atom_pos.y, atom_pos.z))) ** 0.5
             if distance > 0.8:
                 atom = None
         return mol, pos, atom
+
+    def _pick_is_atom_actor(self, picked_actor):
+        """Return whether a VTK pick landed on the host's atom geometry."""
+        if picked_actor is None:
+            return False
+        try:
+            main_window = self.context.get_main_window()
+            view_3d = getattr(main_window, "view_3d_manager", None)
+            atom_actor = getattr(view_3d, "atom_actor", None)
+            return atom_actor is None or picked_actor is atom_actor
+        except (AttributeError, RuntimeError, TypeError):
+            return False
 
     def _screen_atom_index(self, x, y, widget, mol):
         """Use the host screen-space atom picker when available."""
@@ -952,7 +970,7 @@ class BondEditorWindow(QWidget):
             plotter.add_mesh(
                 tube,
                 name="bond_editor_selection",
-                color="yellow",
+                color=SELECTED_BOND_COLOR,
                 opacity=0.6,
                 pickable=False,
                 reset_camera=False,
@@ -1008,3 +1026,5 @@ def initialize(context):
             win.load_molecule()
 
     context.register_document_reset_handler(on_document_reset)
+
+

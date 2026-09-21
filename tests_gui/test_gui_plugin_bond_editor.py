@@ -217,6 +217,8 @@ class TestBondTypeMaps:
 
     def test_interactive_cycle_excludes_aromatic(self):
         assert _bond.INTERACTIVE_BOND_TYPE_LABELS == ["Single", "Double", "Triple"]
+    def test_interactive_and_selected_colors_are_distinct(self):
+        assert _bond.INTERACTIVE_MODE_COLOR != _bond.SELECTED_BOND_COLOR
 
     def test_bond_type_labels_constant(self):
         assert _bond.BOND_TYPE_LABELS == ["Single", "Double", "Triple", "Aromatic"]
@@ -616,6 +618,38 @@ class TestOnPlotterClick:
         monkeypatch.setattr(win, "add_bond", MagicMock())
         win._on_plotter_drag(10, 10, self._widget(qapp), None, None)
         win.add_bond.assert_called_once_with(0, 1)
+    def test_interactive_existing_bond_click_cycles_order(self, win, qapp, monkeypatch):
+        from PyQt6.QtCore import Qt
+
+        widget = self._widget(qapp)
+        win.context.get_main_window().view_3d_manager.atom_actor = object()
+        monkeypatch.setattr(
+            _vtk,
+            "vtkCellPicker",
+            lambda: _FakePicker(actor=object(), pos=(0.75, 0.0, 0.0)),
+        )
+        win._screen_atom_index = lambda *args: None
+        win._interactive_mode = True
+        win._interactive_click(10, 10, widget, Qt.MouseButton.LeftButton)
+        assert (
+            win.context.current_molecule.GetBondBetweenAtoms(0, 1).GetBondType()
+            == _Chem.BondType.DOUBLE
+        )
+
+    def test_interactive_existing_bond_right_click_deletes(self, win, qapp, monkeypatch):
+        from PyQt6.QtCore import Qt
+
+        widget = self._widget(qapp)
+        win.context.get_main_window().view_3d_manager.atom_actor = object()
+        monkeypatch.setattr(
+            _vtk,
+            "vtkCellPicker",
+            lambda: _FakePicker(actor=object(), pos=(0.75, 0.0, 0.0)),
+        )
+        win._screen_atom_index = lambda *args: None
+        win._interactive_mode = True
+        win._interactive_click(10, 10, widget, Qt.MouseButton.RightButton)
+        assert win.context.current_molecule.GetBondBetweenAtoms(0, 1) is None
 
     def test_empty_space_click_select_mode_clears_selection(
         self, win, qapp, monkeypatch
@@ -1053,3 +1087,4 @@ class TestCloseEventWithPlotter:
         ctx.plotter.remove_actor.assert_any_call("bond_editor_atom_labels")
         ctx.plotter.render.assert_called()
         w.destroy()
+
