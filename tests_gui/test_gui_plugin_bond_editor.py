@@ -265,6 +265,17 @@ class TestClickFilter:
         f.eventFilter(obj, release)
         assert calls == []
 
+    def test_consumes_editable_gesture_when_press_callback_claims_it(self, qapp):
+        calls = []
+        f = _bond._ClickFilter(
+            lambda *args: calls.append("click"),
+            press_callback=lambda *args: True,
+        )
+        press, release = self._events((10, 10), (30, 30))
+        obj = MagicMock()
+        assert f.eventFilter(obj, press) is True
+        assert f.eventFilter(obj, release) is True
+        assert calls == []
     def test_never_consumes_events(self, qapp):
         f = _bond._ClickFilter(lambda *a: None)
         press, release = self._events((0, 0), (0, 0))

@@ -89,20 +89,36 @@ def sanitize_or_clear_aromaticity(rw):
 
 
 class _ClickFilter(QObject):
-    """Observe click and drag gestures without consuming camera events."""
-    def __init__(self, callback, parent=None, drag_callback=None):
+    """Dispatch click/drag gestures and suppress camera input when editing.
+
+    The press callback decides whether the gesture started on an editable 3D
+    object. Only those gestures are consumed; empty-space drags continue to
+    the VTK interactor so the camera can still rotate normally.
+    """
+    def __init__(self, callback, parent=None, drag_callback=None, press_callback=None):
         super().__init__(parent)
         self._callback = callback
         self._drag_callback = drag_callback
+        self._press_callback = press_callback
         self._press_pos = None
         self._press_button = None
+        self._consume_gesture = False
 
     def eventFilter(self, obj, event):
         t = event.type()
         if t == QEvent.Type.MouseButtonPress and event.button() in (Qt.MouseButton.LeftButton, Qt.MouseButton.RightButton):
             self._press_pos = event.position().toPoint()
             self._press_button = event.button()
-        elif t == QEvent.Type.MouseButtonRelease and self._press_pos is not None:
+            self._consume_gesture = bool(
+                self._press_callback(
+                    self._press_pos.x(), self._press_pos.y(), obj,
+                    event.modifiers(), self._press_button
+                )
+            ) if self._press_callback is not None else False
+            return self._consume_gesture
+        if t == QEvent.Type.MouseMove and self._press_pos is not None:
+            return self._consume_gesture
+        if t == QEvent.Type.MouseButtonRelease and self._press_pos is not None:
             rel = event.position().toPoint()
             dx = rel.x() - self._press_pos.x()
             dy = rel.y() - self._press_pos.y()
@@ -116,10 +132,12 @@ class _ClickFilter(QObject):
                     self._callback(*args)
             elif self._drag_callback is not None and self._press_button == Qt.MouseButton.LeftButton:
                 self._drag_callback(rel.x(), rel.y(), obj, event.modifiers(), self._press_button)
+            consume = self._consume_gesture
             self._press_pos = None
             self._press_button = None
+            self._consume_gesture = False
+            return consume
         return False
-
 
 class BondEditorWindow(QWidget):
     """Table-based editor for bonds: order, existence, and length."""
@@ -230,7 +248,7 @@ class BondEditorWindow(QWidget):
             interactor = getattr(plotter, "interactor", None)
             if interactor is None:
                 return
-            self._click_filter = _ClickFilter(self._on_plotter_click, parent=self, drag_callback=self._on_plotter_drag)
+            self._click_filter = _ClickFilter(self._on_plotter_click, parent=self, drag_callback=self._on_plotter_drag, press_callback=self._on_plotter_press)
             interactor.installEventFilter(self._click_filter)
         except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
             logging.warning("[bond_editor.py:_enable_plotter_picking] silenced: %s", _e)
@@ -247,6 +265,29 @@ class BondEditorWindow(QWidget):
             )
         self._click_filter = None
 
+    def _on_plotter_press(self, x, y, widget, modifiers, button):
+        """Claim an interactive gesture before VTK can start camera rotation."""
+        if not self._interactive_mode:
+            return False
+        picked = self._interactive_pick(x, y, widget)
+        if picked is None:
+            return False
+        mol, pos = picked
+        atom = self._nearest_atom_to_point(mol, pos)
+        conf = mol.GetConformer()
+        atom_pos = conf.GetAtomPosition(atom) if atom is not None else None
+        if atom_pos is not None:
+            distance = sum(
+                (a - b) ** 2
+                for a, b in zip(
+                    (pos[0], pos[1], pos[2]),
+                    (atom_pos.x, atom_pos.y, atom_pos.z),
+                )
+            ) ** 0.5
+            if distance <= 0.35:
+                self._drag_start_atom = atom
+                return True
+        return self._nearest_bond_to_point(mol, pos) is not None
     def _on_plotter_click(self, x, y, widget, modifiers, button=Qt.MouseButton.LeftButton):
         try:
             if self._interactive_mode:
@@ -311,6 +352,7 @@ class BondEditorWindow(QWidget):
 
     def _toggle_interactive_mode(self, enabled):
         self._interactive_mode = bool(enabled)
+        self._drag_start_atom = None
         self.click_mode_combo.setEnabled(not enabled)
         self.context.show_status_message("Interactive mode enabled." if enabled else "Interactive mode disabled.")
 
