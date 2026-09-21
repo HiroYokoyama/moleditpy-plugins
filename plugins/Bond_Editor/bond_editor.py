@@ -35,6 +35,7 @@ PLUGIN_CONTEXT = None
 BOND_TYPE_LABELS = ["Single", "Double", "Triple", "Aromatic"]
 INTERACTIVE_BOND_TYPE_LABELS = ["Single", "Double", "Triple"]
 INTERACTIVE_MODE_COLOR = "#d9f7e5"
+INTERACTIVE_MODE_CHECKED_COLOR = "#ffc078"
 SELECTED_BOND_COLOR = "#ff9f1c"
 
 
@@ -98,6 +99,7 @@ class _ClickFilter(QObject):
     object. Only those gestures are consumed; empty-space drags continue to
     the VTK interactor so the camera can still rotate normally.
     """
+
     def __init__(self, callback, parent=None, drag_callback=None, press_callback=None):
         super().__init__(parent)
         self._callback = callback
@@ -109,15 +111,25 @@ class _ClickFilter(QObject):
 
     def eventFilter(self, obj, event):
         t = event.type()
-        if t == QEvent.Type.MouseButtonPress and event.button() in (Qt.MouseButton.LeftButton, Qt.MouseButton.RightButton):
+        if t == QEvent.Type.MouseButtonPress and event.button() in (
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.RightButton,
+        ):
             self._press_pos = event.position().toPoint()
             self._press_button = event.button()
-            self._consume_gesture = bool(
-                self._press_callback(
-                    self._press_pos.x(), self._press_pos.y(), obj,
-                    event.modifiers(), self._press_button
+            self._consume_gesture = (
+                bool(
+                    self._press_callback(
+                        self._press_pos.x(),
+                        self._press_pos.y(),
+                        obj,
+                        event.modifiers(),
+                        self._press_button,
+                    )
                 )
-            ) if self._press_callback is not None else False
+                if self._press_callback is not None
+                else False
+            )
             return self._consume_gesture
         if t == QEvent.Type.MouseMove and self._press_pos is not None:
             return self._consume_gesture
@@ -133,14 +145,20 @@ class _ClickFilter(QObject):
                     self._callback(*args[:4])
                 else:
                     self._callback(*args)
-            elif self._drag_callback is not None and self._press_button == Qt.MouseButton.LeftButton:
-                self._drag_callback(rel.x(), rel.y(), obj, event.modifiers(), self._press_button)
+            elif (
+                self._drag_callback is not None
+                and self._press_button == Qt.MouseButton.LeftButton
+            ):
+                self._drag_callback(
+                    rel.x(), rel.y(), obj, event.modifiers(), self._press_button
+                )
             consume = self._consume_gesture
             self._press_pos = None
             self._press_button = None
             self._consume_gesture = False
             return consume
         return False
+
 
 class BondEditorWindow(QWidget):
     """Table-based editor for bonds: order, existence, and length."""
@@ -152,7 +170,7 @@ class BondEditorWindow(QWidget):
         self.setWindowFlags(Qt.WindowType.Window)
         self.context = context
         self.setWindowTitle("Bond Editor")
-        self.resize(560, 420)
+        self.resize(600, 420)
         self._click_filter = None
         self._interactive_mode = False
         self._drag_start_atom = None
@@ -190,7 +208,9 @@ class BondEditorWindow(QWidget):
         self.interactive_btn = QPushButton("Interactive mode")
         self.interactive_btn.setCheckable(True)
         self.interactive_btn.setStyleSheet(
-            "QPushButton:checked { background-color: %s; }" % INTERACTIVE_MODE_COLOR
+            f"QPushButton {{ background-color: {INTERACTIVE_MODE_COLOR}; }} "
+            f"QPushButton:checked {{ background-color: {INTERACTIVE_MODE_CHECKED_COLOR}; }} "
+            "QPushButton:pressed { background-color: #ffa94d; }"
         )
         self.interactive_btn.toggled.connect(self._toggle_interactive_mode)
         add_layout.addWidget(self.interactive_btn)
@@ -220,6 +240,12 @@ class BondEditorWindow(QWidget):
         self.adjust_h_btn = QPushButton("Adjust H")
         self.adjust_h_btn.clicked.connect(self.adjust_hydrogens)
         btn_layout.addWidget(self.adjust_h_btn)
+        self.estimate_btn = QPushButton("Estimate from coordinates")
+        self.estimate_btn.setToolTip(
+            "Estimate bonds and bond orders from 3D coordinates using RDKit"
+        )
+        self.estimate_btn.clicked.connect(self.estimate_from_coordinates)
+        btn_layout.addWidget(self.estimate_btn)
         self.delete_btn = QPushButton("Delete Selected Bonds")
         self.delete_btn.clicked.connect(self.delete_selected_bonds)
         btn_layout.addWidget(self.delete_btn)
@@ -254,7 +280,12 @@ class BondEditorWindow(QWidget):
             interactor = getattr(plotter, "interactor", None)
             if interactor is None:
                 return
-            self._click_filter = _ClickFilter(self._on_plotter_click, parent=self, drag_callback=self._on_plotter_drag, press_callback=self._on_plotter_press)
+            self._click_filter = _ClickFilter(
+                self._on_plotter_click,
+                parent=self,
+                drag_callback=self._on_plotter_drag,
+                press_callback=self._on_plotter_press,
+            )
             interactor.installEventFilter(self._click_filter)
         except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
             logging.warning("[bond_editor.py:_enable_plotter_picking] silenced: %s", _e)
@@ -283,7 +314,10 @@ class BondEditorWindow(QWidget):
             self._drag_start_atom = atom
             return True
         return self._nearest_bond_to_point(mol, pos) is not None
-    def _on_plotter_click(self, x, y, widget, modifiers, button=Qt.MouseButton.LeftButton):
+
+    def _on_plotter_click(
+        self, x, y, widget, modifiers, button=Qt.MouseButton.LeftButton
+    ):
         try:
             if self._interactive_mode:
                 self._interactive_click(x, y, widget, button)
@@ -349,10 +383,13 @@ class BondEditorWindow(QWidget):
         self._interactive_mode = bool(enabled)
         self._drag_start_atom = None
         self.click_mode_combo.setEnabled(not enabled)
-        self.context.show_status_message("Interactive mode enabled." if enabled else "Interactive mode disabled.")
+        self.context.show_status_message(
+            "Interactive mode enabled." if enabled else "Interactive mode disabled."
+        )
 
     def _interactive_pick(self, x, y, widget):
         import vtk
+
         mol = self.context.current_mol
         plotter = self.context.plotter
         if not mol or not plotter or not mol.GetNumConformers():
@@ -363,13 +400,49 @@ class BondEditorWindow(QWidget):
         picker.Pick(x * ratio, (widget.height() - y) * ratio, 0, plotter.renderer)
         picked_actor = picker.GetActor()
         pos = picker.GetPickPosition()
-        atom = self._screen_atom_index(x, y, widget, mol)
-        if atom is None and self._pick_is_atom_actor(picked_actor):
-            atom = self._nearest_atom_to_point(mol, pos)
-            atom_pos = mol.GetConformer().GetAtomPosition(atom)
-            distance = sum((a - b) ** 2 for a, b in zip((pos[0], pos[1], pos[2]), (atom_pos.x, atom_pos.y, atom_pos.z))) ** 0.5
-            if distance > 0.8:
-                atom = None
+
+        is_atom_actor = self._pick_is_atom_actor(picked_actor)
+        if picked_actor is not None and not is_atom_actor:
+            return mol, pos, None
+
+        if is_atom_actor:
+            atom = self._screen_atom_index(x, y, widget, mol)
+            if atom is None:
+                atom = self._nearest_atom_to_point(mol, pos)
+            return mol, pos, atom
+
+        # picked_actor is None (background click or missed mesh)
+        nearest_bond = self._nearest_bond_to_point(mol, pos, max_dist=0.4)
+        nearest_atom = self._nearest_atom_to_point(mol, pos)
+
+        conf = mol.GetConformer()
+        atom_dist = float("inf")
+        if nearest_atom is not None:
+            ap = conf.GetAtomPosition(nearest_atom)
+            atom_dist = (
+                (pos[0] - ap.x) ** 2 + (pos[1] - ap.y) ** 2 + (pos[2] - ap.z) ** 2
+            ) ** 0.5
+
+        bond_dist = float("inf")
+        if nearest_bond is not None:
+            p1 = conf.GetAtomPosition(nearest_bond[0])
+            p2 = conf.GetAtomPosition(nearest_bond[1])
+            a = np.array([p1.x, p1.y, p1.z])
+            c = np.array([p2.x, p2.y, p2.z])
+            q = np.array([pos[0], pos[1], pos[2]])
+            ab = c - a
+            denom = float(ab @ ab)
+            t = 0.0 if denom < 1e-12 else float((q - a) @ ab / denom)
+            t = max(0.0, min(1.0, t))
+            proj = a + t * ab
+            bond_dist = float(np.linalg.norm(q - proj))
+
+        if nearest_bond is not None and bond_dist < atom_dist and bond_dist <= 0.4:
+            atom = None
+        else:
+            atom = self._screen_atom_index(x, y, widget, mol)
+            if atom is None and atom_dist <= 0.5:
+                atom = nearest_atom
         return mol, pos, atom
 
     def _pick_is_atom_actor(self, picked_actor):
@@ -380,7 +453,7 @@ class BondEditorWindow(QWidget):
             main_window = self.context.get_main_window()
             view_3d = getattr(main_window, "view_3d_manager", None)
             atom_actor = getattr(view_3d, "atom_actor", None)
-            return atom_actor is None or picked_actor is atom_actor
+            return atom_actor is not None and picked_actor is atom_actor
         except (AttributeError, RuntimeError, TypeError):
             return False
 
@@ -388,12 +461,15 @@ class BondEditorWindow(QWidget):
         """Use the host screen-space atom picker when available."""
         try:
             from moleditpy.ui.atom_picking import pick_atom_index_from_screen
+
             main_window = self.context.get_main_window()
             view_3d = getattr(main_window, "view_3d_manager", None)
             if view_3d is None:
                 return None
             ratio = widget.devicePixelRatioF()
-            return pick_atom_index_from_screen(view_3d, (int(x * ratio), int((widget.height() - y) * ratio)), mol)
+            return pick_atom_index_from_screen(
+                view_3d, (int(x * ratio), int((widget.height() - y) * ratio)), mol
+            )
         except (ImportError, AttributeError, RuntimeError, TypeError, ValueError):
             return None
 
@@ -402,10 +478,10 @@ class BondEditorWindow(QWidget):
         if picked is None:
             return
         mol, pos, atom = picked
-        if atom is not None:
+        pair = self._nearest_bond_to_point(mol, pos)
+        if atom is not None and pair is None:
             self._drag_start_atom = atom
             return
-        pair = self._nearest_bond_to_point(mol, pos)
         if button == Qt.MouseButton.RightButton and pair:
             rw = Chem.RWMol(mol)
             rw.RemoveBond(*pair)
@@ -421,7 +497,8 @@ class BondEditorWindow(QWidget):
         if not self._interactive_mode or self._drag_start_atom is None:
             return
         picked = self._interactive_pick(x, y, widget)
-        start = self._drag_start_atom; self._drag_start_atom = None
+        start = self._drag_start_atom
+        self._drag_start_atom = None
         if picked is not None:
             end = picked[2]
             if end is not None and end != start:
@@ -436,22 +513,137 @@ class BondEditorWindow(QWidget):
         except (RuntimeError, AttributeError, ValueError) as exc:
             QMessageBox.critical(self, "Error", f"Failed to change bond type: {exc}")
 
+    def _excess_hydrogen_indices(self, mol):
+        """Indices of terminal H atoms whose removal brings over-valent heavy
+        atoms back to their allowed valence, removing hydrogens with the largest
+        atom ID first."""
+        pt = Chem.GetPeriodicTable()
+        to_remove = set()
+        for atom in mol.GetAtoms():
+            num = atom.GetAtomicNum()
+            if num <= 1:
+                continue
+            try:
+                allowed = pt.GetDefaultValence(num)
+            except Exception:
+                continue
+            if allowed <= 0:
+                continue
+            if num in (7, 8, 15, 16):
+                allowed += atom.GetFormalCharge()
+            valence = round(sum(b.GetBondTypeAsDouble() for b in atom.GetBonds()))
+            excess = valence - allowed
+            if excess <= 0:
+                continue
+            h_neighbors = sorted(
+                [
+                    n.GetIdx()
+                    for n in atom.GetNeighbors()
+                    if n.GetAtomicNum() == 1 and n.GetDegree() == 1
+                ],
+                reverse=True,
+            )
+            to_remove.update(h_neighbors[: min(excess, len(h_neighbors))])
+        return sorted(to_remove)
+
     def adjust_hydrogens(self):
         mol = self.context.current_mol
         if not mol or not mol.GetNumConformers():
             self.context.show_status_message("No 3D molecule to adjust hydrogens on.")
             return
-        new_mol = Chem.AddHs(mol, addCoords=True)
-        if new_mol.GetNumAtoms() == mol.GetNumAtoms():
-            self.context.show_status_message("Hydrogens are already explicit.")
+
+        try:
+            rw = Chem.RWMol(mol)
+            rw.UpdatePropertyCache(strict=False)
+
+            removed = self._excess_hydrogen_indices(rw)
+            for idx in sorted(removed, reverse=True):
+                rw.RemoveAtom(idx)
+
+            sanitize_or_clear_aromaticity(rw)
+
+            new_mol = Chem.AddHs(rw, addCoords=True)
+            added = new_mol.GetNumAtoms() - (mol.GetNumAtoms() - len(removed))
+
+            if added <= 0 and not removed:
+                self.context.show_status_message("Hydrogens are already explicit.")
+                return
+
+            self.context.current_molecule = new_mol
+            self.context.push_undo_checkpoint()
+            self.last_seen_signature = self.get_mol_signature(
+                self.context.current_molecule
+            )
+            refresh = getattr(self.context, "refresh_3d_view", None)
+            if callable(refresh):
+                refresh()
+            else:
+                self.context.reset_3d_camera()
+            self.load_molecule()
+            self.context.show_status_message("Hydrogens adjusted.")
+        except Exception as e:
+            logging.exception("[bond_editor] Failed to adjust hydrogens: %s", e)
+            QMessageBox.critical(self, "Error", f"Failed to adjust hydrogens: {str(e)}")
+
+    def estimate_from_coordinates(self):
+        mol = self.context.current_molecule
+        if not mol or not mol.GetNumAtoms() or not mol.GetNumConformers():
+            self.context.show_status_message("No 3D molecule to estimate bonds for.")
             return
-        self.context.current_molecule = new_mol
-        self.context.push_undo_checkpoint()
-        refresh = getattr(self.context, "refresh_3d_view", None)
-        if callable(refresh): refresh()
-        else: self.context.reset_3d_camera()
-        self.load_molecule()
-        self.context.show_status_message("Hydrogens adjusted.")
+
+        charge = 0
+        if mol.HasProp("_xyz_charge"):
+            try:
+                charge = int(mol.GetProp("_xyz_charge"))
+            except (ValueError, TypeError):
+                charge = 0
+        else:
+            try:
+                charge = int(Chem.GetFormalCharge(mol))
+            except Exception:
+                charge = 0
+
+        applied = False
+        candidate = Chem.RWMol(mol)
+        try:
+            from rdkit.Chem import rdDetermineBonds
+
+            rdDetermineBonds.DetermineBonds(candidate, charge=charge)
+            applied = True
+        except (
+            ImportError,
+            RuntimeError,
+            AttributeError,
+            TypeError,
+            ValueError,
+        ) as exc:
+            logging.warning("[bond_editor] rdDetermineBonds failed: %s", exc)
+
+        if not applied:
+            mw = self.context.get_main_window()
+            if hasattr(mw, "io_manager") and hasattr(
+                mw.io_manager, "estimate_bonds_from_distances"
+            ):
+                try:
+                    candidate = Chem.RWMol(mol)
+                    for bond in list(candidate.GetBonds()):
+                        candidate.RemoveBond(
+                            bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
+                        )
+                    mw.io_manager.estimate_bonds_from_distances(candidate)
+                    applied = True
+                except Exception as exc:
+                    logging.warning(
+                        "[bond_editor] estimate_bonds_from_distances failed: %s", exc
+                    )
+
+        if not applied:
+            self.context.show_status_message(
+                "Failed to estimate bonds from coordinates."
+            )
+            return
+
+        self._commit(candidate, "Estimated bonds from coordinates.")
 
     def _on_click_mode_changed(self, mode):
         """Reset the two-click pick state when the 3D click mode changes."""
@@ -1026,6 +1218,3 @@ def initialize(context):
             win.load_molecule()
 
     context.register_document_reset_handler(on_document_reset)
-
-
-

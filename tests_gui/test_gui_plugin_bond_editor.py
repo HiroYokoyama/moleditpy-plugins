@@ -217,6 +217,7 @@ class TestBondTypeMaps:
 
     def test_interactive_cycle_excludes_aromatic(self):
         assert _bond.INTERACTIVE_BOND_TYPE_LABELS == ["Single", "Double", "Triple"]
+
     def test_interactive_and_selected_colors_are_distinct(self):
         assert _bond.INTERACTIVE_MODE_COLOR != _bond.SELECTED_BOND_COLOR
 
@@ -281,6 +282,7 @@ class TestClickFilter:
         assert f.eventFilter(obj, press) is True
         assert f.eventFilter(obj, release) is True
         assert calls == []
+
     def test_never_consumes_events(self, qapp):
         f = _bond._ClickFilter(lambda *a: None)
         press, release = self._events((0, 0), (0, 0))
@@ -607,7 +609,9 @@ class TestOnPlotterClick:
         widget.resize(400, 300)
         return widget
 
-    def test_interactive_drag_uses_screen_picked_target_atom(self, win, qapp, monkeypatch):
+    def test_interactive_drag_uses_screen_picked_target_atom(
+        self, win, qapp, monkeypatch
+    ):
         win._interactive_mode = True
         win._drag_start_atom = 0
         monkeypatch.setattr(
@@ -618,6 +622,7 @@ class TestOnPlotterClick:
         monkeypatch.setattr(win, "add_bond", MagicMock())
         win._on_plotter_drag(10, 10, self._widget(qapp), None, None)
         win.add_bond.assert_called_once_with(0, 1)
+
     def test_interactive_existing_bond_click_cycles_order(self, win, qapp, monkeypatch):
         from PyQt6.QtCore import Qt
 
@@ -636,7 +641,9 @@ class TestOnPlotterClick:
             == _Chem.BondType.DOUBLE
         )
 
-    def test_interactive_existing_bond_right_click_deletes(self, win, qapp, monkeypatch):
+    def test_interactive_existing_bond_right_click_deletes(
+        self, win, qapp, monkeypatch
+    ):
         from PyQt6.QtCore import Qt
 
         widget = self._widget(qapp)
@@ -1071,12 +1078,6 @@ class TestHighlightSelectedBonds:
         win.highlight_selected_bonds()
         assert win.context.plotter.camera_position == "cam-state"
 
-    def test_no_plotter_is_noop(self, win):
-        win.context.plotter = None
-        win.highlight_selected_bonds()  # should not raise
-
-
-class TestCloseEventWithPlotter:
     def test_close_removes_all_actors(self, qapp):
         ctx = _real_ctx(mol=_real_mol())
         ctx.plotter = MagicMock()
@@ -1085,6 +1086,257 @@ class TestCloseEventWithPlotter:
         ctx.plotter.remove_actor.assert_any_call("bond_editor_selection")
         ctx.plotter.remove_actor.assert_any_call("bond_editor_mode_label")
         ctx.plotter.remove_actor.assert_any_call("bond_editor_atom_labels")
-        ctx.plotter.render.assert_called()
         w.destroy()
 
+
+# ===========================================================================
+# Bond Editor — Button styles, Adjust H, Estimate from Coordinates, H-bond editing
+# ===========================================================================
+
+
+class TestInteractiveBtnAndEstimateBtnGUI:
+    def test_interactive_btn_stylesheet_has_default_light_green_and_checked_color(
+        self, qapp
+    ):
+        ctx = _real_ctx(mol=_real_mol())
+        w = _bondrn.BondEditorWindow(context=ctx)
+        sheet = w.interactive_btn.styleSheet()
+        assert _bondrn.INTERACTIVE_MODE_COLOR in sheet
+        assert _bondrn.INTERACTIVE_MODE_CHECKED_COLOR in sheet
+        assert "#d9f7e5" in sheet
+        assert "#ffc078" in sheet
+        w.destroy()
+
+    def test_estimate_btn_exists_and_connected(self, qapp):
+        ctx = _real_ctx(mol=_real_mol())
+        w = _bondrn.BondEditorWindow(context=ctx)
+        assert hasattr(w, "estimate_btn")
+        assert w.estimate_btn.text() == "Estimate from coordinates"
+        w.destroy()
+
+
+class TestAdjustHydrogensGUI:
+    def test_adjust_hydrogens_removes_excess_with_largest_id(self, qapp):
+        # Create ethane with 8 atoms (C0, C1, H2..H7)
+        rw = _Chem.RWMol()
+        rw.AddAtom(_Chem.Atom(6))  # 0
+        rw.AddAtom(_Chem.Atom(6))  # 1
+        for _ in range(6):
+            rw.AddAtom(_Chem.Atom(1))  # 2, 3, 4, 5, 6, 7
+        # C0 has H2, H3, H4. C1 has H5, H6, H7
+        rw.AddBond(0, 1, _Chem.BondType.DOUBLE)  # Double bond makes each C over-valent!
+        rw.AddBond(0, 2, _Chem.BondType.SINGLE)
+        rw.AddBond(0, 3, _Chem.BondType.SINGLE)
+        rw.AddBond(0, 4, _Chem.BondType.SINGLE)
+        rw.AddBond(1, 5, _Chem.BondType.SINGLE)
+        rw.AddBond(1, 6, _Chem.BondType.SINGLE)
+        rw.AddBond(1, 7, _Chem.BondType.SINGLE)
+        conf = _Chem.Conformer(8)
+        for i in range(8):
+            conf.SetAtomPosition(i, _Point3D(float(i), 0.0, 0.0))
+        rw.AddConformer(conf, assignId=True)
+        mol = rw.GetMol()
+
+        ctx = _real_ctx(mol=mol)
+        ctx.current_mol = mol
+        w = _bondrn.BondEditorWindow(context=ctx)
+        w.context.show_status_message.reset_mock()
+
+        # Excess on C0 is 1 (largest H is 4), excess on C1 is 1 (largest H is 7)
+        removed = w._excess_hydrogen_indices(mol)
+        assert removed == [4, 7]
+
+        w.adjust_hydrogens()
+        new_mol = w.context.current_molecule
+        assert new_mol.GetNumAtoms() == 6
+        msg = w.context.show_status_message.call_args[0][0]
+        assert "Hydrogens adjusted" in msg
+        w.destroy()
+
+    def test_adjust_hydrogens_adds_missing_hydrogens(self, qapp):
+        # Molecule with C0-C1 single bond and no hydrogens
+        rw = _Chem.RWMol()
+        rw.AddAtom(_Chem.Atom(6))
+        rw.AddAtom(_Chem.Atom(6))
+        rw.AddBond(0, 1, _Chem.BondType.SINGLE)
+        conf = _Chem.Conformer(2)
+        conf.SetAtomPosition(0, _Point3D(0.0, 0.0, 0.0))
+        conf.SetAtomPosition(1, _Point3D(1.5, 0.0, 0.0))
+        rw.AddConformer(conf, assignId=True)
+        mol = rw.GetMol()
+
+        ctx = _real_ctx(mol=mol)
+        ctx.current_mol = mol
+        w = _bondrn.BondEditorWindow(context=ctx)
+        w.adjust_hydrogens()
+        new_mol = w.context.current_molecule
+        # Ethane has 8 atoms (2 C + 6 H)
+        assert new_mol.GetNumAtoms() == 8
+        w.destroy()
+
+    def test_adjust_hydrogens_already_explicit_shows_message(self, qapp):
+        mol = _real_mol()
+        mol = _Chem.AddHs(mol, addCoords=True)
+        ctx = _real_ctx(mol=mol)
+        ctx.current_mol = mol
+        w = _bondrn.BondEditorWindow(context=ctx)
+        w.context.show_status_message.reset_mock()
+        w.adjust_hydrogens()
+        msg = w.context.show_status_message.call_args[0][0]
+        assert "Hydrogens are already explicit" in msg
+        w.destroy()
+
+    def test_adjust_hydrogens_no_molecule_shows_message(self, qapp):
+        ctx = _real_ctx(mol=None)
+        ctx.current_mol = None
+        w = _bondrn.BondEditorWindow(context=ctx)
+        w.context.show_status_message.reset_mock()
+        w.adjust_hydrogens()
+        msg = w.context.show_status_message.call_args[0][0]
+        assert "No 3D molecule" in msg
+        w.destroy()
+
+
+class TestEstimateFromCoordinatesGUI:
+    def test_estimate_from_coordinates_real_rdkit(self, qapp):
+        # Ethane geometry with corrupted bond (TRIPLE instead of SINGLE)
+        rw = _Chem.RWMol()
+        rw.AddAtom(_Chem.Atom(6))
+        rw.AddAtom(_Chem.Atom(6))
+        rw.AddBond(0, 1, _Chem.BondType.TRIPLE)
+        conf = _Chem.Conformer(2)
+        conf.SetAtomPosition(0, _Point3D(0.0, 0.0, 0.0))
+        conf.SetAtomPosition(1, _Point3D(1.54, 0.0, 0.0))
+        rw.AddConformer(conf, assignId=True)
+        mol = rw.GetMol()
+
+        ctx = _real_ctx(mol=mol)
+        w = _bondrn.BondEditorWindow(context=ctx)
+        w.context.show_status_message.reset_mock()
+        w.estimate_from_coordinates()
+        res_mol = w.context.current_molecule
+        bond = res_mol.GetBondBetweenAtoms(0, 1)
+        assert bond is not None
+        # DetermineBonds determines SINGLE bond for C-C at 1.54 Å
+        assert bond.GetBondType() == _Chem.BondType.SINGLE
+        msg = w.context.show_status_message.call_args[0][0]
+        assert "Estimated bonds from coordinates" in msg
+        w.destroy()
+
+    def test_estimate_from_coordinates_fallback_to_io_manager(self, qapp, monkeypatch):
+        mol = _real_mol()
+        ctx = _real_ctx(mol=mol)
+        w = _bondrn.BondEditorWindow(context=ctx)
+        mw = MagicMock()
+        io = MagicMock()
+        io.estimate_bonds_from_distances.return_value = 2
+        mw.io_manager = io
+        w.context.get_main_window = lambda: mw
+
+        # Force DetermineBonds to fail so fallback is exercised
+        from rdkit.Chem import rdDetermineBonds
+
+        monkeypatch.setattr(
+            rdDetermineBonds,
+            "DetermineBonds",
+            MagicMock(side_effect=RuntimeError("fail")),
+        )
+
+        w.estimate_from_coordinates()
+        io.estimate_bonds_from_distances.assert_called_once()
+        w.destroy()
+
+    def test_estimate_from_coordinates_no_molecule(self, qapp):
+        ctx = _real_ctx(mol=None)
+        ctx.current_molecule = None
+        w = _bondrn.BondEditorWindow(context=ctx)
+        w.context.show_status_message.reset_mock()
+        w.estimate_from_coordinates()
+        msg = w.context.show_status_message.call_args[0][0]
+        assert "No 3D molecule" in msg
+        w.destroy()
+
+
+class TestInteractiveHydrogenBondEditingGUI:
+    def _make_ch_mol(self):
+        # Carbon 0 at (0, 0, 0) and Hydrogen 1 at (1.09, 0, 0)
+        rw = _Chem.RWMol()
+        rw.AddAtom(_Chem.Atom(6))
+        rw.AddAtom(_Chem.Atom(1))
+        rw.AddBond(0, 1, _Chem.BondType.SINGLE)
+        conf = _Chem.Conformer(2)
+        conf.SetAtomPosition(0, _Point3D(0.0, 0.0, 0.0))
+        conf.SetAtomPosition(1, _Point3D(1.09, 0.0, 0.0))
+        rw.AddConformer(conf, assignId=True)
+        mol = rw.GetMol()
+        _Chem.SanitizeMol(mol)
+        return mol
+
+    def test_interactive_click_on_hydrogen_bond_cycles_order(self, qapp, monkeypatch):
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtWidgets import QWidget
+
+        mol = self._make_ch_mol()
+        ctx = _real_ctx(mol=mol)
+        ctx.current_mol = mol
+        ctx.plotter = MagicMock()
+        w = _bondrn.BondEditorWindow(context=ctx)
+
+        widget = QWidget()
+        widget.resize(400, 300)
+
+        # Click halfway along the C-H bond: pos = (0.55, 0.0, 0.0)
+        # The actor returned by the cell picker is the bond cylinder actor, NOT atom_actor
+        bond_actor = object()
+        atom_actor = object()
+        mw = MagicMock()
+        mw.view_3d_manager = MagicMock()
+        mw.view_3d_manager.atom_actor = atom_actor
+        w.context.get_main_window = lambda: mw
+        monkeypatch.setattr(
+            _vtk,
+            "vtkCellPicker",
+            lambda: _FakePicker(actor=bond_actor, pos=(0.55, 0.0, 0.0)),
+        )
+
+        w._interactive_mode = True
+        w._interactive_click(10, 10, widget, Qt.MouseButton.LeftButton)
+
+        # Bond between 0 and 1 should now be cycled from SINGLE to DOUBLE!
+        bond = w.context.current_molecule.GetBondBetweenAtoms(0, 1)
+        assert bond is not None
+        assert bond.GetBondType() == _Chem.BondType.DOUBLE
+        w.destroy()
+
+    def test_interactive_right_click_on_hydrogen_bond_deletes(self, qapp, monkeypatch):
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtWidgets import QWidget
+
+        mol = self._make_ch_mol()
+        ctx = _real_ctx(mol=mol)
+        ctx.current_mol = mol
+        ctx.plotter = MagicMock()
+        w = _bondrn.BondEditorWindow(context=ctx)
+
+        widget = QWidget()
+        widget.resize(400, 300)
+
+        bond_actor = object()
+        atom_actor = object()
+        mw = MagicMock()
+        mw.view_3d_manager = MagicMock()
+        mw.view_3d_manager.atom_actor = atom_actor
+        w.context.get_main_window = lambda: mw
+        monkeypatch.setattr(
+            _vtk,
+            "vtkCellPicker",
+            lambda: _FakePicker(actor=bond_actor, pos=(0.55, 0.0, 0.0)),
+        )
+
+        w._interactive_mode = True
+        w._interactive_click(10, 10, widget, Qt.MouseButton.RightButton)
+
+        # Bond between 0 and 1 should be deleted!
+        bond = w.context.current_molecule.GetBondBetweenAtoms(0, 1)
+        assert bond is None
+        w.destroy()

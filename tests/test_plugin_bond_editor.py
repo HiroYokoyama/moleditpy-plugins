@@ -313,9 +313,7 @@ def _bond_mol(n, existing_pairs=()):
     pairs = {frozenset(p) for p in existing_pairs}
     return SimpleNamespace(
         GetNumAtoms=lambda: n,
-        GetBondBetweenAtoms=lambda a, b: (
-            "bond" if frozenset((a, b)) in pairs else None
-        ),
+        GetBondBetweenAtoms=lambda a, b: "bond" if frozenset((a, b)) in pairs else None,
     )
 
 
@@ -702,3 +700,167 @@ class TestUnselectAll:
         fn(self_)
         self_.table.clearSelection.assert_called_once()
         self_._cancel_bond_pick.assert_called_once()
+
+
+class _MockAtom:
+    def __init__(self, idx, num, charge=0, neighbors=None, bonds=None):
+        self._idx = idx
+        self._num = num
+        self._charge = charge
+        self._neighbors = neighbors or []
+        self._bonds = bonds or []
+
+    def GetIdx(self):
+        return self._idx
+
+    def GetAtomicNum(self):
+        return self._num
+
+    def GetFormalCharge(self):
+        return self._charge
+
+    def GetNeighbors(self):
+        return self._neighbors
+
+    def GetBonds(self):
+        return self._bonds
+
+    def GetDegree(self):
+        return len(self._neighbors) if self._neighbors else 1
+
+
+class _MockBond:
+    def __init__(self, btype_double=1.0):
+        self._btd = btype_double
+
+    def GetBondTypeAsDouble(self):
+        return self._btd
+
+
+class TestExcessHydrogenIndices:
+    def _fn(self):
+        chem_ns = SimpleNamespace(
+            GetPeriodicTable=lambda: SimpleNamespace(
+                GetDefaultValence=lambda n: {6: 4, 7: 3, 8: 2}.get(n, 0)
+            )
+        )
+        return extract_function(
+            BOND_EDITOR_PATH,
+            "BondEditorWindow",
+            "_excess_hydrogen_indices",
+            extra_globals={"Chem": chem_ns},
+        )
+
+    def test_removes_largest_id_first(self):
+        fn = self._fn()
+        # Carbon 0 has allowed valence 4, but has double bond (2) + 3 H atoms (ids 1, 3, 2).
+        # Total valence = 5, excess = 1.
+        # Hydrogen neighbors have ids 1, 3, 2. The largest id is 3.
+        h1 = _MockAtom(1, 1)
+        h2 = _MockAtom(2, 1)
+        h3 = _MockAtom(3, 1)
+        bonds = [_MockBond(2.0), _MockBond(1.0), _MockBond(1.0), _MockBond(1.0)]
+        c0 = _MockAtom(0, 6, neighbors=[h1, h3, h2], bonds=bonds)
+        mol = SimpleNamespace(GetAtoms=lambda: [c0, h1, h2, h3])
+
+        removed = fn(None, mol)
+        assert removed == [3]
+
+    def test_removes_multiple_excess_hydrogens_by_descending_id(self):
+        fn = self._fn()
+        # Carbon 0 has triple bond (3) + 3 H atoms (ids 2, 4, 6).
+        # Total valence = 6, allowed = 4, excess = 2.
+        # Largest 2 ids are 6 and 4.
+        h2 = _MockAtom(2, 1)
+        h4 = _MockAtom(4, 1)
+        h6 = _MockAtom(6, 1)
+        bonds = [_MockBond(3.0), _MockBond(1.0), _MockBond(1.0), _MockBond(1.0)]
+        c0 = _MockAtom(0, 6, neighbors=[h2, h4, h6], bonds=bonds)
+        mol = SimpleNamespace(GetAtoms=lambda: [c0, h2, h4, h6])
+
+        removed = fn(None, mol)
+        assert removed == [4, 6]
+
+    def test_nitrogen_formal_charge_adjustment(self):
+        fn = self._fn()
+        # Ammonium Nitrogen+ (charge +1): allowed = 3 + 1 = 4.
+        # 4 single bonds to H (ids 1, 2, 3, 4): valence = 4, excess = 0 -> nothing to remove.
+        hs = [_MockAtom(i, 1) for i in (1, 2, 3, 4)]
+        n0 = _MockAtom(0, 7, charge=1, neighbors=hs, bonds=[_MockBond(1.0)] * 4)
+        mol = SimpleNamespace(GetAtoms=lambda: [n0] + hs)
+
+        assert fn(None, mol) == []
+
+
+class TestAdjustHydrogensUnit:
+    def _fn(self, sanitize_fail=False):
+        def _sanitize(rw):
+            if sanitize_fail:
+                raise RuntimeError("Sanitize failed")
+
+        chem_ns = SimpleNamespace(
+            RWMol=lambda m: m,
+            AddHs=lambda rw, addCoords=True: SimpleNamespace(
+                GetNumAtoms=lambda: rw.GetNumAtoms() + 1
+            ),
+        )
+        return extract_function(
+            BOND_EDITOR_PATH,
+            "BondEditorWindow",
+            "adjust_hydrogens",
+            extra_globals={
+                "Chem": chem_ns,
+                "sanitize_or_clear_aromaticity": _sanitize,
+                "logging": MagicMock(),
+                "QMessageBox": MagicMock(),
+            },
+        )
+
+    def test_no_molecule_reports_status(self):
+        fn = self._fn()
+        ctx = SimpleNamespace(
+            current_mol=None,
+            show_status_message=MagicMock(),
+            push_undo_checkpoint=MagicMock(),
+        )
+        self_ = SimpleNamespace(context=ctx)
+        fn(self_)
+        ctx.show_status_message.assert_called_once_with(
+            "No 3D molecule to adjust hydrogens on."
+        )
+        ctx.push_undo_checkpoint.assert_not_called()
+
+
+class TestEstimateFromCoordinatesUnit:
+    def _fn(self, determine_raises=False, fallback_exists=True):
+        class _DetermineBonds:
+            @staticmethod
+            def DetermineBonds(candidate, charge=0):
+                if determine_raises:
+                    raise RuntimeError("determine failed")
+        chem_ns = SimpleNamespace(
+            RWMol=lambda m: m,
+            GetFormalCharge=lambda m: 0,
+        )
+        return extract_function(
+            BOND_EDITOR_PATH,
+            "BondEditorWindow",
+            "estimate_from_coordinates",
+            extra_globals={
+                "Chem": chem_ns,
+                "rdDetermineBonds": _DetermineBonds,
+                "logging": MagicMock(),
+            },
+        )
+
+    def test_no_molecule_reports_status(self):
+        fn = self._fn()
+        ctx = SimpleNamespace(
+            current_molecule=None,
+            show_status_message=MagicMock(),
+        )
+        self_ = SimpleNamespace(context=ctx)
+        fn(self_)
+        ctx.show_status_message.assert_called_once_with(
+            "No 3D molecule to estimate bonds for."
+        )
