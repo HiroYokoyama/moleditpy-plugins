@@ -259,6 +259,21 @@ Beyond that workflow: `release.yml` and `zenodo.yml` handle publishing (see
 Sandbox. `auto-register-remote-plugin.yml` / `register-remote-plugin.yml` add
 externally hosted plugins to the registry when their own repos release.
 
+## Branch workflow
+
+Work on the shared plugin collection through the `dev` branch by default:
+
+```bash
+git pull --ff-only origin main
+git switch dev
+git pull --ff-only origin dev
+```
+
+If `dev` does not exist locally, create it from the current `main` branch with
+`git switch -c dev` and push it with `git push -u origin dev`. Commit and push
+plugin changes to `dev`, then let CI validate that branch. Merge `dev` into
+`main` only after CI is green. Release tags must be created from the verified
+`main` commit, never from an unvalidated working branch.
 ## Releasing
 
 One action starts everything: **push a `v`-prefixed date tag.**
@@ -326,3 +341,4 @@ Plugins are validated against the real `PluginContext` contract defined in:
 ```
 
 When the main app's `PluginContext` API changes, plugin repos may need updates. The `test-api` CI job catches regressions automatically.
+
