@@ -2450,27 +2450,27 @@
     ]
   },
   {
-    "id": "functional_group_toolbox_3d",
+    "id": "functional_group_replacer_3d",
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "3D Functional Group Replacer",
-    "version": "0.6.0",
+    "version": "0.7.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "projectUrl": "https://github.com/HiroYokoyama/moleditpy_3d_functional_group_toolbox",
+    "projectUrl": "https://github.com/HiroYokoyama/moleditpy_3d_functional_group_replacer",
     "description": "Replace a selected atom with a common functional group while retaining its neighbours.",
     "tags": [
-      "3D",
-      "Editing",
-      "Chemistry"
+        "3D",
+        "Editing",
+        "Chemistry"
     ],
     "dependencies": [
       "rdkit",
       "PyQt6"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_3d_functional_group_toolbox/releases/download/v0.6.0/functional_group_replacer_3d_0.6.0.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_3d_functional_group_replacer/releases/download/v0.7.0/functional_group_replacer_3d_0.7.0.zip",
     "lastUpdated": "2026-09-21",
-    "sha256": "58c6b9e79acd8832b9baf3951521ceaaf69d4654e529aeb5f4ddcbaf62f1f867",
+    "sha256": "dddd5d2b226af9acf3ff21431f1c9d295cd57a9b1fa9b4107be7bbc9493f3824",
     "firstAppeared": "2026-09-21",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
