@@ -661,6 +661,7 @@ class TestOnPlotterClick:
     def test_empty_space_click_select_mode_clears_selection(
         self, win, qapp, monkeypatch
     ):
+        win.interactive_btn.setChecked(False)
         widget = self._widget(qapp)
         win.table.selectRow(0)
         monkeypatch.setattr(_vtk, "vtkCellPicker", lambda: _FakePicker(actor=None))
@@ -668,6 +669,7 @@ class TestOnPlotterClick:
         assert len(win.table.selectedIndexes()) == 0
 
     def test_empty_space_click_create_mode_cancels_pick(self, win, qapp, monkeypatch):
+        win.interactive_btn.setChecked(False)
         widget = self._widget(qapp)
         win.click_mode_combo.setCurrentText("Create bond")
         win._first_pick_idx = 0
@@ -677,6 +679,7 @@ class TestOnPlotterClick:
         assert win._first_pick_idx is None
 
     def test_select_bond_mode_selects_nearest_bond(self, win, qapp, monkeypatch):
+        win.interactive_btn.setChecked(False)
         widget = self._widget(qapp)
         # pick position on the C0-C1 bond axis (midpoint)
         monkeypatch.setattr(
@@ -689,6 +692,7 @@ class TestOnPlotterClick:
         assert selected_rows == [0]
 
     def test_create_bond_mode_picks_nearest_atom(self, win, qapp, monkeypatch):
+        win.interactive_btn.setChecked(False)
         widget = self._widget(qapp)
         win.click_mode_combo.setCurrentText("Create bond")
         win.context.current_mol.GetAtomWithIdx  # sanity: real mol present
@@ -704,6 +708,7 @@ class TestOnPlotterClick:
         assert win._first_pick_idx == 0
 
     def test_create_bond_mode_wrong_actor_cancels_pick(self, win, qapp, monkeypatch):
+        win.interactive_btn.setChecked(False)
         widget = self._widget(qapp)
         win.click_mode_combo.setCurrentText("Create bond")
         win._first_pick_idx = 1
@@ -716,12 +721,14 @@ class TestOnPlotterClick:
         assert win._first_pick_idx is None
 
     def test_no_molecule_returns_early(self, win, qapp, monkeypatch):
+        win.interactive_btn.setChecked(False)
         widget = self._widget(qapp)
         win.context.current_mol = None
         monkeypatch.setattr(_vtk, "vtkCellPicker", lambda: _FakePicker(actor="x"))
         win._on_plotter_click(10, 10, widget, None)  # should not raise
 
     def test_no_view3d_manager_returns_early(self, win, qapp, monkeypatch):
+        win.interactive_btn.setChecked(False)
         widget = self._widget(qapp)
         win.context.get_main_window.return_value.view_3d_manager = None
         monkeypatch.setattr(_vtk, "vtkCellPicker", lambda: _FakePicker(actor="x"))
@@ -1103,8 +1110,14 @@ class TestInteractiveBtnAndEstimateBtnGUI:
         sheet = w.interactive_btn.styleSheet()
         assert _bondrn.INTERACTIVE_MODE_COLOR in sheet
         assert _bondrn.INTERACTIVE_MODE_CHECKED_COLOR in sheet
+        assert _bondrn.INTERACTIVE_MODE_PRESSED_COLOR in sheet
         assert "#d9f7e5" in sheet
-        assert "#ffc078" in sheet
+        assert "#8ce99a" in sheet
+        assert "#69db7c" in sheet
+        # Interactive mode is enabled by default on launch
+        assert w.interactive_btn.isChecked()
+        assert w._interactive_mode is True
+        assert not w.click_mode_combo.isEnabled()
         w.destroy()
 
     def test_estimate_btn_exists_and_connected(self, qapp):

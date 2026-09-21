@@ -2077,7 +2077,7 @@
     ],
     "downloadUrl": "../plugins/Bond_Editor/bond_editor.py",
     "lastUpdated": "2026-09-21",
-    "sha256": "a2a4d20bd9420bd3e358d1411196c7c5f3ec486b8f545842e5c10e7e8390e3c6",
+    "sha256": "28f70eb07617a846836a3fb34f4468b0965596c7300ea8d67499263757e14fd9",
     "firstAppeared": "2026-07-15",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

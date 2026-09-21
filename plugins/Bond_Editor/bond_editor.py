@@ -36,7 +36,8 @@ PLUGIN_CONTEXT = None
 BOND_TYPE_LABELS = ["Single", "Double", "Triple", "Aromatic"]
 INTERACTIVE_BOND_TYPE_LABELS = ["Single", "Double", "Triple"]
 INTERACTIVE_MODE_COLOR = "#d9f7e5"
-INTERACTIVE_MODE_CHECKED_COLOR = "#ffc078"
+INTERACTIVE_MODE_CHECKED_COLOR = "#8ce99a"
+INTERACTIVE_MODE_PRESSED_COLOR = "#69db7c"
 SELECTED_BOND_COLOR = "#ff9f1c"
 
 
@@ -184,7 +185,7 @@ class BondEditorWindow(QWidget):
         self.setWindowTitle("Bond Editor")
         self.resize(600, 420)
         self._click_filter = None
-        self._interactive_mode = False
+        self._interactive_mode = True
         self._drag_start_atom = None
         self._first_pick_idx = None
         self._picked_atoms = {}
@@ -222,7 +223,7 @@ class BondEditorWindow(QWidget):
         self.interactive_btn.setStyleSheet(
             f"QPushButton {{ background-color: {INTERACTIVE_MODE_COLOR}; }} "
             f"QPushButton:checked {{ background-color: {INTERACTIVE_MODE_CHECKED_COLOR}; }} "
-            "QPushButton:pressed { background-color: #ffa94d; }"
+            f"QPushButton:pressed {{ background-color: {INTERACTIVE_MODE_PRESSED_COLOR}; }}"
         )
         self.interactive_btn.toggled.connect(self._toggle_interactive_mode)
         add_layout.addWidget(self.interactive_btn)
@@ -293,6 +294,8 @@ class BondEditorWindow(QWidget):
         self._del_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Delete), self.table)
         self._del_shortcut.setContext(Qt.ShortcutContext.WidgetShortcut)
         self._del_shortcut.activated.connect(self.delete_selected_bonds)
+
+        self.interactive_btn.setChecked(True)
 
     # ------------------------------------------------------------------
     # 3D picking (click an atom to fill the Atom 1 / Atom 2 fields)
