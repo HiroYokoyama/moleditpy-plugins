@@ -576,7 +576,7 @@
     ],
     "downloadUrl": "../plugins/MS_Spectrum_Simulation_Neo/ms_spectrum_neo.py",
     "lastUpdated": "2026-09-21",
-    "sha256": "d6541c8299c2cae75e3c50a0ca64bb7fef0ae0ec870743350b510262736ba671",
+    "sha256": "68199585477ab5aad4312d8b554ddc58169835266005608cdff8c59c5f277d60",
     "firstAppeared": "2025-12-18",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
