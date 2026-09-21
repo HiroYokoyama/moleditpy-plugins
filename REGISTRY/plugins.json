@@ -2460,9 +2460,7 @@
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_3d_functional_group_replacer",
     "description": "Replace a selected atom with a common functional group while retaining its neighbours.",
     "tags": [
-      "3D",
-      "Editing",
-      "Chemistry"
+      "Utility"
     ],
     "dependencies": [
       "rdkit",
