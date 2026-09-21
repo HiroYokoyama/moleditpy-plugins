@@ -1050,7 +1050,10 @@ class BondEditorWindow(QWidget):
                 )
             except Exception:
                 rw.UpdatePropertyCache(strict=False)
-        self.context.current_molecule = rw.GetMol()
+        new_mol = rw.GetMol()
+        self.context.current_molecule = new_mol
+        if hasattr(self.context, "current_mol"):
+            self.context.current_mol = new_mol
         self.context.push_undo_checkpoint()
         self.last_seen_signature = self.get_mol_signature(self.context.current_molecule)
         refresh = getattr(self.context, "refresh_3d_view", None)

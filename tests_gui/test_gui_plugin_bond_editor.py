@@ -1431,10 +1431,51 @@ class TestKekulizeGUI:
 
         w._interactive_mode = True
         assert w.auto_kekulize_cb.isChecked()
-        w._interactive_click(10, 10, widget, Qt.MouseButton.LeftButton)
+        w._interactive_click(10, 10, widget, Qt.MouseButton.RightButton)
 
-        # After edit, the molecule should have remaining double bonds rather than all single!
+        # After deleting one ring bond, the broken ring retains alternating double/single bonds!
         res_mol = w.context.current_molecule
+        assert res_mol.GetNumBonds() == 5
         bond_types = {b.GetBondType() for b in res_mol.GetBonds()}
         assert _Chem.BondType.DOUBLE in bond_types
+        assert _Chem.BondType.SINGLE in bond_types
+        assert _Chem.BondType.AROMATIC not in bond_types
+        w.destroy()
+
+    def test_interactive_edit_without_auto_kekulize_demotes_to_single(
+        self, qapp, monkeypatch
+    ):
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtWidgets import QWidget
+
+        mol = self._make_benzene()
+        ctx = _real_ctx(mol=mol)
+        ctx.current_mol = mol
+        ctx.plotter = MagicMock()
+        w = _bondrn.BondEditorWindow(context=ctx)
+
+        widget = QWidget()
+        widget.resize(400, 300)
+
+        bond_actor = object()
+        atom_actor = object()
+        mw = MagicMock()
+        mw.view_3d_manager = MagicMock()
+        mw.view_3d_manager.atom_actor = atom_actor
+        w.context.get_main_window = lambda: mw
+        monkeypatch.setattr(
+            _vtk,
+            "vtkCellPicker",
+            lambda: _FakePicker(actor=bond_actor, pos=(0.5, 0.0, 0.0)),
+        )
+
+        w._interactive_mode = True
+        w.auto_kekulize_cb.setChecked(False)
+        w._interactive_click(10, 10, widget, Qt.MouseButton.RightButton)
+
+        # Without auto-kekulize, all remaining bonds are demoted to SINGLE!
+        res_mol = w.context.current_molecule
+        assert res_mol.GetNumBonds() == 5
+        bond_types = {b.GetBondType() for b in res_mol.GetBonds()}
+        assert bond_types == {_Chem.BondType.SINGLE}
         w.destroy()
