@@ -10,6 +10,19 @@ Explorer: [https://hiroyokoyama.github.io/moleditpy-plugins/explorer/](https://h
 
 This directory contains the official plugins for **MoleditPy**. 
 
+## What You Can Do with Plugins (Typical Use Cases & Solutions)
+
+Looking for which plugins to use for your specific research workflow? Check out the comprehensive guide and problem-solution matrix on the Wiki:
+
+- **[What You Can Do with Plugins: Typical Use Cases & Solutions](https://github.com/HiroYokoyama/moleditpy-plugins/wiki/What-You-Can-Do-with-Plugins)**
+  - *Part I: Typical Use Cases & Recommended Workflows* (DFT calculation prep & analysis, surface slabs & periodic DFT, conformational sampling & untangling chains, publication-grade rendering & ray-tracing, AI chemistry assistants & MCP, organic synthesis planning)
+  - *Part II: Complete Problem & Solution Matrix* (Detailed breakdown mapping specific goals to plugins across 11 functional domains)
+- **[Japanese version / 日本語版ガイド](https://github.com/HiroYokoyama/moleditpy-plugins/wiki/What-You-Can-Do-with-Plugins-JP)**
+
+Also check the **[Official Plugins Catalogue](https://github.com/HiroYokoyama/moleditpy-plugins/wiki/Official-Plugins)** ([Japanese](https://github.com/HiroYokoyama/moleditpy-plugins/wiki/Official-Plugins-JP)) for complete technical specifications, menus, and requirements for all plugins.
+
+---
+
 **Contribute Your Plugin**
 We believe in the power of community! If you have created a useful plugin, we would love to index it in our Official Plugin Explorer so the entire community can discover it. Please refer to our [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to submit your work.
 
