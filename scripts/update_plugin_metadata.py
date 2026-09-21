@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 Update metadata only for an existing remote plugin in REGISTRY/plugins.json.
 
