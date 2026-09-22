@@ -2,7 +2,11 @@
 
 [![Plugin Tests](https://github.com/HiroYokoyama/moleditpy-plugins/actions/workflows/test-plugins.yml/badge.svg)](https://github.com/HiroYokoyama/moleditpy-plugins/actions/workflows/test-plugins.yml)
 [![Coverage](https://img.shields.io/badge/coverage-%3E80%25-brightgreen)](https://github.com/HiroYokoyama/moleditpy-plugins/actions/workflows/test-plugins.yml)
+[![MoleditPy](https://img.shields.io/badge/MoleditPy->=4.0.0-3577F7)](https://github.com/HiroYokoyama/python_molecular_editor)
+[![Plugin Explorer](https://img.shields.io/badge/Plugin%20Explorer-Live-3577F7)](https://hiroyokoyama.github.io/moleditpy-plugins/explorer/)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18140902.svg)](https://doi.org/10.5281/zenodo.18140902)
+[![](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=%23fe8e86)](https://github.com/sponsors/HiroYokoyama)
 
 Repo: [https://github.com/HiroYokoyama/moleditpy-plugins/](https://github.com/HiroYokoyama/moleditpy-plugins/)  
 Explorer: [https://hiroyokoyama.github.io/moleditpy-plugins/explorer/](https://hiroyokoyama.github.io/moleditpy-plugins/explorer/)
