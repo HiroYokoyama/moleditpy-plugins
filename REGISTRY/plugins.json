@@ -1688,7 +1688,7 @@
     "visible": true,
     "supported_moleditpy_version": "4.*",
     "name": "ORCA Input Generator Pro",
-    "version": "3.9.0",
+    "version": "3.9.1",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "High-functionality setting dialog for ORCA input creation. Supports Keywords, Block Builder, and Validations.",
@@ -1700,10 +1700,10 @@
       "rdkit",
       "PyQt6"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/releases/download/v3.9.0/orca_input_generator_pro_3.9.0.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/releases/download/v3.9.1/orca_input_generator_pro_3.9.1.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro",
-    "lastUpdated": "2026-09-15",
-    "sha256": "10873a7d98dec13ef5a70b8fdebfb5605e350c34b84dd08d8c84977de217fe9e",
+    "lastUpdated": "2026-09-22",
+    "sha256": "dc261d7f1a1e0348ed680ebc7ef86de9137fd4240a5f12bd428bd9d38bf9dabe",
     "firstAppeared": "2026-03-21",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
