@@ -1981,7 +1981,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "MCP Server",
-    "version": "1.6.0",
+    "version": "1.6.1",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Expose MoleditPy via Model Context Protocol (MCP) for AI assistant integration (Claude Desktop, etc.).",
@@ -1989,10 +1989,10 @@
       "AI"
     ],
     "dependencies": [],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy-mcp_server/releases/download/v1.6.0/mcp_server_1.6.0.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy-mcp_server/releases/download/v1.6.1/mcp_server_1.6.1.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy-mcp_server",
-    "lastUpdated": "2026-09-08",
-    "sha256": "d4979a7af22c2fbed5efa0865387b5d666f2d9c4d0fc64d13ddbf0d3e62f81ca",
+    "lastUpdated": "2026-09-22",
+    "sha256": "118218338797ac2e7574838a1c6eca805dc653f02a4fc1ee5e4f29845ec7e01a",
     "firstAppeared": "2026-07-03",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
