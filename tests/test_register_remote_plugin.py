@@ -571,7 +571,7 @@ def test_extract_metadata_with_supported_version():
 @patch('urllib.request.urlopen')
 @patch('register_remote_plugin.extract_metadata_from_file')
 @patch('builtins.open', new_callable=mock_open, read_data="[]")
-def test_add_prioritizes_cli_version_over_code(mock_file, mock_extract, mock_urlopen, mock_exit):
+def test_add_prioritizes_code_version_over_cli(mock_file, mock_extract, mock_urlopen, mock_exit):
     mock_response = MagicMock()
     mock_response.read.return_value = b"mock content"
     mock_urlopen.return_value.__enter__.return_value = mock_response
@@ -595,14 +595,14 @@ def test_add_prioritizes_cli_version_over_code(mock_file, mock_extract, mock_url
     with patch('sys.argv', test_args), patch('builtins.print') as mock_print:
         register_remote_plugin.main()
         
-    # Verify that the printed output JSON contains `"supported_moleditpy_version": "3.5"` (CLI wins)
+    # The code declares 3.1, so it wins over the CLI's 3.5
     printed_calls = [c[0][0] for c in mock_print.call_args_list if c[0]]
     found_cli = False
     for p in printed_calls:
-        if isinstance(p, str) and '"supported_moleditpy_version": "3.5"' in p:
+        if isinstance(p, str) and '"supported_moleditpy_version": "3.1"' in p:
             found_cli = True
             break
-    assert found_cli, "Expected CLI version to override code constant"
+    assert found_cli, "Expected the code constant to win over the CLI version"
 
 
 @patch('sys.exit')
@@ -646,12 +646,12 @@ def test_add_uses_code_constant_if_cli_omitted(mock_file, mock_extract, mock_url
 @patch('urllib.request.urlopen')
 @patch('register_remote_plugin.extract_metadata_from_file')
 @patch('builtins.open', new_callable=mock_open, read_data='[{"id": "some_plugin", "visible": true, "supported_moleditpy_version": "3.0", "name": "Some Plugin", "version": "1.0.0", "downloadUrl": "https://github.com/HiroYokoyama/some_plugin/releases/download/v1.0.0/some_plugin.py", "projectUrl": "https://github.com/HiroYokoyama/some_plugin"}]')
-def test_update_prioritizes_cli_then_code_then_registry(mock_file, mock_extract, mock_urlopen, mock_exit):
+def test_update_prioritizes_code_then_cli_then_registry(mock_file, mock_extract, mock_urlopen, mock_exit):
     mock_response = MagicMock()
     mock_response.read.return_value = b"mock content"
     mock_urlopen.return_value.__enter__.return_value = mock_response
     
-    # Case A: CLI provided, code constant provided, registry has value. CLI should win (3.5)
+    # Case A: CLI provided, code constant provided, registry has value. The code should win (3.2)
     mock_extract.return_value = {
         "name": "Some Plugin",
         "version": "1.1.0",
@@ -673,10 +673,10 @@ def test_update_prioritizes_cli_then_code_then_registry(mock_file, mock_extract,
     printed_calls = [c[0][0] for c in mock_print_cli.call_args_list if c[0]]
     found_cli = False
     for p in printed_calls:
-        if isinstance(p, str) and '"supported_moleditpy_version": "3.5"' in p:
+        if isinstance(p, str) and '"supported_moleditpy_version": "3.2"' in p:
             found_cli = True
             break
-    assert found_cli, "Expected CLI version to win in UPDATE"
+    assert found_cli, "Expected the code constant to win over the CLI in UPDATE"
 
     # Case B: CLI omitted, code constant provided, registry has value. Code constant should win (3.2)
     test_args_code = [
@@ -791,12 +791,26 @@ def test_update_keeps_tags_when_code_declares_none(mock_file, mock_extract, mock
 @patch('urllib.request.urlopen')
 @patch('register_remote_plugin.extract_metadata_from_file')
 @patch('builtins.open', new_callable=mock_open, read_data=_CURATED_ENTRY)
-def test_update_explicit_tags_override_code(mock_file, mock_extract, mock_urlopen, mock_exit):
+def test_update_code_tags_win_over_input(mock_file, mock_extract, mock_urlopen, mock_exit):
     entry = _run_update_dry(mock_extract, mock_urlopen, {
         "name": "Some Plugin",
         "version": "1.1.0",
         "author": "HiroYokoyama",
         "description": "Old wording.",
         "tags": ["Analysis"],
+    }, extra_args=("--tags", "File, DFT"))
+    assert entry["tags"] == ["Analysis"]
+
+
+@patch('sys.exit')
+@patch('urllib.request.urlopen')
+@patch('register_remote_plugin.extract_metadata_from_file')
+@patch('builtins.open', new_callable=mock_open, read_data=_CURATED_ENTRY)
+def test_update_tags_input_fills_gap_when_code_declares_none(mock_file, mock_extract, mock_urlopen, mock_exit):
+    entry = _run_update_dry(mock_extract, mock_urlopen, {
+        "name": "Some Plugin",
+        "version": "1.1.0",
+        "author": "HiroYokoyama",
+        "description": "Old wording.",
     }, extra_args=("--tags", "File, DFT"))
     assert entry["tags"] == ["File", "DFT"]

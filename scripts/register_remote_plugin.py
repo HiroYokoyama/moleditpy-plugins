@@ -291,7 +291,7 @@ def main():
     parser = argparse.ArgumentParser(description="Register or update a remote plugin in the registry.")
     parser.add_argument("release_url", help="GitHub Release file URL")
     parser.add_argument("--id", dest="plugin_id", help="Plugin ID (optional, derived for new plugins if omitted)")
-    parser.add_argument("--tags", help="Comma-separated tags. Overrides PLUGIN_TAGS; without it the tags come from the code when it declares them, otherwise the registry's are kept.")
+    parser.add_argument("--tags", help="Comma-separated tags, used only when the code declares no PLUGIN_TAGS.")
     parser.add_argument("--dependencies", help="Comma-separated dependencies for new plugins")
     parser.add_argument("--optional-dependencies", dest="optional_dependencies", help="Comma-separated optional dependencies (packages that unlock extra features but are not needed to run the plugin)")
     parser.add_argument("--visible", default=None, help="Set visibility of the plugin (new plugins default to true; for an existing plugin the current value is kept unless this is passed)")
@@ -495,8 +495,9 @@ def main():
             print(f"Warning: Error comparing versions ({e}), defaulting current version to 0.0.0 for safety.")
             old_version = "0.0.0"
             
-        # Determine supported MoleditPy version (prefer CLI argument, then code constant, then existing entry)
-        supported_ver = args.supported_version or meta.get("supported_moleditpy_version") or existing_entry.get("supported_moleditpy_version")
+        # A value the code declares always wins; CLI arguments only fill gaps the
+        # code leaves, and the existing registry value is the last fallback.
+        supported_ver = meta.get("supported_moleditpy_version") or args.supported_version or existing_entry.get("supported_moleditpy_version")
             
         if supported_ver:
             if "supported_moleditpy_version" in existing_entry:
@@ -516,12 +517,11 @@ def main():
 
         # Name, description and tags follow the code on every version bump, so a
         # release is the one way to change them -- no separate metadata request.
-        # Only constants the code actually declares are synced; an explicit
-        # --tags still wins over PLUGIN_TAGS.
-        if args.tags is not None:
-            existing_entry["tags"] = [tag.strip() for tag in args.tags.split(",") if tag.strip()]
-        elif meta.get("tags"):
+        # --tags only applies when the code declares no PLUGIN_TAGS.
+        if meta.get("tags"):
             existing_entry["tags"] = list(meta["tags"])
+        elif args.tags is not None:
+            existing_entry["tags"] = [tag.strip() for tag in args.tags.split(",") if tag.strip()]
         if meta.get("name"):
             existing_entry["name"] = meta["name"].strip()
         if meta.get("description"):
@@ -530,27 +530,27 @@ def main():
         # Dependencies are not curated: they are a fact about the release, and a
         # plugin that gains one had no way to say so before this.
         code_deps = meta.get("dependencies")
-        if args.dependencies is not None:
+        if code_deps is not None:
+            existing_entry["dependencies"] = [str(dep).strip() for dep in code_deps if str(dep).strip()]
+        elif args.dependencies is not None:
             existing_entry["dependencies"] = [
                 dep.strip() for dep in args.dependencies.split(",") if dep.strip()
             ]
-        elif code_deps is not None:
-            existing_entry["dependencies"] = [str(dep).strip() for dep in code_deps if str(dep).strip()]
 
         # Same for optional dependencies. The key is only written once a plugin
         # declares one, so entries without any stay byte-identical.
         code_opt_deps = meta.get("optional_dependencies")
-        if args.optional_dependencies is not None:
-            optional_deps = [dep.strip() for dep in args.optional_dependencies.split(",") if dep.strip()]
-        elif code_opt_deps is not None:
+        if code_opt_deps is not None:
             optional_deps = [str(dep).strip() for dep in code_opt_deps if str(dep).strip()]
+        elif args.optional_dependencies is not None:
+            optional_deps = [dep.strip() for dep in args.optional_dependencies.split(",") if dep.strip()]
         else:
             optional_deps = None
         if optional_deps is not None:
             if optional_deps or "optional_dependencies" in existing_entry:
                 _set_after(existing_entry, "dependencies", "optional_dependencies", optional_deps)
 
-        supported_py = args.supported_python or meta.get("supported_python_version") or existing_entry.get("supported_python_version")
+        supported_py = meta.get("supported_python_version") or args.supported_python or existing_entry.get("supported_python_version")
         if not supported_py and existing_entry.get("visible", True):
             supported_py = DEFAULT_PYTHON_SPEC
         if supported_py:
@@ -600,15 +600,15 @@ def main():
             optional_deps_list = []
 
         visible_flag = args.visible is None or args.visible.lower() == "true"
-        # Determine supported MoleditPy version (prefer CLI argument, then code constant)
-        supported_ver = args.supported_version or meta.get("supported_moleditpy_version")
+        # Determine supported MoleditPy version (the code constant wins, then the CLI argument)
+        supported_ver = meta.get("supported_moleditpy_version") or args.supported_version
         
         if visible_flag and not supported_ver:
             print("Error: Strict Validation Failed: --supported-version or PLUGIN_SUPPORTED_MOLEDITPY_VERSION in code is required for visible plugins.", file=sys.stderr)
             sys.exit(1)
             return
             
-        supported_py = args.supported_python or meta.get("supported_python_version")
+        supported_py = meta.get("supported_python_version") or args.supported_python
         if not supported_py and visible_flag:
             supported_py = DEFAULT_PYTHON_SPEC
 

@@ -10,7 +10,8 @@ PLUGIN_DEPENDENCIES, etc.), and updates the metadata fields of an existing entry
 in REGISTRY/plugins.json without requiring a version increase or changing the
 registered version, downloadUrl, or sha256.
 
-CLI flags can also explicitly override specific metadata fields:
+A constant the code declares always wins; CLI flags only fill fields the code
+leaves undeclared:
   --tags, --description, --name, --supported-version, --supported-python,
   --supported-os, --dependencies, --optional-dependencies, --visible
 """
@@ -94,99 +95,92 @@ def update_metadata_only(
 
     changed_fields = []
 
-    # 1. Tags
-    if tags is not None:
-        new_tags = [t.strip() for t in tags.split(",") if t.strip()]
-        if existing_entry.get("tags") != new_tags:
-            existing_entry["tags"] = new_tags
-            changed_fields.append("tags (from input)")
-    elif sync_all_from_code and "tags" in code_meta and code_meta["tags"]:
-        new_tags = code_meta["tags"]
-        if existing_entry.get("tags") != new_tags:
-            existing_entry["tags"] = new_tags
-            changed_fields.append("tags (from code)")
+    def _split(raw):
+        return [x.strip() for x in raw.split(",") if x.strip()] if raw is not None else None
+
+    def _pick(field, code_value, input_value):
+        """A value the code declares always wins; an input only fills a gap."""
+        if sync_all_from_code and code_value is not None:
+            if input_value is not None and input_value != code_value:
+                print(f"Note: ignoring the {field} input -- the code declares {code_value!r}.")
+            return code_value, "code"
+        if input_value is not None:
+            return input_value, "input"
+        return None, None
+
+    def _code_list(key):
+        if key not in code_meta or code_meta[key] is None:
+            return None
+        return [str(x).strip() for x in code_meta[key] if str(x).strip()]
+
+    def _code_str(key):
+        value = code_meta.get(key)
+        return value.strip() if isinstance(value, str) and value.strip() else None
+
+    # 1. Tags (an empty PLUGIN_TAGS is treated as undeclared)
+    new_tags, src = _pick("tags", _code_list("tags") or None, _split(tags))
+    if src and existing_entry.get("tags") != new_tags:
+        existing_entry["tags"] = new_tags
+        changed_fields.append(f"tags (from {src})")
 
     # 2. Description
-    if description is not None:
-        new_desc = description.strip()
-        if existing_entry.get("description") != new_desc:
-            existing_entry["description"] = new_desc
-            changed_fields.append("description (from input)")
-    elif sync_all_from_code and code_meta.get("description"):
-        new_desc = code_meta["description"].strip()
-        if existing_entry.get("description") != new_desc:
-            existing_entry["description"] = new_desc
-            changed_fields.append("description (from code)")
+    new_desc, src = _pick("description", _code_str("description"),
+                          description.strip() if description is not None else None)
+    if src and existing_entry.get("description") != new_desc:
+        existing_entry["description"] = new_desc
+        changed_fields.append(f"description (from {src})")
 
     # 3. Name
-    if name is not None:
-        new_name = name.strip()
-        if existing_entry.get("name") != new_name:
-            existing_entry["name"] = new_name
-            changed_fields.append("name (from input)")
-    elif sync_all_from_code and code_meta.get("name"):
-        new_name = code_meta["name"].strip()
-        if existing_entry.get("name") != new_name:
-            existing_entry["name"] = new_name
-            changed_fields.append("name (from code)")
+    new_name, src = _pick("name", _code_str("name"), name.strip() if name is not None else None)
+    if src and existing_entry.get("name") != new_name:
+        existing_entry["name"] = new_name
+        changed_fields.append(f"name (from {src})")
 
     # 4. Supported MoleditPy version
-    sup_ver = supported_version or (code_meta.get("supported_moleditpy_version") if sync_all_from_code else None)
-    if sup_ver:
-        sup_ver = sup_ver.strip()
-        if existing_entry.get("supported_moleditpy_version") != sup_ver:
-            if "supported_moleditpy_version" in existing_entry:
-                existing_entry["supported_moleditpy_version"] = sup_ver
-            else:
-                _set_after(existing_entry, "visible", "supported_moleditpy_version", sup_ver)
-            changed_fields.append("supported_moleditpy_version")
+    sup_ver, src = _pick("supported_version", _code_str("supported_moleditpy_version"),
+                         supported_version.strip() if supported_version else None)
+    if src and existing_entry.get("supported_moleditpy_version") != sup_ver:
+        if "supported_moleditpy_version" in existing_entry:
+            existing_entry["supported_moleditpy_version"] = sup_ver
+        else:
+            _set_after(existing_entry, "visible", "supported_moleditpy_version", sup_ver)
+        changed_fields.append("supported_moleditpy_version")
 
-    # 5. Visible
+    # 5. Visible (registry-only: no code constant)
     if visible is not None:
         vis_bool = visible.lower() == "true"
         if existing_entry.get("visible") != vis_bool:
             existing_entry["visible"] = vis_bool
             changed_fields.append("visible")
 
-    # 6. Dependencies
-    if dependencies is not None:
-        deps = [d.strip() for d in dependencies.split(",") if d.strip()]
-        if existing_entry.get("dependencies") != deps:
-            existing_entry["dependencies"] = deps
-            changed_fields.append("dependencies (from input)")
-    elif sync_all_from_code and "dependencies" in code_meta:
-        deps = [str(d).strip() for d in code_meta["dependencies"] if str(d).strip()]
-        if existing_entry.get("dependencies") != deps:
-            existing_entry["dependencies"] = deps
-            changed_fields.append("dependencies (from code)")
+    # 6. Dependencies (a declared empty list means "needs nothing")
+    deps, src = _pick("dependencies", _code_list("dependencies"), _split(dependencies))
+    if src and existing_entry.get("dependencies") != deps:
+        existing_entry["dependencies"] = deps
+        changed_fields.append(f"dependencies (from {src})")
 
     # 7. Optional dependencies
-    if optional_dependencies is not None:
-        opt_deps = [d.strip() for d in optional_dependencies.split(",") if d.strip()]
-        if existing_entry.get("optional_dependencies") != opt_deps:
+    opt_deps, src = _pick("optional_dependencies", _code_list("optional_dependencies"),
+                          _split(optional_dependencies))
+    if src and existing_entry.get("optional_dependencies") != opt_deps:
+        if opt_deps or "optional_dependencies" in existing_entry:
             _set_after(existing_entry, "dependencies", "optional_dependencies", opt_deps)
-            changed_fields.append("optional_dependencies (from input)")
-    elif sync_all_from_code and "optional_dependencies" in code_meta:
-        opt_deps = [str(d).strip() for d in code_meta["optional_dependencies"] if str(d).strip()]
-        if existing_entry.get("optional_dependencies") != opt_deps:
-            _set_after(existing_entry, "dependencies", "optional_dependencies", opt_deps)
-            changed_fields.append("optional_dependencies (from code)")
+            changed_fields.append(f"optional_dependencies (from {src})")
 
     # 8. Supported Python version
-    sup_py = supported_python or (code_meta.get("supported_python_version") if sync_all_from_code else None)
-    if sup_py:
-        sup_py = sup_py.strip()
-        if existing_entry.get("supported_python_version") != sup_py:
-            existing_entry["supported_python_version"] = sup_py
-            changed_fields.append("supported_python_version")
+    sup_py, src = _pick("supported_python", _code_str("supported_python_version"),
+                        supported_python.strip() if supported_python else None)
+    if src and existing_entry.get("supported_python_version") != sup_py:
+        existing_entry["supported_python_version"] = sup_py
+        changed_fields.append("supported_python_version")
 
     # 9. Supported OS
-    raw_os = supported_os or (code_meta.get("supported_os") if sync_all_from_code else None)
-    if raw_os:
-        new_os = canonicalize_os_list(raw_os)
-        if new_os and existing_entry.get("supported_os") != new_os:
-            existing_entry["supported_os"] = new_os
-            changed_fields.append("supported_os")
+    code_os = canonicalize_os_list(code_meta["supported_os"]) if code_meta.get("supported_os") else None
+    input_os = canonicalize_os_list(_split(supported_os)) if supported_os else None
+    new_os, src = _pick("supported_os", code_os or None, input_os or None)
+    if src and existing_entry.get("supported_os") != new_os:
+        existing_entry["supported_os"] = new_os
+        changed_fields.append("supported_os")
 
     if changed_fields:
         print(f"Updated fields for '{existing_entry.get('name')}': {', '.join(changed_fields)}")
@@ -214,9 +208,9 @@ def main():
     parser = argparse.ArgumentParser(description="Update metadata only for an existing remote plugin in registry.")
     parser.add_argument("release_url", help="GitHub Release file URL (.zip or .py)")
     parser.add_argument("--id", dest="plugin_id", help="Plugin ID (optional, matched by repository or filename if omitted)")
-    parser.add_argument("--tags", help="Comma-separated tags to override. If omitted, tags are updated from code constants.")
-    parser.add_argument("--description", help="Description to override. If omitted, description is updated from code constant.")
-    parser.add_argument("--name", help="Plugin name to override. If omitted, name is updated from code constant.")
+    parser.add_argument("--tags", help="Comma-separated tags, used only when the code declares no PLUGIN_TAGS.")
+    parser.add_argument("--description", help="Description, used only when the code declares no PLUGIN_DESCRIPTION.")
+    parser.add_argument("--name", help="Plugin name, used only when the code declares no PLUGIN_NAME.")
     parser.add_argument("--supported-version", dest="supported_version", help="Supported MoleditPy version spec")
     parser.add_argument("--supported-python", dest="supported_python", help="Supported Python version spec")
     parser.add_argument("--supported-os", dest="supported_os", help="Comma-separated list of supported OS tokens")

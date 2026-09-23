@@ -12,15 +12,15 @@ on:
         required: false
         type: string
       tags:
-        description: 'Comma-separated tags (optional, if omitted tags are synced from PLUGIN_TAGS in code)'
+        description: 'Comma-separated tags (optional; PLUGIN_TAGS in code always wins)'
         required: false
         type: string
       description:
-        description: 'Plugin description override (optional, if omitted description is synced from code)'
+        description: 'Plugin description (optional; PLUGIN_DESCRIPTION in code always wins)'
         required: false
         type: string
       name:
-        description: 'Plugin name override (optional, if omitted name is synced from code)'
+        description: 'Plugin name (optional; PLUGIN_NAME in code always wins)'
         required: false
         type: string
       supported_version:

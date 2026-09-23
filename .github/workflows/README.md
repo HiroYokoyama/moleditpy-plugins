@@ -14,9 +14,9 @@ A manual workflow (`workflow_dispatch`) used to automatically register new third
 | :--- | :--- | :--- |
 | `release_url` | **Yes** | The direct download URL of the GitHub Release asset (must be a `.py` file or a `.zip` file). Format: `https://github.com/{owner}/{repo}/releases/download/{tag}/{filename}`. |
 | `plugin_id` | No | The unique ID for the plugin. For new plugins, if omitted, it will be automatically derived from the release file name (stem). |
-| `tags` | No | A comma-separated list of tags (e.g., `Analysis, Visualization`). Overrides `PLUGIN_TAGS`; without it the code's tags are used, and on an update a plugin that declares none keeps its registry tags. |
-| `dependencies` | No | A comma-separated list of required Python packages (only used when registering a new plugin, e.g., `numpy, rdkit`). |
-| `optional_dependencies` | No | A comma-separated list of optional Python packages — extra features only, the plugin runs without them (e.g., `matplotlib, pillow`). Overrides `PLUGIN_OPTIONAL_DEPENDENCIES` when given. |
+| `tags` | No | A comma-separated list of tags (e.g., `Analysis, Visualization`). Used only when the code declares no `PLUGIN_TAGS`; a declared value always wins. |
+| `dependencies` | No | A comma-separated list of required Python packages (e.g., `numpy, rdkit`). Used only when the code declares no `PLUGIN_DEPENDENCIES`. |
+| `optional_dependencies` | No | A comma-separated list of optional Python packages — extra features only, the plugin runs without them (e.g., `matplotlib, pillow`). Used only when the code declares no `PLUGIN_OPTIONAL_DEPENDENCIES`. |
 | `visible` | **Yes** | Visibility flag in the registry (`true` or `false`). Defaults to `true`. |
 | `expected_sha256` | *Conditional* | The expected SHA-256 hash. **Mandatory** for security verification if the repository owner is not `HiroYokoyama`. |
 | `date` | No | Override registration/update date (`YYYY-MM-DD`). If omitted or empty, automatically falls back to the current system date. |
@@ -33,17 +33,17 @@ When registering or updating a plugin, the entry in `REGISTRY/plugins.json` is g
 | :--- | :--- | :--- |
 | `id` | **Input / Derived** | Used directly if `plugin_id` is supplied as a workflow input. If left blank, it is derived from the release file name (stem) converted to lowercase with dashes replaced by underscores. |
 | `visible` | **Input** | Directly from the `visible` selection input in the workflow (defaults to `true`). |
-| `supported_moleditpy_version` | **Input / Code Constant / Registry** | Prioritizes: 1. `supported_version` input from the workflow/CLI (if provided), 2. `PLUGIN_SUPPORTED_MOLEDITPY_VERSION` defined at the top of the downloaded python file, 3. The existing registry value (when updating). Mandatory for visible plugins. |
-| `supported_python_version` | **Input / Code Constant / Registry / Default** | Prioritizes: 1. `supported_python` input from the workflow/CLI, 2. `PLUGIN_SUPPORTED_PYTHON_VERSION` in the downloaded code, 3. The existing registry value (when updating), 4. The default `>=3.9, <3.15` for visible plugins. |
+| `supported_moleditpy_version` | **Code Constant / Input / Registry** | Prioritizes: 1. `PLUGIN_SUPPORTED_MOLEDITPY_VERSION` defined at the top of the downloaded python file, 2. `supported_version` input from the workflow/CLI, 3. The existing registry value (when updating). Mandatory for visible plugins. |
+| `supported_python_version` | **Code Constant / Input / Registry / Default** | Prioritizes: 1. `PLUGIN_SUPPORTED_PYTHON_VERSION` in the downloaded code, 2. `supported_python` input from the workflow/CLI, 3. The existing registry value (when updating), 4. The default `>=3.9, <3.15` for visible plugins. |
 | `name` | **Code Constant** | Extracted from `PLUGIN_NAME` defined at the top of the downloaded `.py` or `__init__.py` file — on every version bump, not only at registration. |
 | `version` | **Code Constant** | Extracted from `PLUGIN_VERSION` in the code. Normalised to remove leading `v/V`. Checked for tag consistency. |
 | `author` | **Code Constant** | Extracted from `PLUGIN_AUTHOR` in the code. Must match the GitHub owner of the repository. |
 | `authorUrl` | **Derived** | Generated automatically as `https://github.com/{owner}` where `{owner}` is parsed from the `release_url`. |
 | `projectUrl` | **Derived** | Generated automatically as `https://github.com/{owner}/{repo}` where `{owner}/{repo}` is parsed from the `release_url`. |
 | `description` | **Code Constant** | Extracted from `PLUGIN_DESCRIPTION` defined in the downloaded code — on every version bump, not only at registration. |
-| `tags` | **Code Constant / Input** | Extracted from `PLUGIN_TAGS` list/string in the code. On an update the `tags` input wins when given; otherwise the code's tags are used, and a plugin that declares none keeps its registry tags. For a new plugin, missing code tags fall back to the `tags` input. |
-| `dependencies` | **Code Constant / Input** | Extracted from `PLUGIN_DEPENDENCIES` list/string in the code. If missing in code, falls back to the `dependencies` input list from the workflow. |
-| `optional_dependencies` | **Code Constant / Input** | Extracted from `PLUGIN_OPTIONAL_DEPENDENCIES` list/string in the code, or the `optional_dependencies` input (which wins when given). Written only when non-empty, so entries without optional packages keep the key absent. |
+| `tags` | **Code Constant / Input** | Extracted from `PLUGIN_TAGS` list/string in the code. A declared value always wins; otherwise the `tags` input is used, and failing that an update keeps the registry tags. |
+| `dependencies` | **Code Constant / Input** | Extracted from `PLUGIN_DEPENDENCIES` list/string in the code — always, on every version bump. If missing in code, falls back to the `dependencies` input list from the workflow. |
+| `optional_dependencies` | **Code Constant / Input** | Extracted from `PLUGIN_OPTIONAL_DEPENDENCIES` list/string in the code (always wins), or the `optional_dependencies` input when the code declares none. Written only when non-empty, so entries without optional packages keep the key absent. |
 | `downloadUrl` | **Input** | Set to the exact provided `release_url`. |
 | `sha256` | **Computed** | Calculated as the SHA-256 hash of the downloaded asset file. (Must match `expected_sha256` for external plugins). |
 | `lastUpdated` | **System Date / Input** | Set to the provided `date` input (if valid `YYYY-MM-DD`), otherwise defaults to the current system date. |
