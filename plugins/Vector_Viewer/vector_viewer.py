@@ -22,10 +22,10 @@ import pyvista as pv
 
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Vector Viewer"
-PLUGIN_VERSION = "2026.07.31"
+PLUGIN_VERSION = "2026.09.24"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
-PLUGIN_DESCRIPTION = "Visualizes vectors and exports PNGs using the V3 API."
+PLUGIN_DESCRIPTION = "Visualizes vectors (e.g. dipole moment) and exports PNGs."
 
 
 class VectorViewerPlugin(QWidget):

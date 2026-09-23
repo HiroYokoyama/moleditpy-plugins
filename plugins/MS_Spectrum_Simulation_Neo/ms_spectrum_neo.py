@@ -48,12 +48,12 @@ except ImportError:
     Descriptors = None
     Draw = None
 
-PLUGIN_VERSION = "2026.09.21"
+PLUGIN_VERSION = "2026.09.24"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 
 PLUGIN_NAME = "MS Spectrum Simulation Neo"
-PLUGIN_DESCRIPTION = "Simulate and visualize mass spectra from molecular formula."
+PLUGIN_DESCRIPTION = "Simulates the Mass Spectrum for the currently loaded molecule using RDKit descriptors. Includes Gaussian broadening and interactive zoom/pan."
 PLUGIN_DEPENDENCIES = ["rdkit", "numpy", "PyQt6"]
 
 # RDKit's periodic table has no entry for the hydrogen isotope symbols.

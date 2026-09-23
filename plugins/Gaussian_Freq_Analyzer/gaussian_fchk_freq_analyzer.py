@@ -32,12 +32,10 @@ except ImportError:
     Chem = None
 
 PLUGIN_NAME = "Gaussian Freq Analyzer"
-PLUGIN_VERSION = "2026.09.02"
+PLUGIN_VERSION = "2026.09.24"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
-PLUGIN_DESCRIPTION = (
-    "Visualizes vibrational frequencies and normal modes from Gaussian FCHK files."
-)
+PLUGIN_DESCRIPTION = "Analyzes vibrational frequencies from Gaussian FCHK files. View IR spectrum, animate normal modes, and export GIF animations."
 PLUGIN_CONTEXT = None
 
 

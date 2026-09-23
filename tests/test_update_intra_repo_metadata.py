@@ -100,3 +100,98 @@ def test_sync_clears_optional_dependencies_when_emptied(tmp_path):
 
     data = json.loads(registry.read_text(encoding="utf-8"))
     assert data[0]["optional_dependencies"] == []
+
+
+def test_sync_takes_name_description_and_tags_from_code(tmp_path):
+    entry = _entry()
+    entry["description"] = "Old wording."
+    entry["tags"] = ["Utility"]
+    registry = _write_registry(tmp_path, entry)
+    _write_plugin(
+        tmp_path,
+        'PLUGIN_VERSION = "2026.01.02"\n'
+        'PLUGIN_NAME = "Demo Plus"\n'
+        "PLUGIN_DESCRIPTION = (\n"
+        '    "New wording, "\n'
+        '    "split over two lines."\n'
+        ")\n"
+        'PLUGIN_TAGS = ["Analysis", "Visualization"]\n',
+    )
+
+    sync.update_single_json(registry)
+
+    data = json.loads(registry.read_text(encoding="utf-8"))
+    assert data[0]["name"] == "Demo Plus"
+    assert data[0]["description"] == "New wording, split over two lines."
+    assert data[0]["tags"] == ["Analysis", "Visualization"]
+
+
+def test_sync_keeps_registry_values_the_code_does_not_declare(tmp_path):
+    entry = _entry()
+    entry["description"] = "Curated wording."
+    entry["tags"] = ["Utility"]
+    registry = _write_registry(tmp_path, entry)
+    _write_plugin(tmp_path, 'PLUGIN_VERSION = "2026.01.01"\n')
+
+    sync.update_single_json(registry)
+
+    data = json.loads(registry.read_text(encoding="utf-8"))
+    assert data[0]["name"] == "Demo"
+    assert data[0]["description"] == "Curated wording."
+    assert data[0]["tags"] == ["Utility"]
+
+
+def test_sync_leaves_retired_old_plugins_frozen(tmp_path):
+    entry = _entry()
+    entry["downloadUrl"] = "../plugins/_old/Demo/demo.py"
+    entry["tags"] = ["Utility"]
+    registry = _write_registry(tmp_path, entry)
+    plugin_dir = tmp_path / "plugins" / "_old" / "Demo"
+    plugin_dir.mkdir(parents=True)
+    (plugin_dir / "demo.py").write_text(
+        'PLUGIN_VERSION = "2026.01.01"\nPLUGIN_TAGS = ["Analysis"]\n',
+        encoding="utf-8",
+    )
+
+    sync.update_single_json(registry)
+
+    data = json.loads(registry.read_text(encoding="utf-8"))
+    assert data[0]["tags"] == ["Utility"]
+
+
+def test_sync_takes_dependencies_and_supported_os_from_code(tmp_path):
+    entry = _entry()
+    entry["supported_os"] = ["Windows", "macOS", "Linux", "WSL"]
+    registry = _write_registry(tmp_path, entry)
+    _write_plugin(
+        tmp_path,
+        'PLUGIN_VERSION = "2026.01.02"\n'
+        'PLUGIN_DEPENDENCIES = ["numpy", "scipy"]\n'
+        'PLUGIN_SUPPORTED_OS = ["macOS", "Linux", "WSL"]\n',
+    )
+
+    sync.update_single_json(registry)
+
+    data = json.loads(registry.read_text(encoding="utf-8"))
+    assert data[0]["dependencies"] == ["numpy", "scipy"]
+    assert data[0]["supported_os"] == ["macOS", "Linux", "WSL"]
+
+
+def test_sync_writes_declared_empty_dependencies(tmp_path):
+    registry = _write_registry(tmp_path, _entry())
+    _write_plugin(tmp_path, 'PLUGIN_VERSION = "2026.01.02"\nPLUGIN_DEPENDENCIES = []\n')
+
+    sync.update_single_json(registry)
+
+    data = json.loads(registry.read_text(encoding="utf-8"))
+    assert data[0]["dependencies"] == []
+
+
+def test_sync_keeps_dependencies_the_code_does_not_declare(tmp_path):
+    registry = _write_registry(tmp_path, _entry())
+    _write_plugin(tmp_path, 'PLUGIN_VERSION = "2026.01.02"\n')
+
+    sync.update_single_json(registry)
+
+    data = json.loads(registry.read_text(encoding="utf-8"))
+    assert data[0]["dependencies"] == ["numpy"]

@@ -43,15 +43,11 @@ from PyQt6.QtWidgets import (
 # ---------------------------------------------------------------------------
 
 PLUGIN_NAME = "Metadata Saver"
-PLUGIN_VERSION = "2026.07.31"
+PLUGIN_VERSION = "2026.09.24"
 PLUGIN_AUTHOR = "HiroYokoyama"
-PLUGIN_DESCRIPTION = (
-    "Saves debug/trace metadata (timestamp, file path, username, OS info, …) "
-    "into the .pmeprj project file. For debugging and tracing purposes only — "
-    "do not share project files containing this data with anonymous users."
-)
+PLUGIN_DESCRIPTION = "Saves debug/trace metadata (timestamp, file path, username, OS info, …) into the .pmeprj project file. For debugging and tracing only — do not share project files containing this data with anonymous users."
 PLUGIN_CATEGORY = "Utility"
-PLUGIN_TAGS = ["Debug", "Tracing", "Utility"]
+PLUGIN_TAGS = ["Utility"]
 PLUGIN_DEPENDENCIES = []
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 

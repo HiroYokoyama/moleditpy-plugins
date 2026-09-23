@@ -2,13 +2,10 @@ from PyQt6.QtWidgets import QMessageBox
 from rdkit import Chem
 from rdkit.Chem import rdMolTransforms
 
-PLUGIN_VERSION = "2026.07.30"
+PLUGIN_VERSION = "2026.09.24"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
-PLUGIN_DESCRIPTION = (
-    "Convert non-cyclic chain torsions (including heteroatoms such as O, N, S) "
-    "to an all-trans conformation."
-)
+PLUGIN_DESCRIPTION = "A geometric tool for straightening alkyl chains."
 PLUGIN_NAME = "All-Trans Optimizer"
 
 # Backbone atoms allowed in the chain being straightened.

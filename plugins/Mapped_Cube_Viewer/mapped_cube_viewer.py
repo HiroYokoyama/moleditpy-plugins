@@ -46,9 +46,9 @@ except ImportError:
 __author__ = "HiroYokoyama"
 PLUGIN_AUTHOR = __author__
 PLUGIN_NAME = "Mapped Cube Viewer"
-PLUGIN_VERSION = "2026.09.02"
+PLUGIN_VERSION = "2026.09.24"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
-PLUGIN_DESCRIPTION = "Visualizes electrostatic potential or other properties mapped onto an isosurface from Gaussian Cube files."
+PLUGIN_DESCRIPTION = "Visualizes a property (e.g. ESP) mapped onto an isosurface (e.g. electron density) from two Cube files."
 
 # --- Core Logic: Robust Parser from cube_viewer.py ---
 

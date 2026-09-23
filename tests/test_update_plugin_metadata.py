@@ -72,7 +72,7 @@ def test_update_metadata_tags_and_description():
     assert plugins[0]["sha256"] == "fakehash"
 
 
-def test_update_metadata_manual_cli_override():
+def test_update_metadata_code_wins_input_fills_gaps():
     plugins = [
         {
             "id": "test_plugin",
@@ -101,6 +101,48 @@ def test_update_metadata_manual_cli_override():
                 dry_run=True,
             )
 
-    assert "tags (from input)" in res["changed_fields"]
-    assert plugins[0]["tags"] == ["ManualTag1", "ManualTag2"]
+    # The code declares PLUGIN_TAGS, so it wins over the input; the code has no
+    # description, so the input fills that gap.
+    assert "tags (from code)" in res["changed_fields"]
+    assert plugins[0]["tags"] == ["CodeTag"]
+    assert "description (from input)" in res["changed_fields"]
     assert plugins[0]["description"] == "Manual override desc"
+
+
+def test_update_metadata_code_wins_for_every_declared_field():
+    plugins = [
+        {
+            "id": "test_plugin",
+            "visible": True,
+            "supported_moleditpy_version": ">=4.0.0, <5.0.0",
+            "name": "Plugin",
+            "version": "1.0.0",
+            "dependencies": ["numpy"],
+            "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_test/releases/download/v1.0.0/test_plugin.zip",
+            "sha256": "fakehash",
+            "supported_os": ["Windows", "macOS", "Linux", "WSL"],
+        }
+    ]
+    mock_meta = {
+        "dependencies": ["scipy"],
+        "supported_moleditpy_version": ">=4.1.0, <5.0.0",
+        "supported_os": ["macOS", "Linux"],
+    }
+    url = "https://github.com/HiroYokoyama/moleditpy_test/releases/download/v1.0.0/test_plugin.zip"
+
+    with patch("update_plugin_metadata.extract_metadata_from_file", return_value=mock_meta), \
+         patch("urllib.request.urlopen"), \
+         patch("json.load", return_value=plugins), \
+         patch("builtins.open"), \
+         patch("pathlib.Path.exists", return_value=True):
+        update_plugin_metadata.update_metadata_only(
+            release_url=url,
+            dependencies="pandas",
+            supported_version=">=3.0.0",
+            supported_os="Windows",
+            dry_run=True,
+        )
+
+    assert plugins[0]["dependencies"] == ["scipy"]
+    assert plugins[0]["supported_moleditpy_version"] == ">=4.1.0, <5.0.0"
+    assert plugins[0]["supported_os"] == ["macOS", "Linux"]

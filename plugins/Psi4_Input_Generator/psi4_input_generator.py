@@ -22,10 +22,10 @@ from rdkit import Chem
 import logging
 
 PLUGIN_NAME = "Psi4 Input Generator"
-PLUGIN_VERSION = "2026.07.31"
+PLUGIN_VERSION = "2026.09.24"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
-PLUGIN_DESCRIPTION = "Generate Psi4 input files for quantum chemistry calculations."
+PLUGIN_DESCRIPTION = "Generates input files for Psi4 quantum chemistry calculations."
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "psi4_input_generator.json")
 
 

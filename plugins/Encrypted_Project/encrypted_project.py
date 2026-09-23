@@ -21,12 +21,10 @@ except ImportError:
     CRYPTOGRAPHY_AVAILABLE = False
 
 PLUGIN_NAME = "Encrypted Project"
-PLUGIN_VERSION = "2026.07.30"
+PLUGIN_VERSION = "2026.09.24"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
-PLUGIN_DESCRIPTION = (
-    "Securely saves molecular data using AES-128 encryption with password protection."
-)
+PLUGIN_DESCRIPTION = "Securely saves molecular data using AES-128 encryption with password protection (.pmeenc file)."
 
 
 class PmeencPlugin:

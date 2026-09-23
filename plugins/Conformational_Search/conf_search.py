@@ -20,10 +20,10 @@ from rdkit.Chem import AllChem
 import copy
 
 PLUGIN_NAME = "Conformational Search"
-PLUGIN_VERSION = "2026.08.27"
+PLUGIN_VERSION = "2026.09.24"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
-PLUGIN_DESCRIPTION = "Perform conformational search using RDKit ETKDG."
+PLUGIN_DESCRIPTION = "Performs conformational sampling and energy minimization."
 
 
 class ConformerSearchWorker(QThread):

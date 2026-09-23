@@ -12,11 +12,11 @@ on:
         required: false
         type: string
       tags:
-        description: 'Comma-separated tags (only used for new plugins, e.g., Visualization, Analysis)'
+        description: 'Comma-separated tags (e.g., Visualization, Analysis) — used only when the code does not declare it as PLUGIN_TAGS'
         required: false
         type: string
       dependencies:
-        description: 'Comma-separated Python dependencies (only used for new plugins, e.g., numpy, rdkit)'
+        description: 'Comma-separated Python dependencies (e.g., numpy, rdkit) — used only when the code does not declare it as PLUGIN_DEPENDENCIES'
         required: false
         type: string
       optional_dependencies:
@@ -40,11 +40,11 @@ on:
         required: false
         type: string
       supported_version:
-        description: 'Supported MoleditPy version (e.g. 3.*, required if visible)'
+        description: 'Supported MoleditPy version (e.g. 3.*) — used only when the code does not declare it; required if visible'
         required: false
         type: string
       supported_python:
-        description: 'Supported Python version spec (optional, e.g. >=3.9, <3.15; visible plugins default to that)'
+        description: 'Supported Python version spec (e.g. >=3.9, <3.15) — used only when the code does not declare it; visible plugins default to that'
         required: false
         type: string
       allow_same_version:

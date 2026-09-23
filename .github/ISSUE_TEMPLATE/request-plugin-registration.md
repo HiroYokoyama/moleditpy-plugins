@@ -16,14 +16,8 @@ Provide the direct link to your plugin's GitHub Release asset (must end in `.py`
 ### 2. Target Action
 * [ ] **Register a New Plugin**
 * [ ] **Update an Existing Plugin (New Release / Version Bump)**
-* [ ] **Update Registry Metadata Only (No Version Bump)**
 
-*(If updating an existing plugin or metadata, select which metadata fields you would like updated in the registry:)*
-* [ ] **Sync metadata from release code** (e.g. name, description, tags, dependencies)
-* [ ] **Update Tags** (specify in Section 5 below)
-* [ ] **Update Visibility** (specify in Section 7 below)
-* [ ] **Update Supported MoleditPy / Python Version** (specify in Section 8/9 below)
-* [ ] **Update Description or Display Name** (specify below if overriding code)
+*Name, description, tags, dependencies and supported versions are read from your release code on every version bump — to change any of them, update the `PLUGIN_*` constants and publish a new release. There is no separate metadata-only request.*
 
 
 ### 3. Plugin ID
@@ -37,7 +31,7 @@ To verify integrity and security, please calculate and paste the SHA-256 hash of
 **SHA-256:** 
 
 ### 5. Tags (Optional)
-Comma-separated categories for the Plugin Manager (e.g., `Visualization, Analysis, Utility, File IO`).
+Comma-separated categories for the Plugin Manager (e.g., `Visualization, Analysis, Utility, File`). Only needed if your code does not declare `PLUGIN_TAGS`, which takes precedence on every release.
 **Tags:** 
 
 ### 6. Dependencies (Optional)

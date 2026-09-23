@@ -40,8 +40,8 @@ except ImportError:
     Chem = None
 
 PLUGIN_NAME = "ORCA Freq Analyzer"
-PLUGIN_DESCRIPTION = "Parse ORCA output files and visualize vibrational frequencies."
-PLUGIN_VERSION = "2026.09.02"
+PLUGIN_DESCRIPTION = "Analyzes vibrational frequencies from ORCA output files. View IR spectrum, animate normal modes, and export GIF animations."
+PLUGIN_VERSION = "2026.09.24"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_CONTEXT = None

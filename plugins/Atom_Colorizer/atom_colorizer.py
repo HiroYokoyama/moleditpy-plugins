@@ -25,12 +25,10 @@ except ImportError:
 
 # Plugin Metadata
 PLUGIN_NAME = "Atom Colorizer"
-PLUGIN_VERSION = "2026.09.02"
+PLUGIN_VERSION = "2026.09.24"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
-PLUGIN_DESCRIPTION = (
-    "Applies custom colors to atoms in the 3D viewer. Refactored for V3 API."
-)
+PLUGIN_DESCRIPTION = "Select atoms in the 3D viewer and apply color."
 PLUGIN_CONTEXT = None
 
 

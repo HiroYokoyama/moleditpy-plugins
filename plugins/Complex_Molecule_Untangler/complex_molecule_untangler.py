@@ -18,10 +18,10 @@ from rdkit.Chem import AllChem, rdMolTransforms
 import logging
 
 PLUGIN_NAME = "Complex Molecule Untangler"
-PLUGIN_VERSION = "2026.07.31"
+PLUGIN_VERSION = "2026.09.24"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
-PLUGIN_DESCRIPTION = "Untangle overlapping fragments in complex molecules."
+PLUGIN_DESCRIPTION = "A Monte Carlo-based tool to resolve steric clashes in complex or roughly drawn molecules."
 PLUGIN_CONTEXT = None
 
 

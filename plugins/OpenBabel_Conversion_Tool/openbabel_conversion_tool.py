@@ -30,13 +30,13 @@ except ImportError:
         OBABEL_AVAILABLE = False
 
 PLUGIN_NAME = "OpenBabel Conversion Tool"
-PLUGIN_VERSION = "2026.09.23"
+PLUGIN_VERSION = "2026.09.24"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
     "Import various chemical file formats using OpenBabel with multi-molecule support."
 )
-PLUGIN_DEPENDENCIES = ["openbabel"]
+PLUGIN_DEPENDENCIES = ["openbabel-wheel"]
 
 # MoleditPy 4.11.0 lists multi-molecule SDF files in its own selector.
 HOST_SDF_SELECTOR_VERSION = (4, 11, 0)

@@ -1,7 +1,9 @@
 """
-Update sha256, version, and lastUpdated fields in REGISTRY/plugins.json.
+Update sha256, version, lastUpdated and the code-declared metadata in REGISTRY/plugins.json.
 
-Reads PLUGIN_VERSION (or __version__) from each plugin's source file,
+Reads PLUGIN_VERSION (or __version__) and the other PLUGIN_* metadata constants
+(name, description, tags, dependencies, supported versions / OS) from each
+plugin's source file,
 computes sha256 of the download target (.py or .zip), and writes back
 to the registry. Run after modifying any plugin file.
 
@@ -129,6 +131,64 @@ def infer_optional_dependencies_from_target(target: Path) -> list | None:
     return None
 
 
+# Registry field synced from each constant, when the source declares it.
+DISPLAY_CONSTANTS = {
+    "PLUGIN_NAME": "name",
+    "PLUGIN_DESCRIPTION": "description",
+    "PLUGIN_TAGS": "tags",
+    "PLUGIN_DEPENDENCIES": "dependencies",
+    "PLUGIN_SUPPORTED_OS": "supported_os",
+}
+# List fields where a declared empty list is meaningful ("needs nothing").
+EMPTY_LIST_ALLOWED = {"dependencies"}
+
+
+def _read_display_metadata(path: Path) -> dict:
+    """Module-level constants named in DISPLAY_CONSTANTS, as registry values.
+
+    Parsed with ast so parenthesised multi-line descriptions read correctly.
+    """
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8", errors="ignore"))
+    except (OSError, SyntaxError, ValueError):
+        return {}
+    found = {}
+    for node in tree.body:
+        if not (isinstance(node, ast.Assign) and len(node.targets) == 1):
+            continue
+        target = node.targets[0]
+        if not isinstance(target, ast.Name) or target.id not in DISPLAY_CONSTANTS:
+            continue
+        try:
+            value = ast.literal_eval(node.value)
+        except (ValueError, SyntaxError):
+            continue
+        key = DISPLAY_CONSTANTS[target.id]
+        if key in ("tags", "dependencies", "supported_os"):
+            if isinstance(value, str):
+                value = [value]
+            if not isinstance(value, (list, tuple)):
+                continue
+            value = [str(tag).strip() for tag in value if str(tag).strip()]
+        elif isinstance(value, str):
+            value = value.strip()
+        else:
+            continue
+        if value or (key in EMPTY_LIST_ALLOWED and value == []):
+            found[key] = value
+    return found
+
+
+def infer_display_metadata_from_target(target: Path) -> dict:
+    if target.suffix.lower() == ".py":
+        return _read_display_metadata(target)
+    if target.suffix.lower() == ".zip":
+        init_py = target.parent / target.stem / "__init__.py"
+        if init_py.exists():
+            return _read_display_metadata(init_py)
+    return {}
+
+
 def read_package_version(package_dir: Path) -> str | None:
     init_py = package_dir / "__init__.py"
     if init_py.exists():
@@ -183,7 +243,7 @@ def _set_after(entry: dict, anchor_key: str, key: str, value) -> None:
     entry.update(rebuilt)
 
 
-def update_single_json(json_path: Path) -> tuple[int, int, int, int, int, int, list[str]]:
+def update_single_json(json_path: Path) -> tuple[int, int, int, int, int, int, int, list[str]]:
     data = json.loads(json_path.read_text(encoding="utf-8-sig"))
     if not isinstance(data, list):
         raise ValueError(f"{json_path} root must be a list")
@@ -194,6 +254,7 @@ def update_single_json(json_path: Path) -> tuple[int, int, int, int, int, int, l
     updated_supported = 0
     updated_supported_py = 0
     updated_optional = 0
+    updated_display = 0
     missing = []
 
     # Every visible entry (external ones included) gets a python spec; the
@@ -251,9 +312,18 @@ def update_single_json(json_path: Path) -> tuple[int, int, int, int, int, int, l
                 )
                 updated_optional += 1
 
+        # Name, description, tags, dependencies and supported OS follow the
+        # code, so bumping a plugin is the one way to change them. Retired
+        # _old/ plugins are frozen and skipped.
+        if "/_old/" not in download_url:
+            for key, value in infer_display_metadata_from_target(target).items():
+                if plugin.get(key) != value:
+                    plugin[key] = value
+                    updated_display += 1
+
     with json_path.open("w", encoding="utf-8", newline="\n") as f:
         f.write(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
-    return updated_sha, updated_ver, updated_date, updated_supported, updated_supported_py, updated_optional, missing
+    return updated_sha, updated_ver, updated_date, updated_supported, updated_supported_py, updated_optional, updated_display, missing
 
 
 def main() -> int:
@@ -269,16 +339,18 @@ def main() -> int:
     total_supported = 0
     total_supported_py = 0
     total_optional = 0
+    total_display = 0
     total_missing = 0
 
     for json_path in targets:
-        updated_sha, updated_ver, updated_date, updated_supported, updated_supported_py, updated_optional, missing = update_single_json(json_path)
+        updated_sha, updated_ver, updated_date, updated_supported, updated_supported_py, updated_optional, updated_display, missing = update_single_json(json_path)
         total_sha += updated_sha
         total_ver += updated_ver
         total_date += updated_date
         total_supported += updated_supported
         total_supported_py += updated_supported_py
         total_optional += updated_optional
+        total_display += updated_display
         total_missing += len(missing)
         rel = json_path.relative_to(repo_root)
         print(f"[{rel}] Updated sha256: {updated_sha}")
@@ -287,6 +359,7 @@ def main() -> int:
         print(f"[{rel}] Updated supported_moleditpy_version: {updated_supported}")
         print(f"[{rel}] Updated supported_python_version: {updated_supported_py}")
         print(f"[{rel}] Updated optional_dependencies: {updated_optional}")
+        print(f"[{rel}] Updated name/description/tags/deps/os: {updated_display}")
         print(f"[{rel}] Missing local targets: {len(missing)}")
         for item in missing:
             print(f"  - {item}")
@@ -297,6 +370,7 @@ def main() -> int:
     print(f"Total updated supported_moleditpy_version: {total_supported}")
     print(f"Total updated supported_python_version: {total_supported_py}")
     print(f"Total updated optional_dependencies: {total_optional}")
+    print(f"Total updated name/description/tags/deps/os: {total_display}")
     print(f"Total missing local targets: {total_missing}")
     return 0
 
