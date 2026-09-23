@@ -291,7 +291,7 @@ def main():
     parser = argparse.ArgumentParser(description="Register or update a remote plugin in the registry.")
     parser.add_argument("release_url", help="GitHub Release file URL")
     parser.add_argument("--id", dest="plugin_id", help="Plugin ID (optional, derived for new plugins if omitted)")
-    parser.add_argument("--tags", help="Comma-separated tags. New plugins take them from the code; for an existing plugin the curated tags are kept unless this is passed.")
+    parser.add_argument("--tags", help="Comma-separated tags. Overrides PLUGIN_TAGS; without it the tags come from the code when it declares them, otherwise the registry's are kept.")
     parser.add_argument("--dependencies", help="Comma-separated dependencies for new plugins")
     parser.add_argument("--optional-dependencies", dest="optional_dependencies", help="Comma-separated optional dependencies (packages that unlock extra features but are not needed to run the plugin)")
     parser.add_argument("--visible", default=None, help="Set visibility of the plugin (new plugins default to true; for an existing plugin the current value is kept unless this is passed)")
@@ -514,10 +514,18 @@ def main():
         if args.visible is not None:
             existing_entry["visible"] = args.visible.lower() == "true"
 
-        # Tags and descriptions are curated in the registry, so a routine version
-        # bump must not overwrite them -- only an explicit --tags does.
+        # Name, description and tags follow the code on every version bump, so a
+        # release is the one way to change them -- no separate metadata request.
+        # Only constants the code actually declares are synced; an explicit
+        # --tags still wins over PLUGIN_TAGS.
         if args.tags is not None:
             existing_entry["tags"] = [tag.strip() for tag in args.tags.split(",") if tag.strip()]
+        elif meta.get("tags"):
+            existing_entry["tags"] = list(meta["tags"])
+        if meta.get("name"):
+            existing_entry["name"] = meta["name"].strip()
+        if meta.get("description"):
+            existing_entry["description"] = meta["description"].strip()
 
         # Dependencies are not curated: they are a fact about the release, and a
         # plugin that gains one had no way to say so before this.

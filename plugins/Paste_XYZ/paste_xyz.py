@@ -19,11 +19,11 @@ except ImportError:
     Chem = None
 
 PLUGIN_NAME = "Paste XYZ"
-PLUGIN_VERSION = "2026.07.31"
+PLUGIN_VERSION = "2026.09.24"
 PLUGIN_CATEGORY = "File"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
-PLUGIN_DESCRIPTION = "Paste XYZ coordinates from the clipboard to create a new molecule."
+PLUGIN_DESCRIPTION = "Paste XYZ to view in 3D."
 
 
 def initialize(context):

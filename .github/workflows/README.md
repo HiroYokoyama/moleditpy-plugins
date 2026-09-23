@@ -14,7 +14,7 @@ A manual workflow (`workflow_dispatch`) used to automatically register new third
 | :--- | :--- | :--- |
 | `release_url` | **Yes** | The direct download URL of the GitHub Release asset (must be a `.py` file or a `.zip` file). Format: `https://github.com/{owner}/{repo}/releases/download/{tag}/{filename}`. |
 | `plugin_id` | No | The unique ID for the plugin. For new plugins, if omitted, it will be automatically derived from the release file name (stem). |
-| `tags` | No | A comma-separated list of tags (only used when registering a new plugin, e.g., `Analysis, Visualization`). |
+| `tags` | No | A comma-separated list of tags (e.g., `Analysis, Visualization`). Overrides `PLUGIN_TAGS`; without it the code's tags are used, and on an update a plugin that declares none keeps its registry tags. |
 | `dependencies` | No | A comma-separated list of required Python packages (only used when registering a new plugin, e.g., `numpy, rdkit`). |
 | `optional_dependencies` | No | A comma-separated list of optional Python packages — extra features only, the plugin runs without them (e.g., `matplotlib, pillow`). Overrides `PLUGIN_OPTIONAL_DEPENDENCIES` when given. |
 | `visible` | **Yes** | Visibility flag in the registry (`true` or `false`). Defaults to `true`. |
@@ -35,13 +35,13 @@ When registering or updating a plugin, the entry in `REGISTRY/plugins.json` is g
 | `visible` | **Input** | Directly from the `visible` selection input in the workflow (defaults to `true`). |
 | `supported_moleditpy_version` | **Input / Code Constant / Registry** | Prioritizes: 1. `supported_version` input from the workflow/CLI (if provided), 2. `PLUGIN_SUPPORTED_MOLEDITPY_VERSION` defined at the top of the downloaded python file, 3. The existing registry value (when updating). Mandatory for visible plugins. |
 | `supported_python_version` | **Input / Code Constant / Registry / Default** | Prioritizes: 1. `supported_python` input from the workflow/CLI, 2. `PLUGIN_SUPPORTED_PYTHON_VERSION` in the downloaded code, 3. The existing registry value (when updating), 4. The default `>=3.9, <3.15` for visible plugins. |
-| `name` | **Code Constant** | Extracted from `PLUGIN_NAME` defined at the top of the downloaded `.py` or `__init__.py` file. |
+| `name` | **Code Constant** | Extracted from `PLUGIN_NAME` defined at the top of the downloaded `.py` or `__init__.py` file — on every version bump, not only at registration. |
 | `version` | **Code Constant** | Extracted from `PLUGIN_VERSION` in the code. Normalised to remove leading `v/V`. Checked for tag consistency. |
 | `author` | **Code Constant** | Extracted from `PLUGIN_AUTHOR` in the code. Must match the GitHub owner of the repository. |
 | `authorUrl` | **Derived** | Generated automatically as `https://github.com/{owner}` where `{owner}` is parsed from the `release_url`. |
 | `projectUrl` | **Derived** | Generated automatically as `https://github.com/{owner}/{repo}` where `{owner}/{repo}` is parsed from the `release_url`. |
-| `description` | **Code Constant** | Extracted from `PLUGIN_DESCRIPTION` defined in the downloaded code. |
-| `tags` | **Code Constant / Input** | Extracted from `PLUGIN_TAGS` list/string in the code. If missing in code, falls back to the `tags` input list from the workflow. |
+| `description` | **Code Constant** | Extracted from `PLUGIN_DESCRIPTION` defined in the downloaded code — on every version bump, not only at registration. |
+| `tags` | **Code Constant / Input** | Extracted from `PLUGIN_TAGS` list/string in the code. On an update the `tags` input wins when given; otherwise the code's tags are used, and a plugin that declares none keeps its registry tags. For a new plugin, missing code tags fall back to the `tags` input. |
 | `dependencies` | **Code Constant / Input** | Extracted from `PLUGIN_DEPENDENCIES` list/string in the code. If missing in code, falls back to the `dependencies` input list from the workflow. |
 | `optional_dependencies` | **Code Constant / Input** | Extracted from `PLUGIN_OPTIONAL_DEPENDENCIES` list/string in the code, or the `optional_dependencies` input (which wins when given). Written only when non-empty, so entries without optional packages keep the key absent. |
 | `downloadUrl` | **Input** | Set to the exact provided `release_url`. |

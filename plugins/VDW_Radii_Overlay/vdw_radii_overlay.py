@@ -31,10 +31,10 @@ except ImportError:
 
 # Plugin Metadata
 PLUGIN_NAME = "VDW Radii Overlay"
-PLUGIN_VERSION = "2026.07.31"
+PLUGIN_VERSION = "2026.09.24"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
-PLUGIN_DESCRIPTION = "Visualizes VDW radii as a translucent surface overlay using PyVista. Refactored for V3 API."
+PLUGIN_DESCRIPTION = "Visualizes Van der Waals radii as a merged surface overlay using PyVista."
 PLUGIN_CONTEXT = None
 
 SETTINGS_FILE = os.path.join(

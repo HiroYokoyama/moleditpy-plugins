@@ -23,10 +23,10 @@ from rdkit import Chem
 import logging
 
 PLUGIN_NAME = "MOPAC Input Generator"
-PLUGIN_VERSION = "2026.07.31"
+PLUGIN_VERSION = "2026.09.24"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
-PLUGIN_DESCRIPTION = "Generate MOPAC input files for semi-empirical calculations."
+PLUGIN_DESCRIPTION = "Generates input files for MOPAC semi-empirical quantum chemistry calculations."
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "mopac_input_generator.json")
 
 

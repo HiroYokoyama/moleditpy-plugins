@@ -17,10 +17,10 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 from rdkit import Chem
 
-PLUGIN_VERSION = "2026.07.11"
+PLUGIN_VERSION = "2026.09.24"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
-PLUGIN_DESCRIPTION = "Resolve chemical names to structures via PubChem REST API."
+PLUGIN_DESCRIPTION = "Resolves chemical names and identifiers to structures using the PubChem PUG REST API."
 PLUGIN_NAME = "PubChem Name Resolver"
 PLUGIN_CONTEXT = None
 

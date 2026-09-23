@@ -30,10 +30,10 @@ import logging
 
 
 PLUGIN_NAME = "XYZ Editor"
-PLUGIN_VERSION = "2026.09.18"
+PLUGIN_VERSION = "2026.09.24"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
-PLUGIN_DESCRIPTION = "A table-based editor for atom coordinates and symbols, supporting ghost atoms. Refactored for V3 API."
+PLUGIN_DESCRIPTION = "A table-based editor for atom coordinates and symbols, supporting ghost atoms, adding and deleting atoms."
 PLUGIN_CONTEXT = None
 
 

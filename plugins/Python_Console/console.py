@@ -16,10 +16,10 @@ from PyQt6.QtGui import QFont, QColor, QSyntaxHighlighter, QTextCharFormat, QTex
 from PyQt6.QtCore import Qt, QRegularExpression, pyqtSignal
 import rdkit.Chem as Chem
 
-PLUGIN_VERSION = "2026.06.27"
+PLUGIN_VERSION = "2026.09.24"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
-PLUGIN_DESCRIPTION = "Embedded Python console for interactive scripting."
+PLUGIN_DESCRIPTION = "An interactive Python interpreter embedded in the application. Allows runtime script execution with access to the MainWindow (mw) and current molecule (mol)."
 PLUGIN_NAME = "Python Console"
 PLUGIN_CONTEXT = None
 

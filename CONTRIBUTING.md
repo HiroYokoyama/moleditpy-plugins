@@ -73,15 +73,8 @@ All new registrations and updates to external plugins **must be requested by ope
 5.  **Review**: A repository maintainer will trigger the automated workflow with your inputs, which downloads, strictly validates (version tag alignment and SHA-256 match), and commits the update to `plugins.json`.
 
 > [!NOTE]
-> **Preserving Curated Metadata on Updates**:
-> When a routine plugin update (version bump) is processed, curated registry fields (such as `tags`, `name`, and custom descriptions) are preserved to avoid unintended overwrites. If you want any metadata fields (like tags or display name) updated at the same time or without a new release, check the appropriate metadata update options in the issue template.
-
-#### Requesting Metadata-Only Updates (No Version Bump):
-If you need to update only registry information for an already registered plugin—such as updating categorization `tags`, refining the `description`, updating the display `name`, or adjusting `supported_moleditpy_version`—without releasing a new version:
-1. Open an issue with the **Request Plugin Registration / Update** template.
-2. Under **Target Action**, check **Update Registry Metadata Only (No Version Bump)** and select the specific metadata checkboxes you want updated.
-3. Specify the release asset URL along with any updated fields (e.g. new tags, description, or sync from code).
-4. Maintainers will run the **Update Plugin Metadata Only** workflow, which updates `REGISTRY/plugins.json` without requiring a version bump.
+> **Metadata Follows Your Code on Every Release**:
+> Each version bump re-reads `PLUGIN_NAME`, `PLUGIN_DESCRIPTION`, `PLUGIN_TAGS`, the dependency lists and the supported versions from the release asset and writes them to the registry. To change a display name, description or tags, edit the constant and publish a new release — there is no separate metadata-only request. Constants your code does not declare keep their current registry values.
 
 
 ### 2. Internal (Intra-Repo) Plugins
@@ -96,7 +89,7 @@ If you need to update only registry information for an already registered plugin
 1.  **Clone / Fork** the repository: `git clone https://github.com/HiroYokoyama/moleditpy-plugins.git`
 2.  **Create a branch**: `git checkout -b update/plugin-name`
 3.  **Update Source**: Modify the existing plugin file or folder located in the `plugins/` directory.
-4.  **Update Registry**: Run `python scripts/update_intra_repo_metadata.py` to automatically update the version, SHA-256, and timestamps in `REGISTRY/plugins.json` based on your source code.
+4.  **Update Registry**: Run `python scripts/update_intra_repo_metadata.py` to automatically update the version, SHA-256, timestamps, name, description and tags in `REGISTRY/plugins.json` based on your source code.
 5.  **Submit PR**: Commit and push your changes to your branch and open a Pull Request for review.
 
 ## Registering in `plugins.json`

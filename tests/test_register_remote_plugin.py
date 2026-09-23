@@ -732,3 +732,71 @@ def test_auto_id_omits_version_string_in_add_mode(mock_file, mock_extract, mock_
 
 
 
+
+
+_CURATED_ENTRY = '[{"id": "some_plugin", "visible": true, "supported_moleditpy_version": "3.5", "name": "Some Plugin", "version": "1.0.0", "description": "Old wording.", "tags": ["Utility"], "downloadUrl": "https://github.com/HiroYokoyama/some_plugin/releases/download/v1.0.0/some_plugin.py", "projectUrl": "https://github.com/HiroYokoyama/some_plugin"}]'
+
+
+def _run_update_dry(mock_extract, mock_urlopen, meta, extra_args=()):
+    mock_response = MagicMock()
+    mock_response.read.return_value = b"mock content"
+    mock_urlopen.return_value.__enter__.return_value = mock_response
+    mock_extract.return_value = meta
+    test_args = [
+        "scripts/register_remote_plugin.py",
+        "https://github.com/HiroYokoyama/some_plugin/releases/download/v1.1.0/some_plugin.py",
+        "--dry-run",
+        *extra_args,
+    ]
+    with patch('sys.argv', test_args), patch('builtins.print') as mock_print:
+        register_remote_plugin.main()
+    for call in mock_print.call_args_list:
+        if call[0] and isinstance(call[0][0], str) and call[0][0].lstrip().startswith("{"):
+            return json.loads(call[0][0])
+    raise AssertionError("dry run printed no entry")
+
+
+@patch('sys.exit')
+@patch('urllib.request.urlopen')
+@patch('register_remote_plugin.extract_metadata_from_file')
+@patch('builtins.open', new_callable=mock_open, read_data=_CURATED_ENTRY)
+def test_update_syncs_name_description_and_tags_from_code(mock_file, mock_extract, mock_urlopen, mock_exit):
+    entry = _run_update_dry(mock_extract, mock_urlopen, {
+        "name": "Some Plugin Plus",
+        "version": "1.1.0",
+        "author": "HiroYokoyama",
+        "description": "New wording.",
+        "tags": ["Analysis"],
+    })
+    assert entry["name"] == "Some Plugin Plus"
+    assert entry["description"] == "New wording."
+    assert entry["tags"] == ["Analysis"]
+
+
+@patch('sys.exit')
+@patch('urllib.request.urlopen')
+@patch('register_remote_plugin.extract_metadata_from_file')
+@patch('builtins.open', new_callable=mock_open, read_data=_CURATED_ENTRY)
+def test_update_keeps_tags_when_code_declares_none(mock_file, mock_extract, mock_urlopen, mock_exit):
+    entry = _run_update_dry(mock_extract, mock_urlopen, {
+        "name": "Some Plugin",
+        "version": "1.1.0",
+        "author": "HiroYokoyama",
+        "description": "Old wording.",
+    })
+    assert entry["tags"] == ["Utility"]
+
+
+@patch('sys.exit')
+@patch('urllib.request.urlopen')
+@patch('register_remote_plugin.extract_metadata_from_file')
+@patch('builtins.open', new_callable=mock_open, read_data=_CURATED_ENTRY)
+def test_update_explicit_tags_override_code(mock_file, mock_extract, mock_urlopen, mock_exit):
+    entry = _run_update_dry(mock_extract, mock_urlopen, {
+        "name": "Some Plugin",
+        "version": "1.1.0",
+        "author": "HiroYokoyama",
+        "description": "Old wording.",
+        "tags": ["Analysis"],
+    }, extra_args=("--tags", "File, DFT"))
+    assert entry["tags"] == ["File", "DFT"]
