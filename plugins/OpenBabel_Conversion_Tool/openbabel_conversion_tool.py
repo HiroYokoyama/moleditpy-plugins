@@ -30,13 +30,37 @@ except ImportError:
         OBABEL_AVAILABLE = False
 
 PLUGIN_NAME = "OpenBabel Conversion Tool"
-PLUGIN_VERSION = "2026.07.31"
+PLUGIN_VERSION = "2026.09.23"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
     "Import various chemical file formats using OpenBabel with multi-molecule support."
 )
 PLUGIN_DEPENDENCIES = ["openbabel"]
+
+# MoleditPy 4.11.0 lists multi-molecule SDF files in its own selector.
+HOST_SDF_SELECTOR_VERSION = (4, 11, 0)
+
+
+def _host_version():
+    """Return the host app version as an int tuple, or None if unknown."""
+    try:
+        from moleditpy.utils.constants import VERSION
+    except ImportError:
+        try:
+            from moleditpy_linux.utils.constants import VERSION
+        except ImportError:
+            return None
+    try:
+        return tuple(int(part) for part in str(VERSION).split(".")[:3])
+    except ValueError:
+        return None
+
+
+def host_handles_sdf():
+    """True when the host app has its own multi-molecule SDF selector."""
+    version = _host_version()
+    return version is not None and version >= HOST_SDF_SELECTOR_VERSION
 
 
 def initialize(context):
@@ -47,43 +71,19 @@ def initialize(context):
         print(f"[{PLUGIN_NAME}] OpenBabel (pybel) not found. Plugin disabled.")
         return
 
-    # Native formats to potentially exclude from automatic handling if we don't want to override
-    # However, since we offer a dialog for SDF, we might want to handle it.
-    # The user manual implies we can register file openers.
-    # If we register .sdf, we might override the native one.
-    # Given the user request for an SDF dialog, we WILL register .sdf
-
-    # We will prioritize formats that OpenBabel supports.
-    # We'll also add a generic "Import via OpenBabel" menu.
-
-    # helper for opening files
     def open_file_wrapper(path):
         open_file_with_openbabel(path, context)
 
-    # 1. Register File Openers for all Pybel formats
-    # pybel.informats is a dict {ext: description}
-    # We exclude common native formats that we DON'T want to override
-    # (e.g. maybe .mol is fine native? But .sdf needs dialog)
-    # Let's override .sdf to provide the dialog.
-    # We will exclude .mol and .xyz assuming native is good enough for single structures?
-    # Actually, to be safe and "all-encompassing", let's register generic handlers
-    # or specific ones.
-    # Note: registering too many might clutter if not careful, but moleditpy handles it by extension.
+    # 1. Register file openers for every Pybel input format except the ones
+    # the host loads natively. SDF is left to the host from 4.11.0 on, which
+    # has its own multi-molecule selector; older hosts only read the first
+    # record, so there the plugin keeps handling it.
+    IGNORED_EXTS = {"mol", "xyz"}
+    if host_handles_sdf():
+        IGNORED_EXTS.add("sdf")
 
-    IGNORED_EXTS = {
-        "mol",  # Native single mol loader is robust
-        "xyz",  # Native loader has chatty dialog we might not want to replace or maybe we do? Native is fine.
-        # 'sdf' -> We WANT to handle this for the dialog.
-    }
-
-    supported_exts = []
     for ext in pybel.informats:
         if ext not in IGNORED_EXTS:
-            supported_exts.append(f".{ext}")
-            # Register individual file opener
-            # Note: context.register_file_opener replaces existing if any?
-            # The manual doesn't say, but usually last registered wins or it's a list.
-            # We'll assume we can register.
             context.register_file_opener(f".{ext}", open_file_wrapper, priority=-1)
 
     # 2. Register Drop Handler
@@ -93,8 +93,9 @@ def initialize(context):
         if ext in pybel.informats and ext not in IGNORED_EXTS:
             open_file_with_openbabel(path, context)
             return True  # Handled
-        # Special case for SDF if we decided to handle it
-        if ext == "sdf":
+        # Hosts before 4.11.0 cannot pick a structure from a multi-molecule
+        # SDF, so claim it there even if Pybel does not list the format.
+        if ext == "sdf" and "sdf" not in IGNORED_EXTS:
             open_file_with_openbabel(path, context)
             return True
         return False

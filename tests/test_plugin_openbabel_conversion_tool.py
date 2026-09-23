@@ -433,12 +433,13 @@ class TestExportWithOpenBabel:
 
 
 class TestFileOpenerRegistration:
-    def _init_with_formats(self, informats):
+    def _init_with_formats(self, informats, host_sdf=False):
         with mock_optional_imports():
             mod = load_plugin(OBABEL_PATH)
             mod.pybel.informats = informats
             ctx = make_context()
-            mod.initialize(ctx)
+            with patch.object(mod, "host_handles_sdf", return_value=host_sdf):
+                mod.initialize(ctx)
         return mod, ctx
 
     def test_registers_opener_per_format_except_native(self):
@@ -448,6 +449,14 @@ class TestFileOpenerRegistration:
         registered = {call[0][0] for call in ctx.register_file_opener.call_args_list}
         assert registered == {".sdf", ".pdb"}  # .mol/.xyz left to the native loader
 
+    def test_sdf_left_to_host_with_its_own_selector(self):
+        # MoleditPy 4.11.0+ has a multi-molecule SDF selector of its own.
+        mod, ctx = self._init_with_formats(
+            {"sdf": "MDL SDF", "pdb": "PDB"}, host_sdf=True
+        )
+        registered = {call[0][0] for call in ctx.register_file_opener.call_args_list}
+        assert registered == {".pdb"}
+
     def test_openers_registered_with_low_priority(self):
         mod, ctx = self._init_with_formats({"sdf": "MDL SDF"})
         for call in ctx.register_file_opener.call_args_list:
@@ -455,12 +464,13 @@ class TestFileOpenerRegistration:
 
 
 class TestDropHandler:
-    def _get_handler(self, informats):
+    def _get_handler(self, informats, host_sdf=False):
         with mock_optional_imports():
             mod = load_plugin(OBABEL_PATH)
             mod.pybel.informats = informats
             ctx = make_context()
-            mod.initialize(ctx)
+            with patch.object(mod, "host_handles_sdf", return_value=host_sdf):
+                mod.initialize(ctx)
         mod.open_file_with_openbabel = MagicMock()
         handler = ctx.register_drop_handler.call_args[0][0]
         return mod, handler
@@ -483,13 +493,49 @@ class TestDropHandler:
         mod, handler = self._get_handler({"pdb": "PDB"})
         assert handler("notes.foo") is False
 
-    def test_sdf_always_claimed_even_if_missing_from_informats(self):
-        # INTENTIONAL special case, do not "clean up": this plugin must always
-        # claim dropped .sdf files (multi-structure SDF selection dialog) —
-        # the main app cannot handle multi-structure SDF itself.
+    def test_sdf_claimed_on_old_host_even_if_missing_from_informats(self):
+        # INTENTIONAL special case, do not "clean up": a host before 4.11.0
+        # cannot pick a structure from a multi-molecule SDF, so the plugin
+        # claims dropped .sdf files there (its own selection dialog).
         mod, handler = self._get_handler({"pdb": "PDB"})
         assert handler("multi.sdf") is True
         mod.open_file_with_openbabel.assert_called_once()
+
+    def test_sdf_left_to_host_with_its_own_selector(self):
+        mod, handler = self._get_handler({"sdf": "MDL SDF"}, host_sdf=True)
+        assert handler("multi.sdf") is False
+        mod.open_file_with_openbabel.assert_not_called()
+
+
+class TestHostVersion:
+    def _mod(self):
+        with mock_optional_imports():
+            return load_plugin(OBABEL_PATH)
+
+    def test_version_parsed_from_host_constants(self):
+        mod = self._mod()
+        fake = MagicMock(VERSION="4.11.0")
+        with patch.dict("sys.modules", {"moleditpy.utils.constants": fake}):
+            assert mod._host_version() == (4, 11, 0)
+            assert mod.host_handles_sdf() is True
+
+    def test_older_host_keeps_plugin_sdf_handling(self):
+        mod = self._mod()
+        fake = MagicMock(VERSION="4.10.3")
+        with patch.dict("sys.modules", {"moleditpy.utils.constants": fake}):
+            assert mod.host_handles_sdf() is False
+
+    def test_unparseable_or_missing_version_is_unknown(self):
+        mod = self._mod()
+        fake = MagicMock(VERSION="dev")
+        with patch.dict("sys.modules", {"moleditpy.utils.constants": fake}):
+            assert mod._host_version() is None
+            assert mod.host_handles_sdf() is False
+        with patch.dict(
+            "sys.modules",
+            {"moleditpy.utils.constants": None, "moleditpy_linux.utils.constants": None},
+        ):
+            assert mod._host_version() is None
 
 
 class TestMoleculeSelectionDialog:
