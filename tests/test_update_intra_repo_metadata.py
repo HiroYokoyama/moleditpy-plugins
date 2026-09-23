@@ -157,3 +157,41 @@ def test_sync_leaves_retired_old_plugins_frozen(tmp_path):
 
     data = json.loads(registry.read_text(encoding="utf-8"))
     assert data[0]["tags"] == ["Utility"]
+
+
+def test_sync_takes_dependencies_and_supported_os_from_code(tmp_path):
+    entry = _entry()
+    entry["supported_os"] = ["Windows", "macOS", "Linux", "WSL"]
+    registry = _write_registry(tmp_path, entry)
+    _write_plugin(
+        tmp_path,
+        'PLUGIN_VERSION = "2026.01.02"\n'
+        'PLUGIN_DEPENDENCIES = ["numpy", "scipy"]\n'
+        'PLUGIN_SUPPORTED_OS = ["macOS", "Linux", "WSL"]\n',
+    )
+
+    sync.update_single_json(registry)
+
+    data = json.loads(registry.read_text(encoding="utf-8"))
+    assert data[0]["dependencies"] == ["numpy", "scipy"]
+    assert data[0]["supported_os"] == ["macOS", "Linux", "WSL"]
+
+
+def test_sync_writes_declared_empty_dependencies(tmp_path):
+    registry = _write_registry(tmp_path, _entry())
+    _write_plugin(tmp_path, 'PLUGIN_VERSION = "2026.01.02"\nPLUGIN_DEPENDENCIES = []\n')
+
+    sync.update_single_json(registry)
+
+    data = json.loads(registry.read_text(encoding="utf-8"))
+    assert data[0]["dependencies"] == []
+
+
+def test_sync_keeps_dependencies_the_code_does_not_declare(tmp_path):
+    registry = _write_registry(tmp_path, _entry())
+    _write_plugin(tmp_path, 'PLUGIN_VERSION = "2026.01.02"\n')
+
+    sync.update_single_json(registry)
+
+    data = json.loads(registry.read_text(encoding="utf-8"))
+    assert data[0]["dependencies"] == ["numpy"]

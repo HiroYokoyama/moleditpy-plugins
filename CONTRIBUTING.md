@@ -89,7 +89,7 @@ All new registrations and updates to external plugins **must be requested by ope
 1.  **Clone / Fork** the repository: `git clone https://github.com/HiroYokoyama/moleditpy-plugins.git`
 2.  **Create a branch**: `git checkout -b update/plugin-name`
 3.  **Update Source**: Modify the existing plugin file or folder located in the `plugins/` directory.
-4.  **Update Registry**: Run `python scripts/update_intra_repo_metadata.py` to automatically update the version, SHA-256, timestamps, name, description and tags in `REGISTRY/plugins.json` based on your source code.
+4.  **Update Registry**: Run `python scripts/update_intra_repo_metadata.py` to automatically update the version, SHA-256, timestamps, and every metadata field your code declares (name, description, tags, dependencies, supported versions and OS) in `REGISTRY/plugins.json`.
 5.  **Submit PR**: Commit and push your changes to your branch and open a Pull Request for review.
 
 ## Registering in `plugins.json`

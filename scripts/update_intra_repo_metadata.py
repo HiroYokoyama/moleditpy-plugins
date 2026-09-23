@@ -1,8 +1,9 @@
 """
-Update sha256, version, lastUpdated, name, description and tags in REGISTRY/plugins.json.
+Update sha256, version, lastUpdated and the code-declared metadata in REGISTRY/plugins.json.
 
-Reads PLUGIN_VERSION (or __version__) and the PLUGIN_NAME / PLUGIN_DESCRIPTION /
-PLUGIN_TAGS constants from each plugin's source file,
+Reads PLUGIN_VERSION (or __version__) and the other PLUGIN_* metadata constants
+(name, description, tags, dependencies, supported versions / OS) from each
+plugin's source file,
 computes sha256 of the download target (.py or .zip), and writes back
 to the registry. Run after modifying any plugin file.
 
@@ -135,11 +136,15 @@ DISPLAY_CONSTANTS = {
     "PLUGIN_NAME": "name",
     "PLUGIN_DESCRIPTION": "description",
     "PLUGIN_TAGS": "tags",
+    "PLUGIN_DEPENDENCIES": "dependencies",
+    "PLUGIN_SUPPORTED_OS": "supported_os",
 }
+# List fields where a declared empty list is meaningful ("needs nothing").
+EMPTY_LIST_ALLOWED = {"dependencies"}
 
 
 def _read_display_metadata(path: Path) -> dict:
-    """Module-level PLUGIN_NAME / PLUGIN_DESCRIPTION / PLUGIN_TAGS, as literals.
+    """Module-level constants named in DISPLAY_CONSTANTS, as registry values.
 
     Parsed with ast so parenthesised multi-line descriptions read correctly.
     """
@@ -159,7 +164,7 @@ def _read_display_metadata(path: Path) -> dict:
         except (ValueError, SyntaxError):
             continue
         key = DISPLAY_CONSTANTS[target.id]
-        if key == "tags":
+        if key in ("tags", "dependencies", "supported_os"):
             if isinstance(value, str):
                 value = [value]
             if not isinstance(value, (list, tuple)):
@@ -169,7 +174,7 @@ def _read_display_metadata(path: Path) -> dict:
             value = value.strip()
         else:
             continue
-        if value:
+        if value or (key in EMPTY_LIST_ALLOWED and value == []):
             found[key] = value
     return found
 
@@ -307,8 +312,9 @@ def update_single_json(json_path: Path) -> tuple[int, int, int, int, int, int, i
                 )
                 updated_optional += 1
 
-        # Name, description and tags follow the code, so bumping a plugin is the
-        # one way to change them. Retired _old/ plugins are frozen and skipped.
+        # Name, description, tags, dependencies and supported OS follow the
+        # code, so bumping a plugin is the one way to change them. Retired
+        # _old/ plugins are frozen and skipped.
         if "/_old/" not in download_url:
             for key, value in infer_display_metadata_from_target(target).items():
                 if plugin.get(key) != value:
@@ -353,7 +359,7 @@ def main() -> int:
         print(f"[{rel}] Updated supported_moleditpy_version: {updated_supported}")
         print(f"[{rel}] Updated supported_python_version: {updated_supported_py}")
         print(f"[{rel}] Updated optional_dependencies: {updated_optional}")
-        print(f"[{rel}] Updated name/description/tags: {updated_display}")
+        print(f"[{rel}] Updated name/description/tags/deps/os: {updated_display}")
         print(f"[{rel}] Missing local targets: {len(missing)}")
         for item in missing:
             print(f"  - {item}")
@@ -364,7 +370,7 @@ def main() -> int:
     print(f"Total updated supported_moleditpy_version: {total_supported}")
     print(f"Total updated supported_python_version: {total_supported_py}")
     print(f"Total updated optional_dependencies: {total_optional}")
-    print(f"Total updated name/description/tags: {total_display}")
+    print(f"Total updated name/description/tags/deps/os: {total_display}")
     print(f"Total missing local targets: {total_missing}")
     return 0
 
