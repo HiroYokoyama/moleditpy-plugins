@@ -1150,7 +1150,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "PySCF Calculator",
-    "version": "4.0.2",
+    "version": "4.0.3",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Perform PySCF quantum chemistry calculations directly in MoleditPy. Features: Single Point Energy (RHF/UHF/DFT), Geometry Optimization (GeomeTRIC/Berny), Frequency Analysis, and interactive 3D visualization of Molecular Orbitals (HOMO/LUMO) and Electrostatic Potential (ESP) mapped on Density surfaces.",
@@ -1168,10 +1168,10 @@
       "pyscf-dispersion",
       "pyberny"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_pyscf-calculator/releases/download/v4.0.2/pyscf_calculator_4.0.2.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_pyscf-calculator/releases/download/v4.0.3/pyscf_calculator_4.0.3.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_pyscf-calculator",
-    "lastUpdated": "2026-09-23",
-    "sha256": "7bd7f4643e418c3df99528b9df61920e417b35074cb16ca01b15cc6020f1d2d5",
+    "lastUpdated": "2026-09-24",
+    "sha256": "64fabcdf0817d2c5e184de36bd6cdc58d575381d2de72bd086be1d888f5981ca",
     "firstAppeared": "2026-01-09",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
