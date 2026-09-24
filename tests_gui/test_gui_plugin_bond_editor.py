@@ -118,10 +118,15 @@ def _real_mol(ring=False):
 
 def _real_ctx(mol=None):
     ctx = MagicMock()
+    # As on the real PluginContext, current_molecule is an alias of current_mol.
+    # MagicMock gives each instance its own class, so the property stays local.
+    type(ctx).current_molecule = property(
+        lambda self: self.current_mol,
+        lambda self, value: setattr(self, "current_mol", value),
+    )
     ctx.get_main_window.return_value = None
     ctx.plotter = None
     ctx.current_mol = mol
-    ctx.current_molecule = mol
     return ctx
 
 
@@ -617,7 +622,7 @@ class TestOnPlotterClick:
         monkeypatch.setattr(
             win,
             "_interactive_pick",
-            lambda *args: (win.context.current_mol, (1.5, 0.0, 0.0), 1),
+            lambda *args: (win.context.current_mol, (1.5, 0.0, 0.0), 1, None),
         )
         monkeypatch.setattr(win, "add_bond", MagicMock())
         win._on_plotter_drag(10, 10, self._widget(qapp), None, None)
@@ -751,6 +756,7 @@ class TestModeOverlayAndPickedLabels:
         win.context.plotter.remove_actor.assert_any_call("bond_editor_mode_label")
 
     def test_overlay_create_mode_first_pick_pending(self, win):
+        win.interactive_btn.setChecked(False)
         win.click_mode_combo.setCurrentText("Create bond")
         win._first_pick_idx = None
         win._update_mode_overlay()
@@ -758,6 +764,7 @@ class TestModeOverlayAndPickedLabels:
         assert "click the first atom" in text
 
     def test_overlay_create_mode_second_pick_pending(self, win):
+        win.interactive_btn.setChecked(False)
         win.click_mode_combo.setCurrentText("Create bond")
         win._first_pick_idx = 2
         win._update_mode_overlay()
@@ -849,10 +856,12 @@ class TestEditOperationsRealChem:
         msg = win.context.show_status_message.call_args[0][0]
         assert "already exists" in msg
 
-    def test_add_bond_no_refresh_3d_view_falls_back_to_reset_camera(self, win):
-        del win.context.refresh_3d_view
+    def test_commit_redraws_once_and_keeps_camera(self, win):
+        """The current_mol setter already redraws; no extra refresh or camera reset."""
         win.add_bond(0, 2)
-        win.context.reset_3d_camera.assert_called_once()
+        win.context.refresh_3d_view.assert_not_called()
+        win.context.reset_3d_camera.assert_not_called()
+        win.context.push_undo_checkpoint.assert_called_once()
 
     def test_add_bond_exception_shows_critical(self, win, qapp, monkeypatch):
         from PyQt6.QtWidgets import QMessageBox
@@ -1491,4 +1500,159 @@ class TestKekulizeGUI:
         assert res_mol.GetNumBonds() == 5
         bond_types = {b.GetBondType() for b in res_mol.GetBonds()}
         assert bond_types == {_Chem.BondType.SINGLE}
+        w.destroy()
+
+
+class TestInteractiveGestureDecisions:
+    """The pick decides atom vs bond once; click/press/drag must honour it."""
+
+    @pytest.fixture
+    def win(self, qapp):
+        ctx = _real_ctx(mol=_real_mol())
+        ctx.plotter = MagicMock()
+        w = _bondrn.BondEditorWindow(context=ctx)
+        mw = MagicMock()
+        mw.view_3d_manager.atom_actor = "atom-actor"
+        ctx.get_main_window.return_value = mw
+        w._screen_atom_index = lambda *args: None
+        yield w
+        w.update_timer.stop()
+        w.destroy()
+
+    @staticmethod
+    def _widget():
+        from PyQt6.QtWidgets import QWidget
+
+        widget = QWidget()
+        widget.resize(400, 300)
+        return widget
+
+    @staticmethod
+    def _types(mol):
+        return [b.GetBondType() for b in mol.GetBonds()]
+
+    def test_click_on_atom_leaves_its_bonds_alone(self, win, monkeypatch):
+        from PyQt6.QtCore import Qt
+
+        before = self._types(win.context.current_mol)
+        # Front surface of atom 1's sphere: within bond-picking range of C0-C1
+        monkeypatch.setattr(
+            _vtk,
+            "vtkCellPicker",
+            lambda: _FakePicker(actor="atom-actor", pos=(1.5, 0.0, 0.4)),
+        )
+        for button in (Qt.MouseButton.LeftButton, Qt.MouseButton.RightButton):
+            win._interactive_click(10, 10, self._widget(), button)
+        assert self._types(win.context.current_mol) == before
+        win.context.push_undo_checkpoint.assert_not_called()
+
+    def test_miss_away_from_bonds_changes_nothing(self, win, monkeypatch):
+        from PyQt6.QtCore import Qt
+
+        before = self._types(win.context.current_mol)
+        # Missed pick 0.6 A off the C0-C1 axis: outside the 0.4 A near-miss tolerance
+        monkeypatch.setattr(
+            _vtk,
+            "vtkCellPicker",
+            lambda: _FakePicker(actor=None, pos=(0.75, -0.6, 0.0)),
+        )
+        widget = self._widget()
+        assert not win._on_plotter_press(
+            10, 10, widget, None, Qt.MouseButton.LeftButton
+        )
+        win._interactive_click(10, 10, widget, Qt.MouseButton.LeftButton)
+        assert self._types(win.context.current_mol) == before
+
+    def test_near_miss_on_bond_still_cycles_it(self, win, monkeypatch):
+        from PyQt6.QtCore import Qt
+
+        monkeypatch.setattr(
+            _vtk,
+            "vtkCellPicker",
+            lambda: _FakePicker(actor=None, pos=(0.75, -0.3, 0.0)),
+        )
+        win._interactive_click(10, 10, self._widget(), Qt.MouseButton.LeftButton)
+        bond = win.context.current_mol.GetBondBetweenAtoms(0, 1)
+        assert bond.GetBondType() == _Chem.BondType.DOUBLE
+
+    def test_camera_drag_after_atom_click_does_not_create_bond(self, win):
+        from PyQt6.QtCore import Qt
+
+        widget = self._widget()
+        win.add_bond = MagicMock()
+        mol = win.context.current_mol
+        # Click on atom 0: press claims it, release in place
+        win._interactive_pick = lambda *a: (mol, (0, 0, 0), 0, None)
+        assert win._on_plotter_press(10, 10, widget, None, Qt.MouseButton.LeftButton)
+        win._on_plotter_click(10, 10, widget, None, Qt.MouseButton.LeftButton)
+        # Camera drag from empty space that ends over atom 2
+        win._interactive_pick = lambda *a: (mol, (5, 5, 5), None, None)
+        assert not win._on_plotter_press(
+            50, 50, widget, None, Qt.MouseButton.LeftButton
+        )
+        win._interactive_pick = lambda *a: (mol, (1.5, 1.2, 0), 2, None)
+        win._on_plotter_drag(200, 200, widget, None, Qt.MouseButton.LeftButton)
+        win.add_bond.assert_not_called()
+
+    def test_drag_between_atoms_creates_bond(self, win):
+        from PyQt6.QtCore import Qt
+
+        widget = self._widget()
+        win.add_bond = MagicMock()
+        mol = win.context.current_mol
+        win._interactive_pick = lambda *a: (mol, (0, 0, 0), 0, None)
+        assert win._on_plotter_press(10, 10, widget, None, Qt.MouseButton.LeftButton)
+        win._interactive_pick = lambda *a: (mol, (1.5, 1.2, 0), 2, None)
+        win._on_plotter_drag(200, 200, widget, None, Qt.MouseButton.LeftButton)
+        win.add_bond.assert_called_once_with(0, 2)
+
+    def test_right_press_on_atom_does_not_arm_drag(self, win):
+        from PyQt6.QtCore import Qt
+
+        mol = win.context.current_mol
+        win._interactive_pick = lambda *a: (mol, (0, 0, 0), 0, None)
+        assert win._on_plotter_press(
+            10, 10, self._widget(), None, Qt.MouseButton.RightButton
+        )
+        assert win._drag_start_atom is None
+
+    def test_toggling_interactive_mode_drops_pending_create_pick(self, win):
+        win.interactive_btn.setChecked(False)
+        win.click_mode_combo.setCurrentText("Create bond")
+        win._create_bond_pick(0)
+        assert win._first_pick_idx == 0
+        win.interactive_btn.setChecked(True)
+        assert win._first_pick_idx is None
+        assert win._picked_atoms == {}
+        win.context.plotter.remove_actor.assert_any_call("bond_editor_mode_label")
+
+
+def test_interactive_cycle_advances_kekule_single_ring_bond(qapp, monkeypatch):
+    """Read from the aromatic molecule, every ring bond looked "aromatic" and
+    went to single, so the Kekule single bonds could never be changed."""
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtWidgets import QWidget
+
+    mol = _Chem.MolFromSmiles("c1ccccc1")
+    conf = _Chem.Conformer(6)
+    for i in range(6):
+        conf.SetAtomPosition(i, _Point3D(float(i), 0.0, 0.0))
+    mol.AddConformer(conf, assignId=True)
+    kek = _Chem.RWMol(mol)
+    _Chem.Kekulize(kek, clearAromaticFlags=True)
+    single = next(b for b in kek.GetBonds() if b.GetBondType() == _Chem.BondType.SINGLE)
+    pair = (single.GetBeginAtomIdx(), single.GetEndAtomIdx())
+
+    ctx = _real_ctx(mol=mol)
+    ctx.plotter = MagicMock()
+    w = _bondrn.BondEditorWindow(context=ctx)
+    try:
+        assert w.auto_kekulize_cb.isChecked()
+        w._interactive_pick = lambda *a: (mol, (0, 0, 0), None, pair)
+        widget = QWidget()
+        w._interactive_click(10, 10, widget, Qt.MouseButton.LeftButton)
+        got = ctx.current_mol.GetBondBetweenAtoms(*pair).GetBondType()
+        assert got == _Chem.BondType.DOUBLE
+    finally:
+        w.update_timer.stop()
         w.destroy()
