@@ -2310,7 +2310,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Slab Builder",
-    "version": "0.4.4",
+    "version": "0.5.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_slab_builder",
@@ -2323,9 +2323,9 @@
       "pyvista",
       "rdkit"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_slab_builder/releases/download/v0.4.4/slab_builder_0.4.4.zip",
-    "lastUpdated": "2026-08-30",
-    "sha256": "95ed563459e13ad6c8815ff8bb46c8940845096ceaf36d58d4c4937255b36cc6",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_slab_builder/releases/download/v0.5.0/slab_builder_0.5.0.zip",
+    "lastUpdated": "2026-09-24",
+    "sha256": "78adf23f41cc73174948ae2a6e32a9206204d39d5cb1132ec5461524bdd45d3f",
     "firstAppeared": "2026-08-06",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
