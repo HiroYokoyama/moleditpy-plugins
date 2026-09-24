@@ -521,13 +521,23 @@ class TestModeOverlay:
         )
 
     @staticmethod
-    def _self(mode, first_idx=None, plotter=None, type_label="Single"):
+    def _self(
+        mode, first_idx=None, plotter=None, type_label="Single", interactive=False
+    ):
         return SimpleNamespace(
             context=SimpleNamespace(plotter=plotter),
             click_mode_combo=SimpleNamespace(currentText=lambda: mode),
             add_type_combo=SimpleNamespace(currentText=lambda: type_label),
             _first_pick_idx=first_idx,
+            _interactive_mode=interactive,
         )
+
+    def test_interactive_mode_hides_create_bond_prompt(self):
+        """Interactive mode ignores the click-mode combo, so no stale prompt."""
+        plotter = MagicMock()
+        self._fn()(self._self("Create bond", plotter=plotter, interactive=True))
+        plotter.remove_actor.assert_called_once_with("bond_editor_mode_label")
+        plotter.add_text.assert_not_called()
 
     def test_select_mode_removes_label(self):
         plotter = MagicMock()

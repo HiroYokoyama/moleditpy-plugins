@@ -23,7 +23,7 @@ from functools import partial
 
 
 PLUGIN_NAME = "Bond Editor"
-PLUGIN_VERSION = "2026.09.21"
+PLUGIN_VERSION = "2026.09.25"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -333,16 +333,20 @@ class BondEditorWindow(QWidget):
 
     def _on_plotter_press(self, x, y, widget, modifiers, button):
         """Claim an interactive gesture before VTK can start camera rotation."""
+        # Every gesture starts clean: a start atom left over from an earlier
+        # click would turn the next camera drag into a bond.
+        self._drag_start_atom = None
         if not self._interactive_mode:
             return False
         picked = self._interactive_pick(x, y, widget)
         if picked is None:
             return False
-        mol, pos, atom = picked
+        _mol, _pos, atom, pair = picked
         if atom is not None:
-            self._drag_start_atom = atom
+            if button == Qt.MouseButton.LeftButton:
+                self._drag_start_atom = atom
             return True
-        return self._nearest_bond_to_point(mol, pos) is not None
+        return pair is not None
 
     def _on_plotter_click(
         self, x, y, widget, modifiers, button=Qt.MouseButton.LeftButton
@@ -412,11 +416,24 @@ class BondEditorWindow(QWidget):
         self._interactive_mode = bool(enabled)
         self._drag_start_atom = None
         self.click_mode_combo.setEnabled(not enabled)
+        # A half-finished "Create bond" pick has no meaning in interactive mode.
+        self._first_pick_idx = None
+        self._picked_atoms = {}
+        self._update_mode_overlay()
+        self._update_picked_atom_labels()
         self.context.show_status_message(
             "Interactive mode enabled." if enabled else "Interactive mode disabled."
         )
 
     def _interactive_pick(self, x, y, widget):
+        """Resolve a viewport position to what an interactive gesture acts on.
+
+        Returns (mol, pos, atom, pair) where at most one of *atom* (an atom
+        index) and *pair* (a bonded atom pair) is set, or None when there is no
+        3D molecule. Callers must act on this decision rather than re-derive
+        one from *pos*: an atom's surface lies within bond-picking range of
+        its own bonds, so a second lookup would edit a bond on an atom click.
+        """
         import vtk
 
         mol = self.context.current_mol
@@ -430,49 +447,56 @@ class BondEditorWindow(QWidget):
         picked_actor = picker.GetActor()
         pos = picker.GetPickPosition()
 
-        is_atom_actor = self._pick_is_atom_actor(picked_actor)
-        if picked_actor is not None and not is_atom_actor:
-            return mol, pos, None
-
-        if is_atom_actor:
+        if self._pick_is_atom_actor(picked_actor):
             atom = self._screen_atom_index(x, y, widget, mol)
             if atom is None:
                 atom = self._nearest_atom_to_point(mol, pos)
-            return mol, pos, atom
+            return mol, pos, atom, None
 
-        # picked_actor is None (background click or missed mesh)
+        if picked_actor is not None:
+            # A bond cylinder (or other scene geometry): nearest bond axis.
+            return mol, pos, None, self._nearest_bond_to_point(mol, pos)
+
+        # Nothing hit. VTK then reports the click projected onto the camera's
+        # focal plane, which is close enough to catch a near miss on a thin
+        # bond or small atom, with a tighter tolerance than a real hit.
         nearest_bond = self._nearest_bond_to_point(mol, pos, max_dist=0.4)
         nearest_atom = self._nearest_atom_to_point(mol, pos)
+        atom_dist = (
+            self._point_distance(mol, nearest_atom, pos)
+            if nearest_atom is not None
+            else float("inf")
+        )
+        bond_dist = (
+            self._segment_distance(mol, nearest_bond, pos)
+            if nearest_bond is not None
+            else float("inf")
+        )
+        if nearest_bond is not None and bond_dist < atom_dist:
+            return mol, pos, None, nearest_bond
+        atom = self._screen_atom_index(x, y, widget, mol)
+        if atom is None and atom_dist <= 0.5:
+            atom = nearest_atom
+        return mol, pos, atom, None
 
+    @staticmethod
+    def _point_distance(mol, idx, pos):
+        p = mol.GetConformer().GetAtomPosition(idx)
+        return float(
+            np.linalg.norm(np.array([p.x - pos[0], p.y - pos[1], p.z - pos[2]]))
+        )
+
+    @staticmethod
+    def _segment_distance(mol, pair, pos):
+        """Distance from *pos* to the segment between the atoms of *pair*."""
         conf = mol.GetConformer()
-        atom_dist = float("inf")
-        if nearest_atom is not None:
-            ap = conf.GetAtomPosition(nearest_atom)
-            atom_dist = (
-                (pos[0] - ap.x) ** 2 + (pos[1] - ap.y) ** 2 + (pos[2] - ap.z) ** 2
-            ) ** 0.5
-
-        bond_dist = float("inf")
-        if nearest_bond is not None:
-            p1 = conf.GetAtomPosition(nearest_bond[0])
-            p2 = conf.GetAtomPosition(nearest_bond[1])
-            a = np.array([p1.x, p1.y, p1.z])
-            c = np.array([p2.x, p2.y, p2.z])
-            q = np.array([pos[0], pos[1], pos[2]])
-            ab = c - a
-            denom = float(ab @ ab)
-            t = 0.0 if denom < 1e-12 else float((q - a) @ ab / denom)
-            t = max(0.0, min(1.0, t))
-            proj = a + t * ab
-            bond_dist = float(np.linalg.norm(q - proj))
-
-        if nearest_bond is not None and bond_dist < atom_dist and bond_dist <= 0.4:
-            atom = None
-        else:
-            atom = self._screen_atom_index(x, y, widget, mol)
-            if atom is None and atom_dist <= 0.5:
-                atom = nearest_atom
-        return mol, pos, atom
+        a = np.array(conf.GetAtomPosition(pair[0]))
+        c = np.array(conf.GetAtomPosition(pair[1]))
+        q = np.array(pos, dtype=float)
+        ab = c - a
+        denom = float(ab @ ab)
+        t = 0.0 if denom < 1e-12 else float((q - a) @ ab / denom)
+        return float(np.linalg.norm(q - (a + max(0.0, min(1.0, t)) * ab)))
 
     def _pick_is_atom_actor(self, picked_actor):
         """Return whether a VTK pick landed on the host's atom geometry."""
@@ -511,7 +535,7 @@ class BondEditorWindow(QWidget):
         ):
             try:
                 Chem.Kekulize(rw, clearAromaticFlags=True)
-            except Exception as e:
+            except (RuntimeError, ValueError) as e:
                 logging.warning("[bond_editor] Auto-kekulize failed: %s", e)
         return rw
 
@@ -519,21 +543,16 @@ class BondEditorWindow(QWidget):
         picked = self._interactive_pick(x, y, widget)
         if picked is None:
             return
-        mol, pos, atom = picked
-        pair = self._nearest_bond_to_point(mol, pos)
-        if atom is not None and pair is None:
-            self._drag_start_atom = atom
+        mol, _pos, _atom, pair = picked
+        # Clicking an atom does nothing by itself; dragging from it makes a bond.
+        if pair is None:
             return
-        if button == Qt.MouseButton.RightButton and pair:
+        if button == Qt.MouseButton.RightButton:
             rw = self._prepare_rw_for_edit(mol)
             rw.RemoveBond(*pair)
             self._commit(rw, f"Deleted bond {pair[0]}-{pair[1]}.")
-        elif pair:
-            current = label_from_bond_type(mol.GetBondBetweenAtoms(*pair).GetBondType())
-            cycle = INTERACTIVE_BOND_TYPE_LABELS
-            index = cycle.index(current) if current in cycle else -1
-            label = cycle[(index + 1) % len(cycle)]
-            self._set_interactive_bond_type(pair, label)
+        else:
+            self._cycle_interactive_bond_type(pair)
 
     def _on_plotter_drag(self, x, y, widget, modifiers, button):
         if not self._interactive_mode or self._drag_start_atom is None:
@@ -546,20 +565,27 @@ class BondEditorWindow(QWidget):
             if end is not None and end != start:
                 self.add_bond(start, end)
 
-    def _set_interactive_bond_type(self, pair, label):
+    def _cycle_interactive_bond_type(self, pair):
+        """Advance a bond through single -> double -> triple -> single.
+
+        The current order is read after auto-kekulization: read from the
+        aromatic molecule, every ring bond looks "aromatic" and always goes to
+        single, which is a no-op on the Kekule single bonds.
+        """
         try:
             rw = self._prepare_rw_for_edit(self.context.current_mol)
             bond = rw.GetBondBetweenAtoms(*pair)
             if bond is None:
                 return
+            current = label_from_bond_type(bond.GetBondType())
+            cycle = INTERACTIVE_BOND_TYPE_LABELS
+            index = cycle.index(current) if current in cycle else -1
+            label = cycle[(index + 1) % len(cycle)]
             new_type = bond_type_from_label(label)
             bond.SetBondType(new_type)
-            aromatic = new_type == Chem.BondType.AROMATIC
-            bond.SetIsAromatic(aromatic)
-            if aromatic:
-                bond.GetBeginAtom().SetIsAromatic(True)
-                bond.GetEndAtom().SetIsAromatic(True)
+            bond.SetIsAromatic(False)
             self._commit(rw, f"Bond {pair[0]}-{pair[1]} set to {label.lower()}.")
+            self._verify_bond_type(pair, new_type, label)
         except (RuntimeError, AttributeError, ValueError) as exc:
             QMessageBox.critical(self, "Error", f"Failed to change bond type: {exc}")
 
@@ -575,7 +601,7 @@ class BondEditorWindow(QWidget):
                 continue
             try:
                 allowed = pt.GetDefaultValence(num)
-            except Exception:
+            except (RuntimeError, ValueError):
                 continue
             if allowed <= 0:
                 continue
@@ -619,19 +645,9 @@ class BondEditorWindow(QWidget):
                 self.context.show_status_message("Hydrogens are already explicit.")
                 return
 
-            self.context.current_molecule = new_mol
-            self.context.push_undo_checkpoint()
-            self.last_seen_signature = self.get_mol_signature(
-                self.context.current_molecule
-            )
-            refresh = getattr(self.context, "refresh_3d_view", None)
-            if callable(refresh):
-                refresh()
-            else:
-                self.context.reset_3d_camera()
-            self.load_molecule()
+            self._set_molecule(new_mol)
             self.context.show_status_message("Hydrogens adjusted.")
-        except Exception as e:
+        except (RuntimeError, ValueError, AttributeError) as e:
             logging.exception("[bond_editor] Failed to adjust hydrogens: %s", e)
             QMessageBox.critical(self, "Error", f"Failed to adjust hydrogens: {str(e)}")
 
@@ -650,7 +666,7 @@ class BondEditorWindow(QWidget):
         else:
             try:
                 charge = int(Chem.GetFormalCharge(mol))
-            except Exception:
+            except (RuntimeError, ValueError):
                 charge = 0
 
         applied = False
@@ -682,7 +698,7 @@ class BondEditorWindow(QWidget):
                         )
                     mw.io_manager.estimate_bonds_from_distances(candidate)
                     applied = True
-                except Exception as exc:
+                except (RuntimeError, ValueError, AttributeError, TypeError) as exc:
                     logging.warning(
                         "[bond_editor] estimate_bonds_from_distances failed: %s", exc
                     )
@@ -718,7 +734,7 @@ class BondEditorWindow(QWidget):
             Chem.Kekulize(rw, clearAromaticFlags=True)
             self._commit(rw, "Kekulized aromatic bonds.", sanitize=False)
             self._sync_kekulize_btn(True)
-        except Exception as e:
+        except (RuntimeError, ValueError, AttributeError) as e:
             logging.warning("[bond_editor] Kekulize failed: %s", e)
             self._sync_kekulize_btn(False)
             QMessageBox.warning(self, "Kekulize", f"Failed to kekulize molecule: {e}")
@@ -735,7 +751,7 @@ class BondEditorWindow(QWidget):
             Chem.SanitizeMol(rw)
             self._commit(rw, "Aromatized bonds.", sanitize=True)
             self._sync_kekulize_btn(False)
-        except Exception as e:
+        except (RuntimeError, ValueError, AttributeError) as e:
             logging.warning("[bond_editor] Aromatize failed: %s", e)
             self._sync_kekulize_btn(True)
             QMessageBox.warning(self, "Aromatize", f"Failed to aromatize molecule: {e}")
@@ -807,7 +823,8 @@ class BondEditorWindow(QWidget):
         if not plotter:
             return
         mode = self.click_mode_combo.currentText()
-        if mode == "Create bond":
+        # Interactive mode ignores the click-mode combo, so its prompt would lie.
+        if mode == "Create bond" and not self._interactive_mode:
             kind = self.add_type_combo.currentText().lower()
             if self._first_pick_idx is not None:
                 text = (
@@ -1013,14 +1030,8 @@ class BondEditorWindow(QWidget):
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 self.table.setItem(row, self.COL_LEN, item)
 
-        if hasattr(self, "kekulize_btn"):
-            has_aromatic = any(
-                b.GetBondType() == Chem.BondType.AROMATIC
-                or (hasattr(b, "GetIsAromatic") and b.GetIsAromatic())
-                for b in mol.GetBonds()
-            )
-            if has_aromatic:
-                self._sync_kekulize_btn(False)
+        if _has_aromatic_bonds(mol):
+            self._sync_kekulize_btn(False)
 
         self.table.blockSignals(False)
 
@@ -1051,21 +1062,23 @@ class BondEditorWindow(QWidget):
                     sanitizeOps=Chem.SanitizeFlags.SANITIZE_ALL
                     ^ Chem.SanitizeFlags.SANITIZE_SETAROMATICITY,
                 )
-            except Exception:
+            except (RuntimeError, ValueError):
                 rw.UpdatePropertyCache(strict=False)
-        new_mol = rw.GetMol()
-        self.context.current_molecule = new_mol
-        if hasattr(self.context, "current_mol"):
-            self.context.current_mol = new_mol
-        self.context.push_undo_checkpoint()
-        self.last_seen_signature = self.get_mol_signature(self.context.current_molecule)
-        refresh = getattr(self.context, "refresh_3d_view", None)
-        if callable(refresh):
-            refresh()
-        else:
-            self.context.reset_3d_camera()
-        self.load_molecule()
+        self._set_molecule(rw.GetMol())
         self.context.show_status_message(message)
+
+    def _set_molecule(self, new_mol):
+        """Hand an edited molecule to the host and record an undo step.
+
+        The host's current_mol setter (current_molecule is an alias) stores
+        the molecule and redraws the 3D view. Setting both names and then
+        calling refresh_3d_view as well redrew the whole scene three times per
+        edit; the reset_3d_camera fallback also threw away the user's view.
+        """
+        self.context.current_molecule = new_mol
+        self.context.push_undo_checkpoint()
+        self.last_seen_signature = self.get_mol_signature(new_mol)
+        self.load_molecule()
 
     def add_bond(self, a1, a2):
         mol = self.context.current_molecule
