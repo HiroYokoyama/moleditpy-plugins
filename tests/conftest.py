@@ -14,6 +14,23 @@ Provides:
 
 from __future__ import annotations
 
+import os as _os
+import shutil as _shutil
+import tempfile as _tempfile
+
+# Tests mkdtemp() without removing it, so every run left directories in the
+# system temp directory. Everything a run creates -- in this process and in the
+# processes it starts -- goes under one directory removed at session end.
+if _os.path.abspath(_tempfile.gettempdir()) == _os.path.abspath(_os.getcwd()):
+    _tempfile.tempdir = _os.path.abspath(
+        _os.environ.get("RUNNER_TEMP") or _os.path.expanduser("~/.cache/moleditpy_plugins_tests")
+    )
+    _os.makedirs(_tempfile.tempdir, exist_ok=True)
+_SESSION_TMP = _tempfile.mkdtemp(prefix="moleditpy_plugins_tests_")
+_tempfile.tempdir = _SESSION_TMP
+for _name in ("TMP", "TEMP", "TMPDIR"):
+    _os.environ[_name] = _SESSION_TMP
+
 import ast
 import contextlib
 import importlib.abc
@@ -379,3 +396,7 @@ def extract_function(
             exec(textwrap.dedent(segment), ns)  # noqa: S102
             return ns[fn_name]
     raise AssertionError(f"function {fn_name} not found in {path}")
+
+
+def pytest_sessionfinish(session, exitstatus):
+    _shutil.rmtree(_SESSION_TMP, ignore_errors=True)
