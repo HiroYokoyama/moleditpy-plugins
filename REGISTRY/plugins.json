@@ -562,10 +562,10 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "MS Spectrum Simulation Neo",
-    "version": "2026.09.24",
+    "version": "2026.09.27",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "Simulates the Mass Spectrum for the currently loaded molecule using RDKit descriptors. Includes Gaussian broadening and interactive zoom/pan.",
+    "description": "Simulates the isotope pattern of the molecular ion (M, or an adduct ion such as [M+H]+ or [M+Na]+) for the currently loaded molecule. Fragment peaks are not simulated. Includes Gaussian broadening and interactive zoom/pan.",
     "tags": [
       "Analysis"
     ],
@@ -575,8 +575,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/MS_Spectrum_Simulation_Neo/ms_spectrum_neo.py",
-    "lastUpdated": "2026-09-24",
-    "sha256": "8595c409a5e09b609c871c7e8f00bcc60ecc11225c2ad31a26c56cc52c90a687",
+    "lastUpdated": "2026-09-27",
+    "sha256": "470a811e7c5f0083bf6bd362946a588a60906eb5f2ddeb3de118cb37b91e2395",
     "firstAppeared": "2025-12-18",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
