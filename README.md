@@ -185,13 +185,13 @@ If you use a plugin in your work, please cite it. Which DOI to cite depends on w
 | **In-repo plugins** — everything under [`plugins/`](plugins/) in this repository | This collection: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18140902.svg)](https://doi.org/10.5281/zenodo.18140902) |
 | **External plugins** — plugins distributed from their own repository (e.g. ORCA Input Generator Pro, PySCF Calculator) | That plugin's own DOI, shown as the DOI badge in its repository's README |
 
-**Cite the version you used.** Click the DOI to open its Zenodo record, pick the release you used from the record's **Versions** list, and copy the string from that release's **Citation** box (APA, BibTeX and other styles are available). It includes the version and that release's own DOI, for example:
+Click the DOI to open its Zenodo record; the **Citation** box there gives a ready-to-paste citation string (APA, BibTeX and other styles).
+
+**For reproducibility, state the versions you used**: the plugin's name and version (shown in the Plugin Installer), and the MoleditPy version. Results can change between releases, so a citation without a version cannot be reproduced. For example:
 
 ```
 Yokoyama, H. (2026). MoleditPy Plugin Collection (Version 2026.07.24) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.21522477
 ```
-
-The badge DOI above always resolves to the latest release, so on its own it does not say which version you used. It is also good practice to name the plugin and its version (shown in the Plugin Installer) in your methods section.
 
 Please also cite MoleditPy itself: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17268532.svg)](https://doi.org/10.5281/zenodo.17268532)
 
