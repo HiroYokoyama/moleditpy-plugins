@@ -68,7 +68,7 @@ Import chemical structures directly from PNG/JPG images of structure drawings us
 - **Dependencies**: `DECIMER`, `Pillow`
 
 ### 7. MS Spectrum Simulation Neo (`ms_spectrum_neo.py`)
-Simulates the mass spectrum for the currently loaded molecule using RDKit descriptors.
+Simulates the isotope pattern of the molecular ion (M, or an adduct ion such as [M+H]+ or [M+Na]+) for the currently loaded molecule. Fragment peaks are not simulated.
 - **Features**: Gaussian broadening, interactive zoom/pan, isotope pattern calculation.
 - **Dependencies**: `rdkit`, `PyQt6`
 

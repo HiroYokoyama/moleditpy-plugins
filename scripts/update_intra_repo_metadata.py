@@ -2,7 +2,7 @@
 Update sha256, version, lastUpdated and the code-declared metadata in REGISTRY/plugins.json.
 
 Reads PLUGIN_VERSION (or __version__) and the other PLUGIN_* metadata constants
-(name, description, tags, dependencies, supported versions / OS) from each
+(name, author, description, tags, dependencies, supported versions / OS) from each
 plugin's source file,
 computes sha256 of the download target (.py or .zip), and writes back
 to the registry. Run after modifying any plugin file.
@@ -134,6 +134,7 @@ def infer_optional_dependencies_from_target(target: Path) -> list | None:
 # Registry field synced from each constant, when the source declares it.
 DISPLAY_CONSTANTS = {
     "PLUGIN_NAME": "name",
+    "PLUGIN_AUTHOR": "author",
     "PLUGIN_DESCRIPTION": "description",
     "PLUGIN_TAGS": "tags",
     "PLUGIN_DEPENDENCIES": "dependencies",
@@ -312,7 +313,7 @@ def update_single_json(json_path: Path) -> tuple[int, int, int, int, int, int, i
                 )
                 updated_optional += 1
 
-        # Name, description, tags, dependencies and supported OS follow the
+        # Name, author, description, tags, dependencies and supported OS follow the
         # code, so bumping a plugin is the one way to change them. Retired
         # _old/ plugins are frozen and skipped.
         if "/_old/" not in download_url:
@@ -359,7 +360,7 @@ def main() -> int:
         print(f"[{rel}] Updated supported_moleditpy_version: {updated_supported}")
         print(f"[{rel}] Updated supported_python_version: {updated_supported_py}")
         print(f"[{rel}] Updated optional_dependencies: {updated_optional}")
-        print(f"[{rel}] Updated name/description/tags/deps/os: {updated_display}")
+        print(f"[{rel}] Updated name/author/description/tags/deps/os: {updated_display}")
         print(f"[{rel}] Missing local targets: {len(missing)}")
         for item in missing:
             print(f"  - {item}")
@@ -370,7 +371,7 @@ def main() -> int:
     print(f"Total updated supported_moleditpy_version: {total_supported}")
     print(f"Total updated supported_python_version: {total_supported_py}")
     print(f"Total updated optional_dependencies: {total_optional}")
-    print(f"Total updated name/description/tags/deps/os: {total_display}")
+    print(f"Total updated name/author/description/tags/deps/os: {total_display}")
     print(f"Total missing local targets: {total_missing}")
     return 0
 

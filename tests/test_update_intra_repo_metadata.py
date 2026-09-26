@@ -126,6 +126,36 @@ def test_sync_takes_name_description_and_tags_from_code(tmp_path):
     assert data[0]["tags"] == ["Analysis", "Visualization"]
 
 
+def test_sync_takes_author_from_code(tmp_path):
+    entry = _entry()
+    entry["author"] = "OldName"
+    registry = _write_registry(tmp_path, entry)
+    _write_plugin(
+        tmp_path, 'PLUGIN_VERSION = "2026.01.02"\nPLUGIN_AUTHOR = "HiroYokoyama"\n'
+    )
+
+    sync.update_single_json(registry)
+
+    data = json.loads(registry.read_text(encoding="utf-8"))
+    assert data[0]["author"] == "HiroYokoyama"
+
+
+def test_sync_keeps_author_declared_through_a_variable(tmp_path):
+    # PLUGIN_AUTHOR = __author__ is not a literal; the registry value stands.
+    entry = _entry()
+    entry["author"] = "HiroYokoyama"
+    registry = _write_registry(tmp_path, entry)
+    _write_plugin(
+        tmp_path,
+        'PLUGIN_VERSION = "2026.01.02"\n__author__ = "Someone"\nPLUGIN_AUTHOR = __author__\n',
+    )
+
+    sync.update_single_json(registry)
+
+    data = json.loads(registry.read_text(encoding="utf-8"))
+    assert data[0]["author"] == "HiroYokoyama"
+
+
 def test_sync_keeps_registry_values_the_code_does_not_declare(tmp_path):
     entry = _entry()
     entry["description"] = "Curated wording."
