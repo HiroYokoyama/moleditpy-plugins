@@ -176,6 +176,19 @@ The new API allows plugins to:
 
 For full documentation and examples, please refer to the [Plugin Development Manual (V4)](https://hiroyokoyama.github.io/python_molecular_editor/docs/PLUGIN_DEVELOPMENT_MANUAL_V4.html).
 
+## Citation
+
+If you use a plugin in your work, please cite it. Which DOI to cite depends on where the plugin lives:
+
+| Plugin | Cite |
+| :--- | :--- |
+| **In-repo plugins** — everything under [`plugins/`](plugins/) in this repository | This collection: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18140902.svg)](https://doi.org/10.5281/zenodo.18140902) |
+| **External plugins** — plugins distributed from their own repository (e.g. ORCA Input Generator Pro, PySCF Calculator) | That plugin's own DOI, shown as the DOI badge in its repository's README |
+
+Click the DOI to open its Zenodo record; the **Citation** box there gives a ready-to-paste citation string in APA, BibTeX and other styles. The DOI always points to the latest release, and the record also lists a DOI for each version if you need to cite an exact snapshot.
+
+Please also cite MoleditPy itself: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17268532.svg)](https://doi.org/10.5281/zenodo.17268532)
+
 ## License & Disclaimer
 
 This project is licensed under the GNU General Public License v3.0 (GPLv3) - see the [LICENSE](LICENSE) file for details. As open-source software, it is provided 'as is' without warranty of any kind, and the author assumes no responsibility or liability for the results. Although outputs have been carefully verified, users are strongly encouraged to independently check and validate them for critical applications (such as publications). If you encounter any bugs, please open an issue.
