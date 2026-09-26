@@ -187,7 +187,11 @@ If you use a plugin in your work, please cite it. Which DOI to cite depends on w
 
 Click the DOI to open its Zenodo record; the **Citation** box there gives a ready-to-paste citation string (APA, BibTeX and other styles).
 
-**For reproducibility, state the versions you used**: the plugin's name and version (shown in the Plugin Installer), and the MoleditPy version. Results can change between releases, so a citation without a version cannot be reproduced. For example:
+**For reproducibility, state the versions you used**: the plugin's exact name and version (both shown in the Plugin Installer), and the MoleditPy version. Results can change between releases, so a citation without a version cannot be reproduced. For example, in a methods section:
+
+> Isotope patterns of the molecular ions were simulated with the MS Spectrum Simulation Neo plugin (version 2026.09.24) from the MoleditPy Plugin Collection (version 2026.09.26) in MoleditPy 4.11.0.
+
+with the reference taken from the Citation box, e.g.:
 
 ```
 Yokoyama, H. (2026). MoleditPy Plugin Collection (Version 2026.07.24) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.21522477
