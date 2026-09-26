@@ -587,6 +587,34 @@
     ]
   },
   {
+    "id": "elemental_analysis",
+    "visible": true,
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
+    "name": "Elemental Analysis",
+    "version": "2026.09.26",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "description": "Calculates the theoretical elemental composition (mass %) of the currently loaded molecule, with optional solvate, and formats the 'Anal. Calcd for' line for publications.",
+    "tags": [
+      "Analysis"
+    ],
+    "dependencies": [
+      "rdkit",
+      "PyQt6"
+    ],
+    "downloadUrl": "../plugins/Elemental_Analysis/elemental_analysis.py",
+    "lastUpdated": "2026-09-26",
+    "sha256": "452650632067622abb44e45a81360fb7f23abf2b43d1ba5dc61724f5a79ab595",
+    "firstAppeared": "2026-09-26",
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
+  },
+  {
     "id": "gaussian_freq_analyzer",
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
