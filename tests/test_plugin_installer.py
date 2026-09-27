@@ -90,12 +90,13 @@ def _load_module():
             setattr(pyqt6.QtWidgets, name, MagicMock())
         pyqt6.QtWidgets.QDialog = _FakeQDialog
 
-        setattr(pyqt6.QtGui, "QColor", MagicMock())
+        for name in ["QColor", "QDesktopServices"]:
+            setattr(pyqt6.QtGui, name, MagicMock())
 
         pyqt6.QtCore = types.ModuleType("PyQt6.QtCore")
         # QThread needs to be a real class (it's subclassed by _FetchWorker).
         pyqt6.QtCore.QThread = _FakeQThread
-        for name in ["QTimer", "pyqtSignal", "Qt"]:
+        for name in ["QTimer", "pyqtSignal", "Qt", "QUrl"]:
             setattr(pyqt6.QtCore, name, MagicMock())
 
         sys.modules["PyQt6"] = pyqt6
@@ -1240,6 +1241,13 @@ class _Item:
         self._text = str(text)
         self.tooltip = None
         self.background = None
+        self.data_by_role = {}
+
+    def setData(self, role, value):
+        self.data_by_role[role] = value
+
+    def data(self, role):
+        return self.data_by_role.get(role)
 
     def setBackground(self, color):
         self.background = color
@@ -1431,6 +1439,71 @@ class TestPopulateTable:
         # AST-read version (3.3.3) wins over the stale metadata (0.0.1)
         assert self._statuses(inst) == {"OnDisk": "Up to date"}
         assert inst.table.items[(0, 2)].text() == "3.3.3"
+
+    def test_disabled_plugin_shows_disabled(self, monkeypatch):
+        remote = [
+            {
+                "name": "Off",
+                "version": "1.0.0",
+                "visible": True,
+                "downloadUrl": "https://x/off.py",
+            },
+        ]
+        installed = [
+            {
+                "name": "Off",
+                "version": "1.0.0",
+                "filepath": None,
+                "status": "Disabled",
+                "disabled": True,
+            }
+        ]
+        inst = self._make_installer(remote, installed)
+        self._run(inst, monkeypatch)
+        assert self._statuses(inst) == {"Off": "Disabled"}
+        item = inst.table.items[(0, 4)]
+        assert item.data(PI.Qt.ItemDataRole.UserRole) == "Up to date"
+        assert "Plugin Manager" in item.tooltip
+        inst._update_status_label.assert_called_once_with(0)
+
+    def test_disabled_plugin_with_update_still_counted(self, monkeypatch):
+        remote = [
+            {
+                "name": "Off",
+                "version": "2.0.0",
+                "visible": True,
+                "downloadUrl": "https://x/off.py",
+            },
+        ]
+        installed = [
+            {"name": "Off", "version": "1.0.0", "filepath": None, "disabled": True}
+        ]
+        inst = self._make_installer(remote, installed)
+        self._run(inst, monkeypatch)
+        assert self._statuses(inst) == {"Off": "Update Available (Disabled)"}
+        assert inst.updates_found is True
+        inst._update_status_label.assert_called_once_with(1)
+
+
+class TestProjectPageAndDisabledHelpers:
+    def test_project_url_github(self):
+        url = "https://github.com/HiroYokoyama/moleditpy_pyscf-calculator"
+        assert PI._project_page_url({"projectUrl": url}) == url
+        assert PI._project_page_label(url) == "Open GitHub Page"
+
+    def test_project_url_rejects_unsafe_scheme(self):
+        assert PI._project_page_url({"projectUrl": "file:///C:/x"}) is None
+        assert PI._project_page_url({"projectUrl": ""}) is None
+        assert PI._project_page_url(None) is None
+
+    def test_project_label_other_host(self):
+        assert PI._project_page_label("https://gitlab.com/x") == "Open Project Page"
+
+    def test_is_plugin_disabled(self):
+        assert PI._is_plugin_disabled({"disabled": True}) is True
+        assert PI._is_plugin_disabled({"status": "Disabled"}) is True
+        assert PI._is_plugin_disabled({"status": "Loaded"}) is False
+        assert PI._is_plugin_disabled(None) is False
 
 
 class TestFilterPlugins:
