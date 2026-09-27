@@ -456,19 +456,14 @@
             background: var(--secondary-hover);
         }
 
-        body.dark .theme-toggle-btn .sun-icon {
-            display: block;
-        }
-
-        body.dark .theme-toggle-btn .moon-icon {
+        /* The button shows the current mode: auto (follows the system), light or dark. */
+        .theme-toggle-btn svg {
             display: none;
         }
 
-        body:not(.dark) .theme-toggle-btn .sun-icon {
-            display: none;
-        }
-
-        body:not(.dark) .theme-toggle-btn .moon-icon {
+        .theme-toggle-btn[data-mode="auto"] .auto-icon,
+        .theme-toggle-btn[data-mode="light"] .sun-icon,
+        .theme-toggle-btn[data-mode="dark"] .moon-icon {
             display: block;
         }
 
@@ -755,7 +750,11 @@
         <div class="controls-header">
             <span style="font-weight: bold; color: var(--text-main);">Search & Filter</span>
             <div style="display: flex; align-items: center; gap: 8px;">
-                <button id="themeToggle" class="theme-toggle-btn" aria-label="Toggle Theme">
+                <button id="themeToggle" class="theme-toggle-btn" data-mode="auto" aria-label="Theme: Auto" title="Theme: Auto">
+                    <svg class="auto-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="9"></circle>
+                        <path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"></path>
+                    </svg>
                     <svg class="sun-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="12" cy="12" r="5"></circle>
                         <line x1="12" y1="1" x2="12" y2="3"></line>
@@ -811,7 +810,7 @@
 
     <script>
         // Bump on every change to this page.
-        const EXPLORER_VERSION = "2026.09.16";
+        const EXPLORER_VERSION = "2026.09.27";
 
         let allPlugins = [];
 
@@ -1151,23 +1150,45 @@
             }
         }
 
-        // Dark Mode Toggle Logic
+        // Theme: Auto (follows the system, live) -> Light -> Dark -> Auto
         const themeToggle = document.getElementById('themeToggle');
-        
-        // Check for saved theme preference, otherwise use system preference
-        const savedTheme = localStorage.getItem('theme');
-        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        
-        if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
-            document.body.classList.add('dark');
-        } else {
-            document.body.classList.remove('dark');
+        const THEME_MODES = ['auto', 'light', 'dark'];
+        const THEME_LABELS = { auto: 'Auto (follows system)', light: 'Light', dark: 'Dark' };
+        const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
+
+        function loadThemeMode() {
+            try {
+                const saved = localStorage.getItem('theme');
+                return THEME_MODES.includes(saved) ? saved : 'auto';
+            } catch (e) {
+                return 'auto';
+            }
         }
 
+        let themeMode = loadThemeMode();
+
+        function applyTheme() {
+            const dark = themeMode === 'dark' || (themeMode === 'auto' && systemDark.matches);
+            document.body.classList.toggle('dark', dark);
+            themeToggle.dataset.mode = themeMode;
+            const label = `Theme: ${THEME_LABELS[themeMode]}`;
+            themeToggle.title = label;
+            themeToggle.setAttribute('aria-label', label);
+        }
+
+        applyTheme();
+        systemDark.addEventListener('change', () => {
+            if (themeMode === 'auto') applyTheme();
+        });
+
         themeToggle.addEventListener('click', () => {
-            document.body.classList.toggle('dark');
-            const isDark = document.body.classList.contains('dark');
-            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            themeMode = THEME_MODES[(THEME_MODES.indexOf(themeMode) + 1) % THEME_MODES.length];
+            try {
+                localStorage.setItem('theme', themeMode);
+            } catch (e) {
+                // Private windows can refuse storage; the choice still applies for this visit.
+            }
+            applyTheme();
         });
 
         // Initialize
