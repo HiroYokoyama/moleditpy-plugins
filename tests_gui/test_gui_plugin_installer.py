@@ -1009,10 +1009,13 @@ class TestShowPluginDetails:
     @pytest.fixture
     def captured_dialog(self, monkeypatch):
         calls = []
+        kwarg_calls = []
+        self.kwarg_calls = kwarg_calls
 
         class _FakeDialog:
-            def __init__(self, *args):
+            def __init__(self, *args, **kwargs):
                 calls.append(args)
+                kwarg_calls.append(kwargs)
 
             def exec(self):
                 return 0
@@ -1088,6 +1091,34 @@ class TestShowPluginDetails:
     def test_empty_row_is_noop(self, bare_installer, captured_dialog):
         bare_installer.show_plugin_details(99, 0)
         assert captured_dialog == []
+
+    def test_project_url_passed_through(self, bare_installer, captured_dialog):
+        entry = _remote_entry("Remote Only")
+        entry["projectUrl"] = "https://github.com/HiroYokoyama/some_plugin"
+        bare_installer.remote_data = [entry]
+        bare_installer.populate_table(silent=True)
+
+        bare_installer.show_plugin_details(0, 0)
+
+        assert self.kwarg_calls[0]["project_url"] == entry["projectUrl"]
+
+    def test_no_project_url_passes_none(self, bare_installer, captured_dialog):
+        bare_installer.remote_data = [_remote_entry("Remote Only")]
+        bare_installer.populate_table(silent=True)
+
+        bare_installer.show_plugin_details(0, 0)
+
+        assert self.kwarg_calls[0]["project_url"] is None
+
+    def test_unsafe_project_url_is_dropped(self, bare_installer, captured_dialog):
+        entry = _remote_entry("Remote Only")
+        entry["projectUrl"] = "file:///etc/passwd"
+        bare_installer.remote_data = [entry]
+        bare_installer.populate_table(silent=True)
+
+        bare_installer.show_plugin_details(0, 0)
+
+        assert self.kwarg_calls[0]["project_url"] is None
 
 
 class TestBatchUpdateAll:
@@ -1685,3 +1716,302 @@ class TestOnFinishedManagerSync:
         finally:
             pmw.close()
             pmw.deleteLater()
+
+
+# ===========================================================================
+# Project page link (registry "projectUrl")
+# ===========================================================================
+
+
+class TestProjectPageHelpers:
+    def test_github_url_returned(self):
+        entry = {"projectUrl": "https://github.com/HiroYokoyama/x"}
+        assert _plugin_installer._project_page_url(entry) == entry["projectUrl"]
+
+    def test_whitespace_is_stripped(self):
+        entry = {"projectUrl": "  https://example.org/x  "}
+        assert _plugin_installer._project_page_url(entry) == "https://example.org/x"
+
+    @pytest.mark.parametrize(
+        "entry",
+        [
+            None,
+            {},
+            {"projectUrl": ""},
+            {"projectUrl": "   "},
+            {"projectUrl": None},
+            {"projectUrl": 42},
+            {"projectUrl": "file:///etc/passwd"},
+            {"projectUrl": "javascript:alert(1)"},
+            {"projectUrl": "ftp://example.org/x"},
+        ],
+    )
+    def test_missing_or_unsafe_returns_none(self, entry):
+        assert _plugin_installer._project_page_url(entry) is None
+
+    @pytest.mark.parametrize(
+        "url, label",
+        [
+            ("https://github.com/HiroYokoyama/x", "Open GitHub Page"),
+            ("https://GitHub.com/HiroYokoyama/x", "Open GitHub Page"),
+            ("https://www.github.com/x", "Open GitHub Page"),
+            ("https://example.org/x", "Open Project Page"),
+            ("https://github.com.evil.example/x", "Open Project Page"),
+            ("https://notgithub.com/x", "Open Project Page"),
+        ],
+    )
+    def test_label(self, url, label):
+        assert _plugin_installer._project_page_label(url) == label
+
+
+class TestDetailsDialogProjectButton:
+    def _make(self, project_url):
+        return _plugin_installer.PluginDetailsDialog(
+            None,
+            "P",
+            "A",
+            "1.0",
+            "Desc",
+            [],
+            None,
+            None,
+            project_url=project_url,
+        )
+
+    def _buttons(self, dlg):
+        from PyQt6.QtWidgets import QPushButton
+
+        return {b.text(): b for b in dlg.findChildren(QPushButton)}
+
+    def test_github_button_shown(self, qapp):
+        url = "https://github.com/HiroYokoyama/some_plugin"
+        d = self._make(url)
+        buttons = self._buttons(d)
+        assert "Open GitHub Page" in buttons
+        assert buttons["Open GitHub Page"].toolTip() == url
+        d.destroy()
+
+    def test_non_github_button_label(self, qapp):
+        d = self._make("https://example.org/plugin")
+        assert "Open Project Page" in self._buttons(d)
+        d.destroy()
+
+    def test_no_button_without_url(self, qapp):
+        d = self._make(None)
+        buttons = self._buttons(d)
+        assert "Open GitHub Page" not in buttons
+        assert "Open Project Page" not in buttons
+        d.destroy()
+
+    def test_click_opens_url(self, qapp, monkeypatch):
+        opened = []
+        monkeypatch.setattr(
+            _plugin_installer.QDesktopServices,
+            "openUrl",
+            staticmethod(lambda u: opened.append(u.toString()) or True),
+        )
+        url = "https://github.com/HiroYokoyama/some_plugin"
+        d = self._make(url)
+        self._buttons(d)["Open GitHub Page"].click()
+        assert opened == [url]
+        d.destroy()
+
+    def test_open_without_url_is_noop(self, qapp, monkeypatch):
+        opened = []
+        monkeypatch.setattr(
+            _plugin_installer.QDesktopServices,
+            "openUrl",
+            staticmethod(lambda u: opened.append(u) or True),
+        )
+        d = self._make(None)
+        d.open_project_page()
+        assert opened == []
+        d.destroy()
+
+
+# ===========================================================================
+# Plugins disabled in the host's Plugin Manager
+# ===========================================================================
+
+
+class TestIsPluginDisabled:
+    @pytest.mark.parametrize(
+        "info, expected",
+        [
+            (None, False),
+            ({}, False),
+            ({"name": "X", "status": "Loaded"}, False),
+            ({"disabled": False, "status": "Loaded"}, False),
+            ({"disabled": True}, True),
+            ({"status": "Disabled"}, True),
+            ({"disabled": True, "status": "Disabled"}, True),
+        ],
+    )
+    def test_detection(self, info, expected):
+        assert _plugin_installer._is_plugin_disabled(info) is expected
+
+
+def _disabled_local(name, path, version="1.0.0"):
+    """A plugin entry shaped like MoleditPy's _register_disabled_plugin()."""
+    return {
+        "name": name,
+        "version": version,
+        "author": "Test Author",
+        "description": "",
+        "module": None,
+        "category": "",
+        "status": "Disabled",
+        "filepath": str(path),
+        "has_run": False,
+        "disabled": True,
+    }
+
+
+class TestDisabledPluginsInTable:
+    def _row(self, installer, name):
+        for r in range(installer.table.rowCount()):
+            if installer.table.item(r, 0).text() == name:
+                return r
+        raise AssertionError(f"{name} not in table")
+
+    def test_up_to_date_disabled_shows_disabled(self, bare_installer, tmp_path):
+        target = tmp_path / "p.py"
+        target.write_text("PLUGIN_VERSION = '1.0.0'")
+        bare_installer.remote_data = [_remote_entry("P")]
+        bare_installer.main_window.plugin_manager.plugins = [
+            _disabled_local("P", target)
+        ]
+        bare_installer.populate_table(silent=True)
+
+        row = self._row(bare_installer, "P")
+        item = bare_installer.table.item(row, 4)
+        assert item.text() == "Disabled"
+        assert "Plugin Manager" in item.toolTip()
+        # Reinstall is still offered for a disabled plugin.
+        btn = bare_installer.table.cellWidget(row, 5)
+        assert btn is not None and btn.text() == "Reinstall"
+        assert not bare_installer.btn_update_all.isEnabled()
+
+    def test_disabled_with_update_keeps_update_visible(
+        self, bare_installer, tmp_path
+    ):
+        target = tmp_path / "p.py"
+        target.write_text("PLUGIN_VERSION = '0.9.0'")
+        bare_installer.remote_data = [_remote_entry("P")]
+        bare_installer.main_window.plugin_manager.plugins = [
+            _disabled_local("P", target, version="0.9.0")
+        ]
+        bare_installer.populate_table(silent=True)
+
+        row = self._row(bare_installer, "P")
+        assert bare_installer.table.item(row, 4).text() == (
+            "Update Available (Disabled)"
+        )
+        assert bare_installer.table.cellWidget(row, 5).text() == "Update"
+        assert bare_installer.btn_update_all.isEnabled()
+        assert bare_installer.updates_found is True
+
+    def test_update_all_includes_disabled_plugin(self, bare_installer, tmp_path):
+        from unittest.mock import MagicMock, patch
+        from PyQt6.QtWidgets import QMessageBox
+
+        target = tmp_path / "p.py"
+        target.write_text("PLUGIN_VERSION = '0.9.0'")
+        bare_installer.remote_data = [_remote_entry("Disabled One")]
+        bare_installer.main_window.plugin_manager.plugins = [
+            _disabled_local("Disabled One", target, version="0.9.0")
+        ]
+        bare_installer.populate_table(silent=True)
+
+        with patch.object(
+            _plugin_installer.QMessageBox,
+            "question",
+            return_value=QMessageBox.StandardButton.No,
+        ) as question, patch.object(
+            _plugin_installer.QMessageBox, "information", MagicMock()
+        ) as info:
+            bare_installer.update_all_plugins()
+
+        # The confirm prompt lists the disabled plugin, rather than the
+        # "no updates found" message a match on the cell's text would give.
+        assert question.call_count == 1
+        assert "Disabled One" in str(question.call_args)
+        info.assert_not_called()
+
+    def test_disabled_not_in_registry(self, bare_installer, tmp_path):
+        target = tmp_path / "local.py"
+        target.write_text("PLUGIN_VERSION = '0.5.0'")
+        bare_installer.remote_data = []
+        bare_installer.main_window.plugin_manager.plugins = [
+            _disabled_local("Local", target, version="0.5.0")
+        ]
+        bare_installer.populate_table(silent=True)
+
+        item = bare_installer.table.item(0, 4)
+        assert item.text() == "Disabled"
+        assert (
+            item.data(_plugin_installer.Qt.ItemDataRole.UserRole) == "Not in Registry"
+        )
+        assert bare_installer.table.item(0, 2).text() == "0.5.0"
+
+    def test_enabled_plugin_unchanged(self, bare_installer, tmp_path):
+        target = tmp_path / "p.py"
+        target.write_text("PLUGIN_VERSION = '1.0.0'")
+        bare_installer.remote_data = [_remote_entry("P")]
+        bare_installer.main_window.plugin_manager.plugins = [
+            {"name": "P", "version": "1.0.0", "filepath": str(target), "status": "Loaded"}
+        ]
+        bare_installer.populate_table(silent=True)
+
+        item = bare_installer.table.item(0, 4)
+        assert item.text() == "Up to date"
+        assert item.toolTip() == ""
+
+    def test_search_still_filters_disabled_rows(self, bare_installer, tmp_path):
+        target = tmp_path / "p.py"
+        target.write_text("PLUGIN_VERSION = '1.0.0'")
+        bare_installer.remote_data = [_remote_entry("P"), _remote_entry("Other")]
+        bare_installer.main_window.plugin_manager.plugins = [
+            _disabled_local("P", target)
+        ]
+        bare_installer.populate_table(silent=True)
+        bare_installer.search_input.setText("other")
+
+        assert bare_installer.table.isRowHidden(self._row(bare_installer, "P"))
+        assert not bare_installer.table.isRowHidden(
+            self._row(bare_installer, "Other")
+        )
+
+    def test_details_dialog_shows_disabled(self, qapp):
+        from PyQt6.QtWidgets import QLabel
+
+        d = _plugin_installer.PluginDetailsDialog(
+            None,
+            "P",
+            "A",
+            "1.0",
+            "Desc",
+            [],
+            {"name": "P", "disabled": True, "filepath": "/x/p.py"},
+            "/x/p.py",
+        )
+        texts = [w.text() for w in d.findChildren(QLabel)]
+        assert any("Disabled" in t for t in texts)
+        d.destroy()
+
+    def test_details_dialog_enabled_has_no_disabled_line(self, qapp):
+        from PyQt6.QtWidgets import QLabel
+
+        d = _plugin_installer.PluginDetailsDialog(
+            None,
+            "P",
+            "A",
+            "1.0",
+            "Desc",
+            [],
+            {"name": "P", "status": "Loaded", "filepath": "/x/p.py"},
+            "/x/p.py",
+        )
+        texts = [w.text() for w in d.findChildren(QLabel)]
+        assert not any("Disabled" in t for t in texts)
+        d.destroy()

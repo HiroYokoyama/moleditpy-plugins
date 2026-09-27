@@ -17,7 +17,7 @@ import urllib.error
 import ast
 import html
 import logging
-from PyQt6.QtCore import QThread, pyqtSignal, Qt, QTimer
+from PyQt6.QtCore import QThread, pyqtSignal, Qt, QTimer, QUrl
 from PyQt6.QtWidgets import (
     QDialog,
     QVBoxLayout,
@@ -35,7 +35,7 @@ from PyQt6.QtWidgets import (
     QProgressBar,
     QProgressDialog,
 )
-from PyQt6.QtGui import QColor
+from PyQt6.QtGui import QColor, QDesktopServices
 import importlib.metadata
 import hashlib
 import re
@@ -45,7 +45,7 @@ import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.09.02"
+PLUGIN_VERSION = "2026.09.28"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_SUPPORTED_PYTHON_VERSION = ">=3.9, <3.15"
 PLUGIN_SUPPORTED_OS = ["Windows", "macOS", "Linux", "WSL"]
@@ -244,6 +244,36 @@ def _is_allowed_download_url(url: str) -> bool:
     except Exception:
         return False
     return scheme in ("http", "https")
+
+
+def _project_page_url(remote_info):
+    """Return the registry entry's ``projectUrl`` if it is a safe http(s) link."""
+    if not remote_info:
+        return None
+    url = remote_info.get("projectUrl")
+    if not isinstance(url, str) or not url.strip():
+        return None
+    url = url.strip()
+    return url if _is_allowed_download_url(url) else None
+
+
+def _project_page_label(url: str) -> str:
+    """Button text for a project link: name GitHub when that is where it goes."""
+    host = (urllib.parse.urlparse(url).hostname or "").lower()
+    if host == "github.com" or host.endswith(".github.com"):
+        return "Open GitHub Page"
+    return "Open Project Page"
+
+
+def _is_plugin_disabled(local_info) -> bool:
+    """True for a plugin the host's Plugin Manager has disabled (not loaded).
+
+    MoleditPy registers a disabled plugin with ``"disabled": True`` (and
+    ``"status": "Disabled"``); older releases have no such concept.
+    """
+    if not local_info:
+        return False
+    return bool(local_info.get("disabled")) or local_info.get("status") == "Disabled"
 
 
 def _is_within_directory(base_dir: str, target_path: str) -> bool:
@@ -659,6 +689,7 @@ class PluginDetailsDialog(QDialog):
         supported_python="Unknown",
         supported_os=None,
         optional_dependencies=None,
+        project_url=None,
     ):
         super().__init__(parent)
         self.setWindowTitle(f"{name} - Details")
@@ -666,6 +697,7 @@ class PluginDetailsDialog(QDialog):
         self.parent_installer = parent
         self.plugin_name = name
         self.target_file = target_file
+        self.project_url = project_url
 
         layout = QVBoxLayout(self)
 
@@ -694,6 +726,13 @@ class PluginDetailsDialog(QDialog):
         layout.addWidget(lbl_supported)
         layout.addWidget(lbl_supported_py)
         layout.addWidget(lbl_supported_os)
+        if _is_plugin_disabled(local_info):
+            lbl_disabled = QLabel(
+                "<b>Status:</b> <span style='color:gray'>Disabled</span> "
+                "(turned off in the Plugin Manager; not loaded)"
+            )
+            lbl_disabled.setWordWrap(True)
+            layout.addWidget(lbl_disabled)
         layout.addSpacing(10)
         layout.addWidget(lbl_desc)
 
@@ -730,6 +769,12 @@ class PluginDetailsDialog(QDialog):
             btn_delete.setStyleSheet("color: red;")
             btn_delete.clicked.connect(self.on_delete)
             btn_layout.addWidget(btn_delete)
+
+        if project_url:
+            btn_project = QPushButton(_project_page_label(project_url))
+            btn_project.setToolTip(project_url)
+            btn_project.clicked.connect(self.open_project_page)
+            btn_layout.addWidget(btn_project)
 
         btn_layout.addStretch()
         btn_close = QPushButton("Close")
@@ -790,6 +835,10 @@ class PluginDetailsDialog(QDialog):
             layout.addWidget(btn_install_all)
 
         return missing_deps
+
+    def open_project_page(self):
+        if self.project_url:
+            QDesktopServices.openUrl(QUrl(self.project_url))
 
     def copy_optional_install_command(self):
         self._copy_install_command(getattr(self, "missing_optional_deps", None))
@@ -1216,6 +1265,7 @@ class PluginInstallerWindow(QDialog):
             author = "Unknown"
             color = None
             is_installed = local_info is not None
+            is_disabled = _is_plugin_disabled(local_info)
 
             is_compatible = True
             py_compatible = True
@@ -1307,6 +1357,16 @@ class PluginInstallerWindow(QDialog):
             if not is_compatible:
                 color = QColor("#fff3cd")
 
+            # A disabled plugin keeps its update logic (it can still be updated
+            # or reinstalled); only what the Status cell says changes.
+            status_text = status
+            if is_disabled:
+                if status == "Update Available":
+                    status_text = "Update Available (Disabled)"
+                else:
+                    status_text = "Disabled"
+                    color = QColor("#d6d8db")
+
             rows.append(
                 dict(
                     name=name,
@@ -1314,6 +1374,8 @@ class PluginInstallerWindow(QDialog):
                     local_ver=local_ver,
                     remote_ver=remote_ver,
                     status=status,
+                    status_text=status_text,
+                    is_disabled=is_disabled,
                     color=color,
                     is_installed=is_installed,
                     is_compatible=is_compatible,
@@ -1346,11 +1408,17 @@ class PluginInstallerWindow(QDialog):
             self.table.setItem(row, 2, QTableWidgetItem(str(row_data["local_ver"])))
             self.table.setItem(row, 3, QTableWidgetItem(str(row_data["remote_ver"])))
 
-            status_item = QTableWidgetItem(row_data["status"])
+            status_item = QTableWidgetItem(row_data["status_text"])
+            status_item.setData(Qt.ItemDataRole.UserRole, row_data["status"])
             if row_data["color"]:
                 status_item.setBackground(row_data["color"])
+            tips = []
+            if row_data["is_disabled"]:
+                tips.append(
+                    "Disabled in the Plugin Manager - installed but not loaded. "
+                    "Re-enable it from Plugin > Plugin Manager."
+                )
             if not row_data["is_compatible"]:
-                tips = []
                 if row_data["supported_ver_str"]:
                     tips.append(
                         f"Requires MoleditPy {row_data['supported_ver_str']} "
@@ -1366,8 +1434,8 @@ class PluginInstallerWindow(QDialog):
                         f"Requires OS {format_supported_os(row_data['supported_os_list'])} "
                         f"(Current: {get_current_os()})"
                     )
-                if tips:
-                    status_item.setToolTip("\n".join(tips))
+            if tips:
+                status_item.setToolTip("\n".join(tips))
             self.table.setItem(row, 4, status_item)
 
             if remote_info and "downloadUrl" in remote_info:
@@ -1528,7 +1596,10 @@ class PluginInstallerWindow(QDialog):
         rows_to_update = []
         for row in range(self.table.rowCount()):
             status_item = self.table.item(row, 4)
-            if status_item and status_item.text() == "Update Available":
+            if (
+                status_item
+                and status_item.data(Qt.ItemDataRole.UserRole) == "Update Available"
+            ):
                 btn = self.table.cellWidget(row, 5)
                 if btn and isinstance(btn, QPushButton):
                     rows_to_update.append(btn)
@@ -1676,6 +1747,7 @@ class PluginInstallerWindow(QDialog):
             supported_python,
             supported_os,
             optional_dependencies,
+            project_url=_project_page_url(remote_info),
         )
         dialog.exec()
 
@@ -1831,6 +1903,7 @@ class PluginInstallerWindow(QDialog):
                         supported_python,
                         supported_os,
                         optional_dependencies,
+                        project_url=_project_page_url(remote_info),
                     )
                     dialog.exec()
                     return
@@ -2192,6 +2265,7 @@ class PluginInstallerWindow(QDialog):
                         supported_python,
                         supported_os,
                         optional_dependencies,
+                        project_url=_project_page_url(remote_info),
                     )
                     dialog.exec()
                 elif not self._batch_updating:
