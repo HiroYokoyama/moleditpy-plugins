@@ -7,7 +7,7 @@ import logging
 
 # --- Plugin Basic Information ---
 PLUGIN_NAME = "Paste from ChemDraw"
-PLUGIN_VERSION = "2026.09.24"
+PLUGIN_VERSION = "2026.09.29"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Paste chemical structures from ChemDraw clipboard data. Developed on ChemDraw version 25.5."
@@ -115,7 +115,7 @@ def run(context):
                 if "V2000" in line or "V3000" in line:
                     start = max(0, i - 3)
                     mol_text_clean = "\n".join(lines[start:])
-                    mol = Chem.MolFromMolBlock(mol_text_clean)
+                    mol = _mol_from_block(mol_text_clean)
                     break
 
             # Case 2: Flat text or failed block
@@ -131,7 +131,7 @@ def run(context):
         try:
             text = mime_data.text().strip()
             if "V2000" in text or "M  END" in text:
-                mol = Chem.MolFromMolBlock(text)
+                mol = _mol_from_block(text)
                 if mol is None:
                     mol = reconstruct_from_flat_text(text)
         except Exception as _e:  # noqa: BLE001 - clipboard decode is best-effort
@@ -192,15 +192,8 @@ def run(context):
                     atom2 = rdkit_idx_to_item[idx2]
                     order = int(bond.GetBondTypeAsDouble())
 
-                    stereo = 0
-                    dir_ = bond.GetBondDir()
-                    if dir_ == Chem.BondDir.BEGINWEDGE:
-                        stereo = 1
-                    elif dir_ == Chem.BondDir.BEGINDASH:
-                        stereo = 2
-
                     context.scene.create_bond(
-                        atom1, atom2, bond_order=order, bond_stereo=stereo
+                        atom1, atom2, bond_order=order, bond_stereo=_bond_stereo(bond)
                     )
 
             context.refresh_2d_scene()
@@ -214,6 +207,29 @@ def run(context):
         # Failure Message
         msg = "No valid MDLCT data found in clipboard."
         QMessageBox.warning(main_window, PLUGIN_NAME, msg)
+
+
+def _mol_from_block(block):
+    """Parse a MolBlock, keeping explicit H so wedges drawn to H survive."""
+    return Chem.MolFromMolBlock(block, removeHs=False)
+
+
+def _bond_stereo(bond):
+    """
+    Map a parsed bond to MoleditPy's bond_stereo (0 none, 1 wedge, 2 dash).
+
+    MolFromMolBlock converts wedge/hash flags into atom chirality and resets
+    every BondDir to NONE, so the original molfile flag (1 wedge, 6 hash) is
+    read from the _MolFileBondStereo property RDKit keeps on the bond.
+    """
+    if hasattr(bond, "HasProp") and bond.HasProp("_MolFileBondStereo"):
+        return {1: 1, 6: 2}.get(bond.GetUnsignedProp("_MolFileBondStereo"), 0)
+    dir_ = bond.GetBondDir()
+    if dir_ == Chem.BondDir.BEGINWEDGE:
+        return 1
+    if dir_ == Chem.BondDir.BEGINDASH:
+        return 2
+    return 0
 
 
 def reconstruct_from_flat_text(text):
@@ -361,7 +377,7 @@ def reconstruct_from_flat_text(text):
         # debug_log.append(f"Block Preview:\n{full_block}")
 
         # _write_debug_log(debug_log)
-        return Chem.MolFromMolBlock(full_block)
+        return _mol_from_block(full_block)
 
     except Exception:
         # debug_log.append(f"Reconstruction Exception: {e}")

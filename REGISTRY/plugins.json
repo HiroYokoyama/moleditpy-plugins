@@ -1241,7 +1241,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Paste from ChemDraw",
-    "version": "2026.09.24",
+    "version": "2026.09.29",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Paste chemical structures from ChemDraw clipboard data. Developed on ChemDraw version 25.5.",
@@ -1253,8 +1253,8 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/Paste_from_ChemDraw/paste_chemdraw.py",
-    "lastUpdated": "2026-09-24",
-    "sha256": "725343ba6d963e169e683b6cf19686b28fd7447f416a267df932f2d8bbd8f69f",
+    "lastUpdated": "2026-09-29",
+    "sha256": "0f940e9f80cc71840bb545b33bcbe65625b5d25d924d16e231cdb2520a255127",
     "firstAppeared": "2026-01-15",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

@@ -606,3 +606,67 @@ class TestDrawingLoopFullFlow:
         assert len(criticals) == 1
         assert "Paste Error" in criticals[0][2]
         ctx_with_view2d.push_undo_checkpoint.assert_not_called()
+
+
+# ===========================================================================
+# Wedge / hash bonds with real RDKit: MolFromMolBlock resets every BondDir to
+# NONE, so stereo must come from the _MolFileBondStereo flag, and explicit H
+# (common wedge targets in ChemDraw drawings) must not be stripped.
+# ===========================================================================
+
+_STEREO_MOLBLOCK = """
+  ChemDraw09292614302D
+
+  5  4  0  0  0  0  0  0  0  0999 V2000
+    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+    0.8250    0.0000    0.0000 Cl  0  0  0  0  0  0  0  0  0  0  0  0
+   -0.4125    0.7145    0.0000 Br  0  0  0  0  0  0  0  0  0  0  0  0
+   -0.4125   -0.7145    0.0000 F   0  0  0  0  0  0  0  0  0  0  0  0
+    0.0000   -0.8250    0.0000 H   0  0  0  0  0  0  0  0  0  0  0  0
+  1  2  1  0
+  1  3  1  0
+  1  4  1  1
+  1  5  1  6
+M  END
+"""
+
+
+class TestWedgeBondsRealRDKit:
+    @pytest.fixture
+    def real_chem(self, monkeypatch):
+        rdkit_chem = pytest.importorskip("rdkit.Chem")
+        monkeypatch.setattr(_chemdraw, "Chem", rdkit_chem)
+        return rdkit_chem
+
+    def test_bond_stereo_reads_molfile_flag(self, real_chem):
+        mol = _chemdraw._mol_from_block(_STEREO_MOLBLOCK)
+        assert mol.GetNumAtoms() == 5  # explicit H kept
+        assert [_chemdraw._bond_stereo(b) for b in mol.GetBonds()] == [0, 0, 1, 2]
+
+    def test_paste_creates_wedge_and_dash_bonds(self, qapp, real_chem):
+        clipboard = qapp.clipboard()
+        ctx = MagicMock()
+        ctx.get_main_window.return_value = None
+        ctx.scene.atom_items = {}
+        symbols = []
+
+        def _create_atom(symbol, pos, charge=0):
+            aid = len(symbols)
+            symbols.append(symbol)
+            ctx.scene.atom_items[aid] = MagicMock(atom_id=aid)
+            return aid
+
+        ctx.scene.create_atom.side_effect = _create_atom
+        try:
+            clipboard.setText(_STEREO_MOLBLOCK)
+            _chemdraw.run(ctx)
+        finally:
+            clipboard.clear()
+
+        assert symbols == ["C", "Cl", "Br", "F", "H"]
+        bonds = [
+            (c.args[0].atom_id, c.args[1].atom_id, c.kwargs["bond_stereo"])
+            for c in ctx.scene.create_bond.call_args_list
+        ]
+        assert bonds == [(0, 1, 0), (0, 2, 0), (0, 3, 1), (0, 4, 2)]
+        ctx.push_undo_checkpoint.assert_called_once()
