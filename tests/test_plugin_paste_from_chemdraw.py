@@ -47,7 +47,7 @@ def _reconstruct(flat_text):
         mod = load_plugin(CHEMDRAW_PATH)
         captured = {}
 
-        def capture(block):
+        def capture(block, **_kwargs):
             captured["block"] = block
             return "MOL_SENTINEL"
 
