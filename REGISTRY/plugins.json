@@ -2531,5 +2531,35 @@
       "Linux",
       "WSL"
     ]
+  },
+  {
+    "id": "molecule_styler",
+    "visible": true,
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
+    "name": "Molecule Styler",
+    "version": "0.1.2",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "projectUrl": "https://github.com/HiroYokoyama/moleditpy_molecule_styler",
+    "description": "Right-hand panel listing each disconnected molecule, with per-molecule and per-atom 3D display styles (CPK, Ball & Stick, Stick, Wireframe, Hidden).",
+    "tags": [
+      "Visualization"
+    ],
+    "dependencies": [
+      "pyvista",
+      "PyQt6",
+      "numpy"
+    ],
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_molecule_styler/releases/download/v0.1.2/molecule_styler.py",
+    "lastUpdated": "2026-10-01",
+    "sha256": "eecad63f2f2533fe6e99b6fdff5c87c42f96909c29ec333fd0c8a8b8c8a4fdb2",
+    "firstAppeared": "2026-10-01",
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   }
 ]
