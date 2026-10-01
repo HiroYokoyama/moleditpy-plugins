@@ -2537,7 +2537,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Molecule Styler",
-    "version": "0.1.2",
+    "version": "0.1.3",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_molecule_styler",
@@ -2550,9 +2550,9 @@
       "PyQt6",
       "numpy"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_molecule_styler/releases/download/v0.1.2/molecule_styler.py",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_molecule_styler/releases/download/v0.1.3/molecule_styler.py",
     "lastUpdated": "2026-10-01",
-    "sha256": "eecad63f2f2533fe6e99b6fdff5c87c42f96909c29ec333fd0c8a8b8c8a4fdb2",
+    "sha256": "1884693820f3401eddd29f96d848efeccbcdc1dd95359a0ae548c42f0461845a",
     "firstAppeared": "2026-10-01",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
