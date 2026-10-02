@@ -12,6 +12,25 @@ Repo: [https://github.com/HiroYokoyama/moleditpy-plugins/](https://github.com/Hi
 Explorer: [https://hiroyokoyama.github.io/moleditpy-plugins/explorer/](https://hiroyokoyama.github.io/moleditpy-plugins/explorer/)
 
 
+## 🎬 Watch on YouTube
+
+<table>
+  <tr>
+    <td align="center">
+      <a href="https://www.youtube.com/watch?v=Iwm9JFXpXE4">
+        <img src="https://img.youtube.com/vi/Iwm9JFXpXE4/hqdefault.jpg" alt="MoleditPy Plugins video 1" width="360"><br>
+        ▶ <b>Video 1</b>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://www.youtube.com/watch?v=ccWn9psgBlM">
+        <img src="https://img.youtube.com/vi/ccWn9psgBlM/hqdefault.jpg" alt="MoleditPy Plugins video 2" width="360"><br>
+        ▶ <b>Video 2</b>
+      </a>
+    </td>
+  </tr>
+</table>
+
 This directory contains the official plugins for **MoleditPy**. 
 
 ## What You Can Do with Plugins (Typical Use Cases & Solutions)
