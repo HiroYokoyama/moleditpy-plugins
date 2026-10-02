@@ -12,6 +12,25 @@ Repo: [https://github.com/HiroYokoyama/moleditpy-plugins/](https://github.com/Hi
 Explorer: [https://hiroyokoyama.github.io/moleditpy-plugins/explorer/](https://hiroyokoyama.github.io/moleditpy-plugins/explorer/)
 
 
+## Watch on YouTube
+
+<table>
+  <tr>
+    <td align="center" valign="top" width="50%">
+      <a href="https://www.youtube.com/watch?v=ccWn9psgBlM">
+        <img src="https://img.youtube.com/vi/ccWn9psgBlM/hqdefault.jpg" alt="MoleditPy: introduction" width="360"><br>
+        <b>MoleditPy: introduction</b>
+      </a>
+    </td>
+    <td align="center" valign="top" width="50%">
+      <a href="https://www.youtube.com/watch?v=Iwm9JFXpXE4">
+        <img src="https://img.youtube.com/vi/Iwm9JFXpXE4/hqdefault.jpg" alt="PySCF Calculator for MoleditPy" width="360"><br>
+        <b>PySCF Calculator for MoleditPy</b>
+      </a>
+    </td>
+  </tr>
+</table>
+
 This directory contains the official plugins for **MoleditPy**. 
 
 ## What You Can Do with Plugins (Typical Use Cases & Solutions)
