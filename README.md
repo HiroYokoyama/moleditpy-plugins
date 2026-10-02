@@ -24,8 +24,8 @@ Explorer: [https://hiroyokoyama.github.io/moleditpy-plugins/explorer/](https://h
     </td>
     <td align="center" valign="top" width="50%">
       <a href="https://www.youtube.com/watch?v=Iwm9JFXpXE4">
-        <img src="https://img.youtube.com/vi/Iwm9JFXpXE4/hqdefault.jpg" alt="PySCF Calculator for MoleditPy – DFT, Orbitals &amp; Scans in One Editor" width="360"><br>
-        <b>PySCF Calculator for MoleditPy – DFT, Orbitals &amp; Scans in One Editor</b>
+        <img src="https://img.youtube.com/vi/Iwm9JFXpXE4/hqdefault.jpg" alt="PySCF Calculator for MoleditPy" width="360"><br>
+        <b>PySCF Calculator for MoleditPy</b>
       </a>
     </td>
   </tr>
