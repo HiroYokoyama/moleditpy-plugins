@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#3577f7">
+  <title>MoleditPy Plugins — Tools for molecular research</title>
+  <meta name="description" content="Explore official MoleditPy plugins for computational chemistry, molecular visualization, analysis, and custom research workflows.">
+  <link rel="icon" href="https://hiroyokoyama.github.io/python_molecular_editor/icon_images/favicon.ico">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body data-lang="en">
+  <header class="site-header">
+    <div class="wrapper nav-wrap">
+      <a class="site-title" href="./" aria-label="MoleditPy Plugins home">
+        <img class="brand-icon" src="https://hiroyokoyama.github.io/python_molecular_editor/img/icon.png" alt="">
+        <span>MoleditPy <span class="title-light">Plugins</span></span>
+      </a>
+      <nav class="site-nav" aria-label="Main navigation">
+        <a href="#toolkit"><span class="lang-en">Toolkit</span><span class="lang-ja">ツールキット</span></a>
+        <span class="nav-divider"></span>
+        <div class="lang-switch" role="group" aria-label="Language selection">
+          <button type="button" class="lang-btn active" data-lang-btn="en" aria-pressed="true">EN</button>
+          <button type="button" class="lang-btn" data-lang-btn="ja" aria-pressed="false">JA</button>
+        </div>
+        <a class="github-link" href="https://github.com/HiroYokoyama/moleditpy-plugins" target="_blank" rel="noopener">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-2.2 2.2-2.2.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          GitHub
+        </a>
+      </nav>
+      <button class="mobile-menu" type="button" aria-label="Open navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-glow" aria-hidden="true"></div>
+      <div class="wrapper hero-layout">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="eyebrow-dot"></span><span class="lang-en">THE OFFICIAL PLUGIN COLLECTION</span><span class="lang-ja">MoleditPy 公式プラグインコレクション</span></p>
+          <h1 id="hero-title"><span class="lang-en">MoleditPy<br><em>Plugin Toolkit.</em></span><span class="lang-ja">MoleditPy<br><em>プラグインツールキット。</em></span></h1>
+          <p class="hero-description"><span class="lang-en">Add the tools you need, when you need them</span><span class="lang-ja">必要なときに、必要なツールを追加。</span></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="featured-section section-pad" id="toolkit">
+      <div class="wrapper">
+        <div class="section-heading">
+          <div><p class="section-kicker"><span class="lang-en">TOOLKIT</span><span class="lang-ja">ツールキット</span></p><h2><span class="lang-en">Find a tool by task.</span><span class="lang-ja">目的からツールを探す。</span></h2><p><span class="lang-en">Choose a category to see matching plugins in the Explorer.</span><span class="lang-ja">カテゴリを選ぶと、該当するプラグインをExplorerで検索できます。</span></p></div>
+        </div>
+        <div class="tool-grid">
+          <a class="tool-card" href="https://hiroyokoyama.github.io/moleditpy-plugins/explorer/?q=input" target="_blank" rel="noopener"><span class="tool-icon">IN</span><span class="tool-copy"><strong><span class="lang-en">Input generation</span><span class="lang-ja">入力ファイル作成</span></strong><small><span class="lang-en">Prepare quantum chemistry jobs</span><span class="lang-ja">量子化学計算の入力を準備</span></small></span><span class="tool-arrow">↗</span></a>
+          <a class="tool-card" href="https://hiroyokoyama.github.io/moleditpy-plugins/explorer/?q=optimization" target="_blank" rel="noopener"><span class="tool-icon">OPT</span><span class="tool-copy"><strong><span class="lang-en">Optimization</span><span class="lang-ja">構造最適化</span></strong><small><span class="lang-en">Optimize and refine structures</span><span class="lang-ja">分子構造の最適化と調整</span></small></span><span class="tool-arrow">↗</span></a>
+          <a class="tool-card" href="https://hiroyokoyama.github.io/moleditpy-plugins/explorer/?q=analysis" target="_blank" rel="noopener"><span class="tool-icon">ANA</span><span class="tool-copy"><strong><span class="lang-en">Analysis</span><span class="lang-ja">解析</span></strong><small><span class="lang-en">Inspect calculation results</span><span class="lang-ja">計算結果を詳しく調べる</span></small></span><span class="tool-arrow">↗</span></a>
+          <a class="tool-card" href="https://hiroyokoyama.github.io/moleditpy-plugins/explorer/?q=visualization" target="_blank" rel="noopener"><span class="tool-icon">3D</span><span class="tool-copy"><strong><span class="lang-en">Visualization</span><span class="lang-ja">可視化</span></strong><small><span class="lang-en">View molecular properties in 3D</span><span class="lang-ja">分子物性を3Dで表示</span></small></span><span class="tool-arrow">↗</span></a>
+          <a class="tool-card" href="https://hiroyokoyama.github.io/moleditpy-plugins/explorer/?q=spectrum" target="_blank" rel="noopener"><span class="tool-icon">IR</span><span class="tool-copy"><strong><span class="lang-en">Spectra</span><span class="lang-ja">スペクトル</span></strong><small><span class="lang-en">Explore vibrational and mass spectra</span><span class="lang-ja">振動・質量スペクトルを解析</span></small></span><span class="tool-arrow">↗</span></a>
+          <a class="tool-card" href="https://hiroyokoyama.github.io/moleditpy-plugins/explorer/?q=AI" target="_blank" rel="noopener"><span class="tool-icon">AI</span><span class="tool-copy"><strong><span class="lang-en">AI &amp; automation</span><span class="lang-ja">AI・自動化</span></strong><small><span class="lang-en">Connect assistants and workflows</span><span class="lang-ja">AIアシスタントや処理を連携</span></small></span><span class="tool-arrow">↗</span></a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="site-footer"><div class="wrapper footer-main"><a class="site-title footer-brand" href="./"><img class="brand-icon" src="https://hiroyokoyama.github.io/python_molecular_editor/img/icon.png" alt=""><span>MoleditPy <span class="title-light">Plugins</span></span></a><div class="footer-links"><a href="https://github.com/HiroYokoyama/moleditpy-plugin-template" target="_blank" rel="noopener">Contribute</a><a href="https://doi.org/10.5281/zenodo.18140902" target="_blank" rel="noopener">DOI</a><a href="LICENSE">GPL v3</a><a href="https://github.com/HiroYokoyama/moleditpy-plugins" target="_blank" rel="noopener">GitHub</a></div></div><div class="wrapper footer-bottom"><span>© HiroYokoyama · MoleditPy Plugins</span><span><span class="lang-en">Made for molecular discovery</span><span class="lang-ja">分子研究と発見のために</span></span></div></footer>
+
+  <script>
+    (function () {
+      var langButtons = document.querySelectorAll('[data-lang-btn]');
+      var menuButton = document.querySelector('.mobile-menu');
+      var nav = document.querySelector('.site-nav');
+
+      function setLang(lang) {
+        document.body.setAttribute('data-lang', lang);
+        document.documentElement.lang = lang;
+        langButtons.forEach(function (button) {
+          var active = button.getAttribute('data-lang-btn') === lang;
+          button.classList.toggle('active', active);
+          button.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+        try { localStorage.setItem('moleditpy_plugins_lang', lang); } catch (error) { /* storage may be unavailable */ }
+      }
+
+      langButtons.forEach(function (button) {
+        button.addEventListener('click', function () { setLang(button.getAttribute('data-lang-btn')); });
+      });
+
+      menuButton.addEventListener('click', function () {
+        var expanded = menuButton.getAttribute('aria-expanded') === 'true';
+        menuButton.setAttribute('aria-expanded', String(!expanded));
+        nav.classList.toggle('open', !expanded);
+      });
+      nav.querySelectorAll('a').forEach(function (link) {
+        link.addEventListener('click', function () {
+          nav.classList.remove('open');
+          menuButton.setAttribute('aria-expanded', 'false');
+        });
+      });
+
+      var preferred = 'en';
+      try { preferred = localStorage.getItem('moleditpy_plugins_lang') || 'en'; } catch (error) { /* use English */ }
+      setLang(preferred === 'ja' ? 'ja' : 'en');
+    }());
+  </script>
+</body>
+</html>
