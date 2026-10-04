@@ -60,12 +60,14 @@ body :focus-visible { outline: 3px solid #73adff; outline-offset: 3px; }
 .hero h1 { color: #152433; font-size: clamp(2.5rem, 5vw, 3.6rem); font-weight: 760; letter-spacing: -.035em; line-height: 1.18; }
 .hero h1 em { color: var(--accent-color); font-style: normal; }
 .hero-description { margin-top: 1.25rem; color: #5d6c7b; font-size: 1.08rem; line-height: 1.72; }
-.hero-actions { display: flex; margin-top: 2rem; }
+.hero-actions { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 2rem; }
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: .7rem; min-height: 48px; padding: .78rem 1.25rem; border-radius: 8px; font-size: .94rem; font-weight: 700; }
 .btn-primary { color: #fff; background: var(--accent-color); }
 .btn-primary:hover { color: #fff; background: var(--accent-hover); }
 .btn-primary svg { transition: transform .2s ease; }
 .btn-primary:hover svg { transform: translateX(3px); }
+.btn-secondary { border: 1px solid #bdc9d4; color: #152433; background: #fff; }
+.btn-secondary:hover { border-color: var(--accent-color); color: var(--accent-color); background: var(--accent-light); }
 .home-app-preview { display: block; overflow: hidden; border: 1px solid #b9c7d3; border-radius: 12px; background: #fff; box-shadow: 0 22px 46px -26px rgba(21, 36, 51, .45), 0 8px 20px -14px rgba(21, 36, 51, .2); }
 .home-app-preview:hover { border-color: #91b9ed; box-shadow: 0 22px 46px -26px rgba(21, 36, 51, .55), 0 8px 20px -14px rgba(21, 36, 51, .3); transform: translateY(-2px); }
 .home-app-preview img { width: 100%; border-radius: 11px; }
