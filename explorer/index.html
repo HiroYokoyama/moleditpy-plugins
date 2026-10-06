@@ -810,7 +810,7 @@
 
     <script>
         // Bump on every change to this page.
-        const EXPLORER_VERSION = "2026.09.27";
+        const EXPLORER_VERSION = "2026.10.06";
 
         let allPlugins = [];
 
@@ -1204,6 +1204,14 @@
                 searchInput.value = query;
                 filterPlugins(query, 'all');
                 toggleClearBtn(query);
+            }
+
+            // ?tag=DFT preselects that category filter (used by the landing page).
+            const tagParam = urlParams.get('tag');
+            if (tagParam) {
+                const tagBtn = Array.from(document.querySelectorAll('.filter-btn'))
+                    .find(b => b.textContent === tagParam);
+                if (tagBtn) tagBtn.click();
             }
         });
     </script>

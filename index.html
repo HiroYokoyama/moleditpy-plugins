@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MoleditPy Plugins — Official plugin collection for MoleditPy</title>
+  <meta name="description" content="Official plugins for the MoleditPy molecular editor: input generators for ten quantum-chemistry codes, result analyzers, cube-file viewers, rendering exports, and AI integrations. Install them from inside the app with SHA-256 verification.">
+  <link rel="icon" href="https://hiroyokoyama.github.io/python_molecular_editor/icon_images/favicon.ico">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body class="home-page" data-lang="en">
+
+  <!-- Navigation Bar -->
+  <header class="site-header">
+    <div class="wrapper">
+      <a class="site-title" href="./">
+        <img src="https://hiroyokoyama.github.io/python_molecular_editor/icon_images/favicon.ico" alt="" width="28" height="28">
+        <span>MoleditPy <span class="title-light">Plugins</span></span>
+      </a>
+      <nav class="site-nav">
+        <a href="#gallery"><span class="lang-en">Gallery</span><span class="lang-ja">ギャラリー</span></a>
+        <a href="#categories"><span class="lang-en">Categories</span><span class="lang-ja">カテゴリ</span></a>
+        <a href="#install"><span class="lang-en">Install</span><span class="lang-ja">インストール</span></a>
+        <a href="explorer/">Explorer</a>
+        <a href="https://hiroyokoyama.github.io/python_molecular_editor/">MoleditPy</a>
+        <span class="nav-divider"></span>
+        <div id="language-switch" class="lang-switch-group" role="group" aria-label="Language selection">
+          <button type="button" class="lang-switch-btn active" data-lang-btn="en" aria-pressed="true">EN</button>
+          <button type="button" class="lang-switch-btn" data-lang-btn="ja" aria-pressed="false">JA</button>
+        </div>
+        <a class="github-link" href="https://github.com/HiroYokoyama/moleditpy-plugins" target="_blank" rel="noopener">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          <span>GitHub</span>
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="home-hero" aria-labelledby="hero-title">
+      <div class="wrapper home-hero-layout">
+        <div class="home-hero-copy">
+          <p class="home-product"><img src="https://hiroyokoyama.github.io/python_molecular_editor/img/icon.png" alt="" width="36" height="36"> MoleditPy Plugins <span>v4</span></p>
+          <p class="home-eyebrow"><span class="lang-en">The official plugin collection</span><span class="lang-ja">MoleditPy 公式プラグインコレクション</span></p>
+          <h1 id="hero-title"><span class="lang-en">Add the tools <em>your research needs.</em></span><span class="lang-ja">研究に必要なツールを、<br><em>必要なだけ。</em></span></h1>
+          <p class="hero-description"><span class="lang-en">Input generators for ten quantum-chemistry codes, result and cube-file analyzers, rendering exports, and AI integrations — installed from inside MoleditPy, with every download checked against its SHA-256.</span><span class="lang-ja">10種類の量子化学計算コードに対応した入力ファイル生成、計算結果やCubeファイルの解析、レンダリング出力、AI連携まで。MoleditPyの中から直接インストールでき、ダウンロードはすべてSHA-256で検証されます。</span></p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="explorer/"><span class="lang-en">Open Plugin Explorer</span><span class="lang-ja">Plugin Explorerを開く</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></a>
+            <a class="home-text-link" href="#install"><span class="lang-en">How to install</span><span class="lang-ja">インストール方法</span></a>
+          </div>
+          <ul class="home-proof-list" aria-label="MoleditPy Plugins highlights">
+            <li><strong data-plugin-count>80+</strong><span class="lang-en">Plugins in the registry</span><span class="lang-ja">登録プラグイン</span></li>
+            <li><strong>SHA-256</strong><span class="lang-en">Verified on install</span><span class="lang-ja">インストール時に検証</span></li>
+            <li><strong>PY</strong><span class="lang-en">Write your own in Python</span><span class="lang-ja">Pythonで自作も可能</span></li>
+          </ul>
+        </div>
+        <figure class="home-app-preview">
+          <img src="img/esp-map.png" alt="Mapped Cube Viewer plugin showing an electrostatic potential mapped onto an electron-density isosurface, with a color bar" width="1402" height="832" loading="eager">
+          <figcaption><strong>Mapped Cube Viewer</strong> <span class="lang-en">— ESP mapped onto an electron-density surface</span><span class="lang-ja">— 電子密度面上に静電ポテンシャルをマッピング</span></figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="home-workflow-section" id="gallery" aria-labelledby="gallery-title">
+      <div class="wrapper">
+        <div class="home-section-heading">
+          <p class="home-kicker">01 / <span class="lang-en">Plugins at work</span><span class="lang-ja">プラグインの使用例</span></p>
+          <h2 id="gallery-title"><span class="lang-en">From a structure to spectra, orbitals, and modes.</span><span class="lang-ja">構造から、スペクトル・軌道・振動モードまで。</span></h2>
+        </div>
+        <div class="showcase-grid">
+          <a class="showcase-card" href="explorer/?q=ORCA%20Freq%20Analyzer">
+            <img src="img/freq-analysis.png" alt="ORCA Freq Analyzer plugin animating a benzene normal mode with displacement vectors next to a table of vibrational frequencies" width="1402" height="832" loading="lazy">
+            <span class="showcase-copy">
+              <span class="showcase-tag">Analysis · DFT</span>
+              <strong>ORCA Freq Analyzer</strong>
+              <small><span class="lang-en">Read an ORCA output, animate normal modes with vectors, plot the IR spectrum, and export a GIF.</span><span class="lang-ja">ORCAの出力を読み込み、基準振動をベクトル付きでアニメーション表示。IRスペクトル表示とGIF出力に対応。</span></small>
+            </span>
+          </a>
+          <a class="showcase-card" href="explorer/?q=MS%20Spectrum%20Simulation%20Neo">
+            <img src="img/ms-spectrum.png" alt="MS Spectrum Simulation Neo plugin showing the simulated isotope pattern of the benzene molecular ion" width="1399" height="829" loading="lazy">
+            <span class="showcase-copy">
+              <span class="showcase-tag">Analysis</span>
+              <strong>MS Spectrum Simulation Neo</strong>
+              <small><span class="lang-en">Simulate the isotope pattern of the molecular ion or an adduct such as [M+H]<sup>+</sup>, with Gaussian broadening.</span><span class="lang-ja">分子イオンや [M+H]<sup>+</sup> などの付加イオンの同位体パターンを、ガウス広がり付きでシミュレート。</span></small>
+            </span>
+          </a>
+          <a class="showcase-card" href="explorer/?q=Cube%20File%20Viewer">
+            <img src="img/cube-viewer.png" alt="Cube File Viewer plugin showing a molecular orbital isosurface of benzene in blue and red lobes" width="1402" height="832" loading="lazy">
+            <span class="showcase-copy">
+              <span class="showcase-tag">File · Visualization</span>
+              <strong>Cube File Viewer</strong>
+              <small><span class="lang-en">Open Gaussian cube files and render orbitals or densities as isosurfaces with adjustable isovalue and opacity.</span><span class="lang-ja">Gaussian Cubeファイルを開き、軌道や電子密度を等値面として表示。等値面の値と不透明度を調整可能。</span></small>
+            </span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section alt-bg home-capabilities" id="highlights" aria-labelledby="highlights-title">
+      <div class="wrapper">
+        <div class="section-header">
+          <p class="home-kicker">02 / <span class="lang-en">Highlighted plugins</span><span class="lang-ja">注目のプラグイン</span></p>
+          <h2 class="section-title" id="highlights-title"><span class="lang-en">Prepare, run, and read your calculations.</span><span class="lang-ja">計算の準備から実行、結果の解析まで。</span></h2>
+          <p class="section-subtitle"><span class="lang-en">Each card opens the plugin in the Explorer, where you can read its details, requirements, and supported platforms.</span><span class="lang-ja">各カードからExplorerでプラグインの詳細、依存関係、対応OSを確認できます。</span></p>
+        </div>
+        <div class="tool-grid">
+          <a class="tool-card" href="explorer/?q=Gaussian%20Input%20Generator%20Pro"><span class="tool-tag">Generator</span><strong>Gaussian Input Generator Pro</strong><small><span class="lang-en">Build Gaussian inputs with a route builder, presets, and a live preview.</span><span class="lang-ja">ルートビルダー、プリセット、プレビュー付きでGaussian入力を作成。</span></small><span class="tool-arrow" aria-hidden="true">↗</span></a>
+          <a class="tool-card" href="explorer/?q=ORCA%20Input%20Generator%20Pro"><span class="tool-tag">Generator</span><strong>ORCA Input Generator Pro</strong><small><span class="lang-en">Compose ORCA keywords and %blocks with a block builder and input validation.</span><span class="lang-ja">キーワードと %ブロックをブロックビルダーで組み立て、入力を検証。</span></small><span class="tool-arrow" aria-hidden="true">↗</span></a>
+          <a class="tool-card" href="explorer/?q=ORCA%20Result%20Analyzer"><span class="tool-tag">Analysis</span><strong>ORCA Result Analyzer</strong><small><span class="lang-en">Read ORCA .out files: vibrations, molecular orbitals, TDDFT, and NMR.</span><span class="lang-ja">ORCAの .out から振動、分子軌道、TDDFT、NMRを解析。</span></small><span class="tool-arrow" aria-hidden="true">↗</span></a>
+          <a class="tool-card" href="explorer/?q=PySCF%20Calculator"><span class="tool-tag">DFT · macOS / Linux / WSL</span><strong>PySCF Calculator</strong><small><span class="lang-en">Run single points, optimizations, and frequencies, then view orbitals and ESP in 3D.</span><span class="lang-ja">一点計算・構造最適化・振動計算を実行し、軌道やESPを3Dで表示。</span></small><span class="tool-arrow" aria-hidden="true">↗</span></a>
+          <a class="tool-card" href="explorer/?q=Job%20Manager"><span class="tool-tag">Utility</span><strong>Job Manager</strong><small><span class="lang-en">Submit jobs to remote HPC clusters over SSH, track the queue, and fetch results back.</span><span class="lang-ja">SSH経由でHPCクラスターに投入し、キューを監視して結果を取得。</span></small><span class="tool-arrow" aria-hidden="true">↗</span></a>
+          <a class="tool-card" href="explorer/?q=MCP%20Server"><span class="tool-tag">AI</span><strong>MCP Server</strong><small><span class="lang-en">Expose MoleditPy over the Model Context Protocol to AI assistants such as Claude Desktop.</span><span class="lang-ja">Model Context Protocolで、Claude DesktopなどのAIアシスタントとMoleditPyを連携。</span></small><span class="tool-arrow" aria-hidden="true">↗</span></a>
+        </div>
+        <div class="category-row" id="categories">
+          <span class="category-label"><span class="lang-en">Browse by category</span><span class="lang-ja">カテゴリから探す</span></span>
+          <a class="category-chip" href="explorer/?tag=Generator">Generator <span data-tag-count="Generator">11</span></a>
+          <a class="category-chip" href="explorer/?tag=DFT">DFT <span data-tag-count="DFT">18</span></a>
+          <a class="category-chip" href="explorer/?tag=Analysis">Analysis <span data-tag-count="Analysis">14</span></a>
+          <a class="category-chip" href="explorer/?tag=Visualization">Visualization <span data-tag-count="Visualization">24</span></a>
+          <a class="category-chip" href="explorer/?tag=File">File <span data-tag-count="File">22</span></a>
+          <a class="category-chip" href="explorer/?tag=Optimization">Optimization <span data-tag-count="Optimization">7</span></a>
+          <a class="category-chip" href="explorer/?tag=AI">AI <span data-tag-count="AI">4</span></a>
+          <a class="category-chip" href="explorer/?tag=Utility">Utility <span data-tag-count="Utility">27</span></a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section home-capabilities" id="install" aria-labelledby="install-title">
+      <div class="wrapper">
+        <div class="section-header">
+          <p class="home-kicker">03 / <span class="lang-en">Install</span><span class="lang-ja">インストール</span></p>
+          <h2 class="section-title" id="install-title"><span class="lang-en">Install once, then manage plugins from inside MoleditPy.</span><span class="lang-ja">一度入れれば、あとはMoleditPyの中で管理。</span></h2>
+          <p class="section-subtitle"><span class="lang-en">Requires MoleditPy 4. New to MoleditPy? Start with the </span><span class="lang-ja">MoleditPy 4が必要です。初めての方は</span><a href="https://hiroyokoyama.github.io/python_molecular_editor/#install"><span class="lang-en">installation guide</span><span class="lang-ja">インストール手順</span></a><span class="lang-en">.</span><span class="lang-ja">をご覧ください。</span></p>
+        </div>
+        <div class="workflow-grid">
+          <article class="workflow-step">
+            <span class="workflow-number">01</span>
+            <h3><span class="lang-en">Get the Plugin Installer</span><span class="lang-ja">Plugin Installerを入手</span></h3>
+            <p><span class="lang-en">Download it from the </span><span class="lang-ja"></span><a href="explorer/?q=Plugin%20Installer">Plugin Explorer</a><span class="lang-en">, open <b>Plugin › Plugin Manager…</b> in MoleditPy, and drag the file into the window.</span><span class="lang-ja">からダウンロードし、MoleditPyの <b>Plugin › Plugin Manager…</b> を開いてファイルをドラッグ＆ドロップします。</span></p>
+          </article>
+          <article class="workflow-step">
+            <span class="workflow-number">02</span>
+            <h3><span class="lang-en">Browse and install</span><span class="lang-ja">探してインストール</span></h3>
+            <p><span class="lang-en">Open <b>Plugin › Plugin Installer…</b> to browse the registry and install with one click. Each download is checked against the SHA-256 recorded in the registry.</span><span class="lang-ja"><b>Plugin › Plugin Installer…</b> からレジストリを閲覧し、ワンクリックでインストール。ダウンロードはレジストリ記載のSHA-256と照合されます。</span></p>
+          </article>
+          <article class="workflow-step">
+            <span class="workflow-number">03</span>
+            <h3><span class="lang-en">Stay up to date</span><span class="lang-ja">最新の状態を維持</span></h3>
+            <p><span class="lang-en">The Plugin Installer checks your installed plugins for updates. Plugins can also be installed manually into <code>~/.moleditpy/plugins</code>.</span><span class="lang-ja">Plugin Installerがインストール済みプラグインの更新を確認します。<code>~/.moleditpy/plugins</code> への手動インストールも可能です。</span></p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="home-plugin-section" id="develop" aria-labelledby="develop-title">
+      <div class="wrapper home-plugin-layout">
+        <div class="home-plugin-copy">
+          <p class="home-kicker">04 / <span class="lang-en">Build your own</span><span class="lang-ja">プラグインを作る</span></p>
+          <h2 id="develop-title"><span class="lang-en">A plugin is one Python file.</span><span class="lang-ja">プラグインはPythonファイルひとつから。</span></h2>
+          <p><span class="lang-en">Define <code>initialize(context)</code>, register a menu action, and work with the current RDKit molecule. Start from the template repository, then submit your plugin to the registry so others can install it.</span><span class="lang-ja"><code>initialize(context)</code> を定義してメニューを登録すれば、現在のRDKit分子を扱えます。テンプレートから始めて、レジストリに登録すれば誰でもインストールできるようになります。</span></p>
+          <div class="home-plugin-actions">
+            <a href="https://github.com/HiroYokoyama/moleditpy-plugin-template" target="_blank" rel="noopener"><span class="lang-en">Plugin template</span><span class="lang-ja">プラグインテンプレート</span></a>
+            <a href="https://github.com/HiroYokoyama/python_molecular_editor/blob/main/docs/PLUGIN_DEVELOPMENT_MANUAL_V4.md" target="_blank" rel="noopener"><span class="lang-en">Plugin API guide</span><span class="lang-ja">プラグイン開発ガイド</span></a>
+            <a href="https://github.com/HiroYokoyama/moleditpy-plugins/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener"><span class="lang-en">Contributing</span><span class="lang-ja">コントリビュート</span></a>
+          </div>
+        </div>
+        <div class="plugin-code-window" aria-label="Example MoleditPy plugin code">
+          <div class="plugin-code-window-bar"><span></span><span></span><span></span><code>atom_count.py</code></div>
+          <pre><code>PLUGIN_NAME = <span class="code-string">"Atom Count"</span>
+PLUGIN_VERSION = <span class="code-string">"2026.10.06"</span>
+
+<span class="code-keyword">def</span> <span class="code-function">initialize</span>(context):
+    <span class="code-keyword">def</span> <span class="code-function">show_count</span>():
+        mol = context.current_mol
+        <span class="code-keyword">if</span> mol <span class="code-keyword">is not</span> None:
+            context.<span class="code-function">show_status_message</span>(
+                <span class="code-string">f"{mol.GetNumAtoms()} atoms"</span>
+            )
+
+    context.<span class="code-function">add_menu_action</span>(
+        <span class="code-string">"Analysis/Atom Count"</span>, show_count
+    )</code></pre>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="wrapper">
+      <div class="footer-links">
+        <a href="explorer/">Plugin Explorer</a>
+        <a href="https://hiroyokoyama.github.io/python_molecular_editor/">MoleditPy</a>
+        <a href="https://github.com/HiroYokoyama/moleditpy-plugin-template" target="_blank" rel="noopener"><span class="lang-en">Plugin template</span><span class="lang-ja">プラグインテンプレート</span></a>
+        <a href="https://github.com/HiroYokoyama/moleditpy-plugins" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://doi.org/10.5281/zenodo.18140902" target="_blank" rel="noopener">Zenodo DOI</a>
+      </div>
+      <p>Licensed under <a href="https://www.gnu.org/licenses/gpl-3.0" target="_blank" rel="noopener">GPL-v3</a></p>
+      <p class="copyright">&copy; HiroYokoyama &mdash; MoleditPy Plugins</p>
+    </div>
+  </footer>
+
+  <script>
+    function setLang(lang) {
+      document.body.setAttribute('data-lang', lang);
+      document.documentElement.lang = lang;
+      document.querySelectorAll('.lang-switch-btn').forEach(function (btn) {
+        var active = btn.getAttribute('data-lang-btn') === lang;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+      document.getElementById('language-switch').setAttribute('aria-label', lang === 'ja' ? '言語選択' : 'Language selection');
+      try {
+        localStorage.setItem('moleditpy_lang_preference', lang);
+      } catch (e) {}
+    }
+
+    document.querySelectorAll('.lang-switch-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () { setLang(btn.getAttribute('data-lang-btn')); });
+    });
+
+    (function () {
+      // Same storage key and URL overrides as the main MoleditPy site.
+      var savedLang = null;
+      var requestedLang = new URLSearchParams(window.location.search).get('lang');
+      try {
+        savedLang = localStorage.getItem('moleditpy_lang_preference');
+      } catch (e) {}
+      if (requestedLang === 'en' || requestedLang === 'ja') {
+        savedLang = requestedLang;
+      } else if (window.location.hash === '#ja' || window.location.hash === '#japanese') {
+        savedLang = 'ja';
+      }
+      setLang(savedLang === 'ja' ? 'ja' : 'en');
+    })();
+
+    // Replace the static fallback counts with live ones from the registry.
+    fetch('REGISTRY/plugins.json')
+      .then(function (response) { return response.ok ? response.json() : Promise.reject(response.status); })
+      .then(function (plugins) {
+        var visible = plugins.filter(function (p) { return p.visible !== false; });
+        var tagCounts = {};
+        visible.forEach(function (p) {
+          (p.tags || []).forEach(function (tag) { tagCounts[tag] = (tagCounts[tag] || 0) + 1; });
+        });
+        document.querySelectorAll('[data-plugin-count]').forEach(function (el) { el.textContent = visible.length; });
+        document.querySelectorAll('[data-tag-count]').forEach(function (el) {
+          var count = tagCounts[el.getAttribute('data-tag-count')];
+          if (count) el.textContent = count;
+        });
+      })
+      .catch(function () {});
+  </script>
+
+</body>
+</html>
