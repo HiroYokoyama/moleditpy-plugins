@@ -93,6 +93,13 @@ body[data-lang="ja"] .lang-en {
   display: none !important;
 }
 
+/* Japanese headings wrap at punctuation instead of mid-word. */
+body[data-lang="ja"] h1,
+body[data-lang="ja"] h2 {
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
 /* ==========================================================================
    Navigation Header
    ========================================================================== */
@@ -415,6 +422,10 @@ body[data-lang="ja"] .lang-en {
   color: var(--home-ink);
 }
 
+.home-app-preview figcaption a:hover strong {
+  color: var(--home-blue-dark);
+}
+
 /* ==========================================================================
    Sections
    ========================================================================== */
@@ -517,8 +528,7 @@ body[data-lang="ja"] .lang-en {
   padding: 1.1rem 1.2rem 1.3rem;
 }
 
-.showcase-tag,
-.tool-tag {
+.showcase-tag {
   color: var(--home-blue);
   font-family: var(--font-mono);
   font-size: 0.72rem;
@@ -538,63 +548,33 @@ body[data-lang="ja"] .lang-en {
   line-height: 1.6;
 }
 
-/* Highlighted plugins */
-.tool-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-}
-
-.tool-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-  min-height: 190px;
-  padding: 1.6rem 1.8rem;
-  border: 1px solid #cbd6df;
-  border-radius: 10px;
-  color: var(--home-slate);
-  background: #ffffff;
-}
-
-.tool-card:hover {
-  color: var(--home-slate);
-  border-color: var(--accent-border);
-  box-shadow: 0 12px 25px -22px rgba(21, 36, 51, 0.6);
-  transform: translateY(-2px);
-}
-
-.tool-tag {
-  margin-bottom: 1.4rem;
-}
-
-.tool-card strong {
-  color: var(--home-ink);
-  font-size: 1.2rem;
-  letter-spacing: -0.025em;
-  line-height: 1.3;
-}
-
-.tool-card small {
-  font-size: 0.93rem;
-  line-height: 1.6;
-}
-
-.tool-arrow {
-  position: absolute;
-  top: 1.5rem;
-  right: 1.6rem;
-  color: var(--home-blue);
-  font-size: 1.1rem;
-}
-
 .category-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.55rem;
-  margin-top: 2rem;
+  margin-top: 1.25rem;
+}
+
+.link-row {
+  gap: 0.4rem 1.25rem;
+  margin-top: 2.25rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--home-line);
+}
+
+.link-row a {
+  color: var(--home-ink);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: #9bbce6;
+  text-underline-offset: 4px;
+}
+
+.link-row a:hover {
+  color: var(--home-blue-dark);
+  text-decoration-color: currentColor;
 }
 
 .category-label {
@@ -848,8 +828,7 @@ body[data-lang="ja"] .lang-en {
     max-width: 760px;
   }
 
-  .showcase-grid,
-  .tool-grid {
+  .showcase-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
@@ -881,12 +860,10 @@ body[data-lang="ja"] .lang-en {
   }
 
   .showcase-grid,
-  .tool-grid,
   .workflow-grid {
     grid-template-columns: 1fr;
   }
 
-  .tool-card,
   .workflow-step {
     min-height: 0;
   }
@@ -933,7 +910,6 @@ body[data-lang="ja"] .lang-en {
     gap: 0.55rem;
   }
 
-  .tool-card,
   .workflow-step {
     padding: 1.35rem;
   }
