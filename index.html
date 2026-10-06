@@ -18,8 +18,7 @@
         <span>MoleditPy <span class="title-light">Plugins</span></span>
       </a>
       <nav class="site-nav">
-        <a href="#gallery"><span class="lang-en">Gallery</span><span class="lang-ja">ギャラリー</span></a>
-        <a href="#categories"><span class="lang-en">Categories</span><span class="lang-ja">カテゴリ</span></a>
+        <a href="#plugins"><span class="lang-en">Plugins</span><span class="lang-ja">プラグイン</span></a>
         <a href="#install"><span class="lang-en">Install</span><span class="lang-ja">インストール</span></a>
         <a href="explorer/">Explorer</a>
         <a href="https://hiroyokoyama.github.io/python_molecular_editor/">MoleditPy</a>
@@ -55,61 +54,75 @@
           </ul>
         </div>
         <figure class="home-app-preview">
-          <img src="img/esp-map.png" alt="Mapped Cube Viewer plugin showing an electrostatic potential mapped onto an electron-density isosurface, with a color bar" width="1402" height="832" loading="eager">
-          <figcaption><strong>Mapped Cube Viewer</strong> <span class="lang-en">— ESP mapped onto an electron-density surface</span><span class="lang-ja">— 電子密度面上に静電ポテンシャルをマッピング</span></figcaption>
+          <img src="img/orca-result-mo.png" alt="ORCA Result Analyzer plugin showing a benzene molecular orbital as purple and green lobes next to the orbital energy list" width="1580" height="834" loading="eager">
+          <figcaption><a href="explorer/?q=ORCA%20Result%20Analyzer"><strong>ORCA Result Analyzer</strong></a> <span class="lang-en">— molecular orbitals rendered from an ORCA output</span><span class="lang-ja">— ORCAの出力から分子軌道を描画</span></figcaption>
         </figure>
       </div>
     </section>
 
-    <section class="home-workflow-section" id="gallery" aria-labelledby="gallery-title">
+    <section class="home-workflow-section" id="plugins" aria-labelledby="plugins-title">
       <div class="wrapper">
         <div class="home-section-heading">
-          <p class="home-kicker">01 / <span class="lang-en">Plugins at work</span><span class="lang-ja">プラグインの使用例</span></p>
-          <h2 id="gallery-title"><span class="lang-en">From a structure to spectra, orbitals, and modes.</span><span class="lang-ja">構造から、スペクトル・軌道・振動モードまで。</span></h2>
+          <p class="home-kicker">01 / <span class="lang-en">Featured plugins</span><span class="lang-ja">注目のプラグイン</span></p>
+          <h2 id="plugins-title"><span class="lang-en">Prepare, run, and read your calculations.</span><span class="lang-ja">計算の準備から実行、結果の解析まで。</span></h2>
         </div>
         <div class="showcase-grid">
+          <a class="showcase-card" href="explorer/?q=PySCF%20Calculator">
+            <img src="img/pyscf-calculator.png" alt="PySCF Calculator showing an orbital energy diagram, a butadiene orbital isosurface, and a list of vibrational modes" width="1600" height="930" loading="lazy">
+            <span class="showcase-copy">
+              <span class="showcase-tag">DFT · macOS / Linux / WSL</span>
+              <strong>PySCF Calculator</strong>
+              <small><span class="lang-en">Run single points, optimizations, and frequencies, then view orbitals, energy levels, and ESP.</span><span class="lang-ja">一点計算・構造最適化・振動計算を実行し、軌道、エネルギー準位、ESPを表示。</span></small>
+            </span>
+          </a>
+          <a class="showcase-card" href="explorer/?q=ORCA%20Input%20Generator%20Pro">
+            <img src="img/orca-input-pro.png" alt="ORCA Input Generator Pro dialog with resources, keywords, and a live input file preview" width="1102" height="832" loading="lazy">
+            <span class="showcase-copy">
+              <span class="showcase-tag">Generator</span>
+              <strong>ORCA Input Generator Pro</strong>
+              <small><span class="lang-en">Compose ORCA keywords and %blocks with a block builder, presets, and a live preview.</span><span class="lang-ja">キーワードと %ブロックをブロックビルダーで組み立て、プリセットとプレビューで確認。</span></small>
+            </span>
+          </a>
           <a class="showcase-card" href="explorer/?q=ORCA%20Freq%20Analyzer">
-            <img src="img/freq-analysis.png" alt="ORCA Freq Analyzer plugin animating a benzene normal mode with displacement vectors next to a table of vibrational frequencies" width="1402" height="832" loading="lazy">
+            <img src="img/freq-analysis.png" alt="ORCA Freq Analyzer animating a benzene normal mode with displacement vectors next to a table of vibrational frequencies" width="1402" height="832" loading="lazy">
             <span class="showcase-copy">
               <span class="showcase-tag">Analysis · DFT</span>
               <strong>ORCA Freq Analyzer</strong>
-              <small><span class="lang-en">Read an ORCA output, animate normal modes with vectors, plot the IR spectrum, and export a GIF.</span><span class="lang-ja">ORCAの出力を読み込み、基準振動をベクトル付きでアニメーション表示。IRスペクトル表示とGIF出力に対応。</span></small>
+              <small><span class="lang-en">Animate normal modes from an ORCA output, plot the IR spectrum, and export a GIF.</span><span class="lang-ja">ORCAの出力から基準振動をアニメーション表示。IRスペクトル表示とGIF出力に対応。</span></small>
+            </span>
+          </a>
+          <a class="showcase-card" href="explorer/?q=NMR%20Predictor">
+            <img src="img/nmr-predictor.png" alt="NMR Predictor plugin showing a predicted 1H spectrum, a shift table, and the matching hydrogens highlighted in 3D" width="1402" height="832" loading="lazy">
+            <span class="showcase-copy">
+              <span class="showcase-tag">Analysis</span>
+              <strong>NMR Predictor (nmrshiftdb2)</strong>
+              <small><span class="lang-en">Predict <sup>1</sup>H and <sup>13</sup>C shifts and highlight each peak&#39;s atoms in 3D. Requires Java.</span><span class="lang-ja"><sup>1</sup>H・<sup>13</sup>Cの化学シフトを予測し、ピークに対応する原子を3Dで強調表示。Javaが必要です。</span></small>
             </span>
           </a>
           <a class="showcase-card" href="explorer/?q=MS%20Spectrum%20Simulation%20Neo">
-            <img src="img/ms-spectrum.png" alt="MS Spectrum Simulation Neo plugin showing the simulated isotope pattern of the benzene molecular ion" width="1399" height="829" loading="lazy">
+            <img src="img/ms-spectrum.png" alt="MS Spectrum Simulation Neo showing the simulated isotope pattern of the benzene molecular ion" width="1399" height="829" loading="lazy">
             <span class="showcase-copy">
               <span class="showcase-tag">Analysis</span>
               <strong>MS Spectrum Simulation Neo</strong>
-              <small><span class="lang-en">Simulate the isotope pattern of the molecular ion or an adduct such as [M+H]<sup>+</sup>, with Gaussian broadening.</span><span class="lang-ja">分子イオンや [M+H]<sup>+</sup> などの付加イオンの同位体パターンを、ガウス広がり付きでシミュレート。</span></small>
+              <small><span class="lang-en">Simulate the isotope pattern of the molecular ion or an adduct such as [M+H]<sup>+</sup>.</span><span class="lang-ja">分子イオンや [M+H]<sup>+</sup> などの付加イオンの同位体パターンをシミュレート。</span></small>
             </span>
           </a>
-          <a class="showcase-card" href="explorer/?q=Cube%20File%20Viewer">
-            <img src="img/cube-viewer.png" alt="Cube File Viewer plugin showing a molecular orbital isosurface of benzene in blue and red lobes" width="1402" height="832" loading="lazy">
+          <a class="showcase-card" href="explorer/?q=CIF%20Viewer">
+            <img src="img/cif-viewer.png" alt="CIF Viewer plugin showing a PTFE crystal structure with its unit cell and a/b axes" width="1402" height="832" loading="lazy">
             <span class="showcase-copy">
-              <span class="showcase-tag">File · Visualization</span>
-              <strong>Cube File Viewer</strong>
-              <small><span class="lang-en">Open Gaussian cube files and render orbitals or densities as isosurfaces with adjustable isovalue and opacity.</span><span class="lang-ja">Gaussian Cubeファイルを開き、軌道や電子密度を等値面として表示。等値面の値と不透明度を調整可能。</span></small>
+              <span class="showcase-tag">File</span>
+              <strong>CIF Viewer</strong>
+              <small><span class="lang-en">Open CIF crystal structures with unit cells, axes, and supercells.</span><span class="lang-ja">CIF結晶構造を単位胞・結晶軸・スーパーセル付きで表示。</span></small>
             </span>
           </a>
         </div>
-      </div>
-    </section>
-
-    <section class="section alt-bg home-capabilities" id="highlights" aria-labelledby="highlights-title">
-      <div class="wrapper">
-        <div class="section-header">
-          <p class="home-kicker">02 / <span class="lang-en">Highlighted plugins</span><span class="lang-ja">注目のプラグイン</span></p>
-          <h2 class="section-title" id="highlights-title"><span class="lang-en">Prepare, run, and read your calculations.</span><span class="lang-ja">計算の準備から実行、結果の解析まで。</span></h2>
-          <p class="section-subtitle"><span class="lang-en">Each card opens the plugin in the Explorer, where you can read its details, requirements, and supported platforms.</span><span class="lang-ja">各カードからExplorerでプラグインの詳細、依存関係、対応OSを確認できます。</span></p>
-        </div>
-        <div class="tool-grid">
-          <a class="tool-card" href="explorer/?q=Gaussian%20Input%20Generator%20Pro"><span class="tool-tag">Generator</span><strong>Gaussian Input Generator Pro</strong><small><span class="lang-en">Build Gaussian inputs with a route builder, presets, and a live preview.</span><span class="lang-ja">ルートビルダー、プリセット、プレビュー付きでGaussian入力を作成。</span></small><span class="tool-arrow" aria-hidden="true">↗</span></a>
-          <a class="tool-card" href="explorer/?q=ORCA%20Input%20Generator%20Pro"><span class="tool-tag">Generator</span><strong>ORCA Input Generator Pro</strong><small><span class="lang-en">Compose ORCA keywords and %blocks with a block builder and input validation.</span><span class="lang-ja">キーワードと %ブロックをブロックビルダーで組み立て、入力を検証。</span></small><span class="tool-arrow" aria-hidden="true">↗</span></a>
-          <a class="tool-card" href="explorer/?q=ORCA%20Result%20Analyzer"><span class="tool-tag">Analysis</span><strong>ORCA Result Analyzer</strong><small><span class="lang-en">Read ORCA .out files: vibrations, molecular orbitals, TDDFT, and NMR.</span><span class="lang-ja">ORCAの .out から振動、分子軌道、TDDFT、NMRを解析。</span></small><span class="tool-arrow" aria-hidden="true">↗</span></a>
-          <a class="tool-card" href="explorer/?q=PySCF%20Calculator"><span class="tool-tag">DFT · macOS / Linux / WSL</span><strong>PySCF Calculator</strong><small><span class="lang-en">Run single points, optimizations, and frequencies, then view orbitals and ESP in 3D.</span><span class="lang-ja">一点計算・構造最適化・振動計算を実行し、軌道やESPを3Dで表示。</span></small><span class="tool-arrow" aria-hidden="true">↗</span></a>
-          <a class="tool-card" href="explorer/?q=Job%20Manager"><span class="tool-tag">Utility</span><strong>Job Manager</strong><small><span class="lang-en">Submit jobs to remote HPC clusters over SSH, track the queue, and fetch results back.</span><span class="lang-ja">SSH経由でHPCクラスターに投入し、キューを監視して結果を取得。</span></small><span class="tool-arrow" aria-hidden="true">↗</span></a>
-          <a class="tool-card" href="explorer/?q=MCP%20Server"><span class="tool-tag">AI</span><strong>MCP Server</strong><small><span class="lang-en">Expose MoleditPy over the Model Context Protocol to AI assistants such as Claude Desktop.</span><span class="lang-ja">Model Context Protocolで、Claude DesktopなどのAIアシスタントとMoleditPyを連携。</span></small><span class="tool-arrow" aria-hidden="true">↗</span></a>
+        <div class="category-row link-row">
+          <span class="category-label"><span class="lang-en">Also popular</span><span class="lang-ja">ほかの人気プラグイン</span></span>
+          <a href="explorer/?q=Gaussian%20Input%20Generator%20Pro">Gaussian Input Generator Pro</a>
+          <a href="explorer/?q=ORCA%20Result%20Analyzer">ORCA Result Analyzer</a>
+          <a href="explorer/?q=Job%20Manager">Job Manager</a>
+          <a href="explorer/?q=MCP%20Server">MCP Server</a>
+          <a href="explorer/?q=Chat%20with%20Molecule%20Neo">Chat with Molecule Neo</a>
         </div>
         <div class="category-row" id="categories">
           <span class="category-label"><span class="lang-en">Browse by category</span><span class="lang-ja">カテゴリから探す</span></span>
@@ -125,10 +138,10 @@
       </div>
     </section>
 
-    <section class="section home-capabilities" id="install" aria-labelledby="install-title">
+    <section class="section alt-bg home-capabilities" id="install" aria-labelledby="install-title">
       <div class="wrapper">
         <div class="section-header">
-          <p class="home-kicker">03 / <span class="lang-en">Install</span><span class="lang-ja">インストール</span></p>
+          <p class="home-kicker">02 / <span class="lang-en">Install</span><span class="lang-ja">インストール</span></p>
           <h2 class="section-title" id="install-title"><span class="lang-en">Install once, then manage plugins from inside MoleditPy.</span><span class="lang-ja">一度入れれば、あとはMoleditPyの中で管理。</span></h2>
           <p class="section-subtitle"><span class="lang-en">Requires MoleditPy 4. New to MoleditPy? Start with the </span><span class="lang-ja">MoleditPy 4が必要です。初めての方は</span><a href="https://hiroyokoyama.github.io/python_molecular_editor/#install"><span class="lang-en">installation guide</span><span class="lang-ja">インストール手順</span></a><span class="lang-en">.</span><span class="lang-ja">をご覧ください。</span></p>
         </div>
@@ -155,7 +168,7 @@
     <section class="home-plugin-section" id="develop" aria-labelledby="develop-title">
       <div class="wrapper home-plugin-layout">
         <div class="home-plugin-copy">
-          <p class="home-kicker">04 / <span class="lang-en">Build your own</span><span class="lang-ja">プラグインを作る</span></p>
+          <p class="home-kicker">03 / <span class="lang-en">Build your own</span><span class="lang-ja">プラグインを作る</span></p>
           <h2 id="develop-title"><span class="lang-en">A plugin is one Python file.</span><span class="lang-ja">プラグインはPythonファイルひとつから。</span></h2>
           <p><span class="lang-en">Define <code>initialize(context)</code>, register a menu action, and work with the current RDKit molecule. Start from the template repository, then submit your plugin to the registry so others can install it.</span><span class="lang-ja"><code>initialize(context)</code> を定義してメニューを登録すれば、現在のRDKit分子を扱えます。テンプレートから始めて、レジストリに登録すれば誰でもインストールできるようになります。</span></p>
           <div class="home-plugin-actions">
