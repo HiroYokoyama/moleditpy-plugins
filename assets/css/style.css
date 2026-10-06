@@ -93,6 +93,13 @@ body[data-lang="ja"] .lang-en {
   display: none !important;
 }
 
+/* Japanese headings wrap at punctuation instead of mid-word. */
+body[data-lang="ja"] h1,
+body[data-lang="ja"] h2 {
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
 /* ==========================================================================
    Navigation Header
    ========================================================================== */

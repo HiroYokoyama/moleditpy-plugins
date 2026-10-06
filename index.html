@@ -41,7 +41,7 @@
         <div class="home-hero-copy">
           <p class="home-product"><img src="https://hiroyokoyama.github.io/python_molecular_editor/img/icon.png" alt="" width="36" height="36"> MoleditPy Plugins <span>v4</span></p>
           <p class="home-eyebrow"><span class="lang-en">The official plugin collection</span><span class="lang-ja">MoleditPy 公式プラグインコレクション</span></p>
-          <h1 id="hero-title"><span class="lang-en">Add the tools <em>your research needs.</em></span><span class="lang-ja">研究に必要なツールを、<br><em>必要なだけ。</em></span></h1>
+          <h1 id="hero-title"><span class="lang-en">Add the tools <em>your research needs.</em></span><span class="lang-ja">必要なツールを、<br><em>必要なだけ。</em></span></h1>
           <p class="hero-description"><span class="lang-en">Input generators for ten quantum-chemistry codes, result and cube-file analyzers, rendering exports, and AI integrations — installed from inside MoleditPy, with every download checked against its SHA-256.</span><span class="lang-ja">10種類の量子化学計算コードに対応した入力ファイル生成、計算結果やCubeファイルの解析、レンダリング出力、AI連携まで。MoleditPyの中から直接インストールでき、ダウンロードはすべてSHA-256で検証されます。</span></p>
           <div class="hero-actions">
             <a class="btn btn-primary" href="explorer/"><span class="lang-en">Open Plugin Explorer</span><span class="lang-ja">Plugin Explorerを開く</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></a>
@@ -67,14 +67,6 @@
           <h2 id="plugins-title"><span class="lang-en">Prepare, run, and read your calculations.</span><span class="lang-ja">計算の準備から実行、結果の解析まで。</span></h2>
         </div>
         <div class="showcase-grid">
-          <a class="showcase-card" href="explorer/?q=PySCF%20Calculator">
-            <img src="img/pyscf-calculator.png" alt="PySCF Calculator showing an orbital energy diagram, a butadiene orbital isosurface, and a list of vibrational modes" width="1600" height="930" loading="lazy">
-            <span class="showcase-copy">
-              <span class="showcase-tag">DFT · macOS / Linux / WSL</span>
-              <strong>PySCF Calculator</strong>
-              <small><span class="lang-en">Run single points, optimizations, and frequencies, then view orbitals, energy levels, and ESP.</span><span class="lang-ja">一点計算・構造最適化・振動計算を実行し、軌道、エネルギー準位、ESPを表示。</span></small>
-            </span>
-          </a>
           <a class="showcase-card" href="explorer/?q=ORCA%20Input%20Generator%20Pro">
             <img src="img/orca-input-pro.png" alt="ORCA Input Generator Pro dialog with resources, keywords, and a live input file preview" width="1102" height="832" loading="lazy">
             <span class="showcase-copy">
@@ -83,12 +75,36 @@
               <small><span class="lang-en">Compose ORCA keywords and %blocks with a block builder, presets, and a live preview.</span><span class="lang-ja">キーワードと %ブロックをブロックビルダーで組み立て、プリセットとプレビューで確認。</span></small>
             </span>
           </a>
-          <a class="showcase-card" href="explorer/?q=ORCA%20Freq%20Analyzer">
-            <img src="img/freq-analysis.png" alt="ORCA Freq Analyzer animating a benzene normal mode with displacement vectors next to a table of vibrational frequencies" width="1402" height="832" loading="lazy">
+          <a class="showcase-card" href="explorer/?q=Job%20Manager">
+            <img src="img/job-manager.png" alt="Job Manager hosts monitor showing CPU and memory load on two remote hosts with one job running" width="1098" height="686" loading="lazy">
+            <span class="showcase-copy">
+              <span class="showcase-tag">Utility</span>
+              <strong>Job Manager</strong>
+              <small><span class="lang-en">Submit the input you just built to a remote cluster over SSH, watch the queue and host load, and fetch results back.</span><span class="lang-ja">作成した入力をそのままSSHでリモートの計算機に投入。キューとホスト負荷を監視し、結果を取得。</span></small>
+            </span>
+          </a>
+          <a class="showcase-card" href="explorer/?q=ORCA%20Result%20Analyzer">
+            <img src="img/orca-result-freq.png" alt="ORCA Result Analyzer showing a vibrational mode table, displacement vectors on benzene, and the IR spectrum" width="1402" height="832" loading="lazy">
             <span class="showcase-copy">
               <span class="showcase-tag">Analysis · DFT</span>
-              <strong>ORCA Freq Analyzer</strong>
-              <small><span class="lang-en">Animate normal modes from an ORCA output, plot the IR spectrum, and export a GIF.</span><span class="lang-ja">ORCAの出力から基準振動をアニメーション表示。IRスペクトル表示とGIF出力に対応。</span></small>
+              <strong>ORCA Result Analyzer</strong>
+              <small><span class="lang-en">Read an ORCA .out file: vibrations with IR/Raman spectra, orbitals, TDDFT, NMR, and charges.</span><span class="lang-ja">ORCAの .out を解析。IR/Ramanスペクトル付きの振動解析、分子軌道、TDDFT、NMR、電荷に対応。</span></small>
+            </span>
+          </a>
+          <a class="showcase-card" href="explorer/?q=PySCF%20Calculator">
+            <img src="img/pyscf-calculator.png" alt="PySCF Calculator showing an orbital energy diagram, a butadiene orbital isosurface, and a list of vibrational modes" width="1600" height="930" loading="lazy">
+            <span class="showcase-copy">
+              <span class="showcase-tag">DFT · macOS / Linux / WSL</span>
+              <strong>PySCF Calculator</strong>
+              <small><span class="lang-en">Run single points, optimizations, and frequencies, then view orbitals, energy levels, and ESP.</span><span class="lang-ja">一点計算・構造最適化・振動計算を実行し、軌道、エネルギー準位、ESPを表示。</span></small>
+            </span>
+          </a>
+          <a class="showcase-card" href="explorer/?q=NICS%20Placer">
+            <img src="img/nics-placer.png" alt="NICS Placer listing the rings of a polycyclic aromatic molecule, with available, staged, and placed NICS probe positions shown in yellow, red, and green in 3D" width="1402" height="832" loading="lazy">
+            <span class="showcase-copy">
+              <span class="showcase-tag">Analysis · DFT</span>
+              <strong>NICS Placer</strong>
+              <small><span class="lang-en">Detect rings and place Bq ghost atoms at NICS(0)/NICS(1) points or across a 2D/3D probe grid.</span><span class="lang-ja">環を検出し、NICS(0)/NICS(1)の位置や2D/3Dグリッド上にBqゴースト原子を配置。</span></small>
             </span>
           </a>
           <a class="showcase-card" href="explorer/?q=NMR%20Predictor">
@@ -99,30 +115,15 @@
               <small><span class="lang-en">Predict <sup>1</sup>H and <sup>13</sup>C shifts and highlight each peak&#39;s atoms in 3D. Requires Java.</span><span class="lang-ja"><sup>1</sup>H・<sup>13</sup>Cの化学シフトを予測し、ピークに対応する原子を3Dで強調表示。Javaが必要です。</span></small>
             </span>
           </a>
-          <a class="showcase-card" href="explorer/?q=MS%20Spectrum%20Simulation%20Neo">
-            <img src="img/ms-spectrum.png" alt="MS Spectrum Simulation Neo showing the simulated isotope pattern of the benzene molecular ion" width="1399" height="829" loading="lazy">
-            <span class="showcase-copy">
-              <span class="showcase-tag">Analysis</span>
-              <strong>MS Spectrum Simulation Neo</strong>
-              <small><span class="lang-en">Simulate the isotope pattern of the molecular ion or an adduct such as [M+H]<sup>+</sup>.</span><span class="lang-ja">分子イオンや [M+H]<sup>+</sup> などの付加イオンの同位体パターンをシミュレート。</span></small>
-            </span>
-          </a>
-          <a class="showcase-card" href="explorer/?q=CIF%20Viewer">
-            <img src="img/cif-viewer.png" alt="CIF Viewer plugin showing a PTFE crystal structure with its unit cell and a/b axes" width="1402" height="832" loading="lazy">
-            <span class="showcase-copy">
-              <span class="showcase-tag">File</span>
-              <strong>CIF Viewer</strong>
-              <small><span class="lang-en">Open CIF crystal structures with unit cells, axes, and supercells.</span><span class="lang-ja">CIF結晶構造を単位胞・結晶軸・スーパーセル付きで表示。</span></small>
-            </span>
-          </a>
         </div>
         <div class="category-row link-row">
           <span class="category-label"><span class="lang-en">Also popular</span><span class="lang-ja">ほかの人気プラグイン</span></span>
           <a href="explorer/?q=Gaussian%20Input%20Generator%20Pro">Gaussian Input Generator Pro</a>
-          <a href="explorer/?q=ORCA%20Result%20Analyzer">ORCA Result Analyzer</a>
-          <a href="explorer/?q=Job%20Manager">Job Manager</a>
+          <a href="explorer/?q=ORCA%20NICS%20Analyzer">ORCA NICS Analyzer</a>
           <a href="explorer/?q=MCP%20Server">MCP Server</a>
           <a href="explorer/?q=Chat%20with%20Molecule%20Neo">Chat with Molecule Neo</a>
+          <a href="explorer/?q=xTB%20Optimizer">xTB Optimizer</a>
+          <a href="explorer/?q=MS%20Spectrum%20Simulation%20Neo">MS Spectrum Simulation Neo</a>
         </div>
         <div class="category-row" id="categories">
           <span class="category-label"><span class="lang-en">Browse by category</span><span class="lang-ja">カテゴリから探す</span></span>
