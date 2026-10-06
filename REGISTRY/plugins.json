@@ -2561,5 +2561,33 @@
       "Linux",
       "WSL"
     ]
+  },
+  {
+    "id": "nmr_predictor_cascade",
+    "visible": true,
+    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
+    "name": "NMR Predictor (CASCADE)",
+    "version": "0.1.0",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "projectUrl": "https://github.com/HiroYokoyama/moleditpy_nmr_predictor_cascade",
+    "description": "Predict 1H and 13C NMR shifts with CASCADE, with estimated J couplings and multiplets. Sends the structure (as SMILES) to the external CASCADE web server (nova.chem.colostate.edu); requires an internet connection.",
+    "tags": [
+      "Analysis"
+    ],
+    "dependencies": [
+      "matplotlib"
+    ],
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_nmr_predictor_cascade/releases/download/v0.1.0/nmr_predictor_cascade_0.1.0.zip",
+    "lastUpdated": "2026-10-06",
+    "sha256": "86f5508f3975c5ea0523aabf97db55a8321d332d04438485854f8916b2b1eb2c",
+    "firstAppeared": "2026-10-06",
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ]
   }
 ]
