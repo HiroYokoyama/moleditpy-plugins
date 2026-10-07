@@ -296,6 +296,13 @@ body[data-lang="ja"] h2 {
   letter-spacing: 0.03em;
 }
 
+.home-license {
+  margin: -1.3rem 0 2.1rem;
+  color: #94a3b8;
+  font-size: 0.8rem;
+  letter-spacing: 0.01em;
+}
+
 .home-eyebrow,
 .home-kicker {
   display: flex;
@@ -384,6 +391,50 @@ body[data-lang="ja"] h2 {
 .home-text-link:hover {
   color: var(--home-blue-dark);
   text-decoration-color: currentColor;
+}
+
+.home-support {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.support-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid #bdc9d4;
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+  box-shadow: var(--shadow-xs);
+  color: var(--home-ink);
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.support-btn img {
+  border-radius: 4px;
+}
+
+.support-btn svg {
+  color: var(--home-slate);
+  transition: color 0.2s ease;
+}
+
+.support-btn:hover {
+  border-color: var(--home-blue);
+  background: var(--home-blue-soft);
+  color: var(--home-blue);
+  text-decoration: none;
+  transform: translateY(-1px);
+}
+
+.support-btn:hover svg {
+  color: currentColor;
 }
 
 .home-proof-list {
