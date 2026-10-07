@@ -37,7 +37,7 @@ try:
 except ImportError:
     rdDetermineBonds = None
 
-PLUGIN_VERSION = "2026.09.24"
+PLUGIN_VERSION = "2026.10.08"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_NAME = "Animated XYZ Giffer"
@@ -294,11 +294,23 @@ class AnimatedXYZPlayer(QDialog):
         if not self.frames:
             return
 
-        frame0 = self.frames[0]
+        self._frame_mol_cache = {}
+        self.base_mol = self._build_frame_mol(self.frames[0])
+        self.original_topology = Chem.Mol(self.base_mol)  # Store a copy
+
+        # Ensure 3D capabilities are on
+        self.context.enter_3d_mode()
+        self.context.current_molecule = self.base_mol
+
+        # Reset camera on first load
+        self.context.reset_3d_camera()
+
+    def _build_frame_mol(self, frame):
+        """Build a standalone RDKit Mol (atoms, conformer, estimated bonds) for one frame."""
         mol = Chem.RWMol()
 
         # Add atoms
-        for sym in frame0["symbols"]:
+        for sym in frame["symbols"]:
             # Handle unknown symbols or numbers
             try:
                 atom = Chem.Atom(sym)
@@ -308,7 +320,7 @@ class AnimatedXYZPlayer(QDialog):
 
         # Add conformer
         conf = Chem.Conformer(mol.GetNumAtoms())
-        for idx, (x, y, z) in enumerate(frame0["coords"]):
+        for idx, (x, y, z) in enumerate(frame["coords"]):
             conf.SetAtomPosition(idx, rdGeometry.Point3D(x, y, z))
         mol.AddConformer(conf)
 
@@ -318,15 +330,25 @@ class AnimatedXYZPlayer(QDialog):
         if hasattr(self.mw.io_manager, "estimate_bonds_from_distances"):
             self.mw.io_manager.estimate_bonds_from_distances(mol)
 
-        self.base_mol = mol.GetMol()
-        self.original_topology = Chem.Mol(self.base_mol)  # Store a copy
+        return mol.GetMol()
 
-        # Ensure 3D capabilities are on
-        self.context.enter_3d_mode()
-        self.context.current_molecule = self.base_mol
+    def _frame_matches_base(self, frame):
+        """True when the frame has the same atoms, in the same order, as frame 0.
 
-        # Reset camera on first load
-        self.context.reset_3d_camera()
+        A file of unrelated structures (multiple images rather than one
+        trajectory) can change atom count or elements between frames; the
+        frame-0 conformer cannot hold those coordinates.
+        """
+        return bool(self.frames) and frame["symbols"] == self.frames[0]["symbols"]
+
+    def _get_frame_mol(self, idx):
+        """Per-frame Mol for frames whose atoms differ from frame 0 (cached)."""
+        cache = getattr(self, "_frame_mol_cache", None)
+        if cache is None:
+            cache = self._frame_mol_cache = {}
+        if idx not in cache:
+            cache[idx] = self._build_frame_mol(self.frames[idx])
+        return cache[idx]
 
     def update_view(self):
         """
@@ -402,8 +424,10 @@ class AnimatedXYZPlayer(QDialog):
                             str(len(frame["symbols"])),
                             frame.get("comment", ""),
                         ]
+                        # Fixed-point: RDKit's XYZ parser rejects e-notation
+                        # (repr of e.g. -7.2e-05), which made this block fail.
                         for sym, (x, y, z) in zip(frame["symbols"], frame["coords"]):
-                            xyz_lines.append(f"{sym} {x} {y} {z}")
+                            xyz_lines.append(f"{sym} {x:.10f} {y:.10f} {z:.10f}")
                         xyz_block = "\n".join(xyz_lines)
 
                         # Create fresh mol
@@ -422,12 +446,13 @@ class AnimatedXYZPlayer(QDialog):
                             display_mol = new_mol
                         else:
                             # Fallback to coordinate update if XYZ block fails
-                            display_mol = self.base_mol
-                            for idx, (x, y, z) in enumerate(coords):
-                                conf.SetAtomPosition(idx, rdGeometry.Point3D(x, y, z))
+                            display_mol = self._static_frame_mol(frame, conf)
                     except Exception as e:
                         logging.warning("Dynamic bond calculation failed: %s", e)
-                        display_mol = self.base_mol
+                        display_mol = self._static_frame_mol(frame, conf)
+                elif not self._frame_matches_base(frame):
+                    # Different structure (multi-image file): its own Mol
+                    display_mol = self._get_frame_mol(self.current_frame_idx)
                 else:
                     # Static / Pre-calculated topology restoration
                     if self.original_topology:
@@ -481,6 +506,19 @@ class AnimatedXYZPlayer(QDialog):
 
         finally:
             self.is_updating_view = False
+
+    def _static_frame_mol(self, frame, conf):
+        """Frame shown with precomputed topology.
+
+        Never writes a frame of a different structure into the frame-0
+        conformer: SetAtomPosition grows the conformer past the atom count,
+        and drawing it then fails RDKit's Conformer pre-condition.
+        """
+        if self._frame_matches_base(frame):
+            for idx, (x, y, z) in enumerate(frame["coords"]):
+                conf.SetAtomPosition(idx, rdGeometry.Point3D(x, y, z))
+            return self.base_mol
+        return self._get_frame_mol(self.current_frame_idx)
 
     def update_status_silent(self):
         self.lbl_status.setText(

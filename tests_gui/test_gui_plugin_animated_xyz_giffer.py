@@ -802,3 +802,97 @@ class TestGifferCloseEventReal:
         w = loaded_player
         w.closeEvent(QCloseEvent())
         w.context.draw_molecule_3d.assert_not_called()
+
+
+# ===========================================================================
+# Multi-image XYZ (different structures per frame) with real RDKit
+# ===========================================================================
+# A file of unrelated structures is not a trajectory: atom count and elements
+# change between frames. Writing such a frame into the frame-0 conformer grew
+# it past the atom count and the 3D draw died on RDKit's Conformer
+# pre-condition (dp_mol->getNumAtoms() == d_positions.size()).
+
+_MULTI_IMAGE_XYZ = """3
+water
+O 0.0 0.0 0.0
+H 0.9572 0.0 0.0
+H -0.2400 0.9266 -7.2e-05
+5
+methane
+C 0.0 0.0 0.0
+H 0.6291 0.6291 0.6291
+H -0.6291 -0.6291 0.6291
+H -0.6291 0.6291 -0.6291
+H 0.6291 -0.6291 -0.6291
+"""
+
+
+@pytest.fixture
+def real_rdkit_player(qapp, tmp_path):
+    pytest.importorskip("rdkit")
+    from rdkit import Chem, Geometry
+    from rdkit.Chem import rdDetermineBonds
+
+    drawn = []
+
+    def _draw(mol):
+        # What the host's draw does: read every atom position.
+        conf = mol.GetConformer()
+        [list(conf.GetAtomPosition(i)) for i in range(mol.GetNumAtoms())]
+        drawn.append(mol)
+
+    ctx = _giffer_ctx()
+    type(ctx).current_molecule = property(lambda s: None, lambda s, m: _draw(m))
+    patches = [
+        patch.object(_giffer, "Chem", Chem),
+        patch.object(_giffer, "rdGeometry", Geometry),
+        patch.object(_giffer, "rdDetermineBonds", rdDetermineBonds),
+        patch.object(_giffer.AnimatedXYZPlayer, "try_import_from_mainwindow", lambda self: None),
+    ]
+    for p in patches:
+        p.start()
+    w = None
+    try:
+        w = _giffer.AnimatedXYZPlayer(context=ctx)
+        w.mw = SimpleNamespace(io_manager=SimpleNamespace())
+        path = tmp_path / "images.xyz"
+        path.write_text(_MULTI_IMAGE_XYZ, encoding="utf-8")
+        w.load_from_path(str(path))
+        w.drawn = drawn
+        yield w
+    finally:
+        if w is not None:
+            w.timer.stop()
+            w._reload_timer.stop()
+            w.destroy()
+        for p in patches:
+            p.stop()
+
+
+class TestMultiImageXYZRealRDKit:
+    @pytest.mark.parametrize("dynamic", [True, False])
+    def test_stepping_to_different_structure_draws_it(self, real_rdkit_player, dynamic):
+        w = real_rdkit_player
+        w.chk_dynamic_bonds.setChecked(dynamic)
+        w.next_frame()
+        mol = w.drawn[-1]
+        assert [a.GetSymbol() for a in mol.GetAtoms()] == ["C", "H", "H", "H", "H"]
+        assert mol.GetConformer().GetNumAtoms() == 5
+        # frame-0 conformer must not have been grown
+        assert w.base_mol.GetConformer().GetNumAtoms() == 3
+
+    def test_xyz_block_failure_fallback_does_not_corrupt_conformer(self, real_rdkit_player):
+        w = real_rdkit_player
+        with patch.object(_giffer.Chem, "MolFromXYZBlock", lambda block: None):
+            w.next_frame()
+            mol = w.drawn[-1]
+        assert mol.GetNumAtoms() == 5
+        assert w.base_mol.GetConformer().GetNumAtoms() == 3
+
+    def test_e_notation_frame_parses_with_dynamic_bonds(self, real_rdkit_player):
+        w = real_rdkit_player
+        w.next_frame()
+        w.next_frame()  # loops back to the e-notation water frame
+        mol = w.drawn[-1]
+        assert mol is not w.base_mol  # rebuilt by MolFromXYZBlock, not a fallback
+        assert mol.GetNumBonds() == 2

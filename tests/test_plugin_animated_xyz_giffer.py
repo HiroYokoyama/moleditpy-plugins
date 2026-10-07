@@ -456,13 +456,19 @@ class TestGifferLoadFile:
 # create_base_molecule
 # ---------------------------------------------------------------------------
 
-def _base_mol_self(frames, mw_has_estimator=True):
+def _base_mol_self(frames, mw_has_estimator=True, extra_globals=None):
     fake = SimpleNamespace()
     fake.frames = frames
     fake.mw = MagicMock()
     if not mw_has_estimator:
         fake.mw.io_manager = MagicMock(spec=[])
     fake.context = MagicMock()
+    # create_base_molecule builds frame 0 through _build_frame_mol
+    build = _extract_method_as_fn(
+        GIFFER_PATH, "AnimatedXYZPlayer", "_build_frame_mol",
+        extra_globals=extra_globals,
+    )
+    fake._build_frame_mol = lambda frame: build(fake, frame)
     return fake
 
 
@@ -485,7 +491,7 @@ class TestGifferCreateBaseMolecule:
             extra_globals={"Chem": chem, "rdGeometry": rdgeom},
         )
         frames = [{"symbols": ["H", "O"], "coords": [(0, 0, 0), (0, 0, 1)]}]
-        fake = _base_mol_self(frames)
+        fake = _base_mol_self(frames, extra_globals={"Chem": chem, "rdGeometry": rdgeom})
         fn(fake)
         chem.RWMol.return_value.AddAtom.assert_called()
         fake.context.enter_3d_mode.assert_called_once()
@@ -499,7 +505,10 @@ class TestGifferCreateBaseMolecule:
             extra_globals={"Chem": chem, "rdGeometry": MagicMock()},
         )
         frames = [{"symbols": ["H"], "coords": [(0, 0, 0)]}]
-        fake = _base_mol_self(frames, mw_has_estimator=True)
+        fake = _base_mol_self(
+            frames, mw_has_estimator=True,
+            extra_globals={"Chem": chem, "rdGeometry": MagicMock()},
+        )
         fn(fake)
         fake.mw.io_manager.estimate_bonds_from_distances.assert_called_once()
 
@@ -510,7 +519,10 @@ class TestGifferCreateBaseMolecule:
             extra_globals={"Chem": chem, "rdGeometry": MagicMock()},
         )
         frames = [{"symbols": ["H"], "coords": [(0, 0, 0)]}]
-        fake = _base_mol_self(frames, mw_has_estimator=False)
+        fake = _base_mol_self(
+            frames, mw_has_estimator=False,
+            extra_globals={"Chem": chem, "rdGeometry": MagicMock()},
+        )
         fn(fake)  # must not raise even though estimate_bonds_from_distances is absent
 
 

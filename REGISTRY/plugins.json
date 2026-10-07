@@ -84,7 +84,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Animated XYZ Giffer",
-    "version": "2026.09.24",
+    "version": "2026.10.08",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A player for viewing multi-frame XYZ files and recording GIF animations using PIL.",
@@ -96,8 +96,8 @@
       "Pillow"
     ],
     "downloadUrl": "../plugins/Animated_XYZ_Giffer/animated_xyz_giffer.py",
-    "lastUpdated": "2026-09-24",
-    "sha256": "4263ba366656387bd9b87469c61b40598c2095450a38327fae28a85b1560c14b",
+    "lastUpdated": "2026-10-08",
+    "sha256": "6fb2dd625c2fdcebd9f71a24c3e14c702b3ca94bf7e25af306444de205996eba",
     "firstAppeared": "2025-12-15",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
