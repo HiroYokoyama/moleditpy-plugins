@@ -3,7 +3,7 @@
 
 
 PLUGIN_NAME = "Chat with Molecule Neo (ChatGPT)"
-PLUGIN_VERSION = "2026.09.02"
+PLUGIN_VERSION = "2026.10.09"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with OpenAI ChatGPT about the current molecule. Automatically injects SMILES context. (Neo Version)"
@@ -1144,8 +1144,8 @@ class ChatMoleculeWindow(QDialog):
                     "Error: Molecule importer not found in main application.",
                     "red",
                 )
-        else:
-            # Open other links (e.g. http) in external browser
+        elif scheme.lower() in ("http", "https"):
+            # Model-provided links must not invoke local files or OS protocols.
             QDesktopServices.openUrl(url)
 
     def render_content(self, text):
