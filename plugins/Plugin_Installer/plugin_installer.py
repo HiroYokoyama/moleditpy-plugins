@@ -45,7 +45,7 @@ import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.09.28"
+PLUGIN_VERSION = "2026.10.09"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_SUPPORTED_PYTHON_VERSION = ">=3.9, <3.15"
 PLUGIN_SUPPORTED_OS = ["Windows", "macOS", "Linux", "WSL"]
@@ -602,7 +602,8 @@ def sanitize_and_quote_dependency(dep_str: str) -> str:
     name, specifier = parse_dependency(dep_str)
     if not name:
         return ""
-    if not re.match(r"^[a-zA-Z0-9_\-\.]+$", name):
+    # Quoting does not stop pip interpreting a leading '-' as an option.
+    if not re.fullmatch(r"[a-zA-Z0-9](?:[a-zA-Z0-9_\-.]*[a-zA-Z0-9])?", name):
         return ""
     if specifier:
         if not re.match(r"^[a-zA-Z0-9_\-\.\*>=<!~,\s]+$", specifier):

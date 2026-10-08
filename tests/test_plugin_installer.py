@@ -1552,6 +1552,13 @@ class TestFilterPlugins:
         assert inst.table.hidden == {0: True}
 
 
+def test_dependency_commands_reject_pip_options():
+    for dependency in ("--upgrade", "--no-deps", "--pre", "-r", ".", ".."):
+        assert PI.sanitize_and_quote_dependency(dependency) == ""
+    assert PI.sanitize_and_quote_dependency("numpy") == "numpy"
+    assert PI.sanitize_and_quote_dependency("scikit-learn>=1.0") == '"scikit-learn>=1.0"'
+
+
 class TestOnUpdateClickedSecurity:
     """Exercises the SHA256-verification / download-URL branches of
     on_update_clicked (the actual install path) rather than the earlier
