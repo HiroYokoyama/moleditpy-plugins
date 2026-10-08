@@ -1010,6 +1010,50 @@ class TestOverwriteFolderPlugin:
             (src / name).write_text(content, encoding="utf-8")
         return src
 
+    def test_copy_failure_preserves_installed_plugin(self, tmp_path):
+        target = self._make_installed(tmp_path, {
+            "__init__.py": "old", "settings.json": "user settings"
+        })
+        source = self._make_source(tmp_path, {"__init__.py": "new"})
+        with patch.object(PI.shutil, "copytree", side_effect=OSError("disk full")):
+            import pytest
+            with pytest.raises(OSError, match="disk full"):
+                PI.PluginInstallerWindow._overwrite_folder_plugin(str(source), str(target))
+        assert (target / "__init__.py").read_text() == "old"
+        assert (target / "settings.json").read_text() == "user settings"
+        assert not list(tmp_path.glob(".plugin-update-*"))
+
+    def test_promotion_failure_rolls_back(self, tmp_path):
+        target = self._make_installed(tmp_path, {"__init__.py": "old"})
+        source = self._make_source(tmp_path, {"__init__.py": "new"})
+        real_replace = PI.os.replace
+        def fail_promotion(src, dst):
+            if Path(src).name == "replacement":
+                raise OSError("promotion failed")
+            return real_replace(src, dst)
+        with patch.object(PI.os, "replace", side_effect=fail_promotion):
+            import pytest
+            with pytest.raises(OSError, match="promotion failed"):
+                PI.PluginInstallerWindow._overwrite_folder_plugin(str(source), str(target))
+        assert (target / "__init__.py").read_text() == "old"
+        assert not list(tmp_path.glob(".plugin-update-*"))
+
+    def test_failed_rollback_retains_recovery_copy(self, tmp_path):
+        target = self._make_installed(tmp_path, {"__init__.py": "old"})
+        source = self._make_source(tmp_path, {"__init__.py": "new"})
+        real_replace = PI.os.replace
+        def fail_after_backup(src, dst):
+            if Path(src).name in ("replacement", "backup"):
+                raise OSError("rename failed")
+            return real_replace(src, dst)
+        with patch.object(PI.os, "replace", side_effect=fail_after_backup):
+            import pytest
+            with pytest.raises(OSError, match="rename failed"):
+                PI.PluginInstallerWindow._overwrite_folder_plugin(str(source), str(target))
+        backups = list(tmp_path.glob(".plugin-update-*/backup/__init__.py"))
+        assert len(backups) == 1
+        assert backups[0].read_text() == "old"
+
     def _make_installed(self, tmp_path, files):
         tgt = tmp_path / "installed_plugin"
         tgt.mkdir()
