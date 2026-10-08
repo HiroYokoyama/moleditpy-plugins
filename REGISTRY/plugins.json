@@ -808,7 +808,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "PubChem Structure Identifier",
-    "version": "2026.07.31",
+    "version": "2026.10.09",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Resolve chemical names and fetch molecular properties (Name, Formula, Weight) via PubChem.",
@@ -820,8 +820,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/PubChem_Structure_Identifier/pubchem_structure_identifier.py",
-    "lastUpdated": "2026-07-31",
-    "sha256": "1a012c22135b994edcae178d3ed3c105bdb649d96da1d960ad4ac5e2b7e65aa9",
+    "lastUpdated": "2026-10-09",
+    "sha256": "e66ec274d2fb3e50e7d256848bf7a55863de5e836118896c1efff3f9272ffa46",
     "firstAppeared": "2025-12-28",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1266,7 +1266,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Compound Info Report",
-    "version": "2026.09.24",
+    "version": "2026.10.09",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generate a compound info report with properties, adducts, and structure. Useful for organic synthesis experiments.",
@@ -1278,8 +1278,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Compound_Info_Report/compound_info_report.py",
-    "lastUpdated": "2026-09-24",
-    "sha256": "88fa210e555f8f3e745dd4055cbcd242693454bb9de2792b22c646acce96376b",
+    "lastUpdated": "2026-10-09",
+    "sha256": "b77c92dc7ec85525606651b4f3c6856e6c6de87d28dd68958bdd66d7f1ad17c0",
     "firstAppeared": "2026-01-21",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

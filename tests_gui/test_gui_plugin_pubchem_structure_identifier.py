@@ -39,6 +39,18 @@ _FULL_DETAILS = {
 class TestMoleculeDetailsDialog:
     """MoleculeDetailsDialog — displays PubChem properties, no network calls."""
 
+    @pytest.mark.parametrize("field", list(_FULL_DETAILS))
+    def test_external_properties_are_literal_text(self, qapp, field):
+        payload = '<a href="file:///private/report.txt">Injected</a>'
+        details = dict(_FULL_DETAILS)
+        details[field] = payload
+        d = _pubchem.MoleculeDetailsDialog(details)
+        try:
+            assert payload in d.info_browser.toPlainText()
+            assert '<a href="file:' not in d.info_browser.toHtml()
+        finally:
+            d.destroy()
+
     @pytest.fixture
     def dlg(self, qapp):
         d = _pubchem.MoleculeDetailsDialog(_FULL_DETAILS, parent=None)

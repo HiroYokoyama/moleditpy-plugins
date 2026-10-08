@@ -4,6 +4,7 @@ Resolve chemical names and fetch basic molecular properties via PubChem.
 """
 
 import json
+from html import escape
 import urllib.request
 import urllib.parse
 from PyQt6.QtWidgets import (
@@ -21,7 +22,7 @@ from PyQt6.QtCore import Qt
 
 # --- Metadata ---
 PLUGIN_NAME = "PubChem Structure Identifier"
-PLUGIN_VERSION = "2026.07.31"
+PLUGIN_VERSION = "2026.10.09"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Resolve chemical names and fetch molecular properties (Name, Formula, Weight) via PubChem."
@@ -162,26 +163,26 @@ class MoleculeDetailsDialog(QDialog):
             "td { padding-bottom: 5px; width: 100%; }",
             "h3 { margin-bottom: 5px; color: #2c3e50; }",
             "</style>",
-            f"<h3>{self.details.get('Common Name', 'Molecule Details')}</h3>",
+            f"<h3>{escape(str(self.details.get('Common Name', 'Molecule Details')))}</h3>",
             '<table width="100%">',
         ]
 
         # Table Rows
         if "IUPAC Name" in self.details:
             html_parts.append(
-                f"<tr><th>IUPAC Name:</th><td>{self.details['IUPAC Name']}</td></tr>"
+                f"<tr><th>IUPAC Name:</th><td>{escape(str(self.details['IUPAC Name']))}</td></tr>"
             )
         if "Formula" in self.details:
             html_parts.append(
-                f"<tr><th>Formula:</th><td><b>{self.details['Formula']}</b></td></tr>"
+                f"<tr><th>Formula:</th><td><b>{escape(str(self.details['Formula']))}</b></td></tr>"
             )
         if "Mol. Weight" in self.details:
             html_parts.append(
-                f"<tr><th>Mol. Weight:</th><td>{self.details['Mol. Weight']} g/mol</td></tr>"
+                f"<tr><th>Mol. Weight:</th><td>{escape(str(self.details['Mol. Weight']))} g/mol</td></tr>"
             )
         if "InChIKey" in self.details:
             html_parts.append(
-                f"<tr><th>InChIKey:</th><td><small>{self.details['InChIKey']}</small></td></tr>"
+                f"<tr><th>InChIKey:</th><td><small>{escape(str(self.details['InChIKey']))}</small></td></tr>"
             )
 
         html_parts.append("</table>")
