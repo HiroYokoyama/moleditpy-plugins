@@ -1010,6 +1010,50 @@ class TestOverwriteFolderPlugin:
             (src / name).write_text(content, encoding="utf-8")
         return src
 
+    def test_copy_failure_preserves_installed_plugin(self, tmp_path):
+        target = self._make_installed(tmp_path, {
+            "__init__.py": "old", "settings.json": "user settings"
+        })
+        source = self._make_source(tmp_path, {"__init__.py": "new"})
+        with patch.object(PI.shutil, "copytree", side_effect=OSError("disk full")):
+            import pytest
+            with pytest.raises(OSError, match="disk full"):
+                PI.PluginInstallerWindow._overwrite_folder_plugin(str(source), str(target))
+        assert (target / "__init__.py").read_text() == "old"
+        assert (target / "settings.json").read_text() == "user settings"
+        assert not list(tmp_path.glob(".plugin-update-*"))
+
+    def test_promotion_failure_rolls_back(self, tmp_path):
+        target = self._make_installed(tmp_path, {"__init__.py": "old"})
+        source = self._make_source(tmp_path, {"__init__.py": "new"})
+        real_replace = PI.os.replace
+        def fail_promotion(src, dst):
+            if Path(src).name == "replacement":
+                raise OSError("promotion failed")
+            return real_replace(src, dst)
+        with patch.object(PI.os, "replace", side_effect=fail_promotion):
+            import pytest
+            with pytest.raises(OSError, match="promotion failed"):
+                PI.PluginInstallerWindow._overwrite_folder_plugin(str(source), str(target))
+        assert (target / "__init__.py").read_text() == "old"
+        assert not list(tmp_path.glob(".plugin-update-*"))
+
+    def test_failed_rollback_retains_recovery_copy(self, tmp_path):
+        target = self._make_installed(tmp_path, {"__init__.py": "old"})
+        source = self._make_source(tmp_path, {"__init__.py": "new"})
+        real_replace = PI.os.replace
+        def fail_after_backup(src, dst):
+            if Path(src).name in ("replacement", "backup"):
+                raise OSError("rename failed")
+            return real_replace(src, dst)
+        with patch.object(PI.os, "replace", side_effect=fail_after_backup):
+            import pytest
+            with pytest.raises(OSError, match="rename failed"):
+                PI.PluginInstallerWindow._overwrite_folder_plugin(str(source), str(target))
+        backups = list(tmp_path.glob(".plugin-update-*/backup/__init__.py"))
+        assert len(backups) == 1
+        assert backups[0].read_text() == "old"
+
     def _make_installed(self, tmp_path, files):
         tgt = tmp_path / "installed_plugin"
         tgt.mkdir()
@@ -1130,6 +1174,7 @@ class TestUpdateSkipsDependencyWarning:
         inst = object.__new__(PI.PluginInstallerWindow)
         inst.main_window = MagicMock()
         inst.main_window.plugin_manager.plugins = []
+        inst.main_window.plugin_manager.install_plugin.return_value = (True, "Installed")
         inst.remote_data = []  # -> remote_info None, skips app-compat block
         inst._batch_updating = False
         inst._last_install_succeeded = False
@@ -1552,6 +1597,13 @@ class TestFilterPlugins:
         assert inst.table.hidden == {0: True}
 
 
+def test_dependency_commands_reject_pip_options():
+    for dependency in ("--upgrade", "--no-deps", "--pre", "-r", ".", ".."):
+        assert PI.sanitize_and_quote_dependency(dependency) == ""
+    assert PI.sanitize_and_quote_dependency("numpy") == "numpy"
+    assert PI.sanitize_and_quote_dependency("scikit-learn>=1.0") == '"scikit-learn>=1.0"'
+
+
 class TestOnUpdateClickedSecurity:
     """Exercises the SHA256-verification / download-URL branches of
     on_update_clicked (the actual install path) rather than the earlier
@@ -1561,11 +1613,38 @@ class TestOnUpdateClickedSecurity:
         inst = object.__new__(PI.PluginInstallerWindow)
         inst.main_window = MagicMock()
         inst.main_window.plugin_manager.plugins = []
+        inst.main_window.plugin_manager.install_plugin.return_value = (True, 'Installed')
         inst._batch_updating = False
         inst._last_install_succeeded = False
         inst._pending_installs = {}
         inst.populate_table = MagicMock()
         return inst
+
+    def test_host_failure_keeps_old_plugin_and_reports_failure(self, tmp_path, monkeypatch):
+        import hashlib
+        content = b"zip payload"
+        target = tmp_path / "old.py"
+        target.write_text("old plugin")
+        btn, entry = self._btn("Demo", "https://example.com/demo.zip", str(target),
+                               sha256=hashlib.sha256(content).hexdigest())
+        inst = self._make_installer()
+        inst.remote_data = [entry]
+        inst.main_window.plugin_manager.install_plugin.return_value = (False, "disk full")
+        monkeypatch.setattr(inst, "sender", lambda: btn, raising=False)
+        def download(url, path, cb=None):
+            Path(path).write_bytes(content)
+            return True
+        monkeypatch.setattr(inst, "_download_chunked", download)
+        with patch.object(PI.QMessageBox, "question", return_value=PI.QMessageBox.StandardButton.Yes), \
+             patch.object(PI.QMessageBox, "warning") as warning, \
+             patch.object(PI.QMessageBox, "information") as information:
+            inst.on_update_clicked()
+        assert target.read_text() == "old plugin"
+        assert inst._last_install_succeeded is False
+        assert inst._pending_installs == {}
+        warning.assert_called_once()
+        assert "disk full" in warning.call_args[0][2]
+        information.assert_not_called()
 
     def _btn(self, plugin_name, download_url, target_file, sha256=None):
         props = {

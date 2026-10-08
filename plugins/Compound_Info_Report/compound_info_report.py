@@ -1,11 +1,12 @@
 PLUGIN_NAME = "Compound Info Report"
-PLUGIN_VERSION = "2026.09.24"
+PLUGIN_VERSION = "2026.10.09"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Generate a compound info report with properties, adducts, and structure. Useful for organic synthesis experiments."
 PLUGIN_ID = "compound_info_report"
 
 import json
+from html import escape
 
 try:
     import urllib.request
@@ -449,17 +450,17 @@ class ReportDialog(QDialog):
             rows = []
             if pd["common_name"]:
                 rows.append(
-                    f"<tr><td>Common Name</td><td>{pd['common_name']}</td></tr>"
+                    f"<tr><td>Common Name</td><td>{escape(str(pd['common_name']))}</td></tr>"
                 )
             if pd["phys_desc"]:
                 rows.append(
-                    f"<tr><td>Physical State/Color</td><td>{pd['phys_desc']}</td></tr>"
+                    f"<tr><td>Physical State/Color</td><td>{escape(str(pd['phys_desc']))}</td></tr>"
                 )
             if pd["density"]:
-                rows.append(f"<tr><td>Density</td><td>{pd['density']}</td></tr>")
+                rows.append(f"<tr><td>Density</td><td>{escape(str(pd['density']))}</td></tr>")
             if pd.get("cas_numbers", None):
                 rows.append(
-                    f"<tr><td>CAS Numbers</td><td>{', '.join(pd['cas_numbers'])}</td></tr>"
+                    f"<tr><td>CAS Numbers</td><td>{escape(', '.join(pd['cas_numbers']))}</td></tr>"
                 )
 
             pubchem_html = f"""

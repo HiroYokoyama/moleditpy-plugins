@@ -45,7 +45,7 @@ import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.09.28"
+PLUGIN_VERSION = "2026.10.09"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_SUPPORTED_PYTHON_VERSION = ">=3.9, <3.15"
 PLUGIN_SUPPORTED_OS = ["Windows", "macOS", "Linux", "WSL"]
@@ -602,7 +602,8 @@ def sanitize_and_quote_dependency(dep_str: str) -> str:
     name, specifier = parse_dependency(dep_str)
     if not name:
         return ""
-    if not re.match(r"^[a-zA-Z0-9_\-\.]+$", name):
+    # Quoting does not stop pip interpreting a leading '-' as an option.
+    if not re.fullmatch(r"[a-zA-Z0-9](?:[a-zA-Z0-9_\-.]*[a-zA-Z0-9])?", name):
         return ""
     if specifier:
         if not re.match(r"^[a-zA-Z0-9_\-\.\*>=<!~,\s]+$", specifier):
@@ -1183,36 +1184,46 @@ class PluginInstallerWindow(QDialog):
     def _overwrite_folder_plugin(source_dir: str, target_dir: str) -> None:
         """Replace an installed folder plugin with the freshly downloaded copy.
 
-        The target directory is wiped before the new files are copied in, so
-        files removed upstream (e.g. a renamed ``LICENSE.txt``) do not linger as
-        orphans — a plain merge overwrite (``copytree(dirs_exist_ok=True)``)
-        would leave them behind. The user's ``settings.json`` is backed up and
-        restored across the wipe so runtime settings survive the update.
+        Prepare the complete replacement before moving the installed copy.
+        Keep the original as a backup until the replacement is in place, and
+        restore it if promotion fails. Settings survive and stale files vanish.
         """
         settings_backup = None
         settings_path = os.path.join(target_dir, "settings.json")
         if os.path.exists(settings_path):
-            try:
-                with open(settings_path, "rb") as f:
-                    settings_backup = f.read()
-            except (OSError, ValueError) as e:
-                logging.warning(
-                    "Plugin Installer: failed to back up settings.json: %s", e
-                )
+            with open(settings_path, "rb") as f:
+                settings_backup = f.read()
 
-        if os.path.isdir(target_dir):
-            shutil.rmtree(target_dir)
-        shutil.copytree(source_dir, target_dir)
-
-        if settings_backup is not None:
-            try:
-                with open(os.path.join(target_dir, "settings.json"), "wb") as f:
+        target_dir = os.path.abspath(target_dir)
+        # A sibling staging area keeps renames on the same filesystem.
+        stage = tempfile.mkdtemp(
+            prefix=".plugin-update-", dir=os.path.dirname(target_dir)
+        )
+        replacement = os.path.join(stage, "replacement")
+        backup = os.path.join(stage, "backup")
+        committed = False
+        try:
+            shutil.copytree(source_dir, replacement)
+            if settings_backup is not None:
+                with open(os.path.join(replacement, "settings.json"), "wb") as f:
                     f.write(settings_backup)
-                logging.info("Plugin Installer: restored settings.json")
-            except (OSError, ValueError) as e:
-                logging.warning(
-                    "Plugin Installer: failed to restore settings.json: %s", e
-                )
+
+            had_target = os.path.isdir(target_dir)
+            if had_target:
+                os.replace(target_dir, backup)
+            try:
+                os.replace(replacement, target_dir)
+            except OSError:
+                if had_target:
+                    os.replace(backup, target_dir)
+                raise
+            committed = True
+        finally:
+            if committed or not os.path.exists(backup):
+                shutil.rmtree(stage, ignore_errors=True)
+            else:
+                # If rollback itself fails, preserve the only intact old copy.
+                logging.error("Plugin Installer: recovery copy retained at %s", backup)
 
     # ------------------------------------------------------------------
     # Table population
@@ -1948,6 +1959,8 @@ class PluginInstallerWindow(QDialog):
 
         temp_dir = tempfile.mkdtemp()
         try:
+            download_url_path = urllib.parse.urlparse(final_url).path
+            is_zip_download = download_url_path.lower().endswith(".zip")
             # Determine filename
             filename = None
             if target_file and os.path.exists(target_file):
@@ -1955,18 +1968,17 @@ class PluginInstallerWindow(QDialog):
                 if (
                     file_name_existing != "__init__.py"
                     and file_name_existing.endswith(".py")
-                    and not final_url.lower().endswith(".zip")
+                    and not is_zip_download
                 ):
                     filename = file_name_existing
 
             if not filename:
-                path = urllib.parse.urlparse(final_url).path
-                filename = os.path.basename(path)
+                filename = os.path.basename(download_url_path)
 
             if not filename:
                 filename = (
                     "plugin_update.zip"
-                    if final_url.lower().endswith(".zip")
+                    if is_zip_download
                     else "plugin_update.py"
                 )
 
@@ -2063,7 +2075,7 @@ class PluginInstallerWindow(QDialog):
                     if (
                         file_name_existing != "__init__.py"
                         and file_name_existing.endswith(".py")
-                        and not final_url.lower().endswith(".zip")
+                        and not is_zip_download
                     ):
                         try:
                             logging.info(
@@ -2080,7 +2092,7 @@ class PluginInstallerWindow(QDialog):
 
                     elif (
                         file_name_existing == "__init__.py"
-                        and final_url.lower().endswith(".zip")
+                        and is_zip_download
                     ):
                         try:
                             target_dir = os.path.dirname(target_file)
@@ -2098,12 +2110,9 @@ class PluginInstallerWindow(QDialog):
                                     if not _is_within_directory(
                                         extract_temp, target_path
                                     ):
-                                        logging.warning(
-                                            "Plugin Installer: skipping suspicious "
-                                            "zip entry: %s",
-                                            member.filename,
+                                        raise ValueError(
+                                            "Unsafe zip entry: " + member.filename
                                         )
-                                        continue
                                     z.extract(member, extract_temp)
 
                             items = os.listdir(extract_temp)
@@ -2121,9 +2130,10 @@ class PluginInstallerWindow(QDialog):
                         except Exception as e:
                             logging.warning(
                                 "Plugin Installer: manual folder overwrite failed: %s"
-                                " — falling back to manager",
+                                " — keeping installed plugin",
                                 e,
                             )
+                            raise
 
                 if not did_manual_overwrite:
                     saved_settings_content = None
@@ -2148,7 +2158,11 @@ class PluginInstallerWindow(QDialog):
                                     )
 
                     QApplication.processEvents()
-                    self.main_window.plugin_manager.install_plugin(download_path)
+                    success, message = self.main_window.plugin_manager.install_plugin(
+                        download_path
+                    )
+                    if not success:
+                        raise RuntimeError(message or "Host plugin installation failed")
                     QApplication.processEvents()
 
                     if saved_settings_content and target_dir_for_restore:

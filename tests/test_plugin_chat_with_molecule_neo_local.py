@@ -252,6 +252,25 @@ class TestGetPrivacyDetails:
         assert color == "red"
         assert "external server" in text
 
+    def test_remote_urls_cannot_spoof_local_privacy_notice(self):
+        for url in (
+            "https://localhost.attacker.example/v1",
+            "https://127.0.0.1.attacker.example/v1",
+            "https://localhost@attacker.example/v1",
+            "https://attacker.example/v1/localhost",
+            "https://attacker.example/?host=192.168.1.1",
+            "https://server.local.attacker.example/v1",
+            "http://172.32.0.1/v1",
+            "http://172.1.1.1/v1",
+        ):
+            text, color = self._run(url, True)
+            assert color == "red", url
+            assert "external server" in text
+
+    def test_ipv6_loopback_is_local(self):
+        text, color = self._run("http://[::1]:1234/v1", True)
+        assert color == "green"
+
 
 # ---------------------------------------------------------------------------
 # check_settings_changed() — Save button enable/label/style logic

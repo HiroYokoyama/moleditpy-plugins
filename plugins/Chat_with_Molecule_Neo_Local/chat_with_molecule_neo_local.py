@@ -3,7 +3,7 @@
 
 
 PLUGIN_NAME = "Chat with Molecule Neo (Local)"
-PLUGIN_VERSION = "2026.09.24"
+PLUGIN_VERSION = "2026.10.09"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with local LLM about the current molecule. Automatically injects SMILES context. (Neo Version)"
@@ -1093,15 +1093,33 @@ class ChatMoleculeWindow(QDialog):
 
     def _get_privacy_details(self):
         """Helper: Get privacy text and color based on current settings"""
+        from ipaddress import ip_address, ip_network
+        from urllib.parse import urlsplit
+
         url = self.txt_api_base.text().lower().strip()
-
-        # 1. Loopback (Strict Local Machine)
-        is_loopback = "localhost" in url or "127.0.0.1" in url or "0.0.0.0" in url
-
-        # 2. Local Network (Private IP ranges or .local domain)
-        is_local_net = (
-            ".local" in url or "192.168." in url or "10." in url or "172." in url
-        )
+        is_loopback = False
+        is_local_net = False
+        try:
+            parsed = urlsplit(url)
+            host = (parsed.hostname or "").rstrip(".")
+            if parsed.scheme in ("http", "https") and host:
+                # Inspect the actual destination, never userinfo/path/query text.
+                is_loopback = host == "localhost"
+                is_local_net = host.endswith(".local")
+                try:
+                    address = ip_address(host)
+                except ValueError:
+                    pass
+                else:
+                    is_loopback = address.is_loopback
+                    is_local_net = any(
+                        address in ip_network(network)
+                        for network in (
+                            "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7"
+                        )
+                    )
+        except ValueError:
+            pass  # Malformed URLs never receive a local privacy assurance.
 
         # OLD: disable_pubchem = not self.chk_enable_pubchem.isChecked()
         # NEW: Check SAVED settings, not current checkbox state
@@ -1367,8 +1385,8 @@ class ChatMoleculeWindow(QDialog):
                     "Error: Molecule importer not found in main application.",
                     "red",
                 )
-        else:
-            # Open other links (e.g. http) in external browser
+        elif scheme.lower() in ("http", "https"):
+            # Model-provided links must not invoke local files or OS protocols.
             QDesktopServices.openUrl(url)
 
     def render_content(self, text):

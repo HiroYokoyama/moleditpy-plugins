@@ -83,6 +83,29 @@ def chatwin(request, qapp, monkeypatch):
 # ===========================================================================
 
 
+@pytest.mark.parametrize("link", [
+    "file:///C:/Windows/notepad.exe", "ms-settings:privacy", "javascript:alert(1)",
+    "data:text/html,hello", "ftp://example.com/file", "custom-handler:payload",
+])
+def test_chat_links_do_not_launch_local_files_or_protocol_handlers(chatwin, monkeypatch, link):
+    from PyQt6.QtCore import QUrl
+    w, mod = chatwin
+    opened = MagicMock()
+    monkeypatch.setattr(mod.QDesktopServices, "openUrl", opened)
+    w.handle_link(QUrl(link))
+    opened.assert_not_called()
+
+
+@pytest.mark.parametrize("link", ["https://example.com", "http://example.com"])
+def test_chat_web_links_still_open(chatwin, monkeypatch, link):
+    from PyQt6.QtCore import QUrl
+    w, mod = chatwin
+    opened = MagicMock()
+    monkeypatch.setattr(mod.QDesktopServices, "openUrl", opened)
+    w.handle_link(QUrl(link))
+    opened.assert_called_once()
+
+
 class TestSharedAppendMessage:
     def test_appends_to_history_log(self, chatwin):
         w, _ = chatwin

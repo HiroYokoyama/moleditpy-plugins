@@ -727,7 +727,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Plugin Installer",
-    "version": "2026.09.28",
+    "version": "2026.10.09",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Checks for updates, installs new plugins, and allows manual reinstallation.",
@@ -738,8 +738,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Plugin_Installer/plugin_installer.py",
-    "lastUpdated": "2026-09-28",
-    "sha256": "4380f90d46fc515f5d27e098b009bb35fc79c61392cb3a3bc55e0a9940bb17bf",
+    "lastUpdated": "2026-10-09",
+    "sha256": "7be86033ff9938e971c3747bd5e2b32afaaf91b3e31d8836ab70530e17c0edbe",
     "firstAppeared": "2026-01-04",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -777,7 +777,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Chat with Molecule Neo (Gemini)",
-    "version": "2026.09.02",
+    "version": "2026.10.09",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with Google Gemini about the current molecule. Automatically injects SMILES context. (Neo Version)",
@@ -792,8 +792,8 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo/chat_with_molecule_neo.py",
-    "lastUpdated": "2026-09-02",
-    "sha256": "021e9152f94473639f88832cd19bedbf0535da36b7d7a7f4e2fc295cf91ca043",
+    "lastUpdated": "2026-10-09",
+    "sha256": "640ad43966c0730285e40f286f1b9cb2c12a2432c75e7ea086d2a15bd1e5c38b",
     "firstAppeared": "2025-12-28",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -808,7 +808,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "PubChem Structure Identifier",
-    "version": "2026.07.31",
+    "version": "2026.10.09",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Resolve chemical names and fetch molecular properties (Name, Formula, Weight) via PubChem.",
@@ -820,8 +820,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/PubChem_Structure_Identifier/pubchem_structure_identifier.py",
-    "lastUpdated": "2026-07-31",
-    "sha256": "1a012c22135b994edcae178d3ed3c105bdb649d96da1d960ad4ac5e2b7e65aa9",
+    "lastUpdated": "2026-10-09",
+    "sha256": "e66ec274d2fb3e50e7d256848bf7a55863de5e836118896c1efff3f9272ffa46",
     "firstAppeared": "2025-12-28",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -836,7 +836,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Chat with Molecule Neo (ChatGPT)",
-    "version": "2026.09.02",
+    "version": "2026.10.09",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with OpenAI ChatGPT about the current molecule. Automatically injects SMILES context. (Neo Version)",
@@ -851,8 +851,8 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_ChatGPT/chat_with_molecule_neo_chatGPT.py",
-    "lastUpdated": "2026-09-02",
-    "sha256": "20bf53318d92b907b272daf6a8e70534dfe3550fea9e4b110706ae7cad1380f8",
+    "lastUpdated": "2026-10-09",
+    "sha256": "0877001cd707e3eb6c4bc484b866b7ed309b5068b1a61f269ee5f2cfcd0e46c3",
     "firstAppeared": "2025-12-30",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -867,7 +867,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Chat with Molecule Neo (Local)",
-    "version": "2026.09.24",
+    "version": "2026.10.09",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Chat with local LLM about the current molecule. Automatically injects SMILES context. (Neo Version)",
@@ -882,8 +882,8 @@
       "matplotlib"
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_Local/chat_with_molecule_neo_local.py",
-    "lastUpdated": "2026-09-24",
-    "sha256": "11dc2c5db7ecdb7d7799a499e61cfca261f97ab094af5765a670e695a70eafb0",
+    "lastUpdated": "2026-10-09",
+    "sha256": "91230ad912eb84d1d253a3e32dc52e88c121a412de8567a32d9520cbc2e2e53f",
     "firstAppeared": "2025-12-30",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1266,7 +1266,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Compound Info Report",
-    "version": "2026.09.24",
+    "version": "2026.10.09",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generate a compound info report with properties, adducts, and structure. Useful for organic synthesis experiments.",
@@ -1278,8 +1278,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Compound_Info_Report/compound_info_report.py",
-    "lastUpdated": "2026-09-24",
-    "sha256": "88fa210e555f8f3e745dd4055cbcd242693454bb9de2792b22c646acce96376b",
+    "lastUpdated": "2026-10-09",
+    "sha256": "b77c92dc7ec85525606651b4f3c6856e6c6de87d28dd68958bdd66d7f1ad17c0",
     "firstAppeared": "2026-01-21",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

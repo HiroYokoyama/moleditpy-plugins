@@ -278,6 +278,21 @@ class TestCaptureSceneImage:
 
 @requires_real_chem
 class TestBuildHtml:
+    @pytest.mark.parametrize("field", ["common_name", "density", "phys_desc", "cas_numbers"])
+    @pytest.mark.parametrize("for_pdf", [False, True])
+    def test_pubchem_values_cannot_inject_report_markup(self, qapp, field, for_pdf):
+        import html
+        payload = '<a href="file:///private/report.txt">Injected</a>'
+        data = self._empty_pubchem()
+        data[field] = [payload] if field == "cas_numbers" else payload
+        d = _real_dlg(mol=_ethanol_mol())
+        try:
+            rendered = d.build_html(data, for_pdf=for_pdf)
+            assert payload not in rendered
+            assert html.escape(payload) in rendered
+        finally:
+            d.destroy()
+
     def _empty_pubchem(self):
         return {
             "common_name": "",
