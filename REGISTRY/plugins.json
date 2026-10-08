@@ -883,7 +883,7 @@
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_Local/chat_with_molecule_neo_local.py",
     "lastUpdated": "2026-10-09",
-    "sha256": "aa7e18d24ec5c0aec5878d91e4cfc245f6814733ad26d44cb8c93027e29be26c",
+    "sha256": "91230ad912eb84d1d253a3e32dc52e88c121a412de8567a32d9520cbc2e2e53f",
     "firstAppeared": "2025-12-30",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
