@@ -1174,6 +1174,7 @@ class TestUpdateSkipsDependencyWarning:
         inst = object.__new__(PI.PluginInstallerWindow)
         inst.main_window = MagicMock()
         inst.main_window.plugin_manager.plugins = []
+        inst.main_window.plugin_manager.install_plugin.return_value = (True, "Installed")
         inst.remote_data = []  # -> remote_info None, skips app-compat block
         inst._batch_updating = False
         inst._last_install_succeeded = False
@@ -1612,11 +1613,38 @@ class TestOnUpdateClickedSecurity:
         inst = object.__new__(PI.PluginInstallerWindow)
         inst.main_window = MagicMock()
         inst.main_window.plugin_manager.plugins = []
+        inst.main_window.plugin_manager.install_plugin.return_value = (True, 'Installed')
         inst._batch_updating = False
         inst._last_install_succeeded = False
         inst._pending_installs = {}
         inst.populate_table = MagicMock()
         return inst
+
+    def test_host_failure_keeps_old_plugin_and_reports_failure(self, tmp_path, monkeypatch):
+        import hashlib
+        content = b"zip payload"
+        target = tmp_path / "old.py"
+        target.write_text("old plugin")
+        btn, entry = self._btn("Demo", "https://example.com/demo.zip", str(target),
+                               sha256=hashlib.sha256(content).hexdigest())
+        inst = self._make_installer()
+        inst.remote_data = [entry]
+        inst.main_window.plugin_manager.install_plugin.return_value = (False, "disk full")
+        monkeypatch.setattr(inst, "sender", lambda: btn, raising=False)
+        def download(url, path, cb=None):
+            Path(path).write_bytes(content)
+            return True
+        monkeypatch.setattr(inst, "_download_chunked", download)
+        with patch.object(PI.QMessageBox, "question", return_value=PI.QMessageBox.StandardButton.Yes), \
+             patch.object(PI.QMessageBox, "warning") as warning, \
+             patch.object(PI.QMessageBox, "information") as information:
+            inst.on_update_clicked()
+        assert target.read_text() == "old plugin"
+        assert inst._last_install_succeeded is False
+        assert inst._pending_installs == {}
+        warning.assert_called_once()
+        assert "disk full" in warning.call_args[0][2]
+        information.assert_not_called()
 
     def _btn(self, plugin_name, download_url, target_file, sha256=None):
         props = {

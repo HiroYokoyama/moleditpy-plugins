@@ -739,7 +739,7 @@
     ],
     "downloadUrl": "../plugins/Plugin_Installer/plugin_installer.py",
     "lastUpdated": "2026-10-09",
-    "sha256": "514193062a4c876a53de002449d1a656370f55e07c589771523d97f5b774fc14",
+    "sha256": "d83662d98480f10e9417830d29e4ddcff35bf7cac0b8aacf58a04b70195f49be",
     "firstAppeared": "2026-01-04",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

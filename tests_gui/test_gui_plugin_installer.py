@@ -544,6 +544,7 @@ def bare_installer(qapp):
 
     mw = MagicMock()
     mw.plugin_manager.plugins = []
+    mw.plugin_manager.install_plugin.return_value = (True, "Installed")
     with patch.object(
         _plugin_installer.PluginInstallerWindow,
         "check_updates",
@@ -1386,7 +1387,7 @@ class TestInstallBranchCoverage:
                 z.writestr(arc, data)
         return buf.getvalue()
 
-    def test_zip_skips_suspicious_entry_and_uses_flat_extract(
+    def test_zip_with_suspicious_entry_aborts_without_manager_fallback(
         self, bare_installer, tmp_path
     ):
         from unittest.mock import MagicMock, patch
@@ -1410,7 +1411,9 @@ class TestInstallBranchCoverage:
 
         with patch.object(
             _plugin_installer.QMessageBox, "question", return_value=self._yes()
-        ), patch.object(_plugin_installer.QMessageBox, "information", MagicMock()):
+        ), patch.object(_plugin_installer.QMessageBox, "information", MagicMock()), patch.object(
+            _plugin_installer.QMessageBox, "warning", MagicMock()
+        ):
             _btn_with_deps(
                 bare_installer,
                 name="Folder Plugin",
@@ -1418,13 +1421,15 @@ class TestInstallBranchCoverage:
                 target_file=str(target),
             ).click()
 
-        assert (plugin_dir / "a.py").read_text() == "a"
-        assert (plugin_dir / "b.py").read_text() == "b"
+        assert target.read_text() == "old"
+        assert not (plugin_dir / "a.py").exists()
+        assert not (plugin_dir / "b.py").exists()
         # The traversal entry must never escape the plugin directory.
         assert not (tmp_path / "evil.py").exists()
-        assert bare_installer._last_install_succeeded is True
+        assert bare_installer._last_install_succeeded is False
+        bare_installer.main_window.plugin_manager.install_plugin.assert_not_called()
 
-    def test_folder_overwrite_failure_backs_up_and_restores_settings(
+    def test_folder_overwrite_failure_keeps_original_without_fallback(
         self, bare_installer, tmp_path
     ):
         from unittest.mock import MagicMock, patch
@@ -1439,12 +1444,14 @@ class TestInstallBranchCoverage:
             _sha_entry("Folder Plugin", payload, "https://example.com/My_Plugin.zip")
         ]
         _stub_dl(bare_installer, payload)
-        # Manual folder overwrite blows up -> fall back to manager + settings dance.
+        # A failed transactional update must not retry through a destructive path.
         bare_installer._overwrite_folder_plugin = MagicMock(side_effect=OSError("x"))
 
         with patch.object(
             _plugin_installer.QMessageBox, "question", return_value=self._yes()
-        ), patch.object(_plugin_installer.QMessageBox, "information", MagicMock()):
+        ), patch.object(_plugin_installer.QMessageBox, "information", MagicMock()), patch.object(
+            _plugin_installer.QMessageBox, "warning", MagicMock()
+        ):
             _btn_with_deps(
                 bare_installer,
                 name="Folder Plugin",
@@ -1452,8 +1459,9 @@ class TestInstallBranchCoverage:
                 target_file=str(target),
             ).click()
 
-        bare_installer.main_window.plugin_manager.install_plugin.assert_called_once()
-        # settings.json preserved across the failed-overwrite fallback
+        bare_installer.main_window.plugin_manager.install_plugin.assert_not_called()
+        assert target.read_text() == "old"
+        assert bare_installer._last_install_succeeded is False
         assert (plugin_dir / "settings.json").read_text() == '{"keep": 1}'
 
     def test_zip_install_removes_stale_single_file_py(self, bare_installer, tmp_path):

@@ -2157,7 +2157,11 @@ class PluginInstallerWindow(QDialog):
                                     )
 
                     QApplication.processEvents()
-                    self.main_window.plugin_manager.install_plugin(download_path)
+                    success, message = self.main_window.plugin_manager.install_plugin(
+                        download_path
+                    )
+                    if not success:
+                        raise RuntimeError(message or "Host plugin installation failed")
                     QApplication.processEvents()
 
                     if saved_settings_content and target_dir_for_restore:
