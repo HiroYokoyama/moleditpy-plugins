@@ -1256,7 +1256,8 @@ class TestZipFolderOverwrite:
             z.writestr("My_Plugin/extra.py", "helper")
         return buf.getvalue()
 
-    def test_folder_plugin_updated_from_zip(self, bare_installer, tmp_path):
+    @pytest.mark.parametrize("url_suffix", ["", "?download=1", "#release"])
+    def test_folder_plugin_updated_from_zip(self, bare_installer, tmp_path, url_suffix):
         import hashlib
         from unittest.mock import MagicMock, patch
         from PyQt6.QtWidgets import QMessageBox
@@ -1270,7 +1271,7 @@ class TestZipFolderOverwrite:
 
         payload = self._zip_bytes()
         entry = _remote_entry("Folder Plugin")
-        entry["downloadUrl"] = "https://example.com/My_Plugin.zip"
+        entry["downloadUrl"] = "https://example.com/My_Plugin.zip" + url_suffix
         entry["sha256"] = hashlib.sha256(payload).hexdigest()
         bare_installer.remote_data = [entry]
 
@@ -1291,7 +1292,7 @@ class TestZipFolderOverwrite:
             _install_button(
                 bare_installer,
                 name="Folder Plugin",
-                download_url="https://example.com/My_Plugin.zip",
+                download_url=entry["downloadUrl"],
                 target_file=str(target),
             ).click()
 

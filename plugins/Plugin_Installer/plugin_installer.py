@@ -1959,6 +1959,8 @@ class PluginInstallerWindow(QDialog):
 
         temp_dir = tempfile.mkdtemp()
         try:
+            download_url_path = urllib.parse.urlparse(final_url).path
+            is_zip_download = download_url_path.lower().endswith(".zip")
             # Determine filename
             filename = None
             if target_file and os.path.exists(target_file):
@@ -1966,18 +1968,17 @@ class PluginInstallerWindow(QDialog):
                 if (
                     file_name_existing != "__init__.py"
                     and file_name_existing.endswith(".py")
-                    and not final_url.lower().endswith(".zip")
+                    and not is_zip_download
                 ):
                     filename = file_name_existing
 
             if not filename:
-                path = urllib.parse.urlparse(final_url).path
-                filename = os.path.basename(path)
+                filename = os.path.basename(download_url_path)
 
             if not filename:
                 filename = (
                     "plugin_update.zip"
-                    if final_url.lower().endswith(".zip")
+                    if is_zip_download
                     else "plugin_update.py"
                 )
 
@@ -2074,7 +2075,7 @@ class PluginInstallerWindow(QDialog):
                     if (
                         file_name_existing != "__init__.py"
                         and file_name_existing.endswith(".py")
-                        and not final_url.lower().endswith(".zip")
+                        and not is_zip_download
                     ):
                         try:
                             logging.info(
@@ -2091,7 +2092,7 @@ class PluginInstallerWindow(QDialog):
 
                     elif (
                         file_name_existing == "__init__.py"
-                        and final_url.lower().endswith(".zip")
+                        and is_zip_download
                     ):
                         try:
                             target_dir = os.path.dirname(target_file)
