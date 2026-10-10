@@ -33,7 +33,7 @@ satisfies the requirements below can be registered.
 
 ## Plugin Development Requirements
 
-All plugins must follow the standard MoleditPy plugin structure. For detailed API documentation, please refer to the [Plugin Development Manual](https://github.com/HiroYokoyama/python_molecular_editor/blob/main/docs/PLUGIN_DEVELOPMENT_MANUAL_V4.md).
+All plugins must follow the standard MoleditPy plugin structure. For detailed API documentation, please refer to the [Plugin Development Manual](https://hiroyokoyama.github.io/python_molecular_editor/docs/PLUGIN_DEVELOPMENT_MANUAL_V4.html).
 
 ### Basic Structure
 A plugin should define its metadata constants and an `initialize` function:
