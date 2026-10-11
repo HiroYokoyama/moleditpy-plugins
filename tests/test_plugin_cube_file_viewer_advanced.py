@@ -114,7 +114,7 @@ class TestCubeAdvancedParseCubeData:
         result = cube_adv_mod.parse_cube_data(str(cube_file))
         assert result["dims"] == (2, 2, 2)
 
-    def test_pads_short_data(self, tmp_path, cube_adv_mod):
+    def test_rejects_short_data(self, tmp_path, cube_adv_mod):
         content = _make_cube_content(nx=2, ny=2, nz=2, n_atoms=1,
                                      data_values=[1.0, 2.0])
         # 2×2×2 = 8 expected, 2 provided → 6 zeros appended
@@ -125,7 +125,7 @@ class TestCubeAdvancedParseCubeData:
         with pytest.raises(ValueError):
             cube_adv_mod.parse_cube_data(str(p))
 
-    def test_negative_natoms_with_metadata_line_after_header(self, tmp_path, cube_adv_mod):
+    def test_rejects_dataset_metadata_before_atoms(self, tmp_path, cube_adv_mod):
         # Negative n_atoms header signals an extra metadata line right after
         # the atom block (unrelated to atom count). Here the line right after
         # the dims header is that metadata line (only 2 tokens, not 5), so
@@ -145,7 +145,7 @@ class TestCubeAdvancedParseCubeData:
         with pytest.raises(ValueError):
             cube_adv_mod.parse_cube_data(str(p))
 
-    def test_negative_natoms_missing_line_exercises_except_branch(self, tmp_path, cube_adv_mod):
+    def test_rejects_missing_atoms(self, tmp_path, cube_adv_mod):
         # Negative n_atoms with no line beyond the dims header — the smart
         # check's lines[current_line] access raises IndexError, caught by
         # the except branch (current_line += 1). The subsequent (unguarded)
@@ -164,7 +164,7 @@ class TestCubeAdvancedParseCubeData:
         with pytest.raises(ValueError):
             cube_adv_mod.parse_cube_data(str(p))
 
-    def test_atom_line_bad_coords_falls_back_to_zero(self, tmp_path, cube_adv_mod):
+    def test_rejects_malformed_atom_coordinates(self, tmp_path, cube_adv_mod):
         content = (
             "Title\nTitle2\n"
             "   1   0.0 0.0 0.0\n"
@@ -195,7 +195,7 @@ class TestCubeAdvancedParseCubeData:
         result = cube_adv_mod.parse_cube_data(str(p))
         assert len(result["data_flat"]) == 2  # nx*ny*nz = 2*1*1
 
-    def test_skips_short_metadata_and_non_numeric_lines(self, tmp_path, cube_adv_mod):
+    def test_rejects_junk_before_scalar_data(self, tmp_path, cube_adv_mod):
         content = (
             "Title\nTitle2\n"
             "   1   0.0 0.0 0.0\n"
@@ -212,7 +212,7 @@ class TestCubeAdvancedParseCubeData:
         with pytest.raises(ValueError):
             cube_adv_mod.parse_cube_data(str(p))
 
-    def test_excess_data_trimmed_from_start(self, tmp_path, cube_adv_mod):
+    def test_rejects_excess_data(self, tmp_path, cube_adv_mod):
         # 2 expected (nx*ny*nz = 2*1*1) but 4 values provided -> excess=2
         # trimmed from the START, keeping the last `expected_size` values.
         content = (
@@ -229,7 +229,7 @@ class TestCubeAdvancedParseCubeData:
         with pytest.raises(ValueError):
             cube_adv_mod.parse_cube_data(str(p))
 
-    def test_fromstring_exception_falls_back_to_empty_array(self, tmp_path, cube_adv_mod, monkeypatch):
+    def test_scalar_conversion_error_propagates(self, tmp_path, cube_adv_mod, monkeypatch):
         content = _make_cube_content(nx=2, ny=1, nz=1, n_atoms=1)
         p = tmp_path / "fromstring_err.cube"
         p.write_text(content)

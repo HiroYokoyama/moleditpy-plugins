@@ -106,3 +106,20 @@ def test_close_does_not_erase_a_replacement_molecule(path):
     close(widget)
     widget._detach_stale_view.assert_called_once()
     widget.plotter.clear.assert_not_called()
+
+
+def test_excess_data_conversion_is_bounded(module, tmp_path, monkeypatch):
+    converted = []
+    real_fromiter = np.fromiter
+
+    def track_values(values, dtype):
+        def tracked():
+            for value in values:
+                converted.append(value)
+                yield value
+        return real_fromiter(tracked(), dtype=dtype)
+
+    monkeypatch.setattr(np, "fromiter", track_values)
+    with pytest.raises(ValueError, match="size mismatch"):
+        parse(module, tmp_path, cube_text(" ".join(str(value) for value in range(10000))))
+    assert len(converted) == 9

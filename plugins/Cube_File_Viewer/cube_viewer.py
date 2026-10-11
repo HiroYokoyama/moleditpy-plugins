@@ -1,3 +1,4 @@
+from itertools import islice
 import os
 import json
 import numpy as np
@@ -156,24 +157,21 @@ def parse_cube_data(filename):
         break
 
     if current_line >= len(lines):
-        # Allow header-only validation if explicitly requested?
-        # But for 'data', we need data.
-        # Fallback for empty data
         raise ValueError("Cube contains no volumetric data")
     else:
         # Validate every token; whitespace wrapping is independent of grid shape.
-        tokens = " ".join(lines[current_line:]).split()
+        n_points = nx * ny * nz
+        expected_size = n_points * n_datasets
+        tokens = (token for line in lines[current_line:] for token in line.split())
         try:
-            data_values = np.fromiter((number(token) for token in tokens), dtype=float)
+            data_values = np.fromiter((number(token) for token in islice(tokens, expected_size + 1)), dtype=float)
         except ValueError as exc:
             raise ValueError("Malformed cube volumetric data") from exc
 
-    n_points = nx * ny * nz
-    expected_size = n_points * n_datasets
     actual_size = len(data_values)
 
     if actual_size != expected_size:
-        raise ValueError(f"Cube data size mismatch: expected {expected_size}, found {actual_size}")
+        raise ValueError(f"Cube data size mismatch: expected {expected_size}, found {actual_size}" + (" or more" if actual_size > expected_size else ""))
     if not np.all(np.isfinite(data_values)):
         raise ValueError("Cube contains nonfinite volumetric values")
 
@@ -259,6 +257,16 @@ def build_grid_from_meta(meta):
 def read_cube(filename):
     meta = parse_cube_data(filename)
     return build_grid_from_meta(meta)
+
+
+class CubeViewerDock(QDockWidget):
+    """The title-bar Close button must run the same cleanup as plugin Close."""
+
+    def closeEvent(self, event):
+        widget = self.widget()
+        if widget is not None:
+            widget.close_plugin()
+        super().closeEvent(event)
 
 
 class FlexibleDoubleSpinBox(QDoubleSpinBox):
@@ -971,7 +979,7 @@ def open_cube_viewer(context, fname):
         nb = mol.GetNumBonds() if mol else 0
         context.show_status_message(f"Loaded Cube. Atoms: {len(atoms)}, Bonds: {nb}")
 
-        dock = QDockWidget("Cube Viewer", main_window)
+        dock = CubeViewerDock("Cube Viewer", main_window)
         dock.setAllowedAreas(
             Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea
         )

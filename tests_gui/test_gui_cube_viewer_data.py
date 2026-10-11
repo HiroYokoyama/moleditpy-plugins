@@ -148,3 +148,19 @@ def test_grid_values_and_skewed_coordinates_stay_aligned(directory, filename):
                 row = x + 2 * y + 6 * z
                 np.testing.assert_allclose(grid.points[row], origin + np.array([x, y, z]) @ vectors)
                 assert grid[key][row] == data[x * 12 + y * 4 + z]
+
+
+@pytest.mark.parametrize("directory,filename", (("Cube_File_Viewer", "cube_viewer.py"), ("Cube_File_Viewer_Advanced", "cube_viewer_advanced.py"), ("Mapped_Cube_Viewer", "mapped_cube_viewer.py")))
+def test_title_bar_close_runs_plugin_cleanup(directory, filename, qapp):
+    path = ROOT / "plugins" / directory / filename
+    spec = importlib.util.spec_from_file_location("cube_dock_real_qt", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    dock = mod.CubeViewerDock("Cube")
+    child = QWidget()
+    child.close_plugin = MagicMock()
+    dock.setWidget(child)
+    dock.show()
+    assert dock.close()
+    child.close_plugin.assert_called_once_with()
+    dock.deleteLater()

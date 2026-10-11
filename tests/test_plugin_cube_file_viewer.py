@@ -142,7 +142,7 @@ class TestParseCubeData:
         assert result["is_angstrom_header"] is True
         assert result["dims"] == (2, 2, 2)  # abs() must have been applied
 
-    def test_pads_short_data_with_zeros(self, tmp_path, cube_mod):
+    def test_rejects_short_data(self, tmp_path, cube_mod):
         """Invalid input must fail instead of fabricating scalar or atom data."""
         # 3×3×3 = 27 expected; provide only 6
         content = _make_cube_content(nx=3, ny=3, nz=3, n_atoms=1,
@@ -152,7 +152,7 @@ class TestParseCubeData:
         with pytest.raises(ValueError):
             cube_mod.parse_cube_data(str(p))
 
-    def test_trims_excess_data_from_start(self, tmp_path, cube_mod):
+    def test_rejects_excess_data(self, tmp_path, cube_mod):
         """Invalid input must fail instead of fabricating scalar or atom data."""
         # 2×2×2 = 8 expected; provide 10 values [1…10]
         content = _make_cube_content(nx=2, ny=2, nz=2, n_atoms=1,
@@ -326,7 +326,7 @@ class TestRun:
 # ---------------------------------------------------------------------------
 
 class TestParseCubeDataEdgeCases:
-    def test_negative_natoms_skips_non_atom_metadata_line(self, tmp_path, cube_mod):
+    def test_rejects_dataset_metadata_before_atoms(self, tmp_path, cube_mod):
         """Invalid input must fail instead of fabricating scalar or atom data."""
         content = _make_cube_content(nx=2, ny=2, nz=2, n_atoms=1)
         content = content.replace(
@@ -342,7 +342,7 @@ class TestParseCubeDataEdgeCases:
         with pytest.raises(ValueError):
             cube_mod.parse_cube_data(str(p))
 
-    def test_negative_natoms_no_trailing_lines_hits_except(self, tmp_path, cube_mod):
+    def test_rejects_missing_atoms(self, tmp_path, cube_mod):
         """n_atoms_raw<0 but the file ends right at the header -> the smart
         lookahead's IndexError is swallowed."""
         content = (
@@ -357,7 +357,7 @@ class TestParseCubeDataEdgeCases:
         with pytest.raises(ValueError):
             cube_mod.parse_cube_data(str(p))
 
-    def test_malformed_atom_line_falls_back_to_origin(self, tmp_path, cube_mod):
+    def test_rejects_malformed_atom_coordinates(self, tmp_path, cube_mod):
         content = _make_cube_content(nx=2, ny=2, nz=2, n_atoms=1)
         content = content.replace(
             "   6   0.000000   0.000000   0.000000   0.629118   0.000000\n",
@@ -369,7 +369,7 @@ class TestParseCubeDataEdgeCases:
         with pytest.raises(ValueError):
             cube_mod.parse_cube_data(str(p))
 
-    def test_skips_blank_and_short_and_nonnumeric_lines_before_data(
+    def test_rejects_junk_before_scalar_data(
         self, tmp_path, cube_mod
     ):
         content = _make_cube_content(nx=2, ny=2, nz=2, n_atoms=1)
@@ -389,7 +389,7 @@ class TestParseCubeDataEdgeCases:
         with pytest.raises(ValueError):
             cube_mod.parse_cube_data(str(p))
 
-    def test_fromstring_exception_yields_zero_padded_array(
+    def test_scalar_conversion_error_propagates(
         self, cube_file, cube_mod, monkeypatch
     ):
         def _raiser(*_a, **_k):

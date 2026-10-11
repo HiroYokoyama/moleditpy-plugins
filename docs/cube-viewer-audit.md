@@ -51,3 +51,11 @@ analytic linear property confirms colors come from the property grid rather
 than the density contour. Distinct grid resolutions are allowed when the
 property grid covers every contour point. This checks viewer behavior, not
 whether a supplied scientific dataset is physically correct.
+
+## Post-push rescan
+
+Scalar conversion stops after the expected count plus one, bounding allocation
+for excessive payloads. Dock title-bar closure now invokes plugin cleanup in all
+three viewers; real Qt tests cover that path. Rendering CI explicitly includes
+the real-data regression module, whose optional imports are gated on all
+required scientific libraries.

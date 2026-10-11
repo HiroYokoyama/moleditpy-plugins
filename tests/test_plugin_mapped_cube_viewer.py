@@ -145,7 +145,7 @@ class TestMappedCubeEntryPoints:
 
 
 class TestParseCubeDataEdgeCases:
-    def test_negative_atom_count_skips_extra_header_line(self, tmp_path, mapped_mod):
+    def test_rejects_dataset_metadata_before_atoms(self, tmp_path, mapped_mod):
         """Invalid input must fail instead of fabricating scalar or atom data."""
         content = _make_cube_content(nx=2, ny=1, nz=1, n_atoms=1)
         lines = content.splitlines(keepends=True)
@@ -158,7 +158,7 @@ class TestParseCubeDataEdgeCases:
         with pytest.raises(ValueError):
             mapped_mod.parse_cube_data(str(f))
 
-    def test_data_trimmed_when_excess_values(self, tmp_path, mapped_mod):
+    def test_rejects_excess_data(self, tmp_path, mapped_mod):
         # The data-start heuristic requires >=6 tokens on the first data
         # line, so the first row alone already supplies 6 values.
         content = _make_cube_content(
@@ -169,7 +169,7 @@ class TestParseCubeDataEdgeCases:
         with pytest.raises(ValueError):
             mapped_mod.parse_cube_data(str(f))
 
-    def test_data_padded_when_missing_values(self, tmp_path, mapped_mod):
+    def test_rejects_short_data(self, tmp_path, mapped_mod):
         # expected_size = 9 but only one 6-value row is supplied.
         content = _make_cube_content(
             nx=3, ny=3, nz=1, n_atoms=1, data_values=[1, 2, 3, 4, 5, 6]
@@ -179,7 +179,7 @@ class TestParseCubeDataEdgeCases:
         with pytest.raises(ValueError):
             mapped_mod.parse_cube_data(str(f))
 
-    def test_malformed_atom_coords_falls_back_to_origin(self, tmp_path, mapped_mod):
+    def test_rejects_malformed_atom_coordinates(self, tmp_path, mapped_mod):
         header = (
             "T1\nT2\n   1   0.0 0.0 0.0\n   1   0.2 0.0 0.0\n"
             "   1   0.0 0.2 0.0\n   1   0.0 0.0 0.2\n"
