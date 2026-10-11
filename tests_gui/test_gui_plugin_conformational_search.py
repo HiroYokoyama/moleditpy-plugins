@@ -477,6 +477,7 @@ class TestStopSearchReal:
         dlg.run_search()
         worker = dlg.worker
         dlg.accept()
+        _run_search_sync_existing(dlg)
         assert dlg.worker is None
         assert worker.isFinished()
 
@@ -615,3 +616,48 @@ class TestConformerSearchWorkerReal:
         # the previous one and only the last few conformers would survive.
         assert mol_calc.GetNumConformers() > 5
         assert len({cid for _, cid in results}) == len(results)
+
+
+class TestSearchOwnership:
+    def test_closing_running_worker_is_deferred_without_wait(self, qapp):
+        from PyQt6.QtCore import QObject, pyqtSignal
+        class Worker(QObject):
+            finished = pyqtSignal()
+            def __init__(self):
+                super().__init__()
+                self.running = True
+                self.stop = MagicMock()
+                self.wait = MagicMock()
+            def isRunning(self):
+                return self.running
+        ctx = _ctx_no_mol()
+        dlg = _conf_search.ConformerSearchDialog(ctx)
+        dlg.worker = Worker()
+        worker = dlg.worker
+        worker.finished.connect(dlg._worker_finished)
+        dlg.show()
+        dlg.accept()
+        assert dlg.isVisible()
+        worker.wait.assert_not_called()
+        worker.stop.assert_called_once()
+        worker.running = False
+        worker.finished.emit()
+        assert not dlg.isVisible()
+        assert dlg.worker is None
+        dlg.destroy()
+
+    def test_preview_and_completion_cannot_replace_new_document(self, qapp):
+        ctx = _ctx_no_mol()
+        ctx.current_mol = _real_mol_with_conformer()
+        dlg = _fast_dialog(_conf_rn, ctx)
+        _run_search_sync(dlg)
+        other = _real_mol_with_conformer('CC')
+        ctx.current_mol = other
+        dlg.table.setCurrentCell(0, 0)
+        assert ctx.current_mol is other
+        dlg.on_completed(dlg.temp_mol, [(1.0, 0)], False)
+        assert 'Molecule changed' in dlg.lbl_info.text()
+        ctx.push_undo_checkpoint.reset_mock()
+        dlg.accept()
+        ctx.push_undo_checkpoint.assert_not_called()
+        dlg.destroy()
