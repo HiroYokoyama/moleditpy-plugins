@@ -108,6 +108,7 @@ class TestStepOptimizerDialog:
 
     def test_stop_pushes_undo_checkpoint(self, dlg):
         dlg.target_mol = MagicMock()
+        dlg.context.current_mol = dlg.target_mol
         dlg.steps_since_checkpoint = 7
         dlg._stop()
         dlg.context.push_undo_checkpoint.assert_called_once()
@@ -126,12 +127,14 @@ class TestStepOptimizerDialog:
 
     def test_accept_checkpoints_pending_steps(self, dlg):
         dlg.target_mol = MagicMock()
+        dlg.context.current_mol = dlg.target_mol
         dlg.steps_since_checkpoint = 3
         dlg.accept()
         dlg.context.push_undo_checkpoint.assert_called_once()
 
     def test_reject_restores_original_coordinates(self, dlg):
         dlg.target_mol = MagicMock()
+        dlg.context.current_mol = dlg.target_mol
         dlg.original_coords = [MagicMock(), MagicMock()]
         dlg.reject()
         conf = dlg.target_mol.GetConformer.return_value
@@ -366,3 +369,17 @@ class TestStepOptimizerStartTickReal:
         i, point = mol.GetConformer().set_calls[0]
         assert i == 0
         assert point.x == pytest.approx(0.5)
+
+
+@pytest.mark.parametrize('method', ['_stop', 'accept', 'reject'])
+def test_stale_target_never_checkpoints_or_restores(qapp, method):
+    dlg = _step.StepOptimizerDialog(_ctx())
+    dlg.target_mol = MagicMock()
+    dlg.original_coords = [object()]
+    dlg.steps_since_checkpoint = 3
+    dlg.context.current_mol = object()
+    getattr(dlg, method)()
+    dlg.context.push_undo_checkpoint.assert_not_called()
+    dlg.target_mol.GetConformer.assert_not_called()
+    dlg.timer.stop()
+    dlg.destroy()

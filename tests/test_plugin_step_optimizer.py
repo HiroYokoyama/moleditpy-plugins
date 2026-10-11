@@ -567,6 +567,7 @@ class TestStepOptimizerStop:
 
         self_._pause_timer = pause_timer
         self_._reenable_controls = reenable
+        ctx.current_mol = self_.target_mol
         fn(self_)
         self_.timer.stop.assert_called_once()
         ctx.push_undo_checkpoint.assert_called_once()
@@ -598,6 +599,7 @@ class TestStepOptimizerStop:
 
         self_._pause_timer = pause_timer
         self_._reenable_controls = reenable
+        ctx.current_mol = self_.target_mol
         fn(self_)
         ctx.push_undo_checkpoint.assert_not_called()
 
@@ -650,6 +652,7 @@ class TestStepOptimizerAcceptReject:
             self_.running = False
 
         self_._pause_timer = pause_timer
+        ctx.current_mol = self_.target_mol
         fn(self_)
         ctx.push_undo_checkpoint.assert_called_once()
         ctx.register_window.assert_called_with("main_panel", None)
@@ -686,6 +689,7 @@ class TestStepOptimizerAcceptReject:
             running=True,
         )
         self_._pause_timer = lambda: (self_.timer.stop(), setattr(self_, "running", False))
+        ctx.current_mol = mol
         fn(self_)
         assert mol.set_calls == [(0, "p0"), (1, "p1")]
         ctx.refresh_3d_view.assert_called_once()

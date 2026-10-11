@@ -16,7 +16,7 @@ import logging
 import math
 
 PLUGIN_NAME = "Step Optimizer"
-PLUGIN_VERSION = "2026.07.30"
+PLUGIN_VERSION = "2026.10.13"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -234,7 +234,7 @@ class StepOptimizerDialog(QDialog):
     def _stop(self):
         self._pause_timer()
         self.lbl_state.setText("State: Stopped")
-        if self.target_mol:
+        if self.target_mol and self.context.current_mol is self.target_mol:
             self.context.push_undo_checkpoint()
             self.steps_since_checkpoint = 0
         self._reenable_controls()
@@ -250,7 +250,7 @@ class StepOptimizerDialog(QDialog):
 
     def accept(self):
         self._pause_timer()
-        if self.target_mol and self.steps_since_checkpoint > 0:
+        if self.target_mol and self.context.current_mol is self.target_mol and self.steps_since_checkpoint > 0:
             self.context.push_undo_checkpoint()
             self.steps_since_checkpoint = 0
         super().accept()
@@ -258,7 +258,7 @@ class StepOptimizerDialog(QDialog):
 
     def reject(self):
         self._pause_timer()
-        if self.target_mol and self.original_coords:
+        if self.target_mol and self.context.current_mol is self.target_mol and self.original_coords:
             conf = self.target_mol.GetConformer()
             for i, pos in enumerate(self.original_coords):
                 conf.SetAtomPosition(i, pos)
