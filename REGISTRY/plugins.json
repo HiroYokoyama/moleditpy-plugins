@@ -184,7 +184,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Cube File Viewer",
-    "version": "2026.09.24",
+    "version": "2026.10.13",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes Gaussian Cube files (.cube) containing volumetric data (e.g., orbitals, densities).",
@@ -197,8 +197,8 @@
       "numpy"
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer/cube_viewer.py",
-    "lastUpdated": "2026-09-24",
-    "sha256": "d7d0986cdeba6963e9faf5cc204eca50d4306c5602250fe89a775cd5739d0f1f",
+    "lastUpdated": "2026-10-13",
+    "sha256": "1f0e0fac8d7b9e26d9e68401b4d96462615e13812ebd69b6afa48a60bbfc55a0",
     "firstAppeared": "2025-12-15",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -479,7 +479,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Mapped Cube Viewer",
-    "version": "2026.09.24",
+    "version": "2026.10.13",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes a property (e.g. ESP) mapped onto an isosurface (e.g. electron density) from two Cube files.",
@@ -494,8 +494,8 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/Mapped_Cube_Viewer/mapped_cube_viewer.py",
-    "lastUpdated": "2026-09-24",
-    "sha256": "95b9afb997932ceba50c23ad0c0d47b1a20a7d107bf0f8e9045a22d3caaa073f",
+    "lastUpdated": "2026-10-13",
+    "sha256": "9da317f507dde39c9975540458e5f0a153161f61ab375ae4a887d8309691f5eb",
     "firstAppeared": "2025-12-17",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1478,7 +1478,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Cube File Viewer Advanced",
-    "version": "2026.09.02",
+    "version": "2026.10.13",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Advanced 3D visualization for Gaussian Cube files with PBR, SSAO, and other effects.",
@@ -1493,8 +1493,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer_Advanced/cube_viewer_advanced.py",
-    "lastUpdated": "2026-09-02",
-    "sha256": "aedb12cd4d922bdee0d279669637ad56f95da789f50722dda0adcc4b31063c87",
+    "lastUpdated": "2026-10-13",
+    "sha256": "09e18428aba26faaa36f393bd364ab8cf66a94bf05cc3a7e388a059fd005385b",
     "firstAppeared": "2026-02-02",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

@@ -38,7 +38,7 @@ except ImportError:
     Geometry = None
     rdDetermineBonds = None
 
-PLUGIN_VERSION = "2026.09.24"
+PLUGIN_VERSION = "2026.10.13"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Visualizes Gaussian Cube files (.cube) containing volumetric data (e.g., orbitals, densities)."
@@ -47,126 +47,139 @@ PLUGIN_CONTEXT = None
 
 
 def parse_cube_data(filename):
+    """Parse Cube records using the PySCF Calculator's strict parser logic.
+
+    Kept self-contained because each viewer is installed independently.
     """
-    Parses a Gaussian Cube file and returns raw data structures.
-    Adapted from test.py with robust header handling.
-    """
-    with open(filename, "r", encoding="utf-8", errors="replace") as f:
+    def number(token):
+        return float(token.replace("D", "E").replace("d", "e"))
+    if not filename or not os.path.exists(filename):
+        raise FileNotFoundError(f"File not found: {filename}")
+    if os.path.getsize(filename) > 256 * 1024 * 1024:
+        raise ValueError("Cube file exceeds the 256 MiB loading limit.")
+
+    with open(filename, "r", encoding="utf-8", errors="strict") as f:
         lines = f.readlines()
 
     if len(lines) < 6:
         raise ValueError("File too short to be a Cube file.")
 
     # --- Header Parsing ---
-    # Line 3: Natoms, Origin
-    tokens = lines[2].split()
-    n_atoms_raw = int(tokens[0])
-    n_atoms = abs(n_atoms_raw)
-    origin_raw = np.array([float(tokens[1]), float(tokens[2]), float(tokens[3])])
+    try:
+        # Line 3: Natoms, Origin
+        tokens = lines[2].split()
+        if len(tokens) < 4:
+            raise ValueError("Invalid Origin line")
+        n_atoms_raw = int(tokens[0])
+        n_atoms = abs(n_atoms_raw)
+        origin_raw = np.array([number(tokens[1]), number(tokens[2]), number(tokens[3])])
 
-    # Lines 4-6: NX, NY, NZ and vectors
-    def parse_vec(line):
-        t = line.split()
-        return int(t[0]), np.array([float(t[1]), float(t[2]), float(t[3])])
+        def parse_vec(line):
+            t = line.split()
+            if len(t) < 4:
+                raise ValueError("Invalid Axis line")
+            return int(t[0]), np.array([number(t[1]), number(t[2]), number(t[3])])
 
-    nx, x_vec_raw = parse_vec(lines[3])
-    ny, y_vec_raw = parse_vec(lines[4])
-    nz, z_vec_raw = parse_vec(lines[5])
+        nx, x_vec_raw = parse_vec(lines[3])
+        ny, y_vec_raw = parse_vec(lines[4])
+        nz, z_vec_raw = parse_vec(lines[5])
 
-    # Auto-detect units based on sign of NX/NY/NZ (Gaussian standard)
-    is_angstrom_header = nx < 0 or ny < 0 or nz < 0
+        is_angstrom_header = nx < 0 or ny < 0 or nz < 0
+        nx, ny, nz = abs(nx), abs(ny), abs(nz)
+        if not all(np.all(np.isfinite(v)) for v in (origin_raw, x_vec_raw, y_vec_raw, z_vec_raw)):
+            raise ValueError("Cube header contains nonfinite coordinates.")
+        if np.linalg.matrix_rank(np.array([x_vec_raw, y_vec_raw, z_vec_raw])) != 3:
+            raise ValueError("Cube axis vectors must span three dimensions.")
+        if min(nx, ny, nz) == 0 or nx * ny * nz > 2_000_000:
+            raise ValueError("Cube grid must contain 1 to 2,000,000 points.")
 
-    nx, ny, nz = abs(nx), abs(ny), abs(nz)
+    except (ValueError, IndexError) as e:
+        raise ValueError(f"Header parsing failed: {e}") from e
 
     # --- Atoms Parsing ---
     atoms = []
     current_line = 6
-    if n_atoms_raw < 0:
-        # Smart check: if next line does not look like an atom line, skip it.
-        try:
-            parts = lines[current_line].split()
-            if len(parts) != 5:
-                current_line += 1
-        except IndexError:
-            current_line += 1
 
     for _ in range(n_atoms):
+        if current_line >= len(lines):
+            raise ValueError("Incomplete cube atom block")
         line = lines[current_line].split()
         current_line += 1
-        atomic_num = int(line[0])
-        try:
-            x, y, z = float(line[2]), float(line[3]), float(line[4])
-        except (IndexError, TypeError, ValueError):
-            x, y, z = 0.0, 0.0, 0.0
-        atoms.append((atomic_num, np.array([x, y, z])))
 
-    # A negative atom count means the file carries several data sets.  The
-    # line after the atom block gives how many and their orbital IDs, and the
-    # values that follow are interleaved point by point -- not concatenated.
-    n_datasets = 1
+        try:
+            if len(line) < 5:
+                # Potentially empty line or malformed
+                raise ValueError("Malformed cube atom line")
+            atomic_num = int(line[0])
+            if not 0 <= atomic_num <= 118:
+                raise ValueError("Invalid cube atomic number")
+            x, y, z = number(line[2]), number(line[3]), number(line[4])
+            if not np.all(np.isfinite([number(line[1]), x, y, z])):
+                raise ValueError("Nonfinite cube atom coordinates")
+            atoms.append((atomic_num, np.array([x, y, z])))
+        except (ValueError, IndexError) as exc:
+            raise ValueError("Malformed cube atom line") from exc
+
+    # A negative atom count means the cube holds several data sets. The
+    # DSET_IDS block (count + that many ids, possibly wrapped) sits *after*
+    # the atom lines -- skipping a line before them consumed the first atom.
+    n_datasets = int(tokens[4]) if len(tokens) > 4 else 1
     if n_atoms_raw < 0:
+        if n_datasets != 1:
+            raise ValueError("Negative NATOMS requires NVAL absent or equal to one.")
         try:
             parts = lines[current_line].split()
-            n_datasets = max(1, int(parts[0]))
-            consumed = len(parts) - 1
+            n_datasets = int(parts[0])
+            if n_datasets < 1:
+                raise ValueError("Cube dataset count must be positive")
+            identifiers = [int(value) for value in parts[1:]]
             current_line += 1
-            # The ID list wraps onto further lines when there are many.
-            while consumed < n_datasets and current_line < len(lines):
-                consumed += len(lines[current_line].split())
+            while len(identifiers) < n_datasets and current_line < len(lines):
+                identifiers.extend(int(value) for value in lines[current_line].split())
                 current_line += 1
-        except (IndexError, TypeError, ValueError):
-            n_datasets = 1
+            if len(identifiers) != n_datasets:
+                raise ValueError("Incomplete cube dataset identifiers")
+        except (ValueError, IndexError) as exc:
+            raise ValueError("Malformed cube dataset identifiers") from exc
+    if n_datasets < 1 or nx * ny * nz * n_datasets > 2_000_000:
+        raise ValueError("Cube dataset size exceeds the loading limit.")
 
     # --- Volumetric Data Parsing ---
-
-    # Skip metadata lines (e.g. "1 150") before data starts
+    # Find start of data
     while current_line < len(lines):
         line_content = lines[current_line].strip()
         parts = line_content.split()
-
-        # Skip empty lines
         if not parts:
             current_line += 1
             continue
 
-        # Skip short lines (metadata often has few columns, data usually has 6)
-        if len(parts) < 6:
-            current_line += 1
-            continue
-
-        # Check if start is numeric
-        try:
-            float(parts[0])
-        except ValueError:
-            current_line += 1
-            continue
-
-        # If we get here, it's likely data
         break
 
-    # Read rest of file
-    full_str = " ".join(lines[current_line:])
-    try:
-        data_values = np.fromstring(full_str, sep=" ")
-    except Exception:
-        data_values = np.array([])
+    if current_line >= len(lines):
+        # Allow header-only validation if explicitly requested?
+        # But for 'data', we need data.
+        # Fallback for empty data
+        raise ValueError("Cube contains no volumetric data")
+    else:
+        # Validate every token; whitespace wrapping is independent of grid shape.
+        tokens = " ".join(lines[current_line:]).split()
+        try:
+            data_values = np.fromiter((number(token) for token in tokens), dtype=float)
+        except ValueError as exc:
+            raise ValueError("Malformed cube volumetric data") from exc
 
     n_points = nx * ny * nz
     expected_size = n_points * n_datasets
     actual_size = len(data_values)
 
-    # FIX: Trim from START if excess > 0 (The header values are at the start)
-    # This logic fixes the shift issue test.py had.
-    if actual_size > expected_size:
-        excess = actual_size - expected_size
-        data_values = data_values[excess:]
-    elif actual_size < expected_size:
-        pad = np.zeros(expected_size - actual_size)
-        data_values = np.concatenate((data_values, pad))
+    if actual_size != expected_size:
+        raise ValueError(f"Cube data size mismatch: expected {expected_size}, found {actual_size}")
+    if not np.all(np.isfinite(data_values)):
+        raise ValueError("Cube contains nonfinite volumetric values")
 
     if n_datasets > 1:
-        # Take the first data set. Slicing the mixed stream instead returned a
-        # value that belonged to neither orbital.
+        # Values are interleaved point by point; the first n_points of the
+        # mixed stream belong to no single orbital.
         data_values = data_values[0 : n_points * n_datasets : n_datasets]
 
     return {
@@ -775,6 +788,9 @@ class CubeViewerWidget(QWidget):
         super().closeEvent(event)
 
     def close_plugin(self):
+        if self._bound_mol is not None and getattr(self.mw, "current_mol", None) is not self._bound_mol:
+            self._detach_stale_view()
+            return
         if getattr(self, "_structure_watch_timer", None) is not None:
             self._structure_watch_timer.stop()
         self.save_settings()
@@ -860,18 +876,6 @@ def open_cube_viewer(context, fname):
         QMessageBox.critical(main_window, "Error", "RDKit is required for this plugin.")
         return
 
-    # Close existing dock via context
-    old_dock = context.get_window("main_panel")
-    if old_dock:
-        try:
-            widget = old_dock.widget()
-            if hasattr(widget, "close_plugin"):
-                widget.close_plugin()
-            else:
-                old_dock.close()
-        except (RuntimeError, AttributeError) as _e:
-            logging.warning("[cube_viewer.py:716] silenced: %s", _e)
-
     try:
         if not fname:  # Should not happen if called correctly
             return
@@ -885,23 +889,13 @@ def open_cube_viewer(context, fname):
             )
             return
 
-        if hasattr(main_window, "plotter"):
-            main_window.plotter.clear()
-
-        if hasattr(context, "enter_3d_viewer_mode"):
-            context.enter_3d_viewer_mode()
-        elif hasattr(main_window, "ui_manager") and hasattr(
-            main_window.ui_manager, "enter_3d_viewer_ui_mode"
-        ):
-            main_window.ui_manager.enter_3d_viewer_ui_mode()
-
         # Create Molecule (XYZ)
         atoms = meta["atoms"]
         xyz_lines = [f"{len(atoms)}", "Generated by Cube Plugin"]
         pt = Chem.GetPeriodicTable()
         for atomic_num, pos in atoms:
             symbol = pt.GetElementSymbol(atomic_num)
-            xyz_lines.append(f"{symbol} {pos[0]:.4f} {pos[1]:.4f} {pos[2]:.4f}")
+            xyz_lines.append(f"{symbol} {pos[0]:.10f} {pos[1]:.10f} {pos[2]:.10f}")
 
         xyz_content = "\n".join(xyz_lines)
 
@@ -936,11 +930,23 @@ def open_cube_viewer(context, fname):
         if mol is None:
             # Fallback
             mol = Chem.RWMol()
-            conf = Chem.Conformer()
+            conf = Chem.Conformer(len(atoms))
             for i, (atomic_num, pos) in enumerate(atoms):
                 idx = mol.AddAtom(Chem.Atom(atomic_num))
                 conf.SetAtomPosition(idx, Geometry.Point3D(pos[0], pos[1], pos[2]))
             mol.AddConformer(conf)
+
+        # Close existing dock via context
+        old_dock = context.get_window("main_panel")
+        if old_dock:
+            try:
+                widget = old_dock.widget()
+                if hasattr(widget, "close_plugin"):
+                    widget.close_plugin()
+                else:
+                    old_dock.close()
+            except (RuntimeError, AttributeError) as _e:
+                logging.warning("[cube_viewer.py:716] silenced: %s", _e)
 
         # Set current molecular data using V3 context
         # This properly updates the state, enabling PNG export, XYZ tables, etc.

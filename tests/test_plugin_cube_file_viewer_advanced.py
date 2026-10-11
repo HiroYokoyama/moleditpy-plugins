@@ -122,8 +122,8 @@ class TestCubeAdvancedParseCubeData:
         # So result is all zeros (padded from 0 to 8). That's also valid padding behaviour.
         p = tmp_path / "short2.cube"
         p.write_text(content)
-        result = cube_adv_mod.parse_cube_data(str(p))
-        assert len(result["data_flat"]) == 8
+        with pytest.raises(ValueError):
+            cube_adv_mod.parse_cube_data(str(p))
 
     def test_negative_natoms_with_metadata_line_after_header(self, tmp_path, cube_adv_mod):
         # Negative n_atoms header signals an extra metadata line right after
@@ -142,9 +142,8 @@ class TestCubeAdvancedParseCubeData:
         )
         p = tmp_path / "neg_meta.cube"
         p.write_text(content)
-        result = cube_adv_mod.parse_cube_data(str(p))
-        assert len(result["atoms"]) == 1
-        assert result["atoms"][0][0] == 6
+        with pytest.raises(ValueError):
+            cube_adv_mod.parse_cube_data(str(p))
 
     def test_negative_natoms_missing_line_exercises_except_branch(self, tmp_path, cube_adv_mod):
         # Negative n_atoms with no line beyond the dims header — the smart
@@ -162,7 +161,7 @@ class TestCubeAdvancedParseCubeData:
         )
         p = tmp_path / "neg_missing.cube"
         p.write_text(content)
-        with pytest.raises(IndexError):
+        with pytest.raises(ValueError):
             cube_adv_mod.parse_cube_data(str(p))
 
     def test_atom_line_bad_coords_falls_back_to_zero(self, tmp_path, cube_adv_mod):
@@ -177,10 +176,8 @@ class TestCubeAdvancedParseCubeData:
         )
         p = tmp_path / "bad_coords.cube"
         p.write_text(content)
-        result = cube_adv_mod.parse_cube_data(str(p))
-        anum, pos = result["atoms"][0]
-        assert anum == 6
-        assert list(pos) == [0.0, 0.0, 0.0]
+        with pytest.raises(ValueError):
+            cube_adv_mod.parse_cube_data(str(p))
 
     def test_skips_blank_lines_before_data(self, tmp_path, cube_adv_mod):
         content = (
@@ -191,7 +188,7 @@ class TestCubeAdvancedParseCubeData:
             "   1   0.0 0.0 0.2\n"
             "   6   0.0   0.0   0.0   0.0   0.0\n"
             "\n"  # blank line before data -> skipped
-            "1.0 2.0 3.0 4.0 5.0 6.0\n7.0 8.0\n"
+            "1.0 2.0\n"
         )
         p = tmp_path / "blank_before.cube"
         p.write_text(content)
@@ -212,8 +209,8 @@ class TestCubeAdvancedParseCubeData:
         )
         p = tmp_path / "meta_and_junk.cube"
         p.write_text(content)
-        result = cube_adv_mod.parse_cube_data(str(p))
-        assert len(result["data_flat"]) == 2
+        with pytest.raises(ValueError):
+            cube_adv_mod.parse_cube_data(str(p))
 
     def test_excess_data_trimmed_from_start(self, tmp_path, cube_adv_mod):
         # 2 expected (nx*ny*nz = 2*1*1) but 4 values provided -> excess=2
@@ -229,22 +226,19 @@ class TestCubeAdvancedParseCubeData:
         )
         p = tmp_path / "excess.cube"
         p.write_text(content)
-        result = cube_adv_mod.parse_cube_data(str(p))
-        assert len(result["data_flat"]) == 2
-        assert list(result["data_flat"]) == [5.0, 6.0]
+        with pytest.raises(ValueError):
+            cube_adv_mod.parse_cube_data(str(p))
 
     def test_fromstring_exception_falls_back_to_empty_array(self, tmp_path, cube_adv_mod, monkeypatch):
         content = _make_cube_content(nx=2, ny=1, nz=1, n_atoms=1)
         p = tmp_path / "fromstring_err.cube"
         p.write_text(content)
         monkeypatch.setattr(
-            cube_adv_mod.np, "fromstring",
-            lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("boom")),
+            cube_adv_mod.np, "fromiter",
+            lambda *a, **kw: (_ for _ in ()).throw(ValueError("boom")),
         )
-        result = cube_adv_mod.parse_cube_data(str(p))
-        # data_values falls back to empty array, then gets padded up to expected_size.
-        assert len(result["data_flat"]) == 2
-        assert list(result["data_flat"]) == [0.0, 0.0]
+        with pytest.raises(ValueError):
+            cube_adv_mod.parse_cube_data(str(p))
 
 
 # ---------------------------------------------------------------------------
@@ -565,7 +559,7 @@ class TestUpdateIso:
 
     def test_exception_in_contour_is_caught(self):
         fake = _widget_self()
-        fake.grid.contour.side_effect = RuntimeError("boom")
+        fake.grid.contour.side_effect = ValueError("boom")
         _update_iso(fake)  # must not raise
 
 
@@ -701,7 +695,8 @@ class TestOpenCubeViewer:
         mod.Chem.MolFromXYZBlock.return_value = mol
         mod.open_cube_viewer(ctx, str(cube_file))
         assert ctx.current_molecule is mol
-        ctx.draw_molecule_3d.assert_called_once_with(mol)
+        # Assigning current_molecule already redraws through the real host API.
+        ctx.draw_molecule_3d.assert_not_called()
         msg = ctx.show_status_message.call_args[0][0]
         assert "Bonds: 2" in msg
 
@@ -727,7 +722,7 @@ class TestOpenCubeViewer:
         mod.Chem.MolFromXYZBlock.return_value = mol
         mod.open_cube_viewer(ctx, str(cube_file))
         assert ctx.current_molecule is mol
-        ctx.draw_molecule_3d.assert_called_once_with(mol)
+        ctx.draw_molecule_3d.assert_not_called()
 
     def test_user_cancels_charge_dialog_returns_without_setting_molecule(self, cube_file):
         mod = _fresh_mod()

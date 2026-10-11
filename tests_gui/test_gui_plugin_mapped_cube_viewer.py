@@ -186,7 +186,7 @@ class _FakeContour:
 
 class _FakeMapped:
     def __init__(self, values):
-        self.point_data = {"property_values": _Vals(values)}
+        self.point_data = {"property_values": _Vals(values), "vtkValidPointMask": [1] * len(values)}
 
 
 def _make_mw():
@@ -194,6 +194,7 @@ def _make_mw():
 
     mw = QWidget()
     mw.addDockWidget = MagicMock()
+    mw.removeDockWidget = MagicMock()
     return mw
 
 
@@ -395,13 +396,13 @@ class TestMappedWidgetClosePlugin:
         ctx.plotter.remove_actor.assert_called_once_with(actor_before_close)
         ctx.plotter.render.assert_called()
         mw.ui_manager.restore_ui_for_editing.assert_called_once()
-        dock.close.assert_called_once()
-        mw.edit_actions_manager.clear_all.assert_called_once()
+        dock.deleteLater.assert_called_once()
+        mw.edit_actions_manager.clear_all.assert_not_called()
 
     def test_close_plugin_without_ui_manager_does_not_crash(self, qapp):
         w, ctx, mw, dock = self._widget(qapp)
         w.close_plugin()  # mw has no ui_manager / edit_actions_manager -> silenced warnings
-        dock.close.assert_called_once()
+        dock.deleteLater.assert_called_once()
 
     def test_close_plugin_without_dock_does_not_crash(self, qapp):
         mw = _make_mw()
@@ -603,7 +604,7 @@ class TestRunPlugin:
         mw = _make_mw()
         ctx = self._ctx(mw)
         _mapped.run_plugin(ctx)
-        ctx.enter_3d_mode.assert_called_once()
+        ctx.enter_3d_viewer_mode.assert_called_once()
         mw.addDockWidget.assert_called_once()
         ctx.register_window.assert_called_once()
         assert ctx.register_window.call_args.args[0] == "main_panel"
@@ -637,6 +638,30 @@ class TestRunPlugin:
         _mapped.run_plugin(ctx)  # must not raise
         ctx.show_status_message.assert_called_once()
         assert "Mapped Cube Viewer Error" in ctx.show_status_message.call_args.args[0]
+
+    def test_cancellation_preserves_the_existing_viewer(self, qapp, monkeypatch):
+        progress = MagicMock()
+        progress.wasCanceled.return_value = True
+        monkeypatch.setattr(_mapped, "QProgressDialog", lambda *args: progress)
+        reader = MagicMock(return_value=_fake_meta_grid("s.cube"))
+        monkeypatch.setattr(_mapped, "read_cube", reader)
+        old_dock = MagicMock()
+        ctx = self._ctx(_make_mw(), old_dock)
+        _mapped.run_plugin(ctx)
+        reader.assert_called_once_with("s.cube")
+        old_dock.widget.assert_not_called()
+        ctx.register_window.assert_not_called()
+        progress.close.assert_called_once()
+
+    def test_old_viewer_cleanup_cannot_clear_new_molecule(self, qapp):
+        old_widget = MagicMock()
+        old_dock = MagicMock()
+        old_dock.widget.return_value = old_widget
+        ctx = self._ctx(_make_mw(), old_dock)
+        old_widget.close_plugin.side_effect = lambda: setattr(ctx, "current_molecule", None)
+        _mapped.run_plugin(ctx)
+        assert ctx.current_molecule is not None
+        ctx.register_window.assert_called_once()
 
 
 # ===========================================================================

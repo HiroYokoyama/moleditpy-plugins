@@ -2,6 +2,8 @@ import os
 import numpy as np
 import pyvista as pv
 from PyQt6.QtWidgets import (
+    QApplication,
+    QProgressDialog,
     QFileDialog,
     QDockWidget,
     QWidget,
@@ -18,16 +20,18 @@ from PyQt6.QtWidgets import (
     QFormLayout,
     QDialogButtonBox,
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 import logging
 
 # --- Dependency Management ---
 try:
     from rdkit import Chem
     from rdkit import Geometry
+    from rdkit.Chem import rdDetermineBonds
 except ImportError:
     Chem = None
     Geometry = None
+    rdDetermineBonds = None
 
 # Periodic Table for Radii
 try:
@@ -46,7 +50,7 @@ except ImportError:
 __author__ = "HiroYokoyama"
 PLUGIN_AUTHOR = __author__
 PLUGIN_NAME = "Mapped Cube Viewer"
-PLUGIN_VERSION = "2026.09.24"
+PLUGIN_VERSION = "2026.10.13"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_DESCRIPTION = "Visualizes a property (e.g. ESP) mapped onto an isosurface (e.g. electron density) from two Cube files."
 
@@ -54,107 +58,139 @@ PLUGIN_DESCRIPTION = "Visualizes a property (e.g. ESP) mapped onto an isosurface
 
 
 def parse_cube_data(filename):
+    """Parse Cube records using the PySCF Calculator's strict parser logic.
+
+    Kept self-contained because each viewer is installed independently.
     """
-    Robust Cube file parser copied from cube_viewer.py
-    """
-    with open(filename, "r", encoding="utf-8", errors="replace") as f:
+    def number(token):
+        return float(token.replace("D", "E").replace("d", "e"))
+    if not filename or not os.path.exists(filename):
+        raise FileNotFoundError(f"File not found: {filename}")
+    if os.path.getsize(filename) > 256 * 1024 * 1024:
+        raise ValueError("Cube file exceeds the 256 MiB loading limit.")
+
+    with open(filename, "r", encoding="utf-8", errors="strict") as f:
         lines = f.readlines()
 
     if len(lines) < 6:
         raise ValueError("File too short to be a Cube file.")
 
     # --- Header Parsing ---
-    tokens = lines[2].split()
-    n_atoms_raw = int(tokens[0])
-    n_atoms = abs(n_atoms_raw)
-    origin_raw = np.array([float(tokens[1]), float(tokens[2]), float(tokens[3])])
+    try:
+        # Line 3: Natoms, Origin
+        tokens = lines[2].split()
+        if len(tokens) < 4:
+            raise ValueError("Invalid Origin line")
+        n_atoms_raw = int(tokens[0])
+        n_atoms = abs(n_atoms_raw)
+        origin_raw = np.array([number(tokens[1]), number(tokens[2]), number(tokens[3])])
 
-    def parse_vec(line):
-        t = line.split()
-        return int(t[0]), np.array([float(t[1]), float(t[2]), float(t[3])])
+        def parse_vec(line):
+            t = line.split()
+            if len(t) < 4:
+                raise ValueError("Invalid Axis line")
+            return int(t[0]), np.array([number(t[1]), number(t[2]), number(t[3])])
 
-    nx, x_vec_raw = parse_vec(lines[3])
-    ny, y_vec_raw = parse_vec(lines[4])
-    nz, z_vec_raw = parse_vec(lines[5])
+        nx, x_vec_raw = parse_vec(lines[3])
+        ny, y_vec_raw = parse_vec(lines[4])
+        nz, z_vec_raw = parse_vec(lines[5])
 
-    is_angstrom_header = nx < 0 or ny < 0 or nz < 0
-    nx, ny, nz = abs(nx), abs(ny), abs(nz)
+        is_angstrom_header = nx < 0 or ny < 0 or nz < 0
+        nx, ny, nz = abs(nx), abs(ny), abs(nz)
+        if not all(np.all(np.isfinite(v)) for v in (origin_raw, x_vec_raw, y_vec_raw, z_vec_raw)):
+            raise ValueError("Cube header contains nonfinite coordinates.")
+        if np.linalg.matrix_rank(np.array([x_vec_raw, y_vec_raw, z_vec_raw])) != 3:
+            raise ValueError("Cube axis vectors must span three dimensions.")
+        if min(nx, ny, nz) == 0 or nx * ny * nz > 2_000_000:
+            raise ValueError("Cube grid must contain 1 to 2,000,000 points.")
+
+    except (ValueError, IndexError) as e:
+        raise ValueError(f"Header parsing failed: {e}") from e
 
     # --- Atoms Parsing ---
     atoms = []
     current_line = 6
-    if n_atoms_raw < 0:
-        try:
-            parts = lines[current_line].split()
-            if len(parts) != 5:
-                current_line += 1
-        except IndexError:
-            current_line += 1
 
     for _ in range(n_atoms):
+        if current_line >= len(lines):
+            raise ValueError("Incomplete cube atom block")
         line = lines[current_line].split()
         current_line += 1
-        atomic_num = int(line[0])
-        try:
-            x, y, z = float(line[2]), float(line[3]), float(line[4])
-        except (IndexError, TypeError, ValueError):
-            x, y, z = 0.0, 0.0, 0.0
-        atoms.append((atomic_num, np.array([x, y, z])))
 
-    # A negative atom count means the file carries several data sets.  The
-    # line after the atom block gives how many and their orbital IDs, and the
-    # values that follow are interleaved point by point -- not concatenated.
-    n_datasets = 1
+        try:
+            if len(line) < 5:
+                # Potentially empty line or malformed
+                raise ValueError("Malformed cube atom line")
+            atomic_num = int(line[0])
+            if not 0 <= atomic_num <= 118:
+                raise ValueError("Invalid cube atomic number")
+            x, y, z = number(line[2]), number(line[3]), number(line[4])
+            if not np.all(np.isfinite([number(line[1]), x, y, z])):
+                raise ValueError("Nonfinite cube atom coordinates")
+            atoms.append((atomic_num, np.array([x, y, z])))
+        except (ValueError, IndexError) as exc:
+            raise ValueError("Malformed cube atom line") from exc
+
+    # A negative atom count means the cube holds several data sets. The
+    # DSET_IDS block (count + that many ids, possibly wrapped) sits *after*
+    # the atom lines -- skipping a line before them consumed the first atom.
+    n_datasets = int(tokens[4]) if len(tokens) > 4 else 1
     if n_atoms_raw < 0:
+        if n_datasets != 1:
+            raise ValueError("Negative NATOMS requires NVAL absent or equal to one.")
         try:
             parts = lines[current_line].split()
-            n_datasets = max(1, int(parts[0]))
-            consumed = len(parts) - 1
+            n_datasets = int(parts[0])
+            if n_datasets < 1:
+                raise ValueError("Cube dataset count must be positive")
+            identifiers = [int(value) for value in parts[1:]]
             current_line += 1
-            # The ID list wraps onto further lines when there are many.
-            while consumed < n_datasets and current_line < len(lines):
-                consumed += len(lines[current_line].split())
+            while len(identifiers) < n_datasets and current_line < len(lines):
+                identifiers.extend(int(value) for value in lines[current_line].split())
                 current_line += 1
-        except (IndexError, TypeError, ValueError):
-            n_datasets = 1
+            if len(identifiers) != n_datasets:
+                raise ValueError("Incomplete cube dataset identifiers")
+        except (ValueError, IndexError) as exc:
+            raise ValueError("Malformed cube dataset identifiers") from exc
+    if n_datasets < 1 or nx * ny * nz * n_datasets > 2_000_000:
+        raise ValueError("Cube dataset size exceeds the loading limit.")
 
-    # --- Volumetric Data Parsing (Skip Metadata) ---
+    # --- Volumetric Data Parsing ---
+    # Find start of data
     while current_line < len(lines):
         line_content = lines[current_line].strip()
         parts = line_content.split()
         if not parts:
             current_line += 1
             continue
-        if len(parts) < 6:  # Heuristic: Data lines usually have 6 cols
-            current_line += 1
-            continue
-        try:
-            float(parts[0])
-        except ValueError:
-            current_line += 1
-            continue
+
         break
 
-    full_str = " ".join(lines[current_line:])
-    try:
-        data_values = np.fromstring(full_str, sep=" ")
-    except Exception:
-        data_values = np.array([])
+    if current_line >= len(lines):
+        # Allow header-only validation if explicitly requested?
+        # But for 'data', we need data.
+        # Fallback for empty data
+        raise ValueError("Cube contains no volumetric data")
+    else:
+        # Validate every token; whitespace wrapping is independent of grid shape.
+        tokens = " ".join(lines[current_line:]).split()
+        try:
+            data_values = np.fromiter((number(token) for token in tokens), dtype=float)
+        except ValueError as exc:
+            raise ValueError("Malformed cube volumetric data") from exc
 
     n_points = nx * ny * nz
     expected_size = n_points * n_datasets
     actual_size = len(data_values)
 
-    if actual_size > expected_size:
-        excess = actual_size - expected_size
-        data_values = data_values[excess:]  # Trim from start if header noise included
-    elif actual_size < expected_size:
-        pad = np.zeros(expected_size - actual_size)
-        data_values = np.concatenate((data_values, pad))
+    if actual_size != expected_size:
+        raise ValueError(f"Cube data size mismatch: expected {expected_size}, found {actual_size}")
+    if not np.all(np.isfinite(data_values)):
+        raise ValueError("Cube contains nonfinite volumetric values")
 
     if n_datasets > 1:
-        # Take the first data set. Slicing the mixed stream instead returned a
-        # value that belonged to neither orbital.
+        # Values are interleaved point by point; the first n_points of the
+        # mixed stream belong to no single orbital.
         data_values = data_values[0 : n_points * n_datasets : n_datasets]
 
     return {
@@ -315,9 +351,15 @@ class MappedWidget(QWidget):
         self.grid_surf = grid_surf
         self.grid_prop = grid_prop
         self.actor = None
+        self._bound_mol = None
+        self._structure_watch_timer = QTimer(self)
+        self._structure_watch_timer.timeout.connect(self._check_structure_still_bound)
 
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
+        self.warning_label = QLabel()
+        self.warning_label.setWordWrap(True)
+        self.layout.addWidget(self.warning_label)
 
         # Controls
         self.layout.addWidget(QLabel("<b>Surface Isovalue:</b>"))
@@ -453,7 +495,7 @@ class MappedWidget(QWidget):
                     f, transparent_background=self.check_transparent.isChecked()
                 )
                 QMessageBox.information(self, "Success", f"Saved View to {f}")
-            except (RuntimeError, AttributeError, KeyError, ValueError) as e:
+            except (OSError, RuntimeError, AttributeError, KeyError, ValueError) as e:
                 QMessageBox.critical(self, "Error", f"Save failed: {e}")
 
     def export_colorbar(self):
@@ -461,15 +503,18 @@ class MappedWidget(QWidget):
             self, "Save Color Bar", "mapped_colorbar.png", "PNG Image (*.png)"
         )
         if f:
+            pl = None
             try:
+                vmin = self.min_spin.value()
+                vmax = self.max_spin.value()
+                if vmin >= vmax:
+                    raise ValueError("The color minimum must be less than the maximum.")
                 pl = pv.Plotter(off_screen=True, window_size=(2000, 400))
                 if self.check_transparent.isChecked():
                     pl.set_background(None)
                 else:
                     pl.set_background("white")
 
-                vmin = self.min_spin.value()
-                vmax = self.max_spin.value()
                 cmap = self.cmap_combo.currentText()
 
                 mesh = pv.Box()
@@ -508,24 +553,40 @@ class MappedWidget(QWidget):
                 pl.screenshot(
                     f, transparent_background=self.check_transparent.isChecked()
                 )
-                pl.close()
                 QMessageBox.information(self, "Success", f"Saved Color Bar to {f}")
             except Exception as e:
                 logging.exception("Save failed: %s", e)
                 QMessageBox.critical(self, "Error", f"Save failed: {e}")
+            finally:
+                if pl is not None:
+                    pl.close()
 
     def update_mesh(self, auto_fit=False):
         try:
+            # As in PySCF's MappedVisualizer, remove the old actor before
+            # contouring: an empty or failed update must leave no stale surface.
+            self._remove_surface()
+            self.warning_label.clear()
             iso_val = self.iso_spin.value()
             opacity = self.opacity_spin.value()
 
             iso = self.grid_surf.contour([iso_val], scalars="property_values")
             if iso.n_points == 0:
+                self.warning_label.setText("No surface at this isovalue.")
+                self.context.plotter.render()
                 return
 
             mapped = iso.sample(self.grid_prop)
+            valid = mapped.point_data.get("vtkValidPointMask")
+            if valid is None or not np.all(np.asarray(valid) == 1):
+                raise ValueError("The property grid does not cover the whole surface. Choose matching Cube files or a larger property grid.")
+            mvals = np.asarray(mapped.point_data["property_values"])
+            if not np.all(np.isfinite(mvals)):
+                raise ValueError("Mapped surface contains nonfinite property values.")
 
             clim = [self.min_spin.value(), self.max_spin.value()]
+            if clim[0] >= clim[1] and not auto_fit:
+                raise ValueError("The color minimum must be less than the maximum.")
             if auto_fit:
                 mvals = mapped.point_data.get("property_values", None)
                 if mvals is not None and len(mvals) > 0:
@@ -540,9 +601,6 @@ class MappedWidget(QWidget):
                     self.max_spin.blockSignals(True)
                     self.max_spin.setValue(vmax)
                     self.max_spin.blockSignals(False)
-
-            if self.actor:
-                self.context.plotter.remove_actor(self.actor)
 
             self.actor = self.context.plotter.add_mesh(
                 mapped,
@@ -559,33 +617,61 @@ class MappedWidget(QWidget):
 
         except Exception as e:
             logging.warning("Update Error: %s", e)
+            self.warning_label.setText(str(e))
+            self.context.plotter.render()
+
+    def _remove_surface(self):
+        if self.actor is not None:
+            self.context.plotter.remove_actor(self.actor)
+            self.actor = None
+
+    def bind_structure(self, mol):
+        self._bound_mol = mol
+        self._structure_watch_timer.start(1500)
+
+    def _check_structure_still_bound(self):
+        if self._bound_mol is not None and self.context.current_molecule is not self._bound_mol:
+            self._structure_watch_timer.stop()
+            self.close_plugin()
+
+    def closeEvent(self, event):
+        self._structure_watch_timer.stop()
+        try:
+            self._remove_surface()
+        except (RuntimeError, AttributeError, ValueError) as exc:
+            logging.warning("Mapped surface cleanup failed: %s", exc)
+        super().closeEvent(event)
 
     def close_plugin(self):
+        self._structure_watch_timer.stop()
         try:
-            self.context.plotter.remove_actor(self.actor)
+            self._remove_surface()
             self.context.plotter.render()
         except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
             logging.warning("[mapped_cube_viewer.py:485] silenced: %s", _e)
         # Restore 2D editing UI when leaving the 3D viewer mode
         try:
-            if hasattr(self.mw, "ui_manager") and hasattr(
+            owns_structure = self._bound_mol is None or self.context.current_molecule is self._bound_mol
+            if owns_structure and hasattr(self.mw, "ui_manager") and hasattr(
                 self.mw.ui_manager, "restore_ui_for_editing"
             ):
                 self.mw.ui_manager.restore_ui_for_editing()
         except Exception as _e:
             logging.warning("[mapped_cube_viewer.py:490] silenced: %s", _e)
         if self.dock:
-            self.dock.close()
-        try:
-            self.mw.edit_actions_manager.clear_all()
-        except Exception as _e:
-            logging.warning("[mapped_cube_viewer.py:495] silenced: %s", _e)
+            self.mw.removeDockWidget(self.dock)
+            self.dock.deleteLater()
+            self.dock = None
         self.close()
+        self.deleteLater()
 
 
 # --- Entry Point ---
 def run_plugin(context):
     mw = context.get_main_window()
+    if Chem is None:
+        QMessageBox.critical(mw, "Mapped Cube Viewer", "RDKit is required for this plugin.")
+        return
     dlg = MappedCubeSetupDialog(mw)
     if dlg.exec() != QDialog.DialogCode.Accepted:
         return
@@ -596,9 +682,8 @@ def run_plugin(context):
     if not s_file or not p_file:
         return
 
+    progress = None
     try:
-        from PyQt6.QtWidgets import QApplication, QProgressDialog
-
         progress = QProgressDialog("Reading Cube Files...", "Cancel", 0, 2, mw)
         progress.setWindowModality(Qt.WindowModality.WindowModal)
         progress.show()
@@ -607,8 +692,12 @@ def run_plugin(context):
         meta1, grid_surf = read_cube(s_file)
         progress.setValue(1)
         QApplication.processEvents()
+        if progress.wasCanceled():
+            return
 
         meta2, grid_prop = read_cube(p_file)
+        if progress.wasCanceled():
+            return
         progress.setValue(2)
         QApplication.processEvents()
         progress.close()
@@ -622,16 +711,11 @@ def run_plugin(context):
                 s += f"{sym} {p[0]} {p[1]} {p[2]}\n"
             mol = Chem.MolFromXYZBlock(s)
             try:
-                from rdkit.Chem import rdDetermineBonds
-
                 rdDetermineBonds.DetermineConnectivity(mol)
             except Exception as _e:  # noqa: BLE001 - bond perception is optional here
                 # Connectivity is cosmetic; failing it must not stop the viewer
                 # from opening, so this stays broad on purpose.
                 logging.warning("[mapped_cube_viewer.py:538] silenced: %s", _e)
-
-            context.enter_3d_mode()
-            context.current_molecule = mol
 
         # Close existing dock via context
         old_dock = context.get_window("main_panel")
@@ -645,9 +729,15 @@ def run_plugin(context):
             except (RuntimeError, AttributeError) as _e:
                 logging.warning("[mapped_cube_viewer.py:559] silenced: %s", _e)
 
+        # The old viewer may clear molecular state when it closes. Install the
+        # new structure only after that cleanup completes.
+        context.enter_3d_viewer_mode()
+        context.current_molecule = mol
+
         dock = QDockWidget("Mapped Viewer", mw)
         dock.setAllowedAreas(Qt.DockWidgetArea.RightDockWidgetArea)
         widget = MappedWidget(context, dock, grid_surf, grid_prop)
+        widget.bind_structure(mol)
         dock.setWidget(widget)
 
         # [DIRECT ACCESS] for dock injection
@@ -659,6 +749,9 @@ def run_plugin(context):
     except Exception as e:
         logging.exception("Mapped Cube Viewer Error: %s", e)
         context.show_status_message(f"Mapped Cube Viewer Error: {e}")
+    finally:
+        if progress is not None:
+            progress.close()
 
 
 def run(mw):
