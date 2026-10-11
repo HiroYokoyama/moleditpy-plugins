@@ -14,6 +14,7 @@ import ast
 import json
 import logging
 import os
+import re
 import textwrap
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -51,7 +52,7 @@ def _extract_method_as_fn(
                     func_src = ast.get_source_segment(source, item)
                     if func_src:
                         local_ns: dict = {}
-                        globs = {"logging": logging, "os": os, "json": json}
+                        globs = {"logging": logging, "os": os, "json": json, "re": re}
                         globs.update(extra_globals or {})
                         exec(textwrap.dedent(func_src), globs, local_ns)
                         return local_ns[method_name]
@@ -145,6 +146,9 @@ class FakeMol:
         self._atoms = atoms
         self._coords = coords
 
+    def GetAtoms(self):
+        return iter(self._atoms)
+
     def GetNumAtoms(self):
         return len(self._atoms)
 
@@ -161,8 +165,12 @@ def water_mol():
         [(0.0, 0.0, 0.117), (0.0, 0.757, -0.469), (0.0, -0.757, -0.469)],
     )
 
+with mock_optional_imports():
+    _module = load_plugin(PYSCF_PATH)
+
 _pyscf_generate = _extract_method_as_fn(
-    PYSCF_PATH, "PyscfSetupDialog", "generate_content"
+    PYSCF_PATH, "PyscfSetupDialog", "generate_content",
+    {key: getattr(_module, key) for key in ("FUNCTIONALS", "XC_ALIASES", "DISPERSION", "SOLVENTS")},
 )
 
 
@@ -176,6 +184,9 @@ def _pyscf_self(
     mult=1,
     symmetry=True,
     mol=None,
+    reference=None,
+    dispersion="None",
+    solvent="None (Vacuum)",
 ):
     self = MagicMock()
     self.category_combo = FakeCombo(category)
@@ -187,6 +198,14 @@ def _pyscf_self(
     self.mult_spin = FakeSpin(mult)
     self.symmetry_check = FakeCheck(symmetry)
     self.mol = mol
+    self.reference_combo = FakeCombo(reference or ("RKS" if category == "DFT" else "RHF"))
+    self.memory_spin = FakeSpin(4000)
+    self.threads_spin = FakeSpin(2)
+    self.cycles_spin = FakeSpin(100)
+    self.grid_spin = FakeSpin(3)
+    self.tolerance_spin = FakeSpin(1e-9)
+    self.solvent_combo = FakeCombo(solvent)
+    self.dispersion_combo = FakeCombo(dispersion)
     return self
 
 
@@ -204,7 +223,7 @@ class TestPyscfGenerateContent:
         assert "charge=-1," in content
         assert "spin=2," in content  # 2S = mult - 1
         assert "symmetry=True" in content
-        assert "mol.build()" in content
+        assert "mol.build()" not in content
 
     def test_symmetry_false(self):
         content = _pyscf_generate(_pyscf_self(symmetry=False))
@@ -221,7 +240,7 @@ class TestPyscfGenerateContent:
 
     def test_hf_open_shell_uses_rohf(self):
         content = _pyscf_generate(_pyscf_self(category="Hartree-Fock", mult=2))
-        assert "mf = scf.ROHF(mol)" in content
+        assert "mf = scf.UHF(mol)" in content
 
     def test_dft_singlet_rks_with_xc(self):
         content = _pyscf_generate(_pyscf_self(category="DFT", functional="m06"))
@@ -230,7 +249,7 @@ class TestPyscfGenerateContent:
 
     def test_dft_open_shell_roks(self):
         content = _pyscf_generate(_pyscf_self(category="DFT", mult=2))
-        assert "mf = dft.ROKS(mol)" in content
+        assert "mf = dft.UKS(mol)" in content
 
     @pytest.mark.parametrize(
         "ref,expected",
@@ -273,6 +292,33 @@ class TestPyscfGenerateContent:
         assert f"mf = scf.{ref}(mol)" in content
         assert "e_t = mycc.ccsd_t()" in content
 
+    @pytest.mark.parametrize("reference", ["RHF", "UHF", "ROHF"])
+    def test_explicit_hf_references(self, reference):
+        assert f"mf = scf.{reference}(mol)" in _pyscf_generate(_pyscf_self(reference=reference))
+
+    @pytest.mark.parametrize("reference", ["RKS", "UKS", "ROKS"])
+    def test_explicit_dft_references(self, reference):
+        assert f"mf = dft.{reference}(mol)" in _pyscf_generate(_pyscf_self(category="DFT", reference=reference))
+
+    @pytest.mark.parametrize("functional", _module.FUNCTIONALS)
+    def test_all_calculator_functionals_produce_python(self, functional):
+        code = _pyscf_generate(_pyscf_self(category="DFT", functional=functional, mol=water_mol()))
+        ast.parse(code)
+        assert repr(_module.XC_ALIASES.get(functional, functional)) in code
+
+    def test_rejects_double_counted_dispersion(self):
+        with pytest.raises(ValueError, match="VV10"):
+            _pyscf_generate(_pyscf_self(category="DFT", functional="wb97x-v", dispersion="D3(BJ)"))
+
+    def test_solvent_dispersion_and_resources(self):
+        code = _pyscf_generate(_pyscf_self(category="DFT", solvent="Water", dispersion="D4"))
+        ast.parse(code)
+        for line in ["lib.num_threads(2)", "    max_memory=4000,", "mf.max_cycle = 100",
+                     "mf.conv_tol = 1e-09", "mf.disp = 'd4'", "mf.with_solvent.eps = 78.2"]:
+            assert line in code.splitlines()
+        assert "mol.build()" not in code
+        assert "if not mf.converged:" in code
+
     def test_chkfile_uses_filename_hint(self):
         content = _pyscf_generate(_pyscf_self(), filename_hint="myjob")
         assert "mf.chkfile = 'myjob.chk'" in content
@@ -291,6 +337,7 @@ class TestPyscfSaveFile:
         )
         self = MagicMock()
         self.filename = None
+        self._generation_error = None
         self.preview_text = FakeText(content)
         fn(self)
         return target.read_text(encoding="utf-8")

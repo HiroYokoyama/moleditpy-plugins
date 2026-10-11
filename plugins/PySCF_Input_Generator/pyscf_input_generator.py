@@ -1,12 +1,15 @@
 # -*- coding: utf-8 -*-
 import os
 import json
+import logging
+import re
 from PyQt6.QtWidgets import (
     QMessageBox,
     QDialog,
     QVBoxLayout,
     QLabel,
     QSpinBox,
+    QDoubleSpinBox,
     QPushButton,
     QGroupBox,
     QHBoxLayout,
@@ -20,14 +23,34 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 from rdkit import Chem
-import logging
 
 PLUGIN_NAME = "PySCF Input Generator"
-PLUGIN_VERSION = "2026.09.24"
+PLUGIN_VERSION = "2026.10.12"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Generates Python scripts for PySCF quantum chemistry calculations."
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "pyscf_input_generator.json")
+
+FUNCTIONALS = [
+    "b3lyp", "pbe", "bp86", "blyp", "pw91", "pbe0", "b3pw91", "hse06",
+    "tpss", "scan", "r2scan", "m06-l", "m06", "m06-2x", "tpssh", "m11",
+    "wb97x-v", "wb97m-v", "cam-b3lyp", "lrc-wpbe", "lrc-wpbeh", "lda", "svwn",
+]
+BASES = [
+    "sto-3g", "3-21g", "6-31g", "6-31+g", "6-31g*", "6-31+g*", "6-31++g**",
+    "6-311g", "6-311g*", "6-311+g*", "6-311++g**", "6-311++g(2d,2p)",
+    "6-311++g(3df,3pd)", "cc-pvdz", "cc-pvtz", "cc-pvqz", "cc-pv5z",
+    "aug-cc-pvdz", "aug-cc-pvtz", "aug-cc-pvqz", "def2-svp", "def2-tzvp",
+    "def2-qzvp", "def2-tzvpp", "def2-qzvpp", "ma-def2-svp", "ma-def2-tzvp",
+    "ma-def2-qzvp", "lanl2dz",
+]
+XC_ALIASES = {"m11": "hyb_mgga_x_m11,mgga_c_m11"}
+DISPERSION = {"None": None, "D3(BJ)": "d3bj", "D3(zero)": "d3zero", "D4": "d4"}
+SOLVENTS = {
+    "None (Vacuum)": None, "Water": 78.2, "Ethanol": 24.5, "Methanol": 32.7,
+    "Acetone": 20.7, "THF": 7.58, "Chloroform": 4.81,
+    "Dichloromethane": 8.93, "Toluene": 2.38, "Benzene": 2.27,
+}
 
 
 class PyscfSetupDialog(QDialog):
@@ -76,9 +99,7 @@ class PyscfSetupDialog(QDialog):
         method_layout.addRow("Category:", self.category_combo)
 
         self.functional_combo = QComboBox()  # For DFT
-        self.functional_combo.addItems(
-            ["b3lyp", "pbe", "blyp", "svwn", "m06", "wb97x-d"]
-        )
+        self.functional_combo.addItems(FUNCTIONALS)
         self.functional_combo.setEnabled(False)
         self.functional_combo.currentIndexChanged.connect(self.update_preview)
         method_layout.addRow("Functional (DFT):", self.functional_combo)
@@ -95,6 +116,11 @@ class PyscfSetupDialog(QDialog):
         self.post_hf_ref_combo.currentIndexChanged.connect(self.update_preview)
         method_layout.addRow("Post-HF Reference:", self.post_hf_ref_combo)
 
+        self.reference_combo = QComboBox()
+        self.reference_combo.addItems(["RHF", "UHF", "ROHF", "RKS", "UKS", "ROKS"])
+        self.reference_combo.currentIndexChanged.connect(self.update_preview)
+        method_layout.addRow("HF/DFT Reference:", self.reference_combo)
+
         method_group.setLayout(method_layout)
         layout.addWidget(method_group)
 
@@ -103,9 +129,7 @@ class PyscfSetupDialog(QDialog):
         mol_layout = QFormLayout()
 
         self.basis_combo = QComboBox()
-        self.basis_combo.addItems(
-            ["sto-3g", "6-31g", "6-31g*", "cc-pvdz", "cc-pvtz", "def2-svp", "def2-tzvp"]
-        )
+        self.basis_combo.addItems(BASES)
         self.basis_combo.setCurrentText("def2-svp")
         self.basis_combo.currentIndexChanged.connect(self.update_preview)
         mol_layout.addRow("Basis Set:", self.basis_combo)
@@ -128,12 +152,52 @@ class PyscfSetupDialog(QDialog):
         mol_layout.addRow(cs_layout)
 
         self.symmetry_check = QCheckBox("Use Symmetry")
-        self.symmetry_check.setChecked(True)
+        self.symmetry_check.setChecked(False)
         self.symmetry_check.toggled.connect(self.update_preview)
         mol_layout.addRow(self.symmetry_check)
 
         mol_group.setLayout(mol_layout)
         layout.addWidget(mol_group)
+
+        options_group = QGroupBox("Calculation Options")
+        options_layout = QFormLayout()
+        self.memory_spin = QSpinBox()
+        self.memory_spin.setRange(100, 1000000)
+        self.memory_spin.setValue(4000)
+        self.threads_spin = QSpinBox()
+        self.threads_spin.setRange(0, 1024)
+        self.cycles_spin = QSpinBox()
+        self.cycles_spin.setRange(1, 2000)
+        self.cycles_spin.setValue(100)
+        self.grid_spin = QSpinBox()
+        self.grid_spin.setRange(0, 9)
+        self.grid_spin.setValue(3)
+        self.tolerance_spin = QDoubleSpinBox()
+        self.tolerance_spin.setDecimals(12)
+        self.tolerance_spin.setRange(1e-12, 1)
+        self.tolerance_spin.setValue(1e-9)
+        self.numeric_options = {
+            "memory": self.memory_spin, "threads": self.threads_spin,
+            "cycles": self.cycles_spin, "grid": self.grid_spin,
+            "tolerance": self.tolerance_spin,
+        }
+        for label, widget in (
+            ("Memory (MB):", self.memory_spin), ("Threads (0 = auto):", self.threads_spin),
+            ("SCF cycles:", self.cycles_spin), ("DFT grid:", self.grid_spin),
+            ("SCF tolerance:", self.tolerance_spin),
+        ):
+            widget.valueChanged.connect(self.update_preview)
+            options_layout.addRow(label, widget)
+        self.solvent_combo = QComboBox()
+        self.solvent_combo.addItems(list(SOLVENTS))
+        self.dispersion_combo = QComboBox()
+        self.dispersion_combo.addItems(list(DISPERSION))
+        for label, widget in (("Solvent (ddCOSMO):", self.solvent_combo),
+                              ("Dispersion:", self.dispersion_combo)):
+            widget.currentIndexChanged.connect(self.update_preview)
+            options_layout.addRow(label, widget)
+        options_group.setLayout(options_layout)
+        layout.addWidget(options_group)
 
         # --- Preview ---
         preview_group = QGroupBox("Preview (Python Code)")
@@ -192,12 +256,35 @@ class PyscfSetupDialog(QDialog):
         self.functional_combo.setEnabled(cat == "DFT")
         self.post_hf_combo.setEnabled("Post-HF" in cat)
         self.post_hf_ref_combo.setEnabled("Post-HF" in cat)
+        self.reference_combo.setEnabled("Post-HF" not in cat)
+        reference = self.reference_combo.currentText()
+        if cat == "DFT" and reference.endswith("HF"):
+            self.reference_combo.setCurrentText(reference.replace("HF", "KS"))
+        elif cat == "Hartree-Fock" and reference.endswith("KS"):
+            self.reference_combo.setCurrentText(reference.replace("KS", "HF"))
         self.update_preview()
 
     def generate_content(self, filename_hint="job"):
+        cat = self.category_combo.currentText()
+        functional = self.functional_combo.currentText()
+        dispersion = DISPERSION[self.dispersion_combo.currentText()]
+        solvent_eps = SOLVENTS[self.solvent_combo.currentText()]
+        if cat == "DFT" and functional not in FUNCTIONALS:
+            raise ValueError(f"Unsupported PySCF functional: {functional}")
+        if cat == "DFT" and functional.endswith("-v") and dispersion:
+            raise ValueError("VV10 functionals already include dispersion; select None.")
+        if "Post-HF" in cat and dispersion:
+            raise ValueError("Dispersion corrections are available for HF and DFT jobs.")
         lines = []
         lines.append("from pyscf import gto, scf, dft, mp, cc")
+        lines.append("from pyscf import lib")
+        if solvent_eps is not None:
+            lines.append("from pyscf import solvent")
+        if dispersion:
+            lines.append("from pyscf import dispersion  # requires pyscf-dispersion")
         lines.append("")
+        if self.threads_spin.value():
+            lines.append(f"lib.num_threads({self.threads_spin.value()})")
 
         # Molecule
         lines.append("mol = gto.M(")
@@ -213,6 +300,17 @@ class PyscfSetupDialog(QDialog):
         lines.append("    ''',")
 
         lines.append(f"    basis='{self.basis_combo.currentText()}',")
+        basis = self.basis_combo.currentText()
+        ecp = {}
+        if self.mol:
+            for atom in self.mol.GetAtoms():
+                if basis == "lanl2dz" and atom.GetAtomicNum() > 10:
+                    ecp[atom.GetSymbol()] = "lanl2dz"
+                elif (basis.startswith("def2-") or basis.startswith("ma-def2-")) and atom.GetAtomicNum() > 36:
+                    ecp[atom.GetSymbol()] = "def2-svp"
+        if ecp:
+            lines.append(f"    ecp={ecp!r},")
+        lines.append(f"    max_memory={self.memory_spin.value()},")
         lines.append(f"    charge={self.charge_spin.value()},")
 
         mult = self.mult_spin.value()
@@ -222,39 +320,40 @@ class PyscfSetupDialog(QDialog):
         sym = "True" if self.symmetry_check.isChecked() else "False"
         lines.append(f"    symmetry={sym}")
         lines.append(")")
-        lines.append("mol.build()")
         lines.append("")
 
         # Method
         cat = self.category_combo.currentText()
 
-        if cat == "Hartree-Fock":
-            if mult == 1:
-                lines.append("mf = scf.RHF(mol)")
-            else:
-                lines.append("mf = scf.ROHF(mol)")
-        elif cat == "DFT":
-            func = self.functional_combo.currentText()
-            if mult == 1:
-                lines.append("mf = dft.RKS(mol)")
-            else:
-                lines.append("mf = dft.ROKS(mol)")
-            lines.append(f"mf.xc = '{func}'")
-        elif "Post-HF" in cat:
-            ref_type = self.post_hf_ref_combo.currentText()
-            if ref_type == "RHF":
-                lines.append("mf = scf.RHF(mol)")
-            elif ref_type == "UHF":
-                lines.append("mf = scf.UHF(mol)")
-            elif ref_type == "ROHF":
-                lines.append("mf = scf.ROHF(mol)")
+        reference = (self.post_hf_ref_combo.currentText() if "Post-HF" in cat
+                     else self.reference_combo.currentText())
+        allowed = ("RKS", "UKS", "ROKS") if cat == "DFT" else ("RHF", "UHF", "ROHF")
+        if reference not in allowed:
+            raise ValueError(f"{cat} requires one of {', '.join(allowed)}.")
+        if mult > 1 and reference in ("RHF", "RKS"):
+            reference = "UHF" if reference == "RHF" else "UKS"
+        namespace = "dft" if cat == "DFT" else "scf"
+        lines.append(f"mf = {namespace}.{reference}(mol)")
+        if cat == "DFT":
+            lines.append(f"mf.xc = {XC_ALIASES.get(functional, functional)!r}")
+            lines.append(f"mf.grids.level = {self.grid_spin.value()}")
+            if self.grid_spin.value() >= 4:
+                lines.append("mf.grids.prune = None")
+        if solvent_eps is not None:
+            lines.append("mf = solvent.ddCOSMO(mf)")
+            lines.append(f"mf.with_solvent.eps = {solvent_eps}")
+        if dispersion:
+            lines.append(f"mf.disp = {dispersion!r}")
+        lines.append(f"mf.max_cycle = {self.cycles_spin.value()}")
+        lines.append(f"mf.conv_tol = {self.tolerance_spin.value()!r}")
 
         # Checkpoint file logic
         # Default hint is 'job', but will be updated on save
         chk_name = f"{filename_hint}.chk"
-        lines.append(f"mf.chkfile = '{chk_name}'")
+        lines.append(f"mf.chkfile = {chk_name!r}")
 
         lines.append("mf.kernel()")
+        lines.extend(["if not mf.converged:", "    raise RuntimeError('SCF did not converge')"])
         lines.append("")
 
         if "Post-HF" in cat:
@@ -278,10 +377,17 @@ class PyscfSetupDialog(QDialog):
         return "\n".join(lines)
 
     def update_preview(self):
-        # Use a placeholder when just previewing
-        self.preview_text.setText(self.generate_content(filename_hint="[filename]"))
+        self._generation_error = None
+        try:
+            self.preview_text.setText(self.generate_content(filename_hint="[filename]"))
+        except ValueError as exc:
+            self._generation_error = str(exc)
+            self.preview_text.setText(f"# Invalid input: {exc}")
 
     def save_file(self):
+        if self._generation_error:
+            QMessageBox.warning(self, "Invalid PySCF input", self._generation_error)
+            return
         default_name = "pyscf_job.py"
         if self.filename:
             base = os.path.splitext(os.path.basename(self.filename))[0]
@@ -299,16 +405,14 @@ class PyscfSetupDialog(QDialog):
                 # User request: "chk file name space will be inputted in saving"
 
                 base_name = os.path.splitext(os.path.basename(path))[0]
-                chk_line = f"mf.chkfile = '{base_name}.chk'"
+                chk_line = f"mf.chkfile = {(base_name + '.chk')!r}"
 
                 content = self.preview_text.toPlainText()
 
-                # Simple replacement regex-like
-                import re
-
-                if "mf.chkfile =" in content:
+                chk_pattern = r"(?m)^([ \t]*)mf\.chkfile\s*=[^\n]*$"
+                if re.search(chk_pattern, content):
                     content = re.sub(
-                        r"mf\.chkfile\s*=\s*['\"].*['\"]", chk_line, content
+                        chk_pattern, lambda match: match[1] + chk_line, content
                     )
                 else:
                     # Insert before kernel
@@ -319,12 +423,12 @@ class PyscfSetupDialog(QDialog):
                     else:
                         content += f"\n{chk_line}\n"
 
-                with open(path, "w", encoding="utf-8") as f:
+                with open(path, "w", encoding="utf-8", newline="\n") as f:
                     f.write(content)
 
                 QMessageBox.information(self, "Success", f"File saved to {path}")
                 # Do not close automatically
-            except Exception as e:
+            except OSError as e:
                 QMessageBox.critical(self, "Error", str(e))
 
     # --- Preset Management ---
@@ -353,6 +457,14 @@ class PyscfSetupDialog(QDialog):
         if name not in self.presets_data:
             return
         data = self.presets_data[name]
+        if data.get("functional", "b3lyp") not in FUNCTIONALS:
+            QMessageBox.warning(self, "Unsupported preset", "Select a supported PySCF functional before using this preset.")
+            return
+        option_widgets = list(self.numeric_options.values()) + [
+            self.reference_combo, self.solvent_combo, self.dispersion_combo,
+        ]
+        for widget in option_widgets:
+            widget.blockSignals(True)
 
         # Block signals to prevent redundant updates
         self.category_combo.blockSignals(True)
@@ -368,7 +480,15 @@ class PyscfSetupDialog(QDialog):
         self.post_hf_combo.setCurrentText(data.get("post_hf", "MP2"))
         self.post_hf_ref_combo.setCurrentText(data.get("post_hf_ref", "RHF"))
         self.basis_combo.setCurrentText(data.get("basis", "def2-svp"))
-        self.symmetry_check.setChecked(data.get("symmetry", True))
+        self.symmetry_check.setChecked(data.get("symmetry", False))
+        self.reference_combo.setCurrentText(data.get("reference", "RKS" if data.get("category") == "DFT" else "RHF"))
+        for key, widget in self.numeric_options.items():
+            if key in data:
+                widget.setValue(data[key])
+        self.solvent_combo.setCurrentText(data.get("solvent", "None (Vacuum)"))
+        self.dispersion_combo.setCurrentText(data.get("dispersion", "None"))
+        for widget in option_widgets:
+            widget.blockSignals(False)
 
         self.category_combo.blockSignals(False)
         self.functional_combo.blockSignals(False)
@@ -389,6 +509,10 @@ class PyscfSetupDialog(QDialog):
                 "post_hf_ref": self.post_hf_ref_combo.currentText(),
                 "basis": self.basis_combo.currentText(),
                 "symmetry": self.symmetry_check.isChecked(),
+                "reference": self.reference_combo.currentText(),
+                "solvent": self.solvent_combo.currentText(),
+                "dispersion": self.dispersion_combo.currentText(),
+                **{key: widget.value() for key, widget in self.numeric_options.items()},
             }
             self.save_presets_to_file()
             self.update_preset_combo()

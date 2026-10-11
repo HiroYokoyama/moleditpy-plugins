@@ -61,3 +61,23 @@ for open-shell jobs, and HF/correlation jobs reject KS references. Output names
 are Python string literals; saving replaces the complete output-setting line,
 including names with quotes or parentheses. Imports are at module scope and
 files use LF. 37 logic tests and 25 Qt tests passed. Psi4 is not installed.
+
+## PySCF
+
+Sources: local `moleditpy_pyscf-calculator/pyscf_calculator/calc_tab.py` and
+`worker.py`; [DFT](https://pyscf.org/user/dft.html),
+[molecules and ECPs](https://pyscf.org/user/gto.html),
+[dispersion implementation](https://pyscf.org/_modules/pyscf/scf/dispersion.html).
+
+Functional and basis choices match the Calculator, including its M11 LibXC
+alias. HF/DFT references include all six Calculator choices. Memory, threads,
+SCF cycles/tolerance, grid, ddCOSMO solvents and dispersion controls are saved in
+presets. Symmetry defaults off. Open-shell restricted defaults become UHF/UKS;
+explicit ROHF/ROKS remain available. Unsupported WB97X-D presets are rejected.
+VV10 plus additional dispersion is rejected, as is a dispersion correction on
+a correlated job. LANL2DZ and heavy-element def2 bases emit matching ECPs.
+The generated script stops on unconverged SCF before post-HF work. Checkpoint
+names are escaped Python literals, and redundant molecule rebuilding is removed.
+62 logic tests and 53 Qt tests passed, including Python syntax checks for each
+functional, option presets and error recovery. PySCF is not installed here;
+these checks do not establish SCF convergence or replace engine execution.
