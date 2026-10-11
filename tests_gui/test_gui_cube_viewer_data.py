@@ -5,10 +5,10 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-import numpy as np
 import pytest
 from PyQt6.QtWidgets import QFileDialog, QMessageBox, QWidget
 
+np = pytest.importorskip("numpy")
 pv = pytest.importorskip("pyvista")
 pytest.importorskip("rdkit")
 
