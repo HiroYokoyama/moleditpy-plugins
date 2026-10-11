@@ -13,7 +13,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 
 PLUGIN_NAME = "Structural Updater"
-PLUGIN_VERSION = "2026.09.24"
+PLUGIN_VERSION = "2026.10.13"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Applies 2D structural changes to 3D conformation without full re-embedding."
@@ -455,10 +455,13 @@ class StructuralUpdaterPlugin:
 
 def initialize(context):
     global _PLUGIN_INSTANCE
+    if _PLUGIN_INSTANCE is not None:
+        finalize()
     _PLUGIN_INSTANCE = StructuralUpdaterPlugin(context)
 
 
 def finalize():
+    global _PLUGIN_INSTANCE
     # Restore original methods where they were patched (compute_manager,
     # not the MainWindow itself — see patch_mainwindow).
     if _PLUGIN_INSTANCE is None:
@@ -466,3 +469,13 @@ def finalize():
     mw = _PLUGIN_INSTANCE.mw
     for name, method in _ORIGINAL_METHODS.items():
         setattr(mw.compute_manager, name, method)
+
+    _PLUGIN_INSTANCE.timer.stop()
+    try:
+        mw.init_manager.convert_button.clicked.disconnect(_PLUGIN_INSTANCE.new_trigger_conversion)
+    except (TypeError, RuntimeError):
+        pass
+    if 'trigger_conversion' in _ORIGINAL_METHODS:
+        mw.init_manager.convert_button.clicked.connect(_ORIGINAL_METHODS['trigger_conversion'])
+    _ORIGINAL_METHODS.clear()
+    _PLUGIN_INSTANCE = None

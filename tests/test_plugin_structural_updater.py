@@ -395,7 +395,7 @@ class TestUpdaterFinalize:
             mod._ORIGINAL_METHODS.clear()
             mod._ORIGINAL_METHODS["trigger_conversion"] = orig_trigger
             mod._ORIGINAL_METHODS["on_calculation_finished"] = orig_finished
-            mod._PLUGIN_INSTANCE = SimpleNamespace(mw=mw)
+            mod._PLUGIN_INSTANCE = SimpleNamespace(mw=mw, timer=MagicMock(), new_trigger_conversion=MagicMock())
 
             mod.finalize()
 
