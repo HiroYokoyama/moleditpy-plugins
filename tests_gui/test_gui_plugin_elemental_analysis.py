@@ -65,7 +65,7 @@ class _FakeChem:
 
 class _FakeRDMolDescriptors:
     @staticmethod
-    def CalcMolFormula(mol):
+    def CalcMolFormula(mol, **kwargs):
         return mol.formula
 
 
@@ -301,3 +301,58 @@ class TestInitialize:
         ea.initialize(ctx)
         ctx.add_analysis_tool.call_args[0][1]()
         ctx.show_status_message.assert_called_once()
+
+
+
+def test_manual_formula_survives_polling_with_sync_off(dlg):
+    dlg.formula_input.setText("C2H6O")
+    dlg.context.current_molecule = SimpleNamespace(formula="H2O")
+    dlg.sync_check.setChecked(False)
+    dlg.check_update()
+    assert dlg.formula_input.text() == "C2H6O"
+
+
+def test_empty_document_clears_synced_results(dlg):
+    dlg.formula_input.setText("C2H6O")
+    dlg.context.current_molecule = None
+    dlg.sync_check.setChecked(True)
+    dlg.check_update()
+    assert dlg.formula_input.text() == ""
+    assert dlg.rows == []
+
+
+def test_reopening_restarts_sync_timer(dlg):
+    dlg.sync_check.setChecked(True)
+    dlg.show()
+    dlg.close()
+    assert not dlg.timer.isActive()
+    dlg.show()
+    assert dlg.timer.isActive()
+    dlg.close()
+
+
+def test_real_isotope_sync_and_composition(qapp, monkeypatch):
+    Chem = pytest.importorskip("rdkit.Chem")
+    rdmd = pytest.importorskip("rdkit.Chem.rdMolDescriptors")
+    monkeypatch.setattr(ea, "Chem", Chem)
+    monkeypatch.setattr(ea, "rdMolDescriptors", rdmd)
+    mol = Chem.MolFromSmiles("[13CH3][2H]")
+    d = ea.ElementalAnalysisDialog(_context(mol=mol))
+    try:
+        d.sync_check.setChecked(True)
+        d.check_update()
+        assert d.formula_input.text() == "[13C]H3D"
+        assert {r[0] for r in d.rows} == {"[13C]", "H", "D"}
+        assert "C," in d.lbl_report.text() and "H," in d.lbl_report.text()
+    finally:
+        d.close()
+
+
+
+def test_manual_fractional_solvate_is_calculated(dlg):
+    dlg.formula_input.setText("C6H6·0.0001H2O")
+    assert dlg.total_formula == "C6H6·0.0001H2O"
+    counts = {row[0]: row[1] for row in dlg.rows}
+    assert counts["O"] == pytest.approx(0.0001)
+    assert counts["H"] == pytest.approx(6.0002)
+    assert ea.format_count(counts["O"]) == "0.0001"

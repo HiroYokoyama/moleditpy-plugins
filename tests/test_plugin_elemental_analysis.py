@@ -191,3 +191,29 @@ class TestMetadataAndInitialize:
         assert sc.get_main_window() is None
         sc.register_window("main_panel", "w")
         assert sc.get_window("main_panel") == "w"
+
+
+@pytest.mark.parametrize("formula", ["(CH2", "CH2)", "()", "C0H4", "H+O", "C" + "9" * 5000])
+def test_malformed_formulas_are_rejected(formula):
+    assert ea.parse_formula(formula) is None
+
+
+def test_isotope_formula_and_elemental_percentages():
+    pt = pytest.importorskip("rdkit.Chem").GetPeriodicTable()
+    counts = ea.parse_formula("[13C]H3D")
+    assert counts == {"[13C]": 1, "H": 3, "D": 1}
+    assert ea.format_formula(counts) == "[13C]H3D"
+    rows, mass = ea.calc_composition(pt, counts)
+    carbon = pt.GetMassForIsotope(6, 13)
+    expected_mass = carbon + 3 * pt.GetAtomicWeight("H") + ea.HYDROGEN_ISOTOPE_MASSES["D"]
+    assert mass == pytest.approx(expected_mass)
+    report = ea.analysis_line(ea.format_formula(counts), rows)
+    assert f"C, {100 * carbon / mass:.2f}" in report
+    assert f"H, {100 * (mass - carbon) / mass:.2f}" in report
+    assert sum(row[3] for row in rows) == pytest.approx(100)
+
+
+def test_unknown_explicit_isotope_is_rejected():
+    pt = pytest.importorskip("rdkit.Chem").GetPeriodicTable()
+    with pytest.raises(ValueError):
+        ea.calc_composition(pt, {"[999C]": 1})
