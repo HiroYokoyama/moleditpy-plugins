@@ -271,6 +271,11 @@ def _install_fake_ase_stack(monkeypatch, lbfgs_cls, atoms_cls=_FakeAtoms):
     fake_tblite.ase = fake_tblite_ase
     monkeypatch.setitem(sys.modules, "tblite", fake_tblite)
     monkeypatch.setitem(sys.modules, "tblite.ase", fake_tblite_ase)
+    monkeypatch.setattr(_xtb, 'np', fake_numpy, raising=False)
+    monkeypatch.setattr(_xtb, 'Atoms', atoms_cls, raising=False)
+    monkeypatch.setattr(_xtb, 'LBFGS', lbfgs_cls, raising=False)
+    monkeypatch.setattr(_xtb, 'TBLite', fake_tblite_ase.TBLite, raising=False)
+    monkeypatch.setattr(_xtb, '_BACKEND_IMPORT_ERROR', None)
 
 
 def _make_worker(**overrides):
@@ -378,6 +383,7 @@ class TestXtbWorkerRun:
         ImportError branch and report a helpful message."""
         monkeypatch.delitem(sys.modules, "tblite", raising=False)
         monkeypatch.delitem(sys.modules, "tblite.ase", raising=False)
+        monkeypatch.setattr(_xtb, "_BACKEND_IMPORT_ERROR", "No module named tblite")
         w = _make_worker()
         finished = {}
         w.result_ready.connect(lambda ok, payload: finished.update(ok=ok, payload=payload))

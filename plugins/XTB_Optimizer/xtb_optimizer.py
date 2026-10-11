@@ -42,6 +42,16 @@ from PyQt6.QtWidgets import (
 from rdkit import Chem
 from rdkit.Chem import GetPeriodicTable
 
+_BACKEND_IMPORT_ERROR = None
+try:
+    import numpy as np
+    from ase import Atoms
+    from ase.optimize import LBFGS
+    from tblite.ase import TBLite
+except ImportError as exc:
+    _BACKEND_IMPORT_ERROR = str(exc)
+
+
 # ---------------------------------------------------------------------------
 # Plugin metadata
 # ---------------------------------------------------------------------------
@@ -133,10 +143,8 @@ class XtbWorker(QThread):
     def run(self):
         """Entry point executed on the worker thread."""
         try:
-            import numpy as np
-            from ase import Atoms
-            from ase.optimize import LBFGS
-            from tblite.ase import TBLite
+            if _BACKEND_IMPORT_ERROR is not None:
+                raise ImportError(_BACKEND_IMPORT_ERROR)
 
             self.log_message.emit(
                 f"Starting {self._method} optimization  "
