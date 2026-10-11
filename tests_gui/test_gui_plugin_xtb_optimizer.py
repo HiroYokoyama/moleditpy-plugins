@@ -294,7 +294,7 @@ class TestXtbWorkerRun:
         steps = []
         finished = {}
         w.step_update.connect(lambda s, e, f: steps.append((s, e, f)))
-        w.finished.connect(lambda ok, payload: finished.update(ok=ok, payload=payload))
+        w.result_ready.connect(lambda ok, payload: finished.update(ok=ok, payload=payload))
         w.run()
         assert len(steps) == 3
         assert finished["ok"] is True
@@ -308,7 +308,7 @@ class TestXtbWorkerRun:
         logs = []
         finished = {}
         w.log_message.connect(logs.append)
-        w.finished.connect(lambda ok, payload: finished.update(ok=ok, payload=payload))
+        w.result_ready.connect(lambda ok, payload: finished.update(ok=ok, payload=payload))
         w.run()
         assert finished["ok"] is True
         assert any("max steps" in m for m in logs)
@@ -343,7 +343,7 @@ class TestXtbWorkerRun:
         finished = {}
         logs = []
         w.log_message.connect(logs.append)
-        w.finished.connect(lambda ok, payload: finished.update(ok=ok, payload=payload))
+        w.result_ready.connect(lambda ok, payload: finished.update(ok=ok, payload=payload))
         w.run()
         assert finished == {"ok": False, "payload": "Cancelled by user."}
         assert any("cancelled" in m.lower() for m in logs)
@@ -356,7 +356,7 @@ class TestXtbWorkerRun:
         _install_fake_ase_stack(monkeypatch, _BoomLBFGS)
         w = _make_worker()
         finished = {}
-        w.finished.connect(lambda ok, payload: finished.update(ok=ok, payload=payload))
+        w.result_ready.connect(lambda ok, payload: finished.update(ok=ok, payload=payload))
         w.run()
         assert finished["ok"] is False
         assert "SCF did not converge" in finished["payload"]
@@ -368,7 +368,7 @@ class TestXtbWorkerRun:
         _install_fake_ase_stack(monkeypatch, _FakeLBFGS, atoms_cls=_boom_atoms)
         w = _make_worker()
         finished = {}
-        w.finished.connect(lambda ok, payload: finished.update(ok=ok, payload=payload))
+        w.result_ready.connect(lambda ok, payload: finished.update(ok=ok, payload=payload))
         w.run()
         assert finished["ok"] is False
         assert "bad atom data" in finished["payload"]
@@ -380,7 +380,7 @@ class TestXtbWorkerRun:
         monkeypatch.delitem(sys.modules, "tblite.ase", raising=False)
         w = _make_worker()
         finished = {}
-        w.finished.connect(lambda ok, payload: finished.update(ok=ok, payload=payload))
+        w.result_ready.connect(lambda ok, payload: finished.update(ok=ok, payload=payload))
         w.run()
         assert finished["ok"] is False
         assert "Missing dependency" in finished["payload"]
@@ -564,3 +564,34 @@ class TestRunPluginCreatesDialog:
         assert key == "main_panel"
         assert isinstance(win, _xtb.XtbOptimizerDialog)
         win.destroy()
+
+
+def test_close_wait_timeout_keeps_dialog_alive(qapp, monkeypatch):
+    dlg = _xtb.XtbOptimizerDialog(_ctx())
+    worker = MagicMock()
+    worker.isRunning.return_value = True
+    worker.wait.return_value = False
+    dlg._worker = worker
+    monkeypatch.setattr(_xtb.QMessageBox, 'question', lambda *a: _xtb.QMessageBox.StandardButton.Yes)
+    dlg.show()
+    dlg.reject()
+    assert dlg.isVisible()
+    worker.cancel.assert_called_once()
+    assert dlg._worker is worker
+    dlg._worker = None
+    dlg.reject()
+    dlg.destroy()
+
+
+@pytest.mark.parametrize('positions', [[[0, 0, 0], [1, float('nan'), 0]], [[0, 0, 0], [1, 0]]])
+def test_invalid_result_is_rejected_before_any_coordinate_write(qapp, positions):
+    ctx = _ctx()
+    mol = MagicMock()
+    mol.GetNumAtoms.return_value = 2
+    ctx.current_mol = mol
+    dlg = _xtb.XtbOptimizerDialog(ctx)
+    dlg._run_mol = mol
+    dlg._on_finished(True, positions)
+    mol.GetConformer.assert_not_called()
+    ctx.push_undo_checkpoint.assert_not_called()
+    dlg.destroy()
