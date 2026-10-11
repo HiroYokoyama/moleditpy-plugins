@@ -10,17 +10,25 @@ from __future__ import annotations
 
 import ast
 import textwrap
+import re
 from pathlib import Path
 
 import pytest
 
-from conftest import extract_function, load_plugin, mock_optional_imports
+from conftest import extract_function as _extract_function, load_plugin, mock_optional_imports
 
 PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
 MS_PATH = PLUGINS_DIR / "MS_Spectrum_Simulation_Neo" / "ms_spectrum_neo.py"
 
 with mock_optional_imports():
     _ms = load_plugin(MS_PATH)
+
+def extract_function(path, cls, name, extra_globals=None):
+    globs = {"re": re, "_isotope_mass": _ms._isotope_mass,
+             "MAX_ISOTOPE_ATOMS": _ms.MAX_ISOTOPE_ATOMS}
+    globs.update(extra_globals or {})
+    return _extract_function(path, cls, name, extra_globals=globs)
+
 
 # MSSpectrumDialog methods — self is unused in all of them
 _parse_formula_str = extract_function(MS_PATH, "MSSpectrumDialog", "parse_formula_str")
@@ -132,6 +140,8 @@ def _extract_method_source(path: Path, class_name: str, method_name: str) -> str
 
 
 def _make_function(src: str, namespace: dict):
+    if "apply_gaussian_broadening" in src:
+        namespace = {"np": pytest.importorskip("numpy"), "MAX_PROFILE_POINTS": _ms.MAX_PROFILE_POINTS, **namespace}
     exec(src, namespace)  # noqa: S102 - test-only extraction
     name = src.split("def ", 1)[1].split("(", 1)[0]
     return namespace[name]
@@ -721,3 +731,38 @@ class TestMassHelpers:
         assert self.fake.monoisotopic_mass(self.pt, {"D": 2}) == pytest.approx(
             2 * 2.0141017781, abs=1e-9
         )
+
+
+@pytest.mark.parametrize("formula", ["(CH2", "CH2)", "()", "C0H4", "H+O", "C" + "9" * 5000])
+def test_malformed_formulas_are_rejected(formula):
+    assert _parse_formula_str(None, formula) is None
+
+
+def test_labeled_carbon_is_a_pure_isotope():
+    pt = pytest.importorskip("rdkit.Chem").GetPeriodicTable()
+    fake = _FakeDialogForPeaks("[13C]H3D", charge=1)
+    assert fake.isotope_distribution(pt, "[13C]") == [(pt.GetMassForIsotope(6, 13), 1)]
+    assert fake.monoisotopic_mass(pt, {"[13C]": 1, "H": 3, "D": 1}) == pytest.approx(
+        pt.GetMassForIsotope(6, 13) + 3 * pt.GetMassForIsotope(1, 1) + _ms.HYDROGEN_ISOTOPE_MASSES["D"])
+
+
+def test_huge_formula_does_not_enter_isotope_convolution():
+    fake = _FakeDialogForPeaks("C1000000000", charge=1)
+    fake.isotope_distribution = lambda *args: pytest.fail("should reject before isotope calculation")
+    assert _calculate_peaks(fake) == ([], 0, 0, 0)
+    assert "limit" in fake._formula_error
+
+
+def test_profile_grid_is_bounded():
+    fn = TestGaussianBroadening()._fn()
+    with pytest.raises(ValueError, match="grid size"):
+        fn(None, [(1, 100), (100000, 100)], 0.001)
+
+
+
+def test_repeated_isotope_convolution_does_not_accumulate_mass_rounding():
+    fake = _FakeDialogForPeaks("D1000", charge=1)
+    peaks, _, _, mz = _calculate_peaks(fake)
+    expected = 1000 * _ms.HYDROGEN_ISOTOPE_MASSES["D"] - 0.00054858
+    assert mz == pytest.approx(expected, abs=1e-8)
+    assert peaks[0][0] == pytest.approx(expected, abs=1e-8)
