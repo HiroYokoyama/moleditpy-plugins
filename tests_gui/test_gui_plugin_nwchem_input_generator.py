@@ -50,6 +50,19 @@ class TestNwchemSetupDialog:
     def test_default_title_field(self, dlg):
         assert dlg.title_edit.text() == "NWChem Job"
 
+    def test_invalid_start_blocks_preview_and_recovers(self, dlg):
+        dlg.start_edit.setText("invalid job")
+        assert dlg._generation_error
+        assert "Invalid input" in dlg.preview_text.toPlainText()
+        dlg.start_edit.setText("valid_job")
+        assert dlg._generation_error is None
+        assert "start valid_job" in dlg.preview_text.toPlainText()
+
+    def test_open_shell_ccsd_switches_generated_task_to_tce(self, dlg):
+        dlg.module_combo.setCurrentText("ccsd")
+        dlg.mult_spin.setValue(3)
+        assert "tce\n  scf\n  ccsd\nend" in dlg.preview_text.toPlainText()
+
     def test_module_combo_default(self, dlg):
         assert dlg.module_combo.currentText() == "dft"
 

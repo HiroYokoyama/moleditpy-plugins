@@ -957,7 +957,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "MOPAC Input Generator",
-    "version": "2026.09.24",
+    "version": "2026.10.12",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates input files for MOPAC semi-empirical quantum chemistry calculations.",
@@ -970,8 +970,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Mopac_Input_Generator/mopac_input_generator.py",
-    "lastUpdated": "2026-09-24",
-    "sha256": "9b1fa79a184202e92a2cbbac94bf0372508893fc179b0038d4036cd70274fcfb",
+    "lastUpdated": "2026-10-12",
+    "sha256": "9d297b1f19c0f7c0c09d1bab2a34c7b08f40e27d700b22e237f7612f8c24932f",
     "firstAppeared": "2026-01-03",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -986,7 +986,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "GAMESS Input Generator",
-    "version": "2026.09.24",
+    "version": "2026.10.12",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates input files for GAMESS (US) quantum chemistry calculations.",
@@ -999,8 +999,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Gamess_Input_Generator/gamess_input_generator.py",
-    "lastUpdated": "2026-09-24",
-    "sha256": "a922b9f26b827186eea927299efdb1478aa9eee8010f2bc1d8d6a8f60a71e4fd",
+    "lastUpdated": "2026-10-12",
+    "sha256": "47b6c7ae373a8ec074cc238d4089868039dbeebc7d5260b211c4730be5f3d29c",
     "firstAppeared": "2026-01-03",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1015,7 +1015,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "PySCF Input Generator",
-    "version": "2026.09.24",
+    "version": "2026.10.12",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates Python scripts for PySCF quantum chemistry calculations.",
@@ -1029,8 +1029,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/PySCF_Input_Generator/pyscf_input_generator.py",
-    "lastUpdated": "2026-09-24",
-    "sha256": "6b5dbccbd6b862dfb47c1430189b0e3ec5bbc9a4d412b5817817bd02c46ae949",
+    "lastUpdated": "2026-10-12",
+    "sha256": "bb96784a495afeed8e5a08ad10b882aa21f43468f4cb9a19b138ebb5adec4df5",
     "firstAppeared": "2026-01-03",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1045,7 +1045,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Psi4 Input Generator",
-    "version": "2026.09.24",
+    "version": "2026.10.12",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates input files for Psi4 quantum chemistry calculations.",
@@ -1058,8 +1058,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Psi4_Input_Generator/psi4_input_generator.py",
-    "lastUpdated": "2026-09-24",
-    "sha256": "7cbdaea14c4b1b81a9766b21da18de6268a885028e2034de80c089fc02c45ca7",
+    "lastUpdated": "2026-10-12",
+    "sha256": "78e02baa760def3ebd1216f3c26c573fd0f9575b6d9a7ca217de36e6f098794b",
     "firstAppeared": "2026-01-03",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1103,7 +1103,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "NWChem Input Generator",
-    "version": "2026.09.24",
+    "version": "2026.10.12",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates input files for NWChem quantum chemistry calculations.",
@@ -1116,8 +1116,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/NWChem_Input_Generator/nwchem_input_generator.py",
-    "lastUpdated": "2026-09-24",
-    "sha256": "10c49f631ae98db54f959b17496aad62d43035d44a1ced429389be3cad2f0f01",
+    "lastUpdated": "2026-10-12",
+    "sha256": "f2940ade332019006c84eaaf15c395b390e90a97ae3ea7cf5a9abab44a3a4575",
     "firstAppeared": "2026-01-03",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

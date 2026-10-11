@@ -50,7 +50,7 @@ def _extract_method_as_fn(
                     func_src = ast.get_source_segment(source, item)
                     if func_src:
                         local_ns: dict = {}
-                        globs = {"logging": logging, "os": os, "json": json}
+                        globs = {"logging": logging, "os": os, "json": json, "textwrap": textwrap}
                         globs.update(extra_globals or {})
                         exec(textwrap.dedent(func_src), globs, local_ns)
                         return local_ns[method_name]
@@ -392,6 +392,7 @@ class TestGamessBasisOptions:
         fake = MagicMock()
         fake.basis_gbasis = FakeCombo(gbasis)
         fake.basis_ngauss = _Recorder(6)
+        fake.basis_ngauss.setRange = MagicMock()
         fn(fake)
         return fake
 
@@ -408,6 +409,38 @@ class TestGamessBasisOptions:
         fake = self._run("TZV")
         assert fake.basis_ngauss.set_values == [1]
 
-    def test_mini_leaves_ngauss_untouched(self):
+    def test_mini_disables_ngauss(self):
         fake = self._run("MINI")
-        assert fake.basis_ngauss.set_values == []
+        assert fake.basis_ngauss.set_values == [1]
+
+
+class TestGamessOfficialInputRules:
+    @pytest.mark.parametrize("basis", ["TZV", "MINI", "MIDI"])
+    def test_non_pople_basis_omits_ngauss(self, basis):
+        content = _gamess_generate(_gamess_self(gbasis=basis))
+        assert "NGAUSS" not in content
+
+    @pytest.mark.parametrize("basis,n", [("N21", 4), ("N21", 5), ("N31", 3), ("STO", 1)])
+    def test_invalid_gaussian_counts_are_rejected(self, basis, n):
+        with pytest.raises(ValueError, match="NGAUSS"):
+            _gamess_generate(_gamess_self(gbasis=basis, ngauss=n))
+
+    @pytest.mark.parametrize("field", ["ndfunc", "npfunc"])
+    def test_polarization_limit(self, field):
+        with pytest.raises(ValueError, match="NDFUNC and NPFUNC"):
+            _gamess_generate(_gamess_self(**{field: 4}))
+
+    def test_open_shell_rhf_is_rejected(self):
+        with pytest.raises(ValueError, match="RHF requires"):
+            _gamess_generate(_gamess_self(scftyp="RHF", mult=3))
+
+    @pytest.mark.parametrize("reference", ["GVB", "MCSCF"])
+    def test_references_requiring_extra_blocks_are_rejected(self, reference):
+        with pytest.raises(ValueError, match="additional wavefunction"):
+            _gamess_generate(_gamess_self(scftyp=reference))
+
+    def test_control_cards_fit_the_input_record_and_keep_end(self):
+        content = _gamess_generate(_gamess_self(dfttyp="M06-2X", charge=-10, mult=10, scftyp="UHF"))
+        control = content.split(" $SYSTEM")[0]
+        assert all(len(line) <= 80 for line in control.splitlines())
+        assert "DFTTYP=M06-2X" in control and "$END" in control

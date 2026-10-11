@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import json
+import logging
 import os
+import re
 from PyQt6.QtWidgets import (
     QMessageBox,
     QDialog,
@@ -19,10 +21,9 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 from rdkit import Chem
-import logging
 
 PLUGIN_NAME = "Psi4 Input Generator"
-PLUGIN_VERSION = "2026.09.24"
+PLUGIN_VERSION = "2026.10.12"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Generates input files for Psi4 quantum chemistry calculations."
@@ -232,6 +233,12 @@ class Psi4SetupDialog(QDialog):
         self.update_preview()
 
     def generate_content(self, filename_hint="job"):
+        reference = self.ref_combo.currentText()
+        method = self.method_combo.currentText()
+        if self.mult_spin.value() > 1 and reference in ("rhf", "rks"):
+            raise ValueError("Open-shell jobs require UHF, ROHF or UKS.")
+        if method.lower() in ("scf", "mp2", "ccsd(t)") and reference in ("rks", "uks"):
+            raise ValueError("Hartree-Fock and correlated methods require an HF reference.")
         lines = []
 
         # Memory & Threads
@@ -241,7 +248,7 @@ class Psi4SetupDialog(QDialog):
         # Output file logic (useful if running python style or to set scratch)
         # Psi4 input style (psi4 -i input.dat) usually sets output name from shell.
         # But setting output_file inside allows explicit control.
-        lines.append(f"psi4.core.set_output_file('{filename_hint}.out', False)")
+        lines.append(f"psi4.core.set_output_file({(filename_hint + '.out')!r}, False)")
         lines.append("")
 
         # Molecule
@@ -277,9 +284,17 @@ class Psi4SetupDialog(QDialog):
         return "\n".join(lines)
 
     def update_preview(self):
-        self.preview_text.setText(self.generate_content(filename_hint="[filename]"))
+        self._generation_error = None
+        try:
+            self.preview_text.setText(self.generate_content(filename_hint="[filename]"))
+        except ValueError as exc:
+            self._generation_error = str(exc)
+            self.preview_text.setText(f"# Invalid input: {exc}")
 
     def save_file(self):
+        if self._generation_error:
+            QMessageBox.warning(self, "Invalid Psi4 input", self._generation_error)
+            return
         default_name = "psi4_job.dat"
         if self.filename:
             base = os.path.splitext(os.path.basename(self.filename))[0]
@@ -292,25 +307,24 @@ class Psi4SetupDialog(QDialog):
             try:
                 # Update output filename in content if present
                 base_name = os.path.splitext(os.path.basename(path))[0]
-                out_line = f"psi4.core.set_output_file('{base_name}.out', False)"
+                out_line = f"psi4.core.set_output_file({(base_name + '.out')!r}, False)"
 
                 content = self.preview_text.toPlainText()
 
-                import re
-
-                if "psi4.core.set_output_file" in content:
+                output_pattern = r"(?m)^([ \t]*)psi4\.core\.set_output_file[^\n]*$"
+                if re.search(output_pattern, content):
                     content = re.sub(
-                        r"psi4\.core\.set_output_file\s*\(.*?\)", out_line, content
+                        output_pattern, lambda match: match[1] + out_line, content
                     )
                 else:
                     # Prepend if missing? Or just insert early
                     content = f"{out_line}\n\n{content}"
 
-                with open(path, "w", encoding="utf-8") as f:
+                with open(path, "w", encoding="utf-8", newline="\n") as f:
                     f.write(content)
                 QMessageBox.information(self, "Success", f"File saved to {path}")
                 # Do not close automatically
-            except Exception as e:
+            except OSError as e:
                 QMessageBox.critical(self, "Error", str(e))
 
     # --- Preset Management ---

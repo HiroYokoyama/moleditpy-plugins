@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from unittest.mock import MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -142,7 +143,7 @@ class TestMopacApplyTemplateReal:
 
     def test_thermodynamics_template(self, dlg):
         dlg.template_combo.setCurrentText("Thermodynamics (PM7)")
-        assert dlg.keywords_edit.text() == "PM7 THERMO"
+        assert dlg.keywords_edit.text() == "PM7 FORCE THERMO"
 
     def test_transition_state_template(self, dlg):
         dlg.template_combo.setCurrentText("Transition State (PM7 TS)")
@@ -197,6 +198,26 @@ class TestMopacGenerateContentReal:
 
         monkeypatch.setattr(_mopac.Chem, "GetFormalCharge", _raise)
         dlg.calc_initial_charge_mult()  # should not raise
+
+
+class TestMopacInvalidKeywords:
+    def test_error_preview_blocks_save_and_recovers(self, qapp, monkeypatch, tmp_path):
+        monkeypatch.setattr(_mopac, "SETTINGS_FILE", str(tmp_path / "presets.json"))
+        warning, choose_file = MagicMock(), MagicMock()
+        monkeypatch.setattr(_mopac.QMessageBox, "warning", warning)
+        monkeypatch.setattr(_mopac.QFileDialog, "getSaveFileName", choose_file)
+        dialog = _mopac.MopacSetupDialog(mol=None)
+        try:
+            dialog.keywords_edit.setText("PM7 UHF C.I.=2")
+            assert "Invalid input" in dialog.preview_text.toPlainText()
+            dialog.save_file()
+            warning.assert_called_once()
+            choose_file.assert_not_called()
+            dialog.keywords_edit.setText("PM7")
+            assert dialog._generation_error is None
+            assert "CHARGE=0" in dialog.preview_text.toPlainText()
+        finally:
+            dialog.destroy()
 
 
 class TestMopacSaveFile:

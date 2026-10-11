@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import os
 import json
+import logging
+import textwrap
 from PyQt6.QtWidgets import (
     QMessageBox,
     QDialog,
@@ -20,10 +22,9 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 from rdkit import Chem
-import logging
 
 PLUGIN_NAME = "GAMESS Input Generator"
-PLUGIN_VERSION = "2026.09.24"
+PLUGIN_VERSION = "2026.10.12"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Generates input files for GAMESS (US) quantum chemistry calculations."
@@ -79,7 +80,7 @@ class GamessSetupDialog(QDialog):
         ctrl_layout.addRow("Run Type (RUNTYP):", self.run_type)
 
         self.scf_type = QComboBox()
-        self.scf_type.addItems(["RHF", "UHF", "ROHF", "GVB", "MCSCF"])
+        self.scf_type.addItems(["RHF", "UHF", "ROHF"])
         self.scf_type.currentIndexChanged.connect(self.update_preview)
         ctrl_layout.addRow("SCF Type (SCFTYP):", self.scf_type)
 
@@ -126,11 +127,13 @@ class GamessSetupDialog(QDialog):
         basis_layout.addRow("Num Gaussians (NGAUSS):", self.basis_ngauss)
 
         self.basis_ndfunc = QSpinBox()
+        self.basis_ndfunc.setRange(0, 3)
         self.basis_ndfunc.setValue(1)
         self.basis_ndfunc.valueChanged.connect(self.update_preview)
         basis_layout.addRow("Polarization d-func (NDFUNC):", self.basis_ndfunc)
 
         self.basis_npfunc = QSpinBox()
+        self.basis_npfunc.setRange(0, 3)
         self.basis_npfunc.setValue(0)
         self.basis_npfunc.valueChanged.connect(self.update_preview)
         basis_layout.addRow("Polarization p-func (NPFUNC):", self.basis_npfunc)
@@ -160,7 +163,7 @@ class GamessSetupDialog(QDialog):
 
         self.mult_spin = QSpinBox()
         self.mult_spin.setRange(1, 10)
-        self.mult_spin.valueChanged.connect(self.update_preview)
+        self.mult_spin.valueChanged.connect(self.update_scf_options)
 
         mol_layout.addWidget(QLabel("Charge (ICHARG):"))
         mol_layout.addWidget(self.charge_spin)
@@ -203,15 +206,23 @@ class GamessSetupDialog(QDialog):
     def update_basis_options(self):
         gbasis = self.basis_gbasis.currentText()
         if gbasis == "STO":
+            self.basis_ngauss.setRange(2, 6)
             self.basis_ngauss.setValue(3)
             self.basis_ngauss.setEnabled(True)
         elif gbasis in ["N21", "N31"]:
+            self.basis_ngauss.setRange(3 if gbasis == "N21" else 4, 6)
             self.basis_ngauss.setValue(6)
             self.basis_ngauss.setEnabled(True)
-        elif gbasis == "TZV":
-            # NGAUSS is not meaningful for GBASIS=TZV
+        else:
+            # NGAUSS only applies to STO and Pople basis sets.
+            self.basis_ngauss.setRange(1, 1)
             self.basis_ngauss.setValue(1)
             self.basis_ngauss.setEnabled(False)
+        self.update_preview()
+
+    def update_scf_options(self):
+        if self.mult_spin.value() > 1 and self.scf_type.currentText() == "RHF":
+            self.scf_type.setCurrentText("ROHF")
         self.update_preview()
 
     def calc_initial_charge_mult(self):
@@ -253,6 +264,11 @@ class GamessSetupDialog(QDialog):
         icharg = self.charge_spin.value()
         mult = self.mult_spin.value()
 
+        if scftyp not in ("RHF", "UHF", "ROHF"):
+            raise ValueError("GVB and MCSCF require additional wavefunction input blocks.")
+        if scftyp == "RHF" and mult != 1:
+            raise ValueError("RHF requires MULT=1; choose UHF or ROHF for an open shell.")
+
         contrl = f" $CONTRL SCFTYP={scftyp} RUNTYP={runtyp} ICHARG={icharg} MULT={mult} COORD=CART"
         if "None" not in dfttyp:
             contrl += f" DFTTYP={dfttyp}"
@@ -261,7 +277,8 @@ class GamessSetupDialog(QDialog):
             contrl += " NOSYM=1"
 
         contrl += " $END"
-        lines.append(contrl)
+        # GAMESS reads 80-column cards; long control lines otherwise lose $END.
+        lines.extend(textwrap.wrap(contrl, width=79, subsequent_indent="  "))
 
         # $SYSTEM
         mwords = self.mem_spin.value()
@@ -273,7 +290,14 @@ class GamessSetupDialog(QDialog):
         ndfunc = self.basis_ndfunc.value()
         npfunc = self.basis_npfunc.value()
 
-        basis = f" $BASIS GBASIS={gbasis} NGAUSS={ngauss}"
+        allowed = {"STO": (2, 3, 4, 5, 6), "N21": (3, 6), "N31": (4, 5, 6)}
+        if gbasis in allowed and ngauss not in allowed[gbasis]:
+            raise ValueError(f"GBASIS={gbasis} requires NGAUSS in {allowed[gbasis]}.")
+        if not 0 <= ndfunc <= 3 or not 0 <= npfunc <= 3:
+            raise ValueError("NDFUNC and NPFUNC must be between 0 and 3.")
+        basis = f" $BASIS GBASIS={gbasis}"
+        if gbasis in allowed:
+            basis += f" NGAUSS={ngauss}"
         if ndfunc > 0:
             basis += f" NDFUNC={ndfunc}"
         if npfunc > 0:
@@ -304,11 +328,19 @@ class GamessSetupDialog(QDialog):
         return "\n".join(lines)
 
     def update_preview(self):
-        self.preview_text.setText(self.generate_content())
+        self._generation_error = None
+        try:
+            self.preview_text.setText(self.generate_content())
+        except ValueError as exc:
+            self._generation_error = str(exc)
+            self.preview_text.setText(f"! Invalid input: {exc}")
 
     def save_file(self):
         # Use content from preview text to allow manual edits
         content = self.preview_text.toPlainText()
+        if self._generation_error:
+            QMessageBox.warning(self, "Invalid GAMESS input", self._generation_error)
+            return
         default_name = "gamess_job.inp"
         if self.filename:
             base = os.path.splitext(os.path.basename(self.filename))[0]
@@ -319,7 +351,7 @@ class GamessSetupDialog(QDialog):
         )
         if path:
             try:
-                with open(path, "w", encoding="utf-8") as f:
+                with open(path, "w", encoding="utf-8", newline="\n") as f:
                     f.write(content)
                 QMessageBox.information(self, "Success", f"File saved to {path}")
                 # Do not close dialog automatically
@@ -352,6 +384,9 @@ class GamessSetupDialog(QDialog):
         if not name or name not in self.presets_data:
             return
         data = self.presets_data[name]
+        if data.get("scf_type", "RHF") not in ("RHF", "UHF", "ROHF"):
+            QMessageBox.warning(self, "Unsupported preset", "GVB and MCSCF require additional wavefunction input blocks.")
+            return
 
         # Block signals
         self.run_type.blockSignals(True)
@@ -369,6 +404,7 @@ class GamessSetupDialog(QDialog):
         self.dft_type.setCurrentText(data.get("dft_type", "None (Hartree-Fock)"))
         self.chk_nosym.setChecked(data.get("nosym", True))
         self.basis_gbasis.setCurrentText(data.get("gbasis", "N31"))
+        self.update_basis_options()
         self.basis_ngauss.setValue(data.get("ngauss", 6))
         self.basis_ndfunc.setValue(data.get("ndfunc", 1))
         self.basis_npfunc.setValue(data.get("npfunc", 0))

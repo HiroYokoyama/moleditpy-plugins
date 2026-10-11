@@ -13,6 +13,7 @@ import ast
 import json
 import logging
 import os
+import re
 import textwrap
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -50,7 +51,7 @@ def _extract_method_as_fn(
                     func_src = ast.get_source_segment(source, item)
                     if func_src:
                         local_ns: dict = {}
-                        globs = {"logging": logging, "os": os, "json": json}
+                        globs = {"logging": logging, "os": os, "json": json, "re": re}
                         globs.update(extra_globals or {})
                         exec(textwrap.dedent(func_src), globs, local_ns)
                         return local_ns[method_name]
@@ -258,6 +259,39 @@ class TestMopacGenerateContent:
         assert float(parts[5]) == pytest.approx(-0.469)
 
 
+class TestMopacKeywordValidation:
+    @pytest.mark.parametrize("mult", [2, 3, 7, 10])
+    def test_open_shell_defaults_to_uhf(self, mult):
+        keywords = _mopac_generate(_mopac_self(mult=mult)).splitlines()[0].split()
+        assert keywords.count("UHF") == 1
+
+    def test_state_fields_replace_conflicting_preset_keywords(self):
+        text = _mopac_generate(_mopac_self(keywords="PM7 charge = -2 triplet MS=1", charge=1, mult=2))
+        keywords = text.splitlines()[0].upper()
+        assert "CHARGE=1" in keywords and "DOUBLET" in keywords
+        assert "-2" not in keywords and "TRIPLET" not in keywords and "MS=" not in keywords
+
+    def test_explicit_rhf_ci_is_preserved(self):
+        keywords = _mopac_generate(_mopac_self(keywords="PM7 RHF C.I.=2 OPEN(2,2)", mult=3)).splitlines()[0]
+        assert "UHF" not in keywords and "C.I.=2" in keywords
+
+    def test_uhf_ci_conflict_is_rejected(self):
+        with pytest.raises(ValueError, match="cannot be combined"):
+            _mopac_generate(_mopac_self(keywords="PM7 UHF C.I.=2"))
+
+    def test_high_spin_rhf_needs_an_open_shell_configuration(self):
+        with pytest.raises(ValueError, match="High-spin RHF"):
+            _mopac_generate(_mopac_self(keywords="PM7 RHF", mult=3))
+
+    def test_nosym_is_not_duplicated(self):
+        keywords = _mopac_generate(_mopac_self(keywords="PM7 NOSYM", nosym=True)).splitlines()[0].split()
+        assert keywords.count("NOSYM") == 1
+
+    def test_single_point_detection_uses_a_whole_keyword(self):
+        text = _mopac_generate(_mopac_self(keywords='PM7 TITLE="1SCF"', mol=water_mol()))
+        assert text.splitlines()[3].split()[2] == "1"
+
+
 class TestMopacPresets:
     def _load_fn(self, settings_file):
         return _extract_method_as_fn(
@@ -355,7 +389,7 @@ class TestMopacApplyTemplate:
             ("Optimization (PM6)", "PM6 PRECISE"),
             ("Optimization (AM1)", "AM1 PRECISE"),
             ("Single Point (PM7)", "PM7 1SCF"),
-            ("Thermodynamics (PM7)", "PM7 THERMO"),
+            ("Thermodynamics (PM7)", "PM7 FORCE THERMO"),
             ("Transition State (PM7 TS)", "PM7 TS PRECISE"),
         ],
     )

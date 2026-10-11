@@ -50,6 +50,36 @@ class TestPyscfSetupDialog:
     def test_category_combo_default(self, dlg):
         assert dlg.category_combo.currentText() == "Hartree-Fock"
 
+    def test_calculator_option_lists(self, dlg):
+        assert [dlg.functional_combo.itemText(i) for i in range(dlg.functional_combo.count())] == _pyscf.FUNCTIONALS
+        assert [dlg.basis_combo.itemText(i) for i in range(dlg.basis_combo.count())] == _pyscf.BASES
+        assert dlg.memory_spin.value() == 4000
+        assert dlg.tolerance_spin.value() == 1e-9
+
+    def test_vv10_dispersion_error_recovers(self, dlg):
+        dlg.category_combo.setCurrentText("DFT")
+        dlg.functional_combo.setCurrentText("wb97x-v")
+        dlg.dispersion_combo.setCurrentText("D4")
+        assert "VV10" in dlg._generation_error
+        dlg.dispersion_combo.setCurrentText("None")
+        assert dlg._generation_error is None
+
+    def test_options_survive_preset_roundtrip(self, dlg, monkeypatch):
+        dlg.category_combo.setCurrentText("DFT")
+        dlg.reference_combo.setCurrentText("ROKS")
+        dlg.memory_spin.setValue(8000)
+        dlg.grid_spin.setValue(5)
+        dlg.solvent_combo.setCurrentText("Water")
+        monkeypatch.setattr(_pyscf.QInputDialog, "getText", lambda *args: ("advanced", True))
+        monkeypatch.setattr(dlg, "save_presets_to_file", lambda: None)
+        dlg.save_preset_dialog()
+        dlg.memory_spin.setValue(4000)
+        dlg.apply_selected_preset()
+        assert dlg.memory_spin.value() == 8000
+        assert dlg.reference_combo.currentText() == "ROKS"
+        assert dlg.solvent_combo.currentText() == "Water"
+        assert "mf.grids.prune = None" in dlg.preview_text.toPlainText()
+
     def test_basis_combo_default(self, dlg):
         assert dlg.basis_combo.currentText() == "def2-svp"
 
@@ -61,7 +91,7 @@ class TestPyscfSetupDialog:
         assert dlg.mult_spin.minimum() == 1
 
     def test_symmetry_checked_by_default(self, dlg):
-        assert dlg.symmetry_check.isChecked()
+        assert not dlg.symmetry_check.isChecked()
 
     def test_functional_combo_initially_disabled(self, dlg):
         assert not dlg.functional_combo.isEnabled()
@@ -249,22 +279,22 @@ class TestPyscfPreviewReal:
         assert dlg.post_hf_combo.isEnabled()
         assert dlg.post_hf_ref_combo.isEnabled()
 
-    def test_open_shell_hf_uses_rohf(self, dlg):
+    def test_open_shell_hf_uses_uhf(self, dlg):
         dlg.mult_spin.setValue(2)
         text = dlg.preview_text.toPlainText()
-        assert "mf = scf.ROHF(mol)" in text
+        assert "mf = scf.UHF(mol)" in text
 
-    def test_open_shell_dft_uses_roks(self, dlg):
+    def test_open_shell_dft_uses_uks(self, dlg):
         dlg.category_combo.setCurrentText("DFT")
         dlg.mult_spin.setValue(2)
         text = dlg.preview_text.toPlainText()
-        assert "mf = dft.ROKS(mol)" in text
+        assert "mf = dft.UKS(mol)" in text
 
     def test_functional_change_reflected(self, dlg):
         dlg.category_combo.setCurrentText("DFT")
-        dlg.functional_combo.setCurrentText("wb97x-d")
+        dlg.functional_combo.setCurrentText("wb97x-v")
         text = dlg.preview_text.toPlainText()
-        assert "mf.xc = 'wb97x-d'" in text
+        assert "mf.xc = 'wb97x-v'" in text
 
     @pytest.mark.parametrize("ref", ["RHF", "UHF", "ROHF"])
     def test_post_hf_reference_reflected(self, dlg, ref):
