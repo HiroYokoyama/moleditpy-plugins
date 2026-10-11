@@ -107,7 +107,7 @@ class TestApplyBondsFallback:
     def _get_fn(self, chem):
         return extract_function(
             PASTE_XYZ_PATH, None, "_apply_bonds",
-            extra_globals={"Chem": chem, "logging": __import__("logging")},
+            extra_globals={"Chem": chem, "rdDetermineBonds": MagicMock(), "logging": __import__("logging")},
         )
 
     def test_determine_bonds_failure_falls_back_to_estimator(self):

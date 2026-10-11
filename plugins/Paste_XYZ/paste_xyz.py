@@ -19,6 +19,11 @@ try:
 except ImportError:
     Chem = None
 
+try:
+    from rdkit.Chem import rdDetermineBonds
+except ImportError:
+    rdDetermineBonds = None
+
 PLUGIN_NAME = "Paste XYZ"
 PLUGIN_VERSION = "2026.10.13"
 PLUGIN_CATEGORY = "File"
@@ -84,7 +89,8 @@ def _build_rwmol(atoms_data: list) -> "Chem.RWMol":
 def _apply_bonds(rwmol: "Chem.RWMol", charge: int, mw) -> "Chem.Mol":
     """Try rdDetermineBonds; fall back to distance-based estimation."""
     try:
-        from rdkit.Chem import rdDetermineBonds
+        if rdDetermineBonds is None:
+            raise ImportError("RDKit bond determination is unavailable.")
         candidate = Chem.RWMol(rwmol)
         rdDetermineBonds.DetermineBonds(candidate, charge=charge)
         result = candidate.GetMol()

@@ -42,7 +42,7 @@
     ],
     "downloadUrl": "../plugins/XTB_Optimizer/xtb_optimizer.py",
     "lastUpdated": "2026-10-13",
-    "sha256": "3b0d676cf5d6e14ead0db01642dfafa10b8596e87bf4ae248447f65ae713f8b2",
+    "sha256": "13ffff33a0e4dc8949bd8b7847c9ce08555834b7b3349131436eba3fdd8c6803",
     "firstAppeared": "2026-07-08",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -693,7 +693,7 @@
     "dependencies": [],
     "downloadUrl": "../plugins/Paste_XYZ/paste_xyz.py",
     "lastUpdated": "2026-10-13",
-    "sha256": "b897a43f54bcb6264e579c49112e85a4e7784ae1d6ddb7b802ed2d81ef9cd168",
+    "sha256": "d8f39115ce8b361ac40d7fabefbfa0788734f267f20a97b56187bc27e43e9fb3",
     "firstAppeared": "2025-12-20",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
