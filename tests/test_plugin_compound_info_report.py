@@ -9,6 +9,7 @@ Network-dependent paths are exercised by patching urllib.request.urlopen.
 from __future__ import annotations
 
 import json
+import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -150,7 +151,7 @@ class _FakeResponse:
         self.status = status
         self._body = json.dumps(payload).encode("utf-8")
 
-    def read(self):
+    def read(self, size=-1):
         return self._body
 
     def __enter__(self):
@@ -165,7 +166,7 @@ class TestFetchExperimentalProperties:
         monkeypatch.setattr(
             COMPOUND_MOD.urllib.request,
             "urlopen",
-            lambda url: _FakeResponse(payload, status=status),
+            lambda url, **kwargs: _FakeResponse(payload, status=status),
         )
 
     def test_density_string_extracted(self, monkeypatch):
@@ -312,3 +313,31 @@ class TestFetchExperimentalProperties:
         self._patch(monkeypatch, payload)
         density, _ = COMPOUND_MOD.PubChemFetcher.fetch_experimental_properties(241)
         assert density == "1.0 g/cm3"
+
+
+
+def test_cas_checks_shape_and_checksum():
+    assert COMPOUND_MOD.PubChemFetcher.extract_cas(["50-00-0", "50-00-1", "1-2-3", "107-07-3", None]) == ["107-07-3", "50-00-0"]
+
+
+def test_request_has_timeout_and_bounded_read(monkeypatch):
+    response = _url_response({"IdentifierList": {"CID": [241]}})
+    response.read = MagicMock(wraps=response.read)
+    request = MagicMock(return_value=response)
+    monkeypatch.setattr(COMPOUND_MOD.urllib.request, "urlopen", request)
+    assert COMPOUND_MOD.PubChemFetcher.get_cid("key") == 241
+    assert request.call_args.kwargs["timeout"] == COMPOUND_MOD.PubChemFetcher.REQUEST_TIMEOUT
+    response.read.assert_called_once_with(COMPOUND_MOD.PubChemFetcher.MAX_RESPONSE_BYTES + 1)
+
+
+def test_oversized_pubchem_response_is_rejected():
+    response = MagicMock()
+    response.read.return_value = b" " * (COMPOUND_MOD.PubChemFetcher.MAX_RESPONSE_BYTES + 1)
+    with pytest.raises(ValueError, match="too large"):
+        COMPOUND_MOD.PubChemFetcher._read_json(response)
+
+
+def test_density_number_retains_unit(monkeypatch):
+    payload = _pugview_payload([{"TOCHeading": "Density", "Information": [{"Value": {"Number": [0.879], "Unit": "g/cm3"}}]}])
+    monkeypatch.setattr(COMPOUND_MOD.urllib.request, "urlopen", lambda *args, **kwargs: _FakeResponse(payload))
+    assert COMPOUND_MOD.PubChemFetcher.fetch_experimental_properties(241)[0] == "0.879 g/cm3"

@@ -1,11 +1,14 @@
 PLUGIN_NAME = "Compound Info Report"
-PLUGIN_VERSION = "2026.10.09"
+PLUGIN_VERSION = "2026.10.13"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Generate a compound info report with properties, adducts, and structure. Useful for organic synthesis experiments."
 PLUGIN_ID = "compound_info_report"
 
 import json
+import re
+import base64
+from io import BytesIO
 from html import escape
 
 try:
@@ -46,6 +49,16 @@ except ImportError:
 class PubChemFetcher:
     """Helper to fetch data from PubChem."""
 
+    REQUEST_TIMEOUT = 10
+    MAX_RESPONSE_BYTES = 8 * 1024 * 1024
+
+    @staticmethod
+    def _read_json(response):
+        raw = response.read(PubChemFetcher.MAX_RESPONSE_BYTES + 1)
+        if len(raw) > PubChemFetcher.MAX_RESPONSE_BYTES:
+            raise ValueError("PubChem response is too large.")
+        return json.loads(raw.decode("utf-8"))
+
     BASE_URL = "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
 
     @staticmethod
@@ -56,9 +69,9 @@ class PubChemFetcher:
 
         url = f"{PubChemFetcher.BASE_URL}/compound/inchikey/{inchikey}/synonyms/JSON"
         try:
-            with urllib.request.urlopen(url) as response:
+            with urllib.request.urlopen(url, timeout=PubChemFetcher.REQUEST_TIMEOUT) as response:
                 if response.status == 200:
-                    data = json.loads(response.read().decode("utf-8"))
+                    data = PubChemFetcher._read_json(response)
                     information = data.get("InformationList", {}).get("Information", [])
                     if information:
                         return information[0].get("Synonym", [])
@@ -75,9 +88,9 @@ class PubChemFetcher:
             cid_url = (
                 f"{PubChemFetcher.BASE_URL}/compound/inchikey/{inchikey}/cids/JSON"
             )
-            with urllib.request.urlopen(cid_url) as response:
+            with urllib.request.urlopen(cid_url, timeout=PubChemFetcher.REQUEST_TIMEOUT) as response:
                 if response.status == 200:
-                    data = json.loads(response.read().decode("utf-8"))
+                    data = PubChemFetcher._read_json(response)
                     cids = data.get("IdentifierList", {}).get("CID", [])
                     if cids:
                         return cids[0]
@@ -99,9 +112,9 @@ class PubChemFetcher:
         url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug_view/data/compound/{cid}/JSON?heading=Chemical+and+Physical+Properties"
 
         try:
-            with urllib.request.urlopen(url) as response:
+            with urllib.request.urlopen(url, timeout=PubChemFetcher.REQUEST_TIMEOUT) as response:
                 if response.status == 200:
-                    data = json.loads(response.read().decode("utf-8"))
+                    data = PubChemFetcher._read_json(response)
 
                     # Traversal
                     # Data -> Record -> Section -> [Chemical and Physical Properties] -> Section -> [Experimental Properties] -> Section -> [Property Name]
@@ -133,6 +146,8 @@ class PubChemFetcher:
                                                     ].get("String", None)
                                                 elif "Number" in val:
                                                     density = str(val["Number"][0])
+                                                    if val.get("Unit"):
+                                                        density += " " + str(val["Unit"])
 
                                         # Physical Description / Color / Form
                                         if (
@@ -187,22 +202,23 @@ class PubChemFetcher:
     @staticmethod
     def extract_cas(synonyms):
         """Extract potential CAS numbers from synonyms list."""
-        cas_list = []
+        cas_list = set()
         for syn in synonyms:
-            # Simple heuristic for CAS format: ddd-dd-d
-            # Filter out long names, keep short numeric-ish strings
-            if len(syn) < 15 and syn.replace("-", "").isdigit():
-                # Check hyphen placement roughly (2 hyphens)
-                if syn.count("-") == 2:
-                    cas_list.append(syn)
-        # Return top 5 unique ones
-        return sorted(list(set(cas_list)))[:5]
+            if not isinstance(syn, str) or not re.fullmatch(r"[1-9]\d{1,6}-\d{2}-\d", syn):
+                continue
+            digits = syn.replace("-", "")
+            checksum = sum(i * int(d) for i, d in enumerate(reversed(digits[:-1]), 1)) % 10
+            if checksum == int(digits[-1]):
+                cas_list.add(syn)
+        return sorted(cas_list)[:5]
 
 
 class ReportDialog(QDialog):
     def __init__(self, mol, parent=None):
         super().__init__(parent)
         self.mol = mol
+        self._captured_scene = None
+        self._generating = False
         self.setWindowTitle("Compound Info Report")
         self.resize(700, 800)
         self.fetched_data = {}
@@ -255,7 +271,11 @@ class ReportDialog(QDialog):
     def generate_initial_report(self):
         self.generate_report()
 
-    def calculate_adducts(self, exact_mass):
+    def calculate_adducts(self, exact_mass, formal_charge=0, has_hydrogen=True):
+        if formal_charge:
+            sign = "+" if formal_charge > 0 else "-"
+            count = str(abs(formal_charge)) if abs(formal_charge) > 1 else ""
+            return [(f"[M]<sup>{count}{sign}</sup>", f"{exact_mass / abs(formal_charge):.4f}")]
         # Constants (IUPAC/NIST standard atomic weights for monoisotopic mass)
         MASS_ELECTRON = 0.00054858
         MASS_H = 1.00782503
@@ -279,16 +299,19 @@ class ReportDialog(QDialog):
         # Calculation: M - H + e_ = M - (H - e_) = M - Proton
         m_minus_h = exact_mass - (MASS_H - MASS_ELECTRON)  # = exact_mass - 1.007276
 
-        return [
+        rows = [
             ("[M+H]<sup>+</sup>", f"{m_h:.4f}"),
             ("[M+Na]<sup>+</sup>", f"{m_na:.4f}"),
             ("[M+K]<sup>+</sup>", f"{m_k:.4f}"),
             ("[M-H]<sup>-</sup>", f"{m_minus_h:.4f}"),
             ("[M+Cl]<sup>-</sup>", f"{m_cl:.4f}"),
         ]
+        return rows if has_hydrogen else [row for row in rows if row[0] != "[M-H]<sup>-</sup>"]
 
     def capture_scene_image(self):
         """Capture the molecule image from the Main Window scene."""
+        if self._captured_scene is not None:
+            return self._captured_scene
         mol_b64 = None
         img_w, img_h = 0, 0
 
@@ -343,8 +366,6 @@ class ReportDialog(QDialog):
             try:
                 # Standardize fallback size
                 img = Draw.MolToImage(self.mol, size=(400, 300))
-                from io import BytesIO
-                import base64
 
                 buffered = BytesIO()
                 img.save(buffered, format="PNG")
@@ -353,6 +374,8 @@ class ReportDialog(QDialog):
             except (ImportError, RuntimeError, AttributeError, TypeError, ValueError) as _e:
                 logging.warning("[compound_info_report.py:302] silenced: %s", _e)
 
+        if mol_b64:
+            self._captured_scene = (mol_b64, img_w, img_h)
         return mol_b64, img_w, img_h
 
     def fetch_pubchem_data(self, progress_callback=None):
@@ -371,7 +394,8 @@ class ReportDialog(QDialog):
 
             # Step 1: Synonyms
             if progress_callback:
-                progress_callback("Fetching Synonyms...", 1)
+                if progress_callback("Fetching Synonyms...", 1) is False:
+                    return data
             synonyms = PubChemFetcher.get_synonyms(inchikey)
             data["cas_numbers"] = PubChemFetcher.extract_cas(synonyms)
             if synonyms:
@@ -379,12 +403,14 @@ class ReportDialog(QDialog):
 
             # Step 2: Properties (Density & Phys Desc)
             if progress_callback:
-                progress_callback("Fetching Properties...", 2)
+                if progress_callback("Fetching Properties...", 2) is False:
+                    return data
 
             cid = PubChemFetcher.get_cid(inchikey)
             if cid:
                 if progress_callback:
-                    progress_callback("Fetching Experimental Data...", 3)
+                    if progress_callback("Fetching Experimental Data...", 3) is False:
+                        return data
                 density, phys_desc = PubChemFetcher.fetch_experimental_properties(cid)
                 data["density"] = density
                 data["phys_desc"] = phys_desc
@@ -396,18 +422,24 @@ class ReportDialog(QDialog):
 
     def build_html(self, pubchem_data, for_pdf=False, img_b64=None, img_w=0, img_h=0):
         # Gather Basic Data
-        formula = Chem.rdMolDescriptors.CalcMolFormula(self.mol)
+        formula = Chem.rdMolDescriptors.CalcMolFormula(self.mol, separateIsotopes=True)
 
         # Format Formula with Subscripts
-        import re
 
-        formula_html = re.sub(r"(\d+)", r"<sub>\1</sub>", formula)
+        def format_formula_token(match):
+            token = match[0]
+            if token.startswith("["):
+                isotope = re.fullmatch(r"\[(\d+)([A-Z][a-z]?)\]", token)
+                return f"<sup>{isotope[1]}</sup>{isotope[2]}"
+            return f"<sub>{token}</sub>"
+        formula_html = re.sub(r"\[\d+[A-Z][a-z]?\]|\d+", format_formula_token, escape(formula))
 
         mw = Descriptors.MolWt(self.mol)
         exact_mass = Descriptors.ExactMolWt(self.mol)
         logp = Descriptors.MolLogP(self.mol)
 
-        adducts = self.calculate_adducts(exact_mass)
+        has_hydrogen = any(atom.GetAtomicNum() == 1 or atom.GetTotalNumHs() > 0 for atom in self.mol.GetAtoms())
+        adducts = self.calculate_adducts(exact_mass, Chem.GetFormalCharge(self.mol), has_hydrogen)
 
         # --- HTML Components ---
 
@@ -563,6 +595,15 @@ class ReportDialog(QDialog):
         return html
 
     def generate_report(self):
+        if self._generating:
+            return
+        self._generating = True
+        try:
+            self._generate_report()
+        finally:
+            self._generating = False
+
+    def _generate_report(self):
         # Progress Dialog for Fetching
         pubchem_data = {
             "common_name": "",
@@ -581,8 +622,12 @@ class ReportDialog(QDialog):
                 progress.setLabelText(msg)
                 progress.setValue(val)
                 QApplication.processEvents()
+                return not progress.wasCanceled()
 
             pubchem_data = self.fetch_pubchem_data(update_progress)
+            if progress.wasCanceled():
+                progress.close()
+                return
             progress.setValue(4)
 
         # Capture Image for Preview
@@ -684,6 +729,8 @@ def show_report(context):
     if not mol:
         QMessageBox.warning(mw, "Error", "Please load a molecule first.")
         return
+
+    mol = Chem.Mol(mol)
 
     # Generate Structure from SMILES if 2D coords not present (optional safety)
     try:

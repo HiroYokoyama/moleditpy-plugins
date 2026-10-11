@@ -562,7 +562,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "MS Spectrum Simulation Neo",
-    "version": "2026.09.27",
+    "version": "2026.10.13",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Simulates the isotope pattern of the molecular ion (M, or an adduct ion such as [M+H]+ or [M+Na]+) for the currently loaded molecule. Fragment peaks are not simulated. Includes Gaussian broadening and interactive zoom/pan.",
@@ -575,8 +575,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/MS_Spectrum_Simulation_Neo/ms_spectrum_neo.py",
-    "lastUpdated": "2026-09-27",
-    "sha256": "470a811e7c5f0083bf6bd362946a588a60906eb5f2ddeb3de118cb37b91e2395",
+    "lastUpdated": "2026-10-13",
+    "sha256": "317bc2dd23d31881c2d2a36d9518c4130b92ebe048f1972de40692a62371821d",
     "firstAppeared": "2025-12-18",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -591,7 +591,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Elemental Analysis",
-    "version": "2026.09.26",
+    "version": "2026.10.13",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Calculates the theoretical elemental composition (mass %) of the currently loaded molecule, with optional solvate, and formats the 'Anal. Calcd for' line for publications.",
@@ -603,8 +603,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Elemental_Analysis/elemental_analysis.py",
-    "lastUpdated": "2026-09-26",
-    "sha256": "452650632067622abb44e45a81360fb7f23abf2b43d1ba5dc61724f5a79ab595",
+    "lastUpdated": "2026-10-13",
+    "sha256": "3b8a3cb1e9d151a3779d4ec0178dba48875d857d6491021ccae27714638e2f43",
     "firstAppeared": "2026-09-26",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1266,7 +1266,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Compound Info Report",
-    "version": "2026.10.09",
+    "version": "2026.10.13",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generate a compound info report with properties, adducts, and structure. Useful for organic synthesis experiments.",
@@ -1278,8 +1278,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Compound_Info_Report/compound_info_report.py",
-    "lastUpdated": "2026-10-09",
-    "sha256": "b77c92dc7ec85525606651b4f3c6856e6c6de87d28dd68958bdd66d7f1ad17c0",
+    "lastUpdated": "2026-10-13",
+    "sha256": "db4a1a1a2fd14b0e2c2284c67d84cc4b1e22f3ce6b5ef76cbfc7062825219ea8",
     "firstAppeared": "2026-01-21",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
