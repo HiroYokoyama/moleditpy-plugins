@@ -7,6 +7,9 @@ from __future__ import annotations
 
 import ast
 import logging
+import re
+import warnings
+from fractions import Fraction
 import textwrap
 from pathlib import Path
 from unittest import mock
@@ -426,6 +429,10 @@ def _extract_method_source(path, class_name, method_name):
 
 
 def _make_function(src, namespace):
+    defaults = {"np": np, "re": re, "warnings": warnings,
+                "linear_sum_assignment": None, "pv": MagicMock(),
+                "_rotation_order": lambda angle: Fraction(float(angle) / 360).limit_denominator(120).denominator}
+    namespace = {**defaults, **namespace}
     exec(src, namespace)  # noqa: S102 - test-only extraction
     name = src.split("def ", 1)[1].split("(", 1)[0]
     return namespace[name]
@@ -705,6 +712,7 @@ class TestGetPymatgenMolecule:
 class TestOnAnalysisFinished:
     def _self(self):
         return SimpleNamespace(
+            _closing=False, _scanned_fingerprint="current", _molecule_fingerprint=lambda: "current",
             calc_btn=MagicMock(),
             groups_list=_FakeListWidget(),
             group_data={},
@@ -1069,7 +1077,8 @@ class TestVisualizeOps:
         actor_stub = object()
         s = SimpleNamespace(
             context=SimpleNamespace(plotter=plotter, current_molecule=None),
-            vis_actors=[actor_stub],
+            vis_actors=[actor_stub], _vis_plotter=None,
+            _scanned_fingerprint=None,
         )
         with mocks_with_real_numpy():
             fn(s, [])
@@ -1087,7 +1096,7 @@ class TestVisualizeOps:
 
         s = SimpleNamespace(
             context=SimpleNamespace(plotter=plotter, current_molecule=rd_mol),
-            vis_actors=[],
+            vis_actors=[], _vis_plotter=None, analyzer=None, _scanned_fingerprint=None,
             _add_op_visualization=fake_add,
         )
         ops = [_op(np.eye(3)), _op(-np.eye(3))]
@@ -1349,7 +1358,7 @@ class TestUpdateRdkitCoords:
     def test_no_molecule_returns(self):
         fn = self._fn()
         ctx = SimpleNamespace(current_molecule=None, push_undo_checkpoint=MagicMock())
-        s = SimpleNamespace(context=ctx)
+        s = SimpleNamespace(_scanned_fingerprint=None, context=ctx)
         fn(s, np.zeros((0, 3)))
         ctx.push_undo_checkpoint.assert_not_called()
 
@@ -1361,7 +1370,7 @@ class TestUpdateRdkitCoords:
             push_undo_checkpoint=MagicMock(),
             refresh_3d_view=MagicMock(),
         )
-        s = SimpleNamespace(context=ctx)
+        s = SimpleNamespace(_scanned_fingerprint=None, context=ctx)
         coords = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
         fn(s, coords)
         ctx.push_undo_checkpoint.assert_called_once()
@@ -1390,6 +1399,7 @@ class TestCloseEvent:
 
     def _make_self(self, worker=None, plotter=None):
         return SimpleNamespace(
+            calc_btn=MagicMock(),
             worker=worker,
             context=SimpleNamespace(plotter=plotter),
             vis_actors=["a1", "a2"] if plotter else None,
@@ -1421,16 +1431,17 @@ class TestCloseEvent:
         s = self._make_self(worker=worker)
         fn(s, MagicMock())
         worker.abort.assert_called_once()
-        worker.wait.assert_called_once_with(5000)
+        worker.wait.assert_not_called()
         worker.terminate.assert_not_called()
 
-    def test_worker_still_running_after_wait_is_terminated(self):
+    def test_worker_still_running_is_retained(self):
         fn = self._fn()
         worker = MagicMock()
         worker.isRunning.return_value = True
         s = self._make_self(worker=worker)
         fn(s, MagicMock())
-        worker.terminate.assert_called_once()
+        worker.terminate.assert_not_called()
+        assert s.worker is worker
 
     def test_plotter_actors_are_removed(self):
         fn = self._fn()
