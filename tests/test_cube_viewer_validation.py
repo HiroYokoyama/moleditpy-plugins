@@ -14,6 +14,8 @@ PATHS = (
     ROOT / "plugins/Cube_File_Viewer/cube_viewer.py",
     ROOT / "plugins/Cube_File_Viewer_Advanced/cube_viewer_advanced.py",
     ROOT / "plugins/Mapped_Cube_Viewer/mapped_cube_viewer.py",
+    ROOT / "plugins/Orbital_Comparator/orbital_comparator.py",
+    ROOT / "plugins/Gaussian_MO_Analyzer/gaussian_fchk_mo_analyzer/vis.py",
 )
 
 
@@ -22,6 +24,14 @@ def module(request):
     with mock_optional_imports():
         mod = load_plugin(request.param)
     mod.np = np
+    if request.param.name in ("orbital_comparator.py", "vis.py"):
+        parser = mod.parse_cube if request.param.name == "orbital_comparator.py" else mod.CubeVisualizer(MagicMock())._parse_cube
+
+        def normalized_parse(path):
+            meta = parser(path)
+            return dict(meta, data_flat=meta["data"])
+
+        mod.parse_cube_data = normalized_parse
     return mod
 
 
@@ -62,7 +72,7 @@ def test_positive_nval_is_deinterleaved(module, tmp_path):
 def test_negative_natoms_wrapped_ids_are_after_atoms(module, tmp_path):
     data = " ".join(str(value) for pair in zip(range(1, 9), range(101, 109)) for value in pair)
     meta = parse(module, tmp_path, cube_text(data, natoms=-1, ids="2 42\n43\n"))
-    assert meta["atoms"][0][0] == 6
+    assert meta["atoms"][0][0] in (6, "C")
     np.testing.assert_array_equal(meta["data_flat"], np.arange(1, 9))
 
 

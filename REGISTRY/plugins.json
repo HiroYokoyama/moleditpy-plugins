@@ -1294,7 +1294,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Gaussian MO Analyzer",
-    "version": "2026.09.02",
+    "version": "2026.10.13",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes Molecular Orbitals from Gaussian FCHK files by generating Cube files. Supports S, P, D, F and spherical G shells; files using basis functions it cannot render exactly are rejected rather than shown wrong.",
@@ -1311,8 +1311,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Gaussian_MO_Analyzer/gaussian_fchk_mo_analyzer.zip",
-    "lastUpdated": "2026-09-02",
-    "sha256": "e5b2d70625783cfeaf1307611b4c4d288370c607806c2fd0561e87bae7418c29",
+    "lastUpdated": "2026-10-13",
+    "sha256": "326bfebab9d82c14ee6940e1f5dc3c1cd7a47603b9a6f695af195899a1bf9c1b",
     "firstAppeared": "2026-01-23",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -2180,7 +2180,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Orbital Comparator",
-    "version": "2026.07.31",
+    "version": "2026.10.13",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Load and compare up to four .cube files at once (orbitals, densities, ESP), each with its own colours, isovalue, opacity and style.",
@@ -2194,8 +2194,8 @@
       "pyvista"
     ],
     "downloadUrl": "../plugins/Orbital_Comparator/orbital_comparator.py",
-    "lastUpdated": "2026-07-31",
-    "sha256": "fc8f99f5fcc2a4e0fb14e3de01b51f1df23a4a23073a4e3a3b0d3348fa96e830",
+    "lastUpdated": "2026-10-13",
+    "sha256": "7f5a78a4dd1447b0e53eb358a2aec577947312dfee2b995408fe30fb3ed145c3",
     "firstAppeared": "2026-07-31",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

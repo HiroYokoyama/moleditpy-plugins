@@ -59,3 +59,13 @@ for excessive payloads. Dock title-bar closure now invokes plugin cleanup in all
 three viewers; real Qt tests cover that path. Rendering CI explicitly includes
 the real-data regression module, whose optional imports are gated on all
 required scientific libraries.
+
+## Related plugins
+
+Orbital Comparator and Gaussian MO Analyzer use the same strict PySCF-derived
+Cube parsing rules, including NVAL, wrapped DSET_IDS, finite records and bounded
+conversion. Orbital Comparator preserves a loaded slot when replacement fails.
+Gaussian MO Analyzer's cache includes source content, grid size and margin;
+its grid control is capped at 125 points per axis to fit the two million scalar
+loading limit. Its downloadable ZIP is rebuilt and checked against each source
+file. Both plugin versions are 2026.10.13.
