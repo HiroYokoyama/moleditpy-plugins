@@ -36,6 +36,7 @@ GAUSSIAN_PATH = PLUGINS_DIR / "Gaussian_Freq_Analyzer" / "gaussian_fchk_freq_ana
 
 with mock_chemistry_imports():
     _gaussian = load_plugin_for_gui(GAUSSIAN_PATH)
+    _gaussian.Chem.GetPeriodicTable.return_value.GetAtomicWeight.return_value = 1.0
 
 
 def _gaussian_context() -> MagicMock:
@@ -224,6 +225,7 @@ def _mock_chemistry_keep_numpy():
 
 with _mock_chemistry_keep_numpy():
     _gnp = load_plugin_for_gui(GAUSSIAN_PATH)
+    _gnp.Chem.GetPeriodicTable.return_value.GetAtomicWeight.return_value = 1.0
 
 
 _WATER_FCHK = textwrap.dedent("""\
@@ -700,13 +702,15 @@ class TestShowSpectrumReal:
         gnp_widget.parser = _gnp.FCHKParser()
         gnp_widget.show_spectrum()  # frequencies == [] -> return
 
-    def test_all_low_frequencies_shows_info(self, gnp_widget, monkeypatch):
-        calls = _no_block_msgbox(monkeypatch)
+    def test_soft_vibrations_are_preserved(self, gnp_widget, monkeypatch):
+        captured = []
+        dialog = MagicMock()
+        monkeypatch.setattr(_gnp, "SpectrumDialog", lambda freqs, intensities, **kwargs: captured.append(list(freqs)) or dialog)
         gnp_widget.parser = _gnp.FCHKParser()
         gnp_widget.parser.frequencies = [1.0, -2.0]
         gnp_widget.parser.intensities = [1.0, 1.0]
         gnp_widget.show_spectrum()
-        assert calls["information"]
+        assert captured == [[1.0, -2.0]]
 
     def test_opens_dialog_with_scaled_filtered_frequencies(self, loaded_widget, monkeypatch):
         captured = {}
@@ -1231,3 +1235,28 @@ class TestInitializeAndRunReal:
         mw = SimpleNamespace(plugin_manager=True)
         _gnp.run(mw)
         _gnp.run_plugin.assert_called_once_with(ctx)
+
+
+def test_replacement_molecule_stops_stale_animation(loaded_widget):
+    context = loaded_widget.context
+    loaded_widget._bound_mol = loaded_widget.base_mol
+    context.current_molecule = object()
+    context.draw_molecule_3d.reset_mock()
+    loaded_widget.is_playing = True
+    loaded_widget.timer.start(50)
+    loaded_widget.animate_frame()
+    assert not loaded_widget.timer.isActive()
+    assert not loaded_widget.is_playing
+    assert loaded_widget.base_mol is None
+    context.draw_molecule_3d.assert_not_called()
+
+
+def test_missing_ir_intensities_do_not_create_unit_height_peaks(loaded_widget, monkeypatch):
+    loaded_widget.parser.intensities = []
+    messages = MagicMock()
+    dialog = MagicMock()
+    monkeypatch.setattr(_gnp.QMessageBox, "information", messages)
+    monkeypatch.setattr(_gnp, "SpectrumDialog", dialog)
+    loaded_widget.show_spectrum()
+    dialog.assert_not_called()
+    messages.assert_called_once()
