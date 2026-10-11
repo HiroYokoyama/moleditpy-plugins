@@ -957,7 +957,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "MOPAC Input Generator",
-    "version": "2026.09.24",
+    "version": "2026.10.12",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates input files for MOPAC semi-empirical quantum chemistry calculations.",
@@ -970,8 +970,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Mopac_Input_Generator/mopac_input_generator.py",
-    "lastUpdated": "2026-09-24",
-    "sha256": "9b1fa79a184202e92a2cbbac94bf0372508893fc179b0038d4036cd70274fcfb",
+    "lastUpdated": "2026-10-12",
+    "sha256": "9d297b1f19c0f7c0c09d1bab2a34c7b08f40e27d700b22e237f7612f8c24932f",
     "firstAppeared": "2026-01-03",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

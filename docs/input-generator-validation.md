@@ -19,3 +19,17 @@ generator cannot supply. Control records are wrapped to fit 80 columns.
 Regression tests cover these constraints, keyword preservation on wrapped
 records, and preview/save behavior. Tests validate generated text and real Qt
 behavior; a GAMESS executable is not installed in the available environment.
+
+## MOPAC
+
+Sources: [official usage guide](https://openmopac.net/guides/basics/),
+[spin keyword](https://openmopac.net/Manual/ms.html),
+[force calculation](https://openmopac.net/Manual/force.html),
+[thermochemistry](https://openmopac.net/Manual/thermo00.html).
+
+Open-shell defaults now include `UHF`; explicitly requested RHF/CI is preserved.
+Incompatible UHF/CI combinations are rejected. Charge and spin controls replace
+conflicting copies in free-form keywords, and NOSYM is not duplicated. `1SCF`
+is matched as a whole keyword. The thermochemistry template includes `FORCE`;
+the supplied geometry must already be optimized, as required by MOPAC.
+Logic and Qt regressions validate keyword composition and preview/save behavior.

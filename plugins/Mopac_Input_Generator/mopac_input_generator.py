@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import os
 import json
+import logging
+import re
 from PyQt6.QtWidgets import (
     QMessageBox,
     QDialog,
@@ -20,10 +22,9 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 from rdkit import Chem
-import logging
 
 PLUGIN_NAME = "MOPAC Input Generator"
-PLUGIN_VERSION = "2026.09.24"
+PLUGIN_VERSION = "2026.10.12"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Generates input files for MOPAC semi-empirical quantum chemistry calculations."
@@ -190,14 +191,7 @@ class MopacSetupDialog(QDialog):
             logging.warning("[mopac_input_generator.py:189] silenced: %s", _e)
 
     def validate_charge_mult(self):
-        self.update_keywords_charge_mult()
         self.update_preview()
-
-    def update_keywords_charge_mult(self):
-        # MOPAC handles charge and doublet/triplet etc via keywords sometimes,
-        # but CHARGE=n is standard. MS=n or SINGLET/DOUBLET/TRIPLET etc.
-        # We will append CHARGE=n and Multiplicity keyword if needed
-        pass
 
     def apply_template(self):
         txt = self.template_combo.currentText()
@@ -210,7 +204,7 @@ class MopacSetupDialog(QDialog):
         elif "Single Point" in txt:
             self.keywords_edit.setText("PM7 1SCF")
         elif "Thermodynamics" in txt:
-            self.keywords_edit.setText("PM7 THERMO")
+            self.keywords_edit.setText("PM7 FORCE THERMO")
         elif "Transition State" in txt:
             self.keywords_edit.setText("PM7 TS PRECISE")
         self.update_preview()
@@ -223,11 +217,28 @@ class MopacSetupDialog(QDialog):
         charge = self.charge_spin.value()
         mult = self.mult_spin.value()
 
+        # The state controls own charge and spin. Do not emit conflicting copies
+        # when a user preset also contains these keywords.
+        base_kw = re.sub(
+            r"(?<!\S)(?:CHARGE|MS)\s*=\s*[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?!\S)"
+            r"|(?<!\S)(?:SINGLET|DOUBLET|TRIPLET|QUARTET|QUINTET|SEXTET|SEPTET|OCTET|NONET)(?!\S)",
+            "", base_kw, flags=re.IGNORECASE,
+        )
+        base_kw = " ".join(base_kw.split())
+        tokens = {token.upper() for token in base_kw.split()}
+        has_ci = any(token.startswith("C.I.") for token in tokens)
+        if "UHF" in tokens and ("RHF" in tokens or has_ci):
+            raise ValueError("UHF cannot be combined with RHF or C.I. in MOPAC.")
+        if mult > 2 and "RHF" in tokens and not has_ci:
+            raise ValueError("High-spin RHF requires C.I. and an explicitly defined open shell; use UHF for the default job.")
+        if mult > 1 and "UHF" not in tokens and "RHF" not in tokens and not has_ci:
+            base_kw += " UHF"
+
         # Add Charge
         kw_line = f"{base_kw} CHARGE={charge}"
 
         # Add NOSYM
-        if self.chk_nosym.isChecked():
+        if self.chk_nosym.isChecked() and "NOSYM" not in tokens:
             kw_line += " NOSYM"
 
         # Add Multiplicity
@@ -247,13 +258,13 @@ class MopacSetupDialog(QDialog):
             kw_line += f" MS={float(mult - 1) / 2.0}"
 
         lines.append(kw_line)
-        lines.append(self.title_edit.text())
-        lines.append(self.comment_edit.text())
+        lines.append(" ".join(self.title_edit.text().splitlines()))
+        lines.append(" ".join(self.comment_edit.text().splitlines()))
 
         # Geometry
         if self.mol:
             # Check for Single Point in keywords
-            is_single_point = "1SCF" in base_kw.upper()
+            is_single_point = "1SCF" in tokens
             opt_flag = "0" if is_single_point else "1"
 
             conf = self.mol.GetConformer()
@@ -269,11 +280,19 @@ class MopacSetupDialog(QDialog):
         return "\n".join(lines)
 
     def update_preview(self):
-        self.preview_text.setText(self.generate_content())
+        self._generation_error = None
+        try:
+            self.preview_text.setText(self.generate_content())
+        except ValueError as exc:
+            self._generation_error = str(exc)
+            self.preview_text.setText(f"Invalid input: {exc}")
 
     def save_file(self):
         # Use content from preview text to allow manual edits
         content = self.preview_text.toPlainText()
+        if self._generation_error:
+            QMessageBox.warning(self, "Invalid MOPAC input", self._generation_error)
+            return
         default_name = "mopac_job.mop"
         if self.filename:
             base = os.path.splitext(os.path.basename(self.filename))[0]
@@ -284,7 +303,7 @@ class MopacSetupDialog(QDialog):
         )
         if path:
             try:
-                with open(path, "w", encoding="utf-8") as f:
+                with open(path, "w", encoding="utf-8", newline="\n") as f:
                     f.write(content)
                 QMessageBox.information(self, "Success", f"File saved to {path}")
                 # Do not close dialog automatically
