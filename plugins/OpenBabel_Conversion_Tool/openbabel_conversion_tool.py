@@ -1,4 +1,10 @@
 import os
+import sys
+import importlib
+import json
+import tempfile
+import shutil
+from types import SimpleNamespace
 from PyQt6.QtWidgets import (
     QDialog,
     QVBoxLayout,
@@ -8,8 +14,9 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QFileDialog,
     QAbstractItemView,
+    QProgressDialog,
 )
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import QTimer, QProcess, QEventLoop, Qt
 from rdkit import Chem
 from rdkit.Chem import AllChem
 import logging
@@ -30,7 +37,7 @@ except ImportError:
         OBABEL_AVAILABLE = False
 
 PLUGIN_NAME = "OpenBabel Conversion Tool"
-PLUGIN_VERSION = "2026.09.24"
+PLUGIN_VERSION = "2026.10.13"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -42,13 +49,121 @@ PLUGIN_DEPENDENCIES = ["openbabel-wheel"]
 HOST_SDF_SELECTOR_VERSION = (4, 11, 0)
 
 
+
+# Native parsers run in a disposable process: a Python thread cannot stop a
+# hung OpenBabel C++ call, and may still hold the interpreter lock.
+MAX_FILE_BYTES = 32 * 1024 * 1024
+MAX_MOLECULES = 500
+MAX_ATOMS = 10000
+CONVERSION_TIMEOUT_MS = 30000
+_CONVERSION_SCRIPT = r"""
+import sys, json
+try:
+    from openbabel import pybel
+except ImportError:
+    import pybel
+mode, fmt, source, output = sys.argv[1:5]
+if mode == 'import':
+    records = []
+    size = 0
+    for mol in pybel.readfile(fmt, source):
+        if len(records) >= 500:
+            raise ValueError('File contains more than 500 molecules; split it first.')
+        if mol.OBMol.NumAtoms() > 10000:
+            raise ValueError('Molecule exceeds 10000 atoms.')
+        block = mol.write('mol')
+        size += len(block.encode('utf-8'))
+        if size > 32 * 1024 * 1024:
+            raise ValueError('Converted structures exceed 32 MiB; split the file first.')
+        records.append(dict(title=mol.title[:256], formula=mol.formula[:256], block=block))
+    with open(output, 'w', encoding='utf-8') as handle:
+        json.dump(records, handle)
+else:
+    with open(source, encoding='utf-8') as handle:
+        mol = pybel.readstring('mol', handle.read())
+    mol.write(fmt, output, overwrite=True)
+"""
+
+
+def _run_conversion(script, arguments, parent):
+    process = QProcess(parent)
+    loop = QEventLoop()
+    progress = QProgressDialog('Converting with OpenBabel...', 'Cancel', 0, 0, parent)
+    progress.setWindowModality(Qt.WindowModality.WindowModal)
+    progress.setMinimumDuration(0)
+    timer = QTimer()
+    timer.setSingleShot(True)
+    failure = []
+    diagnostics = bytearray()
+
+    def stop(message):
+        failure.append(message)
+        process.kill()
+        loop.quit()
+
+    def drain():
+        data = bytes(process.readAllStandardError())
+        diagnostics.extend(data[:max(0, 4096 - len(diagnostics))])
+        process.readAllStandardOutput()
+
+    process.readyReadStandardError.connect(drain)
+    process.readyReadStandardOutput.connect(drain)
+    process.finished.connect(loop.quit)
+    process.errorOccurred.connect(loop.quit)
+    progress.canceled.connect(lambda: stop('Conversion cancelled.'))
+    timer.timeout.connect(lambda: stop('Conversion timed out after 30 seconds.'))
+    try:
+        process.start(sys.executable, ['-c', script, *arguments])
+        timer.start(CONVERSION_TIMEOUT_MS)
+        progress.show()
+        loop.exec()
+        drain()
+        if failure:
+            raise ValueError(failure[0])
+        if process.exitStatus() != QProcess.ExitStatus.NormalExit or process.exitCode() != 0 or process.error() == QProcess.ProcessError.FailedToStart:
+            raise ValueError('OpenBabel conversion failed: ' + (diagnostics.decode('utf-8', errors='replace') or process.errorString()))
+    finally:
+        timer.stop()
+        if process.state() != QProcess.ProcessState.NotRunning:
+            process.kill()
+            process.waitForFinished(1000)
+        progress.close()
+        progress.deleteLater()
+        process.deleteLater()
+
+
+def _read_molecules(file_path, file_fmt, parent):
+    if file_fmt not in pybel.informats:
+        raise ValueError(f"Format '{file_fmt}' is not supported by OpenBabel.")
+    if os.path.getsize(file_path) > MAX_FILE_BYTES:
+        raise ValueError('File exceeds 32 MiB; split it into smaller files first.')
+    with tempfile.TemporaryDirectory(prefix='moleditpy-obabel-') as directory:
+        source = os.path.join(directory, 'input.' + file_fmt)
+        output = os.path.join(directory, 'result.json')
+        # A bounded copy handles Unicode source paths and files growing since stat.
+        with open(file_path, 'rb') as src, open(source, 'wb') as dst:
+            data = src.read(MAX_FILE_BYTES + 1)
+            if len(data) > MAX_FILE_BYTES:
+                raise ValueError('File exceeds 32 MiB.')
+            dst.write(data)
+        _run_conversion(_CONVERSION_SCRIPT, ['import', file_fmt, source, output], parent)
+        with open(output, 'rb') as handle:
+            raw = handle.read(MAX_FILE_BYTES * 2 + 1)
+        if len(raw) > MAX_FILE_BYTES * 2:
+            raise ValueError('Converted data is too large.')
+        records = json.loads(raw)
+        return [SimpleNamespace(title=r['title'], formula=r['formula'],
+                                write=lambda fmt, block=r['block']: block)
+                for r in records]
+
+
 def _host_version():
     """Return the host app version as an int tuple, or None if unknown."""
     try:
-        from moleditpy.utils.constants import VERSION
+        VERSION = importlib.import_module('moleditpy.utils.constants').VERSION
     except ImportError:
         try:
-            from moleditpy_linux.utils.constants import VERSION
+            VERSION = importlib.import_module('moleditpy_linux.utils.constants').VERSION
         except ImportError:
             return None
     try:
@@ -114,6 +229,11 @@ def open_file_with_openbabel(file_path, context):
     Main logic to read file with Pybel, handle multiple molecules, convert to RDKit, and load.
     """
     mw = context.get_main_window()
+    if getattr(context, '_openbabel_import_active', False) is True:
+        context.show_status_message('An OpenBabel import is already running.', 3000)
+        return
+    context._openbabel_import_active = True
+    original_molecule = context.current_molecule
 
     try:
         _, ext = os.path.splitext(file_path)
@@ -128,48 +248,7 @@ def open_file_with_openbabel(file_path, context):
             )
             return
 
-        # Handle non-ASCII paths (Windows/OpenBabel issue workaround)
-        # If the path contains non-ascii characters, OpenBabel might fail to open it.
-        # We assume safe-ascii workaround by copying to a temp file.
-        temp_file_path = None
-        path_to_open = file_path
-
-        needs_temp = False
-        try:
-            file_path.encode("ascii")
-        except UnicodeEncodeError:
-            needs_temp = True
-
-        if needs_temp:
-            import tempfile
-            import shutil
-
-            try:
-                # Create a temp file with the same extension
-                # handling suffix correctly for Pybel format guessing (though we pass format explicitly)
-                fd, temp_file_path = tempfile.mkstemp(suffix=f".{ext.lstrip('.')}")
-                os.close(fd)
-                shutil.copy2(file_path, temp_file_path)
-                path_to_open = temp_file_path
-            except OSError as e:
-                logging.warning("[%s] Failed to create temp file for non-ascii path: %s", PLUGIN_NAME, e)
-                # Fallback to original path
-                path_to_open = file_path
-                temp_file_path = None
-
-        try:
-            # Attempt to read file
-            # pybel.readfile returns a generator
-            mols = list(pybel.readfile(file_fmt, path_to_open))
-        finally:
-            # Cleanup temp file
-            if temp_file_path and os.path.exists(temp_file_path):
-                try:
-                    os.remove(temp_file_path)
-                except OSError as _e:
-                    logging.warning(
-                        "[openbabel_conversion_tool.py:153] silenced: %s", _e
-                    )
+        mols = _read_molecules(file_path, file_fmt, mw)
 
         if not mols:
             QMessageBox.warning(mw, "Error", "No molecules found in file.")
@@ -193,6 +272,9 @@ def open_file_with_openbabel(file_path, context):
 
         if not selected_mol:
             return
+
+        if context.current_molecule is not original_molecule:
+            raise ValueError("Molecule changed during conversion; import cancelled.")
 
         # Convert to RDKit
         # We use the MolBlock format (MDL MOL) as the bridge
@@ -267,6 +349,8 @@ def open_file_with_openbabel(file_path, context):
     except Exception as e:
         logging.exception("Import error: %s", e)
         QMessageBox.critical(mw, "Import Error", f"An error occurred:\n{e}")
+    finally:
+        context._openbabel_import_active = False
 
 
 def export_with_openbabel(context):
@@ -318,6 +402,9 @@ def export_with_openbabel(context):
             )
             return
 
+        if mol.GetNumAtoms() > MAX_ATOMS:
+            raise ValueError("Molecule exceeds 10000 atoms.")
+
         # RDKit -> MolBlock
         try:
             mol_block = Chem.MolToMolBlock(mol)
@@ -329,17 +416,23 @@ def export_with_openbabel(context):
             )
             return
 
-        # MolBlock -> Pybel
-        try:
-            pybel_mol = pybel.readstring("mol", mol_block)
-        except Exception as e:
-            QMessageBox.critical(
-                mw, "Conversion Error", f"Failed to read MolBlock with OpenBabel:\n{e}"
-            )
-            return
-
-        # Save
-        pybel_mol.write(fmt, path, overwrite=True)
+        with tempfile.TemporaryDirectory(prefix='moleditpy-obabel-') as directory:
+            source = os.path.join(directory, 'input.mol')
+            output = os.path.join(directory, 'output.' + fmt)
+            with open(source, 'w', encoding='utf-8') as handle:
+                handle.write(mol_block)
+            _run_conversion(_CONVERSION_SCRIPT, ['export', fmt, source, output], mw)
+            if os.path.getsize(output) > MAX_FILE_BYTES:
+                raise ValueError('Exported data exceeds 32 MiB.')
+            # Replace only after a successful conversion, also for Unicode paths.
+            fd, staged = tempfile.mkstemp(dir=os.path.dirname(os.path.abspath(path)), suffix='.tmp')
+            try:
+                with os.fdopen(fd, 'wb') as handle, open(output, 'rb') as result:
+                    shutil.copyfileobj(result, handle)
+                os.replace(staged, path)
+            finally:
+                if os.path.exists(staged):
+                    os.remove(staged)
 
         context.show_status_message(f"Exported to {path}", 3000)
 

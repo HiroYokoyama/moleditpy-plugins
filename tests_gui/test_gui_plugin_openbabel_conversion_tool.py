@@ -94,3 +94,97 @@ class TestMoleculeSelectionDialog:
     def test_obabel_available_flag(self):
         # Under mock_chemistry_imports, openbabel is mocked → OBABEL_AVAILABLE=True
         assert _openbabel.OBABEL_AVAILABLE is True
+
+
+class TestIsolatedConversion:
+    def test_process_success_and_failure(self, qapp):
+        _openbabel._run_conversion('print("done")', [], None)
+        with pytest.raises(ValueError, match='failed'):
+            _openbabel._run_conversion('raise ValueError("unsupported data")', [], None)
+
+    def test_timeout_keeps_gui_responsive(self, qapp, monkeypatch):
+        from PyQt6.QtCore import QTimer
+        monkeypatch.setattr(_openbabel, 'CONVERSION_TIMEOUT_MS', 250)
+        ticks = []
+        timer = QTimer()
+        timer.timeout.connect(lambda: ticks.append(1))
+        timer.start(10)
+        try:
+            with pytest.raises(ValueError, match='timed out'):
+                _openbabel._run_conversion('import time; time.sleep(60)', [], None)
+        finally:
+            timer.stop()
+        assert len(ticks) >= 2
+
+    def test_cancel_terminates_native_process(self, qapp):
+        from PyQt6.QtCore import QTimer
+        from PyQt6.QtWidgets import QApplication, QProgressDialog
+        def cancel():
+            for widget in QApplication.topLevelWidgets():
+                if isinstance(widget, QProgressDialog):
+                    widget.canceled.emit()
+        QTimer.singleShot(100, cancel)
+        with pytest.raises(ValueError, match='cancelled'):
+            _openbabel._run_conversion('import time; time.sleep(60)', [], None)
+
+    def test_unsupported_or_large_file_never_launches_parser(self, qapp, tmp_path, monkeypatch):
+        monkeypatch.setattr(_openbabel.pybel, 'informats', {'xyz': 'XYZ'})
+        runner = MagicMock()
+        monkeypatch.setattr(_openbabel, '_run_conversion', runner)
+        source = tmp_path / 'large.xyz'
+        source.write_bytes(b'123456')
+        monkeypatch.setattr(_openbabel, 'MAX_FILE_BYTES', 5)
+        with pytest.raises(ValueError, match='not supported'):
+            _openbabel._read_molecules(str(source), 'bad', None)
+        with pytest.raises(ValueError, match='exceeds'):
+            _openbabel._read_molecules(str(source), 'xyz', None)
+        runner.assert_not_called()
+
+    def test_unicode_source_copy_and_result_cleanup(self, qapp, tmp_path, monkeypatch):
+        import json
+        source = tmp_path / '水.xyz'
+        source.write_text('1\nwater\nO 0 0 0\n', encoding='utf-8')
+        paths = []
+        def convert(script, args, parent):
+            paths.extend(args[2:])
+            assert Path(args[2]).read_bytes() == source.read_bytes()
+            Path(args[3]).write_text(json.dumps([dict(title='water', formula='O', block='MOL')]))
+        monkeypatch.setattr(_openbabel.pybel, 'informats', {'xyz': 'XYZ'})
+        monkeypatch.setattr(_openbabel, '_run_conversion', convert)
+        mols = _openbabel._read_molecules(str(source), 'xyz', None)
+        assert mols[0].write('mol') == 'MOL'
+        assert mols[0].title == 'water'
+        assert all(not Path(path).exists() for path in paths)
+
+    def test_child_atom_and_record_limits(self, qapp, tmp_path, monkeypatch):
+        import sys
+        from types import SimpleNamespace
+        mol = MagicMock()
+        mol.OBMol.NumAtoms.return_value = 10001
+        monkeypatch.setitem(sys.modules, 'openbabel', SimpleNamespace(pybel=SimpleNamespace(readfile=lambda *a: iter([mol]))))
+        monkeypatch.setattr(sys, 'argv', ['worker', 'import', 'xyz', 'input', str(tmp_path / 'out')])
+        with pytest.raises(ValueError, match='10000 atoms'):
+            exec(_openbabel._CONVERSION_SCRIPT, {})
+        mol.OBMol.NumAtoms.return_value = 1
+        mol.write.return_value = 'MOL'
+        mol.title = 'sample'
+        mol.formula = 'H'
+        monkeypatch.setitem(sys.modules, 'openbabel', SimpleNamespace(pybel=SimpleNamespace(readfile=lambda *a: iter([mol] * 501))))
+        with pytest.raises(ValueError, match='500 molecules'):
+            exec(_openbabel._CONVERSION_SCRIPT, {})
+
+    def test_failed_export_preserves_existing_file(self, qapp, tmp_path, monkeypatch):
+        target = tmp_path / 'existing.xyz'
+        target.write_bytes(b'original')
+        ctx = MagicMock()
+        ctx.get_main_window.return_value = None
+        ctx.current_molecule.GetNumAtoms.return_value = 2
+        monkeypatch.setattr(_openbabel.pybel, 'outformats', {'xyz': 'XYZ'})
+        monkeypatch.setattr(_openbabel.Chem, 'MolToMolBlock', lambda *a: 'MOL')
+        monkeypatch.setattr(_openbabel.QFileDialog, 'getSaveFileName', lambda *a: (str(target), ''))
+        monkeypatch.setattr(_openbabel, '_run_conversion', MagicMock(side_effect=ValueError('timed out')))
+        critical = MagicMock()
+        monkeypatch.setattr(_openbabel.QMessageBox, 'critical', critical)
+        _openbabel.export_with_openbabel(ctx)
+        assert target.read_bytes() == b'original'
+        critical.assert_called_once()
