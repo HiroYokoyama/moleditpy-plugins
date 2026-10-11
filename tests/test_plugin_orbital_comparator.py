@@ -1460,3 +1460,24 @@ class TestTeardown:
     def test_closing_without_a_plotter_is_harmless(self, comparator):
         comparator.win.mw = SimpleNamespace()
         comparator.win.closeEvent(MagicMock())  # must not raise
+
+
+def test_failed_replacement_preserves_slot_and_actors(tmp_path):
+    from orbital_comparator_harness import load_with_stateful_qt
+
+    mod = load_with_stateful_qt(ORBITAL_COMPARATOR_PATH)
+    mw = SimpleNamespace(plotter=MagicMock())
+    ctx = MagicMock()
+    ctx.get_main_window.return_value = mw
+    mod.initialize(ctx)
+    opener = ctx.register_file_opener.call_args_list[0].args[1]
+    opener(str(_write_cube(tmp_path)))
+    win = mw.orbital_comparator_window
+    slot = win.slots[0]
+    original = (slot.grid, slot.path, slot.meta)
+    mw.plotter.reset_mock()
+    broken = tmp_path / "broken.cube"
+    broken.write_text("incomplete", encoding="utf-8")
+    assert not win.load_into(slot, str(broken))
+    assert (slot.grid, slot.path, slot.meta) == original
+    mw.plotter.remove_actor.assert_not_called()

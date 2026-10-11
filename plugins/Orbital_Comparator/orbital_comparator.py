@@ -14,6 +14,7 @@ picks which loaded cube supplies the structure shown underneath the
 isosurfaces, which matters when the files come from different jobs.
 """
 
+from itertools import islice
 import logging
 import os
 
@@ -46,7 +47,7 @@ except ImportError:  # pragma: no cover - host always ships pyvista
 
 
 PLUGIN_NAME = "Orbital Comparator"
-PLUGIN_VERSION = "2026.07.31"
+PLUGIN_VERSION = "2026.10.13"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -113,73 +114,146 @@ def describe_cube(meta):
 
 
 def parse_cube(filename):
-    """Read a Gaussian cube into dims/origin/vectors/data."""
-    with open(filename, "r", encoding="utf-8", errors="replace") as f:
+    """Parse Cube records using the PySCF Calculator's strict parser logic.
+
+    Kept self-contained because each viewer is installed independently.
+    """
+    def number(token):
+        return float(token.replace("D", "E").replace("d", "e"))
+    if not filename or not os.path.exists(filename):
+        raise FileNotFoundError(f"File not found: {filename}")
+    if os.path.getsize(filename) > 256 * 1024 * 1024:
+        raise ValueError("Cube file exceeds the 256 MiB loading limit.")
+
+    with open(filename, "r", encoding="utf-8", errors="strict") as f:
         lines = f.readlines()
 
-    tokens = lines[2].split()
-    n_atoms_raw = int(tokens[0])
-    n_atoms = abs(n_atoms_raw)
-    origin = np.array([float(x) for x in tokens[1:4]])
+    if len(lines) < 6:
+        raise ValueError("File too short to be a Cube file.")
 
-    nx, *x_vec = lines[3].split()
-    nx = int(nx)
-    x_vec = np.array([float(x) for x in x_vec])
-    ny, *y_vec = lines[4].split()
-    ny = int(ny)
-    y_vec = np.array([float(x) for x in y_vec])
-    nz, *z_vec = lines[5].split()
-    nz = int(nz)
-    z_vec = np.array([float(x) for x in z_vec])
+    # --- Header Parsing ---
+    try:
+        # Line 3: Natoms, Origin
+        tokens = lines[2].split()
+        if len(tokens) < 4:
+            raise ValueError("Invalid Origin line")
+        n_atoms_raw = int(tokens[0])
+        n_atoms = abs(n_atoms_raw)
+        origin_raw = np.array([number(tokens[1]), number(tokens[2]), number(tokens[3])])
 
+        def parse_vec(line):
+            t = line.split()
+            if len(t) < 4:
+                raise ValueError("Invalid Axis line")
+            return int(t[0]), np.array([number(t[1]), number(t[2]), number(t[3])])
+
+        nx, x_vec_raw = parse_vec(lines[3])
+        ny, y_vec_raw = parse_vec(lines[4])
+        nz, z_vec_raw = parse_vec(lines[5])
+
+        is_angstrom_header = nx < 0 or ny < 0 or nz < 0
+        nx, ny, nz = abs(nx), abs(ny), abs(nz)
+        if not all(np.all(np.isfinite(v)) for v in (origin_raw, x_vec_raw, y_vec_raw, z_vec_raw)):
+            raise ValueError("Cube header contains nonfinite coordinates.")
+        if np.linalg.matrix_rank(np.array([x_vec_raw, y_vec_raw, z_vec_raw])) != 3:
+            raise ValueError("Cube axis vectors must span three dimensions.")
+        if min(nx, ny, nz) == 0 or nx * ny * nz > 2_000_000:
+            raise ValueError("Cube grid must contain 1 to 2,000,000 points.")
+
+    except (ValueError, IndexError) as e:
+        raise ValueError(f"Header parsing failed: {e}") from e
+
+    # --- Atoms Parsing ---
     atoms = []
-    for line in lines[6 : 6 + n_atoms]:
-        fields = line.split()
-        if len(fields) < 5:
-            continue
-        atoms.append(
-            (
-                element_symbol(float(fields[0])),
-                (float(fields[2]), float(fields[3]), float(fields[4])),
-            )
-        )
+    current_line = 6
 
-    start_line = 6 + n_atoms
-    n_datasets = 1
+    for _ in range(n_atoms):
+        if current_line >= len(lines):
+            raise ValueError("Incomplete cube atom block")
+        line = lines[current_line].split()
+        current_line += 1
+
+        try:
+            if len(line) < 5:
+                # Potentially empty line or malformed
+                raise ValueError("Malformed cube atom line")
+            atomic_num = int(line[0])
+            if not 0 <= atomic_num <= 118:
+                raise ValueError("Invalid cube atomic number")
+            x, y, z = number(line[2]), number(line[3]), number(line[4])
+            if not np.all(np.isfinite([number(line[1]), x, y, z])):
+                raise ValueError("Nonfinite cube atom coordinates")
+            atoms.append((atomic_num, np.array([x, y, z])))
+        except (ValueError, IndexError) as exc:
+            raise ValueError("Malformed cube atom line") from exc
+
+    # A negative atom count means the cube holds several data sets. The
+    # DSET_IDS block (count + that many ids, possibly wrapped) sits *after*
+    # the atom lines -- skipping a line before them consumed the first atom.
+    n_datasets = int(tokens[4]) if len(tokens) > 4 else 1
     if n_atoms_raw < 0:
-        # A negative atom count flags an MO cube: a DSET_IDS block (a count
-        # plus that many ids, possibly wrapped) sits before the data.
-        n_ids = int(lines[start_line].split()[0])
-        n_datasets = max(1, n_ids)
-        consumed = len(lines[start_line].split()) - 1
-        start_line += 1
-        while consumed < n_ids:
-            if start_line >= len(lines):
-                raise ValueError("cube ends inside its DSET_IDS block")
-            fields = len(lines[start_line].split())
-            start_line += 1
-            if fields == 0:
-                # A blank line consumes no ids; without this the loop spins
-                # forever and the whole app stops responding.
-                continue
-            consumed += fields
+        if n_datasets != 1:
+            raise ValueError("Negative NATOMS requires NVAL absent or equal to one.")
+        try:
+            parts = lines[current_line].split()
+            n_datasets = int(parts[0])
+            if n_datasets < 1:
+                raise ValueError("Cube dataset count must be positive")
+            identifiers = [int(value) for value in parts[1:]]
+            current_line += 1
+            while len(identifiers) < n_datasets and current_line < len(lines):
+                identifiers.extend(int(value) for value in lines[current_line].split())
+                current_line += 1
+            if len(identifiers) != n_datasets:
+                raise ValueError("Incomplete cube dataset identifiers")
+        except (ValueError, IndexError) as exc:
+            raise ValueError("Malformed cube dataset identifiers") from exc
+    if n_datasets < 1 or nx * ny * nz * n_datasets > 2_000_000:
+        raise ValueError("Cube dataset size exceeds the loading limit.")
 
-    data = np.array(" ".join(lines[start_line:]).split(), dtype=float)
+    # --- Volumetric Data Parsing ---
+    # Find start of data
+    while current_line < len(lines):
+        line_content = lines[current_line].strip()
+        parts = line_content.split()
+        if not parts:
+            current_line += 1
+            continue
 
-    # Several data sets are interleaved point by point; take the first.
-    n_points = abs(nx) * abs(ny) * abs(nz)
-    if n_datasets > 1 and len(data) >= n_points * n_datasets:
-        data = data[0 : n_points * n_datasets : n_datasets]
+        break
+
+    if current_line >= len(lines):
+        raise ValueError("Cube contains no volumetric data")
+    else:
+        # Validate every token; whitespace wrapping is independent of grid shape.
+        n_points = nx * ny * nz
+        expected_size = n_points * n_datasets
+        tokens = (token for line in lines[current_line:] for token in line.split())
+        try:
+            data_values = np.fromiter((number(token) for token in islice(tokens, expected_size + 1)), dtype=float)
+        except ValueError as exc:
+            raise ValueError("Malformed cube volumetric data") from exc
+
+    actual_size = len(data_values)
+
+    if actual_size != expected_size:
+        raise ValueError(f"Cube data size mismatch: expected {expected_size}, found {actual_size}" + (" or more" if actual_size > expected_size else ""))
+    if not np.all(np.isfinite(data_values)):
+        raise ValueError("Cube contains nonfinite volumetric values")
+
+    if n_datasets > 1:
+        # Values are interleaved point by point; the first n_points of the
+        # mixed stream belong to no single orbital.
+        data_values = data_values[0 : n_points * n_datasets : n_datasets]
 
     return {
-        "dims": (abs(nx), abs(ny), abs(nz)),
-        "origin": origin,
-        "vectors": (x_vec, y_vec, z_vec),
-        "data": data,
-        "atoms": atoms,
-        "is_angstrom": nx < 0,
+        "atoms": [(element_symbol(z), coords) for z, coords in atoms],
+        "origin": origin_raw,
+        "vectors": (x_vec_raw, y_vec_raw, z_vec_raw),
+        "dims": (nx, ny, nz),
+        "data": data_values,
+        "is_angstrom": is_angstrom_header,
     }
-
 
 def atoms_to_xyz(atoms, is_angstrom, source_name="cube"):
     """An XYZ block from a cube's atom records.
@@ -463,16 +537,15 @@ class OrbitalComparator(QWidget):
             return False
         try:
             meta = parse_cube(path)
-            slot.grid = build_grid(meta)
+            grid = build_grid(meta)
         except (OSError, ValueError, IndexError, KeyError) as e:
             logging.warning("Could not read cube %s: %s", path, e)
             QMessageBox.warning(
                 self, "Unreadable cube", f"Could not read:\n{path}\n\n{e}"
             )
-            slot.grid = None
-            slot.path = None
             return False
 
+        slot.grid = grid
         slot.path = path
         slot.meta = meta
         slot.lbl_info.setText(slot.describe())
