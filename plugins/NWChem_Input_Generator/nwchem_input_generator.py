@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import os
 import json
+import logging
+import re
 from PyQt6.QtWidgets import (
     QMessageBox,
     QDialog,
@@ -20,14 +22,20 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 from rdkit import Chem
-import logging
 
 PLUGIN_NAME = "NWChem Input Generator"
-PLUGIN_VERSION = "2026.09.24"
+PLUGIN_VERSION = "2026.10.12"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Generates input files for NWChem quantum chemistry calculations."
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "nwchem_input_generator.json")
+
+# NWChem's XC components differ from the conventional UI labels.
+XC_KEYWORDS = {
+    "b3lyp": "b3lyp", "pbe0": "pbe0", "pbe96": "xpbe96 cpbe96",
+    "blyp": "becke88 lyp", "lda": "slater vwn_5",
+    "tpss": "xtpss03 ctpss03", "m06": "m06", "m06-2x": "m06-2x",
+}
 
 
 def _scf_spin_lines(mult):
@@ -45,7 +53,7 @@ def _scf_spin_lines(mult):
     }
     if mult in kw_map:
         return ["  uhf", f"  {kw_map[mult]}"]
-    return ["  uhf", f"  # Generic multiplicity {mult}"]
+    return ["  uhf", f"  nopen {mult - 1}"]
 
 
 class NwchemSetupDialog(QDialog):
@@ -92,7 +100,7 @@ class NwchemSetupDialog(QDialog):
         self.title_edit.textChanged.connect(self.update_preview)
         gen_layout.addRow("Title:", self.title_edit)
 
-        self.start_edit = QLineEdit("[filename]")
+        self.start_edit = QLineEdit("job")
         self.start_edit.textChanged.connect(self.update_preview)
         gen_layout.addRow("Start/Scratch Name:", self.start_edit)
 
@@ -243,9 +251,12 @@ class NwchemSetupDialog(QDialog):
     def generate_content(self, filename_hint=None):
         lines = []
 
-        lines.append(f'title "{self.title_edit.text()}"')
+        title = " ".join(self.title_edit.text().splitlines()).replace('"', "'")
+        lines.append(f'title "{title}"')
 
         start_name = filename_hint if filename_hint else self.start_edit.text()
+        if not start_name.strip() or any(char.isspace() for char in start_name):
+            raise ValueError("The start name must be a nonempty token without whitespace.")
         lines.append(f"start {start_name}")
         lines.append("")
 
@@ -263,7 +274,8 @@ class NwchemSetupDialog(QDialog):
         lines.append("")
 
         # Basis
-        lines.append("basis")
+        basis_name = self.basis_combo.currentText()
+        lines.append("basis spherical" if basis_name.lower().startswith(("cc-", "aug-cc-", "def2-")) else "basis")
         lines.append(f'  * library "{self.basis_combo.currentText()}"')
         lines.append("end")
         lines.append("")
@@ -278,27 +290,50 @@ class NwchemSetupDialog(QDialog):
         module = self.module_combo.currentText()
         mult = self.mult_spin.value()
 
-        lines.append(module)
         if module == "dft":
-            lines.append(f"  xc {self.functional_combo.currentText()}")
+            lines.append("dft")
+            functional = self.functional_combo.currentText()
+            lines.append(f"  xc {XC_KEYWORDS[functional]}")
+            if mult > 1:
+                lines.append("  odft")
             lines.append(f"  mult {mult}")
-        elif module == "scf":
+            lines.append("end")
+        else:
+            # Correlation modules obtain their reference from the SCF block.
+            lines.append("scf")
             lines.extend(_scf_spin_lines(mult))
-
-        lines.append("end")
+            lines.append("end")
+            if module == "ccsd" and mult > 1:
+                module = "tce"  # Native CCSD only supports closed-shell RHF.
+            if module != "scf":
+                lines.append(module)
+                if module == "tce":
+                    lines.extend(["  scf", "  ccsd"])
+                lines.append("end")
         lines.append("")
 
         # Task
         task_op = self.task_combo.currentText()
-        lines.append(f"task {module} {task_op}")
+        numerical = module in ("ccsd", "tce") and task_op != "energy"
+        if module == "dft" and task_op == "freq":
+            numerical = functional in ("tpss", "m06", "m06-2x")
+        lines.append(f"task {module} {task_op}" + (" numerical" if numerical else ""))
 
         return "\n".join(lines)
 
     def update_preview(self):
         # Use current start_edit value for preview
-        self.preview_text.setText(self.generate_content())
+        self._generation_error = None
+        try:
+            self.preview_text.setText(self.generate_content())
+        except ValueError as exc:
+            self._generation_error = str(exc)
+            self.preview_text.setText(f"# Invalid input: {exc}")
 
     def save_file(self):
+        if self._generation_error:
+            QMessageBox.warning(self, "Invalid NWChem input", self._generation_error)
+            return
         default_name = "nwchem_job.nw"
         if self.filename:
             base = os.path.splitext(os.path.basename(self.filename))[0]
@@ -311,24 +346,24 @@ class NwchemSetupDialog(QDialog):
             try:
                 # Update 'start' directive
                 base_name = os.path.splitext(os.path.basename(path))[0]
+                if any(char.isspace() for char in base_name):
+                    raise ValueError("Use a filename without whitespace for the NWChem start name.")
                 start_line = f"start {base_name}"
 
                 content = self.preview_text.toPlainText()
 
-                import re
-
                 if re.search(r"^start\s+.*$", content, re.MULTILINE):
                     content = re.sub(
-                        r"^start\s+.*$", start_line, content, flags=re.MULTILINE
+                        r"^start\s+.*$", lambda match: start_line, content, flags=re.MULTILINE
                     )
                 else:
                     content = f"{start_line}\n{content}"
 
-                with open(path, "w", encoding="utf-8") as f:
+                with open(path, "w", encoding="utf-8", newline="\n") as f:
                     f.write(content)
                 QMessageBox.information(self, "Success", f"File saved to {path}")
                 # Do not close automatically
-            except Exception as e:
+            except (OSError, ValueError) as e:
                 QMessageBox.critical(self, "Error", str(e))
 
     # --- Preset Management ---

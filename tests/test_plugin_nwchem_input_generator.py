@@ -7,6 +7,7 @@ check_heavy_atoms(), and save_file() start-line rewriting.
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -20,6 +21,7 @@ NWCHEM_PATH = PLUGINS_DIR / "NWChem_Input_Generator" / "nwchem_input_generator.p
 
 class _Stub:
     def __init__(self, **kwargs):
+        self._generation_error = None
         self.__dict__.update(kwargs)
 
 
@@ -76,10 +78,10 @@ class TestNwchemScfSpinLines:
     def test_open_shell_uses_uhf_keyword(self, mult, keyword):
         assert self._fn()(mult) == ["  uhf", f"  {keyword}"]
 
-    def test_unnamed_high_multiplicity_falls_back_to_comment(self):
+    def test_high_multiplicity_uses_nopen(self):
         lines = self._fn()(9)
         assert lines[0] == "  uhf"
-        assert "9" in lines[1] and lines[1].lstrip().startswith("#")
+        assert lines[1] == "  nopen 8"
 
 
 # ---------------------------------------------------------------------------
@@ -107,7 +109,43 @@ class TestGenerateContent:
         with mock_optional_imports():
             mod = load_plugin(NWCHEM_PATH)
         return extract_function(NWCHEM_PATH, "NwchemSetupDialog", "generate_content",
-                                 extra_globals={"_scf_spin_lines": mod._scf_spin_lines})
+                                 extra_globals={"_scf_spin_lines": mod._scf_spin_lines, "XC_KEYWORDS": mod.XC_KEYWORDS})
+
+    @pytest.mark.parametrize("functional,keywords", [
+        ("pbe96", "xpbe96 cpbe96"), ("blyp", "becke88 lyp"),
+        ("lda", "slater vwn_5"), ("tpss", "xtpss03 ctpss03"),
+    ])
+    def test_functional_expands_to_official_components(self, functional, keywords):
+        assert f"  xc {keywords}" in self._fn()(_make_self(functional=functional)).splitlines()
+
+    @pytest.mark.parametrize("module", ["mp2", "ccsd", "tce"])
+    def test_correlated_open_shell_has_scf_reference(self, module):
+        content = self._fn()(_make_self(module=module, mult=3, task="energy"))
+        assert "scf\n  uhf\n  triplet\nend" in content
+        if module in ("ccsd", "tce"):
+            assert "tce\n  scf\n  ccsd\nend" in content
+            assert content.endswith("task tce energy")
+
+    @pytest.mark.parametrize("functional", ["tpss", "m06", "m06-2x"])
+    def test_meta_gga_frequencies_are_numerical(self, functional):
+        assert self._fn()(_make_self(functional=functional, task="freq")).endswith("task dft freq numerical")
+
+    def test_ccsd_gradients_are_numerical(self):
+        assert self._fn()(_make_self(module="ccsd", task="optimize")).endswith("task ccsd optimize numerical")
+
+    def test_cc_basis_is_spherical(self):
+        assert "basis spherical" in self._fn()(_make_self(basis="cc-pvtz")).splitlines()
+
+    def test_open_shell_dft_requests_odft(self):
+        assert "  odft" in self._fn()(_make_self(mult=2)).splitlines()
+
+    def test_title_cannot_inject_directives(self):
+        content = self._fn()(_make_self(title='a"\ntask scf energy'))
+        assert content.splitlines()[0] == 'title "a\' task scf energy"'
+
+    def test_start_name_rejects_whitespace(self):
+        with pytest.raises(ValueError, match="start name"):
+            self._fn()(_make_self(start="two words"))
 
     def test_dft_module_has_xc_and_mult_lines(self):
         fn = self._fn()
@@ -254,7 +292,7 @@ class TestSaveFile:
             NWCHEM_PATH,
             "NwchemSetupDialog",
             "save_file",
-            extra_globals={"QFileDialog": qfd, "QMessageBox": qmb, "os": os},
+            extra_globals={"QFileDialog": qfd, "QMessageBox": qmb, "os": os, "re": re},
         )
         return fn, qfd, qmb
 

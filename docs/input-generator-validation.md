@@ -33,3 +33,20 @@ conflicting copies in free-form keywords, and NOSYM is not duplicated. `1SCF`
 is matched as a whole keyword. The thermochemistry template includes `FORCE`;
 the supplied geometry must already be optimized, as required by MOPAC.
 Logic and Qt regressions validate keyword composition and preview/save behavior.
+
+## NWChem
+
+Sources: [DFT](https://nwchemgit.github.io/Density-Functional-Theory-for-Molecules.html),
+[SCF](https://nwchemgit.github.io/Hartree-Fock-Theory-for-Molecules.html),
+[CCSD](https://nwchemgit.github.io/CCSD.html),
+[TCE](https://nwchemgit.github.io/TCE.html),
+[basis conventions](https://nwchemgit.github.io/Basis.html),
+[tasks](https://nwchemgit.github.io/TASK.html).
+
+PBE96, BLYP, LDA and TPSS expand to their documented exchange/correlation
+components. Open-shell DFT uses ODFT; correlation jobs include an SCF spin
+reference, with NOPEN for multiplicities above eight. Open-shell CCSD uses TCE,
+and TCE explicitly selects CCSD. Correlation-consistent and def2 bases use
+spherical functions. CCSD derivatives and meta-GGA frequencies request numerical
+differentiation. Invalid start names block saving; titles cannot inject lines.
+43 logic tests and 39 Qt tests passed. No NWChem executable is installed.
