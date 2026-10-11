@@ -1656,3 +1656,14 @@ def test_interactive_cycle_advances_kekule_single_ring_bond(qapp, monkeypatch):
     finally:
         w.update_timer.stop()
         w.destroy()
+
+
+@pytest.mark.parametrize('value', [float('nan'), float('inf'), -1.0, 0.0])
+def test_invalid_bond_length_preserves_molecule(qapp, value):
+    ctx = _real_ctx(mol=_real_mol())
+    win = _bondrn.BondEditorWindow(ctx)
+    before = ctx.current_molecule
+    win.set_bond_length(0, value)
+    assert ctx.current_molecule is before
+    ctx.push_undo_checkpoint.assert_not_called()
+    win.close()

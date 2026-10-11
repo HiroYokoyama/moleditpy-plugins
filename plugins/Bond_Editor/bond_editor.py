@@ -23,7 +23,7 @@ from functools import partial
 
 
 PLUGIN_NAME = "Bond Editor"
-PLUGIN_VERSION = "2026.09.25"
+PLUGIN_VERSION = "2026.10.13"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -1223,7 +1223,7 @@ class BondEditorWindow(QWidget):
         except ValueError:
             self.load_molecule()
             return
-        if target <= 0:
+        if not np.isfinite(target) or target <= 0:
             self.context.show_status_message("Bond length must be positive.")
             self.load_molecule()
             return
@@ -1232,6 +1232,9 @@ class BondEditorWindow(QWidget):
     def set_bond_length(self, row, target):
         """Set the bond length by translating the Atom-2-side fragment
         along the bond axis. Ring bonds are refused."""
+        if not np.isfinite(target) or target <= 0:
+            self.context.show_status_message("Bond length must be finite and positive.")
+            return
         mol = self.context.current_molecule
         pair = self._row_bond_atoms(row)
         if not mol or not pair or not mol.GetNumConformers():
@@ -1251,7 +1254,7 @@ class BondEditorWindow(QWidget):
         p2 = conf.GetAtomPosition(end_idx)
         vec = np.array([p2.x - p1.x, p2.y - p1.y, p2.z - p1.z])
         dist = float(np.linalg.norm(vec))
-        if dist < 1e-6:
+        if not np.isfinite(dist) or dist < 1e-6:
             self.context.show_status_message(
                 "Atoms are coincident — cannot set bond length."
             )
