@@ -7,6 +7,7 @@ Covers: GamessSetupDialog.
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -125,7 +126,8 @@ class TestGamessBasisOptions:
     def test_tzv_sets_ngauss_1(self, dlg):
         dlg.basis_gbasis.setCurrentText("TZV")
         assert dlg.basis_ngauss.value() == 1
-        assert "GBASIS=TZV NGAUSS=1" in dlg.generate_content()
+        assert "GBASIS=TZV" in dlg.generate_content()
+        assert "NGAUSS" not in dlg.generate_content()
 
     def test_tzv_disables_ngauss_spinbox(self, dlg):
         dlg.basis_gbasis.setCurrentText("N31")
@@ -139,6 +141,30 @@ class TestGamessBasisOptions:
         dlg.basis_gbasis.setCurrentText("TZV")
         dlg.basis_gbasis.setCurrentText("N31")
         assert dlg.basis_ngauss.isEnabled()
+
+
+    def test_mini_and_midi_disable_ngauss(self, dlg):
+        for basis in ("MINI", "MIDI"):
+            dlg.basis_gbasis.setCurrentText(basis)
+            assert not dlg.basis_ngauss.isEnabled()
+            assert "NGAUSS" not in dlg.generate_content()
+
+    def test_invalid_n21_count_is_shown_and_cannot_be_saved(self, dlg, monkeypatch):
+        choose_file = MagicMock()
+        warning = MagicMock()
+        monkeypatch.setattr(_gamess.QFileDialog, "getSaveFileName", choose_file)
+        monkeypatch.setattr(_gamess.QMessageBox, "warning", warning)
+        dlg.basis_gbasis.setCurrentText("N21")
+        dlg.basis_ngauss.setValue(4)
+        assert "Invalid input" in dlg.preview_text.toPlainText()
+        dlg.save_file()
+        warning.assert_called_once()
+        choose_file.assert_not_called()
+
+    def test_open_shell_updates_default_reference(self, dlg):
+        dlg.mult_spin.setValue(3)
+        assert dlg.scf_type.currentText() == "ROHF"
+        assert "SCFTYP=ROHF" in dlg.preview_text.toPlainText()
 
 
 class TestGamessSaveFile:

@@ -986,7 +986,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "GAMESS Input Generator",
-    "version": "2026.09.24",
+    "version": "2026.10.12",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates input files for GAMESS (US) quantum chemistry calculations.",
@@ -999,8 +999,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Gamess_Input_Generator/gamess_input_generator.py",
-    "lastUpdated": "2026-09-24",
-    "sha256": "a922b9f26b827186eea927299efdb1478aa9eee8010f2bc1d8d6a8f60a71e4fd",
+    "lastUpdated": "2026-10-12",
+    "sha256": "47b6c7ae373a8ec074cc238d4089868039dbeebc7d5260b211c4730be5f3d29c",
     "firstAppeared": "2026-01-03",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
