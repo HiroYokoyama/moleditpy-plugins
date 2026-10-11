@@ -27,14 +27,27 @@ from rdkit import Chem
 from rdkit.Geometry import Point3D
 import pyvista as pv
 import logging
+import math
 
 
 PLUGIN_NAME = "XYZ Editor"
-PLUGIN_VERSION = "2026.09.24"
+PLUGIN_VERSION = "2026.10.13"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "A table-based editor for atom coordinates and symbols, supporting ghost atoms, adding and deleting atoms."
 PLUGIN_CONTEXT = None
+
+
+def _copy_properties(source, target):
+    for name, value in source.GetPropsAsDict(includePrivate=True, includeComputed=False).items():
+        if isinstance(value, bool):
+            target.SetBoolProp(name, value)
+        elif isinstance(value, int):
+            target.SetIntProp(name, value)
+        elif isinstance(value, float):
+            target.SetDoubleProp(name, value)
+        else:
+            target.SetProp(name, str(value))
 
 
 def sanitize_or_clear_aromaticity(rw):
@@ -988,6 +1001,8 @@ class XYZEditorWindow(QWidget):
         # Because rows might have been deleted or added/reordered
 
         new_rw_mol = Chem.RWMol()
+        if mol:
+            _copy_properties(mol, new_rw_mol)
         # Store coords to set AFTER adding all atoms (requires sizing conformer)
         atom_coords = []
 
@@ -1006,6 +1021,10 @@ class XYZEditorWindow(QWidget):
                     z = float(self.table.item(row, 4).text())
                 except ValueError:
                     # Don't show error while typing, just abort update
+                    return
+
+                if not all(math.isfinite(v) for v in (x, y, z)):
+                    self.context.show_status_message("Coordinates must be finite.")
                     return
 
                 # Create Atom
@@ -1057,6 +1076,18 @@ class XYZEditorWindow(QWidget):
                     # Fallback to Carbon if something goes wrong
                     atom = Chem.Atom(6)
 
+                idx_text = self.table.item(row, 0).text()
+                if mol and idx_text != '+':
+                    old_idx = int(idx_text)
+                    if old_idx < 0 or old_idx >= mol.GetNumAtoms():
+                        raise ValueError('Atom indices changed; reload the molecule.')
+                    original = Chem.Atom(mol.GetAtomWithIdx(old_idx))
+                    original.SetAtomicNum(atom.GetAtomicNum())
+                    if atom.HasProp('custom_symbol'):
+                        original.SetProp('custom_symbol', atom.GetProp('custom_symbol'))
+                    elif original.HasProp('custom_symbol'):
+                        original.ClearProp('custom_symbol')
+                    atom = original
                 new_idx = new_rw_mol.AddAtom(atom)
                 atom_coords.append(Point3D(x, y, z))
 
@@ -1080,6 +1111,15 @@ class XYZEditorWindow(QWidget):
                         new_rw_mol.AddBond(
                             old_to_new_map[b], old_to_new_map[e], bond.GetBondType()
                         )
+                        restored = new_rw_mol.GetBondBetweenAtoms(old_to_new_map[b], old_to_new_map[e])
+                        _copy_properties(bond, restored)
+                        restored.SetIsAromatic(bond.GetIsAromatic())
+                        restored.SetIsConjugated(bond.GetIsConjugated())
+                        restored.SetBondDir(bond.GetBondDir())
+                        stereo_atoms = list(bond.GetStereoAtoms())
+                        if len(stereo_atoms) == 2 and all(i in old_to_new_map for i in stereo_atoms):
+                            restored.SetStereoAtoms(*(old_to_new_map[i] for i in stereo_atoms))
+                            restored.SetStereo(bond.GetStereo())
 
             # Add Conformer
             new_rw_mol.AddConformer(conf)
