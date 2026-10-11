@@ -1410,7 +1410,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "ORCA Result Analyzer",
-    "version": "4.1.2",
+    "version": "4.1.3",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Comprehensive analyzer for ORCA output files (.out). Includes Vibrational, MO, TDDFT, and NMR analysis.",
@@ -1428,10 +1428,10 @@
     "optional_dependencies": [
       "nmrsim"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin/releases/download/v4.1.2/orca_result_analyzer_4.1.2.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin/releases/download/v4.1.3/orca_result_analyzer_4.1.3.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin",
-    "lastUpdated": "2026-10-09",
-    "sha256": "2db45c9eee1fda1ed60d3efb65d5267db05d78cbbf79dc0ac6c2f1a28e27befe",
+    "lastUpdated": "2026-10-11",
+    "sha256": "3468ee48c958aa31d6c69dcf8708f99269e45cd09f397cbb53a643c1a95654d4",
     "firstAppeared": "2026-01-27",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -2365,7 +2365,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Job Manager",
-    "version": "2.5.2",
+    "version": "2.5.3",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_job_manager",
@@ -2377,9 +2377,9 @@
     "optional_dependencies": [
       "paramiko"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_job_manager/releases/download/v2.5.2/job_manager_2.5.2.zip",
-    "lastUpdated": "2026-10-09",
-    "sha256": "c1ab4b5a3989f5ef7422df5eaefd2397e8e4d671ad90c8071a2fae9bbd0b42bb",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_job_manager/releases/download/v2.5.3/job_manager_2.5.3.zip",
+    "lastUpdated": "2026-10-11",
+    "sha256": "09f4c81aca98374222516acfbf03a214becac94924b70a2ad75cd945f9f4ad78",
     "firstAppeared": "2026-08-06",
     "supported_os": [
       "Windows",
@@ -2595,7 +2595,7 @@
     "visible": true,
     "supported_moleditpy_version": "4.*",
     "name": "Pets in Editor",
-    "version": "0.1.0",
+    "version": "0.3.1",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_pets_in_editor",
@@ -2604,9 +2604,9 @@
       "Utility"
     ],
     "dependencies": [],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_pets_in_editor/releases/download/v0.1.0/pets_in_editor_0.1.0.zip",
-    "lastUpdated": "2026-10-10",
-    "sha256": "31ac0af64f2c2e2f75ec09a1302b90714d30caeb503dd2d6452275099bea2fc6",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_pets_in_editor/releases/download/v0.3.1/pets_in_editor_0.3.1.zip",
+    "lastUpdated": "2026-10-11",
+    "sha256": "e27abb88296f2c270cc5ca31e6aa4ed4f0aca4dab6f8b8fc6225184ce054df9a",
     "firstAppeared": "2026-10-10",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
