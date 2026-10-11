@@ -1,4 +1,6 @@
 import os
+import math
+import csv
 from PyQt6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -19,11 +21,14 @@ from PyQt6.QtWidgets import (
     QToolButton,
     QMenu,
     QProgressDialog,
+    QApplication,
+    QDialog,
+    QDialogButtonBox,
 )
 from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
 from PyQt6.QtGui import QColor, QAction
 from rdkit import Chem
-from rdkit.Chem import AllChem
+from rdkit.Chem import AllChem, rdFMCS
 
 try:
     from rdkit.Chem import rdDetermineBonds
@@ -37,7 +42,7 @@ import copy
 import logging
 
 PLUGIN_NAME = "Molecule Comparator"
-PLUGIN_VERSION = "2026.09.24"
+PLUGIN_VERSION = "2026.10.13"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Compare multiple molecules in 3D, calculate RMSD, and align them."
@@ -147,8 +152,13 @@ class AlignmentWorker(QThread):
                         # and an MCS over bond-free graphs matches nothing. Fall
                         # back to the positional map rather than reporting N/A.
                         result_entry["fallback"] = "Atom IDs"
-                        if probe_work.GetNumAtoms() == self.ref_work.GetNumAtoms():
-                            atom_map = [(k, k) for k in range(probe_work.GetNumAtoms())]
+                        probe_ids = [a.GetIdx() for a in probe_work.GetAtoms() if not self.ignore_hs or a.GetAtomicNum() != 1]
+                        ref_ids = [a.GetIdx() for a in self.ref_work.GetAtoms() if not self.ignore_hs or a.GetAtomicNum() != 1]
+                        atom_map = list(zip(probe_ids, ref_ids))
+                        if atom_map and len(probe_ids) == len(ref_ids) and all(
+                            probe_work.GetAtomWithIdx(p).GetAtomicNum() == self.ref_work.GetAtomWithIdx(r).GetAtomicNum()
+                            for p, r in atom_map
+                        ):
                             try:
                                 best_rms = AllChem.AlignMol(
                                     probe_work,
@@ -166,8 +176,6 @@ class AlignmentWorker(QThread):
                             result_entry["rms"] = best_rms
                         results.append(result_entry)
                         continue
-
-                    from rdkit.Chem import rdFMCS
 
                     # タイムアウトを少し短く設定 (5秒は長い場合があるため適宜調整)
                     res = rdFMCS.FindMCS(
@@ -349,6 +357,8 @@ def parse_xyz_rows(text):
                 limit = int(head[0])
                 # A headed file states its atom count; honour it so only the
                 # first frame of a trajectory is read, not every frame at once.
+                if limit <= 0:
+                    return []
                 body = lines[2:]
             except ValueError:
                 limit = None
@@ -364,6 +374,8 @@ def parse_xyz_rows(text):
             x, y, z = (float(value) for value in parts[1:4])
         except ValueError:
             continue
+        if not all(math.isfinite(v) for v in (x, y, z)):
+            raise ValueError("XYZ coordinates must be finite.")
         rows.append((parts[0], x, y, z))
         if limit is not None and len(rows) >= limit:
             break
@@ -663,15 +675,21 @@ class MoleculeComparator(QWidget):
             QMessageBox.critical(self.mw, "Error", f"Failed to export:\n{str(e)}")
 
     def closeEvent(self, event):
+        worker = getattr(self, 'worker', None)
+        if worker is not None and worker.isRunning():
+            worker.requestInterruption()
+            event.ignore()
+            return
         self.cleanup_and_close()
         super().closeEvent(event)
 
     def close_plugin(self):
-        self.cleanup_and_close()
-        self.hide()
+        self.close()
 
     def cleanup_and_close(self):
         self._closing = True
+        if self.mw is None:
+            return
         # Restore original state
         if hasattr(self.mw.view_3d_manager, "_plugin_color_overrides"):
             self.mw.view_3d_manager._plugin_color_overrides = {}
@@ -685,6 +703,9 @@ class MoleculeComparator(QWidget):
         self.exit_3d_only_mode()
 
     def add_current_molecule(self):
+        worker = getattr(self, 'worker', None)
+        if worker is not None and worker.isRunning():
+            return
         mol = self.context.current_molecule
         if not mol:
             QMessageBox.warning(self.mw, "Error", "No molecule loaded in Main Window.")
@@ -776,6 +797,9 @@ class MoleculeComparator(QWidget):
         self.add_molecules_from_paths([file_path])
 
     def add_molecules_from_paths(self, file_paths):
+        worker = getattr(self, 'worker', None)
+        if worker is not None and worker.isRunning():
+            return
         added = 0
         problems = []
 
@@ -838,6 +862,9 @@ class MoleculeComparator(QWidget):
             )
 
     def set_as_reference(self):
+        worker = getattr(self, 'worker', None)
+        if worker is not None and worker.isRunning():
+            return
         row = self.mol_list.currentRow()
         if row <= 0:
             return
@@ -877,6 +904,9 @@ class MoleculeComparator(QWidget):
         self.add_molecules_from_paths(paths)
 
     def remove_molecule(self):
+        worker = getattr(self, 'worker', None)
+        if worker is not None and worker.isRunning():
+            return
         row = self.mol_list.currentRow()
         if row >= 0:
             self.molecules.pop(row)
@@ -975,6 +1005,10 @@ class MoleculeComparator(QWidget):
         self.update_wireframe_lighting()
 
     def run_alignment(self):
+        worker = getattr(self, 'worker', None)
+        if worker is not None and worker.isRunning():
+            return
+        self._closing = False
         if len(self.molecules) < 2:
             return
 
@@ -1013,8 +1047,20 @@ class MoleculeComparator(QWidget):
         self.worker.error_signal.connect(self.on_alignment_error)
         self.progress_dialog.canceled.connect(self.worker.requestInterruption)
 
+        self._alignment_entries = tuple(self.molecules)
+        self.worker.finished.connect(self._alignment_stopped)
+        for button in (self.btn_align, self.btn_add_current, self.btn_load_file, self.btn_remove, self.btn_set_ref):
+            button.setEnabled(False)
         # Start
         self.worker.start()
+
+    def _alignment_stopped(self):
+        for button in (self.btn_align, self.btn_add_current, self.btn_load_file, self.btn_remove, self.btn_set_ref):
+            button.setEnabled(True)
+
+    def showEvent(self, event):
+        self._closing = False
+        super().showEvent(event)
 
     def update_progress(self, current, total, message):
         if self.progress_dialog.wasCanceled():
@@ -1024,6 +1070,11 @@ class MoleculeComparator(QWidget):
         self.progress_dialog.setLabelText(message)
 
     def on_alignment_finished(self, results):
+        snapshot = getattr(self, '_alignment_entries', None)
+        if self.progress_dialog.wasCanceled() or (snapshot is not None and
+                (len(snapshot) != len(self.molecules) or any(a is not b for a, b in zip(snapshot, self.molecules)))):
+            self.progress_dialog.close()
+            return
         # Update Data
         for res in results:
             idx = res["index"]
@@ -1089,8 +1140,6 @@ class MoleculeComparator(QWidget):
         text = "\n".join(lines)
 
         # Copy to clipboard
-        from PyQt6.QtWidgets import QApplication
-
         clipboard = QApplication.clipboard()
         clipboard.setText(text)
 
@@ -1115,23 +1164,13 @@ class MoleculeComparator(QWidget):
             return
 
         try:
-            with open(file_path, "w", encoding="utf-8") as f:
-                # Write header
-                f.write("Molecule,RMSD (Å)\n")
-
-                # Write data
+            with open(file_path, "w", encoding="utf-8", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow(["Molecule", "RMSD (Å)"])
                 for entry in self.molecules:
-                    name = entry["name"]
-                    rms_val = entry["rms"]
-                    rms_str = (
-                        f"{rms_val:.4f}"
-                        if rms_val is not None and rms_val >= 0
-                        else ("N/A" if rms_val == -1.0 else "-")
-                    )
-                    # Escape commas in name if present
-                    if "," in name:
-                        name = f'"{name}"'
-                    f.write(f"{name},{rms_str}\n")
+                    rms = entry["rms"]
+                    value = f"{rms:.4f}" if rms is not None and rms >= 0 else ("N/A" if rms == -1.0 else "-")
+                    writer.writerow([entry["name"], value])
 
             # Show confirmation
             QMessageBox.information(self.mw, "Saved", f"Results saved to:\n{file_path}")
@@ -1145,8 +1184,6 @@ class MoleculeComparator(QWidget):
             return
 
         # Create custom dialog for export options
-        from PyQt6.QtWidgets import QDialog, QVBoxLayout, QCheckBox, QDialogButtonBox
-
         dialog = QDialog(self.mw)
         dialog.setWindowTitle("Export Settings")
         layout = QVBoxLayout(dialog)
