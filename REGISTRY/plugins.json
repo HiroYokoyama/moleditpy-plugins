@@ -927,7 +927,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Vector Viewer",
-    "version": "2026.09.24",
+    "version": "2026.10.13",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes vectors (e.g. dipole moment) and exports PNGs.",
@@ -941,8 +941,8 @@
       "pyvista"
     ],
     "downloadUrl": "../plugins/Vector_Viewer/vector_viewer.py",
-    "lastUpdated": "2026-09-24",
-    "sha256": "52b1042b117ce317d5dca6ebda87642939c20c8c823a41f2e7a770502dfba4e9",
+    "lastUpdated": "2026-10-13",
+    "sha256": "3e1704ad53b0e131520fda463045a4e8c5a121947bd39d9ffa7a62755fd67b52",
     "firstAppeared": "2025-12-31",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1327,7 +1327,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Gaussian FCHK Loader",
-    "version": "2026.09.24",
+    "version": "2026.10.13",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Smart loader for FCHK, FCH, and FCK files. Dispatches to Frequency or MO Analyzer with priority handling.",
@@ -1339,8 +1339,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Gaussian_FCHK_Loader/gaussian_fchk_loader.py",
-    "lastUpdated": "2026-09-24",
-    "sha256": "ad2f7d42de28396c819555305f4b9931c936b0b5083d7590c7dc50e89366de80",
+    "lastUpdated": "2026-10-13",
+    "sha256": "4e2f860ef31e1691c33c84cc44399efd9fb02d49e5bc9d69850a7d951f14c256",
     "firstAppeared": "2026-01-23",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
