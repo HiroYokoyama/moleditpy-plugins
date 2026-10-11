@@ -178,3 +178,28 @@ class TestStructuralUpdaterPlugin:
         plugin.open_settings()
         assert plugin.enabled is True
         assert not (tmp_path / "su.json").exists()
+
+
+class TestFinalizeLifecycle:
+    def test_finalize_stops_timer_and_restores_connection(self, qapp, monkeypatch):
+        from PyQt6.QtWidgets import QWidget, QPushButton
+        from types import SimpleNamespace
+        mw = QWidget()
+        button = QPushButton(mw)
+        original = MagicMock()
+        patched = MagicMock()
+        button.clicked.connect(patched)
+        timer = MagicMock()
+        mw.compute_manager = SimpleNamespace()
+        mw.init_manager = SimpleNamespace(convert_button=button)
+        instance = SimpleNamespace(mw=mw, timer=timer, new_trigger_conversion=patched)
+        monkeypatch.setattr(_updater, '_PLUGIN_INSTANCE', instance)
+        monkeypatch.setattr(_updater, '_ORIGINAL_METHODS', {'trigger_conversion': original})
+        _updater.finalize()
+        timer.stop.assert_called_once()
+        button.click()
+        original.assert_called_once()
+        patched.assert_not_called()
+        assert _updater._PLUGIN_INSTANCE is None
+        assert not _updater._ORIGINAL_METHODS
+        mw.destroy()

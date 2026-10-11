@@ -1,12 +1,15 @@
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Symmetry Analyzer"
-PLUGIN_VERSION = "2026.09.24"
+PLUGIN_VERSION = "2026.10.13"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Analyzes molecular symmetry (point group) and symmetrizes structures."
 PLUGIN_CONTEXT = None
 
 import logging
+import re
+import warnings
+from fractions import Fraction
 import numpy as np
 from PyQt6.QtWidgets import (
     QVBoxLayout,
@@ -39,6 +42,22 @@ except ImportError:
     HAS_PYMATGEN = False
 
 
+try:
+    import pyvista as pv
+except ImportError:
+    pv = None
+
+try:
+    from scipy.optimize import linear_sum_assignment
+except ImportError:
+    linear_sum_assignment = None
+
+
+def _rotation_order(angle):
+    """Order of a finite rotation, including powers of its generator."""
+    return Fraction(float(angle) / 360.0).limit_denominator(120).denominator
+
+
 class SymmetryAnalysisWorker(QThread):
     """Background worker for symmetry analysis to prevent UI freezing"""
 
@@ -67,6 +86,9 @@ class SymmetryAnalysisWorker(QThread):
             for t in np.round(np.arange(self.min_tol, self.max_tol + 1e-9, 0.01), 6)
             if t >= self.min_tol - 1e-9
         ]
+
+        if tolerances and tolerances[-1] < self.max_tol - 1e-9:
+            tolerances.append(float(self.max_tol))
 
         group_data = {}
         found_any = False
@@ -180,6 +202,9 @@ class SymmetryAnalysisPlugin(QDialog):
         self.analyzer = None  # pymatgen PointGroupAnalyzer instance
         self.symmetry_ops = []  # Detected symmetry operations
         self.worker = None  # QThread instance
+        self._closing = False
+        self._pending_close_result = None
+        self._vis_plotter = None
         self._scanned_fingerprint = None  # geometry the operations belong to
 
         # Lighter selection colour (Light Sky Blue)
@@ -339,6 +364,8 @@ class SymmetryAnalysisPlugin(QDialog):
         species = [atom.GetAtomicNum() for atom in rd_mol.GetAtoms()]
         coords = [list(conf.GetAtomPosition(i)) for i in range(rd_mol.GetNumAtoms())]
 
+        if not np.isfinite(coords).all() or any(z <= 0 for z in species):
+            raise ValueError("Symmetry analysis requires real elements and finite coordinates.")
         return Molecule(species, coords)
 
     def _molecule_fingerprint(self):
@@ -378,13 +405,18 @@ class SymmetryAnalysisPlugin(QDialog):
 
     def analyze_symmetry(self):
         """Scan the point group over a range of tolerances and list the results."""
-        mol_pmg = self.get_pymatgen_molecule()
+        if self.worker is not None or self._closing:
+            return
+        try:
+            mol_pmg = self.get_pymatgen_molecule()
+        except (ValueError, TypeError) as exc:
+            QMessageBox.warning(self, "Invalid Molecule", str(exc))
+            return
         if mol_pmg is None:
             QMessageBox.warning(self, "Error", "No molecule to analyze.")
             return
 
-        self.groups_list.clear()
-        self.ops_list.clear()
+        self._invalidate_analysis()
         self.selected_group_label.setText("Point Group: -")  # Reset to placeholder
         self.op_details.clear()
         self.sym_btn.setEnabled(False)
@@ -403,7 +435,9 @@ class SymmetryAnalysisPlugin(QDialog):
 
         # Start Worker Thread
         self.worker = SymmetryAnalysisWorker(mol_pmg, min_tol, max_tol)
+        self.worker.setParent(self)
         self.worker.analysis_finished.connect(self.on_analysis_finished)
+        self.worker.finished.connect(self._worker_stopped)
         self.worker.start()
 
     def on_analysis_finished(self, group_data, found_any):
@@ -411,6 +445,10 @@ class SymmetryAnalysisPlugin(QDialog):
         self.calc_btn.setEnabled(True)
         self.calc_btn.setText("Analyze (Scan)")
         self.calc_btn.setToolTip("Scan tolerances to find likely point groups.")
+        if (self._closing or self._scanned_fingerprint is None
+                or self._molecule_fingerprint() != self._scanned_fingerprint):
+            self._invalidate_analysis()
+            return
         self.group_data = group_data
 
         if not found_any:
@@ -469,7 +507,7 @@ class SymmetryAnalysisPlugin(QDialog):
         if np.isclose(det, 1.0, atol=tol):
             val = np.clip((trace - 1) / 2.0, -1.0, 1.0)
             angle = np.degrees(np.arccos(val))
-            order = round(360.0 / angle) if angle > 1.0 else 1
+            order = _rotation_order(angle) if angle > 1.0 else 1
             return (1, -order)
 
         # 3. Reflection (Priority: 2)
@@ -483,7 +521,7 @@ class SymmetryAnalysisPlugin(QDialog):
         # 5. Improper Rotation (Priority: 4)
         val = np.clip((trace + 1) / 2.0, -1.0, 1.0)
         angle = np.degrees(np.arccos(val))
-        order = round(360.0 / angle) if angle > 1.0 else 1
+        order = _rotation_order(angle) if angle > 1.0 else 1
 
         # S2 (Inversion) check for safety -> Priority 3
         if order == 2:
@@ -524,7 +562,6 @@ class SymmetryAnalysisPlugin(QDialog):
 
     def _format_symmetry_symbol(self, sym):
         """Render a Schoenflies symbol as HTML (italic letter + subscript)."""
-        import re
         # C2v -> C, 2v
         # D3h -> D, 3h
         # Td  -> T, d
@@ -581,7 +618,7 @@ class SymmetryAnalysisPlugin(QDialog):
             if angle < 1.0:
                 return f"#{i + 1}: E (Identity)"
 
-            order = round(360.0 / angle)
+            order = _rotation_order(angle)
             return f"#{i + 1}: C{to_sub(order)} (Rotation)"
 
         else:
@@ -604,7 +641,7 @@ class SymmetryAnalysisPlugin(QDialog):
             if angle < 1.0:
                 return f"#{i + 1}: σ (Reflection)"
 
-            order = round(360.0 / angle)
+            order = _rotation_order(angle)
 
             # S2 is the inversion
             if order == 2:
@@ -644,8 +681,6 @@ class SymmetryAnalysisPlugin(QDialog):
             op.translation_vector, precision=3, suppress_small=True
         )
 
-        import warnings
-
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             xyz_str = op.as_xyz_str()
@@ -662,11 +697,7 @@ class SymmetryAnalysisPlugin(QDialog):
         if not self.context.plotter:
             return
 
-        import numpy as np
-
-        try:
-            import pyvista as pv
-        except ImportError:
+        if pv is None:
             return
 
         plotter = self.context.plotter
@@ -675,10 +706,15 @@ class SymmetryAnalysisPlugin(QDialog):
         if getattr(self, "vis_actors", None) is None:
             self.vis_actors = []
 
+        owner = self._vis_plotter or plotter
         for actor in self.vis_actors:
-            plotter.remove_actor(actor)
+            owner.remove_actor(actor)
         self.vis_actors = []
+        self._vis_plotter = plotter
 
+        if self._scanned_fingerprint is not None and self._molecule_fingerprint() != self._scanned_fingerprint:
+            self._invalidate_analysis()
+            return
         if not ops_list:
             plotter.render()
             return
@@ -701,6 +737,8 @@ class SymmetryAnalysisPlugin(QDialog):
                 com = (coords * masses[:, None]).sum(axis=0) / total_mass
             else:
                 com = np.mean(coords, axis=0)
+            if self.analyzer is not None:
+                com = np.asarray(self.analyzer.mol.center_of_mass, dtype=float)
             # molecule size (largest radius)
             dists = np.linalg.norm(coords - com, axis=1)
             mol_radius = np.max(dists) if len(dists) > 0 else 2.0
@@ -788,7 +826,12 @@ class SymmetryAnalysisPlugin(QDialog):
     def symmetrize_structure(self):
         if self.analyzer is None:
             return
-        mol_pmg = self.get_pymatgen_molecule()
+        try:
+            mol_pmg = self.get_pymatgen_molecule()
+        except (ValueError, TypeError) as exc:
+            QMessageBox.warning(self, "Invalid Molecule", str(exc))
+            self._invalidate_analysis()
+            return
         if mol_pmg is None:
             return
 
@@ -817,12 +860,7 @@ class SymmetryAnalysisPlugin(QDialog):
         if not ops:
             return
 
-        try:
-            from scipy.optimize import linear_sum_assignment
-
-            HAS_SCIPY = True
-        except ImportError:
-            HAS_SCIPY = False
+        HAS_SCIPY = linear_sum_assignment is not None
 
         if not HAS_SCIPY:
             logging.warning(
@@ -903,7 +941,8 @@ class SymmetryAnalysisPlugin(QDialog):
                 return
 
         final_coords = new_coords + center_of_mass
-        self.update_rdkit_coords(final_coords)
+        if not self.update_rdkit_coords(final_coords):
+            return
         self._scanned_fingerprint = self._molecule_fingerprint()
 
         QMessageBox.information(
@@ -919,24 +958,31 @@ class SymmetryAnalysisPlugin(QDialog):
         if rd_mol is None:
             return
 
-        # Save the undo state (Manual Section 4)
-        self.context.push_undo_checkpoint()
-
+        coords = np.asarray(new_coords, dtype=float)
+        if coords.shape != (rd_mol.GetNumAtoms(), 3) or not np.isfinite(coords).all():
+            raise ValueError("Symmetrized coordinates must be finite and match the atom count.")
+        if self._scanned_fingerprint is not None and self._molecule_fingerprint() != self._scanned_fingerprint:
+            self._invalidate_analysis()
+            return False
         conf = rd_mol.GetConformer()
+        points = [Point3D(*map(float, row)) for row in coords]
+        self.context.push_undo_checkpoint()
         for i in range(rd_mol.GetNumAtoms()):
             # cast to float: the RDKit C++ API can reject numpy.float64
-            x, y, z = map(float, new_coords[i])
-            conf.SetAtomPosition(i, Point3D(x, y, z))
+            conf.SetAtomPosition(i, points[i])
 
         # Full redraw: the conformer changed
         self.context.current_mol = rd_mol
         self.context.refresh_3d_view()
+        return True
 
     def _invalidate_analysis(self):
         """Discard the scan results and the 3D overlay; reset the UI."""
-        # 1. Remove the 3D visualisation
-        if self.context.plotter and getattr(self, "vis_actors", None) is not None:
-            plotter = self.context.plotter
+        if self.worker is not None and self.worker.isRunning():
+            self.worker.abort()
+        # Remove actors from the plotter that owns them.
+        plotter = getattr(self, "_vis_plotter", None) or self.context.plotter
+        if plotter and getattr(self, "vis_actors", None) is not None:
             for actor in self.vis_actors:
                 plotter.remove_actor(actor)
             self.vis_actors = []
@@ -953,27 +999,51 @@ class SymmetryAnalysisPlugin(QDialog):
         self.analyzer = None
         self._scanned_fingerprint = None
 
-    def _cleanup(self):
-        """Everything that must happen when the dialog goes away."""
-        if self.worker and self.worker.isRunning():
-            self.worker.abort()
-            self.worker.wait(5000)
-            if self.worker.isRunning():
-                self.worker.terminate()  # last resort
+    def _worker_stopped(self):
+        worker = self.worker
+        self.worker = None
+        if worker is not None:
+            worker.deleteLater()
+        self.calc_btn.setEnabled(HAS_PYMATGEN)
+        self.calc_btn.setText("Analyze (Scan)")
+        self.calc_btn.setToolTip("Scan tolerances to find likely point groups.")
+        if self._pending_close_result is not None:
+            result = self._pending_close_result
+            self._pending_close_result = None
+            self.done(result)
 
+    def _cleanup(self):
+        """Cancel cooperatively and retain the worker until native completion."""
+        self._closing = True
         self._invalidate_analysis()
+        if self.worker is not None:
+            self.calc_btn.setEnabled(False)
+            return False
+        return True
 
     def closeEvent(self, event):
-        self._cleanup()
-        # QDialog.closeEvent routes back through reject(), so accepting here
-        # rather than calling super() keeps the two paths from recursing.
-        event.accept()
+        if self._cleanup():
+            event.accept()
+        else:
+            self._pending_close_result = QDialog.DialogCode.Rejected
+            event.ignore()
+
+    def done(self, result):
+        if self._cleanup():
+            super().done(result)
+        else:
+            self._pending_close_result = result
+
+    def accept(self):
+        self.done(QDialog.DialogCode.Accepted)
 
     def reject(self):
-        # Esc closes a QDialog through reject(), which never delivers a close
-        # event: the 3D overlay and the scan thread used to survive it.
-        self._cleanup()
-        super().reject()
+        self.done(QDialog.DialogCode.Rejected)
+
+    def showEvent(self, event):
+        if self.worker is None:
+            self._closing = False
+        super().showEvent(event)
 
 
 def initialize(context):

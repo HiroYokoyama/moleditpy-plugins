@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
 import sys
 import re
+import base64
+from io import BytesIO
 import logging
+import math
+from decimal import Decimal
 from PyQt6.QtWidgets import (
     QDialog,
     QVBoxLayout,
@@ -53,7 +57,7 @@ except ImportError:
     rdMolDescriptors = None
 
 PLUGIN_ID = "elemental_analysis"
-PLUGIN_VERSION = "2026.09.26"
+PLUGIN_VERSION = "2026.10.13"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_SUPPORTED_PYTHON_VERSION = ">=3.9, <3.15"
 PLUGIN_AUTHOR = "HiroYokoyama"
@@ -100,6 +104,8 @@ def parse_formula(formula):
     solvate notation joined by '·' or '*' with an optional (fractional)
     leading coefficient, e.g. "C6H6·0.5H2O". Counts may therefore be floats.
     """
+    if len(formula) > 4096:
+        return None
     formula = formula.replace(" ", "")
     if not formula:
         return {}
@@ -110,20 +116,25 @@ def parse_formula(formula):
             return None
         m = re.match(r"^(\d+(?:\.\d+)?|\.\d+)?(.*)$", part)
         coeff = float(m.group(1)) if m.group(1) else 1
+        if not math.isfinite(coeff) or coeff <= 0:
+            return None
         counts = _parse_simple_formula(m.group(2))
         if not counts:
             return None
         for el, count in counts.items():
             total[el] = total.get(el, 0) + count * coeff
 
+    if any(not math.isfinite(c) for c in total.values()):
+        return None
     return {el: _tidy_number(c) for el, c in total.items() if c > 0}
 
 
 def _parse_simple_formula(formula):
-    tokens = re.findall(r"([A-Z][a-z]*|\d+|\(|\)|[\+\-])", formula)
+    formula = re.sub(r"\s+", "", formula)
+    formula = re.sub(r"[+-]\d*$", "", formula)
+    tokens = re.findall(r"(\[\d+[A-Z][a-z]?\]|[A-Z][a-z]?|\d+|\(|\))", formula)
     if "".join(tokens) != formula:
-        return None  # Invalid characters found
-
+        return None
     stack = [{}]
     i = 0
     while i < len(tokens):
@@ -131,38 +142,30 @@ def _parse_simple_formula(formula):
         if token == "(":
             stack.append({})
             i += 1
-        elif token == ")":
-            multiplier = 1
-            if i + 1 < len(tokens) and tokens[i + 1].isdigit():
-                multiplier = int(tokens[i + 1])
-                i += 1
-            if len(stack) > 1:
-                top = stack.pop()
-                for el, count in top.items():
-                    stack[-1][el] = stack[-1].get(el, 0) + count * multiplier
-            i += 1
-        elif token[0].isalpha():
-            count = 1
-            if i + 1 < len(tokens) and tokens[i + 1].isdigit():
-                count = int(tokens[i + 1])
-                i += 1
-            stack[-1][token] = stack[-1].get(token, 0) + count
-            i += 1
+            continue
+        if token == ")":
+            if len(stack) == 1 or not stack[-1]:
+                return None
+            counts = stack.pop()
+        elif token[0].isalpha() or token.startswith("["):
+            counts = {token: 1}
         else:
-            # Charge signs and stray numbers carry no composition.
+            return None
+        multiplier = 1
+        if i + 1 < len(tokens) and tokens[i + 1].isdigit():
+            multiplier = int(tokens[i + 1])
+            if multiplier <= 0:
+                return None
             i += 1
-
-    while len(stack) > 1:
-        top = stack.pop()
-        for el, count in top.items():
-            stack[-1][el] = stack[-1].get(el, 0) + count
-
-    return stack[0]
+        for sym, count in counts.items():
+            stack[-1][sym] = stack[-1].get(sym, 0) + count * multiplier
+        i += 1
+    return stack[0] if len(stack) == 1 else None
 
 
 def _tidy_number(value):
     """Return an int when the value is integral, else the float."""
-    if abs(value - round(value)) < 1e-9:
+    if value == round(value):
         return int(round(value))
     return value
 
@@ -171,16 +174,24 @@ def format_count(value):
     value = _tidy_number(value)
     if isinstance(value, int):
         return str(value)
-    return f"{value:.3f}".rstrip("0").rstrip(".")
+    return format(Decimal(str(value)), "f").rstrip("0").rstrip(".")
 
 
 def hill_order(symbols):
     """Hill system: C, H first then alphabetical; purely alphabetical without C."""
     symbols = list(symbols)
-    if "C" in symbols:
-        head = ["C"] + (["H"] if "H" in symbols else [])
-        return head + sorted(s for s in symbols if s not in ("C", "H"))
-    return sorted(symbols)
+    has_carbon = any(_element_symbol(s) == "C" for s in symbols)
+    def key(sym):
+        element = _element_symbol(sym)
+        priority = {"C": 0, "H": 1}.get(element, 2) if has_carbon else 0
+        return priority, element, sym != element, sym
+    return sorted(symbols, key=key)
+
+
+def _element_symbol(sym):
+    if sym in ("D", "T"):
+        return "H"
+    return re.sub(r"\[\d+([A-Z][a-z]?)\]", r"\1", sym)
 
 
 def format_formula(counts):
@@ -192,18 +203,30 @@ def format_formula(counts):
     return "".join(parts)
 
 
-def atomic_weight(pt, sym):
+def _isotope_mass(pt, sym):
     if sym in HYDROGEN_ISOTOPE_MASSES:
         return HYDROGEN_ISOTOPE_MASSES[sym]
-    return pt.GetAtomicWeight(sym)
+    match = re.fullmatch(r"\[(\d+)([A-Z][a-z]?)\]", sym)
+    if match:
+        mass = pt.GetMassForIsotope(pt.GetAtomicNumber(match[2]), int(match[1]))
+        if mass <= 0:
+            raise ValueError("Unknown isotope: " + sym)
+        return mass
+    return None
+
+
+def atomic_weight(pt, sym):
+    mass = _isotope_mass(pt, sym)
+    return mass if mass is not None else pt.GetAtomicWeight(sym)
 
 
 def monoisotopic_mass(pt, counts):
     """Mass built from each element's most abundant isotope."""
     total = 0.0
     for sym, count in counts.items():
-        if sym in HYDROGEN_ISOTOPE_MASSES:
-            total += HYDROGEN_ISOTOPE_MASSES[sym] * count
+        mass = _isotope_mass(pt, sym)
+        if mass is not None:
+            total += mass * count
         else:
             anum = pt.GetAtomicNumber(sym)
             total += pt.GetMassForIsotope(anum, pt.GetMostCommonIsotope(anum)) * count
@@ -218,6 +241,8 @@ def calc_composition(pt, counts):
     """
     contrib = {sym: atomic_weight(pt, sym) * n for sym, n in counts.items()}
     mw = sum(contrib.values())
+    if not math.isfinite(mw) or any(not math.isfinite(n) or n < 0 for n in counts.values()):
+        raise ValueError("Composition counts and mass must be finite and nonnegative.")
     if mw <= 0:
         return [], 0.0
     rows = [
@@ -229,7 +254,10 @@ def calc_composition(pt, counts):
 
 def analysis_line(formula_label, rows, elements=REPORT_ELEMENTS):
     """Publication-style line, e.g. 'Anal. Calcd for C6H6: C, 92.26; H, 7.74.'"""
-    by_sym = {r[0]: r[3] for r in rows}
+    by_sym = {}
+    for sym, _count, _mass, pct in rows:
+        element = "H" if sym in ("D", "T") else re.sub(r"\[\d+([A-Z][a-z]?)\]", r"\1", sym)
+        by_sym[element] = by_sym.get(element, 0) + pct
     items = [f"{sym}, {by_sym[sym]:.2f}" for sym in elements if sym in by_sym]
     if not items:
         return ""
@@ -332,7 +360,7 @@ class ElementalAnalysisDialog(QDialog):
         if self.mol and Chem is not None:
             try:
                 self.formula_input.setText(
-                    str(rdMolDescriptors.CalcMolFormula(self.mol))
+                    str(rdMolDescriptors.CalcMolFormula(self.mol, separateIsotopes=True))
                 )
             except (RuntimeError, AttributeError, TypeError, ValueError) as _e:
                 logging.warning("[elemental_analysis.py] silenced: %s", _e)
@@ -463,6 +491,12 @@ class ElementalAnalysisDialog(QDialog):
         self._stop_sync_timer()
         event.accept()
 
+    def showEvent(self, event):
+        if self.sync_check.isChecked():
+            self.timer.start(500)
+            self.check_update()
+        super().showEvent(event)
+
     def toggle_sync(self, state):
         if getattr(self, "timer", None) is None:
             return
@@ -474,6 +508,8 @@ class ElementalAnalysisDialog(QDialog):
             self.timer.stop()
 
     def check_update(self):
+        if not self.sync_check.isChecked():
+            return
         if Chem is None:
             return
 
@@ -489,7 +525,9 @@ class ElementalAnalysisDialog(QDialog):
             else:
                 new_mol = self.context.current_molecule
 
-            if not new_mol:
+            if new_mol is None:
+                self.mol = None
+                self.formula_input.clear()
                 return
 
             self.mol = new_mol
@@ -497,7 +535,7 @@ class ElementalAnalysisDialog(QDialog):
             mol_to_calc = (
                 Chem.AddHs(self.mol) if self.use_2d_check.isChecked() else self.mol
             )
-            current_formula = rdMolDescriptors.CalcMolFormula(mol_to_calc)
+            current_formula = rdMolDescriptors.CalcMolFormula(mol_to_calc, separateIsotopes=True)
 
             if self.formula_input.text() != current_formula:
                 self.formula_input.setText(current_formula)
@@ -522,12 +560,18 @@ class ElementalAnalysisDialog(QDialog):
 
         if base and Chem is not None:
             suffix = self.solvate_suffix()
-            counts = parse_formula(format_formula(base) + suffix)
             try:
+                counts = base.copy()
+                if suffix:
+                    solvate = parse_formula(suffix[1:])
+                    if not solvate:
+                        raise ValueError("Invalid solvate formula.")
+                    for sym, n in solvate.items():
+                        counts[sym] = counts.get(sym, 0) + n
                 pt = Chem.GetPeriodicTable()
                 self.rows, mw = calc_composition(pt, counts)
                 exact = monoisotopic_mass(pt, base)
-                self.total_formula = format_formula(base) + suffix
+                self.total_formula = (base_text.replace(" ", "") if any(sep in base_text for sep in "·•*") else format_formula(base)) + suffix
             except Exception:
                 # Unrecognized element -> invalid formula
                 self.rows, mw, exact = [], 0.0, 0.0
@@ -624,8 +668,6 @@ class ElementalAnalysisDialog(QDialog):
         # 2. Fallback to RDKit Draw
         if Draw:
             try:
-                import base64
-                from io import BytesIO
 
                 img = Draw.MolToImage(self.mol, size=(300, 300))
                 buffered = BytesIO()

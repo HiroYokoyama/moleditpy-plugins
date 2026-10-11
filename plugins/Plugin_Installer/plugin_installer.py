@@ -45,7 +45,7 @@ import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.10.09"
+PLUGIN_VERSION = "2026.10.13"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_SUPPORTED_PYTHON_VERSION = ">=3.9, <3.15"
 PLUGIN_SUPPORTED_OS = ["Windows", "macOS", "Linux", "WSL"]
@@ -274,6 +274,23 @@ def _is_plugin_disabled(local_info) -> bool:
     if not local_info:
         return False
     return bool(local_info.get("disabled")) or local_info.get("status") == "Disabled"
+
+
+MAX_DOWNLOAD_BYTES = 100 * 1024 * 1024
+MAX_ARCHIVE_BYTES = 256 * 1024 * 1024
+MAX_ARCHIVE_MEMBERS = 10000
+
+
+def _validate_plugin_archive(archive, destination):
+    members = archive.infolist()
+    if len(members) > MAX_ARCHIVE_MEMBERS or sum(m.file_size for m in members) > MAX_ARCHIVE_BYTES:
+        raise ValueError('Plugin archive exceeds extraction limits.')
+    for member in members:
+        if not _is_within_directory(destination, os.path.join(destination, member.filename)):
+            raise ValueError('Unsafe zip entry: ' + member.filename)
+        if (member.external_attr >> 16) & 0o170000 == 0o120000:
+            raise ValueError('Symbolic links are not allowed in plugin archives.')
+    return members
 
 
 def _is_within_directory(base_dir: str, target_path: str) -> bool:
@@ -1046,6 +1063,8 @@ class PluginInstallerWindow(QDialog):
             self.btn_update_all.setEnabled(False)
 
     def check_updates(self):
+        if self._fetch_worker is not None and self._fetch_worker.isRunning():
+            return
         pkg_name = self._get_package_name()
         self.lbl_latest_version.setText(
             f"<b>Latest ({pkg_name} on PyPI):</b> Fetching..."
@@ -1053,14 +1072,12 @@ class PluginInstallerWindow(QDialog):
         self._set_ui_busy(True)
         QApplication.processEvents()  # paint the bar before the thread starts
 
-        # Cancel any in-flight fetch
-        if self._fetch_worker and self._fetch_worker.isRunning():
+        # Disconnect a completed worker before replacing it, including queued results.
+        if self._fetch_worker is not None:
             try:
                 self._fetch_worker.done.disconnect()
-            except (RuntimeError, AttributeError):
+            except (RuntimeError, AttributeError, TypeError):
                 pass
-            self._fetch_worker.quit()
-            self._fetch_worker.wait(300)
 
         self._fetch_worker = _FetchWorker(pkg_name, REMOTE_JSON_URL)
         self._fetch_worker.done.connect(self._on_fetch_done)
@@ -1138,17 +1155,23 @@ class PluginInstallerWindow(QDialog):
             try:
                 with urllib.request.urlopen(url, timeout=15) as response:
                     total = int(response.headers.get("Content-Length") or 0)
+                    if total < 0 or total > MAX_DOWNLOAD_BYTES:
+                        raise ValueError("Plugin download exceeds 100 MiB.")
                     received = 0
                     with open(dest_path, "wb") as f:
                         while True:
                             chunk = response.read(8192)
                             if not chunk:
                                 break
-                            f.write(chunk)
                             received += len(chunk)
+                            if received > MAX_DOWNLOAD_BYTES:
+                                raise ValueError("Plugin download exceeds 100 MiB.")
+                            f.write(chunk)
                             if on_progress is not None:
                                 if not on_progress(received, total):
                                     return False
+                    if total and received != total:
+                        raise urllib.error.URLError("Incomplete plugin download.")
                 return True
             except (urllib.error.URLError, TimeoutError, OSError) as e:
                 last_exc = e
@@ -2103,7 +2126,7 @@ class PluginInstallerWindow(QDialog):
                             extract_temp = os.path.join(temp_dir, "extracted")
                             os.makedirs(extract_temp, exist_ok=True)
                             with zipfile.ZipFile(download_path, "r") as z:
-                                for member in z.infolist():
+                                for member in _validate_plugin_archive(z, extract_temp):
                                     target_path = os.path.join(
                                         extract_temp, member.filename
                                     )
@@ -2353,19 +2376,37 @@ class PluginInstallerWindow(QDialog):
         if self._fetch_worker and self._fetch_worker.isRunning():
             try:
                 self._fetch_worker.done.disconnect()
-            except (RuntimeError, AttributeError):
+            except (RuntimeError, AttributeError, TypeError):
                 pass
             self._fetch_worker.quit()
-            self._fetch_worker.wait(500)
+            if not self._fetch_worker.wait(500):
+                if not getattr(self, '_fetch_close_connected', False):
+                    self._fetch_worker.finished.connect(self._complete_pending_close)
+                    self._fetch_close_connected = True
+                return False
+        return True
+
+    def _complete_pending_close(self):
+        self._fetch_worker = None
+        self._fetch_close_connected = False
+        result = getattr(self, '_pending_close_result', None)
+        self._pending_close_result = None
+        if result is not None:
+            self.done(result)
 
     def done(self, result: int):
-        self._stop_fetch_worker()
+        if not self._stop_fetch_worker():
+            self._pending_close_result = result
+            return
         super().done(result)
 
     def closeEvent(self, event):
         # QDialog's own closeEvent calls reject() only while the dialog is
         # visible, so done() does not cover a window closed before it is shown.
-        self._stop_fetch_worker()
+        if not self._stop_fetch_worker():
+            self._pending_close_result = QDialog.DialogCode.Rejected
+            event.ignore()
+            return
         super().closeEvent(event)
 
     def copy_upgrade_command(self):

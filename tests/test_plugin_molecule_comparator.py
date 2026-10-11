@@ -408,8 +408,7 @@ class TestCopyResultsToClipboard:
         with mock_optional_imports():
             import PyQt6.QtWidgets as _qtw
 
-            fn, _unused = _copy_results_fn()
-            qapp = _qtw.QApplication
+            fn, qapp = _copy_results_fn()
             clipboard = MagicMock()
             qapp.clipboard.return_value = clipboard
             stub = SimpleNamespace(
@@ -448,7 +447,7 @@ class TestSaveResultsToFile:
             MOLECULE_COMPARATOR_PATH,
             "MoleculeComparator",
             "save_results_to_file",
-            {"QFileDialog": fake_qfd, "QMessageBox": fake_qmb},
+            {"QFileDialog": fake_qfd, "QMessageBox": fake_qmb, "csv": __import__("csv")},
         )
         stub = SimpleNamespace(
             molecules=[
@@ -503,6 +502,7 @@ def _add_molecule_from_path_fn():
 
     globs = {
         "os": __import__("os"),
+        "math": math,
         "Chem": _real_Chem,
         "rdDetermineBonds": _real_rdDetermineBonds,
         "Point3D": _real_Point3D,

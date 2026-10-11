@@ -1,4 +1,5 @@
 import logging
+import math
 
 from PyQt6.QtWidgets import (
     QDialog,
@@ -18,8 +19,13 @@ try:
 except ImportError:
     Chem = None
 
+try:
+    from rdkit.Chem import rdDetermineBonds
+except ImportError:
+    rdDetermineBonds = None
+
 PLUGIN_NAME = "Paste XYZ"
-PLUGIN_VERSION = "2026.09.24"
+PLUGIN_VERSION = "2026.10.13"
 PLUGIN_CATEGORY = "File"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
@@ -37,7 +43,20 @@ def initialize(context):
 def parse_xyz_lines(text: str) -> list:
     """Return [(symbol, x, y, z), ...] from XYZ text, ignoring headers/invalid lines."""
     atoms = []
-    for line in text.splitlines():
+    lines = text.splitlines()
+    count = None
+    if lines:
+        try:
+            count = int(lines[0].strip())
+        except ValueError:
+            pass
+        else:
+            if count < 0:
+                raise ValueError('XYZ atom count cannot be negative.')
+            lines = lines[2:]
+    for line in lines:
+        if count is not None and len(atoms) >= count:
+            break
         parts = line.split()
         if len(parts) < 4:
             continue
@@ -48,6 +67,8 @@ def parse_xyz_lines(text: str) -> list:
         symbol = parts[0]
         if not symbol[0].isalpha():
             continue
+        if not all(math.isfinite(v) for v in (x, y, z)):
+            raise ValueError("XYZ coordinates must be finite.")
         atoms.append((symbol, x, y, z))
     return atoms
 
@@ -68,7 +89,8 @@ def _build_rwmol(atoms_data: list) -> "Chem.RWMol":
 def _apply_bonds(rwmol: "Chem.RWMol", charge: int, mw) -> "Chem.Mol":
     """Try rdDetermineBonds; fall back to distance-based estimation."""
     try:
-        from rdkit.Chem import rdDetermineBonds
+        if rdDetermineBonds is None:
+            raise ImportError("RDKit bond determination is unavailable.")
         candidate = Chem.RWMol(rwmol)
         rdDetermineBonds.DetermineBonds(candidate, charge=charge)
         result = candidate.GetMol()

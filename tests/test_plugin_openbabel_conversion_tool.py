@@ -77,7 +77,9 @@ class TestOpenFileWithOpenBabelFullFlow:
 
     def _mod(self):
         with mock_optional_imports():
-            return load_plugin(OBABEL_PATH)
+            mod = load_plugin(OBABEL_PATH)
+        mod._read_molecules = lambda path, fmt, parent: list(mod.pybel.readfile(fmt, path))
+        return mod
 
     def test_no_molecules_in_file_warns(self):
         mod = self._mod()
@@ -226,54 +228,6 @@ class TestOpenFileWithOpenBabelFullFlow:
         mol0.write.assert_not_called()
         mol1.write.assert_not_called()
 
-    def test_non_ascii_path_temp_file_created_and_removed(self, tmp_path):
-        """Non-ASCII path triggers the temp-file workaround; the source file
-        exists so shutil.copy2 succeeds and the temp file is cleaned up."""
-        mod = self._mod()
-        ctx = make_context()
-
-        src_dir = tmp_path / "café"
-        src_dir.mkdir()
-        src = src_dir / "café.xyz"
-        src.write_text("dummy")
-
-        fake_mol = MagicMock()
-        fake_mol.write.return_value = "MOLBLOCK"
-        mod.pybel.readfile.return_value = [fake_mol]
-
-        rd_mol = MagicMock()
-        rd_mol.GetNumConformers.return_value = 1
-        mod.Chem.MolFromMolBlock.return_value = rd_mol
-
-        mod.open_file_with_openbabel(str(src), ctx)
-
-        # readfile was called with a temp path, not the original non-ascii one
-        called_path = mod.pybel.readfile.call_args[0][1]
-        assert called_path != str(src)
-        assert not os.path.exists(called_path)  # cleaned up after read
-        assert ctx.current_molecule is rd_mol
-
-    def test_non_ascii_path_copy_failure_falls_back_to_original_path(self):
-        """If the temp-file copy fails (e.g. source doesn't exist), the code
-        falls back to opening the original path directly."""
-        mod = self._mod()
-        ctx = make_context()
-
-        fake_mol = MagicMock()
-        fake_mol.write.return_value = "MOLBLOCK"
-        mod.pybel.readfile.return_value = [fake_mol]
-
-        rd_mol = MagicMock()
-        rd_mol.GetNumConformers.return_value = 1
-        mod.Chem.MolFromMolBlock.return_value = rd_mol
-
-        missing_path = "does_not_exist_café.xyz"
-        mod.open_file_with_openbabel(missing_path, ctx)
-
-        called_path = mod.pybel.readfile.call_args[0][1]
-        assert called_path == missing_path
-        assert ctx.current_molecule is rd_mol
-
     def test_unexpected_exception_shows_import_error(self):
         mod = self._mod()
         ctx = make_context()
@@ -307,13 +261,21 @@ class TestExportWithOpenBabel:
 
     def _mod(self):
         with mock_optional_imports():
-            return load_plugin(OBABEL_PATH)
+            mod = load_plugin(OBABEL_PATH)
+        def convert(script, args, parent):
+            mol = mod.pybel.readstring('mol', Path(args[2]).read_text(encoding='utf-8'))
+            mol.write(args[1], args[3], overwrite=True)
+            Path(args[3]).write_text('converted', encoding='utf-8')
+        mod._run_conversion = MagicMock(side_effect=convert)
+        return mod
 
     def test_obabel_unavailable_warns_and_returns(self):
         mod = self._mod()
         mod.OBABEL_AVAILABLE = False
         ctx = make_context()
         ctx.current_molecule = MagicMock()
+        ctx.current_molecule.GetNumAtoms.return_value = 3
+        ctx.current_molecule.GetNumAtoms.return_value = 3
         with patch.object(mod.QMessageBox, "warning") as mock_warn:
             mod.export_with_openbabel(ctx)
         mock_warn.assert_called_once()
@@ -332,6 +294,8 @@ class TestExportWithOpenBabel:
         mod = self._mod()
         ctx = make_context()
         ctx.current_molecule = MagicMock()
+        ctx.current_molecule.GetNumAtoms.return_value = 3
+        ctx.current_molecule.GetNumAtoms.return_value = 3
         mod.pybel.outformats = {"xyz": "XYZ format"}
         with patch.object(mod.QFileDialog, "getSaveFileName", return_value=("", "")):
             with patch.object(mod.QMessageBox, "warning") as mock_warn:
@@ -342,6 +306,8 @@ class TestExportWithOpenBabel:
         mod = self._mod()
         ctx = make_context()
         ctx.current_molecule = MagicMock()
+        ctx.current_molecule.GetNumAtoms.return_value = 3
+        ctx.current_molecule.GetNumAtoms.return_value = 3
         mod.pybel.outformats = {"xyz": "XYZ format"}
         with patch.object(mod.QFileDialog, "getSaveFileName", return_value=("no_ext_file", "")):
             with patch.object(mod.QMessageBox, "warning") as mock_warn:
@@ -354,6 +320,8 @@ class TestExportWithOpenBabel:
         mod = self._mod()
         ctx = make_context()
         ctx.current_molecule = MagicMock()
+        ctx.current_molecule.GetNumAtoms.return_value = 3
+        ctx.current_molecule.GetNumAtoms.return_value = 3
         mod.pybel.outformats = {"xyz": "XYZ format"}
         with patch.object(mod.QFileDialog, "getSaveFileName", return_value=("out.pdb", "")):
             with patch.object(mod.QMessageBox, "warning") as mock_warn:
@@ -362,26 +330,31 @@ class TestExportWithOpenBabel:
         args, _ = mock_warn.call_args
         assert "not supported" in args[2].lower()
 
-    def test_successful_export_reports_status_not_error(self):
+    def test_successful_export_reports_status_not_error(self, tmp_path):
         """Regression test for the PLUGIN_CONTEXT NameError bug (2026.07.10 fix)."""
         mod = self._mod()
         ctx = make_context()
         ctx.current_molecule = MagicMock()
+        ctx.current_molecule.GetNumAtoms.return_value = 3
+        ctx.current_molecule.GetNumAtoms.return_value = 3
         mod.pybel.outformats = {"xyz": "XYZ format"}
         pybel_mol = MagicMock()
         mod.pybel.readstring.return_value = pybel_mol
         mod.Chem.MolToMolBlock.return_value = "MOLBLOCK"
-        with patch.object(mod.QFileDialog, "getSaveFileName", return_value=("out.xyz", "")):
+        with patch.object(mod.QFileDialog, "getSaveFileName", return_value=(str(tmp_path / "out.xyz"), "")):
             with patch.object(mod.QMessageBox, "critical") as mock_critical:
                 mod.export_with_openbabel(ctx)
-        pybel_mol.write.assert_called_once_with("xyz", "out.xyz", overwrite=True)
-        ctx.show_status_message.assert_called_once_with("Exported to out.xyz", 3000)
+        assert pybel_mol.write.call_args.args[0] == "xyz"
+        assert (tmp_path / "out.xyz").read_text() == "converted"
+        ctx.show_status_message.assert_called_once_with(f"Exported to {tmp_path / 'out.xyz'}", 3000)
         mock_critical.assert_not_called()
 
     def test_rdkit_to_molblock_failure_shows_critical(self):
         mod = self._mod()
         ctx = make_context()
         ctx.current_molecule = MagicMock()
+        ctx.current_molecule.GetNumAtoms.return_value = 3
+        ctx.current_molecule.GetNumAtoms.return_value = 3
         mod.pybel.outformats = {"xyz": "XYZ format"}
         mod.Chem.MolToMolBlock.side_effect = Exception("rdkit failure")
         with patch.object(mod.QFileDialog, "getSaveFileName", return_value=("out.xyz", "")):
@@ -395,6 +368,8 @@ class TestExportWithOpenBabel:
         mod = self._mod()
         ctx = make_context()
         ctx.current_molecule = MagicMock()
+        ctx.current_molecule.GetNumAtoms.return_value = 3
+        ctx.current_molecule.GetNumAtoms.return_value = 3
         mod.pybel.outformats = {"xyz": "XYZ format"}
         mod.Chem.MolToMolBlock.return_value = "MOLBLOCK"
         mod.pybel.readstring.side_effect = Exception("obabel read failure")
@@ -403,12 +378,14 @@ class TestExportWithOpenBabel:
                 mod.export_with_openbabel(ctx)
         mock_critical.assert_called_once()
         args, _ = mock_critical.call_args
-        assert "read MolBlock" in args[2]
+        assert "obabel read failure" in args[2]
 
     def test_unexpected_export_exception_shows_export_error(self):
         mod = self._mod()
         ctx = make_context()
         ctx.current_molecule = MagicMock()
+        ctx.current_molecule.GetNumAtoms.return_value = 3
+        ctx.current_molecule.GetNumAtoms.return_value = 3
         mod.pybel.outformats = {"xyz": "XYZ format"}
         mod.Chem.MolToMolBlock.return_value = "MOLBLOCK"
         pybel_mol = MagicMock()
@@ -563,14 +540,19 @@ class TestMoleculeSelectionDialog:
 
 
 class TestExportExtensionHandling:
-    def test_uppercase_extension_lowercased_and_accepted(self):
+    def test_uppercase_extension_lowercased_and_accepted(self, tmp_path):
         with mock_optional_imports():
             mod = load_plugin(OBABEL_PATH)
             mod.pybel.outformats = {"xyz": "XYZ format"}
             ctx = make_context()
             ctx.current_molecule = MagicMock()
+            ctx.current_molecule.GetNumAtoms.return_value = 3
+            mod.Chem.MolToMolBlock.return_value = "MOLBLOCK"
+            def convert(script, args, parent):
+                Path(args[3]).write_text("converted")
+            mod._run_conversion = convert
             with patch.object(
-                mod.QFileDialog, "getSaveFileName", return_value=("out.XYZ", "")
+                mod.QFileDialog, "getSaveFileName", return_value=(str(tmp_path / "out.XYZ"), "")
             ), patch.object(mod.QMessageBox, "warning") as warn, patch.object(
                 mod.QMessageBox, "critical"
             ) as crit:

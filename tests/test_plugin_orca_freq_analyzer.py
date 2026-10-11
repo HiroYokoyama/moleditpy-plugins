@@ -520,3 +520,51 @@ class TestIrIntensityColumn:
         assert (
             _orca._find_intensity_column(["IR SPECTRUM", "", ""], 0, ("int",), 3) == 3
         )
+
+
+def _strict_orca(tmp_path, text):
+    path = tmp_path / "strict.out"
+    path.write_text(text, encoding="utf-8")
+    parser = _orca.OrcaParser()
+    parser.parse(path)
+    return parser
+
+
+def test_orca_normal_modes_do_not_depend_on_header_line_count(tmp_path):
+    text = _ORCA_FULL
+    for line in ("These modes are printed in Cartesian displacements\n", "mass weighted comment line\n", "filler line three\n", "filler line four\n", "filler line five\n"):
+        text = text.replace(line, "")
+    parser = _strict_orca(tmp_path, text)
+    assert len(parser.final_modes) == 3
+    assert parser.final_modes[0]["vector"][0] == pytest.approx((0.01, 0.04, 0.07))
+
+
+@pytest.mark.parametrize("old,new", (("      1       0.040000", "      0       0.040000"), ("0.010000", "nan")))
+def test_orca_malformed_coordinate_rows_are_rejected(tmp_path, old, new):
+    with pytest.raises(ValueError):
+        _strict_orca(tmp_path, _ORCA_FULL.replace(old, new, 1))
+
+
+def test_orca_preserves_soft_vibration(tmp_path):
+    parser = _strict_orca(tmp_path, _ORCA_FULL.replace("-1609.85", "5.00"))
+    assert parser.final_modes[0]["freq"] == 5
+
+
+def test_orca_cm_minus_one_and_d_exponents(tmp_path):
+    parser = _strict_orca(tmp_path, _ORCA_FULL.replace("cm**-1", "cm-1").replace("-1609.85", "-1.60985D+3"))
+    assert parser.final_modes[0]["freq"] == pytest.approx(-1609.85)
+
+
+def test_orca_last_job_cannot_reuse_previous_ir_table(tmp_path):
+    last_job = _ORCA_FULL.split("IR SPECTRUM")[0]
+    parser = _strict_orca(tmp_path, _ORCA_FULL + "\n" + last_job)
+    assert len(parser.final_modes) == 3
+    assert all(mode["intensity"] is None for mode in parser.final_modes)
+
+
+def test_orca_parser_reuse_clears_modes(tmp_path):
+    parser = _strict_orca(tmp_path, _ORCA_FULL)
+    path = tmp_path / "empty.out"
+    path.write_text("ORCA\n")
+    parser.parse(path)
+    assert parser.final_modes == []

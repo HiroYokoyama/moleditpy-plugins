@@ -17,6 +17,7 @@ Dependencies (install in MoleditPy's environment):
 from __future__ import annotations
 
 import logging
+import math
 
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtWidgets import (
@@ -39,13 +40,24 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 from rdkit import Chem
+from rdkit.Chem import GetPeriodicTable
+
+_BACKEND_IMPORT_ERROR = None
+try:
+    import numpy as np
+    from ase import Atoms
+    from ase.optimize import LBFGS
+    from tblite.ase import TBLite
+except ImportError as exc:
+    _BACKEND_IMPORT_ERROR = str(exc)
+
 
 # ---------------------------------------------------------------------------
 # Plugin metadata
 # ---------------------------------------------------------------------------
 
 PLUGIN_NAME = "xTB Optimizer"
-PLUGIN_VERSION = "2026.09.02"
+PLUGIN_VERSION = "2026.10.13"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -94,14 +106,14 @@ class XtbWorker(QThread):
         A plain-text line to append to the dialog log.
     step_update(int, float, float)
         Emitted after each optimizer step: (step_number, energy_eV, fmax_eV_per_A).
-    finished(bool, object)
+    result_ready(bool, object)
         Emitted when the run completes.  ``True`` + numpy array of new positions
         on success; ``False`` + error message string on failure.
     """
 
     log_message = pyqtSignal(str)
     step_update = pyqtSignal(int, float, float)
-    finished = pyqtSignal(bool, object)
+    result_ready = pyqtSignal(bool, object)
 
     def __init__(
         self,
@@ -131,10 +143,8 @@ class XtbWorker(QThread):
     def run(self):
         """Entry point executed on the worker thread."""
         try:
-            import numpy as np
-            from ase import Atoms
-            from ase.optimize import LBFGS
-            from tblite.ase import TBLite
+            if _BACKEND_IMPORT_ERROR is not None:
+                raise ImportError(_BACKEND_IMPORT_ERROR)
 
             self.log_message.emit(
                 f"Starting {self._method} optimization  "
@@ -195,7 +205,7 @@ class XtbWorker(QThread):
 
             if cancelled_ref[0]:
                 self.log_message.emit("Optimization cancelled.")
-                self.finished.emit(False, "Cancelled by user.")
+                self.result_ready.emit(False, "Cancelled by user.")
                 return
 
             new_positions = atoms.get_positions().tolist()
@@ -212,16 +222,16 @@ class XtbWorker(QThread):
                     f"Final E = {final_energy:.6f} eV"
                 )
 
-            self.finished.emit(True, new_positions)
+            self.result_ready.emit(True, new_positions)
 
         except RuntimeError as exc:
             if "cancelled" in str(exc).lower():
                 self.log_message.emit("Optimization cancelled.")
-                self.finished.emit(False, "Cancelled by user.")
+                self.result_ready.emit(False, "Cancelled by user.")
             else:
                 logger.exception("XtbWorker: runtime error during optimization")
                 self.log_message.emit(f"\nError: {exc}")
-                self.finished.emit(False, str(exc))
+                self.result_ready.emit(False, str(exc))
         except ImportError as exc:
             msg = (
                 f"Missing dependency: {exc}\n"
@@ -229,11 +239,11 @@ class XtbWorker(QThread):
                 "  mamba install -c conda-forge tblite-python ase"
             )
             self.log_message.emit(msg)
-            self.finished.emit(False, msg)
+            self.result_ready.emit(False, msg)
         except Exception as exc:
             logger.exception("XtbWorker: unexpected error")
             self.log_message.emit(f"\nUnexpected error: {exc}")
-            self.finished.emit(False, str(exc))
+            self.result_ready.emit(False, str(exc))
 
 
 # ---------------------------------------------------------------------------
@@ -404,6 +414,8 @@ class XtbOptimizerDialog(QDialog):
     # ------------------------------------------------------------------
 
     def _on_run(self):
+        if self._worker is not None:
+            return
         mol = self.context.current_mol
         if not mol:
             QMessageBox.warning(self, PLUGIN_NAME, "No molecule loaded.")
@@ -421,7 +433,6 @@ class XtbOptimizerDialog(QDialog):
         numbers = []
         positions = []
         try:
-            from rdkit.Chem import GetPeriodicTable
             pt = GetPeriodicTable()
 
             # Hydrogens that are not atoms in the graph have no coordinates, so
@@ -489,7 +500,6 @@ class XtbOptimizerDialog(QDialog):
 
         self._set_running(True)
         self.lbl_status.setText(f"Running {method}…")
-        QApplication.processEvents()
 
         # Remember what we actually optimised.  The optimisation is async, so
         # the user can load a different molecule before it finishes; the
@@ -509,7 +519,8 @@ class XtbOptimizerDialog(QDialog):
         )
         self._worker.log_message.connect(self._append_log)
         self._worker.step_update.connect(self._on_step_update)
-        self._worker.finished.connect(self._on_finished)
+        self._worker.result_ready.connect(self._on_finished)
+        self._worker.finished.connect(self._worker_stopped)
         self._worker.start()
 
     def _on_cancel(self):
@@ -530,9 +541,12 @@ class XtbOptimizerDialog(QDialog):
             f"Step {step}  |  E = {energy:.6f} eV  |  Fmax = {fmax:.4f} eV/Å"
         )
 
+    def _worker_stopped(self):
+        self._worker = None
+        self._set_running(False)
+
     def _on_finished(self, success: bool, payload):
         self._set_running(False)
-        self._worker = None
 
         if not success:
             self.lbl_status.setText(f"Stopped: {payload}")
@@ -561,6 +575,8 @@ class XtbOptimizerDialog(QDialog):
             return
 
         try:
+            if any(len(row) != 3 or not all(math.isfinite(float(v)) for v in row) for row in new_positions):
+                raise ValueError("Optimizer returned invalid coordinates.")
             conf = mol.GetConformer()
             for i, (x, y, z) in enumerate(new_positions):
                 conf.SetAtomPosition(i, (x, y, z))
@@ -608,7 +624,9 @@ class XtbOptimizerDialog(QDialog):
         if reply != QMessageBox.StandardButton.Yes:
             return False
         self._on_cancel()
-        self._worker.wait(3000)   # give the thread 3 s to exit cleanly
+        if not self._worker.wait(3000):
+            self.lbl_status.setText("Cancelling; close again when the calculation stops.")
+            return False
         return True
 
     def done(self, result: int):

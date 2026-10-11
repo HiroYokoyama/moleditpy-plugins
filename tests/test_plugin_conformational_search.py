@@ -278,6 +278,9 @@ class _FakeConfSearchMol:
     def GetNumAtoms(self):
         return self.n
 
+    def GetNumConformers(self):
+        return 1
+
     def GetConformer(self):
         return SimpleNamespace(GetAtomPosition=lambda i: (0.0, 0.0, 0.0))
 
@@ -307,7 +310,7 @@ def _worker_run_fn(allchem, chem=None):
 
 def _optimize_fn(allchem):
     return extract_function(
-        CONF_SEARCH_PATH, "ConformerSearchWorker", "_optimize", {"AllChem": allchem}
+        CONF_SEARCH_PATH, "ConformerSearchWorker", "_optimize", {"AllChem": allchem, "math": __import__("math")}
     )
 
 
@@ -469,6 +472,7 @@ def _dialog_run_search_self(mol, ff="MMFF94"):
         target_mol=mol,
         original_coords=[],
         worker=None,
+        table=MagicMock(),
         lbl_info=MagicMock(),
         combo_ff=MagicMock(currentText=lambda: ff),
         spin_confs=MagicMock(value=lambda: 30),
@@ -476,6 +480,7 @@ def _dialog_run_search_self(mol, ff="MMFF94"):
         on_progress=MagicMock(),
         on_failed=MagicMock(),
         on_completed=MagicMock(),
+        _worker_finished=MagicMock(),
     )
 
 
@@ -556,11 +561,11 @@ class TestConfSearchStopHandlers:
     def test_shutdown_worker_stops_and_waits(self):
         fn = _dialog_method("_shutdown_worker")
         worker = MagicMock()
-        self_ = SimpleNamespace(worker=worker)
-        fn(self_)
+        self_ = SimpleNamespace(worker=worker, lbl_info=MagicMock())
+        assert fn(self_) is False
         worker.stop.assert_called_once()
-        worker.wait.assert_called_once()
-        assert self_.worker is None
+        worker.wait.assert_not_called()
+        assert self_.worker is worker
 
     def test_on_failed_clears_worker_and_warns(self):
         qmsg = MagicMock()
@@ -569,7 +574,7 @@ class TestConfSearchStopHandlers:
             worker=MagicMock(), _set_running=MagicMock(), lbl_info=MagicMock()
         )
         fn(self_, "boom")
-        assert self_.worker is None
+        assert self_.worker is not None
         self_._set_running.assert_called_once_with(False)
         qmsg.warning.assert_called_once()
 
@@ -581,6 +586,8 @@ class TestConfSearchStopHandlers:
             _set_running=MagicMock(),
             lbl_info=MagicMock(),
             temp_mol=None,
+            context=SimpleNamespace(current_mol="target"),
+            target_mol="target",
             results_raw=[],
             apply_filter_and_update=MagicMock(),
         )
@@ -589,7 +596,7 @@ class TestConfSearchStopHandlers:
         assert self_.temp_mol is mol
         assert self_.results_raw == results
         self_.apply_filter_and_update.assert_called_once()
-        assert self_.worker is None
+        assert self_.worker is not None
 
     def test_on_completed_with_no_results_keeps_previous_preview(self):
         fn = _dialog_method("on_completed")
@@ -597,6 +604,8 @@ class TestConfSearchStopHandlers:
             worker=MagicMock(),
             _set_running=MagicMock(),
             lbl_info=MagicMock(),
+            context=SimpleNamespace(current_mol="target"),
+            target_mol="target",
             temp_mol="previous",
             results_raw=[],
             apply_filter_and_update=MagicMock(),
@@ -650,6 +659,9 @@ class _RSMol:
     def GetNumAtoms(self):
         return self.n
 
+    def GetNumConformers(self):
+        return 1
+
     def GetConformer(self):
         return self
 
@@ -661,8 +673,9 @@ class _RSMol:
 
 
 def _accept_self(target_mol, ctx):
+    ctx.current_mol = target_mol
     return SimpleNamespace(
-        context=ctx, target_mol=target_mol, _shutdown_worker=lambda: None
+        context=ctx, target_mol=target_mol, _shutdown_worker=lambda: True
     )
 
 
@@ -701,11 +714,12 @@ class TestConfSearchAcceptReject:
         )
         ctx = make_context()
         mol = _RSMol(2, ["p0_new", "p1_new"])
+        ctx.current_mol = mol
         self_ = SimpleNamespace(
             context=ctx,
             target_mol=mol,
             original_coords=["p0", "p1"],
-            _shutdown_worker=lambda: None,
+            _shutdown_worker=lambda: True,
         )
         fn(self_)
         assert mol.set_calls == [(0, "p0"), (1, "p1")]
@@ -721,7 +735,7 @@ class TestConfSearchAcceptReject:
             context=ctx,
             target_mol=None,
             original_coords=[],
-            _shutdown_worker=lambda: None,
+            _shutdown_worker=lambda: True,
         )
         fn(self_)  # must not raise
         ctx.register_window.assert_called_with("main_panel", None)
@@ -788,6 +802,7 @@ class TestConfSearchPreviewConformer:
             lbl_info=MagicMock(),
             context=MagicMock(),
         )
+        self_.context.current_mol = self_.target_mol
         current = SimpleNamespace(row=lambda: 0)
         fn(self_, current, None)
         assert set_calls == [(0, "p0"), (1, "p1")]
@@ -811,6 +826,7 @@ class TestConfSearchPreviewConformer:
             lbl_info=MagicMock(),
             context=MagicMock(),
         )
+        self_.context.current_mol = self_.target_mol
         current = SimpleNamespace(row=lambda: 0)
         fn(self_, current, None)
         msg = self_.lbl_info.setText.call_args[0][0]
@@ -838,6 +854,7 @@ class TestConfSearchPreviewConformer:
             lbl_info=MagicMock(),
             context=MagicMock(),
         )
+        self_.context.current_mol = self_.target_mol
         current = SimpleNamespace(row=lambda: 0)
         fn(self_, current, None)  # must not raise
         self_.context.refresh_3d_view.assert_not_called()

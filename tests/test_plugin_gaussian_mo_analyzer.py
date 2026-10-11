@@ -13,6 +13,8 @@ from __future__ import annotations
 import ast
 import importlib.util
 import math
+import os
+from itertools import islice
 import sys
 import textwrap
 import types
@@ -374,7 +376,7 @@ class TestMOCubeParserNegativeAtoms:
 
     def _parse(self, tmp_path, text):
         src = _extract_method_source(VIS_PATH, "CubeVisualizer", "_parse_cube")
-        fn = _make_function(src, {"np": np})
+        fn = _make_function(src, {"np": np, "os": os, "islice": islice})
         path = tmp_path / "mo.cube"
         path.write_text(text, encoding="utf-8")
         return fn(types.SimpleNamespace(), str(path))
@@ -398,7 +400,8 @@ class TestMOCubeParserNegativeAtoms:
 
     def test_wrapped_dset_ids_block_is_skipped(self, tmp_path):
         ids = "    3    5 6\n    7\n"  # 3 ids wrapped over two lines
-        meta = self._parse(tmp_path, self._HEADER + ids + self._DATA)
+        data = " ".join(str(value) for value in range(1, 9) for _ in range(3))
+        meta = self._parse(tmp_path, self._HEADER + ids + data)
         assert list(meta["data"]) == [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
 
 

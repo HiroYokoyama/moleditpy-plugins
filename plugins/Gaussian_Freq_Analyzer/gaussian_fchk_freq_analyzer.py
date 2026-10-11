@@ -1,6 +1,19 @@
 import os
 import re
+import math
 import numpy as np
+
+from PyQt6.QtGui import QPainter, QPen, QColor
+import logging
+
+try:
+    from PIL import Image
+
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
+
+
 from PyQt6.QtWidgets import (
     QDialog,
     QVBoxLayout,
@@ -22,17 +35,19 @@ from PyQt6.QtWidgets import (
     QSpinBox,
     QDoubleSpinBox,
 )
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, QPointF
 
 # Try to import RDKit
 try:
     from rdkit import Chem
     from rdkit.Geometry import Point3D
+    from rdkit.Chem import rdDetermineBonds
 except ImportError:
     Chem = None
+    rdDetermineBonds = None
 
 PLUGIN_NAME = "Gaussian Freq Analyzer"
-PLUGIN_VERSION = "2026.09.24"
+PLUGIN_VERSION = "2026.10.13"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Analyzes vibrational frequencies from Gaussian FCHK files. View IR spectrum, animate normal modes, and export GIF animations."
@@ -50,6 +65,10 @@ class FCHKParser:
         self.multiplicity = 1
 
     def parse(self, filename):
+        self.charge = 0
+        self.multiplicity = 1
+        self.masses = []
+        self.dipole_derivs = []
         self.filename = filename
         self.atoms = []
         self.coords = []
@@ -61,103 +80,54 @@ class FCHKParser:
             lines = f.readlines()
 
         data = {}
-        current_section = None
-        current_values = []
-
-        # Helper to process accumulated values
-        def process_section(section, values):
-            if section == "Atomic numbers":
-                # Integers
-                return [int(v) for v in values]
-            elif section == "Current cartesian coordinates":
-                # Floats, Bohr -> Angstrom? No, FCHK usually stores in Bohr.
-                # Use standard conversion 0.529177
-                return [float(v) for v in values]
-            elif section == "Vib-E2":
-                return [float(v) for v in values]
-            elif section == "Vib-Modes":
-                return [float(v) for v in values]
-            elif section == "Dipole Derivatives":
-                return [float(v) for v in values]
-            elif section == "IR Inten":
-                return [float(v) for v in values]
-            elif section == "Charge":
-                return [int(v) for v in values]
-            elif section == "Multiplicity":
-                return [int(v) for v in values]
-            return values
-
-        # Basic FCHK parsing
+        wanted = {"Atomic numbers", "Current cartesian coordinates", "Vib-E2", "Vib-Modes", "Dipole Derivatives", "IR Inten", "IR intensities", "Real atomic weights", "Charge", "Multiplicity", "Number of Normal Modes"}
+        wanted_labels = {name.casefold() for name in wanted}
+        header_pattern = re.compile(r"^(.+?)\s+([IRCLH])\s+(?:N=\s*(\d+)|(.+))$")
+        numeric_pattern = re.compile(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[EeDd][+-]?\d+)?")
         i = 0
         while i < len(lines):
-            line = lines[i].strip()
-            if not line:
-                i += 1
-                continue
-
-            # Section header?
-            # Pattern: Name (starts upper) ... Type (I/R) ... N= (optional) ... Value/Count
-            # Example: "Vib-Modes              R   N=          27"
-            # Or: "Charge                 I                0"
-            # We look for Capital Start, then some space, then I or R, then optional N=
-
-            # Simple check: line starts with upper char
-            if line[0].isupper():
-                # Whitespace in FCHK headers varies between writers, so match the
-                # type marker loosely rather than by fixed column.
-                if re.search(r"\s+[IR]\s+(N=)?\s+", line):
-                    # Store previous
-                    if current_section:
-                        data[current_section] = process_section(
-                            current_section, current_values
-                        )
-
-                    # Extract section name
-                    parts = line.split()
-                    # Name is usually first 1-N tokens until I/R
-                    # But Name can have spaces "Atomic numbers".
-                    # split by "   I" or "   R" is safest if exists.
-
-                    if "   I" in line:
-                        current_section = line.split("   I")[0].strip()
-                    elif "   R" in line:
-                        current_section = line.split("   R")[0].strip()
-                    else:
-                        # Fallback: scan tokens for I or R
-                        label_parts = []
-                        for p in parts:
-                            if p == "I" or p == "R":
-                                break
-                            label_parts.append(p)
-                        current_section = " ".join(label_parts)
-
-                    current_values = []
-
-                    # Scalar sections carry their value inline on the header
-                    # line ("Charge   I   -2") instead of an N= count followed
-                    # by data lines — capture it or the value is lost.
-                    if "N=" not in line:
-                        header_parts = line.split()
-                        for ti, tok in enumerate(header_parts):
-                            if tok in ("I", "R", "C"):
-                                current_values = header_parts[ti + 1 :]
-                                break
-
-                    i += 1
-                    continue
-
-            # Data line (if not header)
-
-            # Data line
-            # Accumulated values
-            # FCHK data lines are space separated
-            tokens = line.split()
-            current_values.extend(tokens)
+            match = header_pattern.match(lines[i].strip())
             i += 1
-
-        # Last section
-        if current_section:
-            data[current_section] = process_section(current_section, current_values)
+            if not match:
+                continue
+            label, dtype, count_text, scalar = match.groups()
+            if label.casefold() not in wanted_labels:
+                continue
+            expected_type = "I" if label in {"Atomic numbers", "Charge", "Multiplicity", "Number of Normal Modes"} else "R"
+            if dtype != expected_type:
+                raise ValueError(f"Invalid FCHK record type: {label}")
+            count = int(count_text) if count_text is not None else 1
+            if count < 0:
+                raise ValueError(f"Invalid FCHK count for {label}")
+            values = []
+            text = scalar if scalar is not None else ""
+            while True:
+                if text.strip():
+                    # Like the MO Analyzer, accept packed Fortran numbers and D exponents.
+                    tokens = numeric_pattern.findall(text)
+                    if numeric_pattern.sub("", text).strip():
+                        raise ValueError(f"Malformed FCHK numeric record: {label}")
+                    for token in tokens:
+                        value = int(token) if dtype == "I" else float(token.replace("D", "E").replace("d", "e"))
+                        if not math.isfinite(value):
+                            raise ValueError(f"Nonfinite FCHK value: {label}")
+                        values.append(value)
+                if len(values) >= count:
+                    break
+                if i >= len(lines) or header_pattern.match(lines[i].strip()):
+                    raise ValueError(f"Incomplete FCHK record: {label}")
+                text = lines[i].strip()
+                i += 1
+            if len(values) != count:
+                raise ValueError(f"FCHK count mismatch: {label}")
+            next_line = i
+            while next_line < len(lines) and not lines[next_line].strip():
+                next_line += 1
+            if next_line < len(lines):
+                extra = lines[next_line].strip()
+                if numeric_pattern.findall(extra) and not numeric_pattern.sub("", extra).strip():
+                    raise ValueError(f"Excess FCHK values after declared count: {label}")
+            data[label] = values
 
         # Extract specific data
         if "Atomic numbers" in data:
@@ -167,6 +137,8 @@ class FCHKParser:
 
         if "Current cartesian coordinates" in data:
             raw_coords = data["Current cartesian coordinates"]
+            if len(raw_coords) != 3 * len(self.atoms):
+                raise ValueError("FCHK coordinates do not match the atom count")
             # Convert to list of tuples (x,y,z)
             # FCHK coords are X1, Y1, Z1, X2... in Bohr
             coords_ang = []
@@ -178,6 +150,13 @@ class FCHKParser:
                     coords_ang.append((x, y, z))
             self.coords = coords_ang
 
+        if any(z < 1 or z > 118 for z in self.atoms):
+            raise ValueError("Invalid FCHK atomic number")
+        if self.atoms and len(self.coords) != len(self.atoms):
+            raise ValueError("FCHK is missing atom coordinates")
+        if "Vib-Modes" in data and (not self.atoms or len(data["Vib-Modes"]) % (3 * len(self.atoms))):
+            raise ValueError("FCHK normal modes do not match the atom count")
+
         # Parse Vib-E2 section properly
         # Vib-E2 contains blocks: [Frequencies, Reduced Masses, Force Constants, IR Intensities, ...]
         # Each block has n_modes values
@@ -185,7 +164,13 @@ class FCHKParser:
             raw_e2 = data["Vib-E2"]
 
             # Determine n_modes from Vib-Modes section (safest approach)
-            if "Vib-Modes" in data:
+            if "Number of Normal Modes" in data:
+                n_modes = data["Number of Normal Modes"][0]
+                if n_modes < 0:
+                    raise ValueError("Invalid number of FCHK normal modes")
+                if "Vib-Modes" in data and len(data["Vib-Modes"]) != 3 * len(self.atoms) * n_modes:
+                    raise ValueError("FCHK normal-mode count mismatch")
+            elif "Vib-Modes" in data:
                 n_atoms = len(self.atoms) if self.atoms else 0
                 if n_atoms > 0:
                     # Vib-Modes size = 3 * n_atoms * n_modes
@@ -195,8 +180,29 @@ class FCHKParser:
             else:
                 # Fallback: estimate from 3N-6 (or 3N-5 for linear)
                 n_atoms = len(self.atoms)
-                n_modes = max(1, 3 * n_atoms - 6) if n_atoms > 2 else 1
+                if n_atoms < 2:
+                    n_modes = 0
+                else:
+                    origin = self.coords[0]
+                    vectors = [tuple(point[j] - origin[j] for j in range(3)) for point in self.coords[1:]]
+                    axis = max(vectors, key=lambda v: sum(x * x for x in v))
+                    axis_norm = sum(x * x for x in axis)
+                    linear = True
+                    for vector in vectors:
+                        cross = (axis[1] * vector[2] - axis[2] * vector[1],
+                                 axis[2] * vector[0] - axis[0] * vector[2],
+                                 axis[0] * vector[1] - axis[1] * vector[0])
+                        cross_norm = sum(value * value for value in cross)
+                        vector_norm = sum(value * value for value in vector)
+                        if cross_norm > 1e-12 * axis_norm * vector_norm:
+                            linear = False
+                            break
+                    n_modes = 3 * n_atoms - (5 if linear else 6)
 
+            if n_modes > 0 and len(raw_e2) % n_modes:
+                raise ValueError("FCHK frequency property blocks do not match the mode count")
+            if n_modes > 0 and len(raw_e2) < n_modes:
+                raise ValueError("Incomplete FCHK frequency block")
             if n_modes > 0 and len(raw_e2) >= n_modes:
                 # Block 1: Frequencies (0 to n_modes)
                 self.frequencies = raw_e2[0:n_modes]
@@ -215,12 +221,13 @@ class FCHKParser:
         elif "Atomic numbers" in data:
             # Fallback: RDKit average atomic weight (slight difference)
             if Chem:
-                from rdkit.Chem import GetPeriodicTable
-
-                pt = GetPeriodicTable()
+                pt = Chem.GetPeriodicTable()
                 self.masses = [
                     pt.GetAtomicWeight(int(z)) for z in data["Atomic numbers"]
                 ]
+
+        if self.masses and (len(self.masses) != len(self.atoms) or any(mass <= 0 for mass in self.masses)):
+            raise ValueError("FCHK atomic masses do not match the atoms")
 
         # Fallback: Check for separate IR Inten section (uncommon but possible)
         # Gaussian's conversion factor: Atomic Units -> km/mol
@@ -282,19 +289,6 @@ class FCHKParser:
             self.multiplicity = data["Multiplicity"][0]
 
 
-from PyQt6.QtGui import QPainter, QPen, QColor
-import logging
-
-try:
-    from PIL import Image
-
-    HAS_PIL = True
-except ImportError:
-    HAS_PIL = False
-
-# ... (Previous imports safely handled by original file or above)
-
-
 class GaussianFCHKFreqAnalyzer(QWidget):
     def __init__(self, context, dock_widget=None):
         super().__init__(context.get_main_window())
@@ -306,8 +300,12 @@ class GaussianFCHKFreqAnalyzer(QWidget):
 
         self.parser = None
         self.base_mol = None
-        self.timer = QTimer()
+        self._bound_mol = None
+        self.timer = QTimer(self)
         self.timer.timeout.connect(self.animate_frame)
+        self._structure_watch_timer = QTimer(self)
+        self._structure_watch_timer.setInterval(250)
+        self._structure_watch_timer.timeout.connect(self._check_structure_still_bound)
         self.animation_step = 0
         self.is_playing = False
         self.vector_actor = None
@@ -512,10 +510,13 @@ class GaussianFCHKFreqAnalyzer(QWidget):
             self.load_file(fname)
 
     def load_file(self, filename):
-        self.parser = FCHKParser()
+        candidate = FCHKParser()
         try:
-            self.parser.parse(filename)
-            self.update_ui_after_load()
+            candidate.parse(filename)
+            self.stop_play()
+            self.remove_vectors()
+            self.parser = candidate
+            self.animation_step = 0
             self.update_ui_after_load()
             self.lbl_info.setText(os.path.basename(filename))
             self.lbl_info.setStyleSheet(
@@ -611,8 +612,6 @@ class GaussianFCHKFreqAnalyzer(QWidget):
         mol.AddConformer(conf)
 
         try:
-            from rdkit.Chem import rdDetermineBonds
-
             rdDetermineBonds.DetermineConnectivity(mol)
             rdDetermineBonds.DetermineBondOrders(mol, charge=int(self.parser.charge))
         except (ImportError, RuntimeError, AttributeError, TypeError, ValueError):
@@ -624,6 +623,8 @@ class GaussianFCHKFreqAnalyzer(QWidget):
         self.base_mol = mol.GetMol()
         self.context.enter_3d_mode()
         self.context.current_molecule = self.base_mol
+        self._bound_mol = self.base_mol
+        self._structure_watch_timer.start()
         self.context.reset_3d_camera()
 
     def on_freq_selected(self, current, previous):
@@ -670,7 +671,28 @@ class GaussianFCHKFreqAnalyzer(QWidget):
         interval = 1000 / fps
         self.timer.setInterval(int(interval))
 
+    def _check_structure_still_bound(self):
+        if self._bound_mol is None:
+            return True
+        if self.context.current_molecule is self._bound_mol:
+            return True
+        self.timer.stop()
+        self._structure_watch_timer.stop()
+        self.is_playing = False
+        self.btn_play.setText("Play")
+        self.remove_vectors()
+        self.base_mol = None
+        self._bound_mol = None
+        return False
+
+    def closeEvent(self, event):
+        self.close_plugin()
+        self._structure_watch_timer.stop()
+        super().closeEvent(event)
+
     def reset_geometry(self):
+        if not self._check_structure_still_bound():
+            return
         if not self.base_mol or not self.parser:
             return
         conf = self.base_mol.GetConformer()
@@ -683,6 +705,8 @@ class GaussianFCHKFreqAnalyzer(QWidget):
         self.context.plotter.render()
 
     def animate_frame(self):
+        if not self._check_structure_still_bound():
+            return
         if not self.parser or not self.base_mol:
             self.stop_play()
             return
@@ -728,6 +752,8 @@ class GaussianFCHKFreqAnalyzer(QWidget):
         self.vector_actor = None
 
     def update_vectors(self, mode_vecs=None, scale_factor=0.0):
+        if not self._check_structure_still_bound():
+            return
         # Clean up existing vectors
         self.remove_vectors()
 
@@ -927,10 +953,14 @@ class GaussianFCHKFreqAnalyzer(QWidget):
                 self.toggle_play()
 
     def on_dock_visibility_changed(self, visible):
-        if not visible and self.is_playing:
-            self.stop_play()
+        if not visible:
+            self.close_plugin()
+        elif self._bound_mol is not None:
+            self._structure_watch_timer.start()
+            self.update_vectors()
 
     def close_plugin(self):
+        self._structure_watch_timer.stop()
         self.stop_play()
         self.remove_vectors()
         self.animation_step = 0
@@ -943,18 +973,14 @@ class GaussianFCHKFreqAnalyzer(QWidget):
         freqs = []
         intensities = []
 
-        parser_intensities = (
-            self.parser.intensities
-            if hasattr(self.parser, "intensities") and self.parser.intensities
-            else [1.0] * len(self.parser.frequencies)
-        )
+        parser_intensities = self.parser.intensities
 
         sf = self.spin_sf.value()
 
         for i, freq in enumerate(self.parser.frequencies):
             # Use abs() to preserve imaginary frequencies (negative values)
             # Only exclude low-frequency modes (translations/rotations)
-            if abs(freq) > 10.0:
+            if freq != 0 and i < len(parser_intensities):
                 freqs.append(freq * sf)  # Apply Scale
 
                 # Check Intensity
@@ -964,7 +990,7 @@ class GaussianFCHKFreqAnalyzer(QWidget):
                 intensities.append(val)
 
         if not freqs:
-            QMessageBox.information(self, "Info", "No valid frequencies found.")
+            QMessageBox.information(self, "Info", "No frequencies with IR intensities are available.")
             return
 
         # Show Plot
@@ -1242,8 +1268,6 @@ class SpectrumPlotWidget(QWidget):
             path_points.append((sx, sy))
 
         if len(path_points) > 1:
-            from PyQt6.QtCore import QPointF
-
             qpoints = [QPointF(x, y) for x, y in path_points]
             painter.drawPolyline(qpoints)
 

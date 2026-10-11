@@ -11,12 +11,13 @@ from PyQt6.QtWidgets import (
     QLabel,
     QMessageBox,
     QDockWidget,
+    QFileDialog,
 )
 from PyQt6.QtCore import Qt, QTimer
 
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Gaussian FCHK Loader"
-PLUGIN_VERSION = "2026.09.24"
+PLUGIN_VERSION = "2026.10.13"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Smart loader for FCHK, FCH, and FCK files. Dispatches to Frequency or MO Analyzer with priority handling."
@@ -29,7 +30,8 @@ def find_file_recursive(root_dir, filename_pattern):
     Returns absolute path of the first match or None.
     """
     for dirpath, dirnames, filenames in os.walk(root_dir):
-        for filename in filenames:
+        dirnames[:] = sorted(name for name in dirnames if name not in {"_old", ".git", "__pycache__", ".venv"})
+        for filename in sorted(filenames):
             if fnmatch.fnmatch(filename, filename_pattern):
                 return os.path.join(dirpath, filename)
     return None
@@ -42,6 +44,7 @@ def find_mo_analyzer_module(root_dir):
     1. Look for 'gaussian_fchk_mo_analyzer' folder containing '__init__.py'
     """
     for dirpath, dirnames, filenames in os.walk(root_dir):
+        dirnames[:] = sorted(name for name in dirnames if name not in {"_old", ".git", "__pycache__", ".venv"})
         if "gaussian_fchk_mo_analyzer" in dirnames:
             # Check if it has __init__.py
             pkg_path = os.path.join(dirpath, "gaussian_fchk_mo_analyzer")
@@ -51,16 +54,50 @@ def find_mo_analyzer_module(root_dir):
 
 
 def load_module_from_path(name, path):
+    """Load the selected file/package without changing the interpreter search path."""
+    previous = {key: value for key, value in sys.modules.items() if key == name or key.startswith(name + ".")}
+    cached = previous.get(name)
+    if cached is not None and getattr(cached, "__file__", None) == path:
+        return cached
     try:
+        for key in previous:
+            del sys.modules[key]
         spec = importlib.util.spec_from_file_location(name, path)
-        if spec and spec.loader:
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[name] = module
-            spec.loader.exec_module(module)
-            return module
-    except Exception as e:
-        logging.warning("Failed to load module %s from %s: %s", name, path, e)
-    return None
+        if spec is None or spec.loader is None:
+            raise ImportError(f"No loader for {path}")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        spec.loader.exec_module(module)
+        return module
+    except Exception:
+        for key in list(sys.modules):
+            if key == name or key.startswith(name + "."):
+                del sys.modules[key]
+        sys.modules.update(previous)
+        logging.exception("Failed to load module %s from %s", name, path)
+        return None
+
+
+class AnalyzerDock(QDockWidget):
+    cleanup_callback = None
+
+    def closeEvent(self, event):
+        widget = self.widget()
+        if widget is not None:
+            worker = getattr(widget, "worker", None)
+            if worker is not None and worker.isRunning():
+                worker._is_cancelled = True
+                event.ignore()
+                return
+            if hasattr(widget, "close_plugin"):
+                widget.close_plugin()
+            widget.close()
+        if self.cleanup_callback is not None:
+            try:
+                self.cleanup_callback()
+            except (RuntimeError, AttributeError, KeyError, TypeError, ValueError):
+                logging.exception("Could not clean up analyzer surfaces")
+        super().closeEvent(event)
 
 
 class FCHKLoaderDialog(QDialog):
@@ -119,93 +156,101 @@ class FCHKLoaderDialog(QDialog):
 
     def find_mo_analyzer(self):
         start_dir = os.path.dirname(os.path.abspath(__file__))
-        root = os.path.dirname(start_dir)
+        root = start_dir if os.path.basename(start_dir).lower() == "plugins" else os.path.dirname(start_dir)
         return find_mo_analyzer_module(root)
 
     def close_existing_analyzers(self):
-        # Close Frequency Analyzers (DockWidgets)
-        for dock in self.mw.findChildren(QDockWidget):
-            if dock.windowTitle() == "Gaussian Freq Analyzer":
-                dock.close()
-                dock.deleteLater()
+        docks = [dock for dock in self.mw.findChildren(QDockWidget)
+                 if dock.windowTitle() in {"Gaussian Freq Analyzer", "Gaussian MO Analyzer", "ORCA Output Freq Analyzer"}]
+        # Check all running calculations before closing any other analyzer.
+        for dock in docks:
+            worker = getattr(dock.widget(), "worker", None)
+            if worker is not None and worker.isRunning():
+                worker._is_cancelled = True
+                raise RuntimeError("The previous calculation is stopping. Retry when it has finished.")
+        for dock in docks:
+            widget = dock.widget()
+            if widget is not None and hasattr(widget, "close_plugin"):
+                widget.close_plugin()
+            if not dock.close():
+                raise RuntimeError("The previous analyzer could not close.")
+            self.mw.removeDockWidget(dock)
+            dock.deleteLater()
 
-        # Close MO Analyzers (DockWidgets)
-        for dock in self.mw.findChildren(QDockWidget):
-            if dock.windowTitle() == "Gaussian MO Analyzer":
-                dock.close()
-                dock.deleteLater()
+    def _remove_mo_surfaces(self):
+        plotter = self.context.plotter
+        if plotter is not None:
+            plotter.remove_actor("fchk_iso_p")
+            plotter.remove_actor("fchk_iso_n")
+            plotter.render()
 
     def launch_freq(self):
         if not self.freq_analyzer_path:
             return
         self.btn_freq.setEnabled(False)
         self.btn_mo.setEnabled(False)
-        self.close_existing_analyzers()
+        dock = None
         try:
-            mod = load_module_from_path(
-                "gaussian_fchk_freq_analyzer_dynamic", self.freq_analyzer_path
-            )
-            if mod and hasattr(mod, "GaussianFCHKFreqAnalyzer"):
-                # Create Dock Wrapper
-                dock = QDockWidget("Gaussian Freq Analyzer", self.mw)
-                dock.setAllowedAreas(Qt.DockWidgetArea.AllDockWidgetAreas)
-                dock.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-
-                # Instantiate Analyzer (passing dock for close control)
-                self.analyzer = mod.GaussianFCHKFreqAnalyzer(
-                    self.context, dock_widget=dock
-                )
-
-                dock.setWidget(self.analyzer)
-                self.mw.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
-
-                self.analyzer.load_file(self.fchk_path)
-                dock.show()
-                self.accept()
-        except Exception as e:
-            self.btn_freq.setEnabled(True)
-            self.btn_mo.setEnabled(True)
-            QMessageBox.critical(
-                self.mw, "Error", f"Failed to launch Frequency Analyzer:\n{e}"
-            )
+            mod = load_module_from_path("gaussian_fchk_freq_analyzer_dynamic", self.freq_analyzer_path)
+            if mod is None or not hasattr(mod, "GaussianFCHKFreqAnalyzer"):
+                raise ImportError("Frequency Analyzer could not be loaded.")
+            # Validate the input before closing the currently displayed analyzer.
+            parser = mod.FCHKParser()
+            parser.parse(self.fchk_path)
+            if not parser.atoms:
+                raise ValueError("The FCHK contains no molecule for frequency analysis.")
+            self.close_existing_analyzers()
+            dock = AnalyzerDock("Gaussian Freq Analyzer", self.mw)
+            dock.setAllowedAreas(Qt.DockWidgetArea.AllDockWidgetAreas)
+            dock.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+            self.analyzer = mod.GaussianFCHKFreqAnalyzer(self.context, dock_widget=dock)
+            dock.setWidget(self.analyzer)
+            dock.visibilityChanged.connect(self.analyzer.on_dock_visibility_changed)
+            self.analyzer.load_file(self.fchk_path)
+            self.mw.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
+            dock.show()
+            self.accept()
+        except Exception as exc:
+            if dock is not None:
+                dock.close()
+                dock.deleteLater()
+            QMessageBox.critical(self.mw, "Error", f"Failed to launch Frequency Analyzer:\n{exc}")
+        finally:
+            self.btn_freq.setEnabled(self.freq_analyzer_path is not None)
+            self.btn_mo.setEnabled(self.mo_analyzer_pkg is not None)
 
     def launch_mo(self):
         if not self.mo_analyzer_pkg:
             return
         self.btn_freq.setEnabled(False)
         self.btn_mo.setEnabled(False)
-        self.close_existing_analyzers()
+        dock = None
         try:
-            # Add plugin parent dir to sys.path to support package import
-            pkg_parent = os.path.dirname(self.mo_analyzer_pkg)
-            if pkg_parent not in sys.path:
-                sys.path.insert(0, pkg_parent)
-
-            # Import as proper package
-            mod = importlib.import_module("gaussian_fchk_mo_analyzer.gui")
-            importlib.reload(mod)
-
-            if mod and hasattr(mod, "OrbitalWidget"):
-                # Create Dock Wrapper
-                dock = QDockWidget("Gaussian MO Analyzer", self.mw)
-                dock.setAllowedAreas(Qt.DockWidgetArea.AllDockWidgetAreas)
-                dock.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-
-                # Instantiate Widget
-                self.mo_widget = mod.OrbitalWidget(
-                    self.mw, self.context, self.fchk_path
-                )
-
-                dock.setWidget(self.mo_widget)
-                self.mw.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
-                dock.show()
-                self.accept()
-        except Exception as e:
-            self.btn_freq.setEnabled(True)
-            self.btn_mo.setEnabled(True)
-            QMessageBox.critical(
-                self.mw, "Error", f"Failed to launch MO Analyzer:\n{e}"
-            )
+            mod = load_module_from_path("_fchk_loader_mo_analyzer", os.path.join(self.mo_analyzer_pkg, "__init__.py"))
+            if mod is None or not hasattr(mod, "OrbitalWidget"):
+                raise ImportError("MO Analyzer could not be loaded.")
+            reader = mod.gui.FCHKReader(self.fchk_path)
+            mod.gui.BasisSetEngine(reader)
+            if not reader.get_xyz_block():
+                raise ValueError("The FCHK contains no molecule for MO analysis.")
+            self.close_existing_analyzers()
+            dock = AnalyzerDock("Gaussian MO Analyzer", self.mw)
+            dock.cleanup_callback = self._remove_mo_surfaces
+            dock.setAllowedAreas(Qt.DockWidgetArea.AllDockWidgetAreas)
+            dock.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+            self.mo_widget = mod.OrbitalWidget(self.mw, self.context, self.fchk_path)
+            dock.setWidget(self.mo_widget)
+            self.mw.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
+            dock.show()
+            self.accept()
+        except Exception as exc:
+            if dock is not None:
+                dock.close()
+                dock.deleteLater()
+            QMessageBox.critical(self.mw, "Error", f"Failed to launch MO Analyzer:\n{exc}")
+        finally:
+            self.btn_freq.setEnabled(self.freq_analyzer_path is not None)
+            self.btn_mo.setEnabled(self.mo_analyzer_pkg is not None)
 
 
 def initialize(context):
@@ -258,8 +303,6 @@ def initialize(context):
 
 
 def run(mw):
-    from PyQt6.QtWidgets import QFileDialog
-
     path, _ = QFileDialog.getOpenFileName(
         mw, "Open Gaussian FCHK", "", "Gaussian FCHK (*.fchk *.fck);;All Files (*)"
     )

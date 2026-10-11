@@ -1357,3 +1357,29 @@ class TestInitializeReal:
         monkeypatch.setattr(_onp, "load_from_file", MagicMock())
         assert handler(str(bad)) is False
         _onp.load_from_file.assert_not_called()
+
+
+def test_replacement_molecule_stops_stale_animation(loaded_widget, onp_ctx):
+    context = onp_ctx
+    loaded_widget._bound_mol = loaded_widget.base_mol
+    context.current_molecule = object()
+    context.draw_molecule_3d.reset_mock()
+    loaded_widget.is_playing = True
+    loaded_widget.timer.start(50)
+    loaded_widget.animate_frame()
+    assert not loaded_widget.timer.isActive()
+    assert not loaded_widget.is_playing
+    assert loaded_widget.base_mol is None
+    context.draw_molecule_3d.assert_not_called()
+
+
+def test_missing_ir_intensity_does_not_enter_spectrum(loaded_widget, monkeypatch):
+    for mode in loaded_widget.parser.final_modes:
+        mode["intensity"] = None
+    warnings = MagicMock()
+    dialog = MagicMock()
+    monkeypatch.setattr(_onp.QMessageBox, "warning", warnings)
+    monkeypatch.setattr(_onp, "SpectrumDialog", dialog)
+    loaded_widget.show_spectrum()
+    dialog.assert_not_called()
+    warnings.assert_called_once()

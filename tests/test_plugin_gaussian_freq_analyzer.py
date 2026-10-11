@@ -234,7 +234,7 @@ class TestFCHKParserExtended:
         p = self._parse(tmp_path, content)
         assert p.intensities == pytest.approx([2.0 * 974.868])
 
-    def test_incomplete_coordinate_triple_dropped(self, tmp_path):
+    def test_incomplete_coordinate_triple_rejected(self, tmp_path):
         content = textwrap.dedent("""\
             Atomic numbers                             I   N=           3
                  8     1     1
@@ -243,9 +243,56 @@ class TestFCHKParserExtended:
                0.0  1.4  1.1
                0.0 -1.4
         """)
-        p = self._parse(tmp_path, content)
-        assert len(p.coords) == 2
+        with pytest.raises(ValueError, match="coordinates"):
+            self._parse(tmp_path, content)
 
     def test_bohr_conversion_exact_value(self, tmp_path):
         p = self._parse(tmp_path, _FCHK_TWO_MODES)
         assert p.coords[1][1] == pytest.approx(1.434600 * 0.529177210903, abs=1e-9)
+
+
+def _strict_fchk(tmp_path, text):
+    path = tmp_path / "strict.fchk"
+    path.write_text(text, encoding="utf-8")
+    _gfreq.Chem = None
+    parser = _gfreq.FCHKParser()
+    parser.parse(path)
+    return parser
+
+
+@pytest.mark.parametrize("old,new", (("N=          27", "N=          28"), ("N=           9", "N=           8"), ("0.000000E+00", "nan"), ("1609.85", "inf")))
+def test_fchk_malformed_records_are_rejected(tmp_path, old, new):
+    with pytest.raises(ValueError):
+        _strict_fchk(tmp_path, _WATER_FCHK.replace(old, new, 1))
+
+
+def test_fchk_fortran_d_exponents(tmp_path):
+    parser = _strict_fchk(tmp_path, _WATER_FCHK.replace("E+00", "D+00"))
+    assert len(parser.coords) == 3
+    assert parser.frequencies[0] == pytest.approx(1609.85)
+
+
+def test_fchk_declared_normal_mode_count_must_match_vectors(tmp_path):
+    with pytest.raises(ValueError, match="count mismatch"):
+        _strict_fchk(tmp_path, "Number of Normal Modes   I   2\n" + _WATER_FCHK)
+
+
+def test_fchk_linear_geometry_without_mode_vectors_has_3n_minus_5_modes(tmp_path):
+    text = "Atomic numbers I N= 3\n8 6 8\nCurrent cartesian coordinates R N= 9\n0 0 -2 0 0 0 0 0 2\nVib-E2 R N= 16\n1 2 3 4 1 1 1 1 2 2 2 2 9 8 7 6\n"
+    parser = _strict_fchk(tmp_path, text)
+    assert parser.frequencies == [1, 2, 3, 4]
+    assert parser.intensities == [9, 8, 7, 6]
+
+
+def test_fchk_parser_reuse_resets_charge_and_multiplicity(tmp_path):
+    parser = _strict_fchk(tmp_path, _FCHK_TWO_MODES)
+    path = tmp_path / "neutral.fchk"
+    path.write_text(_WATER_FCHK.replace("Charge                 I                0\n", "").replace("Multiplicity           I                1\n", ""))
+    parser.parse(path)
+    assert parser.charge == 0
+    assert parser.multiplicity == 1
+
+
+def test_fchk_excess_values_on_separate_line_are_rejected(tmp_path):
+    with pytest.raises(ValueError, match="Excess"):
+        _strict_fchk(tmp_path, _WATER_FCHK.replace("N=          27", "N=          18"))

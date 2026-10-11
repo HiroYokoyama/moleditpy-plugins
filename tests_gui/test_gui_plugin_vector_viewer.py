@@ -62,6 +62,7 @@ def _real_mol(coords):
 
     mol = MagicMock()
     mol.GetNumAtoms.return_value = len(coords)
+    mol.GetAtoms.return_value = [SimpleNamespace(GetMass=lambda: 1.0) for _ in coords]
     conf = mol.GetConformer.return_value
     conf.GetAtomPosition.side_effect = [
         SimpleNamespace(x=c[0], y=c[1], z=c[2]) for c in coords
@@ -180,13 +181,13 @@ class TestVectorViewerRealMath:
         com = rwin.get_com()
         assert list(com) == [1.0, 2.0, 3.0]
 
-    def test_get_com_conformer_error_returns_origin(self, rwin):
+    def test_get_com_conformer_error_is_rejected(self, rwin):
         mol = MagicMock()
         mol.GetNumAtoms.return_value = 1
         mol.GetConformer.side_effect = RuntimeError("no conformer")
         rwin.context.current_molecule = mol
-        com = rwin.get_com()
-        assert list(com) == [0.0, 0.0, 0.0]
+        with pytest.raises(ValueError):
+            rwin.get_com()
 
     def test_full_draw_creates_arrow_and_adds_mesh(self, rwin):
         plotter = MagicMock()
@@ -316,3 +317,81 @@ class TestVectorViewerRealMath:
         )
         rwin.export_image()
         assert critical.get("called") is True
+
+
+@pytest.mark.parametrize("text", ("", "0 0 0", "nan 0 1", "inf 0 1", "1 2 3 4", "bad input"))
+def test_invalid_replacement_removes_stale_arrow(qapp, text):
+    context = _real_ctx()
+    widget = _vector_real.VectorViewerPlugin(context)
+    widget.vec_input.setText("1 0 0")
+    widget.update_visualization()
+    actor = widget.vis_actor
+    context.plotter.reset_mock()
+    widget.vec_input.setText(text)
+    widget.update_visualization()
+    assert widget.vis_actor is None
+    context.plotter.remove_actor.assert_called_once_with(actor)
+    context.plotter.add_mesh.assert_not_called()
+    widget.close()
+
+
+def test_com_uses_atomic_masses(qapp):
+    from types import SimpleNamespace
+    molecule = _real_mol([(0, 0, 0), (13, 0, 0)])
+    molecule.GetAtoms.return_value = [SimpleNamespace(GetMass=lambda: 12.0), SimpleNamespace(GetMass=lambda: 1.0)]
+    widget = _vector_real.VectorViewerPlugin(_real_ctx(molecule))
+    _np.testing.assert_allclose(widget.get_com(), [1, 0, 0])
+    widget.close()
+
+
+def test_molecule_replacement_clears_arrow_and_vector(qapp):
+    context = _real_ctx()
+    widget = _vector_real.VectorViewerPlugin(context)
+    widget.vec_input.setText("1 0 0")
+    widget.update_visualization()
+    context.current_molecule = object()
+    widget._check_molecule()
+    assert widget.vis_actor is None
+    assert widget.vec_input.text() == ""
+    widget.close()
+
+
+def test_export_handles_filesystem_error(qapp, monkeypatch):
+    context = _real_ctx()
+    context.plotter.screenshot.side_effect = OSError("disk full")
+    widget = _vector_real.VectorViewerPlugin(context)
+    monkeypatch.setattr(_vector_real.QFileDialog, "getSaveFileName", lambda *args: ("out.png", ""))
+    critical = MagicMock()
+    monkeypatch.setattr(_vector_real.QMessageBox, "critical", critical)
+    widget.export_image()
+    critical.assert_called_once()
+    widget.close()
+
+
+def test_arrow_recenters_when_same_molecule_moves(qapp):
+    from types import SimpleNamespace
+    molecule = _real_mol([(0, 0, 0), (2, 0, 0)])
+    positions = [SimpleNamespace(x=0, y=0, z=0), SimpleNamespace(x=2, y=0, z=0)]
+    molecule.GetConformer.return_value.GetAtomPosition.side_effect = lambda index: positions[index]
+    context = _real_ctx(molecule)
+    widget = _vector_real.VectorViewerPlugin(context)
+    widget.vec_input.setText("1 0 0")
+    widget.update_visualization()
+    positions[0].x += 4
+    positions[1].x += 4
+    widget._check_molecule()
+    _np.testing.assert_allclose(widget._anchor, [5, 0, 0])
+    assert context.plotter.add_mesh.call_count == 2
+    widget.close()
+
+
+def test_close_then_reopen_restores_arrow(qapp):
+    widget = _vector_real.VectorViewerPlugin(_real_ctx())
+    widget.vec_input.setText("1 0 0")
+    widget.show()
+    assert widget.vis_actor is not None
+    widget.close()
+    assert widget.vis_actor is None
+    widget.show()
+    assert widget.vis_actor is not None
+    widget.close()

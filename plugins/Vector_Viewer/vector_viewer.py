@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
     QGroupBox,
     QColorDialog,
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QColor
 import logging
 
@@ -22,7 +22,7 @@ import pyvista as pv
 
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Vector Viewer"
-PLUGIN_VERSION = "2026.09.24"
+PLUGIN_VERSION = "2026.10.13"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Visualizes vectors (e.g. dipole moment) and exports PNGs."
@@ -43,10 +43,17 @@ class VectorViewerPlugin(QWidget):
         self.setWindowTitle("Vector Viewer")
 
         self.context = context
-        self.vis_actor = None  # Store the arrow actor
+        self.vis_actor = None
+        self._actor_plotter = None
+        self._molecule = context.current_molecule
+        self._anchor = None
         self.arrow_color = QColor("green")
 
         self.init_ui()
+        self._molecule_timer = QTimer(self)
+        self._molecule_timer.setInterval(250)
+        self._molecule_timer.timeout.connect(self._check_molecule)
+        self._molecule_timer.start()
 
         # Register window for V3 lifecycle management
         self.context.register_window("main_panel", self)
@@ -67,9 +74,11 @@ class VectorViewerPlugin(QWidget):
 
         vec_layout.addWidget(QLabel("Vector (x y z), e.g. dipole moment etc.:"))
         vec_layout.addWidget(self.vec_input)
+        self.validation_label = QLabel()
+        vec_layout.addWidget(self.validation_label)
 
         self.reverse_chk = QCheckBox("Reverse Vector")
-        # self.reverse_chk.toggled.connect(self.update_visualization)
+        self.reverse_chk.toggled.connect(self.update_visualization)
         vec_layout.addWidget(self.reverse_chk)
 
         vec_layout.addWidget(self.update_btn)
@@ -160,92 +169,100 @@ class VectorViewerPlugin(QWidget):
                     conf.GetAtomPosition(i) for i in range(rd_mol.GetNumAtoms())
                 ]
                 coords = np.array([[p.x, p.y, p.z] for p in positions])
-                return np.mean(coords, axis=0)
+                masses = np.array([atom.GetMass() for atom in rd_mol.GetAtoms()], dtype=float)
+                if len(masses) != len(coords) or not np.all(np.isfinite(coords)) or not np.all(np.isfinite(masses)) or np.any(masses <= 0):
+                    raise ValueError("Molecule coordinates or atomic masses are invalid")
+                return np.average(coords, axis=0, weights=masses)
             except (RuntimeError, AttributeError, IndexError, TypeError, ValueError) as _e:
-                logging.debug("Could not get COM from conformer: %s", _e)
+                raise ValueError("The molecule needs finite 3D coordinates and atomic masses") from _e
         return np.array([0.0, 0.0, 0.0])
 
+    def _clear_arrow(self):
+        actor, self.vis_actor = self.vis_actor, None
+        plotter = self._actor_plotter or self.context.plotter
+        self._actor_plotter = None
+        self._anchor = None
+        if actor is not None and plotter is not None:
+            try:
+                plotter.remove_actor(actor)
+                plotter.render()
+            except (RuntimeError, AttributeError, KeyError, TypeError, ValueError):
+                logging.exception("Could not remove Vector Viewer arrow")
+
+    def _check_molecule(self):
+        molecule = self.context.current_molecule
+        if molecule is not self._molecule:
+            self._molecule = molecule
+            self._clear_arrow()
+            self.vec_input.clear()
+            self.validation_label.setText("Molecule changed. Enter its vector to display it.")
+        elif self.vis_actor is not None:
+            try:
+                anchor = self.get_com()
+                if self._anchor is not None and not np.allclose(anchor, self._anchor):
+                    self.update_visualization()
+            except ValueError:
+                self._clear_arrow()
+
     def update_visualization(self):
-        """Parse vector and draw arrow in PyVista plotter."""
+        """Draw exactly three finite vector components, centered at molecular COM."""
+        if self.vis_actor is not None and self._molecule is not self.context.current_molecule:
+            self._check_molecule()
+            return
         plotter = self.context.plotter
         if plotter is None:
+            self._clear_arrow()
             return
-
         text = self.vec_input.text().strip()
+        self.validation_label.clear()
         if not text:
-            return  # Empty
-
-        # Parse Vector
+            self._clear_arrow()
+            return
         try:
-            # Handle comma separated or space separated
-            cleaned = text.replace(",", " ")
-            parts = cleaned.split()
-            if len(parts) < 3:
-                raise ValueError
-            vec = np.array([float(parts[0]), float(parts[1]), float(parts[2])])
-
+            parts = text.replace(",", " ").split()
+            if len(parts) != 3:
+                raise ValueError("Enter exactly three finite components.")
+            vec = np.array([float(part.replace("D", "E").replace("d", "e")) for part in parts])
+            if not np.all(np.isfinite(vec)):
+                raise ValueError("Enter exactly three finite components.")
             if self.reverse_chk.isChecked():
                 vec = -vec
-        except ValueError:
-            # Don't annoy user while typing, just return or subtle hint
-            return
-
-        # Settings
-        scale = self.scale_spin.value()
-        res = self.res_spin.value()
-        opacity = self.opacity_spin.value()
-        color = self.arrow_color.name()
-
-        scaled_vec = vec * scale
-        mag = np.linalg.norm(scaled_vec)
-
-        if mag < 1e-6:
-            return
-
-        com = self.get_com()
-
-        # Geometry Logic: Center of arrow at COM
-        # Start = COM - (Vector / 2)
-        start = com - (scaled_vec / 2.0)
-
-        plotter = self.context.plotter
-
-        # Remove old actor safely
-        if self.vis_actor:
-            try:
-                plotter.remove_actor(self.vis_actor)
-            except (RuntimeError, AttributeError, KeyError, TypeError, ValueError):
-                pass
-            self.vis_actor = None
-
-        arrow = pv.Arrow(
-            start=start,
-            direction=scaled_vec,
-            scale=mag,
-            tip_length=0.2,
-            tip_radius=0.1,
-            shaft_radius=0.04,
-            shaft_resolution=res,
-            tip_resolution=res,
-        )
-
-        # Add to plotter
-        self.vis_actor = plotter.add_mesh(
-            arrow, color=color, opacity=opacity, name="vector_viewer_arrow"
-        )
-        plotter.render()
+            with np.errstate(over="ignore", invalid="ignore"):
+                scaled_vec = vec * self.scale_spin.value()
+                magnitude = np.linalg.norm(scaled_vec)
+            if not np.isfinite(magnitude):
+                raise ValueError("The scaled vector is too large to display.")
+            if magnitude < 1e-6:
+                self._clear_arrow()
+                return
+            anchor = self.get_com()
+            arrow = pv.Arrow(start=anchor - scaled_vec / 2, direction=scaled_vec,
+                             scale=magnitude, tip_length=0.2, tip_radius=0.1,
+                             shaft_radius=0.04, shaft_resolution=self.res_spin.value(),
+                             tip_resolution=self.res_spin.value())
+            self._clear_arrow()
+            self.vis_actor = plotter.add_mesh(arrow, color=self.arrow_color.name(),
+                                             opacity=self.opacity_spin.value(), name="vector_viewer_arrow")
+            self._actor_plotter = plotter
+            self._molecule = self.context.current_molecule
+            self._anchor = anchor
+            plotter.render()
+        except (ValueError, RuntimeError, TypeError, AttributeError) as exc:
+            self._clear_arrow()
+            self.validation_label.setText(str(exc))
+            logging.debug("Could not display vector: %s", exc)
 
     def closeEvent(self, event):
-        """Remove the vector actor from the 3D scene when the panel is closed."""
-        try:
-            plotter = self.context.plotter
-            if plotter is not None:
-                plotter.remove_actor(self.vis_actor)
-                plotter.render()
-        except (RuntimeError, AttributeError, KeyError, TypeError, ValueError):
-            pass
-        self.vis_actor = None
+        self._molecule_timer.stop()
+        self._clear_arrow()
         super().closeEvent(event)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self._check_molecule()
+        if self.vec_input.text().strip():
+            self.update_visualization()
+        self._molecule_timer.start()
 
     def export_image(self):
         """Export current view to PNG."""
@@ -265,7 +282,7 @@ class VectorViewerPlugin(QWidget):
         try:
             plotter.screenshot(filename, transparent_background=transparent)
             self.context.show_status_message(f"Saved to {filename}")
-        except (RuntimeError, AttributeError, KeyError, TypeError, ValueError) as e:
+        except (OSError, RuntimeError, AttributeError, KeyError, TypeError, ValueError) as e:
             QMessageBox.critical(self, "Error", f"Failed to save image:\n{e}")
 
 

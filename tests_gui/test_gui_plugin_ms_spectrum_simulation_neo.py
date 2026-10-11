@@ -84,11 +84,15 @@ class _FakePT:
 
 class _FakeRDMolDescriptors:
     @staticmethod
-    def CalcMolFormula(mol):
+    def CalcMolFormula(mol, **kwargs):
         return getattr(mol, "formula", "CH4")
 
 
 class _FakeChem:
+    @staticmethod
+    def GetFormalCharge(mol):
+        return getattr(mol, "charge", 0)
+
     rdMolDescriptors = _FakeRDMolDescriptors()
 
     @staticmethod
@@ -555,7 +559,7 @@ class TestMSCheckUpdateReal:
         class _BadChem:
             class rdMolDescriptors:
                 @staticmethod
-                def CalcMolFormula(mol):
+                def CalcMolFormula(mol, **kwargs):
                     raise ValueError("boom")
 
             @staticmethod
@@ -655,12 +659,12 @@ class TestMSAdductLogicExtra:
 
     def test_leading_digit_token(self, qapp):
         d, ctx = _make_dlg()
-        assert d.parse_formula_str("2H") == {"H": 1}
+        assert d.parse_formula_str("2H") is None
         d.destroy()
 
-    def test_unmatched_open_paren_still_merges(self, qapp):
+    def test_unmatched_open_paren_is_rejected(self, qapp):
         d, ctx = _make_dlg()
-        assert d.parse_formula_str("(CH2") == {"C": 1, "H": 2}
+        assert d.parse_formula_str("(CH2") is None
         d.destroy()
 
     def test_adduct_index_out_of_range_resets_to_zero(self, qapp):
@@ -1023,3 +1027,105 @@ class TestMSForcedLightMode:
             assert bg.lightness() > 200, f"dialog background too dark: {bg.name()}"
         finally:
             d.close()
+
+
+@pytest.fixture(autouse=True)
+def _real_numpy_for_profiles(monkeypatch):
+    try:
+        import numpy as np
+    except ImportError:
+        np = None
+    monkeypatch.setattr(_ms_neo, "np", np)
+
+
+
+def test_real_isotope_sync_and_mass(qapp, monkeypatch):
+    Chem = pytest.importorskip("rdkit.Chem")
+    pytest.importorskip("rdkit.Chem.rdMolDescriptors")
+    monkeypatch.setattr(_ms_neo, "Chem", Chem)
+    ctx = _ms_context()
+    mol = Chem.MolFromSmiles("[13CH3][2H]")
+    ctx.current_molecule = mol
+    d = _ms_neo.MSSpectrumDialog(ctx)
+    try:
+        d.sync_check.setChecked(True)
+        d.check_update()
+        assert d.formula_input.text() == "[13C]H3D"
+        peaks, average, exact, mz = d._calculate_peaks()
+        pt = Chem.GetPeriodicTable()
+        expected = pt.GetMassForIsotope(6, 13) + 3 * pt.GetMassForIsotope(1, 1) + pt.GetMassForIsotope(1, 2)
+        assert exact == pytest.approx(expected, abs=1e-8)
+        assert mz == pytest.approx(expected - 0.00054858, abs=1e-8)
+        assert max(peaks, key=lambda p: p[1])[0] == pytest.approx(mz, abs=2e-6)
+    finally:
+        d.close()
+
+
+def test_real_doubly_charged_molecule_initializes_charge(qapp, monkeypatch):
+    Chem = pytest.importorskip("rdkit.Chem")
+    pytest.importorskip("rdkit.Chem.rdMolDescriptors")
+    monkeypatch.setattr(_ms_neo, "Chem", Chem)
+    ctx = _ms_context()
+    ctx.current_molecule = Chem.MolFromSmiles("[Mg+2]")
+    d = _ms_neo.MSSpectrumDialog(ctx)
+    try:
+        assert d.charge_spin.value() == 2
+        _, _, mass, mz = d._calculate_peaks()
+        assert mz == pytest.approx((mass - 2 * 0.00054858) / 2)
+    finally:
+        d.close()
+
+
+def test_huge_formula_reports_limit_without_calculating(qapp, monkeypatch):
+    monkeypatch.setattr(_ms_neo, "Chem", _FakeChem)
+    d, _ = _make_dlg()
+    try:
+        d.formula_input.setText("C1000000000")
+        assert d.plot_widget.peaks == []
+        assert "limit" in d.lbl_ion.text()
+    finally:
+        d.close()
+
+
+def test_sync_off_and_empty_document(qapp, monkeypatch):
+    monkeypatch.setattr(_ms_neo, "Chem", _FakeChem)
+    d, ctx = _make_dlg()
+    try:
+        d.formula_input.setText("Cl2")
+        ctx.current_molecule = SimpleNamespace(formula="H2O")
+        d.check_update()
+        assert d.formula_input.text() == "Cl2"
+        ctx.current_molecule = None
+        d.sync_check.setChecked(True)
+        d.check_update()
+        assert d.plot_widget.peaks == []
+        assert d.formula_input.text() == ""
+        d.show()
+        d.close()
+        assert not d.timer.isActive()
+        d.show()
+        assert d.timer.isActive()
+    finally:
+        d.close()
+
+
+
+def test_reenabling_sync_restores_formula_after_manual_edit(qapp, monkeypatch):
+    monkeypatch.setattr(_ms_neo, "Chem", _FakeChem)
+    d, ctx = _make_dlg()
+    try:
+        ctx.current_molecule = SimpleNamespace(formula="H2O")
+        d.sync_check.setChecked(True)
+        d.check_update()
+        assert d.formula_input.text() == "H2O"
+        d.sync_check.setChecked(False)
+        d.formula_input.setText("Cl2")
+        d.sync_check.setChecked(True)
+        assert d.formula_input.text() == "H2O"
+        ctx.current_molecule = None
+        d.check_update()
+        ctx.current_molecule = SimpleNamespace(formula="H2O")
+        d.check_update()
+        assert d.formula_input.text() == "H2O"
+    finally:
+        d.close()

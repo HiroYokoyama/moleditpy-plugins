@@ -50,6 +50,7 @@ import logging
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 
 from conftest import extract_function
 
@@ -66,6 +67,7 @@ class TestVectorViewerGetCom:
     def _mol(self, coords):
         mol = MagicMock()
         mol.GetNumAtoms.return_value = len(coords)
+        mol.GetAtoms.return_value = [SimpleNamespace(GetMass=lambda: 1.0) for _ in coords]
         conf = mol.GetConformer.return_value
         conf.GetAtomPosition.side_effect = [
             SimpleNamespace(x=c[0], y=c[1], z=c[2]) for c in coords
@@ -85,21 +87,22 @@ class TestVectorViewerGetCom:
         s.context.current_molecule = None
         assert np.allclose(fn(s), [0.0, 0.0, 0.0])
 
-    def test_conformer_error_returns_origin(self):
+    def test_conformer_error_is_rejected(self):
         fn = self._get_com()
         s = MagicMock()
         mol = MagicMock()
         mol.GetNumAtoms.return_value = 1
         mol.GetConformer.side_effect = RuntimeError("no conformer")
         s.context.current_molecule = mol
-        assert np.allclose(fn(s), [0.0, 0.0, 0.0])
+        with pytest.raises(ValueError):
+            fn(s)
 
 
 class TestVectorViewerUpdateVisualization:
     def _fn(self, pv_mock):
         return extract_function(
             VECTOR_PATH, "VectorViewerPlugin", "update_visualization",
-            extra_globals={"np": np, "pv": pv_mock},
+            extra_globals={"np": np, "pv": pv_mock, "logging": logging},
         )
 
     def _self(self, text, scale=1.0, reverse=False, com=(0.0, 0.0, 0.0)):
@@ -112,6 +115,10 @@ class TestVectorViewerUpdateVisualization:
         s.arrow_color.name.return_value = "#00ff00"
         s.get_com.return_value = np.array(com)
         s.vis_actor = None
+        s._actor_plotter = None
+        s._molecule = s.context.current_molecule
+        clear = extract_function(VECTOR_PATH, "VectorViewerPlugin", "_clear_arrow", {"logging": logging})
+        s._clear_arrow = lambda: clear(s)
         return s
 
     def test_no_plotter_returns_early(self):
@@ -286,7 +293,13 @@ class TestVectorViewerExportImage:
 class TestVectorViewerCloseEvent:
     def _fn(self):
         globs = dict(_FAKE_SUPER_GLOBALS)
-        return extract_function(VECTOR_PATH, "VectorViewerPlugin", "closeEvent", globs)
+        fn = extract_function(VECTOR_PATH, "VectorViewerPlugin", "closeEvent", globs)
+        clear = extract_function(VECTOR_PATH, "VectorViewerPlugin", "_clear_arrow", {"logging": logging})
+        def close(widget, event):
+            widget._actor_plotter = None
+            widget._clear_arrow = lambda: clear(widget)
+            fn(widget, event)
+        return close
 
     def test_removes_actor_and_resets(self):
         fn = self._fn()

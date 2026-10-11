@@ -111,6 +111,24 @@ class TestOrbitalWidget:
         assert path.endswith("water_MO7.cube")
         assert "water_cubes" in path
 
+    def test_cube_cache_changes_with_grid_and_margin(self, win):
+        original = win.get_cube_path(1)
+        win.spin_points.setValue(50)
+        changed_grid = win.get_cube_path(1)
+        assert changed_grid != original
+        win.spin_gap.setValue(5)
+        assert win.get_cube_path(1) not in (original, changed_grid)
+
+    def test_grid_limit_fits_cube_loader(self, win):
+        assert win.spin_points.maximum() ** 3 <= 2_000_000
+
+    def test_source_digest_changes_when_file_content_changes(self, tmp_path):
+        path = tmp_path / "source.fchk"
+        path.write_text("first source", encoding="utf-8")
+        first = _mo.gui._file_digest(path)
+        path.write_text("other source", encoding="utf-8")
+        assert _mo.gui._file_digest(path) != first
+
     def test_visualize_success_shows_status_message(self, win):
         with patch.object(_mo.gui, "CubeVisualizer") as VisCls:
             VisCls.return_value.load_file.return_value = True

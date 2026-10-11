@@ -408,3 +408,24 @@ class TestRunPlugin:
         ctx = MagicMock()
         _paste_xyz.run_plugin(ctx)
         crit.assert_called_once()
+
+
+@pytest.mark.parametrize('value', ['nan', 'inf', '-inf'])
+def test_nonfinite_paste_coordinates_rejected(value):
+    with pytest.raises(ValueError, match='finite'):
+        _paste_xyz.parse_xyz_lines('C ' + value + ' 0 0')
+
+
+def test_trajectory_paste_uses_first_frame_only():
+    text = '1\nC 9 9 9\nH 0 0 0\n1\nsecond\nO 1 2 3'
+    assert _paste_xyz.parse_xyz_lines(text) == [('H', 0.0, 0.0, 0.0)]
+    assert _paste_xyz.parse_xyz_lines('0\nempty\nC 1 2 3') == []
+    with pytest.raises(ValueError, match='negative'):
+        _paste_xyz.parse_xyz_lines('-1\ninvalid')
+
+
+@pytest.fixture(autouse=True)
+def _reset_backend_calls():
+    _paste_xyz.Chem.reset_mock()
+    if _paste_xyz.rdDetermineBonds is not None:
+        _paste_xyz.rdDetermineBonds.reset_mock()

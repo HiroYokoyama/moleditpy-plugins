@@ -137,7 +137,7 @@ jobs:
             libdbus-1-3
 
       - name: Install Python dependencies
-        run: pip install pytest PyQt6
+        run: pip install pytest PyQt6 cryptography
 
       # Real chemistry/scientific libs let the gated GUI tests actually run on CI
       # instead of being importorskip-skipped (they hold real logic, not just
@@ -200,6 +200,7 @@ jobs:
             tests_gui/test_gui_plugin_bond_editor.py \
             tests_gui/test_gui_plugin_charge_editor.py \
             tests_gui/test_gui_plugin_cube_file_viewer.py \
+            tests_gui/test_gui_cube_viewer_data.py \
             tests_gui/test_gui_plugin_symmetry_analyzer.py \
             tests_gui/test_gui_plugin_vector_viewer.py \
             tests_gui/test_gui_plugin_xyz_editor.py

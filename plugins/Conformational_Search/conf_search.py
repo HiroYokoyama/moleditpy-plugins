@@ -18,9 +18,10 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from rdkit import Chem
 from rdkit.Chem import AllChem
 import copy
+import math
 
 PLUGIN_NAME = "Conformational Search"
-PLUGIN_VERSION = "2026.09.24"
+PLUGIN_VERSION = "2026.10.13"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Performs conformational sampling and energy minimization."
@@ -127,7 +128,8 @@ class ConformerSearchWorker(QThread):
             return None
         # CalcEnergy() reads the snapshot taken at the first call; rebind first.
         ff.Initialize()
-        return ff.CalcEnergy()
+        energy = ff.CalcEnergy()
+        return energy if math.isfinite(energy) else None
 
 
 class ConformerSearchDialog(QDialog):
@@ -151,7 +153,7 @@ class ConformerSearchDialog(QDialog):
 
         # Original coordinates for restoration on cancel
         self.original_coords = []
-        if self.target_mol:
+        if self.target_mol and self.target_mol.GetNumConformers() > 0:
             conf = self.target_mol.GetConformer()
             self.original_coords = [
                 conf.GetAtomPosition(i) for i in range(self.target_mol.GetNumAtoms())
@@ -237,18 +239,22 @@ class ConformerSearchDialog(QDialog):
         layout.addLayout(btn_layout)
 
     def accept(self):
-        self._shutdown_worker()
+        if not self._shutdown_worker():
+            self._pending_close = "accept"
+            return
         # Commit current conformer state to the main window
-        if self.target_mol:
+        if self.target_mol and self.context.current_mol is self.target_mol:
             self.context.push_undo_checkpoint()
         super().accept()
         # Unregister so next open creates a fresh dialog with clean state
         self.context.register_window("main_panel", None)
 
     def reject(self):
-        self._shutdown_worker()
+        if not self._shutdown_worker():
+            self._pending_close = "reject"
+            return
         # Restore original coordinates if user cancels/closes without 'Accept'
-        if self.target_mol and self.original_coords:
+        if self.target_mol and self.context.current_mol is self.target_mol and self.original_coords:
             conf = self.target_mol.GetConformer()
             for i, pos in enumerate(self.original_coords):
                 conf.SetAtomPosition(i, pos)
@@ -263,13 +269,24 @@ class ConformerSearchDialog(QDialog):
         event.ignore()
 
     def _shutdown_worker(self):
-        """Stop a running search and wait for the thread before tearing down."""
+        """Request cancellation; native embedding must finish before closure."""
         worker = self.worker
-        if worker is None:
-            return
-        worker.stop()
-        worker.wait()
+        if worker is not None and worker.isRunning():
+            worker.stop()
+            self.lbl_info.setText('Stopping search before closing...')
+            return False
         self.worker = None
+        return True
+
+    def _worker_finished(self):
+        self.worker = None
+        self._set_running(False)
+        pending = getattr(self, '_pending_close', None)
+        self._pending_close = None
+        if pending == 'accept':
+            self.accept()
+        elif pending == 'reject':
+            self.reject()
 
     def _set_running(self, running):
         self.btn_run.setEnabled(not running)
@@ -288,6 +305,9 @@ class ConformerSearchDialog(QDialog):
         if not current_mol:
             QMessageBox.warning(self, PLUGIN_NAME, "No molecule loaded.")
             return
+        if current_mol.GetNumConformers() == 0:
+            QMessageBox.warning(self, PLUGIN_NAME, "Molecule has no 3D coordinates.")
+            return
         # If the molecule changed since last run, refresh target and original_coords
         if current_mol is not self.target_mol:
             self.target_mol = current_mol
@@ -296,6 +316,10 @@ class ConformerSearchDialog(QDialog):
                 conf.GetAtomPosition(i) for i in range(self.target_mol.GetNumAtoms())
             ]
 
+        self.temp_mol = None
+        self.results_raw = []
+        self.conformer_data = []
+        self.table.setRowCount(0)
         self._set_running(True)
         self.lbl_info.setText("Running conformational search...")
 
@@ -310,6 +334,7 @@ class ConformerSearchDialog(QDialog):
         self.worker.progress.connect(self.on_progress)
         self.worker.failed.connect(self.on_failed)
         self.worker.completed.connect(self.on_completed)
+        self.worker.finished.connect(self._worker_finished)
         self.worker.start()
 
     def stop_search(self):
@@ -326,13 +351,14 @@ class ConformerSearchDialog(QDialog):
 
     def on_failed(self, message):
         self._set_running(False)
-        self.worker = None
         QMessageBox.warning(self, PLUGIN_NAME, message)
         self.lbl_info.setText("Failed.")
 
     def on_completed(self, mol_calc, results, was_stopped):
         self._set_running(False)
-        self.worker = None
+        if self.context.current_mol is not self.target_mol:
+            self.lbl_info.setText("Molecule changed. Restart search.")
+            return
         if not results:
             self.lbl_info.setText("Stopped before any conformer was optimized.")
             return
@@ -389,6 +415,10 @@ class ConformerSearchDialog(QDialog):
     def preview_conformer(self, current, previous):
         """リスト選択時にメインウィンドウの表示を更新"""
         if not self.temp_mol or not self.target_mol or not current:
+            return
+
+        if self.context.current_mol is not self.target_mol:
+            self.lbl_info.setText("Molecule changed in main window. Restart search.")
             return
 
         row = current.row()

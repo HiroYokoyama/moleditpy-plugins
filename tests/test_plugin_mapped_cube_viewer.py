@@ -145,9 +145,8 @@ class TestMappedCubeEntryPoints:
 
 
 class TestParseCubeDataEdgeCases:
-    def test_negative_atom_count_skips_extra_header_line(self, tmp_path, mapped_mod):
-        """A negative n_atoms in the header (MO-info cube) is preceded by an
-        extra metadata line before the atom records begin."""
+    def test_rejects_dataset_metadata_before_atoms(self, tmp_path, mapped_mod):
+        """Invalid input must fail instead of fabricating scalar or atom data."""
         content = _make_cube_content(nx=2, ny=1, nz=1, n_atoms=1)
         lines = content.splitlines(keepends=True)
         # lines[2] holds "   1   0.0 0.0 0.0\n" -> make it negative and insert
@@ -156,11 +155,10 @@ class TestParseCubeDataEdgeCases:
         lines.insert(6, "    1    1\n")  # 2 tokens => triggers the skip branch
         f = tmp_path / "neg.cube"
         f.write_text("".join(lines))
-        result = mapped_mod.parse_cube_data(str(f))
-        assert len(result["atoms"]) == 1
-        assert result["atoms"][0][0] == 6
+        with pytest.raises(ValueError):
+            mapped_mod.parse_cube_data(str(f))
 
-    def test_data_trimmed_when_excess_values(self, tmp_path, mapped_mod):
+    def test_rejects_excess_data(self, tmp_path, mapped_mod):
         # The data-start heuristic requires >=6 tokens on the first data
         # line, so the first row alone already supplies 6 values.
         content = _make_cube_content(
@@ -168,22 +166,20 @@ class TestParseCubeDataEdgeCases:
         )
         f = tmp_path / "excess.cube"
         f.write_text(content)
-        result = mapped_mod.parse_cube_data(str(f))
-        # expected_size = 2; trimmed from the start -> last 2 values kept
-        assert list(result["data_flat"]) == [1.0, 2.0]
+        with pytest.raises(ValueError):
+            mapped_mod.parse_cube_data(str(f))
 
-    def test_data_padded_when_missing_values(self, tmp_path, mapped_mod):
+    def test_rejects_short_data(self, tmp_path, mapped_mod):
         # expected_size = 9 but only one 6-value row is supplied.
         content = _make_cube_content(
             nx=3, ny=3, nz=1, n_atoms=1, data_values=[1, 2, 3, 4, 5, 6]
         )
         f = tmp_path / "short_data.cube"
         f.write_text(content)
-        result = mapped_mod.parse_cube_data(str(f))
-        assert len(result["data_flat"]) == 9
-        assert list(result["data_flat"]) == [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 0.0, 0.0, 0.0]
+        with pytest.raises(ValueError):
+            mapped_mod.parse_cube_data(str(f))
 
-    def test_malformed_atom_coords_falls_back_to_origin(self, tmp_path, mapped_mod):
+    def test_rejects_malformed_atom_coordinates(self, tmp_path, mapped_mod):
         header = (
             "T1\nT2\n   1   0.0 0.0 0.0\n   1   0.2 0.0 0.0\n"
             "   1   0.0 0.2 0.0\n   1   0.0 0.0 0.2\n"
@@ -192,9 +188,8 @@ class TestParseCubeDataEdgeCases:
         data = " 1.0\n"
         f = tmp_path / "bad_atom.cube"
         f.write_text(header + bad_atom_line + data)
-        result = mapped_mod.parse_cube_data(str(f))
-        assert result["atoms"][0][0] == 6
-        assert list(result["atoms"][0][1]) == [0.0, 0.0, 0.0]
+        with pytest.raises(ValueError):
+            mapped_mod.parse_cube_data(str(f))
 
     def test_positive_dims_means_not_angstrom_header(self, cube_file, mapped_mod):
         result = mapped_mod.parse_cube_data(str(cube_file))
@@ -353,7 +348,7 @@ class TestMappedCubeSetupDialogAccept:
 
 
 def _update_mesh_fn():
-    globs = {"logging": logging}
+    globs = {"logging": logging, "np": np}
     return extract_function(MAPPED_PATH, "MappedWidget", "update_mesh", globs)
 
 
@@ -368,7 +363,7 @@ class _FakeContourResult:
 
 class _FakeMapped:
     def __init__(self, values):
-        self.point_data = {"property_values": np.array(values)}
+        self.point_data = {"property_values": np.array(values), "vtkValidPointMask": np.ones(len(values))}
 
 
 def _widget_stub(iso_val=0.002, opacity=0.4, min_v=-0.1, max_v=0.1,
@@ -378,7 +373,7 @@ def _widget_stub(iso_val=0.002, opacity=0.4, min_v=-0.1, max_v=0.1,
     grid_surf = SimpleNamespace(contour=lambda vals, scalars: contour_result)
     plotter = MagicMock()
     plotter.add_mesh.return_value = "ACTOR"
-    return SimpleNamespace(
+    stub = SimpleNamespace(
         iso_spin=SimpleNamespace(value=lambda: iso_val),
         opacity_spin=SimpleNamespace(value=lambda: opacity),
         grid_surf=grid_surf,
@@ -391,8 +386,12 @@ def _widget_stub(iso_val=0.002, opacity=0.4, min_v=-0.1, max_v=0.1,
         ),
         cmap_combo=SimpleNamespace(currentText=lambda: "jet_r"),
         actor=actor,
+        warning_label=MagicMock(),
         context=SimpleNamespace(plotter=plotter),
-    ), plotter
+    )
+    cleanup = extract_function(MAPPED_PATH, "MappedWidget", "_remove_surface", {})
+    stub._remove_surface = lambda: cleanup(stub)
+    return stub, plotter
 
 
 class TestUpdateMesh:
@@ -441,7 +440,7 @@ class TestUpdateMesh:
         stub, plotter = _widget_stub()
 
         def _boom(vals, scalars):
-            raise RuntimeError("boom")
+            raise ValueError("boom")
 
         stub.grid_surf.contour = _boom
         fn(stub)  # must not raise
@@ -466,6 +465,7 @@ class TestClosePlugin:
         mw = SimpleNamespace(
             ui_manager=SimpleNamespace(restore_ui_for_editing=MagicMock()),
             edit_actions_manager=MagicMock(),
+            removeDockWidget=MagicMock(),
         )
         stub = SimpleNamespace(
             context=SimpleNamespace(plotter=plotter),
@@ -473,13 +473,19 @@ class TestClosePlugin:
             dock=dock,
             mw=mw,
             close=MagicMock(),
+            deleteLater=MagicMock(),
+            _bound_mol=None,
+            _structure_watch_timer=MagicMock(),
         )
+        cleanup = extract_function(MAPPED_PATH, "MappedWidget", "_remove_surface", {})
+        stub._remove_surface = lambda: cleanup(stub)
         fn(stub)
         plotter.remove_actor.assert_called_once_with("ACTOR")
         plotter.render.assert_called_once()
         mw.ui_manager.restore_ui_for_editing.assert_called_once()
-        dock.close.assert_called_once()
-        mw.edit_actions_manager.clear_all.assert_called_once()
+        mw.removeDockWidget.assert_called_once_with(dock)
+        dock.deleteLater.assert_called_once()
+        mw.edit_actions_manager.clear_all.assert_not_called()
         stub.close.assert_called_once()
 
     def test_missing_ui_manager_does_not_crash(self):
@@ -490,6 +496,11 @@ class TestClosePlugin:
             dock=None,
             mw=SimpleNamespace(),  # no ui_manager, no edit_actions_manager
             close=MagicMock(),
+            deleteLater=MagicMock(),
+            _bound_mol=None,
+            _structure_watch_timer=MagicMock(),
         )
+        cleanup = extract_function(MAPPED_PATH, "MappedWidget", "_remove_surface", {})
+        stub._remove_surface = lambda: cleanup(stub)
         fn(stub)  # must not raise
         stub.close.assert_called_once()

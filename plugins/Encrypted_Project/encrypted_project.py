@@ -4,6 +4,8 @@
 import os
 import json
 import base64
+import tempfile
+import inspect
 
 from PyQt6.QtWidgets import QInputDialog, QLineEdit, QMessageBox, QFileDialog
 from PyQt6.QtGui import QAction
@@ -12,7 +14,7 @@ import logging
 
 # Cryptography imports
 try:
-    from cryptography.fernet import Fernet
+    from cryptography.fernet import Fernet, InvalidToken
     from cryptography.hazmat.primitives import hashes
     from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
@@ -21,9 +23,26 @@ except ImportError:
     CRYPTOGRAPHY_AVAILABLE = False
 
 PLUGIN_NAME = "Encrypted Project"
-PLUGIN_VERSION = "2026.09.24"
+PLUGIN_VERSION = "2026.10.13"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
+PLUGIN_DEPENDENCIES = ["cryptography"]
+MAX_PROJECT_BYTES = 64 * 1024 * 1024
+
+
+def _call_original(method, args, kwargs):
+    """Adapt QAction checked arguments before calling, without retrying failures."""
+    signature = inspect.signature(method)
+    try:
+        signature.bind(*args, **kwargs)
+    except TypeError:
+        if len(args) == 1 and isinstance(args[0], bool) and not kwargs:
+            signature.bind()
+            return method()
+        raise
+    return method(*args, **kwargs)
+
+
 PLUGIN_DESCRIPTION = "Securely saves molecular data using AES-128 encryption with password protection (.pmeenc file)."
 
 
@@ -179,22 +198,13 @@ class PmeencPlugin:
         else:
             original = getattr(self, "_original_save_project", None)
             if original:
-                try:
-                    # Try forwarding all arguments (e.g. if called programmatically)
-                    original(*args, **kwargs)
-                except TypeError:
-                    # Fallback for QAction signal triggers which pass a 'checked' bool
-                    original()
+                return _call_original(original, args, kwargs)
 
     def _patched_clear_all(self, mw_instance, *args, **kwargs):
         """Monkey-patched version of clear_all."""
         original = getattr(self, "_original_clear_all", None)
         if original:
-            try:
-                original(*args, **kwargs)
-            except TypeError:
-                # Fallback for when called as a slot (e.g. via triggered signal)
-                original()
+            return _call_original(original, args, kwargs)
 
     def on_document_reset(self):
         """Called when document is cleared or a new one is created."""
@@ -293,16 +303,28 @@ class PmeencPlugin:
         try:
             # Prepare data
             json_data = self.mw.state_manager.create_json_data()
-            raw_data = json.dumps(json_data).encode("utf-8")
+            raw_data = json.dumps(json_data, allow_nan=False).encode("utf-8")
+            if len(raw_data) > MAX_PROJECT_BYTES:
+                raise ValueError("Project exceeds 64 MiB.")
 
             # Encrypt
             f = Fernet(key)
             encrypted_data = f.encrypt(raw_data)
 
             # Store: [Salt(16)] + [EncryptedData]
-            with open(file_path, "wb") as file:
-                file.write(salt)
-                file.write(encrypted_data)
+            fd, staged = tempfile.mkstemp(
+                dir=os.path.dirname(os.path.abspath(file_path)), suffix='.pmeenc.tmp'
+            )
+            try:
+                with os.fdopen(fd, 'wb') as file:
+                    file.write(salt)
+                    file.write(encrypted_data)
+                    file.flush()
+                    os.fsync(file.fileno())
+                os.replace(staged, file_path)
+            finally:
+                if os.path.exists(staged):
+                    os.remove(staged)
 
             # Update app state
             self.current_key = key
@@ -341,14 +363,18 @@ class PmeencPlugin:
             try:
                 with open(file_path, "rb") as file:
                     salt = file.read(16)
-                    encrypted_data = file.read()
+                    encrypted_data = file.read(MAX_PROJECT_BYTES * 2 + 1)
+                if len(salt) != 16 or not encrypted_data:
+                    raise ValueError("Encrypted project is truncated.")
+                if len(encrypted_data) > MAX_PROJECT_BYTES * 2:
+                    raise ValueError("Encrypted project exceeds the size limit.")
 
                 key = self.derive_key(password, salt)
                 f = Fernet(key)
 
                 try:
                     decrypted_data = f.decrypt(encrypted_data)
-                except Exception:
+                except InvalidToken:
                     QMessageBox.warning(
                         self.mw,
                         "Decryption Failed",
@@ -357,7 +383,11 @@ class PmeencPlugin:
                     # Loop back to ask again
                     continue
 
+                if len(decrypted_data) > MAX_PROJECT_BYTES:
+                    raise ValueError("Decrypted project exceeds 64 MiB.")
                 json_data = json.loads(decrypted_data.decode("utf-8"))
+                if not isinstance(json_data, dict):
+                    raise ValueError("Project data must be a JSON object.")
 
                 self.mw.ui_manager.restore_ui_for_editing()
                 self.mw.state_manager.load_from_json_data(json_data)
@@ -382,11 +412,10 @@ class PmeencPlugin:
                 break
 
             except Exception as e:
-                if not isinstance(e, ValueError):
-                    logging.exception("Decryption error: %s", e)
-                    QMessageBox.critical(
-                        self.mw, "Decryption Error", f"Failed to decrypt: {e}"
-                    )
+                logging.exception("Decryption error: %s", e)
+                QMessageBox.critical(
+                    self.mw, "Decryption Error", f"Failed to decrypt: {e}"
+                )
                 raise  # Re-raise to signal failure to load_command_line_file
 
 

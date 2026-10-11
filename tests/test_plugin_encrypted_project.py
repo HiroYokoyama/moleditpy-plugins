@@ -326,9 +326,7 @@ class TestEncryptedPatchedSave:
             plugin, _ = _enc_plugin(mod)
             calls = []
 
-            def original(*args):
-                if args:
-                    raise TypeError("no args expected")
+            def original():
                 calls.append("bare")
 
             plugin._original_save_project = original

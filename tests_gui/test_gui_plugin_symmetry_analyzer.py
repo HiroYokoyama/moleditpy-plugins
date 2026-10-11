@@ -13,6 +13,7 @@ import contextlib
 import logging
 import math
 import sys
+import threading
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -256,8 +257,9 @@ _WATER_OPS = [
 
 
 @pytest.fixture
-def dlgnp(qapp):
+def dlgnp(qapp, monkeypatch):
     """SymmetryAnalysisPlugin built from the real-numpy module `_symnp`."""
+    monkeypatch.setattr(_symnp, "linear_sum_assignment", None)
     ctx = _ctx_no_mol()
     d = _symnp.SymmetryAnalysisPlugin(context=ctx)
     yield d
@@ -715,7 +717,8 @@ class TestCloseEventReal:
         dlgnp.worker = worker
         dlgnp.close()
         worker.abort.assert_called_once()
-        worker.wait.assert_called_once_with(5000)
+        worker.wait.assert_not_called()
+        dlgnp._worker_stopped()
         worker.terminate.assert_not_called()
 
     def test_escape_runs_the_same_cleanup_as_close(self, dlgnp):
@@ -733,6 +736,8 @@ class TestCloseEventReal:
         dlgnp.show()
         QTest.keyClick(dlgnp, Qt.Key.Key_Escape)
 
+        assert dlgnp.isVisible()
+        dlgnp._worker_stopped()
         assert not dlgnp.isVisible()
         assert plotter.removed == ["axis", "plane"]
         assert dlgnp.group_data == {}
@@ -747,12 +752,16 @@ class TestCloseEventReal:
         dlgnp.close()  # must simply return
         assert not dlgnp.isVisible()
 
-    def test_close_terminates_worker_still_running_after_wait(self, dlgnp):
+    def test_close_retains_worker_until_native_completion(self, dlgnp):
         worker = MagicMock()
         worker.isRunning.return_value = True
         dlgnp.worker = worker
         dlgnp.close()
-        worker.terminate.assert_called_once()
+        worker.terminate.assert_not_called()
+        worker.wait.assert_not_called()
+        assert dlgnp.worker is worker
+        dlgnp._worker_stopped()
+        assert dlgnp.worker is None
 
     def test_close_removes_visualization_actors(self, dlgnp):
         plotter = _FakePlotter()
@@ -867,6 +876,8 @@ class TestDegenerateInputs:
 
     def test_selecting_the_placeholder_row_is_ignored(self, dlgnp, monkeypatch):
         _no_block_msgbox(monkeypatch)
+        dlgnp.context.current_molecule = _NPMol([8, 1, 1], _WATER_COORDS)
+        dlgnp._scanned_fingerprint = dlgnp._molecule_fingerprint()
         dlgnp.on_analysis_finished({}, False)
         dlgnp.groups_list.setCurrentRow(0)
         assert dlgnp.groups_list.item(0).text() == "No point groups found."
@@ -959,3 +970,164 @@ class TestStopScan:
         """The refinement pass makes the result step-independent, so a Step
         setting only looked like it did nothing."""
         assert not hasattr(dlgnp, "step_spin")
+
+
+@pytest.mark.parametrize("angle, expected", [(144, "C₅"), (135, "C₈"), (120, "C₃")])
+def test_rotation_powers_keep_their_order(dlgnp, angle, expected):
+    op = _op(_rot_z(angle))
+    assert expected in dlgnp._get_op_label(op, 0)
+    assert dlgnp._get_op_sort_key(op) == (1, -{144: 5, 135: 8, 120: 3}[angle])
+
+
+def test_scan_includes_requested_upper_endpoint(monkeypatch):
+    seen = []
+    monkeypatch.setattr(_symnp, "PointGroupAnalyzer",
+                        lambda mol, tolerance: (seen.append(tolerance), _FakeAnalyzer(tolerance))[1])
+    worker = _symnp.SymmetryAnalysisWorker(MagicMock(), 0.015, 0.02)
+    worker.run()
+    assert seen == [0.015, 0.02]
+
+
+@pytest.mark.parametrize("coords", [[[float("nan"), 0, 0]], [[0, float("inf"), 0]]])
+def test_scan_rejects_nonfinite_geometry(dlgnp, monkeypatch, coords):
+    messages = _no_block_msgbox(monkeypatch)
+    dlgnp.context.current_molecule = _NPMol([6], coords)
+    dlgnp.analyze_symmetry()
+    assert messages["warning"]
+    assert dlgnp.worker is None
+
+
+def test_scan_rejects_dummy_atoms(dlgnp, monkeypatch):
+    messages = _no_block_msgbox(monkeypatch)
+    dlgnp.context.current_molecule = _NPMol([0], [(0, 0, 0)])
+    dlgnp.analyze_symmetry()
+    assert messages["warning"]
+    assert dlgnp.worker is None
+
+
+@pytest.mark.parametrize("coords", [np.zeros((1, 3)), [[1, 2, 3], [4, float("nan"), 6]]])
+def test_invalid_output_does_not_partially_update_atoms(dlgnp, coords):
+    mol = _NPMol([6, 1], [(0, 0, 0), (1, 0, 0)])
+    dlgnp.context.current_molecule = mol
+    before = [list(mol.GetConformer().GetAtomPosition(i)) for i in range(2)]
+    with pytest.raises(ValueError):
+        dlgnp.update_rdkit_coords(coords)
+    assert [list(mol.GetConformer().GetAtomPosition(i)) for i in range(2)] == before
+    dlgnp.context.push_undo_checkpoint.assert_not_called()
+
+
+def test_document_reset_rejects_late_scan_results(dlgnp):
+    dlgnp.context.current_molecule = _NPMol([8, 1, 1], _WATER_COORDS)
+    dlgnp._scanned_fingerprint = dlgnp._molecule_fingerprint()
+    dlgnp._invalidate_analysis()
+    dlgnp.on_analysis_finished({"C2v": {"analyzer": _FakeAnalyzer(0.1), "tols": [0.1]}}, True)
+    assert dlgnp.group_data == {}
+    assert dlgnp.groups_list.count() == 0
+    assert not dlgnp.sym_btn.isEnabled()
+
+
+def test_pending_native_completion_blocks_scan_reentry(dlgnp, monkeypatch):
+    worker = MagicMock()
+    worker.isRunning.return_value = False
+    dlgnp.worker = worker
+    get_mol = MagicMock()
+    monkeypatch.setattr(dlgnp, "get_pymatgen_molecule", get_mol)
+    dlgnp.analyze_symmetry()
+    get_mol.assert_not_called()
+    assert dlgnp.worker is worker
+    dlgnp.worker = None
+
+
+@pytest.mark.parametrize("action", ["close", "reject", "accept"])
+def test_real_worker_close_is_cooperative(dlgnp, qapp, action):
+    entered = threading.Event()
+    release = threading.Event()
+
+    class Worker(_symnp.SymmetryAnalysisWorker):
+        def run(self):
+            entered.set()
+            release.wait(3)
+            self.analysis_finished.emit({"C2v": {"analyzer": _FakeAnalyzer(0.1), "tols": [0.1]}}, True)
+
+    worker = Worker(MagicMock(), 0.01, 0.1)
+    worker.setParent(dlgnp)
+    dlgnp.worker = worker
+    worker.analysis_finished.connect(dlgnp.on_analysis_finished)
+    worker.finished.connect(dlgnp._worker_stopped)
+    dlgnp.show()
+    worker.start()
+    try:
+        assert entered.wait(1)
+        getattr(dlgnp, action)()
+        assert worker._abort
+        assert dlgnp.worker is worker
+        assert dlgnp.isVisible()
+        QTest.qWait(20)
+    finally:
+        release.set()
+        assert worker.wait(1500)
+        qapp.processEvents()
+    assert dlgnp.worker is None
+    assert not dlgnp.isVisible()
+    assert dlgnp.group_data == {}
+
+
+def test_overlay_is_removed_from_its_original_plotter(dlgnp):
+    old, new = _FakePlotter(), _FakePlotter()
+    dlgnp.vis_actors = ["axis"]
+    dlgnp._vis_plotter = old
+    dlgnp.context.plotter = new
+    dlgnp._invalidate_analysis()
+    assert old.removed == ["axis"]
+    assert new.removed == []
+
+
+def test_visualization_uses_analyzers_center_for_isotopes(dlgnp, monkeypatch):
+    plotter = _FakePlotter()
+    dlgnp.context.plotter = plotter
+    dlgnp.context.current_molecule = _NPMol([8, 1, 1], _WATER_COORDS)
+    center = np.array([0.0, 0.0, 0.23])
+    dlgnp.analyzer = SimpleNamespace(mol=SimpleNamespace(center_of_mass=center))
+    captured = []
+    monkeypatch.setattr(dlgnp, "_add_op_visualization", lambda plotter, op, com, pv, scale: captured.append(com))
+    dlgnp.visualize_ops([_op(_MAT_C2)])
+    assert np.allclose(captured[0], center)
+
+
+def test_real_pymatgen_water_projection_preserves_translation(dlgnp, monkeypatch):
+    Molecule = pytest.importorskip("pymatgen.core").Molecule
+    PointGroupAnalyzer = pytest.importorskip("pymatgen.symmetry.analyzer").PointGroupAnalyzer
+    linear_sum_assignment = pytest.importorskip("scipy.optimize").linear_sum_assignment
+    _no_block_msgbox(monkeypatch)
+    coords = np.array(_WATER_COORDS) + [5, -3, 7]
+    mol = _NPMol([8, 1, 1], coords)
+    dlgnp.context.current_molecule = mol
+    monkeypatch.setattr(_symnp, "Molecule", Molecule)
+    monkeypatch.setattr(_symnp, "Point3D", _P3)
+    monkeypatch.setattr(_symnp, "linear_sum_assignment", linear_sum_assignment)
+    dlgnp.analyzer = PointGroupAnalyzer(Molecule([8, 1, 1], coords), tolerance=0.05)
+    dlgnp._scanned_fingerprint = dlgnp._molecule_fingerprint()
+    assert dlgnp.analyzer.sch_symbol == "C2v"
+    dlgnp.symmetrize_structure()
+    actual = np.array([list(mol.GetConformer().GetAtomPosition(i)) for i in range(3)])
+    assert np.allclose(actual, coords, atol=1e-8)
+    dlgnp.context.push_undo_checkpoint.assert_called_once()
+
+
+
+def test_empty_document_rejects_late_scan_results(dlgnp):
+    dlgnp._invalidate_analysis()
+    dlgnp.context.current_molecule = None
+    dlgnp.on_analysis_finished({"C2v": {"analyzer": _FakeAnalyzer(0.1), "tols": [0.1]}}, True)
+    assert dlgnp.groups_list.count() == 0
+    assert dlgnp.analyzer is None
+
+
+def test_symmetrization_rejects_invalid_current_geometry(dlgnp, monkeypatch):
+    messages = _no_block_msgbox(monkeypatch)
+    dlgnp.context.current_molecule = _NPMol([6], [(float("nan"), 0, 0)])
+    dlgnp.analyzer = _FakeAnalyzer(0.1)
+    dlgnp.symmetrize_structure()
+    assert messages["warning"]
+    assert dlgnp.analyzer is None
+    dlgnp.context.push_undo_checkpoint.assert_not_called()

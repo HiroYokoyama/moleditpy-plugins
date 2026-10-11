@@ -143,11 +143,12 @@ class TestLaunchFreqRealQt:
                 self.context = context
                 self.dock = dock_widget
                 self.loaded_path = None
+                self.on_dock_visibility_changed = MagicMock()
 
             def load_file(self, path):
                 self.loaded_path = path
 
-        fake_mod = SimpleNamespace(GaussianFCHKFreqAnalyzer=_FakeAnalyzer)
+        fake_mod = SimpleNamespace(GaussianFCHKFreqAnalyzer=_FakeAnalyzer, FCHKParser=MagicMock())
         mw = _make_real_mw(qapp)
         ctx = _fchk_context()
         ctx.get_main_window.return_value = mw
@@ -203,7 +204,7 @@ class TestLaunchMoRealQt:
                 self.context = context
                 self.fchk_path = fchk_path
 
-        fake_mod = SimpleNamespace(OrbitalWidget=_FakeOrbitalWidget)
+        fake_mod = SimpleNamespace(OrbitalWidget=_FakeOrbitalWidget, gui=SimpleNamespace(FCHKReader=MagicMock(), BasisSetEngine=MagicMock()))
 
         class _FakeImportlib:
             def import_module(self, name):
@@ -217,7 +218,7 @@ class TestLaunchMoRealQt:
         ctx.get_main_window.return_value = mw
         dlg = _fchk.FCHKLoaderDialog(parent=None, context=ctx, fchk_path="/tmp/mol.fchk")
         dlg.mo_analyzer_pkg = "/fake/gaussian_fchk_mo_analyzer"
-        monkeypatch.setattr(_fchk, "importlib", _FakeImportlib())
+        monkeypatch.setattr(_fchk, "load_module_from_path", lambda name, path: _FakeImportlib().import_module(name))
         dlg.launch_mo()
         assert dlg.mo_widget.fchk_path == "/tmp/mol.fchk"
         assert dlg.result() == 1  # QDialog.Accepted
@@ -233,7 +234,7 @@ class TestLaunchMoRealQt:
         ctx.get_main_window.return_value = mw
         dlg = _fchk.FCHKLoaderDialog(parent=None, context=ctx, fchk_path="/tmp/mol.fchk")
         dlg.mo_analyzer_pkg = "/fake/gaussian_fchk_mo_analyzer"
-        monkeypatch.setattr(_fchk, "importlib", _FakeImportlib())
+        monkeypatch.setattr(_fchk, "load_module_from_path", lambda name, path: _FakeImportlib().import_module(name))
         critical_calls = []
         monkeypatch.setattr(
             _fchk.QMessageBox,
@@ -391,3 +392,82 @@ class TestRunFunctionRealQt:
         mw = _make_real_mw(qapp)
         _fchk.run(mw)
         assert called == []
+
+
+@pytest.mark.parametrize("failure", (None, SimpleNamespace()))
+def test_missing_analyzer_entry_point_preserves_existing_dock(qapp, monkeypatch, failure):
+    from PyQt6.QtWidgets import QDockWidget
+    mw = _make_real_mw(qapp)
+    old = QDockWidget("Gaussian Freq Analyzer", mw)
+    mw.addDockWidget(_fchk.Qt.DockWidgetArea.RightDockWidgetArea, old)
+    old.show()
+    ctx = _fchk_context()
+    ctx.get_main_window.return_value = mw
+    dlg = _fchk.FCHKLoaderDialog(None, ctx, "/tmp/x.fchk")
+    monkeypatch.setattr(_fchk, "load_module_from_path", lambda *args: failure)
+    monkeypatch.setattr(_fchk.QMessageBox, "critical", MagicMock())
+    dlg.launch_freq()
+    assert not old.isHidden()
+    assert dlg.btn_freq.isEnabled()
+    dlg.destroy()
+    mw.close()
+
+
+def test_dock_close_calls_frequency_cleanup(qapp):
+    from PyQt6.QtWidgets import QWidget
+    dock = _fchk.AnalyzerDock("Analyzer")
+    child = QWidget()
+    child.close_plugin = MagicMock()
+    dock.setWidget(child)
+    dock.show()
+    assert dock.close()
+    child.close_plugin.assert_called_once()
+    dock.deleteLater()
+
+
+def test_running_worker_prevents_dock_destruction(qapp):
+    from PyQt6.QtWidgets import QWidget
+    dock = _fchk.AnalyzerDock("Analyzer")
+    child = QWidget()
+    child.worker = SimpleNamespace(isRunning=lambda: True, _is_cancelled=False)
+    dock.setWidget(child)
+    dock.show()
+    assert not dock.close()
+    assert child.worker._is_cancelled
+    child.worker = None
+    dock.close()
+    dock.deleteLater()
+
+
+def test_failed_preflight_does_not_close_previous_analyzers(qapp, monkeypatch):
+    mw = _make_real_mw(qapp)
+    ctx = _fchk_context()
+    ctx.get_main_window.return_value = mw
+    dlg = _fchk.FCHKLoaderDialog(None, ctx, "/tmp/x.fchk")
+    parser = MagicMock()
+    parser.parse.side_effect = ValueError("invalid data")
+    module = SimpleNamespace(FCHKParser=lambda: parser, GaussianFCHKFreqAnalyzer=MagicMock())
+    monkeypatch.setattr(_fchk, "load_module_from_path", lambda *args: module)
+    monkeypatch.setattr(_fchk.QMessageBox, "critical", MagicMock())
+    dlg.close_existing_analyzers = MagicMock()
+    dlg.launch_freq()
+    dlg.close_existing_analyzers.assert_not_called()
+    module.GaussianFCHKFreqAnalyzer.assert_not_called()
+    dlg.destroy()
+    mw.close()
+
+
+def test_mo_dock_close_removes_its_surfaces(qapp):
+    from PyQt6.QtWidgets import QWidget
+    mw = _make_real_mw(qapp)
+    ctx = _fchk_context()
+    ctx.get_main_window.return_value = mw
+    dlg = _fchk.FCHKLoaderDialog(None, ctx, "/tmp/x.fchk")
+    dock = _fchk.AnalyzerDock("Gaussian MO Analyzer", mw)
+    dock.setWidget(QWidget())
+    dock.cleanup_callback = dlg._remove_mo_surfaces
+    dock.show()
+    dock.close()
+    assert ctx.plotter.remove_actor.call_args_list == [(("fchk_iso_p",),), (("fchk_iso_n",),)]
+    dlg.destroy()
+    mw.close()

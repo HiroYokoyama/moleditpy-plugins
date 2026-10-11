@@ -663,7 +663,8 @@ class TestShowReport:
         _DummyDialog.last_instance = None
         _compound_real.show_report(ctx)
         assert _DummyDialog.last_instance is not None
-        assert _DummyDialog.last_instance.mol is mol
+        assert _DummyDialog.last_instance.mol is not mol
+        assert _DummyDialog.last_instance.mol.GetNumAtoms() == mol.GetNumAtoms()
         assert _DummyDialog.last_instance.exec_called
 
     def test_molecule_without_conformer_gets_2d_coords(self, qapp, monkeypatch):
@@ -710,3 +711,71 @@ class TestShowReport:
         _DummyDialog.last_instance = None
         _compound_real.show_report(ctx)  # must not raise
         assert _DummyDialog.last_instance is not None
+
+
+
+@requires_real_chem
+def test_charged_report_uses_charge_correct_mz(qapp):
+    from rdkit import Chem
+    d = _real_dlg(Chem.MolFromSmiles("[Mg+2]"))
+    try:
+        html = d.build_html({"common_name": "", "density": None, "phys_desc": None, "cas_numbers": []})
+        expected = Descriptors.ExactMolWt(d.mol) / 2
+        assert "[M]<sup>2+</sup>" in html
+        assert f"{expected:.4f}" in html
+        assert "[M+H]" not in html
+    finally:
+        d.close()
+
+
+@requires_real_chem
+def test_hydrogen_free_report_has_no_deprotonation(qapp):
+    from rdkit import Chem
+    d = _real_dlg(Chem.MolFromSmiles("ClCl"))
+    try:
+        html = d.build_html({"common_name": "", "density": None, "phys_desc": None, "cas_numbers": []})
+        assert "[M-H]" not in html
+    finally:
+        d.close()
+
+
+@requires_real_chem
+def test_report_does_not_add_conformer_to_active_molecule(qapp, monkeypatch):
+    from rdkit import Chem
+    original = Chem.MolFromSmiles("CCO")
+    ctx = MagicMock()
+    ctx.get_main_window.return_value = None
+    ctx.current_molecule = original
+    monkeypatch.setattr(_compound_real, "ReportDialog", _DummyDialog)
+    _compound_real.show_report(ctx)
+    assert original.GetNumConformers() == 0
+    assert _DummyDialog.last_instance.mol.GetNumConformers() == 1
+
+
+@requires_real_chem
+def test_cancel_fetch_stops_before_network_request(qapp, monkeypatch):
+    d = _real_dlg(_ethanol_mol())
+    try:
+        d.chk_pubchem.blockSignals(True)
+        d.chk_pubchem.setChecked(True)
+        d.chk_pubchem.blockSignals(False)
+        request = MagicMock()
+        monkeypatch.setattr(_compound_real.PubChemFetcher, "get_synonyms", request)
+        data = d.fetch_pubchem_data(lambda *args: False)
+        request.assert_not_called()
+        assert data["common_name"] == ""
+    finally:
+        d.close()
+
+
+@requires_real_chem
+def test_report_reentry_is_ignored(qapp, monkeypatch):
+    d = _real_dlg(_ethanol_mol())
+    try:
+        d._generating = True
+        callback = MagicMock()
+        monkeypatch.setattr(d, "_generate_report", callback)
+        d.generate_report()
+        callback.assert_not_called()
+    finally:
+        d.close()

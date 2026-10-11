@@ -1,8 +1,17 @@
 # -*- coding: utf-8 -*-
 import sys
 import math
+import re
+import base64
+from io import BytesIO
+
+try:
+    import numpy as np
+except ImportError:
+    np = None
 from PyQt6.QtWidgets import (
     QDialog,
+    QGroupBox, QFormLayout, QLineEdit, QComboBox, QSpinBox,
     QVBoxLayout,
     QHBoxLayout,
     QLabel,
@@ -48,7 +57,7 @@ except ImportError:
     Descriptors = None
     Draw = None
 
-PLUGIN_VERSION = "2026.09.27"
+PLUGIN_VERSION = "2026.10.13"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 
@@ -64,6 +73,22 @@ HYDROGEN_ISOTOPE_MASSES = {"D": 2.0141017781, "T": 3.0160492779}
 ISOTOPE_SCAN_HALF_WIDTH = 12
 
 
+def _isotope_mass(pt, sym):
+    if sym in HYDROGEN_ISOTOPE_MASSES:
+        return HYDROGEN_ISOTOPE_MASSES[sym]
+    match = re.fullmatch(r"\[(\d+)([A-Z][a-z]?)\]", sym)
+    if match:
+        mass = pt.GetMassForIsotope(pt.GetAtomicNumber(match[2]), int(match[1]))
+        if mass <= 0:
+            raise ValueError("Unknown isotope: " + sym)
+        return mass
+    return None
+
+
+MAX_ISOTOPE_ATOMS = 10000
+MAX_PROFILE_POINTS = 500000
+
+
 class MSSpectrumDialog(QDialog):
     def __init__(self, context):
         super().__init__(parent=context.get_main_window())
@@ -71,6 +96,7 @@ class MSSpectrumDialog(QDialog):
         self.resize(500, 700)
         self.context = context
         self.mol = self.context.current_molecule
+        self._synced_signature = None
 
         # Setup timer for auto-update
         self.timer = QTimer(self)
@@ -131,23 +157,16 @@ class MSSpectrumDialog(QDialog):
         layout.setContentsMargins(10, 10, 10, 10)
 
         # --- Settings Panel ---
-        from PyQt6.QtWidgets import (
-            QGroupBox,
-            QFormLayout,
-            QLineEdit,
-            QComboBox,
-            QSpinBox,
-        )
-
         settings_group = QGroupBox("Configuration")
         settings_layout = QFormLayout(settings_group)
 
         # 1. Formula Input
         self.formula_input = QLineEdit()
+        self.formula_input.setToolTip("Supports explicit isotope labels such as [13C] and D; up to 10,000 atoms per simulated ion.")
         if self.mol:
             # Initial calculation (usually from passed 3D molecule)
             try:
-                formula = Chem.rdMolDescriptors.CalcMolFormula(self.mol)
+                formula = Chem.rdMolDescriptors.CalcMolFormula(self.mol, separateIsotopes=True)
                 self.formula_input.setText(str(formula))
             except (RuntimeError, AttributeError, TypeError, ValueError) as _e:
                 logging.warning("[ms_spectrum_neo.py:79] silenced: %s", _e)
@@ -180,6 +199,11 @@ class MSSpectrumDialog(QDialog):
         self.charge_spin = QSpinBox()
         self.charge_spin.setRange(-10, 10)
         self.charge_spin.setValue(1)  # Default +1
+        if self.mol is not None and Chem is not None:
+            try:
+                self.charge_spin.setValue(Chem.GetFormalCharge(self.mol) or 1)
+            except (RuntimeError, AttributeError, TypeError, ValueError) as exc:
+                logging.warning("Could not initialize ion charge: %s", exc)
         # Prevent 0
         self.charge_spin.valueChanged.connect(self.on_charge_changed)
         settings_layout.addRow("Charge (z):", self.charge_spin)
@@ -292,17 +316,26 @@ class MSSpectrumDialog(QDialog):
         self._stop_sync_timer()
         event.accept()
 
+    def showEvent(self, event):
+        if self.sync_check.isChecked():
+            self.timer.start(500)
+            self.check_update()
+        super().showEvent(event)
+
     def toggle_sync(self, state):
         if getattr(self, "timer", None) is None:
             return
 
         if state == 2:  # Checked
             self.timer.start(500)
-            self.check_update()
+            if hasattr(self, "charge_spin"):
+                self.check_update()
         else:
             self.timer.stop()
 
     def check_update(self):
+        if not self.sync_check.isChecked():
+            return
         if Chem is None:
             return
 
@@ -320,7 +353,10 @@ class MSSpectrumDialog(QDialog):
             else:
                 new_mol = self.context.current_molecule
 
-            if not new_mol:
+            if new_mol is None:
+                self.mol = None
+                self._synced_signature = None
+                self.formula_input.clear()
                 return
 
             # Update internal molecule reference to stay in sync
@@ -332,20 +368,21 @@ class MSSpectrumDialog(QDialog):
             mol_to_calc = (
                 Chem.AddHs(self.mol) if self.use_2d_check.isChecked() else self.mol
             )
-            current_formula = Chem.rdMolDescriptors.CalcMolFormula(mol_to_calc)
+            current_formula = Chem.rdMolDescriptors.CalcMolFormula(mol_to_calc, separateIsotopes=True)
 
-            # If different from text box, update
+            net_charge = Chem.GetFormalCharge(self.mol)
+            signature = (current_formula, net_charge)
             if self.formula_input.text() != current_formula:
                 self.formula_input.setText(current_formula)
-
-                # CalcMolFormula appends the net charge ("C6H5+") but
-                # parse_formula_str ignores it, so an already-ionic molecule
-                # would silently be measured against the wrong ion charge.
-                # Only on an actual structure change, never on every poll.
-                net_charge = Chem.GetFormalCharge(self.mol)
-                if net_charge != 0 and self.charge_spin.value() != net_charge:
+            if signature != self._synced_signature:
+                previous = self._synced_signature
+                self._synced_signature = signature
+                if net_charge:
                     self.charge_spin.setValue(net_charge)
-                    self.adduct_combo.setCurrentIndex(0)  # [M]
+                    self.adduct_combo.setCurrentIndex(0)
+                elif previous is not None and previous[1]:
+                    self.charge_spin.setValue(1)
+                    self.adduct_combo.setCurrentIndex(0)
         except Exception as _e:
             # Fail silently to avoid spamming errors in timer
             logging.warning("[ms_spectrum_neo.py:246] silenced: %s", _e)
@@ -461,61 +498,40 @@ class MSSpectrumDialog(QDialog):
         self.adduct_combo.blockSignals(False)
 
     def parse_formula_str(self, formula):
-        import re
 
-        # Tokenize: Elements (e.g., "Na", "C"), Numbers, Parentheses, Plus, Minus
-        # We perform strict validation: joined tokens must match the input string (less whitespace)
-        tokens = re.findall(r"([A-Z][a-z]*|\d+|\(|\)|[\+\-])", formula)
-
-        # Strict Check
-        if "".join(tokens) != formula.replace(" ", ""):
-            return None  # Invalid characters found
-
+        if len(formula) > 4096:
+            return None
+        formula = re.sub(r"\s+", "", formula)
+        formula = re.sub(r"[+-]\d*$", "", formula)
+        tokens = re.findall(r"(\[\d+[A-Z][a-z]?\]|[A-Z][a-z]?|\d+|\(|\))", formula)
+        if "".join(tokens) != formula:
+            return None
         stack = [{}]
-
         i = 0
         while i < len(tokens):
             token = tokens[i]
-
             if token == "(":
                 stack.append({})
                 i += 1
-            elif token == ")":
-                # Check for multiplier after parenthesis
-                multiplier = 1
-                if i + 1 < len(tokens) and tokens[i + 1].isdigit():
-                    multiplier = int(tokens[i + 1])
-                    i += 1  # Consume number
-
-                # Pop and merge
-                if len(stack) > 1:
-                    top = stack.pop()
-                    for el, count in top.items():
-                        stack[-1][el] = stack[-1].get(el, 0) + count * multiplier
+                continue
+            if token == ")":
+                if len(stack) == 1 or not stack[-1]:
+                    return None
+                counts = stack.pop()
+            elif token[0].isalpha() or token.startswith("["):
+                counts = {token: 1}
+            else:
+                return None
+            multiplier = 1
+            if i + 1 < len(tokens) and tokens[i + 1].isdigit():
+                multiplier = int(tokens[i + 1])
+                if multiplier <= 0:
+                    return None
                 i += 1
-            elif token in ["+", "-"]:
-                # Ignore charge symbols in formula (handled by spinbox, or just noise)
-                i += 1
-            elif token.isdigit():
-                # Should have been handled, but ignore if standalone
-                i += 1
-            elif token[0].isalpha():  # Element
-                element = token
-                count = 1
-                if i + 1 < len(tokens) and tokens[i + 1].isdigit():
-                    count = int(tokens[i + 1])
-                    i += 1  # Consume number
-
-                stack[-1][element] = stack[-1].get(element, 0) + count
-                i += 1
-
-        # Merge any remaining stack items
-        while len(stack) > 1:
-            top = stack.pop()
-            for el, count in top.items():
-                stack[-1][el] = stack[-1].get(el, 0) + count
-
-        return stack[0]
+            for sym, count in counts.items():
+                stack[-1][sym] = stack[-1].get(sym, 0) + count * multiplier
+            i += 1
+        return stack[0] if len(stack) == 1 else None
 
     def get_adduct_delta(self, species_idx, mode, charge):
         # Map index to species logic
@@ -558,8 +574,9 @@ class MSSpectrumDialog(QDialog):
 
         Raises RuntimeError (from RDKit) for an unrecognized element symbol.
         """
-        if sym in HYDROGEN_ISOTOPE_MASSES:
-            return [(HYDROGEN_ISOTOPE_MASSES[sym], 1.0)]
+        mass = _isotope_mass(pt, sym)
+        if mass is not None:
+            return [(mass, 1.0)]
 
         atomic_num = pt.GetAtomicNumber(sym)
         center = pt.GetMostCommonIsotope(atomic_num)
@@ -586,8 +603,9 @@ class MSSpectrumDialog(QDialog):
         """Average (molecular-weight) mass of a composition."""
         total = 0.0
         for sym, count in counts.items():
-            if sym in HYDROGEN_ISOTOPE_MASSES:
-                total += HYDROGEN_ISOTOPE_MASSES[sym] * count
+            mass = _isotope_mass(pt, sym)
+            if mass is not None:
+                total += mass * count
             else:
                 total += pt.GetAtomicWeight(sym) * count
         return total
@@ -596,8 +614,9 @@ class MSSpectrumDialog(QDialog):
         """Mass built from each element's most abundant isotope."""
         total = 0.0
         for sym, count in counts.items():
-            if sym in HYDROGEN_ISOTOPE_MASSES:
-                total += HYDROGEN_ISOTOPE_MASSES[sym] * count
+            mass = _isotope_mass(pt, sym)
+            if mass is not None:
+                total += mass * count
             else:
                 anum = pt.GetAtomicNumber(sym)
                 total += (
@@ -630,11 +649,11 @@ class MSSpectrumDialog(QDialog):
             sigma = self.width_spin.value()
             try:
                 display_peaks = self.apply_gaussian_broadening(peaks, sigma)
-            except ImportError:
+            except (ImportError, ValueError):
                 # Gaussian profiles are optional; keep the default enabled even
                 # in lightweight installations that do not provide NumPy.
                 logging.warning(
-                    "NumPy is unavailable; displaying the theoretical stick spectrum."
+                    "Gaussian profile unavailable; displaying the theoretical stick spectrum."
                 )
                 display_peaks = peaks
                 self.plot_widget.draw_mode = "stick"
@@ -661,7 +680,6 @@ class MSSpectrumDialog(QDialog):
         formula_formatted = formula_raw.translate(sub_map)
 
         full_adduct_str = self.adduct_combo.currentText()
-        import re
 
         match = re.search(r"\[.*?\][⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻˙]*", full_adduct_str)
         if match:
@@ -684,6 +702,8 @@ class MSSpectrumDialog(QDialog):
             self.lbl_ion.setText(f"<b>Monoisotopic m/z:</b> {ion_mz:.4f}")
             self.lbl_mw.setText(f"<b>Neutral Avg Mass:</b> {final_mw:.4f}")
             self.lbl_em.setText(f"<b>Neutral Exact Mass:</b> {neutral_exact_mw:.4f}")
+            if self._formula_error:
+                self.lbl_ion.setText(self._formula_error)
         except (RuntimeError, AttributeError) as _e:
             logging.warning("[ms_spectrum_neo.py:500] silenced: %s", _e)
 
@@ -698,11 +718,14 @@ class MSSpectrumDialog(QDialog):
         min_mz = min(p[0] for p in peaks) - margin
         max_mz = max(p[0] for p in peaks) + margin
 
+        if np is None:
+            raise ImportError("NumPy is unavailable.")
         # Grid - Finer resolution to minimize peak shift artifacts
-        import numpy as np
 
         # 10 points per sigma is better for appearance, 20 is good for peak top approx
         step = max(1e-5, min(0.005, sigma / 10.0))
+        if (max_mz - min_mz) / step > MAX_PROFILE_POINTS:
+            raise ValueError("Spectrum profile exceeds the supported grid size.")
         x_vals = np.arange(min_mz, max_mz, step)
         # Insert the exact stick masses: an isolated peak's apex (and the
         # normalization max) then falls exactly on the theoretical m/z
@@ -728,6 +751,7 @@ class MSSpectrumDialog(QDialog):
         return list(zip(x_vals, y_vals))
 
     def _calculate_peaks(self):
+        self._formula_error = ""
         formula_str = self.formula_input.text().strip()
         if not formula_str:
             return [], 0.0, 0.0, 0.0
@@ -735,6 +759,9 @@ class MSSpectrumDialog(QDialog):
         # 1. Base composition
         base_counts = self.parse_formula_str(formula_str)
         if not base_counts:
+            return [], 0.0, 0.0, 0.0
+        if sum(base_counts.values()) > MAX_ISOTOPE_ATOMS:
+            self._formula_error = "Formula exceeds the 10,000-atom simulation limit."
             return [], 0.0, 0.0, 0.0
 
         # 2. Adduct adjustments
@@ -758,6 +785,9 @@ class MSSpectrumDialog(QDialog):
         if not final_counts:
             return [], 0.0, 0.0, 0.0
 
+        if sum(final_counts.values()) > MAX_ISOTOPE_ATOMS:
+            self._formula_error = "Ion exceeds the 10,000-atom simulation limit."
+            return [], 0.0, 0.0, 0.0
         # 3. Dynamic Isotope Calc
         pt = Chem.GetPeriodicTable()
         current_dist = [(0.0, 1.0)]
@@ -789,9 +819,12 @@ class MSSpectrumDialog(QDialog):
                         m = m1 + m2
                         p = p1 * p2
                         m_bin = round(m, 6)
-                        new_peaks[m_bin] = new_peaks.get(m_bin, 0) + p
+                        weighted_mass, probability = new_peaks.get(m_bin, (0.0, 0.0))
+                        new_peaks[m_bin] = (weighted_mass + m * p, probability + p)
 
-                sorted_p = sorted(new_peaks.items())
+                sorted_p = sorted((weighted_mass / probability, probability)
+                                  for weighted_mass, probability in new_peaks.values()
+                                  if probability > 0)
 
                 merged = []
                 if sorted_p:
@@ -941,11 +974,9 @@ class MSSpectrumDialog(QDialog):
             if not mol_b64 and Draw:
                 try:
                     img = Draw.MolToImage(self.mol, size=(300, 300))
-                    from io import BytesIO
 
                     buffered = BytesIO()
                     img.save(buffered, format="PNG")
-                    import base64
 
                     mol_b64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
                     img_w, img_h = 300, 300

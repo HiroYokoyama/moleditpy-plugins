@@ -1,3 +1,4 @@
+from hashlib import sha256
 import os
 import numpy as np
 from PyQt6.QtWidgets import (
@@ -27,6 +28,14 @@ from .worker import CalcWorker
 import logging
 
 
+def _file_digest(path):
+    digest = sha256()
+    with open(path, "rb") as source:
+        for chunk in iter(lambda: source.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 class OrbitalWidget(QWidget):
     def __init__(self, parent, context, fchk_path):
         super().__init__(parent)
@@ -36,6 +45,7 @@ class OrbitalWidget(QWidget):
 
         self.context = context
         self.fchk_path = fchk_path
+        self._source_digest = _file_digest(fchk_path)
         self.setWindowTitle(f"Gaussian MO Analyzer - {os.path.basename(fchk_path)}")
         self.resize(500, 600)
 
@@ -93,7 +103,8 @@ class OrbitalWidget(QWidget):
         form = QFormLayout(grp)
 
         self.spin_points = QSpinBox()
-        self.spin_points.setRange(10, 500)
+        self.spin_points.setRange(10, 125)
+        self.spin_points.setToolTip("Maximum 125 points per axis (two million scalar loading limit).")
         self.spin_points.setValue(40)
         self.spin_points.setSingleStep(5)
         form.addRow("Grid Points (x,y,z):", self.spin_points)
@@ -173,7 +184,8 @@ class OrbitalWidget(QWidget):
         # mo_idx is 1-based index
         base_dir = os.path.dirname(self.fchk_path)
         base_name = os.path.splitext(os.path.basename(self.fchk_path))[0]
-        out_dir = os.path.join(base_dir, f"{base_name}_cubes")
+        settings = f"{self._source_digest}_grid{self.spin_points.value()}_margin{self.spin_gap.value():.8g}"
+        out_dir = os.path.join(base_dir, f"{base_name}_cubes", settings)
         # Ensure dir exists? Maybe not here, only when writing.
         # But for checking existence, we need the path.
         out_name = f"{base_name}_MO{mo_idx}.cube"

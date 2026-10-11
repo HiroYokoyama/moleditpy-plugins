@@ -704,9 +704,24 @@ class _FakePT:
 
 class _FakeRDAtom:
     def __init__(self, num):
-        self.num = num
+        self.num = num.num if isinstance(num, _FakeRDAtom) else num
         self.props = {}
         self.aromatic = False
+
+    def GetAtomicNum(self):
+        return self.num
+
+    def SetAtomicNum(self, value):
+        self.num = value
+
+    def HasProp(self, key):
+        return key in self.props
+
+    def GetProp(self, key):
+        return self.props[key]
+
+    def ClearProp(self, key):
+        self.props.pop(key, None)
 
     def SetProp(self, key, val):
         self.props[key] = val
@@ -728,6 +743,9 @@ class _FakeRWMol:
 
     def AddBond(self, a, b, btype):
         self.bonds.append((a, b, btype))
+
+    def GetBondBetweenAtoms(self, a, b):
+        return MagicMock()
 
     def GetNumAtoms(self):
         return len(self.atoms)
@@ -797,6 +815,8 @@ def _apply_changes_fn(chem_ns):
         "apply_changes",
         extra_globals={
             "Chem": chem_ns,
+            "math": __import__("math"),
+            "_copy_properties": lambda source, target: None,
             "Point3D": _FakePoint3D,
             "QMessageBox": MagicMock(),
             "sanitize_or_clear_aromaticity": _sanitize_helper(chem_ns),
@@ -884,11 +904,17 @@ class TestXYZApplyChangesElementValidation:
         chem_ns = _make_chem_ns()
         fn = _apply_changes_fn(chem_ns)
         old_mol = SimpleNamespace(
+            GetNumAtoms=lambda: 2,
+            GetAtomWithIdx=lambda idx: _FakeRDAtom(6 if idx == 0 else 7),
             GetBonds=lambda: [
                 SimpleNamespace(
                     GetBeginAtomIdx=lambda: 0,
                     GetEndAtomIdx=lambda: 1,
                     GetBondType=lambda: "SINGLE",
+                    GetIsAromatic=lambda: False,
+                    GetIsConjugated=lambda: False,
+                    GetBondDir=lambda: 0,
+                    GetStereoAtoms=lambda: [],
                 )
             ]
         )
@@ -1198,7 +1224,7 @@ class _FakeDupRW:
 
 class _FakeDupRDAtom:
     def __init__(self, num):
-        self.num = num
+        self.num = num.num if isinstance(num, _FakeRDAtom) else num
         self.props = {}
 
     def SetFormalCharge(self, v):
@@ -1231,6 +1257,8 @@ def _duplicate_fn():
         "duplicate_atoms",
         extra_globals={
             "Chem": chem_ns,
+            "math": __import__("math"),
+            "_copy_properties": lambda source, target: None,
             "Point3D": _FakePoint3D,
             "QMessageBox": MagicMock(),
             "sanitize_or_clear_aromaticity": _sanitize_helper(chem_ns),

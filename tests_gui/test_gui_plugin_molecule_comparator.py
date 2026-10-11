@@ -452,6 +452,9 @@ class _WMol:
         self._conformers = conformers
         self._bonds = bonds
 
+    def GetAtomWithIdx(self, idx):
+        return self._atoms[idx]
+
     def GetAtoms(self):
         return list(self._atoms)
 
@@ -533,7 +536,7 @@ class TestAlignmentWorkerMCS:
         _real_rdkit_chem = pytest.importorskip("rdkit.Chem")
 
         monkeypatch.setattr(
-            _real_rdkit_chem,
+            _comparator,
             "rdFMCS",
             SimpleNamespace(
                 FindMCS=lambda mols, **kw: SimpleNamespace(
@@ -745,6 +748,7 @@ class TestRunAlignmentIntegration:
         w, _ctx = _make_comp()
         _add_mols(w, 2)
         w.progress_dialog = MagicMock()
+        w.progress_dialog.wasCanceled.return_value = False
         w.progress_dialog.wasCanceled.return_value = True
         w.update_progress(1, 2, "msg")
         w.progress_dialog.setValue.assert_not_called()
@@ -753,6 +757,7 @@ class TestRunAlignmentIntegration:
     def test_update_progress_updates_dialog(self, qapp):
         w, _ctx = _make_comp()
         w.progress_dialog = MagicMock()
+        w.progress_dialog.wasCanceled.return_value = False
         w.progress_dialog.wasCanceled.return_value = False
         w.update_progress(1, 5, "halfway")
         w.progress_dialog.setValue.assert_called_once_with(1)
@@ -1265,6 +1270,9 @@ class _VAtom:
 class _VMol:
     def __init__(self, atoms):
         self._atoms = list(atoms)
+
+    def GetAtomWithIdx(self, idx):
+        return self._atoms[idx]
 
     def GetAtoms(self):
         return list(self._atoms)
@@ -1951,6 +1959,7 @@ class TestAlignmentWorkerBondFreeFallback:
         w, ctx = _make_comp()
         _add_mols(w, 2)
         w.progress_dialog = MagicMock()
+        w.progress_dialog.wasCanceled.return_value = False
         w.on_alignment_finished(
             [{"index": 1, "mol": MagicMock(), "rms": 0.5, "fallback": "Atom IDs"}]
         )
@@ -1963,6 +1972,67 @@ class TestAlignmentWorkerBondFreeFallback:
         w, ctx = _make_comp()
         _add_mols(w, 2)
         w.progress_dialog = MagicMock()
+        w.progress_dialog.wasCanceled.return_value = False
         w.on_alignment_finished([{"index": 1, "mol": MagicMock(), "rms": -1.0}])
         message = ctx.show_status_message.call_args[0][0]
         assert "Atom IDs" in message
+
+
+class TestAlignmentSafety:
+    def test_close_requests_stop_and_keeps_running_worker_alive(self, qapp):
+        comp, ctx = _make_comp()
+        comp.worker = MagicMock()
+        comp.worker.isRunning.return_value = True
+        comp.show()
+        assert comp.close() is False
+        comp.worker.requestInterruption.assert_called_once()
+        assert comp.isVisible()
+        comp.worker.isRunning.return_value = False
+        comp.close()
+
+    def test_reentry_and_list_mutations_blocked_while_running(self, qapp):
+        comp, ctx = _make_comp()
+        _add_mols(comp, 2)
+        entries = list(comp.molecules)
+        worker = MagicMock()
+        worker.isRunning.return_value = True
+        comp.worker = worker
+        comp.run_alignment()
+        comp.remove_molecule()
+        comp.add_current_molecule()
+        comp.add_molecules_from_paths(['bad.xyz'])
+        assert comp.worker is worker
+        assert comp.molecules == entries
+        worker.isRunning.return_value = False
+        comp.close()
+
+    def test_stale_alignment_results_discarded(self, qapp):
+        comp, ctx = _make_comp()
+        _add_mols(comp, 2)
+        comp._alignment_entries = tuple(comp.molecules)
+        comp.molecules[1] = dict(comp.molecules[1])
+        original = comp.molecules[1]['mol']
+        comp.progress_dialog = MagicMock()
+        comp.progress_dialog.wasCanceled.return_value = False
+        comp.on_alignment_finished([dict(index=1, mol=object(), rms=1.0)])
+        assert comp.molecules[1]['mol'] is original
+        comp.close()
+
+    @pytest.mark.parametrize('coord', ['nan', 'inf', '-inf'])
+    def test_nonfinite_xyz_rejected(self, qapp, coord):
+        with pytest.raises(ValueError, match='finite'):
+            _comparator.parse_xyz_rows('1\ncomment\nC ' + coord + ' 0 0')
+        assert _comparator.parse_xyz_rows('0\ncomment\nC 0 0 0') == []
+
+    def test_csv_escapes_quotes_and_newlines(self, qapp, tmp_path, monkeypatch):
+        import csv
+        comp, ctx = _make_comp()
+        _add_mols(comp, 1)
+        comp.molecules[0]['name'] = 'quoted "name",\nnext'
+        target = tmp_path / 'results.csv'
+        monkeypatch.setattr(_comparator.QFileDialog, 'getSaveFileName', lambda *a: (str(target), ''))
+        comp.save_results_to_file()
+        with target.open(encoding='utf-8', newline='') as handle:
+            rows = list(csv.reader(handle))
+        assert rows[1][0] == comp.molecules[0]['name']
+        comp.close()

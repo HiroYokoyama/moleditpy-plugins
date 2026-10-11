@@ -182,7 +182,7 @@ def _source_has_class_attr(class_name: str, attr_name: str) -> bool:
 
 def test_worker_has_required_signals():
     """XtbWorker class must define the three worker signals at class level."""
-    for signal in ("log_message", "step_update", "finished"):
+    for signal in ("log_message", "step_update", "result_ready"):
         assert _source_has_class_attr("XtbWorker", signal), (
             f"XtbWorker is missing signal assignment: {signal}"
         )
@@ -361,7 +361,7 @@ def test_on_finished_success_calls_undo_checkpoint():
     """
     fn = extract_function(
         PLUGIN_PATH, "XtbOptimizerDialog", "_on_finished",
-        extra_globals={"PLUGIN_NAME": "xTB Optimizer", "logger": MagicMock()},
+        extra_globals={"PLUGIN_NAME": "xTB Optimizer", "logger": MagicMock(), "math": __import__("math")},
     )
     fake_conf = MagicMock()
     fake_mol = MagicMock()
@@ -393,7 +393,7 @@ def test_on_finished_success_sets_each_atom_position():
     """All positions from the worker payload must be applied to the conformer."""
     fn = extract_function(
         PLUGIN_PATH, "XtbOptimizerDialog", "_on_finished",
-        extra_globals={"PLUGIN_NAME": "xTB Optimizer", "logger": MagicMock()},
+        extra_globals={"PLUGIN_NAME": "xTB Optimizer", "logger": MagicMock(), "math": __import__("math")},
     )
 
     fake_conf = MagicMock()
@@ -568,7 +568,7 @@ class TestMoleculeSwapGuard:
             "_on_finished",
             extra_globals={
                 "PLUGIN_NAME": "xTB Optimizer",
-                "logger": MagicMock(),
+                "logger": MagicMock(), "math": __import__("math"), "GetPeriodicTable": MagicMock(),
                 "QMessageBox": MagicMock(),
             },
         )
@@ -623,7 +623,7 @@ class TestMissingHydrogenGuard:
             "_on_run",
             extra_globals={
                 "PLUGIN_NAME": "xTB Optimizer",
-                "logger": MagicMock(),
+                "logger": MagicMock(), "math": __import__("math"), "GetPeriodicTable": MagicMock(),
                 "QMessageBox": MagicMock(),
                 "QApplication": MagicMock(),
                 "XtbWorker": MagicMock(),
@@ -643,6 +643,8 @@ class TestMissingHydrogenGuard:
         self_mock = MagicMock()
         self_mock.context = MagicMock()
         self_mock.context.current_mol = mol
+        self_mock._worker = None
+        self_mock._worker_stopped = MagicMock()
         # _on_run does `from rdkit.Chem import GetPeriodicTable` inside a
         # try/except that swallows ImportError and returns early. Without
         # the mock context that import is real: it works locally but not

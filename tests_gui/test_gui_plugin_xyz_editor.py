@@ -1366,3 +1366,39 @@ class TestXYZRectanglePicked:
         assert {i.row() for i in w.table.selectedIndexes()} == {0}
         w.update_timer.stop()
         w.destroy()
+
+
+@pytest.mark.parametrize('value', ['nan', 'inf', '-inf'])
+def test_nonfinite_xyz_edit_preserves_molecule(qapp, value):
+    ctx = _real_ctx(mol=_real_mol())
+    win = _xyzrn.XYZEditorWindow(ctx)
+    before = ctx.current_molecule
+    win.table.blockSignals(True)
+    win.table.item(0, 2).setText(value)
+    win.table.blockSignals(False)
+    win.apply_changes()
+    assert ctx.current_molecule is before
+    ctx.push_undo_checkpoint.assert_not_called()
+    win.close()
+
+
+def test_coordinate_edit_preserves_chemical_properties(qapp):
+    mol = _Chem.AddHs(_Chem.MolFromSmiles('[13CH3][C@H](O)[NH3+]'))
+    conf = _Chem.Conformer(mol.GetNumAtoms())
+    for i in range(mol.GetNumAtoms()):
+        conf.SetAtomPosition(i, _Point3D(i, 0, 0))
+    mol.AddConformer(conf)
+    mol.SetProp('_Name', 'charged chiral isotope')
+    mol.SetIntProp('audit_number', 123)
+    mol.GetAtomWithIdx(0).SetProp('audit_note', 'kept')
+    mol.GetAtomWithIdx(0).SetAtomMapNum(7)
+    before = _Chem.MolToSmiles(mol)
+    ctx = _real_ctx(mol=mol)
+    win = _xyzrn.XYZEditorWindow(ctx)
+    win.apply_changes()
+    changed = ctx.current_molecule
+    assert _Chem.MolToSmiles(changed) == before
+    assert changed.GetAtomWithIdx(0).GetProp('audit_note') == 'kept'
+    assert changed.GetProp('_Name') == 'charged chiral isotope'
+    assert changed.GetIntProp('audit_number') == 123
+    win.close()
