@@ -619,7 +619,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Gaussian Freq Analyzer",
-    "version": "2026.09.24",
+    "version": "2026.10.13",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Analyzes vibrational frequencies from Gaussian FCHK files. View IR spectrum, animate normal modes, and export GIF animations.",
@@ -635,8 +635,8 @@
       "Pillow"
     ],
     "downloadUrl": "../plugins/Gaussian_Freq_Analyzer/gaussian_fchk_freq_analyzer.py",
-    "lastUpdated": "2026-09-24",
-    "sha256": "e54ee051f99aaed6263ddedbe27220d93477ac02402991c4bf76c14fcab32443",
+    "lastUpdated": "2026-10-13",
+    "sha256": "339fe2fce13f0e00d9e58968f917dd4d65908513b757ece6ce5d86815f77c2a0",
     "firstAppeared": "2025-12-20",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -651,7 +651,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "ORCA Freq Analyzer",
-    "version": "2026.09.24",
+    "version": "2026.10.13",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Analyzes vibrational frequencies from ORCA output files. View IR spectrum, animate normal modes, and export GIF animations.",
@@ -667,8 +667,8 @@
       "Pillow"
     ],
     "downloadUrl": "../plugins/ORCA_Freq_Analyzer/orca_out_freq_analyzer.py",
-    "lastUpdated": "2026-09-24",
-    "sha256": "6d170bc861bfc35a96a870c77bb92bdd8a816a8804fc94e3bc6a1e4a91223969",
+    "lastUpdated": "2026-10-13",
+    "sha256": "024152bd611f24c41ecd8cf45b44d77788441de5081dcbfe35ecc5aef42723dc",
     "firstAppeared": "2025-12-20",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

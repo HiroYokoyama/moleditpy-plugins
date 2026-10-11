@@ -1,4 +1,6 @@
 import os
+import re
+import math
 import numpy as np
 from PyQt6.QtWidgets import (
     QDialog,
@@ -29,7 +31,7 @@ try:
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, QPointF
 import logging
 
 # Try to import RDKit
@@ -41,7 +43,7 @@ except ImportError:
 
 PLUGIN_NAME = "ORCA Freq Analyzer"
 PLUGIN_DESCRIPTION = "Analyzes vibrational frequencies from ORCA output files. View IR spectrum, animate normal modes, and export GIF animations."
-PLUGIN_VERSION = "2026.09.24"
+PLUGIN_VERSION = "2026.10.13"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_CONTEXT = None
@@ -79,334 +81,118 @@ class OrcaParser:
         self.vib_modes = []  # list of list of (dx, dy, dz)
         self.charge = 0
         self.multiplicity = 1
+        self.final_modes = []
 
     def parse(self, filename):
+        self.__init__()
         self.filename = filename
-        self.atoms = []
-        self.coords = []
-        self.frequencies = []
-        self.vib_modes = []
-        self.charge = 0
-        self.multiplicity = 1
+        with open(filename, "r", encoding="utf-8", errors="strict") as source:
+            lines = source.readlines()
 
-        with open(filename, "r", encoding="utf-8", errors="replace") as f:
-            lines = f.readlines()
+        def number(token):
+            value = float(token.replace("D", "E").replace("d", "e"))
+            if not math.isfinite(value):
+                raise ValueError("ORCA frequency data contains nonfinite values")
+            return value
 
-        # 1. basic properties: charge, mult
-        # Look for "Total Charge           Charge          ....   0"
-        # OR In input block: "* xyz   0   1"
-        # scan lines
-
-        # 2. Geometry: Look for "CARTESIAN COORDINATES (ANGSTROEM)" or similar.
-        # Use the LAST occurrence to get optimized geometry.
-
-        coord_start_lines = []
-        freq_start_line = -1
-        modes_start_line = -1
-
-        for i, line in enumerate(lines):
-            line.strip()
-            if "CARTESIAN COORDINATES (ANGSTROEM)" in line:
-                coord_start_lines.append(i)
-            elif "CARTESIAN COORDINATES (A.U.)" in line:
-                pass  # ignore AU for now unless needed
-            elif "VIBRATIONAL FREQUENCIES" in line:
-                freq_start_line = i
-            elif "NORMAL MODES" in line:
-                modes_start_line = i
-            elif "Total Charge" in line and "Charge" in line:
-                # e.g. "Total Charge           Charge          ....   0"
-                parts = line.split()
-                try:
-                    self.charge = int(parts[-1])
-                except (IndexError, TypeError, ValueError) as _e:
-                    logging.warning("[orca_out_freq_analyzer.py:76] silenced: %s", _e)
+        freq_headers = [i for i, line in enumerate(lines) if "VIBRATIONAL FREQUENCIES" in line.upper()]
+        freq_start = freq_headers[-1] if freq_headers else -1
+        coord_headers = [i for i, line in enumerate(lines) if "CARTESIAN COORDINATES (ANGSTROEM)" in line.upper() and (freq_start < 0 or i < freq_start)]
+        for line in lines[:freq_start if freq_start >= 0 else len(lines)]:
+            if "Total Charge" in line and "Charge" in line:
+                self.charge = int(line.split()[-1])
             elif "Multiplicity" in line and "Mult" in line:
+                self.multiplicity = int(line.split()[-1])
+        if coord_headers:
+            started = False
+            for line in lines[coord_headers[-1] + 1:]:
                 parts = line.split()
-                try:
-                    self.multiplicity = int(parts[-1])
-                except (IndexError, TypeError, ValueError) as _e:
-                    logging.warning("[orca_out_freq_analyzer.py:81] silenced: %s", _e)
-
-        # Parse Geometry (Last one)
-        if coord_start_lines:
-            start = coord_start_lines[-1]
-            try:
-                # format:
-                # CARTESIAN COORDINATES (ANGSTROEM)
-                # ---------------------------------
-                #   O      0.000000    0.000000    0.000000
-                #   H      0.000000    0.759337    0.596043
-
-                # Check where data starts. Usually start+2
-                curr = start + 2
-                while curr < len(lines):
-                    l = lines[curr].strip()
-                    if not l:
-                        curr += 1
-                        # If multiple empty lines, maybe end
-                        if curr < len(lines) and not lines[curr].strip():
-                            break
-                        continue
-
-                    parts = l.split()
-                    if len(parts) >= 4:
-                        sym = parts[0]
-                        # Check if sym is element
-                        if not sym[0].isalpha():
-                            break  # End of block
-
-                        try:
-                            x = float(parts[1])
-                            y = float(parts[2])
-                            z = float(parts[3])
-
-                            # Valid atom
-                            # Convert Sym to atomic num? RDKit needs num or Valid symbol
-                            # We can keep symbol or convert
-                            # Let's keep symbol for now, convert to num for uniformity if needed
-                            # RDKit Atom(symbol) works
-                            self.atoms.append(sym)
-                            self.coords.append((x, y, z))
-                        except ValueError:
-                            pass
-                    else:
+                if not parts or set(line.strip()) == {"-"}:
+                    if started:
                         break
-                    curr += 1
-            except Exception as e:
-                logging.warning("Error parsing coords: %s", e)
-
-        # Parse Frequencies
-        # -----------------------
-        # VIBRATIONAL FREQUENCIES
-        # -----------------------
-        # ...
-        #    0:       0.00 cm**-1
-        #    6:    1709.03 cm**-1
-
-        if freq_start_line > 0:
-            curr = freq_start_line + 4  # skip header
-            while curr < len(lines):
-                l = lines[curr].strip()
-                if not l:
-                    curr += 1
                     continue
-                if "NORMAL MODES" in l:  # safe guard
+                if len(parts) != 4:
                     break
-                # Format: "   6:    1709.03 cm**-1"
-                if ":" in l and "cm**-1" in l:
-                    parts = l.split()
-                    # parts example: ['6:', '1709.03', 'cm**-1']
-                    # sometimes: '0:', '0.00', 'cm**-1'
-                    try:
-                        val_str = parts[1]
-                        val = float(val_str)
-                        if (
-                            val != 0.0
-                        ):  # Only non-zero? FCHK has all. User wants vibrations.
-                            # But let's verify if user wants 0 modes (translation/rotation). Usually not.
-                            # But keeping index alignment with Normal Modes is crucial.
-                            # ORCA Normal Modes output block usually includes all 3*N modes.
-                            pass
-                        self.frequencies.append(val)
-                    except (IndexError, TypeError, ValueError) as _e:
-                        logging.warning(
-                            "[orca_out_freq_analyzer.py:162] silenced: %s", _e
-                        )
-                elif "NORMAL MODES" in l or "-----" in l:
-                    if len(self.frequencies) > 0:  # If we parsed some, stop
-                        break
-                curr += 1
+                self.atoms.append(parts[0])
+                self.coords.append(tuple(number(value) for value in parts[1:]))
+                started = True
+        if freq_start < 0:
+            return
 
-        # Parse IR Spectrum for Intensities
-        # Store as a dictionary: mode_id -> intensity
-        intensity_map = {}  # {mode_idx: intensity}
-
-        ir_start = -1
-        for i, line in enumerate(lines):
-            if "IR SPECTRUM" in line:
-                ir_start = i  # Keep updating to get the LAST occurrence
-                # Don't break - continue to find last one
-
-        if ir_start > 0:
-            ir_col = _find_intensity_column(lines, ir_start, ("int", "t**2"), 3)
-            curr = ir_start + 6  # Skip headers and dashed line
-            # Expected format:
-            #  Mode   freq       eps      Int      T**2         TX        TY        TZ
-            #        cm**-1   L/(mol*cm) km/mol    a.u.
-            # ----------------------------------------------------------------------------
-            #   6:   1709.03   0.015725   79.47  0.002871  (-0.001018 -0.053574 -0.000000)
-
-            while curr < len(lines):
-                l = lines[curr].strip()
-                if not l:
-                    curr += 1
-                    continue
-                if "-----" in l or "The first frequency" in l or "*" in l:
+        # Keep tables attached to the last frequency calculation, as in the
+        # ORCA Result Analyzer; earlier jobs cannot supply missing intensities.
+        after = lines[freq_start + 1:]
+        freq_map = {}
+        for line in after:
+            if "NORMAL MODES" in line.upper() or "IR SPECTRUM" in line.upper():
+                break
+            match = re.match(r"\s*(\d+)\s*:\s*(\S+)\s+cm(?:\*\*)?-1", line)
+            if match:
+                mode_id = int(match.group(1))
+                if mode_id in freq_map:
+                    raise ValueError("Duplicate ORCA frequency mode ID")
+                freq_map[mode_id] = number(match.group(2))
+        self.frequencies = list(freq_map.values())
+        modes_headers = [i for i in range(freq_start + 1, len(lines)) if "NORMAL MODES" in lines[i].upper()]
+        ir_headers = [i for i in range(freq_start + 1, len(lines)) if "IR SPECTRUM" in lines[i].upper()]
+        intensity_map = {}
+        if ir_headers:
+            start = ir_headers[-1]
+            column = _find_intensity_column(lines, start, ("int", "t**2"), 3)
+            started = False
+            for line in lines[start + 1:]:
+                parts = line.split()
+                if parts and re.fullmatch(r"\d+:", parts[0]):
+                    if len(parts) <= column:
+                        raise ValueError("Incomplete ORCA IR row")
+                    intensity_map[int(parts[0][:-1])] = number(parts[column])
+                    started = True
+                elif started and (not parts or "-----" in line or "The first frequency" in line):
                     break
+        if not modes_headers or not self.atoms:
+            return
 
-                # line: "   6:   1709.03   0.015725   79.47  0.002871 ..."
-                if ":" in l:
-                    parts = l.split()
-                    # ORCA 5/6:  Mode freq eps Int T**2 (TX TY TZ)   -> col 3
-                    # ORCA 4:    Mode freq T**2 (TX TY TZ)           -> col 2
-                    # The column is located from the header rather than fixed
-                    # at 3: on ORCA 4 output parts[3] is "(" from the dipole
-                    # derivative group, float() raised, and the row was
-                    # silently dropped — every intensity came out missing.
-                    try:
-                        mode_id_str = parts[0].rstrip(":")
-                        mode_id = int(mode_id_str)
-                        if len(parts) > ir_col:
-                            inten = float(parts[ir_col])
-                            intensity_map[mode_id] = inten
-                    except (IndexError, TypeError, ValueError) as _e:
-                        logging.warning(
-                            "[orca_out_freq_analyzer.py:208] silenced: %s", _e
-                        )
+        n_coords = 3 * len(self.atoms)
+        mode_data = {}
+        curr = modes_headers[-1] + 1
+        while curr < len(lines):
+            text = lines[curr].strip()
+            if "IR SPECTRUM" in text or "RAMAN SPECTRUM" in text:
+                break
+            parts = text.split()
+            if not parts or not all(part.isdigit() for part in parts):
                 curr += 1
-
-        # Parse Normal Modes
-        # ------------
-        # NORMAL MODES
-        # ------------
-        # ...
-        #                   0          1          2          3          4          5
-        #       0       0.000000   0.000000   ...
-        # ...
-        #                   6          7          8
-        #       0       0.001345  -0.000914   0.069964
-
-        if modes_start_line > 0 and len(self.atoms) > 0:
-            # We need to reconstruct full vectors for each mode.
-            # ORCA output is blocked by columns (modes).
-            # Rows are atoms * 3 (X, Y, Z coordinates).
-
-            n_atoms = len(self.atoms)
-            n_coords = n_atoms * 3
-            # Initialize empty modes
-            # We don't know exactly how many modes total yet, but freq list gives a hint.
-            # Let's verify number of frequencies to initialize
-
-            # Since parsing columnar data is tricky line-by-line without knowing total columns,
-            # we will create a dictionary mode_index -> [vector]
-
-            mode_data = {}  # {mode_idx: [val0, val1, ...]}
-
-            curr = modes_start_line + 7  # skip headers (approx)
-            # Find first line of numbers
-            while curr < len(lines) and not lines[curr].strip():
+                continue
+            cols = [int(part) for part in parts]
+            if len(set(cols)) != len(cols) or any(mode in mode_data for mode in cols):
+                raise ValueError("Duplicate ORCA normal-mode column")
+            vectors = {mode: [] for mode in cols}
+            for row in range(n_coords):
                 curr += 1
+                if curr >= len(lines):
+                    raise ValueError("Incomplete ORCA normal-mode block")
+                fields = lines[curr].split()
+                if len(fields) != len(cols) + 1 or fields[0] != str(row):
+                    raise ValueError("ORCA normal-mode coordinate rows are incomplete or out of order")
+                for mode, value in zip(cols, fields[1:]):
+                    vectors[mode].append(number(value))
+            mode_data.update(vectors)
+            curr += 1
 
-            # Now we are at column headers: "                  0          1          2  ..."
-            while curr < len(lines):
-                header = lines[curr].strip()
-                if not header:
-                    curr += 1
-                    continue
-                if "IR SPECTRUM" in header or "--------" in header:
-                    break
-
-                # Parse column indices
-                try:
-                    cols = [int(c) for c in header.split()]
-                except ValueError:
-                    # Maybe not a header line, skip
-                    curr += 1
-                    continue
-
-                # Check next line: "      0       0.000000   0.000000 ..."
-                # This corresponds to coordinate index 0 (Atom 0, X)
-
-                start_data = curr + 1
-                # Read 3*N lines for coordinates
-                for row_idx in range(n_coords):
-                    if start_data + row_idx >= len(lines):
-                        break
-                    row_line = lines[start_data + row_idx].strip()
-                    row_parts = row_line.split()
-
-                    # First part is coordinate index (0, 1, 2...)
-                    # Remaining parts are values for the columns
-                    values = row_parts[1:]
-
-                    if len(values) != len(cols):
-                        # Mismatched data?
-                        continue
-
-                    for c_idx, val_str in enumerate(values):
-                        mode_idx = cols[c_idx]
-                        val = float(val_str)
-                        if mode_idx not in mode_data:
-                            mode_data[mode_idx] = []
-                        mode_data[mode_idx].append(val)
-
-                curr = start_data + n_coords
-
-            # Convert mode_data to self.vib_modes aligned with self.frequencies?
-            # Frequencies list has indices 0...N.
-            # We only care about modes that match frequencies we found.
-            # Note ORCA freq list usually filters out 0.00 translations if "VIBRATIONAL FREQUENCIES" is used,
-            # BUT the list index in freq block ("   6: ...") matches the mode index.
-
-            # Let's align them.
-            # `self.frequencies` is just a flat list of values found. We need pairs (index, freq).
-            # The freq parsing above was simplistic. Let's re-parse freq to get IDs.
-
-            # Re-scanning frequencies for ID mapping:
-            freq_map = {}  # id -> freq
-            if freq_start_line > 0:
-                curr = freq_start_line + 4
-                while curr < len(lines):
-                    l = lines[curr].strip()
-                    if ":" in l and "cm**-1" in l:
-                        parts = l.split(":")
-                        try:
-                            mid = int(parts[0].strip())
-                            freq_val = float(parts[1].split()[0])
-                            freq_map[mid] = freq_val
-                        except (IndexError, TypeError, ValueError) as _e:
-                            logging.warning(
-                                "[orca_out_freq_analyzer.py:310] silenced: %s", _e
-                            )
-                    if "NORMAL MODES" in l:
-                        break
-                    curr += 1
-
-            # Now build final list
-            sorted_mids = sorted(mode_data.keys())
-
-            # Only keep modes that have frequencies (or all?)
-            # Usually we only want non-zero modes (vibrations).
-            # ORCA often prints 0-5 as translations/rotations.
-
-            # Let's store pairs: (freq, vector)
-            # Filter: only if freq > 10.0 cm-1 (avoid translations)
-
-            self.final_modes = []  # item: {'freq': f, 'intensity': I, 'vector': [(x,y,z),...]}
-
-            for mid in sorted_mids:
-                freq = freq_map.get(mid, 0.0)
-                # Use abs() to preserve imaginary frequencies (negative values)
-                # Only exclude low-frequency modes (translations/rotations)
-                if abs(freq) < 10.0:
-                    continue
-
-                raw_vec = mode_data[mid]
-                if len(raw_vec) != n_coords:
-                    continue
-
-                # format to list of (dx,dy,dz)
-                vec_formatted = []
-                for k in range(0, len(raw_vec), 3):
-                    vec_formatted.append((raw_vec[k], raw_vec[k + 1], raw_vec[k + 2]))
-
-                # Get intensity for this mode from intensity_map
-                intensity = intensity_map.get(mid, None)
-
-                self.final_modes.append(
-                    {"freq": freq, "intensity": intensity, "vector": vec_formatted}
-                )
+        first_vibration = None
+        for line in after:
+            match = re.search(r"The first frequency considered to be a vibration is\s+(\d+)", line)
+            if match:
+                first_vibration = int(match.group(1))
+        if mode_data and any(mode not in mode_data and frequency != 0 for mode, frequency in freq_map.items()):
+            raise ValueError("ORCA frequency is missing its normal-mode vector")
+        for mode, vector in sorted(mode_data.items()):
+            if mode not in freq_map:
+                raise ValueError("ORCA normal mode has no matching frequency")
+            frequency = freq_map[mode]
+            if (first_vibration is not None and mode < first_vibration) or frequency == 0:
+                continue
+            self.final_modes.append(dict(freq=frequency, intensity=intensity_map.get(mode), vector=[tuple(vector[i:i + 3]) for i in range(0, n_coords, 3)]))
 
 
 class OrcaOutFreqAnalyzer(QWidget):
@@ -418,8 +204,12 @@ class OrcaOutFreqAnalyzer(QWidget):
 
         self.parser = None
         self.base_mol = None
-        self.timer = QTimer()
+        self._bound_mol = None
+        self.timer = QTimer(self)
         self.timer.timeout.connect(self.animate_frame)
+        self._structure_watch_timer = QTimer(self)
+        self._structure_watch_timer.setInterval(250)
+        self._structure_watch_timer.timeout.connect(self._check_structure_still_bound)
         self.animation_step = 0
         self.is_playing = False
         self.vector_actor = None
@@ -616,9 +406,13 @@ class OrcaOutFreqAnalyzer(QWidget):
             )
             return
 
-        self.parser = OrcaParser()
+        candidate = OrcaParser()
         try:
-            self.parser.parse(filename)
+            candidate.parse(filename)
+            self.stop_play()
+            self.remove_vectors()
+            self.parser = candidate
+            self.animation_step = 0
             self.update_ui_after_load()
             self.lbl_info.setText(os.path.basename(filename))
             self.lbl_info.setStyleSheet(
@@ -628,7 +422,7 @@ class OrcaOutFreqAnalyzer(QWidget):
             # Reset SF if needed? Or keep user setting?
             # self.spin_sf.setValue(1.0)
 
-        except (RuntimeError, AttributeError) as e:
+        except (OSError, ValueError, RuntimeError, AttributeError) as e:
             logging.exception("Failed to parse Output: %s", e)
             QMessageBox.critical(self, "Error", f"Failed to parse Output:\n{e}")
 
@@ -756,7 +550,28 @@ class OrcaOutFreqAnalyzer(QWidget):
         interval = 1000 / fps
         self.timer.setInterval(int(interval))
 
+    def _check_structure_still_bound(self):
+        if self._bound_mol is None:
+            return True
+        if PLUGIN_CONTEXT.current_molecule is self._bound_mol:
+            return True
+        self.timer.stop()
+        self._structure_watch_timer.stop()
+        self.is_playing = False
+        self.btn_play.setText("Play")
+        self.remove_vectors()
+        self.base_mol = None
+        self._bound_mol = None
+        return False
+
+    def closeEvent(self, event):
+        self.close_plugin()
+        self._structure_watch_timer.stop()
+        super().closeEvent(event)
+
     def reset_geometry(self):
+        if not self._check_structure_still_bound():
+            return
         if not self.base_mol or not self.parser:
             return
         conf = self.base_mol.GetConformer()
@@ -769,6 +584,8 @@ class OrcaOutFreqAnalyzer(QWidget):
         PLUGIN_CONTEXT.plotter.render()
 
     def animate_frame(self):
+        if not self._check_structure_still_bound():
+            return
         if not self.parser or not self.base_mol:
             self.stop_play()
             return
@@ -816,6 +633,8 @@ class OrcaOutFreqAnalyzer(QWidget):
         self.vector_actor = None
 
     def update_vectors(self, mode_vecs=None, scale_factor=0.0):
+        if not self._check_structure_still_bound():
+            return
         # Clean up existing vectors
         self.remove_vectors()
 
@@ -1011,10 +830,14 @@ class OrcaOutFreqAnalyzer(QWidget):
                 self.toggle_play()
 
     def on_dock_visibility_changed(self, visible):
-        if not visible and self.is_playing:
-            self.stop_play()
+        if not visible:
+            self.close_plugin()
+        elif self._bound_mol is not None:
+            self._structure_watch_timer.start()
+            self.update_vectors()
 
     def close_plugin(self):
+        self._structure_watch_timer.stop()
         self.stop_play()
         self.remove_vectors()
         self.animation_step = 0
@@ -1035,8 +858,14 @@ class OrcaOutFreqAnalyzer(QWidget):
         sf = self.spin_sf.value()
 
         for mode in self.parser.final_modes:
+            if mode.get("intensity") is None:
+                continue
             freqs.append(mode["freq"] * sf)
             intensities.append(mode.get("intensity", 0.0))
+
+        if not freqs:
+            QMessageBox.warning(self, "No IR Data", "No IR intensities are available for these modes.")
+            return
 
         dlg = SpectrumDialog(
             freqs,
@@ -1312,8 +1141,6 @@ class SpectrumPlotWidget(QWidget):
             path_points.append((sx, sy))
 
         if len(path_points) > 1:
-            from PyQt6.QtCore import QPointF
-
             qpoints = [QPointF(x, y) for x, y in path_points]
             painter.drawPolyline(qpoints)
 
