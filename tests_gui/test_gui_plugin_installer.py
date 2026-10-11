@@ -1663,8 +1663,9 @@ class TestCheckUpdates:
         with patch.object(_plugin_installer, "_FetchWorker"):
             bare_installer.check_updates()
 
-        stale.quit.assert_called_once()
-        stale.wait.assert_called_once()
+        stale.quit.assert_not_called()
+        stale.wait.assert_not_called()
+        assert bare_installer._fetch_worker is stale
 
 
 class TestCloseEventWorker:
@@ -2024,3 +2025,60 @@ class TestDisabledPluginsInTable:
         texts = [w.text() for w in d.findChildren(QLabel)]
         assert not any("Disabled" in t for t in texts)
         d.destroy()
+
+
+@pytest.mark.parametrize('kind', ['size', 'count', 'path', 'symlink'])
+def test_archive_rejected_before_extraction(tmp_path, monkeypatch, kind):
+    import zipfile
+    from unittest.mock import MagicMock
+    member = zipfile.ZipInfo('plugin.py')
+    member.file_size = 1
+    if kind == 'size':
+        member.file_size = _plugin_installer.MAX_ARCHIVE_BYTES + 1
+    elif kind == 'count':
+        monkeypatch.setattr(_plugin_installer, 'MAX_ARCHIVE_MEMBERS', 0)
+    elif kind == 'path':
+        member.filename = '../outside.py'
+    else:
+        member.external_attr = 0o120777 << 16
+    archive = MagicMock()
+    archive.infolist.return_value = [member]
+    with pytest.raises(ValueError):
+        _plugin_installer._validate_plugin_archive(archive, str(tmp_path))
+    archive.extract.assert_not_called()
+
+
+def test_oversized_download_rejected_before_write(bare_installer, tmp_path, monkeypatch):
+    from unittest.mock import MagicMock
+    response = _FakeResponse(b'data')
+    response.headers = {'Content-Length': str(_plugin_installer.MAX_DOWNLOAD_BYTES + 1)}
+    monkeypatch.setattr(_plugin_installer.urllib.request, 'urlopen', lambda *a, **k: response)
+    monkeypatch.setattr(_plugin_installer.QMessageBox, 'warning', MagicMock())
+    target = tmp_path / 'download'
+    assert bare_installer._download_chunked('https://example.com/plugin.py', str(target)) is False
+    assert not target.exists()
+
+
+def test_fetch_close_wait_timeout_preserves_worker(bare_installer, qapp):
+    from PyQt6.QtCore import QObject, pyqtSignal
+    from unittest.mock import MagicMock
+    class Worker(QObject):
+        finished = pyqtSignal()
+        done = pyqtSignal(str, list)
+        def __init__(self):
+            super().__init__()
+            self.running = True
+            self.quit = MagicMock()
+            self.wait = MagicMock(return_value=False)
+        def isRunning(self):
+            return self.running
+    worker = Worker()
+    bare_installer._fetch_worker = worker
+    bare_installer.show()
+    bare_installer.reject()
+    assert bare_installer.isVisible()
+    assert bare_installer._fetch_worker is worker
+    worker.running = False
+    worker.finished.emit()
+    assert not bare_installer.isVisible()
+    assert bare_installer._fetch_worker is None
