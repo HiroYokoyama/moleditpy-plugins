@@ -312,11 +312,14 @@ class TestRunEntryPoint:
 def _launch_freq_fn():
     globs = {
         "load_module_from_path": lambda name, path: SimpleNamespace(
+            FCHKParser=MagicMock(),
             GaussianFCHKFreqAnalyzer=lambda context, dock_widget: SimpleNamespace(
-                load_file=MagicMock()
+                load_file=MagicMock(), on_dock_visibility_changed=MagicMock()
             )
         ),
-        "QDockWidget": lambda title, mw: SimpleNamespace(
+        "AnalyzerDock": lambda title, mw: SimpleNamespace(
+            visibilityChanged=SimpleNamespace(connect=MagicMock()),
+            close=MagicMock(), deleteLater=MagicMock(),
             setAllowedAreas=MagicMock(),
             setAttribute=MagicMock(),
             setWidget=MagicMock(),
@@ -382,7 +385,7 @@ class TestLaunchFreq:
         self_ = _make_dialog_self()
         fn(self_)
         self_.btn_freq.setEnabled.assert_called_with(True)
-        self_.btn_mo.setEnabled.assert_called_with(True)
+        self_.btn_mo.setEnabled.assert_called_with(False)
         globs["QMessageBox"].critical.assert_called_once()
         self_.accept.assert_not_called()
 
@@ -399,23 +402,69 @@ class TestCloseExistingAnalyzers:
         fn = _close_existing_analyzers_fn()
         freq_dock = SimpleNamespace(
             windowTitle=lambda: "Gaussian Freq Analyzer",
-            close=MagicMock(),
+            widget=lambda: None, close=MagicMock(return_value=True),
             deleteLater=MagicMock(),
         )
         mo_dock = SimpleNamespace(
             windowTitle=lambda: "Gaussian MO Analyzer",
-            close=MagicMock(),
+            widget=lambda: None, close=MagicMock(return_value=True),
             deleteLater=MagicMock(),
         )
         other_dock = SimpleNamespace(
             windowTitle=lambda: "Something Else",
-            close=MagicMock(),
+            widget=lambda: None, close=MagicMock(return_value=True),
             deleteLater=MagicMock(),
         )
         docks = [freq_dock, mo_dock, other_dock]
-        mw = SimpleNamespace(findChildren=lambda cls: docks)
+        mw = SimpleNamespace(findChildren=lambda cls: docks, removeDockWidget=MagicMock())
         self_ = SimpleNamespace(mw=mw)
         fn(self_)
         freq_dock.close.assert_called_once()
         mo_dock.close.assert_called_once()
         other_dock.close.assert_not_called()
+
+
+def test_discovery_skips_archived_analyzers(tmp_path):
+    archived = tmp_path / "_old" / "nested"
+    archived.mkdir(parents=True)
+    (archived / "gaussian_fchk_freq_analyzer.py").write_text("archived")
+    with mock_optional_imports():
+        mod = load_plugin(FCHK_LOADER_PATH)
+    assert mod.find_file_recursive(tmp_path, "gaussian_fchk_freq_analyzer.py") is None
+    package = archived / "gaussian_fchk_mo_analyzer"
+    package.mkdir()
+    (package / "__init__.py").write_text("")
+    assert mod.find_mo_analyzer_module(tmp_path) is None
+
+
+def test_exact_package_loading_does_not_modify_search_path(tmp_path):
+    import sys
+    with mock_optional_imports():
+        mod = load_plugin(FCHK_LOADER_PATH)
+    package = tmp_path / "package"
+    package.mkdir()
+    (package / "helper.py").write_text("VALUE = 42")
+    (package / "__init__.py").write_text("from .helper import VALUE")
+    old_path = list(sys.path)
+    name = "_fchk_audit_package"
+    try:
+        loaded = mod.load_module_from_path(name, str(package / "__init__.py"))
+        assert loaded.VALUE == 42
+        assert sys.path == old_path
+    finally:
+        for key in list(sys.modules):
+            if key == name or key.startswith(name + "."):
+                del sys.modules[key]
+
+
+def test_failed_import_restores_previous_module(tmp_path, monkeypatch):
+    import sys
+    import types
+    with mock_optional_imports():
+        mod = load_plugin(FCHK_LOADER_PATH)
+    previous = types.ModuleType("_fchk_audit_failed")
+    monkeypatch.setitem(sys.modules, previous.__name__, previous)
+    path = tmp_path / "failure.py"
+    path.write_text("raise RuntimeError('failure')")
+    assert mod.load_module_from_path(previous.__name__, str(path)) is None
+    assert sys.modules[previous.__name__] is previous
