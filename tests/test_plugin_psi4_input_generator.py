@@ -13,6 +13,7 @@ import ast
 import json
 import logging
 import os
+import re
 import textwrap
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -50,7 +51,7 @@ def _extract_method_as_fn(
                     func_src = ast.get_source_segment(source, item)
                     if func_src:
                         local_ns: dict = {}
-                        globs = {"logging": logging, "os": os, "json": json}
+                        globs = {"logging": logging, "os": os, "json": json, "re": re}
                         globs.update(extra_globals or {})
                         exec(textwrap.dedent(func_src), globs, local_ns)
                         return local_ns[method_name]
@@ -201,12 +202,28 @@ class TestPsi4GenerateContent:
         assert "memory 8 GB" in content
         assert "set_num_threads(16)" in content
 
+    @pytest.mark.parametrize("reference", ["rhf", "rks"])
+    def test_closed_shell_reference_rejected_for_open_shell(self, reference):
+        with pytest.raises(ValueError, match="Open-shell"):
+            _psi4_generate(_psi4_self(reference=reference, mult=2))
+
+    @pytest.mark.parametrize("method", ["scf", "mp2", "ccsd(t)"])
+    def test_wavefunction_method_rejects_ks_reference(self, method):
+        with pytest.raises(ValueError, match="HF reference"):
+            _psi4_generate(_psi4_self(method=method, reference="rks"))
+
+    def test_output_filename_is_a_valid_python_string(self):
+        name = "O'Brien (test)" + chr(92) + "run"
+        content = _psi4_generate(_psi4_self(), filename_hint=name)
+        call = ast.parse(content.splitlines()[2]).body[0].value
+        assert ast.literal_eval(call.args[0]) == name + ".out"
+
     def test_output_file_uses_hint(self):
         content = _psi4_generate(_psi4_self(), filename_hint="run01")
         assert "psi4.core.set_output_file('run01.out', False)" in content
 
     def test_molecule_block_charge_mult(self):
-        content = _psi4_generate(_psi4_self(charge=1, mult=2, mol=water_mol()))
+        content = _psi4_generate(_psi4_self(charge=1, mult=2, reference="uks", mol=water_mol()))
         lines = content.split("\n")
         mol_idx = lines.index("molecule {")
         assert lines[mol_idx + 1] == "1 2"
@@ -219,7 +236,7 @@ class TestPsi4GenerateContent:
         assert "  reference uhf" in content
 
     def test_task_line_last(self):
-        content = _psi4_generate(_psi4_self(task="optimize", method="mp2"))
+        content = _psi4_generate(_psi4_self(task="optimize", method="mp2", reference="rhf"))
         assert content.split("\n")[-1] == "optimize('mp2')"
 
 
@@ -272,6 +289,7 @@ class TestPsi4SaveFile:
         )
         self = MagicMock()
         self.filename = None
+        self._generation_error = None
         self.preview_text = FakeText(content)
         fn(self)
         return target.read_text(encoding="utf-8")
@@ -281,6 +299,14 @@ class TestPsi4SaveFile:
         saved = self._save(tmp_path, content, "benzene_sp.dat")
         assert "psi4.core.set_output_file('benzene_sp.out', False)" in saved
         assert "[filename]" not in saved
+
+    def test_save_rewrites_parentheses_and_quotes_in_filename(self, tmp_path):
+        name = "O'Brien (test)"
+        content = _psi4_generate(_psi4_self(), filename_hint="old (file)")
+        saved = self._save(tmp_path, content, name + ".dat")
+        call = ast.parse(saved.splitlines()[2]).body[0].value
+        assert ast.literal_eval(call.args[0]) == name + ".out"
+        assert saved.splitlines()[-1] == "energy('b3lyp')"
 
     def test_missing_output_line_prepended(self, tmp_path):
         saved = self._save(tmp_path, "molecule { 0 1 }", "abc.dat")

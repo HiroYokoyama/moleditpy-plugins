@@ -1045,7 +1045,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Psi4 Input Generator",
-    "version": "2026.09.24",
+    "version": "2026.10.12",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates input files for Psi4 quantum chemistry calculations.",
@@ -1058,8 +1058,8 @@
       "PyQt6"
     ],
     "downloadUrl": "../plugins/Psi4_Input_Generator/psi4_input_generator.py",
-    "lastUpdated": "2026-09-24",
-    "sha256": "7cbdaea14c4b1b81a9766b21da18de6268a885028e2034de80c089fc02c45ca7",
+    "lastUpdated": "2026-10-12",
+    "sha256": "78e02baa760def3ebd1216f3c26c573fd0f9575b6d9a7ca217de36e6f098794b",
     "firstAppeared": "2026-01-03",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

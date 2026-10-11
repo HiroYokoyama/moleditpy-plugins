@@ -50,3 +50,14 @@ and TCE explicitly selects CCSD. Correlation-consistent and def2 bases use
 spherical functions. CCSD derivatives and meta-GGA frequencies request numerical
 differentiation. Invalid start names block saving; titles cannot inject lines.
 43 logic tests and 39 Qt tests passed. No NWChem executable is installed.
+
+## Psi4
+
+Sources: [SCF references](https://psicode.org/psi4manual/master/scf.html),
+[DFT methods](https://psicode.org/psi4manual/master/dft.html).
+
+Existing functional names are preserved. Closed-shell references cannot be used
+for open-shell jobs, and HF/correlation jobs reject KS references. Output names
+are Python string literals; saving replaces the complete output-setting line,
+including names with quotes or parentheses. Imports are at module scope and
+files use LF. 37 logic tests and 25 Qt tests passed. Psi4 is not installed.

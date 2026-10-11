@@ -177,6 +177,17 @@ class TestPsi4SaveFile:
         assert saved.startswith("psi4.core.set_output_file('bare.out', False)")
         assert "energy('scf')" in saved
 
+    def test_invalid_reference_blocks_save_and_recovers(self, dlg, monkeypatch):
+        dlg.mult_spin.setValue(2)
+        dlg.ref_combo.setCurrentText("rks")
+        assert dlg._generation_error
+        warnings = []
+        monkeypatch.setattr(_psi4.QMessageBox, "warning", lambda *args: warnings.append(args))
+        dlg.save_file()
+        assert len(warnings) == 1
+        dlg.ref_combo.setCurrentText("uks")
+        assert dlg._generation_error is None
+
     def test_save_cancelled_writes_nothing(self, dlg, monkeypatch, tmp_path):
         monkeypatch.setattr(
             _psi4.QFileDialog,
