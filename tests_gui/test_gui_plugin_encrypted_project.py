@@ -23,6 +23,12 @@ with mock_chemistry_imports():
     _enc = load_plugin_for_gui(ENC_PATH)
 
 
+class _InvalidToken(Exception):
+    pass
+
+_enc.InvalidToken = _InvalidToken
+
+
 # ===========================================================================
 # PmeencPlugin  (Encrypted Project)
 # ===========================================================================
@@ -130,9 +136,7 @@ class TestPmeencPlugin:
         plugin, _ = _enc_plugin()
         calls = []
 
-        def original(*args):
-            if args:
-                raise TypeError("no args expected")
+        def original():
             calls.append("bare")
 
         plugin._original_clear_all = original
@@ -311,7 +315,7 @@ class TestPmeencExportImportFlow:
             _enc, "Fernet"
         ) as fernet_cls:
             fernet_obj = MagicMock()
-            fernet_obj.decrypt.side_effect = [Exception("bad"), json.dumps({"b": 2}).encode()]
+            fernet_obj.decrypt.side_effect = [_enc.InvalidToken(), json.dumps({"b": 2}).encode()]
             fernet_cls.return_value = fernet_obj
             plugin.on_import(str(target))
         warn.assert_called_once()
@@ -329,3 +333,64 @@ class TestPmeencExportImportFlow:
             with pytest.raises(RuntimeError, match="kaboom"):
                 plugin.on_import(str(target))
         crit.assert_called_once()
+
+
+class TestEncryptedSafety:
+    def test_failed_atomic_replace_preserves_project(self, qapp, tmp_path, monkeypatch):
+        target = tmp_path / 'existing.pmeenc'
+        target.write_bytes(b'original')
+        plugin, ctx = _enc_plugin()
+        plugin.current_key = b'key'
+        plugin.current_salt = b'S' * 16
+        plugin.mw.init_manager.current_file_path = str(target)
+        plugin.mw.state_manager.create_json_data.return_value = {'atoms': []}
+        cipher = MagicMock()
+        cipher.encrypt.return_value = b'ciphertext'
+        monkeypatch.setattr(_enc, 'Fernet', lambda key: cipher)
+        monkeypatch.setattr(_enc.os, 'replace', MagicMock(side_effect=OSError('disk failure')))
+        monkeypatch.setattr(_enc.QMessageBox, 'critical', MagicMock())
+        plugin.export_encrypted(str(target))
+        assert target.read_bytes() == b'original'
+        assert list(tmp_path.iterdir()) == [target]
+        assert plugin.current_key == b'key'
+        ctx.refresh_ui.assert_not_called()
+
+    @pytest.mark.parametrize('payload', [b'', b'S' * 15, b'S' * 16])
+    def test_truncated_project_never_changes_document(self, qapp, tmp_path, monkeypatch, payload):
+        target = tmp_path / 'broken.pmeenc'
+        target.write_bytes(payload)
+        plugin, ctx = _enc_plugin()
+        monkeypatch.setattr(_enc.QInputDialog, 'getText', lambda *a: ('pw', True))
+        monkeypatch.setattr(_enc.QMessageBox, 'critical', MagicMock())
+        plugin.derive_key = MagicMock()
+        with pytest.raises(ValueError, match='truncated'):
+            plugin.on_import(str(target))
+        plugin.derive_key.assert_not_called()
+        plugin.mw.state_manager.load_from_json_data.assert_not_called()
+
+    def test_internal_typeerror_is_not_retried(self, qapp):
+        plugin, _ = _enc_plugin()
+        original = MagicMock(side_effect=TypeError('internal bug'))
+        plugin._original_clear_all = original
+        with pytest.raises(TypeError, match='internal bug'):
+            plugin._patched_clear_all(plugin.mw, True)
+        original.assert_called_once_with(True)
+
+    def test_real_encryption_roundtrip(self, qapp, tmp_path, monkeypatch):
+        from cryptography.fernet import Fernet, InvalidToken
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+        for name, value in dict(Fernet=Fernet, InvalidToken=InvalidToken, hashes=hashes, PBKDF2HMAC=PBKDF2HMAC).items():
+            monkeypatch.setattr(_enc, name, value)
+        plugin, ctx = _enc_plugin()
+        plugin._apply_patches = MagicMock()
+        plugin.mw.init_manager.current_file_path = None
+        payload = {'atoms': [{'element': 'C'}], 'title': '水'}
+        plugin.mw.state_manager.create_json_data.return_value = payload
+        monkeypatch.setattr(_enc.QInputDialog, 'getText', lambda *a: ('password', True))
+        target = tmp_path / 'roundtrip.pmeenc'
+        plugin.export_encrypted(str(target))
+        assert b'element' not in target.read_bytes()
+        plugin.on_document_reset()
+        plugin.on_import(str(target))
+        plugin.mw.state_manager.load_from_json_data.assert_called_once_with(payload)
