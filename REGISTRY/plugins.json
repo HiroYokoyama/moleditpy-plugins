@@ -2365,21 +2365,22 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Job Manager",
-    "version": "2.5.3",
+    "version": "2.6.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_job_manager",
-    "description": "Submit calculations to remote HPC clusters over SSH, track queue status, and fetch results back into MoleditPy. Ready-made command lines for ORCA, Gaussian, CP2K, GAMESS, MOPAC, NWChem, Psi4, PySCF, Quantum ESPRESSO, VASP and xTB; job lists export to CSV or .pmejbs and reopen by drag and drop. Runs on this machine too, with no SSH; chains jobs with each scheduler's own dependency flag; and can hold a job until a chosen time. Installing paramiko adds a backend that keeps one SSH session open and can log in with a password.",
+    "description": "Submit calculations to remote HPC clusters over SSH, track queue status, and fetch results back into MoleditPy. Ready-made command lines for ORCA, Gaussian, CP2K, GAMESS, MOPAC, NWChem, Psi4, PySCF, Quantum ESPRESSO, VASP and xTB; job lists export to CSV or .pmejbs and reopen by drag and drop. Runs on this machine too, with no SSH; chains jobs with each scheduler's own dependency flag; and can hold a job until a chosen time. Installing paramiko adds a backend that keeps one SSH session open and can log in with a password. Optional cryptography adds authenticated Job Server destinations on localhost, private LANs or Tailscale.",
     "tags": [
       "Utility"
     ],
     "dependencies": [],
     "optional_dependencies": [
-      "paramiko"
+      "paramiko",
+      "cryptography"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_job_manager/releases/download/v2.5.3/job_manager_2.5.3.zip",
-    "lastUpdated": "2026-10-11",
-    "sha256": "09f4c81aca98374222516acfbf03a214becac94924b70a2ad75cd945f9f4ad78",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_job_manager/releases/download/v2.6.0/job_manager_2.6.0.zip",
+    "lastUpdated": "2026-10-13",
+    "sha256": "cea9cd277cc9f292777385d81d5c5793d69eb5f63d8eff8642c1bf4faa45ab6e",
     "firstAppeared": "2026-08-06",
     "supported_os": [
       "Windows",
