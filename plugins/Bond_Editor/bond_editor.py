@@ -23,7 +23,7 @@ from functools import partial
 
 
 PLUGIN_NAME = "Bond Editor"
-PLUGIN_VERSION = "2026.10.13"
+PLUGIN_VERSION = "2026.10.16"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -39,6 +39,9 @@ INTERACTIVE_MODE_COLOR = "#d9f7e5"
 INTERACTIVE_MODE_CHECKED_COLOR = "#8ce99a"
 INTERACTIVE_MODE_PRESSED_COLOR = "#69db7c"
 SELECTED_BOND_COLOR = "#ff9f1c"
+BOND_PREVIEW_COLOR = "#74c0fc"
+BOND_PREVIEW_DASH = 0.18
+BOND_PREVIEW_GAP = 0.12
 
 
 def bond_type_from_label(label):
@@ -113,11 +116,23 @@ class _ClickFilter(QObject):
     the VTK interactor so the camera can still rotate normally.
     """
 
-    def __init__(self, callback, parent=None, drag_callback=None, press_callback=None):
+    def __init__(
+        self,
+        callback,
+        parent=None,
+        drag_callback=None,
+        press_callback=None,
+        move_callback=None,
+        hover_callback=None,
+    ):
         super().__init__(parent)
         self._callback = callback
         self._drag_callback = drag_callback
         self._press_callback = press_callback
+        # move: the pointer moves during a claimed gesture; hover: it moves
+        # with no button held (the VTK interactor has mouse tracking on).
+        self._move_callback = move_callback
+        self._hover_callback = hover_callback
         self._press_pos = None
         self._press_button = None
         self._consume_gesture = False
@@ -144,8 +159,15 @@ class _ClickFilter(QObject):
                 else False
             )
             return self._consume_gesture
-        if t == QEvent.Type.MouseMove and self._press_pos is not None:
-            return self._consume_gesture
+        if t == QEvent.Type.MouseMove:
+            pos = event.position().toPoint()
+            if self._press_pos is not None:
+                if self._consume_gesture and self._move_callback is not None:
+                    self._move_callback(pos.x(), pos.y(), obj)
+                return self._consume_gesture
+            if self._hover_callback is not None:
+                self._hover_callback(pos.x(), pos.y(), obj)
+            return False
         if t == QEvent.Type.MouseButtonRelease and self._press_pos is not None:
             rel = event.position().toPoint()
             dx = rel.x() - self._press_pos.x()
@@ -189,6 +211,7 @@ class BondEditorWindow(QWidget):
         self._drag_start_atom = None
         self._first_pick_idx = None
         self._picked_atoms = {}
+        self._preview_shown = False
         self.init_ui()
 
         self.context.register_window("main_panel", self)
@@ -314,6 +337,8 @@ class BondEditorWindow(QWidget):
                 parent=self,
                 drag_callback=self._on_plotter_drag,
                 press_callback=self._on_plotter_press,
+                move_callback=self._on_plotter_move,
+                hover_callback=self._on_plotter_hover,
             )
             interactor.installEventFilter(self._click_filter)
         except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
@@ -336,6 +361,7 @@ class BondEditorWindow(QWidget):
         # Every gesture starts clean: a start atom left over from an earlier
         # click would turn the next camera drag into a bond.
         self._drag_start_atom = None
+        self._clear_bond_preview()
         if not self._interactive_mode:
             return False
         picked = self._interactive_pick(x, y, widget)
@@ -353,6 +379,10 @@ class BondEditorWindow(QWidget):
     ):
         try:
             if self._interactive_mode:
+                # A press on an atom that wobbled a few pixels may have drawn
+                # a preview, but it is still a click, not a bond drag.
+                self._drag_start_atom = None
+                self._clear_bond_preview()
                 self._interactive_click(x, y, widget, button)
                 return
             import vtk
@@ -419,6 +449,7 @@ class BondEditorWindow(QWidget):
         # A half-finished "Create bond" pick has no meaning in interactive mode.
         self._first_pick_idx = None
         self._picked_atoms = {}
+        self._clear_bond_preview()
         self._update_mode_overlay()
         self._update_picked_atom_labels()
         self.context.show_status_message(
@@ -560,10 +591,126 @@ class BondEditorWindow(QWidget):
         picked = self._interactive_pick(x, y, widget)
         start = self._drag_start_atom
         self._drag_start_atom = None
+        self._clear_bond_preview()
         if picked is not None:
             end = picked[2]
             if end is not None and end != start:
                 self.add_bond(start, end)
+
+    # ------------------------------------------------------------------
+    # bond-creation preview (light blue dashed line to the pointer)
+    # ------------------------------------------------------------------
+
+    def _on_plotter_move(self, x, y, widget):
+        """Interactive mode: follow the pointer while dragging from an atom."""
+        if self._interactive_mode and self._drag_start_atom is not None:
+            self._update_bond_preview(self._drag_start_atom, x, y, widget)
+
+    def _on_plotter_hover(self, x, y, widget):
+        """Create-bond mode: follow the pointer once the first atom is picked."""
+        if (
+            not self._interactive_mode
+            and self._first_pick_idx is not None
+            and self.click_mode_combo.currentText() == "Create bond"
+        ):
+            self._update_bond_preview(self._first_pick_idx, x, y, widget)
+
+    def _update_bond_preview(self, start, x, y, widget):
+        """Draw the dashed preview from atom *start* to the pointer.
+
+        Over another atom the line snaps to that atom's centre, using the same
+        pick the release/click will act on, so a snapped line means a bond.
+        Otherwise it ends at the pointer, placed at the start atom's depth.
+        """
+        try:
+            mol = self.context.current_mol
+            if not mol or not mol.GetNumConformers():
+                return
+            if not 0 <= start < mol.GetNumAtoms():
+                return
+            conf = mol.GetConformer()
+            p = conf.GetAtomPosition(start)
+            begin = (p.x, p.y, p.z)
+            picked = self._interactive_pick(x, y, widget)
+            target = picked[2] if picked is not None else None
+            if target is not None and target != start:
+                q = conf.GetAtomPosition(target)
+                end = (q.x, q.y, q.z)
+            else:
+                end = self._cursor_world_point(x, y, widget, begin)
+            if end is None:
+                return
+            self._draw_bond_preview(begin, end)
+        except Exception as _e:
+            logging.warning("[bond_editor.py:_update_bond_preview] silenced: %s", _e)
+
+    def _cursor_world_point(self, x, y, widget, anchor):
+        """World point under the pointer on the view plane through *anchor*."""
+        renderer = self.context.plotter.renderer
+        ratio = widget.devicePixelRatioF()
+        renderer.SetWorldPoint(anchor[0], anchor[1], anchor[2], 1.0)
+        renderer.WorldToDisplay()
+        depth = renderer.GetDisplayPoint()[2]
+        renderer.SetDisplayPoint(x * ratio, (widget.height() - y) * ratio, depth)
+        renderer.DisplayToWorld()
+        wx, wy, wz, w = renderer.GetWorldPoint()
+        if not w:
+            return None
+        return (wx / w, wy / w, wz / w)
+
+    @staticmethod
+    def _dashed_segments(begin, end, dash=BOND_PREVIEW_DASH, gap=BOND_PREVIEW_GAP):
+        """Split begin->end into dashes: (points, lines) arrays for
+        pv.PolyData, or None when the two ends coincide."""
+        a = np.asarray(begin, dtype=float)
+        b = np.asarray(end, dtype=float)
+        length = float(np.linalg.norm(b - a))
+        if length < 1e-6:
+            return None
+        direction = (b - a) / length
+        points = []
+        lines = []
+        t = 0.0
+        while t < length:
+            n = len(points)
+            points.extend([a + t * direction, a + min(t + dash, length) * direction])
+            lines.extend([2, n, n + 1])
+            t += dash + gap
+        return np.array(points), np.array(lines)
+
+    def _draw_bond_preview(self, begin, end):
+        plotter = self.context.plotter
+        if not plotter:
+            return
+        dashes = self._dashed_segments(begin, end)
+        if dashes is None:
+            self._clear_bond_preview()
+            return
+        points, lines = dashes
+        plotter.add_mesh(
+            pv.PolyData(points, lines=lines),
+            name="bond_editor_bond_preview",
+            color=BOND_PREVIEW_COLOR,
+            line_width=4,
+            pickable=False,
+            reset_camera=False,
+        )
+        self._preview_shown = True
+        plotter.render()
+
+    def _clear_bond_preview(self):
+        """Remove the preview line; a no-op (no render) when none is shown."""
+        if not self._preview_shown:
+            return
+        self._preview_shown = False
+        plotter = self.context.plotter
+        if not plotter:
+            return
+        try:
+            plotter.remove_actor("bond_editor_bond_preview")
+            plotter.render()
+        except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
+            logging.warning("[bond_editor.py:_clear_bond_preview] silenced: %s", _e)
 
     def _cycle_interactive_bond_type(self, pair):
         """Advance a bond through single -> double -> triple -> single.
@@ -768,6 +915,7 @@ class BondEditorWindow(QWidget):
         """Reset the two-click pick state when the 3D click mode changes."""
         self._first_pick_idx = None
         self._picked_atoms = {}
+        self._clear_bond_preview()
         msgs = {
             "Select bond": "Click a bond in the 3D view to select it.",
             "Create bond": "Click two atoms to create a bond between them.",
@@ -873,6 +1021,7 @@ class BondEditorWindow(QWidget):
             return
         self._first_pick_idx = None
         self._picked_atoms = {}
+        self._clear_bond_preview()
         self.context.show_status_message("Bond creation pick cleared.")
         self._update_mode_overlay()
         self._update_picked_atom_labels()
@@ -899,6 +1048,8 @@ class BondEditorWindow(QWidget):
             a1, self._first_pick_idx = self._first_pick_idx, None
             self._picked_atoms = {}
             self.add_bond(a1, atom_idx)
+        if self._first_pick_idx is None:
+            self._clear_bond_preview()
         self._update_mode_overlay()
         self._update_picked_atom_labels()
 
@@ -1340,6 +1491,7 @@ class BondEditorWindow(QWidget):
             plotter.remove_actor("bond_editor_selection")
             plotter.remove_actor("bond_editor_mode_label")
             plotter.remove_actor("bond_editor_atom_labels")
+            plotter.remove_actor("bond_editor_bond_preview")
             plotter.render()
         super().closeEvent(event)
         # Unregister so the next open builds a fresh window that reinstalls the

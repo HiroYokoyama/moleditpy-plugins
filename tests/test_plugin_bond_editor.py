@@ -640,6 +640,7 @@ class TestCreateBondPick:
             add_bond=MagicMock(),
             _update_mode_overlay=MagicMock(),
             _update_picked_atom_labels=MagicMock(),
+            _clear_bond_preview=MagicMock(),
         )
 
     def test_first_click_stores_pick(self):
@@ -649,6 +650,8 @@ class TestCreateBondPick:
         assert self_._picked_atoms == {"Atom 1": 3}
         self_.add_bond.assert_not_called()
         self_._update_picked_atom_labels.assert_called_once()
+        # The preview starts following the pointer; it must not be cleared.
+        self_._clear_bond_preview.assert_not_called()
 
     def test_second_click_creates_bond(self):
         self_ = self._self(first_idx=3)
@@ -657,6 +660,7 @@ class TestCreateBondPick:
         self_.add_bond.assert_called_once_with(3, 5)
         assert self_._first_pick_idx is None
         assert self_._picked_atoms == {}
+        self_._clear_bond_preview.assert_called_once()
 
     def test_same_atom_click_cancels(self):
         self_ = self._self(first_idx=3)
@@ -665,6 +669,7 @@ class TestCreateBondPick:
         self_.add_bond.assert_not_called()
         assert self_._first_pick_idx is None
         assert self_._picked_atoms == {}
+        self_._clear_bond_preview.assert_called_once()
 
 
 class TestCancelBondPick:
@@ -680,12 +685,14 @@ class TestCancelBondPick:
             context=SimpleNamespace(show_status_message=MagicMock()),
             _update_mode_overlay=MagicMock(),
             _update_picked_atom_labels=MagicMock(),
+            _clear_bond_preview=MagicMock(),
         )
         self._fn()(self_)
         assert self_._first_pick_idx is None
         assert self_._picked_atoms == {}
         self_._update_mode_overlay.assert_called_once()
         self_._update_picked_atom_labels.assert_called_once()
+        self_._clear_bond_preview.assert_called_once()
 
     def test_noop_when_nothing_picked(self):
         self_ = SimpleNamespace(
