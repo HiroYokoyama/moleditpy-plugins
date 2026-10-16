@@ -598,7 +598,7 @@ class TestPickedAtomLabels:
         self._fn()(self._self(self._mol(3), {"Atom 1": 2}, plotter))
         args, kwargs = plotter.add_point_labels.call_args
         assert args[0] == [[2.0, 0.0, 0.0]]
-        assert args[1] == ["Atom 1: 2 (C)"]
+        assert args[1] == ["2 (C)"]
         assert kwargs["name"] == "bond_editor_atom_labels"
         assert kwargs["pickable"] is False
         assert kwargs["reset_camera"] is False

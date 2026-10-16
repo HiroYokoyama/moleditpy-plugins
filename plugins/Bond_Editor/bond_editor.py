@@ -360,8 +360,7 @@ class BondEditorWindow(QWidget):
         """Claim an interactive gesture before VTK can start camera rotation."""
         # Every gesture starts clean: a start atom left over from an earlier
         # click would turn the next camera drag into a bond.
-        self._drag_start_atom = None
-        self._clear_bond_preview()
+        self._end_drag_preview()
         if not self._interactive_mode:
             return False
         picked = self._interactive_pick(x, y, widget)
@@ -381,8 +380,7 @@ class BondEditorWindow(QWidget):
             if self._interactive_mode:
                 # A press on an atom that wobbled a few pixels may have drawn
                 # a preview, but it is still a click, not a bond drag.
-                self._drag_start_atom = None
-                self._clear_bond_preview()
+                self._end_drag_preview()
                 self._interactive_click(x, y, widget, button)
                 return
             import vtk
@@ -590,8 +588,7 @@ class BondEditorWindow(QWidget):
             return
         picked = self._interactive_pick(x, y, widget)
         start = self._drag_start_atom
-        self._drag_start_atom = None
-        self._clear_bond_preview()
+        self._end_drag_preview()
         if picked is not None:
             end = picked[2]
             if end is not None and end != start:
@@ -621,6 +618,7 @@ class BondEditorWindow(QWidget):
         Over another atom the line snaps to that atom's centre, using the same
         pick the release/click will act on, so a snapped line means a bond.
         Otherwise it ends at the pointer, placed at the start atom's depth.
+        The start atom is labelled "Atom 1" and a snapped target "Atom 2".
         """
         try:
             mol = self.context.current_mol
@@ -636,13 +634,28 @@ class BondEditorWindow(QWidget):
             if target is not None and target != start:
                 q = conf.GetAtomPosition(target)
                 end = (q.x, q.y, q.z)
+                self._set_picked_atoms({"Atom 1": start, "Atom 2": target})
             else:
                 end = self._cursor_world_point(x, y, widget, begin)
+                self._set_picked_atoms({"Atom 1": start})
             if end is None:
                 return
             self._draw_bond_preview(begin, end)
         except Exception as _e:
             logging.warning("[bond_editor.py:_update_bond_preview] silenced: %s", _e)
+
+    def _set_picked_atoms(self, picked):
+        """Relabel the picked atoms, redrawing only when they changed."""
+        if picked != self._picked_atoms:
+            self._picked_atoms = picked
+            self._update_picked_atom_labels()
+
+    def _end_drag_preview(self):
+        """Drop an interactive drag's preview line and its atom labels."""
+        self._drag_start_atom = None
+        self._clear_bond_preview()
+        if self._interactive_mode:
+            self._set_picked_atoms({})
 
     def _cursor_world_point(self, x, y, widget, anchor):
         """World point under the pointer on the view plane through *anchor*."""
@@ -942,7 +955,7 @@ class BondEditorWindow(QWidget):
                     if idx is not None and 0 <= idx < n:
                         pos = conf.GetAtomPosition(idx)
                         points.append([pos.x, pos.y, pos.z])
-                        labels.append(f"{slot}: {self._atom_label(mol, idx)}")
+                        labels.append(self._atom_label(mol, idx))
             if not points:
                 plotter.remove_actor("bond_editor_atom_labels")
                 plotter.render()
@@ -951,7 +964,7 @@ class BondEditorWindow(QWidget):
                 points,
                 labels,
                 name="bond_editor_atom_labels",
-                font_size=14,
+                font_size=10,
                 text_color="orange",
                 shape=None,
                 show_points=False,

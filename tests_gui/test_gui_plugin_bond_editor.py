@@ -776,7 +776,8 @@ class TestModeOverlayAndPickedLabels:
         win._update_picked_atom_labels()
         args, kwargs = win.context.plotter.add_point_labels.call_args
         assert len(args[0]) == 2
-        assert "Atom 1: 0 (C)" in args[1]
+        assert args[1] == ["0 (C)", "2 (O)"]
+        assert kwargs["font_size"] == 10
 
     def test_picked_atom_labels_removed_when_empty(self, win):
         win._picked_atoms = {}
@@ -1925,3 +1926,61 @@ class TestBondPreview:
     def test_close_removes_preview_actor(self, win):
         win.close()
         win.context.plotter.remove_actor.assert_any_call("bond_editor_bond_preview")
+
+
+class TestBondPreviewAtomLabels:
+    """The start atom and a snapped target are annotated while bonding."""
+
+    win = TestBondPreview.win
+
+    @staticmethod
+    def _labels(plotter):
+        call = plotter.add_point_labels.call_args
+        return call[0][1] if call else None
+
+    def test_drag_labels_start_then_snapped_target_then_clears(self, win):
+        from PyQt6.QtCore import Qt
+
+        widget = TestBondPreview._widget()
+        mol = win.context.current_mol
+        plotter = win.context.plotter
+        win.add_bond = MagicMock()
+        win._interactive_pick = lambda *a: (mol, (0, 0, 0), 0, None)
+        win._on_plotter_press(10, 10, widget, None, Qt.MouseButton.LeftButton)
+        # Off any atom: only the start atom is labelled.
+        win._interactive_pick = lambda *a: (mol, (9, 9, 9), None, None)
+        win._on_plotter_move(100, 100, widget)
+        assert win._picked_atoms == {"Atom 1": 0}
+        assert self._labels(plotter) == ["0 (C)"]
+        # Snapped onto atom 2: both atoms labelled.
+        win._interactive_pick = lambda *a: (mol, (1.5, 1.2, 0), 2, None)
+        win._on_plotter_move(200, 200, widget)
+        assert self._labels(plotter) == ["0 (C)", "2 (O)"]
+        # Release clears the labels along with the line.
+        plotter.remove_actor.reset_mock()
+        win._on_plotter_drag(200, 200, widget, None, Qt.MouseButton.LeftButton)
+        assert win._picked_atoms == {}
+        plotter.remove_actor.assert_any_call("bond_editor_atom_labels")
+
+    def test_unchanged_labels_are_not_redrawn(self, win):
+        widget = TestBondPreview._widget()
+        mol = win.context.current_mol
+        win._drag_start_atom = 0
+        win._interactive_pick = lambda *a: (mol, (1.5, 1.2, 0), 2, None)
+        win._on_plotter_move(200, 200, widget)
+        win._on_plotter_move(201, 201, widget)
+        assert win.context.plotter.add_point_labels.call_count == 1
+
+    def test_create_mode_hover_adds_and_drops_target_label(self, win):
+        widget = TestBondPreview._widget()
+        mol = win.context.current_mol
+        win.interactive_btn.setChecked(False)
+        win.click_mode_combo.setCurrentText("Create bond")
+        win._create_bond_pick(0)
+        win._interactive_pick = lambda *a: (mol, (1.5, 1.2, 0), 2, None)
+        win._on_plotter_hover(50, 50, widget)
+        assert win._picked_atoms == {"Atom 1": 0, "Atom 2": 2}
+        win._interactive_pick = lambda *a: (mol, (9, 9, 9), None, None)
+        win._on_plotter_hover(60, 60, widget)
+        # The first pick stays labelled when the pointer leaves the target.
+        assert win._picked_atoms == {"Atom 1": 0}
