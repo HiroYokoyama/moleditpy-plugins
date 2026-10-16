@@ -2090,7 +2090,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=4.0.0, <5.0.0",
     "name": "Bond Editor",
-    "version": "2026.10.13",
+    "version": "2026.10.16",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A table-based bond editor: add/delete bonds, change bond order, and set bond lengths by moving one side of the bond. In the 3D view pick a mode to select a bond by clicking it, or create a bond by clicking two atoms.",
@@ -2104,8 +2104,8 @@
       "numpy"
     ],
     "downloadUrl": "../plugins/Bond_Editor/bond_editor.py",
-    "lastUpdated": "2026-10-13",
-    "sha256": "6e7d8ccbbe8563368b3619da627833f37daf436b0a266a5d1d6014c380cce6b9",
+    "lastUpdated": "2026-10-16",
+    "sha256": "b9ac511372a65a5685878fe8ef0f43c1176fd97eef3a5d9e0afd3bb8333f7d0a",
     "firstAppeared": "2026-07-15",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

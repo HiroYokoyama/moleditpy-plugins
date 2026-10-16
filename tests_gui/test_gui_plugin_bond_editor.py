@@ -776,7 +776,8 @@ class TestModeOverlayAndPickedLabels:
         win._update_picked_atom_labels()
         args, kwargs = win.context.plotter.add_point_labels.call_args
         assert len(args[0]) == 2
-        assert "Atom 1: 0 (C)" in args[1]
+        assert args[1] == ["0 (C)", "2 (O)"]
+        assert kwargs["font_size"] == 10
 
     def test_picked_atom_labels_removed_when_empty(self, win):
         win._picked_atoms = {}
@@ -1667,3 +1668,319 @@ def test_invalid_bond_length_preserves_molecule(qapp, value):
     assert ctx.current_molecule is before
     ctx.push_undo_checkpoint.assert_not_called()
     win.close()
+
+
+# ===========================================================================
+# Bond-creation preview (light blue dashed line)
+# ===========================================================================
+
+
+def _move_event(xy, buttons):
+    from PyQt6.QtCore import QEvent, QPointF, Qt
+    from PyQt6.QtGui import QMouseEvent
+
+    return QMouseEvent(
+        QEvent.Type.MouseMove,
+        QPointF(*xy),
+        QPointF(*xy),
+        Qt.MouseButton.NoButton,
+        buttons,
+        Qt.KeyboardModifier.NoModifier,
+    )
+
+
+class TestClickFilterMoveCallbacks:
+    def test_move_during_claimed_gesture_reaches_move_callback(self, qapp):
+        from PyQt6.QtCore import Qt
+
+        moves, hovers = [], []
+        f = _bond._ClickFilter(
+            lambda *a: None,
+            press_callback=lambda *a: True,
+            move_callback=lambda x, y, obj: moves.append((x, y)),
+            hover_callback=lambda x, y, obj: hovers.append((x, y)),
+        )
+        press, _ = TestClickFilter()._events((10, 10), (10, 10))
+        obj = MagicMock()
+        f.eventFilter(obj, press)
+        assert f.eventFilter(obj, _move_event((40, 50), Qt.MouseButton.LeftButton))
+        assert moves == [(40, 50)]
+        assert hovers == []
+
+    def test_move_during_camera_drag_is_not_reported(self, qapp):
+        from PyQt6.QtCore import Qt
+
+        moves = []
+        f = _bond._ClickFilter(
+            lambda *a: None,
+            press_callback=lambda *a: False,
+            move_callback=lambda x, y, obj: moves.append((x, y)),
+        )
+        press, _ = TestClickFilter()._events((10, 10), (10, 10))
+        obj = MagicMock()
+        f.eventFilter(obj, press)
+        assert not f.eventFilter(obj, _move_event((40, 50), Qt.MouseButton.LeftButton))
+        assert moves == []
+
+    def test_hover_reaches_hover_callback_and_passes_through(self, qapp):
+        from PyQt6.QtCore import Qt
+
+        hovers = []
+        f = _bond._ClickFilter(
+            lambda *a: None, hover_callback=lambda x, y, obj: hovers.append((x, y))
+        )
+        assert not f.eventFilter(
+            MagicMock(), _move_event((7, 8), Qt.MouseButton.NoButton)
+        )
+        assert hovers == [(7, 8)]
+
+
+class TestDashedSegments:
+    def test_dashes_cover_the_segment_and_stop_at_the_end(self):
+        points, lines = _bondrn.BondEditorWindow._dashed_segments(
+            (0, 0, 0), (1.0, 0, 0), dash=0.2, gap=0.1
+        )
+        # dashes start at 0, 0.3, 0.6, 0.9 -> 4 dashes, last one clipped to 1.0
+        assert len(points) == 8
+        assert list(lines[:3]) == [2, 0, 1]
+        assert len(lines) == 12
+        _np.testing.assert_allclose(points[0], (0, 0, 0))
+        _np.testing.assert_allclose(points[1], (0.2, 0, 0))
+        _np.testing.assert_allclose(points[-1], (1.0, 0, 0))
+        assert all(0.0 <= p[0] <= 1.0 for p in points)
+
+    def test_coincident_ends_give_no_dashes(self):
+        assert _bondrn.BondEditorWindow._dashed_segments((1, 2, 3), (1, 2, 3)) is None
+
+
+class _FakeRenderer:
+    """Display<->world with a fixed depth and w=2, enough to check the wiring."""
+
+    def __init__(self):
+        self.display_point = None
+
+    def SetWorldPoint(self, x, y, z, w):
+        self._world = (x, y, z)
+
+    def WorldToDisplay(self):
+        pass
+
+    def GetDisplayPoint(self):
+        return (0.0, 0.0, 0.5)
+
+    def SetDisplayPoint(self, x, y, z):
+        self.display_point = (x, y, z)
+
+    def DisplayToWorld(self):
+        pass
+
+    def GetWorldPoint(self):
+        x, y, z = self.display_point
+        return (2 * x, 2 * y, 2 * z, 2.0)
+
+
+class TestBondPreview:
+    @pytest.fixture
+    def win(self, qapp):
+        ctx = _real_ctx(mol=_real_mol())
+        ctx.plotter = MagicMock()
+        ctx.plotter.renderer = _FakeRenderer()
+        w = _bondrn.BondEditorWindow(context=ctx)
+        yield w
+        w.update_timer.stop()
+        w.destroy()
+
+    @staticmethod
+    def _widget():
+        return TestInteractiveGestureDecisions._widget()
+
+    @staticmethod
+    def _preview_calls(plotter):
+        return [
+            c
+            for c in plotter.add_mesh.call_args_list
+            if c[1].get("name") == "bond_editor_bond_preview"
+        ]
+
+    def test_drag_from_atom_snaps_preview_to_hovered_atom(self, win):
+        from PyQt6.QtCore import Qt
+
+        widget = self._widget()
+        mol = win.context.current_mol
+        win.add_bond = MagicMock()
+        win._interactive_pick = lambda *a: (mol, (0, 0, 0), 0, None)
+        assert win._on_plotter_press(10, 10, widget, None, Qt.MouseButton.LeftButton)
+        win._interactive_pick = lambda *a: (mol, (1.5, 1.2, 0), 2, None)
+        win._on_plotter_move(200, 200, widget)
+        calls = self._preview_calls(win.context.plotter)
+        assert len(calls) == 1
+        kwargs = calls[0][1]
+        assert kwargs["color"] == _bondrn.BOND_PREVIEW_COLOR
+        assert kwargs["pickable"] is False
+        assert kwargs["reset_camera"] is False
+        pts = _np.asarray(calls[0][0][0].points)
+        _np.testing.assert_allclose(pts[0], (0, 0, 0), atol=1e-6)
+        _np.testing.assert_allclose(pts[-1], (1.5, 1.2, 0), atol=1e-6)
+        assert len(pts) > 2  # dashed, not one solid segment
+
+        win._on_plotter_drag(200, 200, widget, None, Qt.MouseButton.LeftButton)
+        win.context.plotter.remove_actor.assert_any_call("bond_editor_bond_preview")
+        assert win._preview_shown is False
+        win.add_bond.assert_called_once_with(0, 2)
+
+    def test_drag_over_empty_space_follows_pointer(self, win):
+        widget = self._widget()
+        mol = win.context.current_mol
+        win._drag_start_atom = 0
+        win._interactive_pick = lambda *a: (mol, (9, 9, 9), None, None)
+        win._on_plotter_move(100, 100, widget)
+        renderer = win.context.plotter.renderer
+        ratio = widget.devicePixelRatioF()
+        assert renderer.display_point == (
+            100 * ratio,
+            (widget.height() - 100) * ratio,
+            0.5,
+        )
+        pts = _np.asarray(self._preview_calls(win.context.plotter)[0][0][0].points)
+        _np.testing.assert_allclose(pts[-1], renderer.display_point, atol=1e-6)
+
+    def test_no_preview_without_drag_or_on_the_start_atom(self, win):
+        widget = self._widget()
+        mol = win.context.current_mol
+        # No drag armed: moving does nothing.
+        win._on_plotter_move(100, 100, widget)
+        # Pointer still on the start atom, projected onto the atom itself.
+        win._drag_start_atom = 0
+        win._interactive_pick = lambda *a: (mol, (0, 0, 0), 0, None)
+        win._cursor_world_point = lambda *a: (0.0, 0.0, 0.0)
+        win._on_plotter_move(10, 10, widget)
+        assert self._preview_calls(win.context.plotter) == []
+
+    def test_short_click_after_preview_clears_it(self, win):
+        from PyQt6.QtCore import Qt
+
+        widget = self._widget()
+        mol = win.context.current_mol
+        win._interactive_pick = lambda *a: (mol, (0, 0, 0), 0, None)
+        win._on_plotter_press(10, 10, widget, None, Qt.MouseButton.LeftButton)
+        win._interactive_pick = lambda *a: (mol, (1.5, 1.2, 0), 2, None)
+        win._on_plotter_move(12, 12, widget)
+        assert win._preview_shown
+        win._interactive_pick = lambda *a: (mol, (0, 0, 0), 0, None)
+        win._on_plotter_click(12, 12, widget, None, Qt.MouseButton.LeftButton)
+        assert not win._preview_shown
+        assert win._drag_start_atom is None
+
+    def test_create_mode_hover_previews_after_first_pick(self, win):
+        widget = self._widget()
+        mol = win.context.current_mol
+        win.interactive_btn.setChecked(False)
+        win.click_mode_combo.setCurrentText("Create bond")
+        win._interactive_pick = lambda *a: (mol, (1.5, 1.2, 0), 2, None)
+        win._on_plotter_hover(50, 50, widget)
+        assert self._preview_calls(win.context.plotter) == []
+        win._create_bond_pick(0)
+        win._on_plotter_hover(50, 50, widget)
+        assert len(self._preview_calls(win.context.plotter)) == 1
+        win._create_bond_pick(2)
+        assert not win._preview_shown
+        assert win.context.current_mol.GetBondBetweenAtoms(0, 2) is not None
+
+    def test_hover_ignored_in_interactive_and_select_modes(self, win):
+        widget = self._widget()
+        win._first_pick_idx = 0
+        win._on_plotter_hover(50, 50, widget)  # interactive mode
+        win.interactive_btn.setChecked(False)
+        win.click_mode_combo.setCurrentText("Select bond")
+        win._first_pick_idx = 0
+        win._on_plotter_hover(50, 50, widget)
+        assert self._preview_calls(win.context.plotter) == []
+
+    def test_cancel_and_mode_toggle_clear_preview(self, win):
+        widget = self._widget()
+        mol = win.context.current_mol
+        win.interactive_btn.setChecked(False)
+        win.click_mode_combo.setCurrentText("Create bond")
+        win._interactive_pick = lambda *a: (mol, (1.5, 1.2, 0), 2, None)
+        win._create_bond_pick(0)
+        win._on_plotter_hover(50, 50, widget)
+        win._cancel_bond_pick()
+        assert not win._preview_shown
+        win._create_bond_pick(0)
+        win._on_plotter_hover(50, 50, widget)
+        assert win._preview_shown
+        win.interactive_btn.setChecked(True)
+        assert not win._preview_shown
+
+    def test_clear_without_preview_does_not_render(self, win):
+        win.context.plotter.render.reset_mock()
+        win._clear_bond_preview()
+        win.context.plotter.render.assert_not_called()
+
+    def test_preview_failure_is_silenced(self, win):
+        win._drag_start_atom = 0
+        win._interactive_pick = MagicMock(side_effect=RuntimeError("boom"))
+        win._on_plotter_move(10, 10, self._widget())
+        assert not win._preview_shown
+
+    def test_close_removes_preview_actor(self, win):
+        win.close()
+        win.context.plotter.remove_actor.assert_any_call("bond_editor_bond_preview")
+
+
+class TestBondPreviewAtomLabels:
+    """The start atom and a snapped target are annotated while bonding."""
+
+    win = TestBondPreview.win
+
+    @staticmethod
+    def _labels(plotter):
+        call = plotter.add_point_labels.call_args
+        return call[0][1] if call else None
+
+    def test_drag_labels_start_then_snapped_target_then_clears(self, win):
+        from PyQt6.QtCore import Qt
+
+        widget = TestBondPreview._widget()
+        mol = win.context.current_mol
+        plotter = win.context.plotter
+        win.add_bond = MagicMock()
+        win._interactive_pick = lambda *a: (mol, (0, 0, 0), 0, None)
+        win._on_plotter_press(10, 10, widget, None, Qt.MouseButton.LeftButton)
+        # Off any atom: only the start atom is labelled.
+        win._interactive_pick = lambda *a: (mol, (9, 9, 9), None, None)
+        win._on_plotter_move(100, 100, widget)
+        assert win._picked_atoms == {"Atom 1": 0}
+        assert self._labels(plotter) == ["0 (C)"]
+        # Snapped onto atom 2: both atoms labelled.
+        win._interactive_pick = lambda *a: (mol, (1.5, 1.2, 0), 2, None)
+        win._on_plotter_move(200, 200, widget)
+        assert self._labels(plotter) == ["0 (C)", "2 (O)"]
+        # Release clears the labels along with the line.
+        plotter.remove_actor.reset_mock()
+        win._on_plotter_drag(200, 200, widget, None, Qt.MouseButton.LeftButton)
+        assert win._picked_atoms == {}
+        plotter.remove_actor.assert_any_call("bond_editor_atom_labels")
+
+    def test_unchanged_labels_are_not_redrawn(self, win):
+        widget = TestBondPreview._widget()
+        mol = win.context.current_mol
+        win._drag_start_atom = 0
+        win._interactive_pick = lambda *a: (mol, (1.5, 1.2, 0), 2, None)
+        win._on_plotter_move(200, 200, widget)
+        win._on_plotter_move(201, 201, widget)
+        assert win.context.plotter.add_point_labels.call_count == 1
+
+    def test_create_mode_hover_adds_and_drops_target_label(self, win):
+        widget = TestBondPreview._widget()
+        mol = win.context.current_mol
+        win.interactive_btn.setChecked(False)
+        win.click_mode_combo.setCurrentText("Create bond")
+        win._create_bond_pick(0)
+        win._interactive_pick = lambda *a: (mol, (1.5, 1.2, 0), 2, None)
+        win._on_plotter_hover(50, 50, widget)
+        assert win._picked_atoms == {"Atom 1": 0, "Atom 2": 2}
+        win._interactive_pick = lambda *a: (mol, (9, 9, 9), None, None)
+        win._on_plotter_hover(60, 60, widget)
+        # The first pick stays labelled when the pointer leaves the target.
+        assert win._picked_atoms == {"Atom 1": 0}
