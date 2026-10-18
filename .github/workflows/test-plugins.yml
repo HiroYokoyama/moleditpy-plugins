@@ -1,7 +1,13 @@
 name: Plugin Tests
 
 on:
-  workflow_dispatch: 
+  workflow_dispatch:
+    inputs:
+      moleditpy_ref:
+        description: 'MoleditPy branch, tag, or full commit SHA (blank uses repository default)'
+        required: false
+        type: string
+        default: ''
   push:
     branches: [ main ]
   pull_request:
@@ -9,6 +15,9 @@ on:
 
 permissions:
   contents: read
+
+env:
+  MOLEDITPY_REF: ${{ inputs.moleditpy_ref || vars.MOLEDITPY_REF || 'migrate/pyside6-without-openbabel' }}
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -106,8 +115,8 @@ jobs:
   # ---------------------------------------------------------------------------
   # Headless GUI tests — real PySide6-Essentials with QT_QPA_PLATFORM=offscreen.
   # Chemistry libs (rdkit, numpy, …) are still mocked, so no conda env needed.
-  # The integration tests auto-clone the main app if ../python_molecular_editor
-  # is absent (one shallow clone per CI run, cached by session fixture).
+  # Fetch the selected main-app revision before integration tests, including
+  # full commit SHAs, so the fixture uses the same revision as the API job.
   # ---------------------------------------------------------------------------
   test-gui:
     needs: changes
@@ -147,6 +156,15 @@ jobs:
       # render paths are abort-prone on headless CI.
       - name: Install real chemistry & scientific libs (best effort)
         run: pip install rdkit numpy pillow scipy pymatgen-core || echo "chemistry wheels unavailable on this interpreter; rdkit-gated tests will skip"
+
+      - name: Fetch selected MoleditPy revision
+        shell: bash
+        run: |
+          git init "../python_molecular_editor"
+          git -C "../python_molecular_editor" remote add origin https://github.com/HiroYokoyama/python_molecular_editor.git
+          git -C "../python_molecular_editor" fetch --depth 1 origin "$MOLEDITPY_REF"
+          git -C "../python_molecular_editor" checkout --detach FETCH_HEAD
+          git -C "../python_molecular_editor" log -1 --format="%H %s"
 
       - name: Run headless GUI tests
         run: pytest tests_gui/ -v --tb=short
@@ -193,6 +211,15 @@ jobs:
       - name: Install Python dependencies
         run: pip install pytest "PySide6-Essentials>=6.10,<6.12" rdkit numpy pillow pyvista vtk scipy pymatgen-core
 
+      - name: Fetch selected MoleditPy revision
+        shell: bash
+        run: |
+          git init "../python_molecular_editor"
+          git -C "../python_molecular_editor" remote add origin https://github.com/HiroYokoyama/python_molecular_editor.git
+          git -C "../python_molecular_editor" fetch --depth 1 origin "$MOLEDITPY_REF"
+          git -C "../python_molecular_editor" checkout --detach FETCH_HEAD
+          git -C "../python_molecular_editor" log -1 --format="%H %s"
+
       - name: Run rendering GUI tests
         run: |
           xvfb-run -a pytest -v --tb=short \
@@ -228,10 +255,13 @@ jobs:
         run: pip install pytest
 
       - name: Clone main MoleditPy application
+        shell: bash
         run: |
-          git clone --depth 1 --branch "${{ vars.MOLEDITPY_REF || 'migrate/pyside6-without-openbabel' }}" \
-            https://github.com/HiroYokoyama/python_molecular_editor.git \
-            ../python_molecular_editor
+          git init "../python_molecular_editor"
+          git -C "../python_molecular_editor" remote add origin https://github.com/HiroYokoyama/python_molecular_editor.git
+          git -C "../python_molecular_editor" fetch --depth 1 origin "$MOLEDITPY_REF"
+          git -C "../python_molecular_editor" checkout --detach FETCH_HEAD
+          git -C "../python_molecular_editor" log -1 --format="%H %s"
 
       - name: Validate plugins.json
         run: python scripts/validate_json.py
