@@ -26,8 +26,8 @@ with mock_chemistry_imports():
 # local parameter name.
 _settings_mod = _settings
 
-from PyQt6.QtCore import Qt  # noqa: E402
-from PyQt6.QtGui import QColor  # noqa: E402
+from PySide6.QtCore import Qt  # noqa: E402
+from PySide6.QtGui import QColor  # noqa: E402
 
 
 # ===========================================================================
@@ -105,7 +105,7 @@ class _FakeEditActionsManager:
         self.settings_dirty = None
 
 
-from PyQt6.QtWidgets import QWidget  # noqa: E402
+from PySide6.QtWidgets import QWidget  # noqa: E402
 
 
 class _FakeMW2(QWidget):

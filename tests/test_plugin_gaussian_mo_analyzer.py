@@ -35,7 +35,7 @@ PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
 MO_PKG_DIR = PLUGINS_DIR / "Gaussian_MO_Analyzer" / "gaussian_fchk_mo_analyzer"
 MO_ANALYZER_PATH = MO_PKG_DIR / "analyzer.py"
 
-# analyzer.py has no PyQt6/rdkit imports at module scope (rdkit is imported
+# analyzer.py has no PySide6/rdkit imports at module scope (rdkit is imported
 # lazily inside get_xyz_block/get_basis_labels), so it can be loaded as a
 # real module with real numpy for genuine coverage of BasisSetEngine, unlike
 # the AST-extracted classes above which stand in for methods on Qt-derived
@@ -406,7 +406,7 @@ class TestMOCubeParserNegativeAtoms:
 
 
 # ---------------------------------------------------------------------------
-# vis.py — CubeVisualizer, loaded as a real module (no PyQt6 at module scope)
+# vis.py — CubeVisualizer, loaded as a real module (no PySide6 at module scope)
 # with real numpy; pyvista stays mocked (matches mocks_with_real_numpy()).
 # ---------------------------------------------------------------------------
 
@@ -499,7 +499,7 @@ class TestMOCubeVisualizerShowIso:
 # ---------------------------------------------------------------------------
 # worker.py — CalcWorker.run(), a Qt-derived (QThread) method extracted via
 # AST since QThread is a mocked base class; driven with real numpy and a
-# fake self carrying plain Python attributes + recording pyqtSignal stand-ins.
+# fake self carrying plain Python attributes + recording Signal stand-ins.
 # ---------------------------------------------------------------------------
 
 WORKER_PATH = MO_PKG_DIR / "worker.py"

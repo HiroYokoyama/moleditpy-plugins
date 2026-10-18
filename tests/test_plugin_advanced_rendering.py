@@ -625,7 +625,7 @@ class TestDisableConflictingEffects:
 
 
 class _DummyQColor:
-    """Stand-in for PyQt6.QtGui.QColor — never instantiated by these tests,
+    """Stand-in for PySide6.QtGui.QColor — never instantiated by these tests,
     only used as an isinstance() target inside save_settings' sanitize()."""
 
 

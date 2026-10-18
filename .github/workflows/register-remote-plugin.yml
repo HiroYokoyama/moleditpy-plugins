@@ -44,7 +44,7 @@ on:
         required: false
         type: string
       supported_python:
-        description: 'Supported Python version spec (e.g. >=3.9, <3.15) — used only when the code does not declare it; visible plugins default to that'
+        description: 'Supported Python version spec (e.g. >=3.10, <3.15) — used only when the code does not declare it; visible plugins default to that'
         required: false
         type: string
       allow_same_version:

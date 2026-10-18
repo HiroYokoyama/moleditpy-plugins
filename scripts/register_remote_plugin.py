@@ -35,7 +35,7 @@ PLUGIN_SUPPORTED_PYTHON_VERSION_RE = re.compile(r"^\s*PLUGIN_SUPPORTED_PYTHON_VE
 PLUGIN_SUPPORTED_OS_RE = re.compile(r"^\s*PLUGIN_SUPPORTED_OS\s*=\s*(?P<val>.*?)\s*$", re.MULTILINE)
 
 # Applied to visible plugins that do not declare PLUGIN_SUPPORTED_PYTHON_VERSION.
-DEFAULT_PYTHON_SPEC = ">=3.9, <3.15"
+DEFAULT_PYTHON_SPEC = ">=3.10, <3.15"
 
 # Canonical OS tokens. "WSL" means Windows support exists only through the
 # Windows Subsystem for Linux, never natively.
@@ -299,7 +299,7 @@ def main():
     parser.add_argument("--expected-sha256", dest="expected_sha256", help="Expected SHA-256 hash (Required for non-HiroYokoyama plugins)")
     parser.add_argument("--date", help="Override registration date (YYYY-MM-DD, optional)")
     parser.add_argument("--supported-version", dest="supported_version", help="Supported MoleditPy version (e.g., 3.*). Required for visible plugins.")
-    parser.add_argument("--supported-python", dest="supported_python", help=f"Supported Python version spec (e.g., '>=3.9, <3.15'). Optional; visible plugins default to '{DEFAULT_PYTHON_SPEC}'.")
+    parser.add_argument("--supported-python", dest="supported_python", help=f"Supported Python version spec (e.g., '>=3.10, <3.15'). Optional; visible plugins default to '{DEFAULT_PYTHON_SPEC}'.")
     parser.add_argument("--allow-same-version", action="store_true", dest="allow_same_version", help="Allow re-registering with the same version (bypasses same-version error)")
     
     args = parser.parse_args()

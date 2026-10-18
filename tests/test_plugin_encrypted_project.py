@@ -2,7 +2,7 @@
 Tests for the Encrypted Project plugin.
 
 Visible: true in REGISTRY/plugins.json.
-All tests run headlessly — PyQt6, rdkit, cryptography, etc. are mocked.
+All tests run headlessly — PySide6, rdkit, cryptography, etc. are mocked.
 """
 from __future__ import annotations
 

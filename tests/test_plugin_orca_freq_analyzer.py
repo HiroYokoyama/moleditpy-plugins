@@ -1,7 +1,7 @@
 """
 Tests for the ORCA Freq Analyzer plugin (plugins/ORCA_Freq_Analyzer/orca_out_freq_analyzer.py).
 
-All heavy deps (PyQt6, rdkit, numpy) are stubbed via mock_optional_imports().
+All heavy deps (PySide6, rdkit, numpy) are stubbed via mock_optional_imports().
 """
 
 from __future__ import annotations

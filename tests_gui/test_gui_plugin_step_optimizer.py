@@ -3,7 +3,7 @@ Headless GUI tests for the Step Optimizer plugin.
 
 Covers: StepOptimizerDialog.
 
-Real PyQt6 is used (QT_QPA_PLATFORM=offscreen); chemistry libs are MagicMocked.
+Real PySide6 is used (QT_QPA_PLATFORM=offscreen); chemistry libs are MagicMocked.
 Run via: python tests_gui/run_gui_tests.py tests_gui/test_gui_plugin_step_optimizer.py
 """
 
@@ -171,7 +171,7 @@ class TestStepOptimizerDialog:
 
 # ===========================================================================
 # _start / _tick with a real conformer-shaped mol — moves coverage on the
-# main Qt-class logic (real PyQt6, chemistry still MagicMocked via AllChem).
+# main Qt-class logic (real PySide6, chemistry still MagicMocked via AllChem).
 # ===========================================================================
 
 

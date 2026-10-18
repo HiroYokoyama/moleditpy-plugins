@@ -1,7 +1,7 @@
 """
 GUI-tier tests for the Dummy Atom Mode plugin.
 
-These tests run with real PyQt6 (QT_QPA_PLATFORM=offscreen) and add coverage
+These tests run with real PySide6 (QT_QPA_PLATFORM=offscreen) and add coverage
 that the tests/ suite cannot provide — in particular tests that instantiate
 real Qt objects (QColor) to exercise plugin side-effects.
 
@@ -77,7 +77,7 @@ class TestDummyAtomInitialize:
 
     def test_cpk_colors_wildcard_is_real_qcolor(self, qapp):
         """initialize() sets CPK_COLORS['*'] to a real QColor (not a MagicMock)."""
-        from PyQt6.QtGui import QColor
+        from PySide6.QtGui import QColor
 
         ctx = MagicMock()
         _dummy.initialize(ctx)

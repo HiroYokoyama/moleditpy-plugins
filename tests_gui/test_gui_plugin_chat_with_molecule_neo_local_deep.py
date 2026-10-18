@@ -1,7 +1,7 @@
 """
 Deep GUI coverage for the "Chat with Molecule Neo" (Local) plugin.
 
-Builds a real ChatMoleculeWindow (real PyQt6, chemistry/AI libs mocked) and
+Builds a real ChatMoleculeWindow (real PySide6, chemistry/AI libs mocked) and
 drives the worker classes, tool dispatch, settings/session lifecycle, and
 message-streaming flow directly -- rather than only checking widget wiring
 (that's covered by test_gui_plugin_chat_with_molecule_neo.py and
@@ -165,7 +165,7 @@ def _make_real_main_window():
     it needs a bare QDialog with MagicMock manager attrs attached -- a
     MagicMock() itself is rejected by Qt as an invalid parent type.
     """
-    from PyQt6.QtWidgets import QDialog
+    from PySide6.QtWidgets import QDialog
 
     mw = QDialog()
     mw.init_manager = MagicMock()
@@ -1189,7 +1189,7 @@ class TestSendMessageFlow:
         w.worker.isRunning.return_value = True
         w.init_worker = MagicMock()
         w.init_worker.isRunning.return_value = True
-        from PyQt6.QtGui import QCloseEvent
+        from PySide6.QtGui import QCloseEvent
 
         w.closeEvent(QCloseEvent())
         w.destroy()
@@ -1356,7 +1356,7 @@ class TestCheckMoleculeChange:
 
 class TestHandleLink:
     def _url(self, text):
-        from PyQt6.QtCore import QUrl
+        from PySide6.QtCore import QUrl
 
         return QUrl(text)
 

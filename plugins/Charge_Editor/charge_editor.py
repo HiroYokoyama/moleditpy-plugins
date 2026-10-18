@@ -1,5 +1,5 @@
 import numpy as np
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
     QHeaderView,
     QMessageBox,
 )
-from PyQt6.QtCore import Qt, QTimer, QObject, QEvent
+from PySide6.QtCore import Qt, QTimer, QObject, QEvent
 from rdkit import Chem
 import pyvista as pv
 import logging
@@ -19,8 +19,8 @@ from functools import partial
 
 
 PLUGIN_NAME = "Charge Editor"
-PLUGIN_VERSION = "2026.09.18"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.18"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0a1, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
     "A table-based editor for per-atom formal charge and radical electrons. "

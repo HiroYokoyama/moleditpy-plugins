@@ -3,7 +3,7 @@ Headless GUI tests for the Mapped Cube Viewer plugin.
 
 Covers: MappedCubeSetupDialog, MappedWidget, run_plugin(), run().
 
-Chemistry libs (pyvista, numpy, rdkit, …) are mocked; real PyQt6 is used.
+Chemistry libs (pyvista, numpy, rdkit, …) are mocked; real PySide6 is used.
 """
 
 from __future__ import annotations
@@ -75,7 +75,7 @@ class TestMappedCubeSetupDialogBrowse:
         d.destroy()
 
     def test_browse_surf_sets_line_edit(self, dlg, monkeypatch):
-        from PyQt6.QtWidgets import QFileDialog
+        from PySide6.QtWidgets import QFileDialog
 
         monkeypatch.setattr(
             QFileDialog, "getOpenFileName", lambda *a, **k: ("/picked/surf.cube", "")
@@ -84,14 +84,14 @@ class TestMappedCubeSetupDialogBrowse:
         assert dlg.le_surf.text() == "/picked/surf.cube"
 
     def test_browse_surf_cancelled_leaves_line_edit_empty(self, dlg, monkeypatch):
-        from PyQt6.QtWidgets import QFileDialog
+        from PySide6.QtWidgets import QFileDialog
 
         monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a, **k: ("", ""))
         dlg.browse_surf()
         assert dlg.le_surf.text() == ""
 
     def test_browse_prop_sets_line_edit(self, dlg, monkeypatch):
-        from PyQt6.QtWidgets import QFileDialog
+        from PySide6.QtWidgets import QFileDialog
 
         monkeypatch.setattr(
             QFileDialog, "getOpenFileName", lambda *a, **k: ("/picked/prop.cube", "")
@@ -100,7 +100,7 @@ class TestMappedCubeSetupDialogBrowse:
         assert dlg.le_prop.text() == "/picked/prop.cube"
 
     def test_browse_prop_cancelled_leaves_line_edit_empty(self, dlg, monkeypatch):
-        from PyQt6.QtWidgets import QFileDialog
+        from PySide6.QtWidgets import QFileDialog
 
         monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a, **k: ("", ""))
         dlg.browse_prop()
@@ -116,7 +116,7 @@ class TestMappedCubeSetupDialogAcceptReal:
 
     @pytest.fixture(autouse=True)
     def _no_modal_warnings(self, monkeypatch):
-        from PyQt6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QMessageBox
 
         self.warning = MagicMock()
         monkeypatch.setattr(QMessageBox, "warning", self.warning)
@@ -190,7 +190,7 @@ class _FakeMapped:
 
 
 def _make_mw():
-    from PyQt6.QtWidgets import QWidget
+    from PySide6.QtWidgets import QWidget
 
     mw = QWidget()
     mw.addDockWidget = MagicMock()
@@ -416,7 +416,7 @@ class TestMappedWidgetClosePlugin:
 class TestMappedWidgetExportView:
     @pytest.fixture
     def widget(self, qapp, monkeypatch):
-        from PyQt6.QtWidgets import QFileDialog, QMessageBox
+        from PySide6.QtWidgets import QFileDialog, QMessageBox
 
         mw = _make_mw()
         ctx = MagicMock()
@@ -472,7 +472,7 @@ class TestMappedWidgetExportView:
 class TestMappedWidgetExportColorbar:
     @pytest.fixture
     def widget(self, qapp, monkeypatch):
-        from PyQt6.QtWidgets import QFileDialog, QMessageBox
+        from PySide6.QtWidgets import QFileDialog, QMessageBox
 
         mw = _make_mw()
         ctx = MagicMock()
@@ -541,7 +541,7 @@ class _FakeDialog:
         pass
 
     def exec(self):
-        from PyQt6.QtWidgets import QDialog
+        from PySide6.QtWidgets import QDialog
 
         return (
             QDialog.DialogCode.Accepted

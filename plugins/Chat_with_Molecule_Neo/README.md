@@ -102,7 +102,7 @@ pip install google-generativeai markdown matplotlib rdkit
 
 Chat with Molecule Neo is built as a robust, non-blocking plugin using the following stack:
 
-*   **GUI Framework**: Built with **PyQt6**, inheriting from `QDialog` to provide a secondary interactive window.
+*   **GUI Framework**: Built with **PySide6**, inheriting from `QDialog` to provide a secondary interactive window.
 *   **Asynchronous Processing**: 
     *   `GenAIWorker (QThread)`: Handles streaming responses from the Google Gemini API to prevent UI hangs.
     *   `InitWorker`: Manages secure API configuration and model discovery.

@@ -79,7 +79,7 @@ class TestChooseColor:
         w.destroy()
 
     def test_valid_color_updates_state_and_style(self, win, monkeypatch):
-        from PyQt6.QtGui import QColor
+        from PySide6.QtGui import QColor
 
         monkeypatch.setattr(
             _atom_colorizer.QColorDialog,
@@ -91,7 +91,7 @@ class TestChooseColor:
         assert "#00ff00" in win.btn_color.styleSheet()
 
     def test_cancelled_dialog_keeps_current_color(self, win, monkeypatch):
-        from PyQt6.QtGui import QColor
+        from PySide6.QtGui import QColor
 
         monkeypatch.setattr(
             _atom_colorizer.QColorDialog,
@@ -433,8 +433,8 @@ class TestClosingItHandsTheViewerBack:
     """
 
     def _closed_via(self, route):
-        from PyQt6.QtCore import Qt
-        from PyQt6.QtTest import QTest
+        from PySide6.QtCore import Qt
+        from PySide6.QtTest import QTest
 
         ctx = _colorizer_context()
         win = _atom_colorizer.AtomColorizerWindow(context=ctx)
@@ -493,8 +493,8 @@ class TestClosingKeepsTheColours:
     """
 
     def _apply_then_close(self, route):
-        from PyQt6.QtCore import Qt
-        from PyQt6.QtTest import QTest
+        from PySide6.QtCore import Qt
+        from PySide6.QtTest import QTest
 
         ctx = _colorizer_context()
         win = _atom_colorizer.AtomColorizerWindow(context=ctx)

@@ -93,3 +93,12 @@ Please also cite MoleditPy itself: [![DOI](https://zenodo.org/badge/DOI/10.5281/
 ## License & Disclaimer
 
 This project is licensed under the GNU General Public License v3.0 (GPLv3) - see the [LICENSE](LICENSE) file for details. As open-source software, it is provided 'as is' without warranty of any kind, and the author assumes no responsibility or liability for the results. Although outputs have been carefully verified, users are strongly encouraged to independently check and validate them for critical applications (such as publications). If you encounter any bugs, please open an issue.
+
+## MoleditPy 5 migration branch
+
+The `migrate/pyside6` branch ports the collection's active plugins and tests to
+PySide6 for MoleditPy 5. Existing plugin licenses are unchanged. External plugin
+entries still identify their published release assets; they will be updated
+through the registration scripts after each migrated plugin is released.
+The new Open Babel optimizer is developed separately and is not registered
+until a downloadable release is available.

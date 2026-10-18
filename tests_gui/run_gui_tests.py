@@ -2,7 +2,7 @@
 Runner script for headless GUI tests.
 
 Sets QT_QPA_PLATFORM=offscreen automatically so you don't need to export it
-manually.  On Windows it also pins the PyQt6 DLL directory before launching
+manually.  On Windows it also pins the PySide6 DLL directory before launching
 pytest so the correct Qt runtime is loaded.
 
 Usage (from any directory):
@@ -28,14 +28,14 @@ import sys
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 # ---------------------------------------------------------------------------
-# 2. On Windows, add PyQt6's own Qt6/bin to the DLL search path so the
-#    correct Qt runtime is found when both PyQt6 and PySide6 are installed.
+# 2. On Windows, add PySide6's own Qt6/bin to the DLL search path so the
+#    correct Qt runtime is found when both PySide6 and PySide6 are installed.
 # ---------------------------------------------------------------------------
 if sys.platform == "win32":
     try:
-        import PyQt6 as _pyqt6_pkg  # noqa: PLC0415
+        import PySide6 as _pyside6_pkg  # noqa: PLC0415
 
-        _qt6_bin = os.path.join(os.path.dirname(_pyqt6_pkg.__file__), "Qt6", "bin")
+        _qt6_bin = os.path.join(os.path.dirname(_pyside6_pkg.__file__), "Qt6", "bin")
         if os.path.isdir(_qt6_bin):
             os.add_dll_directory(_qt6_bin)
     except Exception:

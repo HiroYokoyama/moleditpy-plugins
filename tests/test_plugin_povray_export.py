@@ -1,7 +1,7 @@
 """
 Tests for the POV-Ray Export plugin (plugins/POV-Ray_Export/povray_export.py).
 
-All heavy deps (PyQt6, rdkit, numpy) are stubbed via mock_optional_imports().
+All heavy deps (PySide6, rdkit, numpy) are stubbed via mock_optional_imports().
 """
 
 from __future__ import annotations
@@ -75,7 +75,7 @@ def povray_env():
     """Mock context with real numpy and a usable QColor stub."""
     with mocks_with_real_numpy():
         mod = load_plugin(POVRAY_PATH)
-        import PyQt6.QtGui as qtgui  # mocked module object
+        import PySide6.QtGui as qtgui  # mocked module object
 
         qtgui.QColor = _StubQColor
         yield mod

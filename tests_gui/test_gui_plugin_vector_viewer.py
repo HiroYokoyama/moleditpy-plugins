@@ -32,7 +32,7 @@ def _vector_context():
 # Real numpy/pyvista pulled in up front so they're cached before the
 # chemistry-blocking finder snapshots sys.modules — otherwise the first-ever
 # import would be intercepted and replaced with a MagicMock. Guarded so CI's
-# bare test-gui job (only pytest+PyQt6 installed) skips this instead of
+# bare test-gui job (only pytest+PySide6 installed) skips this instead of
 # erroring at collection.
 _np = pytest.importorskip("numpy")
 _pv = pytest.importorskip("pyvista")
@@ -232,7 +232,7 @@ class TestVectorViewerRealMath:
         assert kwargs["opacity"] == 0.75
 
     def test_choose_color_valid_updates_button(self, rwin, monkeypatch):
-        from PyQt6.QtGui import QColor
+        from PySide6.QtGui import QColor
 
         new_color = QColor("red")
         monkeypatch.setattr(
@@ -243,7 +243,7 @@ class TestVectorViewerRealMath:
         assert rwin.color_btn.text() == new_color.name().upper()
 
     def test_choose_color_invalid_leaves_unchanged(self, rwin, monkeypatch):
-        from PyQt6.QtGui import QColor
+        from PySide6.QtGui import QColor
 
         invalid_color = QColor()  # default-constructed QColor is invalid
         monkeypatch.setattr(

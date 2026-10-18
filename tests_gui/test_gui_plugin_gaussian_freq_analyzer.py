@@ -24,7 +24,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Guarded so CI's bare test-gui job (only pytest+PyQt6 installed) skips this
+# Guarded so CI's bare test-gui job (only pytest+PySide6 installed) skips this
 # real-numpy module instead of erroring at collection.
 np = pytest.importorskip("numpy")
 
@@ -900,7 +900,7 @@ class TestOnDockVisibilityChangedReal:
 
 class TestCloseAction:
     def _find_close_button(self, widget):
-        from PyQt6.QtWidgets import QPushButton
+        from PySide6.QtWidgets import QPushButton
 
         for btn in widget.findChildren(QPushButton):
             if btn.text() == "Close":
@@ -923,7 +923,7 @@ class TestCloseAction:
         w.destroy()
 
     def test_close_restores_editing_ui_when_available(self, qapp):
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtWidgets import QWidget
 
         class _FakeMainWindow(QWidget):
             def __init__(self):
@@ -1083,7 +1083,7 @@ class TestSpectrumPlotWidgetReal:
 
 class TestLoadFromFileReal:
     def _make_main_window(self, qapp):
-        from PyQt6.QtWidgets import QMainWindow
+        from PySide6.QtWidgets import QMainWindow
 
         return QMainWindow()
 
@@ -1095,7 +1095,7 @@ class TestLoadFromFileReal:
 
         _gnp.load_from_file(ctx, path)
 
-        from PyQt6.QtWidgets import QDockWidget
+        from PySide6.QtWidgets import QDockWidget
 
         docks = [d for d in mw.findChildren(QDockWidget) if d.windowTitle() == "Gaussian Freq Analyzer"]
         assert len(docks) == 1
@@ -1113,15 +1113,15 @@ class TestLoadFromFileReal:
         _gnp.load_from_file(ctx, path)
         _gnp.load_from_file(ctx, path)
 
-        from PyQt6.QtWidgets import QDockWidget
+        from PySide6.QtWidgets import QDockWidget
 
         docks = [d for d in mw.findChildren(QDockWidget) if d.windowTitle() == "Gaussian Freq Analyzer"]
         assert len(docks) == 1  # not duplicated
         mw.deleteLater()
 
     def test_closes_conflicting_orca_dock(self, qapp, tmp_path):
-        from PyQt6.QtWidgets import QDockWidget, QWidget
-        from PyQt6.QtCore import Qt as _Qt
+        from PySide6.QtWidgets import QDockWidget, QWidget
+        from PySide6.QtCore import Qt as _Qt
 
         mw = self._make_main_window(qapp)
         mw.show()

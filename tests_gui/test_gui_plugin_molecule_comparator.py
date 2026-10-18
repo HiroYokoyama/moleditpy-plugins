@@ -3,7 +3,7 @@ Headless GUI tests for the Molecule Comparator plugin.
 
 Covers: MoleculeComparator.
 
-Real PyQt6 is used (QT_QPA_PLATFORM=offscreen); chemistry libs are MagicMocked.
+Real PySide6 is used (QT_QPA_PLATFORM=offscreen); chemistry libs are MagicMocked.
 Run via: python tests_gui/run_gui_tests.py tests_gui/test_gui_plugin_molecule_comparator.py
 """
 
@@ -269,7 +269,7 @@ class TestComparatorResults:
         w.destroy()
 
     def test_copy_results_noop_when_empty(self, qapp):
-        from PyQt6.QtWidgets import QApplication
+        from PySide6.QtWidgets import QApplication
 
         w, ctx = _make_comp()
         QApplication.clipboard().setText("sentinel")
@@ -278,7 +278,7 @@ class TestComparatorResults:
         w.destroy()
 
     def test_copy_results_writes_tsv(self, qapp):
-        from PyQt6.QtWidgets import QApplication
+        from PySide6.QtWidgets import QApplication
 
         w, ctx = _make_comp()
         _add_mols(w, 2)
@@ -385,7 +385,7 @@ class TestRunFunction:
         # Qt parent. enter_3d_only_mode() unconditionally touches
         # mw.ui_manager / mw.init_manager (no hasattr guard on those two), so
         # both must exist too.
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtWidgets import QWidget
 
         mw = QWidget()
         mw.ui_manager = SimpleNamespace()
@@ -777,7 +777,7 @@ class TestChangeColorAndScope:
         w.destroy()
 
     def test_change_color_updates_entry_on_valid_pick(self, qapp, monkeypatch):
-        from PyQt6.QtGui import QColor
+        from PySide6.QtGui import QColor
 
         w, _ctx = _make_comp()
         _add_mols(w, 1)
@@ -791,7 +791,7 @@ class TestChangeColorAndScope:
         w.destroy()
 
     def test_change_color_ignores_invalid_pick(self, qapp, monkeypatch):
-        from PyQt6.QtGui import QColor
+        from PySide6.QtGui import QColor
 
         w, _ctx = _make_comp()
         _add_mols(w, 1)
@@ -824,7 +824,7 @@ class TestChangeColorAndScope:
 
 class TestLoadAndDrop:
     def test_load_from_file_cancel_is_noop(self, qapp, monkeypatch):
-        from PyQt6.QtWidgets import QFileDialog
+        from PySide6.QtWidgets import QFileDialog
 
         w, _ctx = _make_comp()
         monkeypatch.setattr(QFileDialog, "getOpenFileNames", lambda *a, **k: ([], ""))
@@ -836,7 +836,7 @@ class TestLoadAndDrop:
     def test_load_from_file_takes_every_selected_file(
         self, qapp, monkeypatch, tmp_path
     ):
-        from PyQt6.QtWidgets import QFileDialog
+        from PySide6.QtWidgets import QFileDialog
 
         w, _ctx = _make_comp()
         paths = [str(tmp_path / "a.mol"), str(tmp_path / "b.xyz")]
@@ -1018,7 +1018,7 @@ class TestLoadAndDrop:
 
 class TestResultsContextMenu:
     def test_no_item_at_pos_is_noop(self, qapp):
-        from PyQt6.QtCore import QPoint
+        from PySide6.QtCore import QPoint
 
         w, _ctx = _make_comp()
         assert w.table_results.itemAt(QPoint(5, 5)) is None
@@ -1026,7 +1026,7 @@ class TestResultsContextMenu:
         w.destroy()
 
     def test_menu_shown_for_valid_row(self, qapp, monkeypatch):
-        from PyQt6.QtCore import QPoint
+        from PySide6.QtCore import QPoint
 
         w, _ctx = _make_comp()
         _add_mols(w, 2)
@@ -1041,7 +1041,7 @@ class TestResultsContextMenu:
         w.destroy()
 
     def test_menu_out_of_range_row_is_noop(self, qapp, monkeypatch):
-        from PyQt6.QtCore import QPoint
+        from PySide6.QtCore import QPoint
 
         w, _ctx = _make_comp()
         item = MagicMock()
@@ -1059,7 +1059,7 @@ class TestResultsContextMenu:
         w.destroy()
 
     def test_export_molecule_coords_mol_writes_file(self, qapp, monkeypatch, tmp_path):
-        from PyQt6.QtWidgets import QFileDialog
+        from PySide6.QtWidgets import QFileDialog
 
         w, _ctx = _make_comp()
         _add_mols(w, 1)
@@ -1078,7 +1078,7 @@ class TestResultsContextMenu:
         w.destroy()
 
     def test_export_molecule_coords_xyz_writes_file(self, qapp, monkeypatch, tmp_path):
-        from PyQt6.QtWidgets import QFileDialog
+        from PySide6.QtWidgets import QFileDialog
 
         w, _ctx = _make_comp()
         _add_mols(w, 1)
@@ -1094,7 +1094,7 @@ class TestResultsContextMenu:
         w.destroy()
 
     def test_export_molecule_coords_cancel_is_noop(self, qapp, monkeypatch):
-        from PyQt6.QtWidgets import QFileDialog
+        from PySide6.QtWidgets import QFileDialog
 
         w, _ctx = _make_comp()
         _add_mols(w, 1)
@@ -1105,7 +1105,7 @@ class TestResultsContextMenu:
     def test_export_molecule_coords_write_error_shows_critical(
         self, qapp, monkeypatch, tmp_path
     ):
-        from PyQt6.QtWidgets import QFileDialog
+        from PySide6.QtWidgets import QFileDialog
 
         w, _ctx = _make_comp()
         _add_mols(w, 1)
@@ -1136,7 +1136,7 @@ class TestSaveResultsAndExportPng:
         w.destroy()
 
     def test_save_results_cancel_is_noop(self, qapp, monkeypatch):
-        from PyQt6.QtWidgets import QFileDialog
+        from PySide6.QtWidgets import QFileDialog
 
         w, _ctx = _make_comp()
         _add_mols(w, 1)
@@ -1145,7 +1145,7 @@ class TestSaveResultsAndExportPng:
         w.destroy()
 
     def test_save_results_writes_csv(self, qapp, monkeypatch, tmp_path):
-        from PyQt6.QtWidgets import QFileDialog
+        from PySide6.QtWidgets import QFileDialog
 
         w, _ctx = _make_comp()
         _add_mols(w, 2)
@@ -1165,7 +1165,7 @@ class TestSaveResultsAndExportPng:
         w.destroy()
 
     def test_save_results_write_error_shows_critical(self, qapp, monkeypatch, tmp_path):
-        from PyQt6.QtWidgets import QFileDialog
+        from PySide6.QtWidgets import QFileDialog
 
         w, _ctx = _make_comp()
         _add_mols(w, 1)
@@ -1188,7 +1188,7 @@ class TestSaveResultsAndExportPng:
         w.destroy()
 
     def test_export_png_dialog_rejected_is_noop(self, qapp, monkeypatch):
-        from PyQt6.QtWidgets import QDialog
+        from PySide6.QtWidgets import QDialog
 
         w, _ctx = _make_comp()
         _add_mols(w, 1)
@@ -1197,7 +1197,7 @@ class TestSaveResultsAndExportPng:
         w.destroy()
 
     def test_export_png_cancel_after_settings_is_noop(self, qapp, monkeypatch):
-        from PyQt6.QtWidgets import QDialog, QFileDialog
+        from PySide6.QtWidgets import QDialog, QFileDialog
 
         w, _ctx = _make_comp()
         _add_mols(w, 1)
@@ -1207,7 +1207,7 @@ class TestSaveResultsAndExportPng:
         w.destroy()
 
     def test_export_png_success_appends_extension(self, qapp, monkeypatch, tmp_path):
-        from PyQt6.QtWidgets import QDialog, QFileDialog
+        from PySide6.QtWidgets import QDialog, QFileDialog
 
         w, ctx = _make_comp()
         _add_mols(w, 1)
@@ -1228,7 +1228,7 @@ class TestSaveResultsAndExportPng:
     def test_export_png_screenshot_error_shows_critical(
         self, qapp, monkeypatch, tmp_path
     ):
-        from PyQt6.QtWidgets import QDialog, QFileDialog
+        from PySide6.QtWidgets import QDialog, QFileDialog
 
         w, ctx = _make_comp()
         _add_mols(w, 1)
@@ -1381,7 +1381,7 @@ class TestUpdateVisualization:
 
 class TestStyleHelpers:
     def _real_mw_with_actions(self):
-        from PyQt6.QtWidgets import QWidget, QToolButton
+        from PySide6.QtWidgets import QWidget, QToolButton
 
         mw = QWidget()
         btn = QToolButton(mw)
@@ -1405,7 +1405,7 @@ class TestStyleHelpers:
         w.destroy()
 
     def test_find_style_tool_button_missing_returns_none(self, qapp):
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtWidgets import QWidget
 
         w, _ctx = _make_comp()
         w.mw = QWidget()
@@ -1441,7 +1441,7 @@ class TestStyleHelpers:
         w.destroy()
 
     def test_change_style_without_view_3d_manager(self, qapp):
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtWidgets import QWidget
 
         w, _ctx = _make_comp()
         w.mw = QWidget()  # no view_3d_manager attribute

@@ -3,7 +3,7 @@ Headless GUI tests for the Complex Molecule Untangler plugin.
 
 Covers: UntanglerDialog, run_plugin.
 
-Real PyQt6 is used (QT_QPA_PLATFORM=offscreen); chemistry libs are MagicMocked.
+Real PySide6 is used (QT_QPA_PLATFORM=offscreen); chemistry libs are MagicMocked.
 Run via: python tests_gui/run_gui_tests.py tests_gui/test_gui_plugin_complex_molecule_untangler.py
 """
 

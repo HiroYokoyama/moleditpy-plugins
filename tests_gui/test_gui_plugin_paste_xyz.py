@@ -3,7 +3,7 @@ Headless GUI tests for the Paste XYZ plugin.
 
 Covers: PasteXYZDialog.
 
-These tests use real PyQt6 (QT_QPA_PLATFORM=offscreen) rather than mocking
+These tests use real PySide6 (QT_QPA_PLATFORM=offscreen) rather than mocking
 all Qt classes.  Chemistry/scientific libraries (rdkit, numpy, …) are still
 replaced with MagicMock via mock_chemistry_imports() so no installed chemistry
 stack is required.
@@ -16,7 +16,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-from PyQt6.QtWidgets import QDialog, QDialogButtonBox, QLineEdit, QPushButton, QWidget
+from PySide6.QtWidgets import QDialog, QDialogButtonBox, QLineEdit, QPushButton, QWidget
 
 from conftest import load_plugin_for_gui, mock_chemistry_imports
 

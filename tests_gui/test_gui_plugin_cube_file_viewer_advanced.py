@@ -3,7 +3,7 @@ Headless GUI tests for the Cube File Viewer Advanced plugin.
 
 Covers: ChargeDialog, FlexibleDoubleSpinBox.
 
-Chemistry libs (pyvista, numpy, rdkit, …) are mocked; real PyQt6 is used.
+Chemistry libs (pyvista, numpy, rdkit, …) are mocked; real PySide6 is used.
 """
 
 from __future__ import annotations
@@ -157,7 +157,7 @@ _cube_adv.np = SimpleNamespace(generic=(), ndarray=())
 
 def _make_main_window():
     # Real QWidget so it can be a Qt parent; mocked methods for assertions.
-    from PyQt6.QtWidgets import QWidget
+    from PySide6.QtWidgets import QWidget
 
     mw = QWidget()
     mw.removeDockWidget = MagicMock()
@@ -190,7 +190,7 @@ def _make_viewer(data_max=2.0, mol=None):
 
 
 def _teardown_viewer(w):
-    from PyQt6.QtCore import QCoreApplication
+    from PySide6.QtCore import QCoreApplication
 
     w._structure_watch_timer.stop()
     try:
@@ -570,7 +570,7 @@ class TestCubeViewerColorPickers:
         _teardown_viewer(w)
 
     def test_choose_color_p_valid_updates_color(self, viewer, monkeypatch):
-        from PyQt6.QtGui import QColor
+        from PySide6.QtGui import QColor
 
         monkeypatch.setattr(
             _cube_adv.QColorDialog,
@@ -581,7 +581,7 @@ class TestCubeViewerColorPickers:
         assert viewer.color_p == (10, 20, 30)
 
     def test_choose_color_p_invalid_leaves_color(self, viewer, monkeypatch):
-        from PyQt6.QtGui import QColor
+        from PySide6.QtGui import QColor
 
         monkeypatch.setattr(
             _cube_adv.QColorDialog, "getColor", staticmethod(lambda **kw: QColor())
@@ -591,7 +591,7 @@ class TestCubeViewerColorPickers:
         assert viewer.color_p == before
 
     def test_choose_color_n_valid_updates_color(self, viewer, monkeypatch):
-        from PyQt6.QtGui import QColor
+        from PySide6.QtGui import QColor
 
         monkeypatch.setattr(
             _cube_adv.QColorDialog,
@@ -602,7 +602,7 @@ class TestCubeViewerColorPickers:
         assert viewer.color_n == (1, 2, 3)
 
     def test_choose_color_p_with_complementary_updates_neg(self, viewer, monkeypatch):
-        from PyQt6.QtGui import QColor
+        from PySide6.QtGui import QColor
 
         viewer.check_comp_color.setChecked(True)
         monkeypatch.setattr(
@@ -710,7 +710,7 @@ class TestCubeViewerClose:
     def test_close_event_stops_timer_and_saves(self, qapp, tmp_path):
         w, ctx, mw, dock, grid = _make_viewer()
         w.get_settings_path = lambda: str(tmp_path / "cube_viewer_advanced.json")
-        from PyQt6.QtGui import QCloseEvent
+        from PySide6.QtGui import QCloseEvent
 
         w.closeEvent(QCloseEvent())
         assert not w._structure_watch_timer.isActive()
@@ -1126,7 +1126,7 @@ class TestCubeViewerLoadEnvTexture:
         p = tmp_path / "big.png"
         p.write_bytes(b"x")
         monkeypatch.setattr(_cube_adv.os.path, "getsize", lambda _p: 20 * 1024 * 1024)
-        from PyQt6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QMessageBox
 
         monkeypatch.setattr(
             QMessageBox,
@@ -1141,7 +1141,7 @@ class TestCubeViewerLoadEnvTexture:
         p = tmp_path / "big2.png"
         p.write_bytes(b"x")
         monkeypatch.setattr(_cube_adv.os.path, "getsize", lambda _p: 20 * 1024 * 1024)
-        from PyQt6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QMessageBox
 
         monkeypatch.setattr(
             QMessageBox,
@@ -1155,7 +1155,7 @@ class TestCubeViewerLoadEnvTexture:
         w, mw, tmp_path = viewer
         p = tmp_path / "cancel.png"
         p.write_bytes(b"x")
-        from PyQt6.QtWidgets import QProgressDialog
+        from PySide6.QtWidgets import QProgressDialog
 
         monkeypatch.setattr(QProgressDialog, "wasCanceled", lambda self: True)
         with caplog.at_level(logging.INFO):
@@ -1166,7 +1166,7 @@ class TestCubeViewerLoadEnvTexture:
         w, mw, tmp_path = viewer
         p = tmp_path / "cancel2.png"
         p.write_bytes(b"x")
-        from PyQt6.QtWidgets import QProgressDialog
+        from PySide6.QtWidgets import QProgressDialog
 
         calls = {"n": 0}
 

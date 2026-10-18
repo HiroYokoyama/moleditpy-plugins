@@ -3,7 +3,7 @@ Headless GUI tests for the Charge Editor plugin.
 
 Covers: ChargeEditorWindow, initialize().
 
-Real PyQt6 is used (QT_QPA_PLATFORM=offscreen); chemistry libs are MagicMocked.
+Real PySide6 is used (QT_QPA_PLATFORM=offscreen); chemistry libs are MagicMocked.
 Run via: python tests_gui/run_gui_tests.py tests_gui/test_gui_plugin_charge_editor.py
 """
 
@@ -32,7 +32,7 @@ with mock_chemistry_imports():
 # Real numpy/rdkit/pyvista/vtk pulled in up front so they're cached before the
 # chemistry-blocking finder snapshots sys.modules — otherwise the first-ever
 # import would be intercepted and replaced with a MagicMock. Guarded so CI's
-# bare test-gui job (only pytest+PyQt6 installed) skips this instead of
+# bare test-gui job (only pytest+PySide6 installed) skips this instead of
 # erroring at collection.
 _np = pytest.importorskip("numpy")
 _pv = pytest.importorskip("pyvista")
@@ -49,7 +49,7 @@ def _no_modal_warning(monkeypatch):
     a real modal, and several tests below drive exactly those paths, so an
     unpatched warning blocks the offscreen run forever.
     """
-    from PyQt6.QtWidgets import QMessageBox
+    from PySide6.QtWidgets import QMessageBox
 
     calls = []
     monkeypatch.setattr(
@@ -286,8 +286,8 @@ class TestChargeEditorInitialize:
 
 class TestClickFilter:
     def _events(self, press_xy, release_xy):
-        from PyQt6.QtCore import QEvent, QPointF, Qt
-        from PyQt6.QtGui import QMouseEvent
+        from PySide6.QtCore import QEvent, QPointF, Qt
+        from PySide6.QtGui import QMouseEvent
 
         press = QMouseEvent(
             QEvent.Type.MouseButtonPress,
@@ -424,7 +424,7 @@ class TestOnPlotterClick:
         w.destroy()
 
     def _widget(self):
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtWidgets import QWidget
 
         widget = QWidget()
         widget.resize(400, 300)
@@ -452,7 +452,7 @@ class TestOnPlotterClick:
         win._on_plotter_click(10, 10, self._widget(), None)  # must not raise
 
     def test_picks_nearest_atom_and_selects_row(self, win, qapp, monkeypatch):
-        from PyQt6.QtCore import Qt
+        from PySide6.QtCore import Qt
 
         monkeypatch.setattr(
             _vtk, "vtkCellPicker", lambda: _FakePicker(actor="x", pos=(1.4, 0.0, 0.0))
@@ -462,7 +462,7 @@ class TestOnPlotterClick:
         assert rows == [1]
 
     def test_ctrl_click_adds_to_selection(self, win, qapp, monkeypatch):
-        from PyQt6.QtCore import Qt
+        from PySide6.QtCore import Qt
 
         monkeypatch.setattr(
             _vtk, "vtkCellPicker", lambda: _FakePicker(actor="x", pos=(0.0, 0.0, 0.0))
@@ -630,7 +630,7 @@ class TestEditOperationsRealChem:
         win.context.push_undo_checkpoint.assert_called()
 
     def test_on_charge_changed_exception_shows_critical(self, win, qapp, monkeypatch):
-        from PyQt6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QMessageBox
 
         calls = []
         monkeypatch.setattr(
@@ -653,7 +653,7 @@ class TestEditOperationsRealChem:
         win.context.push_undo_checkpoint.assert_called()
 
     def test_on_radical_changed_exception_shows_critical(self, win, qapp, monkeypatch):
-        from PyQt6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QMessageBox
 
         calls = []
         monkeypatch.setattr(
@@ -673,7 +673,7 @@ class TestEditOperationsRealChem:
         assert all(a.GetFormalCharge() == 0 for a in new_mol.GetAtoms())
 
     def test_clear_all_charges_exception_shows_critical(self, win, qapp, monkeypatch):
-        from PyQt6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QMessageBox
 
         calls = []
         monkeypatch.setattr(
@@ -693,7 +693,7 @@ class TestEditOperationsRealChem:
         win.context.push_undo_checkpoint.assert_called()
 
     def test_clear_all_radicals_exception_shows_critical(self, win, qapp, monkeypatch):
-        from PyQt6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QMessageBox
 
         calls = []
         monkeypatch.setattr(

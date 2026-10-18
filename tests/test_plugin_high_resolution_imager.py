@@ -198,7 +198,7 @@ def _patch_fake_widgets(mod):
     mod.QSpinBox = _FakeSpinBox
     mod.QPushButton = _FakeButton
 
-    import PyQt6.QtWidgets as qtw  # same shared mocked module as the plugin
+    import PySide6.QtWidgets as qtw  # same shared mocked module as the plugin
 
     qtw.QRadioButton = _FakeRadioButton
     qtw.QButtonGroup = _FakeButtonGroup

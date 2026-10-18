@@ -11,7 +11,7 @@ import json
 import logging
 import math
 import numpy as np
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
@@ -27,15 +27,9 @@ from PyQt6.QtWidgets import (
     QMessageBox,
 )
 
-try:
-    from PyQt6 import sip
-except ImportError:
-    try:
-        import sip
-    except ImportError:
-        sip = None
-from PyQt6.QtCore import Qt, QTimer, QCoreApplication
-from PyQt6.QtGui import QColor, QCloseEvent, QPixmap
+from shiboken6 import isValid
+from PySide6.QtCore import Qt, QTimer, QCoreApplication
+from PySide6.QtGui import QColor, QCloseEvent, QPixmap
 
 # PyVista / VTK Import Check
 try:
@@ -46,8 +40,8 @@ except ImportError:
     vtk = None
 
 PLUGIN_NAME = "Advanced Rendering"
-PLUGIN_VERSION = "2026.09.24"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.18"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0a1, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Fine-grained control over Scene lighting, shadows, post-processing effects (SSAO, Depth Peeling, EDL), and Atom/Bond rendering (PBR, Silhouette)."
 
@@ -104,7 +98,7 @@ def load_plugin_from_mw(mw):
 
     is_deleted = False
     try:
-        if dialog and sip.isdeleted(dialog):
+        if dialog and not isValid(dialog):
             is_deleted = True
     except Exception as _e:
         logging.warning("[advanced_rendering.py:83] silenced: %s", _e)
@@ -113,7 +107,7 @@ def load_plugin_from_mw(mw):
         # Ensure the viewer widget exists
         viewer = getattr(mw, "_adv_rendering_viewer", None)
         try:
-            if viewer and sip.isdeleted(viewer):
+            if viewer and not isValid(viewer):
                 viewer = None
         except Exception as _e:
             logging.warning("[advanced_rendering.py:91] silenced: %s", _e)
@@ -1143,7 +1137,7 @@ class AdvancedGraphicsWidget(QWidget):
             self.apply_settings_dict(self.presets[name])
 
     def save_preset(self):
-        from PyQt6.QtWidgets import QInputDialog
+        from PySide6.QtWidgets import QInputDialog
 
         name, ok = QInputDialog.getText(
             self,

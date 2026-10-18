@@ -165,7 +165,7 @@ class TestMetadataAndInitialize:
     def test_metadata(self):
         assert ea.PLUGIN_NAME == "Elemental Analysis"
         assert ea.PLUGIN_TAGS == ["Analysis"]
-        assert ea.PLUGIN_SUPPORTED_MOLEDITPY_VERSION == ">=4.0.0, <5.0.0"
+        assert ea.PLUGIN_SUPPORTED_MOLEDITPY_VERSION == ">=5.0.0a1, <6.0.0"
 
     def test_solvate_formulas_parse(self):
         for _label, formula in ea.SOLVATES:

@@ -3,7 +3,7 @@ GUI tests for the Chat with Molecule Neo (ChatGPT) plugin.
 
 Covers: ChatMoleculeWindow.
 
-Chemistry/AI libs are mocked; real PyQt6 is used. ChatGPT is safe with
+Chemistry/AI libs are mocked; real PySide6 is used. ChatGPT is safe with
 context.get_main_window()=None.
 """
 
@@ -62,7 +62,7 @@ class TestChatMoleculeWindowChatGPT:
         assert win.windowTitle() == "Chat with Molecule Neo (ChatGPT)"
 
     def test_api_key_field_is_password(self, win):
-        from PyQt6.QtWidgets import QLineEdit
+        from PySide6.QtWidgets import QLineEdit
         assert win.txt_api_key.echoMode() == QLineEdit.EchoMode.Password
 
     def test_api_key_placeholder(self, win):

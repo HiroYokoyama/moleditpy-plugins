@@ -10,8 +10,8 @@ from pathlib import Path
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
-from PyQt6.QtGui import QCloseEvent, QColor
-from PyQt6.QtWidgets import QWidget
+from PySide6.QtGui import QCloseEvent, QColor
+from PySide6.QtWidgets import QWidget
 
 from conftest import load_plugin_for_gui, mock_chemistry_imports
 
@@ -447,8 +447,8 @@ class TestClosingItHandsTheViewerBack:
     """
 
     def _closed_via(self, route):
-        from PyQt6.QtCore import Qt
-        from PyQt6.QtTest import QTest
+        from PySide6.QtCore import Qt
+        from PySide6.QtTest import QTest
 
         ctx = _bond_context()
         win = _bond.BondColorizerWindow(context=ctx)

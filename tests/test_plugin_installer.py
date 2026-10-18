@@ -1,7 +1,7 @@
 """
 Unit tests for the Plugin Installer plugin.
 
-All tests run headlessly — PyQt6 and network are fully mocked.
+All tests run headlessly — PySide6 and network are fully mocked.
 """
 
 import json
@@ -26,7 +26,7 @@ PLUGIN_PATH = (
 
 
 def _load_module():
-    """Import plugin_installer with PyQt6 stubbed out.
+    """Import plugin_installer with PySide6 stubbed out.
 
     QThread and QDialog use real (minimal) base classes so that subclasses
     defined in the plugin are proper Python types — this lets tests use
@@ -55,19 +55,19 @@ def _load_module():
         def __init__(self, parent=None, *a, **kw):
             pass
 
-    # Always install the stub PyQt6 while loading the plugin, even if pytest-qt
-    # has already imported the real PyQt6 during collection. Otherwise the plugin
+    # Always install the stub PySide6 while loading the plugin, even if pytest-qt
+    # has already imported the real PySide6 during collection. Otherwise the plugin
     # subclasses the real QDialog and object.__new__() on a sip type is unsafe
-    # (this is why the suite passed in CI, where PyQt6 is absent, but failed
-    # locally with PyQt6 installed). The real modules are restored afterwards.
-    _saved_pyqt6 = {
+    # (this is why the suite passed in CI, where PySide6 is absent, but failed
+    # locally with PySide6 installed). The real modules are restored afterwards.
+    _saved_pyside6 = {
         key: sys.modules.get(key)
-        for key in ("PyQt6", "PyQt6.QtWidgets", "PyQt6.QtGui", "PyQt6.QtCore")
+        for key in ("PySide6", "PySide6.QtWidgets", "PySide6.QtGui", "PySide6.QtCore")
     }
-    if True:  # force the stub regardless of any real PyQt6 already imported
-        pyqt6 = types.ModuleType("PyQt6")
-        pyqt6.QtWidgets = types.ModuleType("PyQt6.QtWidgets")
-        pyqt6.QtGui = types.ModuleType("PyQt6.QtGui")
+    if True:  # force the stub regardless of any real PySide6 already imported
+        pyside6 = types.ModuleType("PySide6")
+        pyside6.QtWidgets = types.ModuleType("PySide6.QtWidgets")
+        pyside6.QtGui = types.ModuleType("PySide6.QtGui")
 
         # QDialog needs to be a real class (it's subclassed by PluginInstallerWindow
         # and PluginDetailsDialog).  Everything else stays as MagicMock.
@@ -87,22 +87,22 @@ def _load_module():
             "QProgressBar",
             "QProgressDialog",
         ]:
-            setattr(pyqt6.QtWidgets, name, MagicMock())
-        pyqt6.QtWidgets.QDialog = _FakeQDialog
+            setattr(pyside6.QtWidgets, name, MagicMock())
+        pyside6.QtWidgets.QDialog = _FakeQDialog
 
         for name in ["QColor", "QDesktopServices"]:
-            setattr(pyqt6.QtGui, name, MagicMock())
+            setattr(pyside6.QtGui, name, MagicMock())
 
-        pyqt6.QtCore = types.ModuleType("PyQt6.QtCore")
+        pyside6.QtCore = types.ModuleType("PySide6.QtCore")
         # QThread needs to be a real class (it's subclassed by _FetchWorker).
-        pyqt6.QtCore.QThread = _FakeQThread
-        for name in ["QTimer", "pyqtSignal", "Qt", "QUrl"]:
-            setattr(pyqt6.QtCore, name, MagicMock())
+        pyside6.QtCore.QThread = _FakeQThread
+        for name in ["QTimer", "Signal", "Qt", "QUrl"]:
+            setattr(pyside6.QtCore, name, MagicMock())
 
-        sys.modules["PyQt6"] = pyqt6
-        sys.modules["PyQt6.QtWidgets"] = pyqt6.QtWidgets
-        sys.modules["PyQt6.QtGui"] = pyqt6.QtGui
-        sys.modules["PyQt6.QtCore"] = pyqt6.QtCore
+        sys.modules["PySide6"] = pyside6
+        sys.modules["PySide6.QtWidgets"] = pyside6.QtWidgets
+        sys.modules["PySide6.QtGui"] = pyside6.QtGui
+        sys.modules["PySide6.QtCore"] = pyside6.QtCore
 
     spec = importlib.util.spec_from_file_location("plugin_installer", PLUGIN_PATH)
     mod = importlib.util.module_from_spec(spec)
@@ -1342,7 +1342,7 @@ class _FakeTable:
 
 
 class TestPopulateTable:
-    def _make_installer(self, remote_data, installed, app_version="4.2.0"):
+    def _make_installer(self, remote_data, installed, app_version="5.0.0a1"):
         inst = object.__new__(PI.PluginInstallerWindow)
         inst.table = _FakeTable()
         inst.latest_app_version = "Unknown"  # skips the app-upgrade block
@@ -1406,7 +1406,7 @@ class TestPopulateTable:
                 "name": "Fresh",
                 "version": "1.0.0",
                 "visible": True,
-                "supported_moleditpy_version": ">=4.0.0, <5.0.0",
+                "supported_moleditpy_version": ">=5.0.0a1, <6.0.0",
                 "downloadUrl": "https://x/fresh.py",
             },
         ]
@@ -2123,7 +2123,7 @@ class TestPythonVersionCheck:
         assert _re.fullmatch(r"\d+\.\d+\.\d+", PI.get_python_version())
 
     def test_constant_present(self):
-        assert PI.PLUGIN_SUPPORTED_PYTHON_VERSION == ">=3.9, <3.15"
+        assert PI.PLUGIN_SUPPORTED_PYTHON_VERSION == ">=3.10, <3.15"
 
     def test_constant_matches_registry(self):
         registry = json.loads(
@@ -2138,7 +2138,7 @@ class TestPythonVersionCheck:
         )
 
     def test_default_spec_boundaries(self):
-        spec = ">=3.9, <3.15"
+        spec = ">=3.10, <3.15"
         assert PI.is_app_version_compatible("3.9.0", spec) is True
         assert PI.is_app_version_compatible("3.12.4", spec) is True
         assert PI.is_app_version_compatible("3.14.2", spec) is True
@@ -2147,7 +2147,7 @@ class TestPythonVersionCheck:
 
     def test_running_interpreter_compatible_with_default(self):
         assert (
-            PI.is_app_version_compatible(PI.get_python_version(), ">=3.9, <3.15")
+            PI.is_app_version_compatible(PI.get_python_version(), ">=3.10, <3.15")
             is True
         )
 

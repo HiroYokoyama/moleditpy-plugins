@@ -3,7 +3,7 @@ import os
 import json
 import numpy as np
 import pyvista as pv
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QFileDialog,
     QDockWidget,
     QWidget,
@@ -23,8 +23,8 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QLineEdit,
 )
-from PyQt6.QtGui import QColor, QPixmap
-from PyQt6.QtCore import Qt, QTimer, QCoreApplication
+from PySide6.QtGui import QColor, QPixmap
+from PySide6.QtCore import Qt, QTimer, QCoreApplication
 import logging
 
 # RDKit imports for molecule construction
@@ -44,8 +44,8 @@ except ImportError:
 __author__ = "HiroYokoyama"
 PLUGIN_AUTHOR = __author__
 PLUGIN_NAME = "Cube File Viewer Advanced"
-PLUGIN_VERSION = "2026.10.13"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.18"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0a1, <6.0.0"
 PLUGIN_DESCRIPTION = "Advanced 3D visualization for Gaussian Cube files with PBR, SSAO, and other effects."
 PLUGIN_CONTEXT = None
 
@@ -531,7 +531,7 @@ class CubeViewerWidget(QWidget):
         self.load_settings()
 
     def init_advanced_ui(self, layout):
-        from PyQt6.QtWidgets import QGroupBox, QGridLayout, QTabWidget
+        from PySide6.QtWidgets import QGroupBox, QGridLayout, QTabWidget
 
         group = QGroupBox("Advanced Rendering")
         # Main Layout of Group is just a VBox holding the TabWidget
@@ -1689,7 +1689,7 @@ class CubeViewerWidget(QWidget):
                     return
 
             # Show progress dialog with cancel button
-            from PyQt6.QtWidgets import QProgressDialog
+            from PySide6.QtWidgets import QProgressDialog
 
             progress = QProgressDialog("Loading texture...", "Stop", 0, 0, self)
             progress.setWindowTitle("Loading Texture")

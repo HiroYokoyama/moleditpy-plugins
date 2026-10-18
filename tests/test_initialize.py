@@ -9,7 +9,7 @@ stdlib imports, but cannot catch runtime errors that only surface when
 initialize() actually executes — e.g. missing attribute access, bad argument
 count, or unguarded None dereferences.
 
-All heavy optional dependencies (PyQt6, rdkit, moleditpy, etc.) are intercepted
+All heavy optional dependencies (PySide6, rdkit, moleditpy, etc.) are intercepted
 by a custom MetaPathFinder so these tests run without any GUI or chemistry
 libraries installed.
 """

@@ -3,7 +3,7 @@ Headless GUI tests for the MS Spectrum Simulation Neo plugin.
 
 Covers: MSSpectrumDialog.
 
-These tests use real PyQt6 (QT_QPA_PLATFORM=offscreen) rather than mocking
+These tests use real PySide6 (QT_QPA_PLATFORM=offscreen) rather than mocking
 all Qt classes.  Chemistry/scientific libraries (rdkit, numpy, …) are still
 replaced with MagicMock via mock_chemistry_imports() so no installed chemistry
 stack is required.
@@ -16,8 +16,8 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-from PyQt6.QtCore import QEvent, QPoint, QPointF, Qt
-from PyQt6.QtGui import QMouseEvent, QWheelEvent
+from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
+from PySide6.QtGui import QMouseEvent, QWheelEvent
 
 from conftest import load_plugin_for_gui, mock_chemistry_imports
 
@@ -1017,7 +1017,7 @@ class TestMSForcedLightMode:
 
     def test_dialog_background_is_light_regardless_of_palette(self, qapp):
         """Rendered colour, not just the rule text."""
-        from PyQt6.QtGui import QPalette
+        from PySide6.QtGui import QPalette
 
         d, _ctx = _make_dlg()
         try:

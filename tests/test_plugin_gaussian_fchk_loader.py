@@ -1,7 +1,7 @@
 """
 Tests for the Gaussian FCHK Loader plugin (plugins/Gaussian_FCHK_Loader/gaussian_fchk_loader.py).
 
-All heavy deps (PyQt6, rdkit, numpy) are stubbed via mock_optional_imports().
+All heavy deps (PySide6, rdkit, numpy) are stubbed via mock_optional_imports().
 """
 
 from __future__ import annotations
@@ -273,7 +273,7 @@ class TestRunEntryPoint:
         with mock_optional_imports():
             mod = load_plugin(FCHK_LOADER_PATH)
             mod.PLUGIN_CONTEXT = make_context()
-            from PyQt6.QtWidgets import QFileDialog
+            from PySide6.QtWidgets import QFileDialog
 
             QFileDialog.getOpenFileName = MagicMock(return_value=("", ""))
             mod.run(MagicMock())
@@ -283,7 +283,7 @@ class TestRunEntryPoint:
         with mock_optional_imports():
             mod = load_plugin(FCHK_LOADER_PATH)
             assert mod.PLUGIN_CONTEXT is None
-            from PyQt6.QtWidgets import QFileDialog
+            from PySide6.QtWidgets import QFileDialog
 
             QFileDialog.getOpenFileName = MagicMock(return_value=("C:/x.fchk", ""))
             mod.run(MagicMock())
@@ -297,7 +297,7 @@ class TestRunEntryPoint:
             _FakeFCHKDialog.can_freq = False
             _FakeFCHKDialog.can_mo = False
             mod.QMessageBox.warning = MagicMock()
-            from PyQt6.QtWidgets import QFileDialog
+            from PySide6.QtWidgets import QFileDialog
 
             QFileDialog.getOpenFileName = MagicMock(return_value=("C:/x.fchk", ""))
             mod.run(MagicMock())

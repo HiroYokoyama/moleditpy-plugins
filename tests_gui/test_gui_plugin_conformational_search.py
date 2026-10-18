@@ -3,7 +3,7 @@ Headless GUI tests for the Conformational Search plugin.
 
 Covers: ConformerSearchDialog.
 
-Real PyQt6 is used (QT_QPA_PLATFORM=offscreen); chemistry libs are MagicMocked.
+Real PySide6 is used (QT_QPA_PLATFORM=offscreen); chemistry libs are MagicMocked.
 Run via: python tests_gui/run_gui_tests.py tests_gui/test_gui_plugin_conformational_search.py
 """
 
@@ -31,7 +31,7 @@ with mock_chemistry_imports():
 # before _mock_chemistry_keep_real_chem() snapshots it below — otherwise the
 # chemistry-blocking meta path finder would intercept the first-ever
 # `import rdkit` and hand back a MagicMock instead.
-# Guarded so CI's bare test-gui job (only pytest+PyQt6 installed) skips this
+# Guarded so CI's bare test-gui job (only pytest+PySide6 installed) skips this
 # real-rdkit module instead of erroring at collection.
 _Chem = pytest.importorskip("rdkit.Chem")
 _AllChem = pytest.importorskip("rdkit.Chem.AllChem")
@@ -99,7 +99,7 @@ def _run_search_sync(dlg, timeout_s=120.0):
     assert on only exist once the worker's completion signal has been
     delivered back to the GUI thread.
     """
-    from PyQt6.QtWidgets import QApplication
+    from PySide6.QtWidgets import QApplication
 
     dlg.run_search()
     worker = dlg.worker
@@ -114,7 +114,7 @@ def _run_search_sync(dlg, timeout_s=120.0):
 
 def _run_search_sync_existing(dlg, timeout_s=120.0):
     """Pump the event loop until an already-started search has finished."""
-    from PyQt6.QtWidgets import QApplication
+    from PySide6.QtWidgets import QApplication
 
     worker = dlg.worker
     if worker is None:
@@ -436,7 +436,7 @@ class TestStopSearchReal:
         assert dlg.btn_stop.isEnabled() is False
 
     def test_search_runs_off_the_gui_thread(self, dlg):
-        from PyQt6.QtCore import QThread
+        from PySide6.QtCore import QThread
 
         dlg.run_search()
         assert isinstance(dlg.worker, QThread)
@@ -620,9 +620,9 @@ class TestConformerSearchWorkerReal:
 
 class TestSearchOwnership:
     def test_closing_running_worker_is_deferred_without_wait(self, qapp):
-        from PyQt6.QtCore import QObject, pyqtSignal
+        from PySide6.QtCore import QObject, Signal
         class Worker(QObject):
-            finished = pyqtSignal()
+            finished = Signal()
             def __init__(self):
                 super().__init__()
                 self.running = True

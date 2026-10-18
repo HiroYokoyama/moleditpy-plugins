@@ -1,15 +1,15 @@
 # tests_gui — Headless GUI Tests
 
-Headless GUI tests for plugin dialog widgets using **real PyQt6** with `QT_QPA_PLATFORM=offscreen`.
+Headless GUI tests for plugin dialog widgets using **real PySide6** with `QT_QPA_PLATFORM=offscreen`.
 
 ## How this differs from `tests/`
 
 | | `tests/` | `tests_gui/` |
 |---|---|---|
-| PyQt6 | Mocked (MagicMock) | **Real** |
+| PySide6 | Mocked (MagicMock) | **Real** |
 | rdkit / numpy / … | Mocked | Mocked |
 | What is tested | Plugin logic, settings, parsers | Widget construction, signals, UI state |
-| Qt requirement | None | PyQt6 installed |
+| Qt requirement | None | PySide6 installed |
 
 ## Running locally
 
@@ -25,7 +25,7 @@ python tests_gui/run_gui_tests.py -k RouteBuilder -v
 QT_QPA_PLATFORM=offscreen pytest tests_gui/ -v
 ```
 
-> **Windows note:** If both PyQt6 and PySide6 are installed, use `run_gui_tests.py` — it
+> **Windows note:** If both PySide6 and PySide6 are installed, use `run_gui_tests.py` — it
 > automatically adds the correct Qt6/bin DLL directory to avoid the version conflict.
 
 ## What is tested
@@ -123,7 +123,7 @@ and PR:
 
 | Job | Python | Installs | Runs |
 |---|---|---|---|
-| `test-gui` | 3.9 – 3.14 | `PyQt6`, plus `rdkit numpy pillow scipy pymatgen-core` best-effort | the whole suite; the pyvista/vtk-gated modules skip |
+| `test-gui` | 3.9 – 3.14 | `PySide6`, plus `rdkit numpy pillow scipy pymatgen-core` best-effort | the whole suite; the pyvista/vtk-gated modules skip |
 | `test-gui-render` | 3.12 | also `pyvista vtk`, under `xvfb-run` | only those gated modules |
 
 Both set `QT_QPA_PLATFORM=offscreen`.

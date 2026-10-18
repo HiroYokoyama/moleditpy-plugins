@@ -3,7 +3,7 @@ Shared test infrastructure for moleditpy-plugins.
 
 Provides:
 - ``mock_optional_imports()`` — context manager that intercepts all heavy
-  optional dependencies (PyQt6, rdkit, moleditpy, etc.) via a MetaPathFinder
+  optional dependencies (PySide6, rdkit, moleditpy, etc.) via a MetaPathFinder
   and replaces them with MagicMock modules so plugin tests run headlessly.
 - ``load_plugin(path)`` — load a plugin .py file with deps already mocked.
 - ``make_context()`` — build a stub PluginContext (MagicMock with a non-None
@@ -53,7 +53,7 @@ PLUGINS_DIR = ROOT / "plugins"
 
 BLOCKED_TOPS: frozenset[str] = frozenset(
     {
-        "PyQt6",
+        "PySide6",
         "rdkit",
         "pyvista",
         "pyvistaqt",
@@ -225,7 +225,7 @@ def mocks_with_real_numpy() -> Generator[None, None, None]:
 
     The export generators do ``import numpy as np`` at call time; placing the
     real modules in sys.modules bypasses the mocking MetaPathFinder for numpy
-    only, so vector math is real while rdkit/PyQt6 stay mocked.
+    only, so vector math is real while rdkit/PySide6 stay mocked.
 
     ALL already-imported ``numpy.*`` submodules must be restored, not just the
     top-level package: numpy resolves internals like ``numpy._core._methods``

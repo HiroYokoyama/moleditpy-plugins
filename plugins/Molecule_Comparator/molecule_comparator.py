@@ -1,7 +1,7 @@
 import os
 import math
 import csv
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
@@ -25,8 +25,8 @@ from PyQt6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
 )
-from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
-from PyQt6.QtGui import QColor, QAction
+from PySide6.QtCore import Qt, QTimer, QThread, Signal
+from PySide6.QtGui import QColor, QAction
 from rdkit import Chem
 from rdkit.Chem import AllChem, rdFMCS
 
@@ -42,17 +42,17 @@ import copy
 import logging
 
 PLUGIN_NAME = "Molecule Comparator"
-PLUGIN_VERSION = "2026.10.13"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.18"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0a1, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Compare multiple molecules in 3D, calculate RMSD, and align them."
 PLUGIN_CONTEXT = None
 
 
 class AlignmentWorker(QThread):
-    progress = pyqtSignal(int, int, str)  # current, total, status_message
-    finished_signal = pyqtSignal(list)  # list of result dicts
-    error_signal = pyqtSignal(str)
+    progress = Signal(int, int, str)  # current, total, status_message
+    finished_signal = Signal(list)  # list of result dicts
+    error_signal = Signal(str)
 
     def __init__(self, ref_mol, target_entries, method, ignore_hs):
         super().__init__()

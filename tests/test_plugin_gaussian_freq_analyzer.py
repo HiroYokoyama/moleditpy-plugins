@@ -1,7 +1,7 @@
 """
 Tests for the Gaussian Freq Analyzer plugin (plugins/Gaussian_Freq_Analyzer/gaussian_fchk_freq_analyzer.py).
 
-All heavy deps (PyQt6, rdkit, numpy) are stubbed via mock_optional_imports().
+All heavy deps (PySide6, rdkit, numpy) are stubbed via mock_optional_imports().
 """
 
 from __future__ import annotations

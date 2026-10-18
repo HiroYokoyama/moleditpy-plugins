@@ -9,8 +9,8 @@ Exports molecular structures as Blender Python scripts
 import logging
 
 PLUGIN_NAME = "Blender Export"
-PLUGIN_VERSION = "2026.07.31"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.18"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0a1, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Export molecular structures as Blender Python scripts that create 3D visualizations"
 PLUGIN_CONTEXT = None
@@ -27,7 +27,7 @@ def initialize(context):
 
 def export_to_blender(context):
     """Main export function that generates a Blender Python script."""
-    from PyQt6.QtWidgets import QFileDialog, QMessageBox
+    from PySide6.QtWidgets import QFileDialog, QMessageBox
     import os
 
     # Get the main window and current molecule

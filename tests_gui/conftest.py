@@ -1,7 +1,7 @@
 """
 Shared test infrastructure for headless GUI tests.
 
-Key difference from tests/conftest.py: PyQt6 is NOT blocked, so real Qt widgets
+Key difference from tests/conftest.py: PySide6 is NOT blocked, so real Qt widgets
 are created.  Chemistry/scientific libraries (rdkit, numpy, pyvista, …) are still
 replaced with MagicMock so no chemistry stack needs to be installed.
 
@@ -22,17 +22,17 @@ from unittest.mock import MagicMock
 
 import pytest
 
-# On Windows, PyQt6's Qt DLLs must be discoverable before any PyQt6 sub-module
-# is imported.  When PySide6 is also installed the wrong Qt runtime can win the
+# On Windows, PySide6's Qt DLLs must be discoverable before any PySide6 sub-module
+# is imported.  When PyQt6 is also installed the wrong Qt runtime can win the
 # DLL search; os.add_dll_directory() pins the correct one.
 import os
 import sys as _sys
 
 if _sys.platform == "win32":
     try:
-        import PyQt6 as _pyqt6_pkg  # noqa: PLC0415
+        import PySide6 as _pyside6_pkg  # noqa: PLC0415
 
-        _qt6_bin = os.path.join(os.path.dirname(_pyqt6_pkg.__file__), "Qt6", "bin")
+        _qt6_bin = os.path.join(os.path.dirname(_pyside6_pkg.__file__))
         if os.path.isdir(_qt6_bin):
             os.add_dll_directory(_qt6_bin)
     except Exception:
@@ -43,7 +43,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PLUGINS_DIR = ROOT / "plugins"
 
 # ---------------------------------------------------------------------------
-# Same as BLOCKED_TOPS in tests/conftest.py, but PyQt6 is intentionally absent
+# Same as BLOCKED_TOPS in tests/conftest.py, but PySide6 is intentionally absent
 # so plugin classes that inherit from Qt bases become real widgets, not mocks.
 # ---------------------------------------------------------------------------
 
@@ -114,7 +114,7 @@ class _ChemFinder(importlib.abc.MetaPathFinder):
 def mock_chemistry_imports() -> Generator[None, None, None]:
     """
     Block chemistry/scientific imports (replacing them with MagicMock) while
-    letting PyQt6 through so real Qt widgets are constructed.
+    letting PySide6 through so real Qt widgets are constructed.
     """
     removed = {
         k: sys.modules.pop(k)
@@ -160,7 +160,7 @@ def qapp():
     QT_QPA_PLATFORM=offscreen must be set before this fixture is used (done by
     CI via the workflow env block, or locally by the developer).
     """
-    from PyQt6.QtWidgets import QApplication
+    from PySide6.QtWidgets import QApplication
 
     app = QApplication.instance() or QApplication(sys.argv[:1])
     yield app
@@ -234,6 +234,8 @@ def _ensure_app() -> Path:
                 "clone",
                 "--depth",
                 "1",
+                "--branch",
+                os.environ.get("MOLEDITPY_REF", "migrate/pyside6-without-openbabel"),
                 "https://github.com/HiroYokoyama/python_molecular_editor.git",
                 str(_APP_DIR),
             ],

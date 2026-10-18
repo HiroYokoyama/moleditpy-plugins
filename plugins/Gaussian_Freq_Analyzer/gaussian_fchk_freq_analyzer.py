@@ -3,7 +3,7 @@ import re
 import math
 import numpy as np
 
-from PyQt6.QtGui import QPainter, QPen, QColor
+from PySide6.QtGui import QPainter, QPen, QColor
 import logging
 
 try:
@@ -14,7 +14,7 @@ except ImportError:
     HAS_PIL = False
 
 
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QDialog,
     QVBoxLayout,
     QHBoxLayout,
@@ -35,7 +35,7 @@ from PyQt6.QtWidgets import (
     QSpinBox,
     QDoubleSpinBox,
 )
-from PyQt6.QtCore import Qt, QTimer, QPointF
+from PySide6.QtCore import Qt, QTimer, QPointF
 
 # Try to import RDKit
 try:
@@ -47,8 +47,8 @@ except ImportError:
     rdDetermineBonds = None
 
 PLUGIN_NAME = "Gaussian Freq Analyzer"
-PLUGIN_VERSION = "2026.10.13"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.18"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0a1, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Analyzes vibrational frequencies from Gaussian FCHK files. View IR spectrum, animate normal modes, and export GIF animations."
 PLUGIN_CONTEXT = None

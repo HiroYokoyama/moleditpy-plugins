@@ -44,7 +44,7 @@ PLUGIN_VERSION = "1.0.0"
 PLUGIN_AUTHOR = "YourGitHubUsername"                  # Must match your GitHub username
 PLUGIN_DESCRIPTION = "Brief description of what the plugin does."
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = "3.*"             # Optional: parsed automatically by script
-PLUGIN_SUPPORTED_PYTHON_VERSION = ">=3.9, <3.15"       # Optional: parsed automatically by script; visible plugins default to ">=3.9, <3.15" when omitted
+PLUGIN_SUPPORTED_PYTHON_VERSION = ">=3.10, <3.15"       # Optional: parsed automatically by script; visible plugins default to ">=3.10, <3.15" when omitted
 PLUGIN_SUPPORTED_OS = ["Windows", "macOS", "Linux", "WSL"]  # Optional: only declare it when the plugin is OS-restricted
 PLUGIN_TAGS = ["Visualization", "Utility"]             # Optional: parsed automatically by script
 PLUGIN_DEPENDENCIES = ["numpy>=1.20", "rdkit>=2022.03"] # Optional: parsed automatically by script (supports PEP-508 constraints)
@@ -103,7 +103,7 @@ The `REGISTRY/plugins.json` file is the registry that the application uses to di
     - Wildcards (e.g., `3.*` to match any v3 version).
     - Range specifiers (e.g., `>=3.5` or `>=3.5, <4` for version boundaries).
     - Operator expressions (e.g., `==3.5.1` or `!=3.6`).
-- `supported_python_version`: The Python versions the plugin runs on, using the same specifier syntax (e.g., `>=3.9, <3.15`). Optional in plugin code (`PLUGIN_SUPPORTED_PYTHON_VERSION`); the registry scripts fill in `>=3.9, <3.15` for visible plugins that omit it. The Plugin Installer warns before installing a plugin whose spec does not match the running Python.
+- `supported_python_version`: The Python versions the plugin runs on, using the same specifier syntax (e.g., `>=3.10, <3.15`). Optional in plugin code (`PLUGIN_SUPPORTED_PYTHON_VERSION`); the registry scripts fill in `>=3.10, <3.15` for visible plugins that omit it. The Plugin Installer warns before installing a plugin whose spec does not match the running Python.
 - `supported_os`: Array of operating systems the plugin runs on. Every visible plugin carries this field. Valid tokens are exactly `"Windows"`, `"macOS"`, `"Linux"`, and `"WSL"`; unrestricted plugins list all four. Declare `PLUGIN_SUPPORTED_OS` in plugin code only when the plugin is genuinely OS-restricted — for example `["macOS", "Linux", "WSL"]` for a plugin whose backend has no native Windows build at all (PySCF). The Plugin Installer warns before installing a plugin that does not list the running OS, but never blocks it; the user can always proceed.
     - `"WSL"` means the plugin works on Windows *only* through the Windows Subsystem for Linux, never natively. Because WSL reports itself as Linux, a machine running under WSL also satisfies a plain `"Linux"` entry. Listing `"WSL"` without `"Windows"` is what makes the installer tell a native-Windows user that WSL is a working route.
     - An OS counts as supported if *any* install channel works there, not just PyPI. `xtb_optimizer` stays unrestricted because conda-forge ships `tblite-python` for win-64, even though PyPI has no Windows wheels; that caveat goes in `PLUGIN_DESCRIPTION` instead, where the installer already shows it.
@@ -132,7 +132,7 @@ When adding or updating a plugin, use the following structure:
   "id": "my_awesome_plugin",
   "visible": true,
   "supported_moleditpy_version": "3.*",
-  "supported_python_version": ">=3.9, <3.15",
+  "supported_python_version": ">=3.10, <3.15",
   "supported_os": ["Windows", "macOS", "Linux", "WSL"],
   "name": "My Awesome Plugin",
   "version": "1.0.0",

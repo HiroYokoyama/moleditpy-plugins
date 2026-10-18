@@ -109,7 +109,7 @@ class TestPluginDetailsDialog:
         d.destroy()
 
     def test_optional_dependencies_get_their_own_section(self, qapp):
-        from PyQt6.QtWidgets import QLabel, QPushButton
+        from PySide6.QtWidgets import QLabel, QPushButton
 
         d = _make_details_dialog(
             dependencies=["fake-nonexistent-pkg-xyz"],
@@ -128,7 +128,7 @@ class TestPluginDetailsDialog:
         d.destroy()
 
     def test_installed_optional_dependency_needs_no_button(self, qapp):
-        from PyQt6.QtWidgets import QPushButton
+        from PySide6.QtWidgets import QPushButton
 
         d = _make_details_dialog(optional_dependencies=["pytest"])
         assert d.missing_optional_deps == []
@@ -137,7 +137,7 @@ class TestPluginDetailsDialog:
         d.destroy()
 
     def test_no_optional_section_without_optional_dependencies(self, qapp):
-        from PyQt6.QtWidgets import QLabel
+        from PySide6.QtWidgets import QLabel
 
         d = _make_details_dialog(dependencies=["pytest"])
         texts = [w.text() for w in d.findChildren(QLabel)]
@@ -317,9 +317,9 @@ class TestPluginInstallerWindowWidgets:
 # Plugin Installer — supported_python_version compatibility (GUI)
 # ===========================================================================
 
-PY_OK_SPEC = ">=3.9, <3.15"
+PY_OK_SPEC = ">=3.10, <3.15"
 PY_BAD_SPEC = ">=99.0"
-APP_OK_SPEC = ">=4.0.0, <5.0.0"
+APP_OK_SPEC = ">=5.0.0a1, <6.0.0"
 APP_BAD_SPEC = ">=99.0"
 
 
@@ -437,7 +437,7 @@ class TestPythonVersionCompatGui:
         download_url is left unset: after the compatibility gates the handler
         aborts at 'Missing download URL', so no network is ever touched.
         """
-        from PyQt6.QtWidgets import QPushButton
+        from PySide6.QtWidgets import QPushButton
 
         btn = QPushButton(parent=installer)
         btn.setProperty("plugin_name", name)
@@ -448,7 +448,7 @@ class TestPythonVersionCompatGui:
 
     def test_install_warning_no_aborts(self, installer, qapp):
         from unittest.mock import patch
-        from PyQt6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QMessageBox
 
         installer.remote_data = [
             _remote_entry("Py Bad", python_spec=PY_BAD_SPEC)
@@ -464,7 +464,7 @@ class TestPythonVersionCompatGui:
 
     def test_install_warning_yes_proceeds_past_check(self, installer, qapp):
         from unittest.mock import patch
-        from PyQt6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QMessageBox
 
         installer.remote_data = [
             _remote_entry("Py Bad", python_spec=PY_BAD_SPEC)
@@ -485,7 +485,7 @@ class TestPythonVersionCompatGui:
 
     def test_install_compatible_no_python_warning(self, installer, qapp):
         from unittest.mock import patch
-        from PyQt6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QMessageBox
 
         installer.remote_data = [
             _remote_entry("Py Ok", python_spec=PY_OK_SPEC)
@@ -505,7 +505,7 @@ class TestDetailsDialogSupportedPython:
     """PluginDetailsDialog shows the Supported Python line."""
 
     def _find_labels(self, dlg):
-        from PyQt6.QtWidgets import QLabel
+        from PySide6.QtWidgets import QLabel
 
         return [w.text() for w in dlg.findChildren(QLabel)]
 
@@ -743,7 +743,7 @@ class TestOverwriteFolderPlugin:
 
 
 def _install_button(installer, *, name, download_url=None, target_file=None):
-    from PyQt6.QtWidgets import QPushButton
+    from PySide6.QtWidgets import QPushButton
 
     btn = QPushButton(parent=installer)
     btn.setProperty("plugin_name", name)
@@ -780,7 +780,7 @@ class TestInstallPipeline:
 
     def test_successful_update_overwrites_target(self, bare_installer, tmp_path):
         from unittest.mock import MagicMock, patch
-        from PyQt6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QMessageBox
 
         target = tmp_path / "fake_plugin.py"
         target.write_bytes(b"OLD")
@@ -810,7 +810,7 @@ class TestInstallPipeline:
 
     def test_sha_mismatch_blocks_install(self, bare_installer, tmp_path):
         from unittest.mock import MagicMock, patch
-        from PyQt6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QMessageBox
 
         target = tmp_path / "fake_plugin.py"
         target.write_bytes(b"OLD")
@@ -841,7 +841,7 @@ class TestInstallPipeline:
 
     def test_missing_sha_prompt_declined_aborts(self, bare_installer, tmp_path):
         from unittest.mock import patch
-        from PyQt6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QMessageBox
 
         target = tmp_path / "fake_plugin.py"
         target.write_bytes(b"OLD")
@@ -871,7 +871,7 @@ class TestInstallPipeline:
 
     def test_unsafe_scheme_rejected(self, bare_installer):
         from unittest.mock import MagicMock, patch
-        from PyQt6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QMessageBox
 
         bare_installer.remote_data = [self._entry("Fake Plugin")]
 
@@ -931,7 +931,7 @@ class TestOnFinished:
 class TestCopyUpgradeCommand:
     def test_clipboard_receives_pip_command(self, bare_installer):
         from unittest.mock import MagicMock, patch
-        from PyQt6.QtWidgets import QApplication
+        from PySide6.QtWidgets import QApplication
 
         with patch.object(
             _plugin_installer.QMessageBox, "information", MagicMock()
@@ -966,7 +966,7 @@ class TestPerformStartupCheck:
 
     def test_updates_declined_deletes_checker(self, qapp, monkeypatch):
         from unittest.mock import patch
-        from PyQt6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QMessageBox
 
         checker = self._fake_checker(True)
         monkeypatch.setattr(
@@ -985,7 +985,7 @@ class TestPerformStartupCheck:
 
     def test_updates_accepted_shows_window(self, qapp, monkeypatch):
         from unittest.mock import patch
-        from PyQt6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QMessageBox
 
         checker = self._fake_checker(True)
         monkeypatch.setattr(
@@ -1128,7 +1128,7 @@ class TestBatchUpdateAll:
     def test_updates_one_plugin_end_to_end(self, bare_installer, tmp_path):
         import hashlib
         from unittest.mock import MagicMock, patch
-        from PyQt6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QMessageBox
 
         target = tmp_path / "fake_plugin.py"
         target.write_text("PLUGIN_VERSION = '0.9.0'\n")
@@ -1175,7 +1175,7 @@ class TestBatchUpdateAll:
 
     def test_batch_confirm_declined_is_noop(self, bare_installer, tmp_path):
         from unittest.mock import patch
-        from PyQt6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QMessageBox
 
         target = tmp_path / "fake_plugin.py"
         target.write_text("PLUGIN_VERSION = '0.9.0'\n")
@@ -1208,7 +1208,7 @@ class TestFreshInstallViaManager:
     def test_install_delegates_to_plugin_manager(self, bare_installer):
         import hashlib
         from unittest.mock import MagicMock, patch
-        from PyQt6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QMessageBox
 
         entry = _remote_entry("Fresh Plugin")
         entry["downloadUrl"] = "https://example.com/fresh_plugin.py"
@@ -1260,7 +1260,7 @@ class TestZipFolderOverwrite:
     def test_folder_plugin_updated_from_zip(self, bare_installer, tmp_path, url_suffix):
         import hashlib
         from unittest.mock import MagicMock, patch
-        from PyQt6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QMessageBox
 
         plugin_dir = tmp_path / "My_Plugin"
         plugin_dir.mkdir()
@@ -1306,7 +1306,7 @@ class TestZipFolderOverwrite:
 
 
 def _btn_with_deps(installer, *, name, download_url, target_file=None, dependencies=None):
-    from PyQt6.QtWidgets import QPushButton
+    from PySide6.QtWidgets import QPushButton
 
     btn = QPushButton(parent=installer)
     btn.setProperty("plugin_name", name)
@@ -1344,7 +1344,7 @@ class TestInstallBranchCoverage:
     PY = b"PLUGIN_VERSION = '2.0.0'\n"
 
     def _yes(self):
-        from PyQt6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QMessageBox
 
         return QMessageBox.StandardButton.Yes
 
@@ -1570,7 +1570,7 @@ class TestInstallBranchCoverage:
 
     def test_os_incompatible_warning_then_proceed(self, bare_installer, tmp_path):
         from unittest.mock import MagicMock, patch
-        from PyQt6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QMessageBox
 
         target = tmp_path / "fake_plugin.py"
         target.write_bytes(b"OLD")
@@ -1604,7 +1604,7 @@ class TestInstallBranchCoverage:
 class TestAskUserPermission:
     def test_yes_enables_and_runs_startup_check(self, qapp):
         from unittest.mock import MagicMock, patch
-        from PyQt6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QMessageBox
 
         saved = {}
         with patch.object(
@@ -1625,7 +1625,7 @@ class TestAskUserPermission:
 
     def test_no_disables_startup_check(self, qapp):
         from unittest.mock import patch
-        from PyQt6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QMessageBox
 
         saved = {}
         with patch.object(
@@ -1671,7 +1671,7 @@ class TestCheckUpdates:
 class TestCloseEventWorker:
     def test_closeevent_stops_running_fetch_worker(self, bare_installer, qapp):
         from unittest.mock import MagicMock
-        from PyQt6.QtGui import QCloseEvent
+        from PySide6.QtGui import QCloseEvent
 
         worker = MagicMock()
         worker.isRunning.return_value = True
@@ -1685,7 +1685,7 @@ class TestOnFinishedManagerSync:
     """_on_finished also refreshes an open PluginManagerWindow."""
 
     def _make_pmw(self, raises=False):
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtWidgets import QWidget
 
         class PluginManagerWindow(QWidget):  # name matched by type().__name__
             def __init__(self):
@@ -1789,7 +1789,7 @@ class TestDetailsDialogProjectButton:
         )
 
     def _buttons(self, dlg):
-        from PyQt6.QtWidgets import QPushButton
+        from PySide6.QtWidgets import QPushButton
 
         return {b.text(): b for b in dlg.findChildren(QPushButton)}
 
@@ -1923,7 +1923,7 @@ class TestDisabledPluginsInTable:
 
     def test_update_all_includes_disabled_plugin(self, bare_installer, tmp_path):
         from unittest.mock import MagicMock, patch
-        from PyQt6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QMessageBox
 
         target = tmp_path / "p.py"
         target.write_text("PLUGIN_VERSION = '0.9.0'")
@@ -1993,7 +1993,7 @@ class TestDisabledPluginsInTable:
         )
 
     def test_details_dialog_shows_disabled(self, qapp):
-        from PyQt6.QtWidgets import QLabel
+        from PySide6.QtWidgets import QLabel
 
         d = _plugin_installer.PluginDetailsDialog(
             None,
@@ -2010,7 +2010,7 @@ class TestDisabledPluginsInTable:
         d.destroy()
 
     def test_details_dialog_enabled_has_no_disabled_line(self, qapp):
-        from PyQt6.QtWidgets import QLabel
+        from PySide6.QtWidgets import QLabel
 
         d = _plugin_installer.PluginDetailsDialog(
             None,
@@ -2060,11 +2060,11 @@ def test_oversized_download_rejected_before_write(bare_installer, tmp_path, monk
 
 
 def test_fetch_close_wait_timeout_preserves_worker(bare_installer, qapp):
-    from PyQt6.QtCore import QObject, pyqtSignal
+    from PySide6.QtCore import QObject, Signal
     from unittest.mock import MagicMock
     class Worker(QObject):
-        finished = pyqtSignal()
-        done = pyqtSignal(str, list)
+        finished = Signal()
+        done = Signal(str, list)
         def __init__(self):
             super().__init__()
             self.running = True

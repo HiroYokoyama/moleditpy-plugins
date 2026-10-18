@@ -35,7 +35,7 @@ Comma-separated categories for the Plugin Manager (e.g., `Visualization, Analysi
 **Tags:** 
 
 ### 6. Dependencies (Optional)
-Comma-separated list of required Python packages (e.g., `numpy, rdkit, PyQt6`).
+Comma-separated list of required Python packages (e.g., `numpy, rdkit, PySide6`).
 **Dependencies:** 
 
 ### 7. Visibility
@@ -48,8 +48,8 @@ Provide the supported version of MoleditPy (e.g., `3.*`).
 **Supported MoleditPy Version:** 
 
 ### 9. Supported Python Version (optional)
-Provide the supported Python version spec (e.g., `>=3.9, <3.15`).
-*Note: If omitted, visible plugins default to `>=3.9, <3.15`.*
+Provide the supported Python version spec (e.g., `>=3.10, <3.15`).
+*Note: If omitted, visible plugins default to `>=3.10, <3.15`.*
 **Supported Python Version:** 
 
 ---

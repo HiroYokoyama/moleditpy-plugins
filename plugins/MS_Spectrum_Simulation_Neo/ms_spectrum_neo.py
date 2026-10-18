@@ -9,7 +9,7 @@ try:
     import numpy as np
 except ImportError:
     np = None
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QDialog,
     QGroupBox, QFormLayout, QLineEdit, QComboBox, QSpinBox,
     QVBoxLayout,
@@ -23,7 +23,7 @@ from PyQt6.QtWidgets import (
     QDoubleSpinBox,
     QApplication,
 )
-from PyQt6.QtGui import (
+from PySide6.QtGui import (
     QPainter,
     QPen,
     QColor,
@@ -34,7 +34,7 @@ from PyQt6.QtGui import (
     QImage,
     QPageLayout,
 )
-from PyQt6.QtCore import (
+from PySide6.QtCore import (
     Qt,
     QRectF,
     QPointF,
@@ -46,7 +46,7 @@ from PyQt6.QtCore import (
     QMarginsF,
     QLineF,
 )
-from PyQt6.QtPrintSupport import QPrinter
+from PySide6.QtPrintSupport import QPrinter
 import logging
 
 try:
@@ -57,13 +57,13 @@ except ImportError:
     Descriptors = None
     Draw = None
 
-PLUGIN_VERSION = "2026.10.13"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.18"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0a1, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 
 PLUGIN_NAME = "MS Spectrum Simulation Neo"
 PLUGIN_DESCRIPTION = "Simulates the isotope pattern of the molecular ion (M, or an adduct ion such as [M+H]+ or [M+Na]+) for the currently loaded molecule. Fragment peaks are not simulated. Includes Gaussian broadening and interactive zoom/pan."
-PLUGIN_DEPENDENCIES = ["rdkit", "numpy", "PyQt6"]
+PLUGIN_DEPENDENCIES = ["rdkit", "numpy", "PySide6-Essentials"]
 
 # RDKit's periodic table has no entry for the hydrogen isotope symbols.
 HYDROGEN_ISOTOPE_MASSES = {"D": 2.0141017781, "T": 3.0160492779}

@@ -3,7 +3,7 @@ Headless GUI tests for the Elemental Analysis plugin.
 
 Covers: ElementalAnalysisDialog, CopyableTable.
 
-Real PyQt6 (QT_QPA_PLATFORM=offscreen); rdkit is replaced via
+Real PySide6 (QT_QPA_PLATFORM=offscreen); rdkit is replaced via
 mock_chemistry_imports() and a small fake periodic table is patched in so
 the real recalc / check_update bodies run to completion.
 """
@@ -15,9 +15,9 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QKeyEvent, QKeySequence
-from PyQt6.QtWidgets import QApplication, QTableWidgetSelectionRange, QWidget
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QKeyEvent, QKeySequence
+from PySide6.QtWidgets import QApplication, QTableWidgetSelectionRange, QWidget
 
 from conftest import load_plugin_for_gui, mock_chemistry_imports
 

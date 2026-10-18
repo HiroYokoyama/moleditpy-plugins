@@ -3,7 +3,7 @@ Headless GUI tests for the Cube File Viewer plugin.
 
 Covers: ChargeDialog (the "bond connectivity error" dialog).
 
-Chemistry libs (pyvista, numpy, rdkit, …) are mocked; real PyQt6 is used.
+Chemistry libs (pyvista, numpy, rdkit, …) are mocked; real PySide6 is used.
 """
 
 from __future__ import annotations
@@ -79,7 +79,7 @@ import tempfile
 
 
 def _make_main_window():
-    from PyQt6.QtWidgets import QWidget
+    from PySide6.QtWidgets import QWidget
 
     mw = QWidget()
     mw.plotter = MagicMock()
@@ -102,7 +102,7 @@ def _make_viewer(qapp, data_max=2.0):
 
 
 def _teardown(w):
-    from PyQt6.QtCore import QCoreApplication
+    from PySide6.QtCore import QCoreApplication
 
     w._structure_watch_timer.stop()
     try:
@@ -204,7 +204,7 @@ class TestCubeViewerPersistence:
 
 class TestCubeViewerCleanup:
     def test_close_event_stops_timer(self, qapp):
-        from PyQt6.QtGui import QCloseEvent
+        from PySide6.QtGui import QCloseEvent
 
         w, mw, dock = _make_viewer(qapp)
         w.save_settings = MagicMock()
@@ -377,7 +377,7 @@ class TestCubeViewerComplementaryColor:
 
 class TestCubeViewerColorDialogs:
     def test_choose_color_p_updates_color_and_button(self, qapp):
-        from PyQt6.QtGui import QColor
+        from PySide6.QtGui import QColor
 
         w, mw, dock = _make_viewer(qapp)
         _cube.QColorDialog.getColor = MagicMock(return_value=QColor("#123456"))
@@ -388,7 +388,7 @@ class TestCubeViewerColorDialogs:
         _teardown(w)
 
     def test_choose_color_p_with_complementary_checked_updates_neg(self, qapp):
-        from PyQt6.QtGui import QColor
+        from PySide6.QtGui import QColor
 
         w, mw, dock = _make_viewer(qapp)
         w.check_comp_color.setChecked(True)
@@ -399,7 +399,7 @@ class TestCubeViewerColorDialogs:
         _teardown(w)
 
     def test_choose_color_p_invalid_selection_no_change(self, qapp):
-        from PyQt6.QtGui import QColor
+        from PySide6.QtGui import QColor
 
         w, mw, dock = _make_viewer(qapp)
         original = w.color_p
@@ -409,7 +409,7 @@ class TestCubeViewerColorDialogs:
         _teardown(w)
 
     def test_choose_color_n_updates_color_and_button(self, qapp):
-        from PyQt6.QtGui import QColor
+        from PySide6.QtGui import QColor
 
         w, mw, dock = _make_viewer(qapp)
         _cube.QColorDialog.getColor = MagicMock(return_value=QColor("#abcdef"))
@@ -420,7 +420,7 @@ class TestCubeViewerColorDialogs:
         _teardown(w)
 
     def test_choose_color_n_invalid_selection_no_change(self, qapp):
-        from PyQt6.QtGui import QColor
+        from PySide6.QtGui import QColor
 
         w, mw, dock = _make_viewer(qapp)
         original = w.color_n
@@ -510,7 +510,7 @@ def _real_grid(nx=5, ny=5, nz=5):
 
 
 def _make_real_viewer(qapp, tmp_path, data_max=1.0):
-    from PyQt6.QtWidgets import QWidget
+    from PySide6.QtWidgets import QWidget
 
     mw = QWidget()
     mw.plotter = _pv.Plotter(off_screen=True)
@@ -522,7 +522,7 @@ def _make_real_viewer(qapp, tmp_path, data_max=1.0):
 
 
 def _teardown_real(w, mw):
-    from PyQt6.QtCore import QCoreApplication
+    from PySide6.QtCore import QCoreApplication
 
     w._structure_watch_timer.stop()
     try:
@@ -644,7 +644,7 @@ class _RealContext:
 
 
 def _make_real_mw():
-    from PyQt6.QtWidgets import QMainWindow
+    from PySide6.QtWidgets import QMainWindow
     from types import SimpleNamespace
 
     mw = QMainWindow()

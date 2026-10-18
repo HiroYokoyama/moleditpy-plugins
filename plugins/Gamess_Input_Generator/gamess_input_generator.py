@@ -3,7 +3,7 @@ import os
 import json
 import logging
 import textwrap
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QMessageBox,
     QDialog,
     QVBoxLayout,
@@ -20,12 +20,12 @@ from PyQt6.QtWidgets import (
     QSizePolicy,
     QCheckBox,
 )
-from PyQt6.QtCore import Qt
+from PySide6.QtCore import Qt
 from rdkit import Chem
 
 PLUGIN_NAME = "GAMESS Input Generator"
-PLUGIN_VERSION = "2026.10.12"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.18"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0a1, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Generates input files for GAMESS (US) quantum chemistry calculations."
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "gamess_input_generator.json")

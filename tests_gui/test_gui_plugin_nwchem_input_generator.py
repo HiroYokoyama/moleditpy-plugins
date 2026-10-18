@@ -463,7 +463,7 @@ class TestNwchemPresetsReal:
 
 
 def _fake_main_window(current_mol=None, current_file_path=None):
-    from PyQt6.QtWidgets import QWidget
+    from PySide6.QtWidgets import QWidget
 
     w = QWidget()
     w.current_mol = current_mol

@@ -19,7 +19,7 @@ def test_update_metadata_tags_and_description():
         {
             "id": "test_plugin",
             "visible": True,
-            "supported_moleditpy_version": ">=4.0.0, <5.0.0",
+            "supported_moleditpy_version": ">=5.0.0a1, <6.0.0",
             "name": "Old Plugin Name",
             "version": "1.0.0",
             "author": "HiroYokoyama",
@@ -32,7 +32,7 @@ def test_update_metadata_tags_and_description():
             "lastUpdated": "2026-01-01",
             "sha256": "fakehash",
             "firstAppeared": "2026-01-01",
-            "supported_python_version": ">=3.9, <3.15",
+            "supported_python_version": ">=3.10, <3.15",
             "supported_os": ["Windows", "macOS", "Linux", "WSL"],
         }
     ]
@@ -41,8 +41,8 @@ def test_update_metadata_tags_and_description():
         "name": "Updated Plugin Name",
         "description": "Fresh description from code",
         "tags": ["3D", "Editing", "Chemistry"],
-        "dependencies": ["rdkit", "PyQt6"],
-        "supported_moleditpy_version": ">=4.0.0, <5.0.0",
+        "dependencies": ["rdkit", "PySide6"],
+        "supported_moleditpy_version": ">=5.0.0a1, <6.0.0",
     }
 
     url = "https://github.com/HiroYokoyama/moleditpy_test/releases/download/v1.0.0/test_plugin.zip"
@@ -66,7 +66,7 @@ def test_update_metadata_tags_and_description():
     assert "dependencies (from code)" in res["changed_fields"]
     assert plugins[0]["tags"] == ["3D", "Editing", "Chemistry"]
     assert plugins[0]["description"] == "Fresh description from code"
-    assert plugins[0]["dependencies"] == ["rdkit", "PyQt6"]
+    assert plugins[0]["dependencies"] == ["rdkit", "PySide6"]
     # Version, URL, sha256 should remain untouched
     assert plugins[0]["version"] == "1.0.0"
     assert plugins[0]["sha256"] == "fakehash"
@@ -114,7 +114,7 @@ def test_update_metadata_code_wins_for_every_declared_field():
         {
             "id": "test_plugin",
             "visible": True,
-            "supported_moleditpy_version": ">=4.0.0, <5.0.0",
+            "supported_moleditpy_version": ">=5.0.0a1, <6.0.0",
             "name": "Plugin",
             "version": "1.0.0",
             "dependencies": ["numpy"],

@@ -4,6 +4,7 @@ Resolve chemical names and fetch basic molecular properties via PubChem.
 """
 
 import json
+from html import escape
 import urllib.request
 import urllib.parse
 import ssl
@@ -14,7 +15,7 @@ try:
 except ImportError:
     truststore = None
 
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QInputDialog,
     QMessageBox,
     QProgressDialog,
@@ -25,12 +26,12 @@ from PyQt6.QtWidgets import (
     QApplication,
     QHBoxLayout,
 )
-from PyQt6.QtCore import Qt
+from PySide6.QtCore import Qt
 
 # --- Metadata ---
 PLUGIN_NAME = "PubChem Structure Identifier (truststore)"
-PLUGIN_VERSION = "2026.07.09"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.18"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0a1, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Resolve chemical names and fetch molecular properties (Name, Formula, Weight) via PubChem."
 PLUGIN_ID = "pubchem_structure_identifier_truststore"
@@ -130,7 +131,7 @@ class PubChemResolver:
                             if title:
                                 details["Common Name"] = title
                                 break
-            except Exception:
+            except (OSError, KeyError, IndexError, TypeError, ValueError):
                 details["Common Name"] = "Unknown"
 
             # 2. Get Physical Properties (No SMILES, No XLogP, No TPSA)
@@ -190,26 +191,26 @@ class MoleculeDetailsDialog(QDialog):
             "td { padding-bottom: 5px; width: 100%; }",
             "h3 { margin-bottom: 5px; color: #2c3e50; }",
             "</style>",
-            f"<h3>{self.details.get('Common Name', 'Molecule Details')}</h3>",
+            f"<h3>{escape(str(self.details.get('Common Name', 'Molecule Details')))}</h3>",
             '<table width="100%">',
         ]
 
         # Table Rows
         if "IUPAC Name" in self.details:
             html_parts.append(
-                f"<tr><th>IUPAC Name:</th><td>{self.details['IUPAC Name']}</td></tr>"
+                f"<tr><th>IUPAC Name:</th><td>{escape(str(self.details['IUPAC Name']))}</td></tr>"
             )
         if "Formula" in self.details:
             html_parts.append(
-                f"<tr><th>Formula:</th><td><b>{self.details['Formula']}</b></td></tr>"
+                f"<tr><th>Formula:</th><td><b>{escape(str(self.details['Formula']))}</b></td></tr>"
             )
         if "Mol. Weight" in self.details:
             html_parts.append(
-                f"<tr><th>Mol. Weight:</th><td>{self.details['Mol. Weight']} g/mol</td></tr>"
+                f"<tr><th>Mol. Weight:</th><td>{escape(str(self.details['Mol. Weight']))} g/mol</td></tr>"
             )
         if "InChIKey" in self.details:
             html_parts.append(
-                f"<tr><th>InChIKey:</th><td><small>{self.details['InChIKey']}</small></td></tr>"
+                f"<tr><th>InChIKey:</th><td><small>{escape(str(self.details['InChIKey']))}</small></td></tr>"
             )
 
         html_parts.append("</table>")
@@ -251,7 +252,7 @@ class MoleculeDetailsDialog(QDialog):
         self.btn_copy.setText("Copied!")
         self.btn_copy.setDisabled(True)
 
-        from PyQt6.QtCore import QTimer
+        from PySide6.QtCore import QTimer
 
         QTimer.singleShot(1500, lambda: self.reset_copy_button(original_text))
 
@@ -295,7 +296,7 @@ def resolve_and_load(context):
         if mw and hasattr(mw, "string_importer_manager"):
             mw.string_importer_manager.load_from_smiles(smiles)
             context.show_status_message(f"Loaded '{name}' from PubChem.", 5000)
-    except Exception as e:
+    except (RuntimeError, AttributeError, IndexError, TypeError, ValueError) as e:
         QMessageBox.critical(mw, "Import Error", f"Failed to load SMILES:\n{e}")
 
 
@@ -316,7 +317,7 @@ def identify_current_molecule(context):
     # Calculate InChIKey Locally
     try:
         inchikey = Chem.MolToInchiKey(mol)
-    except Exception as e:
+    except (RuntimeError, AttributeError, TypeError, ValueError) as e:
         QMessageBox.warning(mw, "Error", f"Failed to calculate InChIKey: {e}")
         return
 

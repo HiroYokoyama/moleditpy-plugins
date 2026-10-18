@@ -3,7 +3,7 @@ Headless GUI tests for the Orbital Comparator plugin.
 
 Covers: OrbitalComparator, CubeSlot.
 
-Real PyQt6 is used (QT_QPA_PLATFORM=offscreen); chemistry libs are MagicMocked.
+Real PySide6 is used (QT_QPA_PLATFORM=offscreen); chemistry libs are MagicMocked.
 Run via: python tests_gui/run_gui_tests.py tests_gui/test_gui_plugin_orbital_comparator.py
 
 numpy and pyvista are MagicMock here, so these tests deliberately do NOT parse

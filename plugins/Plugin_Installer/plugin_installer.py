@@ -17,8 +17,8 @@ import urllib.error
 import ast
 import html
 import logging
-from PyQt6.QtCore import QThread, pyqtSignal, Qt, QTimer, QUrl
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import QThread, Signal, Qt, QTimer, QUrl
+from PySide6.QtWidgets import (
     QDialog,
     QVBoxLayout,
     QHBoxLayout,
@@ -35,7 +35,7 @@ from PyQt6.QtWidgets import (
     QProgressBar,
     QProgressDialog,
 )
-from PyQt6.QtGui import QColor, QDesktopServices
+from PySide6.QtGui import QColor, QDesktopServices
 import importlib.metadata
 import hashlib
 import re
@@ -45,9 +45,9 @@ import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.10.13"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
-PLUGIN_SUPPORTED_PYTHON_VERSION = ">=3.9, <3.15"
+PLUGIN_VERSION = "2026.10.18"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0a1, <6.0.0"
+PLUGIN_SUPPORTED_PYTHON_VERSION = ">=3.10, <3.15"
 PLUGIN_SUPPORTED_OS = ["Windows", "macOS", "Linux", "WSL"]
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -637,7 +637,7 @@ def sanitize_and_quote_dependency(dep_str: str) -> str:
 class _FetchWorker(QThread):
     """Fetches the PyPI app version and remote registry JSON in a background thread."""
 
-    done = pyqtSignal(str, list)  # (pypi_version, remote_entries)
+    done = Signal(str, list)  # (pypi_version, remote_entries)
 
     def __init__(self, package_name: str, remote_url: str) -> None:
         super().__init__()

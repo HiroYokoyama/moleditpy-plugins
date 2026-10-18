@@ -25,8 +25,8 @@ both at once fails with `ImportError: cannot import name … from 'conftest'`.
 # 1. Unit suite — everything mocked (no Qt, no chemistry libs, no network)
 python -m pytest tests/ -q
 
-# 2. GUI suite — real PyQt6, offscreen
-QT_QPA_PLATFORM=offscreen PYTEST_QT_API=pyqt6 python -m pytest tests_gui/ -q
+# 2. GUI suite — real PySide6, offscreen
+QT_QPA_PLATFORM=offscreen PYTEST_QT_API=pyside6 python -m pytest tests_gui/ -q
 ```
 
 Both suites must be green, with no test left failing or newly skipped. There is
@@ -123,8 +123,8 @@ git diff -U0 <base> HEAD -- plugins/<Plugin_Dir>/<file>.py   # hunk headers give
 
 ```python
 PLUGIN_VERSION = "2026.06.25"          # date-based, bump when file changes
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
-PLUGIN_SUPPORTED_PYTHON_VERSION = ">=3.9, <3.15"  # optional; registry scripts default visible plugins to this
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0a1, <6.0.0"
+PLUGIN_SUPPORTED_PYTHON_VERSION = ">=3.10, <3.15"  # optional; registry scripts default visible plugins to this
 PLUGIN_SUPPORTED_OS = ["Windows", "macOS", "Linux", "WSL"]  # optional; declare ONLY when OS-restricted
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_NAME = "My Plugin"
@@ -181,7 +181,7 @@ Full API: `python_molecular_editor/docs/PLUGIN_DEVELOPMENT_MANUAL_V4.md`
 
 | Symbol | Purpose |
 |---|---|
-| `BLOCKED_TOPS` | `frozenset` of top-level package names replaced with `MagicMock` (PyQt6, rdkit, numpy, moleditpy, …) |
+| `BLOCKED_TOPS` | `frozenset` of top-level package names replaced with `MagicMock` (PySide6, rdkit, numpy, moleditpy, …) |
 | `mock_optional_imports()` | Context manager: installs the `MetaPathFinder`, cleans up on exit |
 | `load_plugin(path)` | Load a plugin `.py` as an isolated module — call inside `mock_optional_imports()` |
 | `make_context()` | Return a stub `PluginContext` (`MagicMock` with a non-None main window) |
@@ -240,12 +240,12 @@ Six GitHub Actions jobs in `.github/workflows/test-plugins.yml`:
 | `changes` | — | No | No tests: decides whether anything outside `REGISTRY/` changed, gating the GUI and API jobs |
 | `test-registry` | 3.12 | No | `validate_json.py`, registry integrity tests, and the registry-sync check |
 | `test-plugins` | 3.9 – 3.14 | No | `tests/` except `test_registry` (installs `rdkit`, `scipy`, `pymatgen-core`, `pillow` best-effort) |
-| `test-gui` | 3.9 – 3.14 | Auto-cloned by fixture | `tests_gui/` (real PyQt6, `QT_QPA_PLATFORM=offscreen`, plus chemistry/scientific libs best-effort); no pyvista/vtk, so the rendering modules skip |
+| `test-gui` | 3.9 – 3.14 | Auto-cloned by fixture | `tests_gui/` (real PySide6, `QT_QPA_PLATFORM=offscreen`, plus chemistry/scientific libs best-effort); no pyvista/vtk, so the rendering modules skip |
 | `test-gui-render` | 3.12 | Auto-cloned by fixture | Only the pyvista/vtk-gated `tests_gui/` modules, with those packages installed under `xvfb-run` |
 | `test-api` | 3.11 | Yes (`--depth 1`) | `test_api.py` only |
 
 The matrix spans the full range declared by `PLUGIN_SUPPORTED_PYTHON_VERSION`
-(`>=3.9, <3.15`). Both matrices use `fail-fast: false` so one interpreter
+(`>=3.10, <3.15`). Both matrices use `fail-fast: false` so one interpreter
 failing does not cancel the others.
 
 The `test-registry` job also runs `scripts/update_intra_repo_metadata.py` and

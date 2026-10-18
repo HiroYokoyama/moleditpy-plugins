@@ -3,7 +3,7 @@ Headless GUI tests for the Animated XYZ Giffer plugin.
 
 Covers: AnimatedXYZPlayer (QDialog) + parse_multi_frame_xyz.
 
-All tests use real PyQt6 (QT_QPA_PLATFORM=offscreen).
+All tests use real PySide6 (QT_QPA_PLATFORM=offscreen).
 Chemistry libraries are mocked via mock_chemistry_imports().
 """
 
@@ -786,7 +786,7 @@ class TestGifferDocumentResetReal:
 
 class TestGifferCloseEventReal:
     def test_close_pushes_last_display_mol(self, loaded_player):
-        from PyQt6.QtGui import QCloseEvent
+        from PySide6.QtGui import QCloseEvent
 
         w = loaded_player
         w.next_frame()
@@ -797,7 +797,7 @@ class TestGifferCloseEventReal:
 
     def test_close_does_not_call_draw_molecule_3d(self, loaded_player):
         """Regression: draw_molecule_3d must NOT be called on close (v1.3.2 fix)."""
-        from PyQt6.QtGui import QCloseEvent
+        from PySide6.QtGui import QCloseEvent
 
         w = loaded_player
         w.closeEvent(QCloseEvent())

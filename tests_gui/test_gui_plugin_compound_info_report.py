@@ -17,8 +17,8 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
-from PyQt6.QtCore import QRectF
-from PyQt6.QtWidgets import QDialog, QWidget
+from PySide6.QtCore import QRectF
+from PySide6.QtWidgets import QDialog, QWidget
 
 from conftest import load_plugin_for_gui, mock_chemistry_imports
 
@@ -30,7 +30,7 @@ with mock_chemistry_imports():
     _compound = load_plugin_for_gui(COMPOUND_PATH)
 
 
-# The `test-gui` CI job installs only pytest + PyQt6 -- rdkit/PIL are NOT
+# The `test-gui` CI job installs only pytest + PySide6 -- rdkit/PIL are NOT
 # present there (unlike this local dev environment, where they are real
 # installed packages). The real-chemistry test classes below are gated on
 # HAS_REAL_CHEM so they run (and contribute real coverage) locally, but skip
@@ -121,7 +121,7 @@ class TestReportDialog:
         assert not dlg.chk_pubchem.isChecked()
 
     def test_preview_is_text_browser(self, dlg):
-        from PyQt6.QtWidgets import QTextBrowser
+        from PySide6.QtWidgets import QTextBrowser
         assert isinstance(dlg.preview, QTextBrowser)
 
     def test_preview_has_external_links_enabled(self, dlg):

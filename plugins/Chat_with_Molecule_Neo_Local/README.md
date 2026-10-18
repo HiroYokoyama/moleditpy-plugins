@@ -20,7 +20,7 @@ It allows you to chat with an AI about the molecule currently open in the editor
 - **MoleditPy** (Main Application)
 - **Python Packages**:
   - `rdkit`
-  - `PyQt6`
+  - `PySide6`
   - `openai`
   - `matplotlib`
   - `markdown`

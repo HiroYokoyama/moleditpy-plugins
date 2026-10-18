@@ -32,7 +32,7 @@ OPTIONAL_DEPS_RE = re.compile(r"^\s*PLUGIN_OPTIONAL_DEPENDENCIES\s*=\s*(?P<val>\
 
 # Applied to visible plugins whose source does not declare
 # PLUGIN_SUPPORTED_PYTHON_VERSION.
-DEFAULT_PYTHON_SPEC = ">=3.9, <3.15"
+DEFAULT_PYTHON_SPEC = ">=3.10, <3.15"
 
 
 def sha256_of_file(path: Path) -> str:

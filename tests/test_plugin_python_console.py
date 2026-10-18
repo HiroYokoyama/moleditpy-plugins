@@ -2,7 +2,7 @@
 Tests for the Python Console plugin: ConsoleInput.append_history, GUIHelp.__repr__.
 
 Qt-inheriting classes become MagicMock when loaded under mock_optional_imports
-(their metaclass is the mocked PyQt6 type). append_history is extracted from
+(their metaclass is the mocked PySide6 type). append_history is extracted from
 the plugin source via AST and compiled as a standalone function so we can
 test pure logic that does not touch self's Qt attributes.
 """

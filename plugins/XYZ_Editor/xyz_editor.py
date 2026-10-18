@@ -1,5 +1,5 @@
 import numpy as np
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QTableWidget,
@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
     QLabel,
     QApplication,
 )
-from PyQt6.QtCore import (
+from PySide6.QtCore import (
     Qt,
     QTimer,
     QObject,
@@ -22,7 +22,7 @@ from PyQt6.QtCore import (
     QItemSelection,
     QItemSelectionModel,
 )
-from PyQt6.QtGui import QShortcut, QKeySequence
+from PySide6.QtGui import QShortcut, QKeySequence
 from rdkit import Chem
 from rdkit.Geometry import Point3D
 import pyvista as pv
@@ -31,8 +31,8 @@ import math
 
 
 PLUGIN_NAME = "XYZ Editor"
-PLUGIN_VERSION = "2026.10.13"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.18"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0a1, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "A table-based editor for atom coordinates and symbols, supporting ghost atoms, adding and deleting atoms."
 PLUGIN_CONTEXT = None
@@ -858,7 +858,7 @@ class XYZEditorWindow(QWidget):
     def copy_to_clipboard(self):
         lines = self._generate_xyz_content()
         clipboard_text = "\n".join(lines)
-        from PyQt6.QtGui import QGuiApplication
+        from PySide6.QtGui import QGuiApplication
 
         clipboard = QGuiApplication.clipboard()
         clipboard.setText(clipboard_text)

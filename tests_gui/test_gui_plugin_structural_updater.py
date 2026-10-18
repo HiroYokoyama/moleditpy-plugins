@@ -59,7 +59,7 @@ class TestUpdaterSettingsDialog:
 class TestStructuralUpdaterPlugin:
     @pytest.fixture
     def plugin(self, qapp):
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtWidgets import QWidget
 
         # QTimer needs a real QObject parent; managers stay MagicMock.
         w = QWidget()
@@ -182,7 +182,7 @@ class TestStructuralUpdaterPlugin:
 
 class TestFinalizeLifecycle:
     def test_finalize_stops_timer_and_restores_connection(self, qapp, monkeypatch):
-        from PyQt6.QtWidgets import QWidget, QPushButton
+        from PySide6.QtWidgets import QWidget, QPushButton
         from types import SimpleNamespace
         mw = QWidget()
         button = QPushButton(mw)

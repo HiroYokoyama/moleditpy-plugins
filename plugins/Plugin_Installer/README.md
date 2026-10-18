@@ -16,7 +16,7 @@ A management plugin for MoleditPy that installs, updates, and removes plugins di
 - **Reload only when needed**: Plugin reload (`discover_plugins` + menu rebuild) runs exactly once, via the `finished` signal, only if at least one plugin was installed or updated that session.
 - **Application Update Detection**: Detects newer versions of MoleditPy on PyPI and shows a "Copy upgrade command" button.
 - **Dependency Constraint Validation**: Parses and verifies PEP-508 style dependency constraints (`numpy>=1.20`, `rdkit~=2022.03.1`, etc.).
-- **Python version compatibility check**: The registry's `supported_python_version` spec (e.g. `>=3.9, <3.15`) is checked against the running interpreter — incompatible plugins are marked in the table (tooltip shows the required range) and a warning dialog asks for confirmation before install/update. Entries without the field are treated as compatible.
+- **Python version compatibility check**: The registry's `supported_python_version` spec (e.g. `>=3.10, <3.15`) is checked against the running interpreter — incompatible plugins are marked in the table (tooltip shows the required range) and a warning dialog asks for confirmation before install/update. Entries without the field are treated as compatible.
 - **OS compatibility check**: The registry's `supported_os` list (`Windows` / `macOS` / `Linux` / `WSL`) is checked against the running machine, the same way as the Python version — incompatible plugins are marked and confirmed before install. Entries without the field are treated as compatible. WSL reports as Linux, so a plain `Linux` entry satisfies it.
 - **Dependency install hints**: Highlights missing vs installed dependencies in the details dialog with pip-safe quoted commands.
 - **Optional dependencies**: `optional_dependencies` entries get their own details section — missing ones read "Not installed" (amber) with a separate copy-install-command button. They never trigger the missing-dependency prompt, so an install is never gated on a package the plugin only needs for extras.
@@ -82,7 +82,7 @@ The installer reads these constants from each plugin file (via the registry or A
 | `PLUGIN_AUTHOR` | Author name |
 | `PLUGIN_DESCRIPTION` | One-line description |
 | `PLUGIN_SUPPORTED_MOLEDITPY_VERSION` | PEP-440 specifier checked against the running app |
-| `PLUGIN_SUPPORTED_PYTHON_VERSION` | Optional PEP-440-style specifier checked against the running Python (registry field `supported_python_version`; visible plugins default to `>=3.9, <3.15`) |
+| `PLUGIN_SUPPORTED_PYTHON_VERSION` | Optional PEP-440-style specifier checked against the running Python (registry field `supported_python_version`; visible plugins default to `>=3.10, <3.15`) |
 | `PLUGIN_SUPPORTED_OS` | Optional list of `Windows` / `macOS` / `Linux` / `WSL` (registry field `supported_os`). Declare it only for a plugin that actually needs an OS-restricted backend; omitting it means every OS. |
 | `PLUGIN_TAGS` | List of category strings |
 | `PLUGIN_DEPENDENCIES` | List of PEP-508 requirement strings the plugin requires |

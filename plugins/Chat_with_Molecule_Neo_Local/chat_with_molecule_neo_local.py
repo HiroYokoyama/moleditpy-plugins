@@ -3,8 +3,8 @@
 
 
 PLUGIN_NAME = "Chat with Molecule Neo (Local)"
-PLUGIN_VERSION = "2026.10.09"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.18"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0a1, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with local LLM about the current molecule. Automatically injects SMILES context. (Neo Version)"
 PLUGIN_ID = "chat_with_molecule_neo_local"
@@ -39,17 +39,17 @@ except ImportError:
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
-from PyQt6.QtCore import (
+from PySide6.QtCore import (
     Qt,
     QThread,
-    pyqtSignal,
+    Signal,
     QTimer,
     QPointF,
     QRunnable,
     QThreadPool,
     QObject,
 )
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QTextEdit,
@@ -66,7 +66,7 @@ from PyQt6.QtWidgets import (
     QDialog,
     QCheckBox,
 )
-from PyQt6.QtGui import QTextCursor, QDesktopServices, QIcon
+from PySide6.QtGui import QTextCursor, QDesktopServices, QIcon
 import logging
 
 
@@ -528,7 +528,7 @@ class ChatBrowser(QTextBrowser):
 
 
 class InitWorker(QThread):
-    finished = pyqtSignal(list, str)  # available_models, error_message
+    finished = Signal(list, str)  # available_models, error_message
 
     def __init__(self, api_key, base_url):
         super().__init__()
@@ -555,7 +555,7 @@ class NameResolverWorker(QRunnable):
     """
 
     class Signals(QObject):
-        finished = pyqtSignal(str, str)  # inchikey, name
+        finished = Signal(str, str)  # inchikey, name
 
     def __init__(self, inchikey):
         super().__init__()
@@ -575,9 +575,9 @@ class NameResolverWorker(QRunnable):
 class OpenAIWorker(QThread):
     """Worker thread to handle API calls to avoid freezing UI"""
 
-    response_received = pyqtSignal(str)  # Return full text
-    chunk_received = pyqtSignal(str)  # Signal for streaming updates
-    error_occurred = pyqtSignal(str)
+    response_received = Signal(str)  # Return full text
+    chunk_received = Signal(str)  # Signal for streaming updates
+    error_occurred = Signal(str)
 
     def __init__(self, client, history, model_name="gpt-4o"):
         super().__init__()

@@ -1,7 +1,7 @@
 # moleditpy-plugins Test Suite
 
 All tests run headlessly — no GUI, no chemistry libraries, no network required.
-Heavy optional dependencies (PyQt6, rdkit, moleditpy, pyvista, …) are
+Heavy optional dependencies (PySide6, rdkit, moleditpy, pyvista, …) are
 intercepted by a custom `MetaPathFinder` in `conftest.py` and replaced with
 `MagicMock` objects for the duration of each test.
 

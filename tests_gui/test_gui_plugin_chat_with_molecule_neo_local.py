@@ -3,7 +3,7 @@ GUI tests for the Chat with Molecule Neo (Local) plugin.
 
 Covers: ChatMoleculeWindow.
 
-Chemistry/AI libs are mocked; real PyQt6 is used.
+Chemistry/AI libs are mocked; real PySide6 is used.
 
 Construction notes:
 - Local: accesses self.main_window.init_manager etc. in __init__, so needs a
@@ -41,7 +41,7 @@ def _local_context(qapp):
     None would crash on attribute access).  We attach MagicMock manager attrs
     to a bare QDialog instance.
     """
-    from PyQt6.QtWidgets import QDialog
+    from PySide6.QtWidgets import QDialog
 
     fake_mw = QDialog()
     fake_mw.init_manager = MagicMock()
