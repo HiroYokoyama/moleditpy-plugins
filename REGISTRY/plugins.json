@@ -793,7 +793,7 @@
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo/chat_with_molecule_neo.py",
     "lastUpdated": "2026-10-19",
-    "sha256": "867658826fc8f11757a510be5b2599ecc74321f2b66599597d8882fc8d2976e0",
+    "sha256": "53f7cb34b92e2e2e253d2564ec2b1b8e1a6b488f988275b4c9c6145e87ae0220",
     "firstAppeared": "2025-12-28",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -852,7 +852,7 @@
     ],
     "downloadUrl": "../plugins/Chat_with_Molecule_Neo_ChatGPT/chat_with_molecule_neo_chatGPT.py",
     "lastUpdated": "2026-10-19",
-    "sha256": "f3dd99128b1df771e4dff78a33b9d7b8e6a92cbf99c13fd816930b4d2e81331b",
+    "sha256": "45e5aa1aa995def2dd0a0a2e172c6a81d72706098f22cfcdadf3d083d8e28ca3",
     "firstAppeared": "2025-12-30",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1279,7 +1279,7 @@
     ],
     "downloadUrl": "../plugins/Compound_Info_Report/compound_info_report.py",
     "lastUpdated": "2026-10-19",
-    "sha256": "4959ceed6050a52ad9813fcc7bd36c092ccd9ff5224d9afedce615ba16322705",
+    "sha256": "a43f95d2c2adbec460bdcca2d28e90b99776d76b7e500ed52cbcfba55770a629",
     "firstAppeared": "2026-01-21",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

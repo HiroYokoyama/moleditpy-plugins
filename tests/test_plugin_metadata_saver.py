@@ -61,7 +61,7 @@ class TestMetadata:
         assert mod.PLUGIN_CATEGORY == "Utility"
 
     def test_supported_version_specifier(self, mod):
-        assert "4.0.0" in mod.PLUGIN_SUPPORTED_MOLEDITPY_VERSION
+        assert "5.0.0" in mod.PLUGIN_SUPPORTED_MOLEDITPY_VERSION
 
     def test_no_heavy_dependencies(self, mod):
         assert mod.PLUGIN_DEPENDENCIES == []

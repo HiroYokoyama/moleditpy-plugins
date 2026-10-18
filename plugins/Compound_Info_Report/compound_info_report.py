@@ -646,7 +646,7 @@ class ReportDialog(QDialog):
         printer = QPrinter(QPrinter.PrinterMode.HighResolution)
         dialog = QPrintDialog(printer, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            self.preview.print(printer)
+            self.preview.print_(printer)
 
     def save_pdf(self):
         filename, _ = QFileDialog.getSaveFileName(
@@ -698,7 +698,7 @@ class ReportDialog(QDialog):
 
                 doc = QTextDocument()
                 doc.setHtml(html)
-                doc.print(printer)
+                doc.print_(printer)
 
                 progress.setValue(3)
                 QMessageBox.information(self, "Export", f"Saved to {filename}")

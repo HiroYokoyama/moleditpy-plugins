@@ -328,10 +328,10 @@ def test_run_without_launch_fn_does_not_raise():
 
 
 def test_supported_version_specifier(plugin_mod):
-    """Version specifier must include '>=4' to target the V4 API."""
+    """Version specifier must target the MoleditPy 5 API."""
     spec = plugin_mod.PLUGIN_SUPPORTED_MOLEDITPY_VERSION
-    assert ">=4" in spec, (
-        f"Expected '>=4' in PLUGIN_SUPPORTED_MOLEDITPY_VERSION, got {spec!r}"
+    assert ">=5.0.0" in spec, (
+        f"Expected '>=5.0.0' in PLUGIN_SUPPORTED_MOLEDITPY_VERSION, got {spec!r}"
     )
 
 

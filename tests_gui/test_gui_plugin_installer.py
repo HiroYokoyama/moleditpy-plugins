@@ -354,7 +354,7 @@ class TestPythonVersionCompatGui:
         ):
             d = _plugin_installer.PluginInstallerWindow(None, auto_check=False)
         d.main_window = mw
-        d.get_app_version = lambda: "4.2.0"
+        d.get_app_version = lambda: "5.0.0"
         d.latest_app_version = "Checking..."
         yield d
         d.destroy()
@@ -552,7 +552,7 @@ def bare_installer(qapp):
     ):
         d = _plugin_installer.PluginInstallerWindow(None, auto_check=False)
     d.main_window = mw
-    d.get_app_version = lambda: "4.2.0"
+    d.get_app_version = lambda: "5.0.0"
     d.latest_app_version = "Checking..."
     yield d
     d.destroy()
@@ -577,7 +577,7 @@ class TestOnFetchDone:
         assert bare_installer.latest_app_version == "9.9.9"
 
     def test_up_to_date(self, bare_installer):
-        bare_installer._on_fetch_done("4.2.0", [])
+        bare_installer._on_fetch_done("5.0.0", [])
         assert "Up to date" in bare_installer.lbl_latest_version.text()
 
     def test_dev_newer(self, bare_installer):
@@ -615,7 +615,7 @@ class TestCheckUpdatesSilent:
         from unittest.mock import patch
 
         with patch.object(
-            _plugin_installer._FetchWorker, "_fetch_pypi", lambda self: "4.2.0"
+            _plugin_installer._FetchWorker, "_fetch_pypi", lambda self: "5.0.0"
         ), patch.object(
             _plugin_installer._FetchWorker, "_fetch_remote", lambda self: []
         ):

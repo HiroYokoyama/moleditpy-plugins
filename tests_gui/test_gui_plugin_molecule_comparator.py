@@ -1035,7 +1035,9 @@ class TestResultsContextMenu:
         item.row.return_value = 0
         monkeypatch.setattr(w.table_results, "itemAt", lambda pos: item)
         exec_mock = MagicMock()
-        monkeypatch.setattr(_comparator.QMenu, "exec", exec_mock)
+        menu = _comparator.QMenu(w)
+        monkeypatch.setattr(menu, "exec", exec_mock)
+        monkeypatch.setattr(_comparator, "QMenu", lambda *_args: menu)
         w.show_results_context_menu(QPoint(1, 1))
         exec_mock.assert_called_once()
         w.destroy()
@@ -1048,7 +1050,9 @@ class TestResultsContextMenu:
         item.row.return_value = 5  # no molecules loaded
         monkeypatch.setattr(w.table_results, "itemAt", lambda pos: item)
         exec_mock = MagicMock()
-        monkeypatch.setattr(_comparator.QMenu, "exec", exec_mock)
+        menu = _comparator.QMenu(w)
+        monkeypatch.setattr(menu, "exec", exec_mock)
+        monkeypatch.setattr(_comparator, "QMenu", lambda *_args: menu)
         w.show_results_context_menu(QPoint(1, 1))
         exec_mock.assert_not_called()
         w.destroy()

@@ -54,6 +54,7 @@ PLUGINS_DIR = ROOT / "plugins"
 BLOCKED_TOPS: frozenset[str] = frozenset(
     {
         "PySide6",
+        "shiboken6",
         "rdkit",
         "pyvista",
         "pyvistaqt",

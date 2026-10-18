@@ -137,7 +137,7 @@ jobs:
             libdbus-1-3
 
       - name: Install Python dependencies
-        run: pip install pytest PySide6-Essentials cryptography
+        run: pip install pytest "PySide6-Essentials>=6.10,<6.12" cryptography
 
       # Real chemistry/scientific libs let the gated GUI tests actually run on CI
       # instead of being importorskip-skipped (they hold real logic, not just
@@ -191,7 +191,7 @@ jobs:
             xvfb
 
       - name: Install Python dependencies
-        run: pip install pytest PySide6-Essentials rdkit numpy pillow pyvista vtk scipy pymatgen-core
+        run: pip install pytest "PySide6-Essentials>=6.10,<6.12" rdkit numpy pillow pyvista vtk scipy pymatgen-core
 
       - name: Run rendering GUI tests
         run: |

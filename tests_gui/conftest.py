@@ -167,6 +167,22 @@ def qapp():
 
 
 # ---------------------------------------------------------------------------
+@pytest.fixture(autouse=True)
+def cleanup_native_windows(qapp):
+    """Delete each test's native widgets before a later event loop can see them."""
+    from PySide6.QtCore import QCoreApplication, QEvent
+    from shiboken6 import isValid
+
+    existing = set(qapp.topLevelWidgets())
+    yield
+    for widget in qapp.topLevelWidgets():
+        if widget not in existing and isValid(widget):
+            widget.hide()
+            widget.deleteLater()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+
+
+# ---------------------------------------------------------------------------
 # Registry helper (mirrors tests/conftest.py::visible_py_plugins)
 # ---------------------------------------------------------------------------
 

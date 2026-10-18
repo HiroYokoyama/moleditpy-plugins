@@ -9,6 +9,7 @@ import os
 import sys
 import types
 import importlib
+import pytest
 from pathlib import Path
 import re as _re
 from unittest.mock import MagicMock, patch
@@ -564,6 +565,14 @@ class TestOSIncompatibilityHint:
 
 
 class TestVersionCompatibility:
+    @pytest.mark.parametrize(
+        "host, expected",
+        [("5.0.0a1", True), ("5.0.0", True), ("5.2.0", True),
+         ("4.13.0", False), ("6.0.0a1", False)],
+    )
+    def test_stable_host_range_also_accepts_its_alpha(self, host, expected):
+        assert PI.is_app_version_compatible(host, ">=5.0.0, <6.0.0") is expected
+
     def test_empty_or_wildcard_specifier(self):
         assert PI.is_app_version_compatible("3.5.1", "") is True
         assert PI.is_app_version_compatible("3.5.1", "*") is True
@@ -2139,7 +2148,7 @@ class TestPythonVersionCheck:
 
     def test_default_spec_boundaries(self):
         spec = ">=3.10, <3.15"
-        assert PI.is_app_version_compatible("3.9.0", spec) is True
+        assert PI.is_app_version_compatible("3.9.0", spec) is False
         assert PI.is_app_version_compatible("3.12.4", spec) is True
         assert PI.is_app_version_compatible("3.14.2", spec) is True
         assert PI.is_app_version_compatible("3.8.19", spec) is False

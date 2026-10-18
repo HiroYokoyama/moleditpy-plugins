@@ -42,6 +42,14 @@ def _no_window_context() -> MagicMock:
 class TestChatMoleculeWindowChatGPT:
     """ChatMoleculeWindow — Chat with Molecule Neo (ChatGPT)."""
 
+    def test_event_filter_before_input_is_created(self, qapp):
+        from PySide6.QtCore import QEvent, QObject
+
+        window = _chatgpt.ChatMoleculeWindow.__new__(_chatgpt.ChatMoleculeWindow)
+        _chatgpt.QDialog.__init__(window)
+        assert not window.eventFilter(QObject(), QEvent(QEvent.Type.FocusIn))
+        window.deleteLater()
+
     @pytest.fixture
     def win(self, qapp, monkeypatch):
         # The 100ms singleShot in __init__ would fire initialize_session on

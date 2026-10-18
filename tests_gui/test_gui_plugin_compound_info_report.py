@@ -474,7 +474,7 @@ class TestPrintReport:
                 lambda self: QDialog.DialogCode.Accepted,
             )
             printed = []
-            monkeypatch.setattr(d.preview, "print", lambda printer: printed.append(printer))
+            monkeypatch.setattr(d.preview, "print_", lambda printer: printed.append(printer))
             d.print_report()
             assert len(printed) == 1
         finally:
@@ -490,7 +490,7 @@ class TestPrintReport:
                 lambda self: QDialog.DialogCode.Rejected,
             )
             printed = []
-            monkeypatch.setattr(d.preview, "print", lambda printer: printed.append(printer))
+            monkeypatch.setattr(d.preview, "print_", lambda printer: printed.append(printer))
             d.print_report()
             assert printed == []
         finally:

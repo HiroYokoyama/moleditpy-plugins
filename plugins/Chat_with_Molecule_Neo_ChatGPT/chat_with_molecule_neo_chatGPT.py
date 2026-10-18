@@ -973,7 +973,8 @@ class ChatMoleculeWindow(QDialog):
         self.txt_input.installEventFilter(self)
 
     def eventFilter(self, obj, event):
-        if obj is self.txt_input:
+        input_widget = getattr(self, "txt_input", None)
+        if input_widget is not None and obj is input_widget:
             if event.type() == event.Type.FocusIn:
                 # Check for updates as soon as user focuses on input
                 self.check_molecule_change()
