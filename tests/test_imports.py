@@ -74,7 +74,7 @@ def test_plugin_no_stdlib_import_errors(name, path):
         if not isinstance(node, (ast.Import, ast.ImportFrom)):
             continue
         # Only check stdlib — skip known optional third-party deps
-        optional = {"PySide6", "rdkit", "pyvista", "numpy", "scipy", "PIL",
+        optional = {"PySide6", "shiboken6", "rdkit", "pyvista", "numpy", "scipy", "PIL",
                     "google", "openai", "anthropic", "truststore", "pymatgen",
                     "openbabel", "pyscf", "ase", "moleditpy", "sip", "modules",
                     "moleditpy_linux", "pybel", "matplotlib", "markdown",
