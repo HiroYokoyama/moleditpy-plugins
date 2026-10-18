@@ -34,7 +34,7 @@ def _entry() -> dict:
     return {
         "id": "demo",
         "visible": True,
-        "supported_moleditpy_version": ">=5.0.0a1, <6.0.0",
+        "supported_moleditpy_version": ">=5.0.0, <6.0.0",
         "supported_python_version": ">=3.10, <3.15",
         "name": "Demo",
         "version": "2026.01.01",

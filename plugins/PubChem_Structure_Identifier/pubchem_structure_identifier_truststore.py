@@ -30,8 +30,8 @@ from PySide6.QtCore import Qt
 
 # --- Metadata ---
 PLUGIN_NAME = "PubChem Structure Identifier (truststore)"
-PLUGIN_VERSION = "2026.10.18"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0a1, <6.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Resolve chemical names and fetch molecular properties (Name, Formula, Weight) via PubChem."
 PLUGIN_ID = "pubchem_structure_identifier_truststore"

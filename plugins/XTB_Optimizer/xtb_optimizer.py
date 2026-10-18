@@ -57,8 +57,8 @@ except ImportError as exc:
 # ---------------------------------------------------------------------------
 
 PLUGIN_NAME = "xTB Optimizer"
-PLUGIN_VERSION = "2026.10.18"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0a1, <6.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
     "Geometry optimization using semiempirical xTB methods (GFN2-xTB, GFN1-xTB) "

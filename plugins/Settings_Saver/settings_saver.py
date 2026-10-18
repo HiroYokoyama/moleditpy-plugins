@@ -28,14 +28,14 @@ from PySide6.QtCore import Qt, QTimer
 import logging
 
 PLUGIN_NAME = "Settings Saver"
-PLUGIN_VERSION = "2026.10.18"
+PLUGIN_VERSION = "2026.10.19"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
     "Save, load, edit, and manage settings presets in a unified dialog."
 )
 PLUGIN_CATEGORY = "Utility"
 PLUGIN_TAGS = ["Utility"]
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0a1, <6.0.0"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 
 SETTINGS_FILENAME = "settings_saver.json"
 

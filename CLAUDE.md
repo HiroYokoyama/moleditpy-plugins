@@ -123,7 +123,7 @@ git diff -U0 <base> HEAD -- plugins/<Plugin_Dir>/<file>.py   # hunk headers give
 
 ```python
 PLUGIN_VERSION = "2026.06.25"          # date-based, bump when file changes
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0a1, <6.0.0"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_SUPPORTED_PYTHON_VERSION = ">=3.10, <3.15"  # optional; registry scripts default visible plugins to this
 PLUGIN_SUPPORTED_OS = ["Windows", "macOS", "Linux", "WSL"]  # optional; declare ONLY when OS-restricted
 PLUGIN_AUTHOR = "HiroYokoyama"

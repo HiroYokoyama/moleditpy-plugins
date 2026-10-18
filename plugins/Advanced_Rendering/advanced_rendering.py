@@ -40,8 +40,8 @@ except ImportError:
     vtk = None
 
 PLUGIN_NAME = "Advanced Rendering"
-PLUGIN_VERSION = "2026.10.18"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0a1, <6.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Fine-grained control over Scene lighting, shadows, post-processing effects (SSAO, Depth Peeling, EDL), and Atom/Bond rendering (PBR, Silhouette)."
 

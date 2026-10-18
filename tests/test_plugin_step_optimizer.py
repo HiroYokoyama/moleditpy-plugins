@@ -37,7 +37,7 @@ class TestStepOptimizerConstants:
             mod = load_plugin(STEP_OPT_PATH)
             assert mod.PLUGIN_NAME == "Step Optimizer"
             assert mod.PLUGIN_AUTHOR == "HiroYokoyama"
-            assert mod.PLUGIN_SUPPORTED_MOLEDITPY_VERSION == ">=5.0.0a1, <6.0.0"
+            assert mod.PLUGIN_SUPPORTED_MOLEDITPY_VERSION == ">=5.0.0, <6.0.0"
             assert mod.PLUGIN_DESCRIPTION
 
     def test_version_format(self):

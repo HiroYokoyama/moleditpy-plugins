@@ -19,7 +19,7 @@ def test_update_metadata_tags_and_description():
         {
             "id": "test_plugin",
             "visible": True,
-            "supported_moleditpy_version": ">=5.0.0a1, <6.0.0",
+            "supported_moleditpy_version": ">=5.0.0, <6.0.0",
             "name": "Old Plugin Name",
             "version": "1.0.0",
             "author": "HiroYokoyama",
@@ -42,7 +42,7 @@ def test_update_metadata_tags_and_description():
         "description": "Fresh description from code",
         "tags": ["3D", "Editing", "Chemistry"],
         "dependencies": ["rdkit", "PySide6"],
-        "supported_moleditpy_version": ">=5.0.0a1, <6.0.0",
+        "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     }
 
     url = "https://github.com/HiroYokoyama/moleditpy_test/releases/download/v1.0.0/test_plugin.zip"
@@ -114,7 +114,7 @@ def test_update_metadata_code_wins_for_every_declared_field():
         {
             "id": "test_plugin",
             "visible": True,
-            "supported_moleditpy_version": ">=5.0.0a1, <6.0.0",
+            "supported_moleditpy_version": ">=5.0.0, <6.0.0",
             "name": "Plugin",
             "version": "1.0.0",
             "dependencies": ["numpy"],

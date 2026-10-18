@@ -31,8 +31,8 @@ except ImportError:
 
 # Plugin Metadata
 PLUGIN_NAME = "VDW Radii Overlay"
-PLUGIN_VERSION = "2026.10.18"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0a1, <6.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Visualizes Van der Waals radii as a merged surface overlay using PyVista."
 PLUGIN_CONTEXT = None

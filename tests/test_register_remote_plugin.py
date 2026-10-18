@@ -711,7 +711,7 @@ def test_auto_id_omits_version_string_in_add_mode(mock_file, mock_extract, mock_
         "version": "0.4.0",
         "author": "HiroYokoyama",
         "description": "3D editing plugin",
-        "supported_moleditpy_version": ">=5.0.0a1, <6.0.0",
+        "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     }
 
     test_args = [

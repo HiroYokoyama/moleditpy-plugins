@@ -16,8 +16,8 @@ import logging
 import math
 
 PLUGIN_NAME = "Step Optimizer"
-PLUGIN_VERSION = "2026.10.18"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0a1, <6.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
     "Interactive step-by-step force-field optimization with live 3D animation."

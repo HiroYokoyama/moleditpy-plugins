@@ -37,8 +37,8 @@ except ImportError:
         OBABEL_AVAILABLE = False
 
 PLUGIN_NAME = "OpenBabel Conversion Tool"
-PLUGIN_VERSION = "2026.10.18"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0a1, <6.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
     "Import various chemical file formats using OpenBabel with multi-molecule support."

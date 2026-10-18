@@ -43,8 +43,8 @@ except ImportError:
 
 PLUGIN_NAME = "ORCA Freq Analyzer"
 PLUGIN_DESCRIPTION = "Analyzes vibrational frequencies from ORCA output files. View IR spectrum, animate normal modes, and export GIF animations."
-PLUGIN_VERSION = "2026.10.18"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0a1, <6.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_CONTEXT = None
 

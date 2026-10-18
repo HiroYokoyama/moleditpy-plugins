@@ -47,8 +47,8 @@ except ImportError:  # pragma: no cover - host always ships pyvista
 
 
 PLUGIN_NAME = "Orbital Comparator"
-PLUGIN_VERSION = "2026.10.18"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0a1, <6.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
     "Load and compare up to four .cube files at once (orbitals, densities, "

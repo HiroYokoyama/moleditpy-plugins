@@ -3,8 +3,8 @@
 
 
 PLUGIN_NAME = "Chat with Molecule Neo (Gemini)"
-PLUGIN_VERSION = "2026.10.18"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0a1, <6.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with Google Gemini about the current molecule. Automatically injects SMILES context. (Neo Version)"
 PLUGIN_ID = "chat_with_molecule_neo"

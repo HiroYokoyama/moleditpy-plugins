@@ -17,8 +17,8 @@ from PySide6.QtCore import Qt, QTimer
 
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Gaussian FCHK Loader"
-PLUGIN_VERSION = "2026.10.18"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0a1, <6.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Smart loader for FCHK, FCH, and FCK files. Dispatches to Frequency or MO Analyzer with priority handling."
 PLUGIN_CONTEXT = None

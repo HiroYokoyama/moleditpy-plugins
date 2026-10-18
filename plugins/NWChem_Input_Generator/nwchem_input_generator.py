@@ -24,8 +24,8 @@ from PySide6.QtCore import Qt
 from rdkit import Chem
 
 PLUGIN_NAME = "NWChem Input Generator"
-PLUGIN_VERSION = "2026.10.18"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0a1, <6.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Generates input files for NWChem quantum chemistry calculations."
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "nwchem_input_generator.json")

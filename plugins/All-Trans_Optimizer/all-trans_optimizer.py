@@ -2,8 +2,8 @@ from PySide6.QtWidgets import QMessageBox
 from rdkit import Chem
 from rdkit.Chem import rdMolTransforms
 
-PLUGIN_VERSION = "2026.10.18"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0a1, <6.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "A geometric tool for straightening alkyl chains."
 PLUGIN_NAME = "All-Trans Optimizer"

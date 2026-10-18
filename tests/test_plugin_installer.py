@@ -1406,7 +1406,7 @@ class TestPopulateTable:
                 "name": "Fresh",
                 "version": "1.0.0",
                 "visible": True,
-                "supported_moleditpy_version": ">=5.0.0a1, <6.0.0",
+                "supported_moleditpy_version": ">=5.0.0, <6.0.0",
                 "downloadUrl": "https://x/fresh.py",
             },
         ]

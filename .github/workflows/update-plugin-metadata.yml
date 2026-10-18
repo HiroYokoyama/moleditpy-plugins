@@ -24,7 +24,7 @@ on:
         required: false
         type: string
       supported_version:
-        description: 'Supported MoleditPy version (e.g. >=5.0.0a1, <6.0.0, optional)'
+        description: 'Supported MoleditPy version (e.g. >=5.0.0, <6.0.0, optional)'
         required: false
         type: string
       supported_python:

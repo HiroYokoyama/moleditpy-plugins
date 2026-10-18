@@ -44,8 +44,8 @@ except ImportError:
 __author__ = "HiroYokoyama"
 PLUGIN_AUTHOR = __author__
 PLUGIN_NAME = "Cube File Viewer Advanced"
-PLUGIN_VERSION = "2026.10.18"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0a1, <6.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_DESCRIPTION = "Advanced 3D visualization for Gaussian Cube files with PBR, SSAO, and other effects."
 PLUGIN_CONTEXT = None
 

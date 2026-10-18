@@ -9,10 +9,10 @@ from moleditpy.ui.ui_manager import UIManager
 
 # Metadata
 PLUGIN_NAME = "Dummy Atom Mode"
-PLUGIN_VERSION = "2026.10.18"
+PLUGIN_VERSION = "2026.10.19"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Adds a dummy atom (*) mode to the 2D editor and registers a toolbar action to place dummy atoms."
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0a1, <6.0.0"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 
 def initialize(context):
     # 1. Register the CPK color for dummy atoms (*)

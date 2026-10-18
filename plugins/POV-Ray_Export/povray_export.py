@@ -9,8 +9,8 @@ Exports molecular structures as POV-Ray scene files for high-quality ray-traced 
 import logging
 
 PLUGIN_NAME = "POV-Ray Export"
-PLUGIN_VERSION = "2026.10.18"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0a1, <6.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Export molecular structures as POV-Ray scene files for professional ray-traced rendering"
 PLUGIN_DEPENDENCIES = ["rdkit", "numpy", "PySide6-Essentials"]
