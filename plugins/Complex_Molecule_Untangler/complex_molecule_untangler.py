@@ -1,5 +1,5 @@
 import random
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QDialog,
     QVBoxLayout,
     QPushButton,
@@ -11,15 +11,15 @@ from PyQt6.QtWidgets import (
     QFormLayout,
     QComboBox,
 )
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from PyQt6.QtGui import QFont
+from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtGui import QFont
 from rdkit import Chem
 from rdkit.Chem import AllChem, rdMolTransforms
 import logging
 
 PLUGIN_NAME = "Complex Molecule Untangler"
-PLUGIN_VERSION = "2026.09.24"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "A Monte Carlo-based tool to resolve steric clashes in complex or roughly drawn molecules."
 PLUGIN_CONTEXT = None
@@ -30,8 +30,8 @@ class UntangleWorker(QThread):
     回転可能な結合をランダムに回して、衝突（エネルギー）が減る配置を探すスレッド
     """
 
-    progress = pyqtSignal(int)
-    finished = pyqtSignal(object, str)
+    progress = Signal(int)
+    finished = Signal(object, str)
 
     def __init__(self, mol, max_iter=500, force_field="MMFF94"):
         super().__init__()

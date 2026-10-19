@@ -44,7 +44,7 @@ on:
         required: false
         type: string
       supported_python:
-        description: 'Supported Python version spec (e.g. >=3.9, <3.15) — used only when the code does not declare it; visible plugins default to that'
+        description: 'Supported Python version spec (e.g. >=3.10, <3.15) — used only when the code does not declare it; visible plugins default to that'
         required: false
         type: string
       allow_same_version:
@@ -156,9 +156,9 @@ jobs:
             VER="${{ steps.run_script.outputs.version }}"
             
             if [ "$MODE" = "UPDATE" ]; then
-              git commit -m "Update plugin '$NAME' to v$VER"
+              git commit -m "Update plugin '$NAME' to v$VER" -m "Assisted-by: GPT-6.1 Sol"
             else
-              git commit -m "Register new plugin '$NAME' (v$VER)"
+              git commit -m "Register new plugin '$NAME' (v$VER)" -m "Assisted-by: GPT-6.1 Sol"
             fi
             git push origin main
           else

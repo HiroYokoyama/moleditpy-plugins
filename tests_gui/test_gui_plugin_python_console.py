@@ -11,8 +11,8 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-from PyQt6.QtCore import QEvent, Qt
-from PyQt6.QtGui import QKeyEvent, QTextCursor
+from PySide6.QtCore import QEvent, Qt
+from PySide6.QtGui import QKeyEvent, QTextCursor
 
 from conftest import load_plugin_for_gui, mock_chemistry_imports
 
@@ -144,7 +144,7 @@ class TestPythonHighlighter:
 
     @pytest.fixture
     def hl(self, qapp):
-        from PyQt6.QtGui import QTextDocument
+        from PySide6.QtGui import QTextDocument
         doc = QTextDocument()
         h = _console.PythonHighlighter(parent=doc)
         yield h
@@ -164,7 +164,7 @@ class TestHighlightBlock:
     """highlightBlock() applies every rule over real document text."""
 
     def test_highlight_runs_over_all_rule_types(self, qapp):
-        from PyQt6.QtGui import QTextDocument
+        from PySide6.QtGui import QTextDocument
 
         doc = QTextDocument()
         h = _console.PythonHighlighter(parent=doc)

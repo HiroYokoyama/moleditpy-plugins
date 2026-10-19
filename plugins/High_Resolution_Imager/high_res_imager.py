@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QDialog,
     QVBoxLayout,
     QHBoxLayout,
@@ -10,8 +10,8 @@ from PyQt6.QtWidgets import (
 )
 
 PLUGIN_NAME = "High Resolution Imager"
-PLUGIN_VERSION = "2026.06.27"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
     "Take high-resolution screenshots of the 3D view with custom resolution."
@@ -80,11 +80,11 @@ def take_screenshot(context):
     btn_8k.clicked.connect(lambda: set_res(7680, 4320))
 
     # Transparent Background
-    from PyQt6.QtWidgets import QColorDialog
-    from PyQt6.QtGui import QColor
+    from PySide6.QtWidgets import QColorDialog
+    from PySide6.QtGui import QColor
 
     # Background Options using Radio Buttons for clarity
-    from PyQt6.QtWidgets import QRadioButton, QButtonGroup
+    from PySide6.QtWidgets import QRadioButton, QButtonGroup
 
     bg_group = QButtonGroup(dialog)
 

@@ -19,8 +19,8 @@ from __future__ import annotations
 import logging
 import math
 
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
     QComboBox,
@@ -57,8 +57,8 @@ except ImportError as exc:
 # ---------------------------------------------------------------------------
 
 PLUGIN_NAME = "xTB Optimizer"
-PLUGIN_VERSION = "2026.10.13"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
     "Geometry optimization using semiempirical xTB methods (GFN2-xTB, GFN1-xTB) "
@@ -111,9 +111,9 @@ class XtbWorker(QThread):
         on success; ``False`` + error message string on failure.
     """
 
-    log_message = pyqtSignal(str)
-    step_update = pyqtSignal(int, float, float)
-    result_ready = pyqtSignal(bool, object)
+    log_message = Signal(str)
+    step_update = Signal(int, float, float)
+    result_ready = Signal(bool, object)
 
     def __init__(
         self,

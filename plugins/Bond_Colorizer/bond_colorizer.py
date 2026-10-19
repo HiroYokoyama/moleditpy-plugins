@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QVBoxLayout,
     QPushButton,
     QLabel,
@@ -8,14 +8,14 @@ from PyQt6.QtWidgets import (
     QGroupBox,
     QDialog,
 )
-from PyQt6.QtGui import QColor, QCloseEvent
-from PyQt6.QtCore import Qt, QTimer
+from PySide6.QtGui import QColor, QCloseEvent
+from PySide6.QtCore import Qt, QTimer
 import logging
 
 # Plugin Metadata
 PLUGIN_NAME = "Bond Colorizer"
-PLUGIN_VERSION = "2026.09.02"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Select bonds by index or atom pair in the 3D viewer and apply color."
 PLUGIN_CONTEXT = None

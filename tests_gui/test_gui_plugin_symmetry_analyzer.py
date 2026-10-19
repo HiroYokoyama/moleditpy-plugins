@@ -3,7 +3,7 @@ Headless GUI tests for the Symmetry Analyzer plugin.
 
 Covers: SymmetryAnalysisPlugin.
 
-Real PyQt6 is used (QT_QPA_PLATFORM=offscreen); chemistry libs are MagicMocked.
+Real PySide6 is used (QT_QPA_PLATFORM=offscreen); chemistry libs are MagicMocked.
 Run via: python tests_gui/run_gui_tests.py tests_gui/test_gui_plugin_symmetry_analyzer.py
 """
 
@@ -19,10 +19,11 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-from PyQt6.QtCore import Qt
-from PyQt6.QtTest import QTest
+from PySide6.QtCore import QCoreApplication, QEvent, Qt
+from shiboken6 import isValid
+from PySide6.QtTest import QTest
 
-# Guarded so CI's bare test-gui job (only pytest+PyQt6 installed) skips this
+# Guarded so CI's bare test-gui job (only pytest+PySide6 installed) skips this
 # real-numpy module instead of erroring at collection.
 np = pytest.importorskip("numpy")
 
@@ -80,7 +81,10 @@ class TestSymmetryAnalysisPlugin:
         ctx = _ctx_no_mol()
         d = _symmetry.SymmetryAnalysisPlugin(context=ctx)
         yield d
-        d.destroy()
+        if isValid(d):
+            d.close()
+            d.deleteLater()
+            QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
 
     def test_creates_without_error(self, dlg):
         assert dlg is not None
@@ -263,7 +267,10 @@ def dlgnp(qapp, monkeypatch):
     ctx = _ctx_no_mol()
     d = _symnp.SymmetryAnalysisPlugin(context=ctx)
     yield d
-    d.destroy()
+    if isValid(d):
+        d.close()
+        d.deleteLater()
+        QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
 
 
 def _no_block_msgbox(monkeypatch):

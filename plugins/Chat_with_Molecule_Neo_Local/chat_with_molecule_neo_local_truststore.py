@@ -3,8 +3,8 @@
 
 
 PLUGIN_NAME = "Chat with Molecule Neo (Local) (truststore)"
-PLUGIN_VERSION = "2026.09.24"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with local LLM about the current molecule. Automatically injects SMILES context. (Neo Version)"
 PLUGIN_ID = "chat_with_molecule_neo_local_truststore"
@@ -85,17 +85,17 @@ except Exception as e:
     print(f"Warning: Truststore injection failed: {e}")
 
 
-from PyQt6.QtCore import (
+from PySide6.QtCore import (
     Qt,
     QThread,
-    pyqtSignal,
+    Signal,
     QTimer,
     QPointF,
     QRunnable,
     QThreadPool,
     QObject,
 )
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QTextEdit,
@@ -112,7 +112,7 @@ from PyQt6.QtWidgets import (
     QDialog,
     QCheckBox,
 )
-from PyQt6.QtGui import QTextCursor, QDesktopServices, QIcon
+from PySide6.QtGui import QTextCursor, QDesktopServices, QIcon
 import logging
 
 
@@ -574,7 +574,7 @@ class ChatBrowser(QTextBrowser):
 
 
 class InitWorker(QThread):
-    finished = pyqtSignal(list, str)  # available_models, error_message
+    finished = Signal(list, str)  # available_models, error_message
 
     def __init__(self, api_key, base_url):
         super().__init__()
@@ -601,7 +601,7 @@ class NameResolverWorker(QRunnable):
     """
 
     class Signals(QObject):
-        finished = pyqtSignal(str, str)  # inchikey, name
+        finished = Signal(str, str)  # inchikey, name
 
     def __init__(self, inchikey):
         super().__init__()
@@ -621,9 +621,9 @@ class NameResolverWorker(QRunnable):
 class OpenAIWorker(QThread):
     """Worker thread to handle API calls to avoid freezing UI"""
 
-    response_received = pyqtSignal(str)  # Return full text
-    chunk_received = pyqtSignal(str)  # Signal for streaming updates
-    error_occurred = pyqtSignal(str)
+    response_received = Signal(str)  # Return full text
+    chunk_received = Signal(str)  # Signal for streaming updates
+    error_occurred = Signal(str)
 
     def __init__(self, client, history, model_name="gpt-4o"):
         super().__init__()
@@ -1139,15 +1139,33 @@ class ChatMoleculeWindow(QDialog):
 
     def _get_privacy_details(self):
         """Helper: Get privacy text and color based on current settings"""
+        from ipaddress import ip_address, ip_network
+        from urllib.parse import urlsplit
+
         url = self.txt_api_base.text().lower().strip()
-
-        # 1. Loopback (Strict Local Machine)
-        is_loopback = "localhost" in url or "127.0.0.1" in url or "0.0.0.0" in url
-
-        # 2. Local Network (Private IP ranges or .local domain)
-        is_local_net = (
-            ".local" in url or "192.168." in url or "10." in url or "172." in url
-        )
+        is_loopback = False
+        is_local_net = False
+        try:
+            parsed = urlsplit(url)
+            host = (parsed.hostname or "").rstrip(".")
+            if parsed.scheme in ("http", "https") and host:
+                # Inspect the actual destination, never userinfo/path/query text.
+                is_loopback = host == "localhost"
+                is_local_net = host.endswith(".local")
+                try:
+                    address = ip_address(host)
+                except ValueError:
+                    pass
+                else:
+                    is_loopback = address.is_loopback
+                    is_local_net = any(
+                        address in ip_network(network)
+                        for network in (
+                            "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7"
+                        )
+                    )
+        except ValueError:
+            pass  # Malformed URLs never receive a local privacy assurance.
 
         # OLD: disable_pubchem = not self.chk_enable_pubchem.isChecked()
         # NEW: Check SAVED settings, not current checkbox state
@@ -1413,8 +1431,8 @@ class ChatMoleculeWindow(QDialog):
                     "Error: Molecule importer not found in main application.",
                     "red",
                 )
-        else:
-            # Open other links (e.g. http) in external browser
+        elif scheme.lower() in ("http", "https"):
+            # Model-provided links must not invoke local files or OS protocols.
             QDesktopServices.openUrl(url)
 
     def render_content(self, text):

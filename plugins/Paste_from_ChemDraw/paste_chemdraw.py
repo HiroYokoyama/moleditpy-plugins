@@ -1,5 +1,5 @@
-from PyQt6.QtWidgets import QApplication, QMessageBox
-from PyQt6.QtCore import QPointF
+from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtCore import QPointF
 from rdkit import Chem
 from rdkit.Chem import AllChem
 import sys
@@ -7,8 +7,8 @@ import logging
 
 # --- Plugin Basic Information ---
 PLUGIN_NAME = "Paste from ChemDraw"
-PLUGIN_VERSION = "2026.09.29"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Paste chemical structures from ChemDraw clipboard data. Developed on ChemDraw version 25.5."
 PLUGIN_CONTEXT = None

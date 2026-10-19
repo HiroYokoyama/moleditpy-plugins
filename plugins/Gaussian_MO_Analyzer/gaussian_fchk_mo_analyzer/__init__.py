@@ -3,8 +3,8 @@ from .analyzer import UnsupportedBasisError
 
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Gaussian MO Analyzer"
-PLUGIN_VERSION = "2026.10.13"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
     "Visualizes Molecular Orbitals from Gaussian FCHK files by generating Cube "
@@ -16,7 +16,7 @@ PLUGIN_CONTEXT = None
 
 def _warn_unsupported(parent, exc):
     """Show the refusal message for a basis set we cannot render exactly."""
-    from PyQt6.QtWidgets import QMessageBox
+    from PySide6.QtWidgets import QMessageBox
 
     QMessageBox.warning(parent, "Unsupported basis set", str(exc))
 
@@ -53,7 +53,7 @@ def initialize(context):
 
 
 def run(mw):
-    from PyQt6.QtWidgets import QFileDialog
+    from PySide6.QtWidgets import QFileDialog
 
     path, _ = QFileDialog.getOpenFileName(
         mw, "Open Gaussian FCHK", "", "Gaussian FCHK (*.fchk *.fck);;All Files (*)"

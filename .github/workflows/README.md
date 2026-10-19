@@ -21,7 +21,7 @@ A manual workflow (`workflow_dispatch`) used to automatically register new third
 | `expected_sha256` | *Conditional* | The expected SHA-256 hash. **Mandatory** for security verification if the repository owner is not `HiroYokoyama`. |
 | `date` | No | Override registration/update date (`YYYY-MM-DD`). If omitted or empty, automatically falls back to the current system date. |
 | `supported_version` | No | Supported MoleditPy version (e.g., `3.*`). If omitted, falls back to `PLUGIN_SUPPORTED_MOLEDITPY_VERSION` in the plugin code or the existing registry entry value. |
-| `supported_python` | No | Supported Python version spec (e.g., `>=3.9, <3.15`). If omitted, falls back to `PLUGIN_SUPPORTED_PYTHON_VERSION` in the plugin code, the existing registry value, then the default `>=3.9, <3.15` for visible plugins. |
+| `supported_python` | No | Supported Python version spec (e.g., `>=3.10, <3.15`). If omitted, falls back to `PLUGIN_SUPPORTED_PYTHON_VERSION` in the plugin code, the existing registry value, then the default `>=3.10, <3.15` for visible plugins. |
 | `dry_run` | **Yes** | If set to `true`, the workflow performs all downloads and verification checks but **does not** commit or push changes back to the registry. |
 ---
 
@@ -34,7 +34,7 @@ When registering or updating a plugin, the entry in `REGISTRY/plugins.json` is g
 | `id` | **Input / Derived** | Used directly if `plugin_id` is supplied as a workflow input. If left blank, it is derived from the release file name (stem) converted to lowercase with dashes replaced by underscores. |
 | `visible` | **Input** | Directly from the `visible` selection input in the workflow (defaults to `true`). |
 | `supported_moleditpy_version` | **Code Constant / Input / Registry** | Prioritizes: 1. `PLUGIN_SUPPORTED_MOLEDITPY_VERSION` defined at the top of the downloaded python file, 2. `supported_version` input from the workflow/CLI, 3. The existing registry value (when updating). Mandatory for visible plugins. |
-| `supported_python_version` | **Code Constant / Input / Registry / Default** | Prioritizes: 1. `PLUGIN_SUPPORTED_PYTHON_VERSION` in the downloaded code, 2. `supported_python` input from the workflow/CLI, 3. The existing registry value (when updating), 4. The default `>=3.9, <3.15` for visible plugins. |
+| `supported_python_version` | **Code Constant / Input / Registry / Default** | Prioritizes: 1. `PLUGIN_SUPPORTED_PYTHON_VERSION` in the downloaded code, 2. `supported_python` input from the workflow/CLI, 3. The existing registry value (when updating), 4. The default `>=3.10, <3.15` for visible plugins. |
 | `name` | **Code Constant** | Extracted from `PLUGIN_NAME` defined at the top of the downloaded `.py` or `__init__.py` file — on every version bump, not only at registration. |
 | `version` | **Code Constant** | Extracted from `PLUGIN_VERSION` in the code. Normalised to remove leading `v/V`. Checked for tag consistency. |
 | `author` | **Code Constant** | Extracted from `PLUGIN_AUTHOR` in the code. Must match the GitHub owner of the repository. |
@@ -174,7 +174,7 @@ plus `workflow_dispatch`. Six jobs:
    tests, and a re-run of `update_intra_repo_metadata.py` that fails on any
    diff.
 3. `test-plugins` — `tests/` across Python 3.9 – 3.14.
-4. `test-gui` — `tests_gui/` with real PyQt6 (offscreen) across 3.9 – 3.14;
+4. `test-gui` — `tests_gui/` with real PySide6 (offscreen) across 3.9 – 3.14;
    without pyvista/vtk the rendering modules skip.
 5. `test-gui-render` — those skipped modules, with pyvista/vtk installed under
    `xvfb-run`.
@@ -275,7 +275,7 @@ For the release and registry update to succeed, the plugin source must define:
 | `PLUGIN_AUTHOR` | **Yes** | Must match the GitHub repo owner (`HiroYokoyama`) |
 | `PLUGIN_DESCRIPTION` | **Yes** | Registry description |
 | `PLUGIN_SUPPORTED_MOLEDITPY_VERSION` | **Yes** (visible plugins) | Auto-synced to `supported_moleditpy_version` in registry |
-| `PLUGIN_SUPPORTED_PYTHON_VERSION` | No | Auto-synced to `supported_python_version` in registry (visible plugins default to `>=3.9, <3.15`) |
+| `PLUGIN_SUPPORTED_PYTHON_VERSION` | No | Auto-synced to `supported_python_version` in registry (visible plugins default to `>=3.10, <3.15`) |
 | `PLUGIN_TAGS` | No | Registry tags (list or comma-separated string) |
 | `PLUGIN_DEPENDENCIES` | No | Required pip packages |
 | `PLUGIN_OPTIONAL_DEPENDENCIES` | No | Extra-feature pip packages the plugin runs without |

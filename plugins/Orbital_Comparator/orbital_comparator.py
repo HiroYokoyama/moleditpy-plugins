@@ -18,7 +18,7 @@ from itertools import islice
 import logging
 import os
 
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QCheckBox,
     QColorDialog,
     QComboBox,
@@ -33,7 +33,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from PyQt6.QtCore import Qt
+from PySide6.QtCore import Qt
 
 try:
     import numpy as np
@@ -47,8 +47,8 @@ except ImportError:  # pragma: no cover - host always ships pyvista
 
 
 PLUGIN_NAME = "Orbital Comparator"
-PLUGIN_VERSION = "2026.10.13"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
     "Load and compare up to four .cube files at once (orbitals, densities, "
@@ -741,7 +741,7 @@ class OrbitalComparator(QWidget):
             self._suspend = suspended
 
     def pick_color(self, slot, which):
-        from PyQt6.QtGui import QColor
+        from PySide6.QtGui import QColor
 
         col = QColorDialog.getColor(QColor(slot.color(which)), self, "Select Color")
         if col.isValid():

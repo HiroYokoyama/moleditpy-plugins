@@ -1,7 +1,7 @@
 """
 Tests for the Blender Export plugin (plugins/Blender_Export/blender_export.py).
 
-All heavy deps (PyQt6, rdkit, numpy) are stubbed via mock_optional_imports().
+All heavy deps (PySide6, rdkit, numpy) are stubbed via mock_optional_imports().
 """
 
 from __future__ import annotations

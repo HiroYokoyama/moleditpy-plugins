@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QDialog,
     QVBoxLayout,
     QHBoxLayout,
@@ -9,15 +9,15 @@ from PyQt6.QtWidgets import (
     QSpinBox,
     QDoubleSpinBox,
 )
-from PyQt6.QtCore import QTimer
+from PySide6.QtCore import QTimer
 from rdkit.Chem import AllChem
 from rdkit import Geometry
 import logging
 import math
 
 PLUGIN_NAME = "Step Optimizer"
-PLUGIN_VERSION = "2026.10.13"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
     "Interactive step-by-step force-field optimization with live 3D animation."

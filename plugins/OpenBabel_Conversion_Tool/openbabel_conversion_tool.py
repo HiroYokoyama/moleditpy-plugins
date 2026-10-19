@@ -5,7 +5,7 @@ import json
 import tempfile
 import shutil
 from types import SimpleNamespace
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QDialog,
     QVBoxLayout,
     QListWidget,
@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import (
     QAbstractItemView,
     QProgressDialog,
 )
-from PyQt6.QtCore import QTimer, QProcess, QEventLoop, Qt
+from PySide6.QtCore import QTimer, QProcess, QEventLoop, Qt
 from rdkit import Chem
 from rdkit.Chem import AllChem
 import logging
@@ -37,8 +37,8 @@ except ImportError:
         OBABEL_AVAILABLE = False
 
 PLUGIN_NAME = "OpenBabel Conversion Tool"
-PLUGIN_VERSION = "2026.10.13"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
     "Import various chemical file formats using OpenBabel with multi-molecule support."

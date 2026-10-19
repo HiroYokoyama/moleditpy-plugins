@@ -3,7 +3,7 @@ import os
 import json
 import numpy as np
 import pyvista as pv
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QFileDialog,
     QDockWidget,
     QWidget,
@@ -21,8 +21,8 @@ from PyQt6.QtWidgets import (
     QCheckBox,
     QComboBox,
 )
-from PyQt6.QtGui import QColor
-from PyQt6.QtCore import Qt, QTimer, QCoreApplication
+from PySide6.QtGui import QColor
+from PySide6.QtCore import Qt, QTimer, QCoreApplication
 import logging
 
 # RDKit imports for molecule construction
@@ -39,8 +39,8 @@ except ImportError:
     Geometry = None
     rdDetermineBonds = None
 
-PLUGIN_VERSION = "2026.10.13"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Visualizes Gaussian Cube files (.cube) containing volumetric data (e.g., orbitals, densities)."
 PLUGIN_NAME = "Cube File Viewer"

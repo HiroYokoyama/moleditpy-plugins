@@ -3,7 +3,7 @@ GUI tests for the Chat with Molecule Neo (Gemini) plugin.
 
 Covers: ChatMoleculeWindow.
 
-Chemistry/AI libs are mocked; real PyQt6 is used. Gemini is safe with
+Chemistry/AI libs are mocked; real PySide6 is used. Gemini is safe with
 context.get_main_window()=None.
 """
 

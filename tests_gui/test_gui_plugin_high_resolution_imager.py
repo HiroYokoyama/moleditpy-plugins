@@ -4,7 +4,7 @@ Headless GUI tests for the High Resolution Imager plugin.
 Covers module constants and initialize() (no dialog class — the dialog is
 built inline in take_screenshot()).
 
-All tests use real PyQt6 (QT_QPA_PLATFORM=offscreen).
+All tests use real PySide6 (QT_QPA_PLATFORM=offscreen).
 Chemistry libraries are mocked via mock_chemistry_imports().
 """
 

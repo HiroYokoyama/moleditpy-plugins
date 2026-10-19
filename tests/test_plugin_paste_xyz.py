@@ -1,7 +1,7 @@
 """
 Tests for the Paste XYZ plugin (parse_xyz_lines, initialize smoke).
 
-All tests run headlessly — PyQt6 / rdkit / etc. are replaced with MagicMock.
+All tests run headlessly — PySide6 / rdkit / etc. are replaced with MagicMock.
 """
 
 from __future__ import annotations

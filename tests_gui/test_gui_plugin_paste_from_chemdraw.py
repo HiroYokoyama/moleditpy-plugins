@@ -1,7 +1,7 @@
 """
 GUI-tier tests for the Paste from ChemDraw plugin.
 
-These tests run with real PyQt6 (QT_QPA_PLATFORM=offscreen) and add coverage
+These tests run with real PySide6 (QT_QPA_PLATFORM=offscreen) and add coverage
 that the tests/ suite cannot provide.
 
 Covers extra reconstruct_from_flat_text() edge cases beyond
@@ -370,7 +370,7 @@ class TestBinaryFormatDecoding:
         return calls
 
     def _set_mdlct(self, clipboard, payload_bytes, fmt="MDLCT"):
-        from PyQt6.QtCore import QMimeData, QByteArray
+        from PySide6.QtCore import QMimeData, QByteArray
 
         mime = QMimeData()
         mime.setData(fmt, QByteArray(payload_bytes))
@@ -391,7 +391,7 @@ class TestBinaryFormatDecoding:
     def test_empty_first_format_falls_through_to_next(
         self, ctx, clipboard, warnings, monkeypatch
     ):
-        from PyQt6.QtCore import QMimeData, QByteArray
+        from PySide6.QtCore import QMimeData, QByteArray
 
         monkeypatch.setattr(
             _chemdraw.Chem, "MolFromMolBlock", lambda *a, **k: _FakeMol()
@@ -523,7 +523,7 @@ class TestDrawingLoopFullFlow:
 
     @pytest.fixture
     def ctx_with_view2d(self):
-        from PyQt6.QtCore import QRect, QPointF as RealQPointF
+        from PySide6.QtCore import QRect, QPointF as RealQPointF
 
         class _View2D:
             def viewport(self_inner):

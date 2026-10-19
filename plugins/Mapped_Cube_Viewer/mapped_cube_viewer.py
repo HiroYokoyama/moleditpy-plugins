@@ -2,7 +2,7 @@ from itertools import islice
 import os
 import numpy as np
 import pyvista as pv
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QApplication,
     QProgressDialog,
     QFileDialog,
@@ -21,7 +21,7 @@ from PyQt6.QtWidgets import (
     QFormLayout,
     QDialogButtonBox,
 )
-from PyQt6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer
 import logging
 
 # --- Dependency Management ---
@@ -51,8 +51,8 @@ except ImportError:
 __author__ = "HiroYokoyama"
 PLUGIN_AUTHOR = __author__
 PLUGIN_NAME = "Mapped Cube Viewer"
-PLUGIN_VERSION = "2026.10.13"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_DESCRIPTION = "Visualizes a property (e.g. ESP) mapped onto an isosurface (e.g. electron density) from two Cube files."
 
 # --- Core Logic: Robust Parser from cube_viewer.py ---

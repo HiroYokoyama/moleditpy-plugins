@@ -2,7 +2,7 @@ import os
 import re
 import math
 import numpy as np
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QDialog,
     QVBoxLayout,
     QHBoxLayout,
@@ -23,7 +23,7 @@ from PyQt6.QtWidgets import (
     QHeaderView,
     QDoubleSpinBox,
 )
-from PyQt6.QtGui import QPainter, QPen, QColor
+from PySide6.QtGui import QPainter, QPen, QColor
 
 try:
     from PIL import Image
@@ -31,7 +31,7 @@ try:
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False
-from PyQt6.QtCore import Qt, QTimer, QPointF
+from PySide6.QtCore import Qt, QTimer, QPointF
 import logging
 
 # Try to import RDKit
@@ -43,8 +43,8 @@ except ImportError:
 
 PLUGIN_NAME = "ORCA Freq Analyzer"
 PLUGIN_DESCRIPTION = "Analyzes vibrational frequencies from ORCA output files. View IR spectrum, animate normal modes, and export GIF animations."
-PLUGIN_VERSION = "2026.10.13"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_CONTEXT = None
 

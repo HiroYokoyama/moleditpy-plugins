@@ -169,7 +169,7 @@ class TestDummyAtomDeferredCheckable:
             mod = load_plugin(PLUGINS_DIR / "Dummy_Atom_Mode" / "dummy_atom_mode.py")
             mod.initialize(ctx)
 
-            import PyQt6.QtCore as qtcore  # same mocked module the plugin imported
+            import PySide6.QtCore as qtcore  # same mocked module the plugin imported
 
             delay, callback = qtcore.QTimer.singleShot.call_args[0]
             assert callable(callback)

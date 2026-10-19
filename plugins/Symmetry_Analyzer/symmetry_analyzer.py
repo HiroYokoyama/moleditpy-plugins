@@ -1,7 +1,7 @@
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Symmetry Analyzer"
-PLUGIN_VERSION = "2026.10.13"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Analyzes molecular symmetry (point group) and symmetrizes structures."
 PLUGIN_CONTEXT = None
@@ -11,7 +11,7 @@ import re
 import warnings
 from fractions import Fraction
 import numpy as np
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QVBoxLayout,
     QGridLayout,
     QLabel,
@@ -24,7 +24,7 @@ from PyQt6.QtWidgets import (
     QSplitter,
     QDialog,
 )
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PySide6.QtCore import Qt, QThread, Signal
 
 # --- RDKit Imports ---
 try:
@@ -64,7 +64,7 @@ class SymmetryAnalysisWorker(QThread):
     # Deliberately not called `finished`: QThread already has a signal by that
     # name, and shadowing it hands anyone connecting to thread completion this
     # scan's two-argument payload instead.
-    analysis_finished = pyqtSignal(dict, bool)  # processed_data, found_any
+    analysis_finished = Signal(dict, bool)  # processed_data, found_any
 
     def __init__(self, mol_pmg, min_tol, max_tol):
         super().__init__()

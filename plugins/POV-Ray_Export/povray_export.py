@@ -9,11 +9,11 @@ Exports molecular structures as POV-Ray scene files for high-quality ray-traced 
 import logging
 
 PLUGIN_NAME = "POV-Ray Export"
-PLUGIN_VERSION = "2026.07.31"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Export molecular structures as POV-Ray scene files for professional ray-traced rendering"
-PLUGIN_DEPENDENCIES = ["rdkit", "numpy", "PyQt6"]
+PLUGIN_DEPENDENCIES = ["rdkit", "numpy", "PySide6-Essentials"]
 PLUGIN_CONTEXT = None
 
 
@@ -28,7 +28,7 @@ def initialize(context):
 
 def export_to_povray(context):
     """Main export function that generates a POV-Ray scene file."""
-    from PyQt6.QtWidgets import QFileDialog, QMessageBox
+    from PySide6.QtWidgets import QFileDialog, QMessageBox
     import os
 
     # Get the main window and current molecule
@@ -243,7 +243,7 @@ def generate_povray_scene(mol, mw):
     # Background color from settings
     bg_hex = settings.get("background_color", "#4f4f4f")
     try:
-        from PyQt6.QtGui import QColor
+        from PySide6.QtGui import QColor
 
         q_bg = QColor(bg_hex)
         bg_rgb = (q_bg.redF(), q_bg.greenF(), q_bg.blueF())

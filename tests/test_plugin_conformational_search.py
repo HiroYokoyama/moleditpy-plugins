@@ -286,7 +286,7 @@ class _FakeConfSearchMol:
 
 
 class _SignalRecorder:
-    """Stands in for a pyqtSignal: records every emit()."""
+    """Stands in for a Signal: records every emit()."""
 
     def __init__(self):
         self.emissions = []

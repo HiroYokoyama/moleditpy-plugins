@@ -1,7 +1,7 @@
 # Global state
 import os
 import json
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QMessageBox,
     QInputDialog,
     QFileDialog,
@@ -23,19 +23,19 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QDialogButtonBox,
 )
-from PyQt6.QtGui import QColor, QBrush
-from PyQt6.QtCore import Qt, QTimer
+from PySide6.QtGui import QColor, QBrush
+from PySide6.QtCore import Qt, QTimer
 import logging
 
 PLUGIN_NAME = "Settings Saver"
-PLUGIN_VERSION = "2026.09.24"
+PLUGIN_VERSION = "2026.10.19"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
     "Save, load, edit, and manage settings presets in a unified dialog."
 )
 PLUGIN_CATEGORY = "Utility"
 PLUGIN_TAGS = ["Utility"]
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 
 SETTINGS_FILENAME = "settings_saver.json"
 

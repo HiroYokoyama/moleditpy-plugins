@@ -1,6 +1,6 @@
 PLUGIN_NAME = "Compound Info Report"
-PLUGIN_VERSION = "2026.10.13"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Generate a compound info report with properties, adducts, and structure. Useful for organic synthesis experiments."
 PLUGIN_ID = "compound_info_report"
@@ -20,7 +20,7 @@ except ImportError:
     URLLIB_AVAILABLE = False
 
 
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QDialog,
     QVBoxLayout,
     QHBoxLayout,
@@ -32,9 +32,9 @@ from PyQt6.QtWidgets import (
     QApplication,
     QFileDialog,
 )
-from PyQt6.QtGui import QImage, QPainter, QTextDocument
-from PyQt6.QtPrintSupport import QPrinter, QPrintDialog
-from PyQt6.QtCore import Qt, QRectF, QByteArray, QBuffer, QIODevice
+from PySide6.QtGui import QImage, QPainter, QTextDocument
+from PySide6.QtPrintSupport import QPrinter, QPrintDialog
+from PySide6.QtCore import Qt, QRectF, QByteArray, QBuffer, QIODevice
 import logging
 
 try:
@@ -646,7 +646,7 @@ class ReportDialog(QDialog):
         printer = QPrinter(QPrinter.PrinterMode.HighResolution)
         dialog = QPrintDialog(printer, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            self.preview.print(printer)
+            self.preview.print_(printer)
 
     def save_pdf(self):
         filename, _ = QFileDialog.getSaveFileName(
@@ -698,7 +698,7 @@ class ReportDialog(QDialog):
 
                 doc = QTextDocument()
                 doc.setHtml(html)
-                doc.print(printer)
+                doc.print_(printer)
 
                 progress.setValue(3)
                 QMessageBox.information(self, "Export", f"Saved to {filename}")

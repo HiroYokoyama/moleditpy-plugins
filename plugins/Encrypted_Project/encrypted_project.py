@@ -7,9 +7,9 @@ import base64
 import tempfile
 import inspect
 
-from PyQt6.QtWidgets import QInputDialog, QLineEdit, QMessageBox, QFileDialog
-from PyQt6.QtGui import QAction
-from PyQt6.QtCore import QTimer
+from PySide6.QtWidgets import QInputDialog, QLineEdit, QMessageBox, QFileDialog
+from PySide6.QtGui import QAction
+from PySide6.QtCore import QTimer
 import logging
 
 # Cryptography imports
@@ -23,8 +23,8 @@ except ImportError:
     CRYPTOGRAPHY_AVAILABLE = False
 
 PLUGIN_NAME = "Encrypted Project"
-PLUGIN_VERSION = "2026.10.13"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DEPENDENCIES = ["cryptography"]
 MAX_PROJECT_BYTES = 64 * 1024 * 1024

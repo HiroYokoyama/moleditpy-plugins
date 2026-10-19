@@ -1,11 +1,11 @@
 import numpy as np
-from PyQt6.QtCore import QThread, pyqtSignal
+from PySide6.QtCore import QThread, Signal
 from .analyzer import CubeWriter
 
 
 class CalcWorker(QThread):
-    progress_sig = pyqtSignal(int)
-    finished_sig = pyqtSignal(bool, str)  # success, message/path
+    progress_sig = Signal(int)
+    finished_sig = Signal(bool, str)  # success, message/path
 
     def __init__(
         self, engine, mo_idx, n_points, margin, atoms, mo_coeffs, output_path, mode="MO"

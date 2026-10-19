@@ -6,7 +6,7 @@ Allows loading and playing multi-frame XYZ files (e.g., MD trajectories).
 """
 
 import os
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QDialog,
     QVBoxLayout,
     QHBoxLayout,
@@ -27,7 +27,7 @@ try:
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False
-from PyQt6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer
 from rdkit import Chem
 from rdkit.Chem import rdGeometry
 import logging
@@ -37,8 +37,8 @@ try:
 except ImportError:
     rdDetermineBonds = None
 
-PLUGIN_VERSION = "2026.10.08"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_NAME = "Animated XYZ Giffer"
 PLUGIN_DESCRIPTION = "A player for viewing multi-frame XYZ files and recording GIF animations using PIL."

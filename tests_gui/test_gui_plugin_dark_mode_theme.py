@@ -1,7 +1,7 @@
 """
 GUI-tier tests for the Dark Mode Theme plugin.
 
-These tests run with real PyQt6 (QT_QPA_PLATFORM=offscreen) and add coverage
+These tests run with real PySide6 (QT_QPA_PLATFORM=offscreen) and add coverage
 that the tests/ suite cannot provide — in particular tests that instantiate
 real Qt objects (QWidget) to exercise plugin side-effects.
 
@@ -66,7 +66,7 @@ class TestDarkModeAutorun:
     """autorun() must call setStyleSheet() on the real QWidget."""
 
     def test_autorun_applies_stylesheet_to_real_widget(self, qapp):
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtWidgets import QWidget
 
         w = QWidget()
         _dark._CONTEXT = None  # ensure no context side-effects
@@ -76,7 +76,7 @@ class TestDarkModeAutorun:
         w.destroy()
 
     def test_autorun_stylesheet_matches_dark_constant(self, qapp):
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtWidgets import QWidget
 
         w = QWidget()
         _dark._CONTEXT = None

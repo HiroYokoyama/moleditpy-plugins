@@ -1,7 +1,13 @@
 name: Plugin Tests
 
 on:
-  workflow_dispatch: 
+  workflow_dispatch:
+    inputs:
+      moleditpy_ref:
+        description: 'MoleditPy branch, tag, or full commit SHA (blank uses repository default)'
+        required: false
+        type: string
+        default: ''
   push:
     branches: [ main ]
   pull_request:
@@ -9,6 +15,9 @@ on:
 
 permissions:
   contents: read
+
+env:
+  MOLEDITPY_REF: ${{ inputs.moleditpy_ref || vars.MOLEDITPY_REF || 'migrate/pyside6-without-openbabel' }}
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -55,7 +64,7 @@ jobs:
         run: python scripts/validate_json.py
 
       - name: Run registry integrity tests
-        run: pytest tests/test_registry.py -v --tb=short
+        run: pytest tests/test_registry.py tests/test_intra_repo_packages.py -v --tb=short
 
       # The registry scripts are not imported by any test, so a script that
       # fails to even import on a supported interpreter would otherwise ship
@@ -76,12 +85,12 @@ jobs:
   # ---------------------------------------------------------------------------
   test-plugins:
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
       - uses: actions/checkout@v4
@@ -104,19 +113,19 @@ jobs:
         run: pytest tests/ --ignore=tests/test_registry.py -v --tb=short
 
   # ---------------------------------------------------------------------------
-  # Headless GUI tests — real PyQt6 with QT_QPA_PLATFORM=offscreen.
+  # Headless GUI tests — real PySide6-Essentials with QT_QPA_PLATFORM=offscreen.
   # Chemistry libs (rdkit, numpy, …) are still mocked, so no conda env needed.
-  # The integration tests auto-clone the main app if ../python_molecular_editor
-  # is absent (one shallow clone per CI run, cached by session fixture).
+  # Fetch the selected main-app revision before integration tests, including
+  # full commit SHAs, so the fixture uses the same revision as the API job.
   # ---------------------------------------------------------------------------
   test-gui:
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
       - uses: actions/checkout@v4
@@ -137,7 +146,7 @@ jobs:
             libdbus-1-3
 
       - name: Install Python dependencies
-        run: pip install pytest PyQt6 cryptography
+        run: pip install pytest "PySide6-Essentials>=6.10,<6.12" cryptography
 
       # Real chemistry/scientific libs let the gated GUI tests actually run on CI
       # instead of being importorskip-skipped (they hold real logic, not just
@@ -147,6 +156,15 @@ jobs:
       # render paths are abort-prone on headless CI.
       - name: Install real chemistry & scientific libs (best effort)
         run: pip install rdkit numpy pillow scipy pymatgen-core || echo "chemistry wheels unavailable on this interpreter; rdkit-gated tests will skip"
+
+      - name: Fetch selected MoleditPy revision
+        shell: bash
+        run: |
+          git init "../python_molecular_editor"
+          git -C "../python_molecular_editor" remote add origin https://github.com/HiroYokoyama/python_molecular_editor.git
+          git -C "../python_molecular_editor" fetch --depth 1 origin "$MOLEDITPY_REF"
+          git -C "../python_molecular_editor" checkout --detach FETCH_HEAD
+          git -C "../python_molecular_editor" log -1 --format="%H %s"
 
       - name: Run headless GUI tests
         run: pytest tests_gui/ -v --tb=short
@@ -166,7 +184,7 @@ jobs:
   # ---------------------------------------------------------------------------
   test-gui-render:
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -191,7 +209,16 @@ jobs:
             xvfb
 
       - name: Install Python dependencies
-        run: pip install pytest PyQt6 rdkit numpy pillow pyvista vtk scipy pymatgen-core
+        run: pip install pytest "PySide6-Essentials>=6.10,<6.12" rdkit numpy pillow pyvista vtk scipy pymatgen-core
+
+      - name: Fetch selected MoleditPy revision
+        shell: bash
+        run: |
+          git init "../python_molecular_editor"
+          git -C "../python_molecular_editor" remote add origin https://github.com/HiroYokoyama/python_molecular_editor.git
+          git -C "../python_molecular_editor" fetch --depth 1 origin "$MOLEDITPY_REF"
+          git -C "../python_molecular_editor" checkout --detach FETCH_HEAD
+          git -C "../python_molecular_editor" log -1 --format="%H %s"
 
       - name: Run rendering GUI tests
         run: |
@@ -213,7 +240,7 @@ jobs:
   # ---------------------------------------------------------------------------
   test-api:
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -228,10 +255,13 @@ jobs:
         run: pip install pytest
 
       - name: Clone main MoleditPy application
+        shell: bash
         run: |
-          git clone --depth 1 \
-            https://github.com/HiroYokoyama/python_molecular_editor.git \
-            ../python_molecular_editor
+          git init "../python_molecular_editor"
+          git -C "../python_molecular_editor" remote add origin https://github.com/HiroYokoyama/python_molecular_editor.git
+          git -C "../python_molecular_editor" fetch --depth 1 origin "$MOLEDITPY_REF"
+          git -C "../python_molecular_editor" checkout --detach FETCH_HEAD
+          git -C "../python_molecular_editor" log -1 --format="%H %s"
 
       - name: Validate plugins.json
         run: python scripts/validate_json.py

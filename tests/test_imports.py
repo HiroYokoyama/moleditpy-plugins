@@ -2,7 +2,7 @@
 Tests that all visible plugin .py files are importable (no syntax errors,
 no broken top-level imports that would prevent the plugin from loading).
 
-Heavy optional dependencies (PyQt6, pyvista, rdkit) are skipped gracefully
+Heavy optional dependencies (PySide6, pyvista, rdkit) are skipped gracefully
 using importlib — we only fail on SyntaxError or missing stdlib imports.
 """
 
@@ -74,7 +74,7 @@ def test_plugin_no_stdlib_import_errors(name, path):
         if not isinstance(node, (ast.Import, ast.ImportFrom)):
             continue
         # Only check stdlib — skip known optional third-party deps
-        optional = {"PyQt6", "rdkit", "pyvista", "numpy", "scipy", "PIL",
+        optional = {"PySide6", "shiboken6", "rdkit", "pyvista", "numpy", "scipy", "PIL",
                     "google", "openai", "anthropic", "truststore", "pymatgen",
                     "openbabel", "pyscf", "ase", "moleditpy", "sip", "modules",
                     "moleditpy_linux", "pybel", "matplotlib", "markdown",

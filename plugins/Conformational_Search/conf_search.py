@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QDialog,
     QVBoxLayout,
     QHBoxLayout,
@@ -14,15 +14,15 @@ from PyQt6.QtWidgets import (
     QSpinBox,
     QProgressBar,
 )
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PySide6.QtCore import Qt, QThread, Signal
 from rdkit import Chem
 from rdkit.Chem import AllChem
 import copy
 import math
 
 PLUGIN_NAME = "Conformational Search"
-PLUGIN_VERSION = "2026.10.13"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Performs conformational sampling and energy minimization."
 
@@ -30,9 +30,9 @@ PLUGIN_DESCRIPTION = "Performs conformational sampling and energy minimization."
 class ConformerSearchWorker(QThread):
     """Embeds and optimizes conformers off the GUI thread, stoppable at any point."""
 
-    progress = pyqtSignal(int, int, str)
-    failed = pyqtSignal(str)
-    completed = pyqtSignal(object, list, bool)
+    progress = Signal(int, int, str)
+    failed = Signal(str)
+    completed = Signal(object, list, bool)
 
     # A single EmbedMultipleConfs() call cannot be interrupted, so embedding is
     # done in small batches with a stop check between them.

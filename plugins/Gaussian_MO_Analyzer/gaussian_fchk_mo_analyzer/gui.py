@@ -1,7 +1,7 @@
 from hashlib import sha256
 import os
 import numpy as np
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QPushButton,
@@ -18,8 +18,8 @@ from PyQt6.QtWidgets import (
     QFormLayout,
     QCheckBox,
 )
-from PyQt6.QtGui import QColor, QBrush
-from PyQt6.QtCore import Qt
+from PySide6.QtGui import QColor, QBrush
+from PySide6.QtCore import Qt
 
 # Relative imports
 from .analyzer import FCHKReader, BasisSetEngine

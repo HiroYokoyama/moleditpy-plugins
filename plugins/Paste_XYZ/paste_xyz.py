@@ -1,7 +1,7 @@
 import logging
 import math
 
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QDialog,
     QVBoxLayout,
     QHBoxLayout,
@@ -25,9 +25,9 @@ except ImportError:
     rdDetermineBonds = None
 
 PLUGIN_NAME = "Paste XYZ"
-PLUGIN_VERSION = "2026.10.13"
+PLUGIN_VERSION = "2026.10.19"
 PLUGIN_CATEGORY = "File"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Paste XYZ to view in 3D."
 

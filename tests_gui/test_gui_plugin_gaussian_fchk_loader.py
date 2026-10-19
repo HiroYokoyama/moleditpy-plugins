@@ -69,7 +69,7 @@ class TestFCHKLoaderDialog:
     def test_basename_shown_in_label(self, dlg):
         # The label text is set during init_ui from os.path.basename(fchk_path)
         # Verify we can find text containing the filename in the dialog's children
-        from PyQt6.QtWidgets import QLabel
+        from PySide6.QtWidgets import QLabel
         labels = dlg.findChildren(QLabel)
         label_texts = " ".join(lbl.text() for lbl in labels)
         assert "test_molecule.fchk" in label_texts
@@ -119,7 +119,7 @@ class TestFindAnalyzerBranches:
 
 
 def _make_real_mw(qapp):
-    from PyQt6.QtWidgets import QMainWindow
+    from PySide6.QtWidgets import QMainWindow
 
     return QMainWindow()
 
@@ -135,7 +135,7 @@ class TestLaunchFreqRealQt:
         dlg.destroy()
 
     def test_success_creates_dock_and_loads_file(self, qapp, monkeypatch):
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtWidgets import QWidget
 
         class _FakeAnalyzer(QWidget):
             def __init__(self, context, dock_widget=None):
@@ -195,7 +195,7 @@ class TestLaunchMoRealQt:
         dlg.destroy()
 
     def test_success_creates_dock(self, qapp, monkeypatch):
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtWidgets import QWidget
 
         class _FakeOrbitalWidget(QWidget):
             def __init__(self, mw, context, fchk_path):
@@ -250,7 +250,7 @@ class TestLaunchMoRealQt:
 
 class TestCloseExistingAnalyzersRealQt:
     def test_closes_matching_docks_only(self, qapp):
-        from PyQt6.QtWidgets import QDockWidget
+        from PySide6.QtWidgets import QDockWidget
 
         mw = _make_real_mw(qapp)
         ctx = _fchk_context()
@@ -299,7 +299,7 @@ class _FakeFCHKDialogGui:
 
 class TestRunFunctionRealQt:
     def _run_with(self, qapp, monkeypatch, tmp_path, can_freq, can_mo):
-        from PyQt6.QtWidgets import QFileDialog, QMessageBox
+        from PySide6.QtWidgets import QFileDialog, QMessageBox
 
         fchk_file = tmp_path / "mol.fchk"
         fchk_file.write_text("")
@@ -356,7 +356,7 @@ class TestRunFunctionRealQt:
         assert dlg.launch_mo_calls == 0
 
     def test_empty_path_returns_without_dialog(self, qapp, monkeypatch, tmp_path):
-        from PyQt6.QtWidgets import QFileDialog
+        from PySide6.QtWidgets import QFileDialog
 
         monkeypatch.setattr(
             QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: ("", ""))
@@ -373,7 +373,7 @@ class TestRunFunctionRealQt:
         assert called == []
 
     def test_no_plugin_context_returns_without_dialog(self, qapp, monkeypatch, tmp_path):
-        from PyQt6.QtWidgets import QFileDialog
+        from PySide6.QtWidgets import QFileDialog
 
         fchk_file = tmp_path / "mol2.fchk"
         fchk_file.write_text("")
@@ -396,7 +396,7 @@ class TestRunFunctionRealQt:
 
 @pytest.mark.parametrize("failure", (None, SimpleNamespace()))
 def test_missing_analyzer_entry_point_preserves_existing_dock(qapp, monkeypatch, failure):
-    from PyQt6.QtWidgets import QDockWidget
+    from PySide6.QtWidgets import QDockWidget
     mw = _make_real_mw(qapp)
     old = QDockWidget("Gaussian Freq Analyzer", mw)
     mw.addDockWidget(_fchk.Qt.DockWidgetArea.RightDockWidgetArea, old)
@@ -414,7 +414,7 @@ def test_missing_analyzer_entry_point_preserves_existing_dock(qapp, monkeypatch,
 
 
 def test_dock_close_calls_frequency_cleanup(qapp):
-    from PyQt6.QtWidgets import QWidget
+    from PySide6.QtWidgets import QWidget
     dock = _fchk.AnalyzerDock("Analyzer")
     child = QWidget()
     child.close_plugin = MagicMock()
@@ -426,7 +426,7 @@ def test_dock_close_calls_frequency_cleanup(qapp):
 
 
 def test_running_worker_prevents_dock_destruction(qapp):
-    from PyQt6.QtWidgets import QWidget
+    from PySide6.QtWidgets import QWidget
     dock = _fchk.AnalyzerDock("Analyzer")
     child = QWidget()
     child.worker = SimpleNamespace(isRunning=lambda: True, _is_cancelled=False)
@@ -458,7 +458,7 @@ def test_failed_preflight_does_not_close_previous_analyzers(qapp, monkeypatch):
 
 
 def test_mo_dock_close_removes_its_surfaces(qapp):
-    from PyQt6.QtWidgets import QWidget
+    from PySide6.QtWidgets import QWidget
     mw = _make_real_mw(qapp)
     ctx = _fchk_context()
     ctx.get_main_window.return_value = mw

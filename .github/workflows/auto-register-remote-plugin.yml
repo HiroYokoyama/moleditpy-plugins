@@ -69,7 +69,7 @@ jobs:
               echo "No registry changes to commit."
               exit 0
             fi
-            git commit -m "Update registry: $PLUGIN_NAME $TAG"
+            git commit -m "Update registry: $PLUGIN_NAME $TAG" -m "Assisted-by: GPT-6.1 Sol"
             if git push origin main; then
               echo "Pushed registry update on attempt $attempt."
               exit 0

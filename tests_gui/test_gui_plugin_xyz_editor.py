@@ -3,7 +3,7 @@ Headless GUI tests for the XYZ Editor plugin.
 
 Covers: XYZEditorWindow.
 
-Real PyQt6 is used (QT_QPA_PLATFORM=offscreen); chemistry libs are MagicMocked.
+Real PySide6 is used (QT_QPA_PLATFORM=offscreen); chemistry libs are MagicMocked.
 Run via: python tests_gui/run_gui_tests.py tests_gui/test_gui_plugin_xyz_editor.py
 """
 
@@ -219,7 +219,7 @@ class TestXYZEditorLoadMolecule:
         _teardown(w)
 
     def test_index_column_not_editable(self, qapp):
-        from PyQt6.QtCore import Qt
+        from PySide6.QtCore import Qt
 
         w, ctx, mol = _win_with_mol(("C",))
         flags = w.table.item(0, 0).flags()
@@ -364,7 +364,7 @@ class TestXYZEditorExport:
         _teardown(w)
 
     def test_copy_to_clipboard_sets_text(self, qapp):
-        from PyQt6.QtGui import QGuiApplication
+        from PySide6.QtGui import QGuiApplication
 
         w, ctx, mol = _win_with_mol(("C",))
         w.copy_to_clipboard()
@@ -559,8 +559,8 @@ class TestXYZEditorRun:
 
 class TestXYZClickFilterRealEvents:
     def _events(self, press_xy, release_xy):
-        from PyQt6.QtCore import QEvent, QPointF, Qt
-        from PyQt6.QtGui import QMouseEvent
+        from PySide6.QtCore import QEvent, QPointF, Qt
+        from PySide6.QtGui import QMouseEvent
 
         press = QMouseEvent(
             QEvent.Type.MouseButtonPress,
@@ -704,7 +704,7 @@ class TestXYZOnPlotterClick:
         w.destroy()
 
     def _widget(self):
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtWidgets import QWidget
 
         widget = QWidget()
         widget.resize(400, 300)
@@ -732,7 +732,7 @@ class TestXYZOnPlotterClick:
         assert len(win.table.selectedIndexes()) == 0
 
     def test_click_selects_nearest_atom(self, win, monkeypatch):
-        from PyQt6.QtCore import Qt
+        from PySide6.QtCore import Qt
 
         widget = self._widget()
         atom_actor = win.context.get_main_window().view_3d_manager.atom_actor
@@ -746,7 +746,7 @@ class TestXYZOnPlotterClick:
         assert rows == {1}
 
     def test_ctrl_click_adds_fragment_selection_whole_mol_mode(self, win, monkeypatch):
-        from PyQt6.QtCore import Qt
+        from PySide6.QtCore import Qt
 
         widget = self._widget()
         win.whole_mol_cb.setChecked(True)
@@ -856,7 +856,7 @@ class TestXYZRemoveSelectedRowsReal:
         _teardown(w)
 
     def test_noncontiguous_rows_removed(self, qapp):
-        from PyQt6.QtWidgets import QTableWidgetSelectionRange
+        from PySide6.QtWidgets import QTableWidgetSelectionRange
 
         w, ctx, mol = _win_with_mol(("C", "O", "N", "H"))
         last_col = w.table.columnCount() - 1
@@ -905,7 +905,7 @@ class TestXYZDuplicateAtomsRealChem:
         assert "Duplicated 3 atom" in msg
 
     def test_duplicate_selected_subset(self, win):
-        from PyQt6.QtWidgets import QTableWidgetSelectionRange
+        from PySide6.QtWidgets import QTableWidgetSelectionRange
 
         last_col = win.table.columnCount() - 1
         win.table.setRangeSelected(
@@ -925,7 +925,7 @@ class TestXYZDuplicateAtomsRealChem:
         assert p.x == pytest.approx(2.0)
 
     def test_duplicate_exception_shows_critical(self, win, monkeypatch):
-        from PyQt6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QMessageBox
 
         calls = []
         monkeypatch.setattr(
@@ -961,7 +961,7 @@ class TestXYZAdjustHydrogensRealChem:
         assert new_mol.GetNumAtoms() > 3
 
     def test_exception_shows_critical(self, win, monkeypatch):
-        from PyQt6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QMessageBox
 
         calls = []
         monkeypatch.setattr(
@@ -1063,7 +1063,7 @@ class TestXYZApplyChangesRealChem:
         w.destroy()
 
     def test_exception_shows_critical(self, win, monkeypatch):
-        from PyQt6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QMessageBox
 
         calls = []
         monkeypatch.setattr(

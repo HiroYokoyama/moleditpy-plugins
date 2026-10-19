@@ -3,7 +3,7 @@ Headless GUI tests for the All-Trans Optimizer plugin.
 
 Covers: _select_torsions, run_plugin guards (no dialog class).
 
-Real PyQt6 is used (QT_QPA_PLATFORM=offscreen); chemistry libs are MagicMocked.
+Real PySide6 is used (QT_QPA_PLATFORM=offscreen); chemistry libs are MagicMocked.
 Run via: python tests_gui/run_gui_tests.py tests_gui/test_gui_plugin_all_trans_optimizer.py
 """
 

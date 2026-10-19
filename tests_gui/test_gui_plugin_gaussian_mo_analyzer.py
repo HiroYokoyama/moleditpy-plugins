@@ -318,7 +318,7 @@ class TestOrbitalWidgetAlphaElectronsBranch:
 
 
 # ===========================================================================
-# CalcWorker.run() — real QThread subclass (real PyQt6), run synchronously
+# CalcWorker.run() — real QThread subclass (real PySide6), run synchronously
 # so coverage attributes to worker.py directly instead of a QThread.start().
 # ===========================================================================
 

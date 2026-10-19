@@ -545,7 +545,7 @@ class TestPyscfPresetsReal:
 def _fake_main_window(qapp, current_mol=None, current_file_path=None):
     # run(mw) passes mw straight through as the QDialog parent, so it must be
     # a real QWidget (not an arbitrary Python object) under real Qt.
-    from PyQt6.QtWidgets import QWidget
+    from PySide6.QtWidgets import QWidget
 
     w = QWidget()
     w.current_mol = current_mol

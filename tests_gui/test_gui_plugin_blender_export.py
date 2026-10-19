@@ -4,7 +4,7 @@ Headless GUI tests for the Blender Export plugin.
 Covers module constants, initialize(), and run() (no dialog class; export
 logic is callable-only).
 
-All tests use real PyQt6 (QT_QPA_PLATFORM=offscreen).
+All tests use real PySide6 (QT_QPA_PLATFORM=offscreen).
 Chemistry libraries are mocked via mock_chemistry_imports().
 """
 
@@ -92,7 +92,7 @@ def _mol(n_atoms=3, n_confs=1):
 class TestBlenderExportFlow:
     @pytest.fixture(autouse=True)
     def _qt(self, qapp, monkeypatch):
-        from PyQt6.QtWidgets import QFileDialog, QMessageBox
+        from PySide6.QtWidgets import QFileDialog, QMessageBox
 
         self.warning = MagicMock()
         self.info = MagicMock()

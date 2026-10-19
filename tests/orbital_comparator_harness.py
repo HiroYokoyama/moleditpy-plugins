@@ -283,10 +283,10 @@ _WIDGETS = {
 }
 
 _SWAP_KEYS = (
-    "PyQt6",
-    "PyQt6.QtWidgets",
-    "PyQt6.QtCore",
-    "PyQt6.QtGui",
+    "PySide6",
+    "PySide6.QtWidgets",
+    "PySide6.QtCore",
+    "PySide6.QtGui",
     "pyvista",
 )
 
@@ -338,18 +338,18 @@ def load_with_stateful_qt(path, modname="orbital_comparator_isolated"):
     """Load *path* against the stateful widgets, then restore sys.modules."""
     saved = {k: sys.modules.get(k, _SENTINEL) for k in _SWAP_KEYS}
 
-    pkg = types.ModuleType("PyQt6")
+    pkg = types.ModuleType("PySide6")
     pkg.__path__ = []
-    widgets = _module("PyQt6.QtWidgets", _WIDGETS)
-    core = _module("PyQt6.QtCore", {})
-    gui = _module("PyQt6.QtGui", {"QColor": QColorStub})
+    widgets = _module("PySide6.QtWidgets", _WIDGETS)
+    core = _module("PySide6.QtCore", {})
+    gui = _module("PySide6.QtGui", {"QColor": QColorStub})
     pkg.QtWidgets, pkg.QtCore, pkg.QtGui = widgets, core, gui
     sys.modules.update(
         {
-            "PyQt6": pkg,
-            "PyQt6.QtWidgets": widgets,
-            "PyQt6.QtCore": core,
-            "PyQt6.QtGui": gui,
+            "PySide6": pkg,
+            "PySide6.QtWidgets": widgets,
+            "PySide6.QtCore": core,
+            "PySide6.QtGui": gui,
             # Real pyvista would drag in VTK; the plugin only needs a grid
             # object, and CI has no pyvista at all.
             "pyvista": _pyvista_stub(),

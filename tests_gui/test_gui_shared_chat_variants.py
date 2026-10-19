@@ -8,7 +8,7 @@ Covers real-widget behavior the mocked suite doesn't reach: append_message
 bookkeeping, the save_settings method (UI -> settings -> persist -> re-init),
 and the export_history empty-guard / write paths.
 
-Real PyQt6 (QT_QPA_PLATFORM=offscreen); chemistry/AI libs are mocked, so
+Real PySide6 (QT_QPA_PLATFORM=offscreen); chemistry/AI libs are mocked, so
 markdown.markdown() returns a MagicMock — render_content is stubbed to a
 plain string in each built window.
 """
@@ -51,7 +51,7 @@ def _build(mod, monkeypatch, needs_real_mw):
     ctx = MagicMock()
     mw = None
     if needs_real_mw:
-        from PyQt6.QtWidgets import QDialog
+        from PySide6.QtWidgets import QDialog
 
         mw = QDialog()
         mw.init_manager = MagicMock()
@@ -88,7 +88,7 @@ def chatwin(request, qapp, monkeypatch):
     "data:text/html,hello", "ftp://example.com/file", "custom-handler:payload",
 ])
 def test_chat_links_do_not_launch_local_files_or_protocol_handlers(chatwin, monkeypatch, link):
-    from PyQt6.QtCore import QUrl
+    from PySide6.QtCore import QUrl
     w, mod = chatwin
     opened = MagicMock()
     monkeypatch.setattr(mod.QDesktopServices, "openUrl", opened)
@@ -98,7 +98,7 @@ def test_chat_links_do_not_launch_local_files_or_protocol_handlers(chatwin, monk
 
 @pytest.mark.parametrize("link", ["https://example.com", "http://example.com"])
 def test_chat_web_links_still_open(chatwin, monkeypatch, link):
-    from PyQt6.QtCore import QUrl
+    from PySide6.QtCore import QUrl
     w, mod = chatwin
     opened = MagicMock()
     monkeypatch.setattr(mod.QDesktopServices, "openUrl", opened)

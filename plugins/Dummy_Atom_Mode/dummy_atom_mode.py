@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from PyQt6.QtGui import QColor
+from PySide6.QtGui import QColor
 from rdkit import Chem
 # Imported for its side effect: molecular_data must be loaded before the
 # Chem.Atom patch below, since that is the module the patch exists to serve.
@@ -9,10 +9,10 @@ from moleditpy.ui.ui_manager import UIManager
 
 # Metadata
 PLUGIN_NAME = "Dummy Atom Mode"
-PLUGIN_VERSION = "2026.07.30"
+PLUGIN_VERSION = "2026.10.19"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Adds a dummy atom (*) mode to the 2D editor and registers a toolbar action to place dummy atoms."
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 
 def initialize(context):
     # 1. Register the CPK color for dummy atoms (*)
@@ -70,7 +70,7 @@ def initialize(context):
     )
     
     # 6. Make the newly created QAction checkable once the UI is asynchronously populated
-    from PyQt6.QtCore import QTimer
+    from PySide6.QtCore import QTimer
     
     def make_action_checkable():
         mw = context.get_main_window()

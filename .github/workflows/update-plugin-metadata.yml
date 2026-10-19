@@ -24,11 +24,11 @@ on:
         required: false
         type: string
       supported_version:
-        description: 'Supported MoleditPy version (e.g. >=4.0.0, <5.0.0, optional)'
+        description: 'Supported MoleditPy version (e.g. >=5.0.0, <6.0.0, optional)'
         required: false
         type: string
       supported_python:
-        description: 'Supported Python version spec (e.g. >=3.9, <3.15, optional)'
+        description: 'Supported Python version spec (e.g. >=3.10, <3.15, optional)'
         required: false
         type: string
       supported_os:
@@ -152,7 +152,7 @@ jobs:
           if ! git diff --cached --quiet; then
             NAME="${{ steps.run_script.outputs.plugin_name }}"
             FIELDS="${{ steps.run_script.outputs.changed_fields }}"
-            git commit -m "Update metadata for '$NAME' ($FIELDS)"
+            git commit -m "Update metadata for '$NAME' ($FIELDS)" -m "Assisted-by: GPT-6.1 Sol"
             git push origin main
           else
             echo "No changes to commit."

@@ -401,12 +401,12 @@ class TestCopyResultsToClipboard:
         qapp.clipboard.assert_not_called()
 
     def test_builds_tab_separated_text(self):
-        # copy_results_to_clipboard does a *local* `from PyQt6.QtWidgets import
+        # copy_results_to_clipboard does a *local* `from PySide6.QtWidgets import
         # QApplication` — extra_globals can't intercept that, so run inside
         # mock_optional_imports() and configure the mocked QApplication that
         # import resolves to.
         with mock_optional_imports():
-            import PyQt6.QtWidgets as _qtw
+            import PySide6.QtWidgets as _qtw
 
             fn, qapp = _copy_results_fn()
             clipboard = MagicMock()

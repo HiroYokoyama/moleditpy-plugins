@@ -81,8 +81,8 @@ class TestPmeencPlugin:
 
     @pytest.fixture
     def patched_widget(self, qapp):
-        from PyQt6.QtGui import QAction
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtGui import QAction
+        from PySide6.QtWidgets import QWidget
 
         w = QWidget()
         action = QAction("Save Project", w)
@@ -204,7 +204,7 @@ class TestPmeencExportImportFlow:
     QInputDialog/QFileDialog/QMessageBox code paths for coverage."""
 
     def _plugin(self, qapp):
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtWidgets import QWidget
 
         mw = QWidget()
         mw.state_manager = MagicMock()

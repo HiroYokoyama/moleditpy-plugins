@@ -3,7 +3,7 @@ Headless GUI tests for the VDW Radii Overlay plugin.
 
 Covers: VDWConfigWindow.
 
-Chemistry libs (pyvista, numpy, rdkit, …) are mocked; real PyQt6 is used.
+Chemistry libs (pyvista, numpy, rdkit, …) are mocked; real PySide6 is used.
 """
 
 from __future__ import annotations

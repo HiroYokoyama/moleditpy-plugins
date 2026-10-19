@@ -72,7 +72,7 @@ class TestMoleculeSelectionDialog:
         assert dlg.get_selected_index() == 2
 
     def test_single_selection_mode(self, dlg):
-        from PyQt6.QtWidgets import QAbstractItemView
+        from PySide6.QtWidgets import QAbstractItemView
         assert dlg.list_widget.selectionMode() == QAbstractItemView.SelectionMode.SingleSelection
 
     def test_empty_mol_list_creates_empty_widget(self, qapp):
@@ -103,7 +103,7 @@ class TestIsolatedConversion:
             _openbabel._run_conversion('raise ValueError("unsupported data")', [], None)
 
     def test_timeout_keeps_gui_responsive(self, qapp, monkeypatch):
-        from PyQt6.QtCore import QTimer
+        from PySide6.QtCore import QTimer
         monkeypatch.setattr(_openbabel, 'CONVERSION_TIMEOUT_MS', 250)
         ticks = []
         timer = QTimer()
@@ -117,8 +117,8 @@ class TestIsolatedConversion:
         assert len(ticks) >= 2
 
     def test_cancel_terminates_native_process(self, qapp):
-        from PyQt6.QtCore import QTimer
-        from PyQt6.QtWidgets import QApplication, QProgressDialog
+        from PySide6.QtCore import QTimer
+        from PySide6.QtWidgets import QApplication, QProgressDialog
         def cancel():
             for widget in QApplication.topLevelWidgets():
                 if isinstance(widget, QProgressDialog):

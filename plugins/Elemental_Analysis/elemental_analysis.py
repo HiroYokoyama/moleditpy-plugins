@@ -6,7 +6,7 @@ from io import BytesIO
 import logging
 import math
 from decimal import Decimal
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QDialog,
     QVBoxLayout,
     QHBoxLayout,
@@ -26,7 +26,7 @@ from PyQt6.QtWidgets import (
     QAbstractItemView,
     QApplication,
 )
-from PyQt6.QtGui import (
+from PySide6.QtGui import (
     QPainter,
     QKeySequence,
     QColor,
@@ -36,7 +36,7 @@ from PyQt6.QtGui import (
     QImage,
     QPageLayout,
 )
-from PyQt6.QtCore import (
+from PySide6.QtCore import (
     Qt,
     QRectF,
     QTimer,
@@ -46,7 +46,7 @@ from PyQt6.QtCore import (
     QSizeF,
     QMarginsF,
 )
-from PyQt6.QtPrintSupport import QPrinter
+from PySide6.QtPrintSupport import QPrinter
 
 try:
     from rdkit import Chem
@@ -57,16 +57,16 @@ except ImportError:
     rdMolDescriptors = None
 
 PLUGIN_ID = "elemental_analysis"
-PLUGIN_VERSION = "2026.10.13"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
-PLUGIN_SUPPORTED_PYTHON_VERSION = ">=3.9, <3.15"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
+PLUGIN_SUPPORTED_PYTHON_VERSION = ">=3.10, <3.15"
 PLUGIN_AUTHOR = "HiroYokoyama"
 
 PLUGIN_NAME = "Elemental Analysis"
 PLUGIN_DESCRIPTION = "Calculates the theoretical elemental composition (mass %) of the currently loaded molecule, with optional solvate, and formats the 'Anal. Calcd for' line for publications."
 PLUGIN_CATEGORY = "Analysis"
 PLUGIN_TAGS = ["Analysis"]
-PLUGIN_DEPENDENCIES = ["rdkit", "PyQt6"]
+PLUGIN_DEPENDENCIES = ["rdkit", "PySide6-Essentials"]
 
 # RDKit's periodic table has no entry for the hydrogen isotope symbols.
 HYDROGEN_ISOTOPE_MASSES = {"D": 2.0141017781, "T": 3.0160492779}

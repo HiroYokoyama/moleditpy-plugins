@@ -397,8 +397,8 @@ class TestSymmetryAnalyzer:
         """QThread already has a `finished` signal; naming the scan's payload
         signal the same hands thread-completion listeners two arguments."""
         src = SYMMETRY_PATH.read_text(encoding="utf-8")
-        assert "analysis_finished = pyqtSignal(dict, bool)" in src
-        assert "\n    finished = pyqtSignal" not in src
+        assert "analysis_finished = Signal(dict, bool)" in src
+        assert "\n    finished = Signal" not in src
 
     def test_worker_found_any_false_when_no_real_analysis(self):
         """With mocked pymatgen the loop body is never entered → found_any=False."""

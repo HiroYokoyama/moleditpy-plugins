@@ -8,7 +8,7 @@ and embeds it into the .pmeprj project file via the save hook.
    this metadata with anonymous users.
 
 Author : HiroYokoyama
-License: GPL-3.0
+License: LGPL-3.0-or-later
 """
 
 from __future__ import annotations
@@ -21,8 +21,8 @@ import platform
 import socket
 from datetime import datetime, timezone
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
     QCheckBox,
     QDialog,
     QDialogButtonBox,
@@ -43,13 +43,13 @@ from PyQt6.QtWidgets import (
 # ---------------------------------------------------------------------------
 
 PLUGIN_NAME = "Metadata Saver"
-PLUGIN_VERSION = "2026.09.24"
+PLUGIN_VERSION = "2026.10.19"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Saves debug/trace metadata (timestamp, file path, username, OS info, …) into the .pmeprj project file. For debugging and tracing only — do not share project files containing this data with anonymous users."
 PLUGIN_CATEGORY = "Utility"
 PLUGIN_TAGS = ["Utility"]
 PLUGIN_DEPENDENCIES = []
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 
 # ---------------------------------------------------------------------------
 # Module-level state

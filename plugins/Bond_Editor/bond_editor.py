@@ -1,5 +1,5 @@
 import numpy as np
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
@@ -12,8 +12,8 @@ from PyQt6.QtWidgets import (
     QHeaderView,
     QMessageBox,
 )
-from PyQt6.QtCore import Qt, QTimer, QObject, QEvent
-from PyQt6.QtGui import QShortcut, QKeySequence
+from PySide6.QtCore import Qt, QTimer, QObject, QEvent
+from PySide6.QtGui import QShortcut, QKeySequence
 from rdkit import Chem
 from rdkit.Geometry import Point3D
 import pyvista as pv
@@ -23,8 +23,8 @@ from functools import partial
 
 
 PLUGIN_NAME = "Bond Editor"
-PLUGIN_VERSION = "2026.10.16"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
     "A table-based bond editor: add/delete bonds, change bond order, and set "

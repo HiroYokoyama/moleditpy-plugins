@@ -7,7 +7,7 @@ import json
 from html import escape
 import urllib.request
 import urllib.parse
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QInputDialog,
     QMessageBox,
     QProgressDialog,
@@ -18,12 +18,12 @@ from PyQt6.QtWidgets import (
     QApplication,
     QHBoxLayout,
 )
-from PyQt6.QtCore import Qt
+from PySide6.QtCore import Qt
 
 # --- Metadata ---
 PLUGIN_NAME = "PubChem Structure Identifier"
-PLUGIN_VERSION = "2026.10.09"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Resolve chemical names and fetch molecular properties (Name, Formula, Weight) via PubChem."
 PLUGIN_ID = "pubchem_structure_identifier"
@@ -224,7 +224,7 @@ class MoleculeDetailsDialog(QDialog):
         self.btn_copy.setText("Copied!")
         self.btn_copy.setDisabled(True)
 
-        from PyQt6.QtCore import QTimer
+        from PySide6.QtCore import QTimer
 
         QTimer.singleShot(1500, lambda: self.reset_copy_button(original_text))
 

@@ -3,7 +3,7 @@ Headless GUI tests for the xTB Optimizer plugin.
 
 Covers: XtbOptimizerDialog, XtbWorker.
 
-Real PyQt6 is used (QT_QPA_PLATFORM=offscreen); chemistry libs are MagicMocked.
+Real PySide6 is used (QT_QPA_PLATFORM=offscreen); chemistry libs are MagicMocked.
 Run via: python tests_gui/run_gui_tests.py tests_gui/test_gui_plugin_xtb_optimizer.py
 """
 
@@ -511,8 +511,8 @@ class TestXtbOptimizerDialogFullLifecycle:
         closed, the worker carried on, and "main_panel" stayed registered, so
         reopening the plugin handed back the dead dialog.
         """
-        from PyQt6.QtCore import Qt
-        from PyQt6.QtTest import QTest
+        from PySide6.QtCore import Qt
+        from PySide6.QtTest import QTest
 
         box = no_msgbox[_xtb.__name__]
         box.StandardButton.Yes = 1
@@ -538,8 +538,8 @@ class TestXtbOptimizerDialogFullLifecycle:
         nothing, then returned unconditionally -- so the user said "yes, cancel
         and close" and the window stayed exactly where it was.
         """
-        from PyQt6.QtCore import Qt
-        from PyQt6.QtTest import QTest
+        from PySide6.QtCore import Qt
+        from PySide6.QtTest import QTest
 
         box = no_msgbox[_xtb.__name__]
         box.StandardButton.Yes = 1

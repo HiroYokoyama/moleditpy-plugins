@@ -3,8 +3,8 @@
 
 
 PLUGIN_NAME = "Chat with Molecule Neo (ChatGPT)"
-PLUGIN_VERSION = "2026.10.09"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with OpenAI ChatGPT about the current molecule. Automatically injects SMILES context. (Neo Version)"
 PLUGIN_ID = "chat_with_molecule_neo_chatgpt"
@@ -39,17 +39,17 @@ except ImportError:
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
-from PyQt6.QtCore import (
+from PySide6.QtCore import (
     Qt,
     QThread,
-    pyqtSignal,
+    Signal,
     QTimer,
     QPointF,
     QRunnable,
     QThreadPool,
     QObject,
 )
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QTextEdit,
@@ -65,7 +65,7 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QDialog,
 )
-from PyQt6.QtGui import QTextCursor, QDesktopServices, QIcon
+from PySide6.QtGui import QTextCursor, QDesktopServices, QIcon
 import logging
 
 
@@ -519,7 +519,7 @@ class ChatBrowser(QTextBrowser):
 
 
 class InitWorker(QThread):
-    finished = pyqtSignal(list, str)  # available_models, error_message
+    finished = Signal(list, str)  # available_models, error_message
 
     def __init__(self, api_key):
         super().__init__()
@@ -544,7 +544,7 @@ class NameResolverWorker(QRunnable):
     """
 
     class Signals(QObject):
-        finished = pyqtSignal(str, str)  # inchikey, name
+        finished = Signal(str, str)  # inchikey, name
 
     def __init__(self, inchikey):
         super().__init__()
@@ -564,9 +564,9 @@ class NameResolverWorker(QRunnable):
 class OpenAIWorker(QThread):
     """Worker thread to handle API calls to avoid freezing UI"""
 
-    response_received = pyqtSignal(str)  # Return full text
-    chunk_received = pyqtSignal(str)  # Signal for streaming updates
-    error_occurred = pyqtSignal(str)
+    response_received = Signal(str)  # Return full text
+    chunk_received = Signal(str)  # Signal for streaming updates
+    error_occurred = Signal(str)
 
     def __init__(self, client, history, model_name="gpt-4o"):
         super().__init__()
@@ -973,7 +973,8 @@ class ChatMoleculeWindow(QDialog):
         self.txt_input.installEventFilter(self)
 
     def eventFilter(self, obj, event):
-        if obj is self.txt_input:
+        input_widget = getattr(self, "txt_input", None)
+        if input_widget is not None and obj is input_widget:
             if event.type() == event.Type.FocusIn:
                 # Check for updates as soon as user focuses on input
                 self.check_molecule_change()

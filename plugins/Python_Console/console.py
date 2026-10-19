@@ -4,7 +4,7 @@ import traceback
 import keyword
 import pydoc
 from contextlib import redirect_stdout, redirect_stderr
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QDialog,
     QVBoxLayout,
     QTextEdit,
@@ -12,12 +12,12 @@ from PyQt6.QtWidgets import (
     QLabel,
     QSplitter,
 )
-from PyQt6.QtGui import QFont, QColor, QSyntaxHighlighter, QTextCharFormat, QTextCursor
-from PyQt6.QtCore import Qt, QRegularExpression, pyqtSignal
+from PySide6.QtGui import QFont, QColor, QSyntaxHighlighter, QTextCharFormat, QTextCursor
+from PySide6.QtCore import Qt, QRegularExpression, Signal
 import rdkit.Chem as Chem
 
-PLUGIN_VERSION = "2026.09.24"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "An interactive Python interpreter embedded in the application. Allows runtime script execution with access to the MainWindow (mw) and current molecule (mol)."
 PLUGIN_NAME = "Python Console"
@@ -84,7 +84,7 @@ class PythonHighlighter(QSyntaxHighlighter):
 
 
 class ConsoleInput(QPlainTextEdit):
-    execute_signal = pyqtSignal()
+    execute_signal = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)

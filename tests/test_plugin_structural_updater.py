@@ -2,7 +2,7 @@
 Tests for the Structural Updater plugin.
 
 Visible: true in REGISTRY/plugins.json.
-All tests run headlessly — PyQt6, rdkit, etc. are mocked.
+All tests run headlessly — PySide6, rdkit, etc. are mocked.
 """
 from __future__ import annotations
 

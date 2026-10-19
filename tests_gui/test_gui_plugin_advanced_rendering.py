@@ -3,7 +3,7 @@ Headless GUI tests for the Advanced Rendering plugin.
 
 Covers: HideOnCloseDialog, AdvancedGraphicsWidget.
 
-Real PyQt6 is used (QT_QPA_PLATFORM=offscreen); chemistry libs are MagicMocked.
+Real PySide6 is used (QT_QPA_PLATFORM=offscreen); chemistry libs are MagicMocked.
 Run via: python tests_gui/run_gui_tests.py tests_gui/test_gui_plugin_advanced_rendering.py
 """
 
@@ -21,7 +21,7 @@ PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
 
 ADV_RENDER_PATH = PLUGINS_DIR / "Advanced_Rendering" / "advanced_rendering.py"
 
-# CI's test-gui job installs only pytest + PyQt6 (no numpy/rdkit/vtk/pyvista).
+# CI's test-gui job installs only pytest + PySide6 (no numpy/rdkit/vtk/pyvista).
 # Real pyvista/vtk are used below (see _make_real_plotter) to exercise genuine
 # VTK actor/light/render-pass code paths; importorskip lets this whole module
 # skip cleanly there while running fully wherever the chemistry stack exists.
@@ -52,7 +52,7 @@ def _make_real_plotter():
 
 def _make_adv_widget_with_plotter(tmp_path, style="Ball & Stick (Advanced Rendering)"):
     """AdvancedGraphicsWidget backed by a real off-screen Plotter."""
-    from PyQt6.QtWidgets import QWidget
+    from PySide6.QtWidgets import QWidget
 
     plotter = _make_real_plotter()
     mw = QWidget()
@@ -95,7 +95,7 @@ class TestHideOnCloseDialog:
 
 def _make_adv_widget(tmp_path):
     """AdvancedGraphicsWidget on a stub main window, settings redirected to tmp."""
-    from PyQt6.QtWidgets import QWidget
+    from PySide6.QtWidgets import QWidget
 
     mw = QWidget()
     mw.plotter = None
@@ -106,7 +106,7 @@ def _make_adv_widget(tmp_path):
 
 
 def _teardown_adv_widget(mw, w):
-    from PyQt6.QtCore import QCoreApplication
+    from PySide6.QtCore import QCoreApplication
 
     w._sync_timer.stop()
     try:
@@ -239,7 +239,7 @@ class TestAdvancedGraphicsWidget:
 
 class TestAdvancedRenderingInitialize:
     def test_registers_styles_and_menu(self, qapp, tmp_path):
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtWidgets import QWidget
 
         mw = QWidget()
         mw.plotter = None
@@ -262,7 +262,7 @@ class TestAdvancedRenderingInitialize:
         _teardown_adv_widget(mw, viewer)
 
     def test_style_drawer_survives_bare_main_window(self, qapp, tmp_path):
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtWidgets import QWidget
 
         mw = QWidget()
         mw.plotter = None
@@ -287,7 +287,7 @@ class TestAdvancedRenderingInitialize:
 
 class TestLoadPluginFromMw:
     def test_creates_dialog_and_viewer_when_absent(self, qapp, tmp_path):
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtWidgets import QWidget
 
         mw = QWidget()
         mw.plotter = None
@@ -306,7 +306,7 @@ class TestLoadPluginFromMw:
             mw._adv_graphics_dialog.destroy()
 
     def test_reuses_existing_dialog(self, qapp, tmp_path):
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtWidgets import QWidget
 
         mw = QWidget()
         mw.plotter = None
@@ -326,7 +326,7 @@ class TestLoadPluginFromMw:
 
     def test_recreates_when_dialog_show_raises(self, qapp, tmp_path, monkeypatch):
         """show()/raise_()/activateWindow() raising forces a full recreate."""
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtWidgets import QWidget
 
         mw = QWidget()
         mw.plotter = None
@@ -353,7 +353,7 @@ class TestLoadPluginFromMw:
         stale_dialog.destroy()
 
     def test_plugin_manager_registers_window(self, qapp, tmp_path):
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtWidgets import QWidget
 
         mw = QWidget()
         mw.plotter = None
@@ -380,7 +380,7 @@ class TestInitializeCleansUpOldInstances:
     def test_second_initialize_stops_old_sync_timer_and_closes_dialog(
         self, qapp, tmp_path
     ):
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtWidgets import QWidget
 
         mw = QWidget()
         mw.plotter = None
@@ -556,7 +556,7 @@ class TestUpdateAtomsPbr:
     def test_getactors_fallback_when_no_actors_dict(self, qapp, tmp_path):
         """Raw vtkRenderer (no pyvista `.actors` dict) exercises the
         GetActors() fallback branch."""
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtWidgets import QWidget
 
         renderer = _real_vtk.vtkRenderer()
         actor = _real_vtk.vtkActor()
@@ -586,7 +586,7 @@ class TestUpdateAtomsPbr:
             _teardown_adv_widget(mw, w)
 
     def test_no_renderer_is_noop(self, qapp, tmp_path):
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtWidgets import QWidget
 
         class _BarePlotter:
             pass
@@ -710,7 +710,7 @@ class TestEnvTexture:
             _teardown_adv_widget_with_plotter(mw, w, plotter)
 
     def test_apply_texture_noop_without_plotter(self, qapp, tmp_path):
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtWidgets import QWidget
 
         mw = QWidget()
         mw.plotter = None
@@ -770,7 +770,7 @@ class TestCleanRenderPipeline:
             _teardown_adv_widget_with_plotter(mw, w, plotter)
 
     def test_clean_pipeline_noop_without_plotter(self, qapp, tmp_path):
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtWidgets import QWidget
 
         mw = QWidget()
         mw.plotter = None
@@ -872,7 +872,7 @@ class TestSceneEffectToggles:
             _teardown_adv_widget_with_plotter(mw, w, plotter)
 
     def test_apply_edl_noop_without_plotter(self, qapp, tmp_path):
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtWidgets import QWidget
 
         mw = QWidget()
         mw.plotter = None
@@ -904,7 +904,7 @@ class TestLightHandlers:
     def test_update_lights_creates_light_when_none_exist(self, qapp, tmp_path):
         """Raw vtkRenderer starts with zero lights, exercising the
         AddLight()-on-empty-collection branch."""
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtWidgets import QWidget
 
         renderer = _real_vtk.vtkRenderer()
 
@@ -947,7 +947,7 @@ class TestLightHandlers:
 
 class TestCloseEvent:
     def test_close_event_disables_effects(self, qapp, tmp_path):
-        from PyQt6.QtGui import QCloseEvent
+        from PySide6.QtGui import QCloseEvent
 
         mw, w, plotter = _make_adv_widget_with_plotter(tmp_path)
         try:
@@ -964,7 +964,7 @@ class TestCloseEvent:
 
 class TestPresetsReal:
     def test_save_preset_adds_new_named_preset(self, qapp, tmp_path, monkeypatch):
-        from PyQt6.QtWidgets import QInputDialog
+        from PySide6.QtWidgets import QInputDialog
 
         mw, w, plotter = _make_adv_widget_with_plotter(tmp_path)
         try:
@@ -982,7 +982,7 @@ class TestPresetsReal:
             _teardown_adv_widget_with_plotter(mw, w, plotter)
 
     def test_save_preset_cancelled_does_nothing(self, qapp, tmp_path, monkeypatch):
-        from PyQt6.QtWidgets import QInputDialog
+        from PySide6.QtWidgets import QInputDialog
 
         mw, w, plotter = _make_adv_widget_with_plotter(tmp_path)
         try:
@@ -998,7 +998,7 @@ class TestPresetsReal:
             _teardown_adv_widget_with_plotter(mw, w, plotter)
 
     def test_save_preset_rejects_locked_name(self, qapp, tmp_path, monkeypatch):
-        from PyQt6.QtWidgets import QInputDialog
+        from PySide6.QtWidgets import QInputDialog
 
         mw, w, plotter = _make_adv_widget_with_plotter(tmp_path)
         try:
@@ -1102,7 +1102,7 @@ class TestEnforceSceneState:
             _teardown_adv_widget_with_plotter(mw, w, plotter)
 
     def test_enforce_scene_state_noop_without_plotter(self, qapp, tmp_path):
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtWidgets import QWidget
 
         mw = QWidget()
         mw.plotter = None
@@ -1137,7 +1137,7 @@ class TestSaveSettingsSanitize:
         import json
 
         real_np = pytest.importorskip("numpy")
-        from PyQt6.QtGui import QColor
+        from PySide6.QtGui import QColor
 
         mw, w, plotter = _make_adv_widget_with_plotter(tmp_path)
         try:

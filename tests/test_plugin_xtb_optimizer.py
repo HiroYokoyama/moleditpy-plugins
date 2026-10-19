@@ -1,7 +1,7 @@
 """
 Tests for the xTB Optimizer plugin.
 
-All heavy dependencies (PyQt6, rdkit, tblite, ase, numpy, …) are mocked out
+All heavy dependencies (PySide6, rdkit, tblite, ase, numpy, …) are mocked out
 via conftest.mock_optional_imports(), so the suite runs headlessly with no
 chemistry libraries required.
 """
@@ -137,9 +137,9 @@ def test_run_plugin_warns_when_no_molecule():
 
         # Patch QMessageBox so we don't need a real Qt
         import sys
-        qmb = sys.modules.get("PyQt6.QtWidgets")
+        qmb = sys.modules.get("PySide6.QtWidgets")
         if qmb is None:
-            pytest.skip("PyQt6 not available (expected when mocked)")
+            pytest.skip("PySide6 not available (expected when mocked)")
 
         # With mocked imports, QMessageBox.warning is a MagicMock
         mod.run_plugin(ctx)
@@ -328,10 +328,10 @@ def test_run_without_launch_fn_does_not_raise():
 
 
 def test_supported_version_specifier(plugin_mod):
-    """Version specifier must include '>=4' to target the V4 API."""
+    """Version specifier must target the MoleditPy 5 API."""
     spec = plugin_mod.PLUGIN_SUPPORTED_MOLEDITPY_VERSION
-    assert ">=4" in spec, (
-        f"Expected '>=4' in PLUGIN_SUPPORTED_MOLEDITPY_VERSION, got {spec!r}"
+    assert ">=5.0.0" in spec, (
+        f"Expected '>=5.0.0' in PLUGIN_SUPPORTED_MOLEDITPY_VERSION, got {spec!r}"
     )
 
 

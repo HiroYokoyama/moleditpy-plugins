@@ -3,7 +3,7 @@ Headless GUI tests for the Bond Editor plugin.
 
 Covers: BondEditorWindow, _ClickFilter, bond-type label maps, initialize().
 
-Real PyQt6 is used (QT_QPA_PLATFORM=offscreen); chemistry libs are MagicMocked.
+Real PySide6 is used (QT_QPA_PLATFORM=offscreen); chemistry libs are MagicMocked.
 Run via: python tests_gui/run_gui_tests.py tests_gui/test_gui_plugin_bond_editor.py
 """
 
@@ -34,7 +34,7 @@ with mock_chemistry_imports():
 # sys.modules before _mock_chemistry_keep_real_chem() snapshots it below —
 # otherwise the chemistry-blocking meta path finder would intercept the
 # first-ever `import rdkit`/`import vtk` and hand back a MagicMock instead.
-# Guarded so CI's bare test-gui job (only pytest+PyQt6 installed) skips this
+# Guarded so CI's bare test-gui job (only pytest+PySide6 installed) skips this
 # real-library module instead of erroring at collection.
 _np = pytest.importorskip("numpy")
 _pv = pytest.importorskip("pyvista")
@@ -51,7 +51,7 @@ def _no_modal_warning(monkeypatch):
     a real modal, and several tests below drive exactly those paths, so an
     unpatched warning blocks the offscreen run forever.
     """
-    from PyQt6.QtWidgets import QMessageBox
+    from PySide6.QtWidgets import QMessageBox
 
     calls = []
     monkeypatch.setattr(
@@ -237,8 +237,8 @@ class TestBondTypeMaps:
 
 class TestClickFilter:
     def _events(self, press_xy, release_xy):
-        from PyQt6.QtCore import QEvent, QPointF, Qt
-        from PyQt6.QtGui import QMouseEvent
+        from PySide6.QtCore import QEvent, QPointF, Qt
+        from PySide6.QtGui import QMouseEvent
 
         press = QMouseEvent(
             QEvent.Type.MouseButtonPress,
@@ -608,7 +608,7 @@ class TestOnPlotterClick:
         w.destroy()
 
     def _widget(self, qapp):
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtWidgets import QWidget
 
         widget = QWidget()
         widget.resize(400, 300)
@@ -629,7 +629,7 @@ class TestOnPlotterClick:
         win.add_bond.assert_called_once_with(0, 1)
 
     def test_interactive_existing_bond_click_cycles_order(self, win, qapp, monkeypatch):
-        from PyQt6.QtCore import Qt
+        from PySide6.QtCore import Qt
 
         widget = self._widget(qapp)
         win.context.get_main_window().view_3d_manager.atom_actor = object()
@@ -649,7 +649,7 @@ class TestOnPlotterClick:
     def test_interactive_existing_bond_right_click_deletes(
         self, win, qapp, monkeypatch
     ):
-        from PyQt6.QtCore import Qt
+        from PySide6.QtCore import Qt
 
         widget = self._widget(qapp)
         win.context.get_main_window().view_3d_manager.atom_actor = object()
@@ -865,7 +865,7 @@ class TestEditOperationsRealChem:
         win.context.push_undo_checkpoint.assert_called_once()
 
     def test_add_bond_exception_shows_critical(self, win, qapp, monkeypatch):
-        from PyQt6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QMessageBox
 
         calls = []
         monkeypatch.setattr(
@@ -887,7 +887,7 @@ class TestEditOperationsRealChem:
     def test_delete_selected_bonds_exception_shows_critical(
         self, win, qapp, monkeypatch
     ):
-        from PyQt6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QMessageBox
 
         calls = []
         monkeypatch.setattr(
@@ -916,7 +916,7 @@ class TestEditOperationsRealChem:
         flagged aromatic while in no ring, and the molecule only blew up
         later in MolToMolBlock when the user pressed Optimize.
         """
-        from PyQt6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QMessageBox
 
         warnings = []
         monkeypatch.setattr(
@@ -934,7 +934,7 @@ class TestEditOperationsRealChem:
         win.on_type_changed(0, "Double")  # no exception
 
     def test_on_type_changed_exception_shows_critical(self, win, qapp, monkeypatch):
-        from PyQt6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QMessageBox
 
         calls = []
         monkeypatch.setattr(
@@ -1049,7 +1049,7 @@ class TestMovingSideAndBondLength:
         w.destroy()
 
     def test_set_bond_length_exception_shows_critical(self, qapp, monkeypatch):
-        from PyQt6.QtWidgets import QMessageBox
+        from PySide6.QtWidgets import QMessageBox
 
         ctx = _real_ctx(mol=_real_mol())
         w = _bondrn.BondEditorWindow(context=ctx)
@@ -1302,8 +1302,8 @@ class TestInteractiveHydrogenBondEditingGUI:
         return mol
 
     def test_interactive_click_on_hydrogen_bond_cycles_order(self, qapp, monkeypatch):
-        from PyQt6.QtCore import Qt
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtCore import Qt
+        from PySide6.QtWidgets import QWidget
 
         mol = self._make_ch_mol()
         ctx = _real_ctx(mol=mol)
@@ -1338,8 +1338,8 @@ class TestInteractiveHydrogenBondEditingGUI:
         w.destroy()
 
     def test_interactive_right_click_on_hydrogen_bond_deletes(self, qapp, monkeypatch):
-        from PyQt6.QtCore import Qt
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtCore import Qt
+        from PySide6.QtWidgets import QWidget
 
         mol = self._make_ch_mol()
         ctx = _real_ctx(mol=mol)
@@ -1427,8 +1427,8 @@ class TestKekulizeGUI:
     def test_interactive_edit_auto_kekulizes_and_preserves_ring_double_bonds(
         self, qapp, monkeypatch
     ):
-        from PyQt6.QtCore import Qt
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtCore import Qt
+        from PySide6.QtWidgets import QWidget
 
         mol = self._make_benzene()
         ctx = _real_ctx(mol=mol)
@@ -1468,8 +1468,8 @@ class TestKekulizeGUI:
     def test_interactive_edit_without_auto_kekulize_demotes_to_single(
         self, qapp, monkeypatch
     ):
-        from PyQt6.QtCore import Qt
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtCore import Qt
+        from PySide6.QtWidgets import QWidget
 
         mol = self._make_benzene()
         ctx = _real_ctx(mol=mol)
@@ -1522,7 +1522,7 @@ class TestInteractiveGestureDecisions:
 
     @staticmethod
     def _widget():
-        from PyQt6.QtWidgets import QWidget
+        from PySide6.QtWidgets import QWidget
 
         widget = QWidget()
         widget.resize(400, 300)
@@ -1533,7 +1533,7 @@ class TestInteractiveGestureDecisions:
         return [b.GetBondType() for b in mol.GetBonds()]
 
     def test_click_on_atom_leaves_its_bonds_alone(self, win, monkeypatch):
-        from PyQt6.QtCore import Qt
+        from PySide6.QtCore import Qt
 
         before = self._types(win.context.current_mol)
         # Front surface of atom 1's sphere: within bond-picking range of C0-C1
@@ -1548,7 +1548,7 @@ class TestInteractiveGestureDecisions:
         win.context.push_undo_checkpoint.assert_not_called()
 
     def test_miss_away_from_bonds_changes_nothing(self, win, monkeypatch):
-        from PyQt6.QtCore import Qt
+        from PySide6.QtCore import Qt
 
         before = self._types(win.context.current_mol)
         # Missed pick 0.6 A off the C0-C1 axis: outside the 0.4 A near-miss tolerance
@@ -1565,7 +1565,7 @@ class TestInteractiveGestureDecisions:
         assert self._types(win.context.current_mol) == before
 
     def test_near_miss_on_bond_still_cycles_it(self, win, monkeypatch):
-        from PyQt6.QtCore import Qt
+        from PySide6.QtCore import Qt
 
         monkeypatch.setattr(
             _vtk,
@@ -1577,7 +1577,7 @@ class TestInteractiveGestureDecisions:
         assert bond.GetBondType() == _Chem.BondType.DOUBLE
 
     def test_camera_drag_after_atom_click_does_not_create_bond(self, win):
-        from PyQt6.QtCore import Qt
+        from PySide6.QtCore import Qt
 
         widget = self._widget()
         win.add_bond = MagicMock()
@@ -1596,7 +1596,7 @@ class TestInteractiveGestureDecisions:
         win.add_bond.assert_not_called()
 
     def test_drag_between_atoms_creates_bond(self, win):
-        from PyQt6.QtCore import Qt
+        from PySide6.QtCore import Qt
 
         widget = self._widget()
         win.add_bond = MagicMock()
@@ -1608,7 +1608,7 @@ class TestInteractiveGestureDecisions:
         win.add_bond.assert_called_once_with(0, 2)
 
     def test_right_press_on_atom_does_not_arm_drag(self, win):
-        from PyQt6.QtCore import Qt
+        from PySide6.QtCore import Qt
 
         mol = win.context.current_mol
         win._interactive_pick = lambda *a: (mol, (0, 0, 0), 0, None)
@@ -1631,8 +1631,8 @@ class TestInteractiveGestureDecisions:
 def test_interactive_cycle_advances_kekule_single_ring_bond(qapp, monkeypatch):
     """Read from the aromatic molecule, every ring bond looked "aromatic" and
     went to single, so the Kekule single bonds could never be changed."""
-    from PyQt6.QtCore import Qt
-    from PyQt6.QtWidgets import QWidget
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QWidget
 
     mol = _Chem.MolFromSmiles("c1ccccc1")
     conf = _Chem.Conformer(6)
@@ -1676,8 +1676,8 @@ def test_invalid_bond_length_preserves_molecule(qapp, value):
 
 
 def _move_event(xy, buttons):
-    from PyQt6.QtCore import QEvent, QPointF, Qt
-    from PyQt6.QtGui import QMouseEvent
+    from PySide6.QtCore import QEvent, QPointF, Qt
+    from PySide6.QtGui import QMouseEvent
 
     return QMouseEvent(
         QEvent.Type.MouseMove,
@@ -1691,7 +1691,7 @@ def _move_event(xy, buttons):
 
 class TestClickFilterMoveCallbacks:
     def test_move_during_claimed_gesture_reaches_move_callback(self, qapp):
-        from PyQt6.QtCore import Qt
+        from PySide6.QtCore import Qt
 
         moves, hovers = [], []
         f = _bond._ClickFilter(
@@ -1708,7 +1708,7 @@ class TestClickFilterMoveCallbacks:
         assert hovers == []
 
     def test_move_during_camera_drag_is_not_reported(self, qapp):
-        from PyQt6.QtCore import Qt
+        from PySide6.QtCore import Qt
 
         moves = []
         f = _bond._ClickFilter(
@@ -1723,7 +1723,7 @@ class TestClickFilterMoveCallbacks:
         assert moves == []
 
     def test_hover_reaches_hover_callback_and_passes_through(self, qapp):
-        from PyQt6.QtCore import Qt
+        from PySide6.QtCore import Qt
 
         hovers = []
         f = _bond._ClickFilter(
@@ -1803,7 +1803,7 @@ class TestBondPreview:
         ]
 
     def test_drag_from_atom_snaps_preview_to_hovered_atom(self, win):
-        from PyQt6.QtCore import Qt
+        from PySide6.QtCore import Qt
 
         widget = self._widget()
         mol = win.context.current_mol
@@ -1857,7 +1857,7 @@ class TestBondPreview:
         assert self._preview_calls(win.context.plotter) == []
 
     def test_short_click_after_preview_clears_it(self, win):
-        from PyQt6.QtCore import Qt
+        from PySide6.QtCore import Qt
 
         widget = self._widget()
         mol = win.context.current_mol
@@ -1939,7 +1939,7 @@ class TestBondPreviewAtomLabels:
         return call[0][1] if call else None
 
     def test_drag_labels_start_then_snapped_target_then_clears(self, win):
-        from PyQt6.QtCore import Qt
+        from PySide6.QtCore import Qt
 
         widget = TestBondPreview._widget()
         mol = win.context.current_mol

@@ -4,8 +4,8 @@ dark_mode_plugin.py
 A plugin that automatically applies a dark mode stylesheet to MoleditPy upon loading.
 """
 
-PLUGIN_VERSION = "2026.09.24"
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=4.0.0, <5.0.0"
+PLUGIN_VERSION = "2026.10.19"
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "A plugin that automatically applies a dark mode stylesheet to MoleditPy upon loading."
 

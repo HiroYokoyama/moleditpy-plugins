@@ -3,7 +3,7 @@ Headless GUI tests for the POV-Ray Export plugin.
 
 Covers module constants, initialize(), and run().
 
-All tests use real PyQt6 (QT_QPA_PLATFORM=offscreen).
+All tests use real PySide6 (QT_QPA_PLATFORM=offscreen).
 Chemistry libraries are mocked via mock_chemistry_imports().
 """
 
@@ -99,8 +99,8 @@ def _mol(n_atoms=3, n_confs=1):
 class TestPovRayExportFlow:
     @pytest.fixture(autouse=True)
     def _qt(self, qapp, monkeypatch):
-        # export_to_povray imports these from PyQt6.QtWidgets at call time.
-        from PyQt6.QtWidgets import QFileDialog, QMessageBox
+        # export_to_povray imports these from PySide6.QtWidgets at call time.
+        from PySide6.QtWidgets import QFileDialog, QMessageBox
 
         self.warning = MagicMock()
         self.info = MagicMock()
