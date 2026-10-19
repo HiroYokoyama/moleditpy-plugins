@@ -1775,9 +1775,9 @@
   {
     "id": "molibrary",
     "visible": true,
-    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
+    "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Molibrary Browser",
-    "version": "1.1.1",
+    "version": "2.0.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/chem_db_web",
@@ -1785,13 +1785,10 @@
     "tags": [
       "File"
     ],
-    "dependencies": [
-      "rdkit",
-      "PyQt6"
-    ],
-    "downloadUrl": "https://github.com/HiroYokoyama/chem_db_web/releases/download/1.1.1/molibrary_plugin.py",
-    "lastUpdated": "2026-09-23",
-    "sha256": "2a40a76256f489f6837242df610622fdd81e5ba2ce671891286724e656e19869",
+    "dependencies": [],
+    "downloadUrl": "https://github.com/HiroYokoyama/chem_db_web/releases/download/2.0.0/molibrary_plugin.py",
+    "lastUpdated": "2026-10-19",
+    "sha256": "9fa572f2394fe5177696190eaa51a8702addbdbe10e5ed3e21af34fdb5ad835b",
     "firstAppeared": "2026-04-29",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
