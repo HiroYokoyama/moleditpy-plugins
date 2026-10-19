@@ -1312,7 +1312,7 @@
     ],
     "downloadUrl": "../plugins/Gaussian_MO_Analyzer/gaussian_fchk_mo_analyzer.zip",
     "lastUpdated": "2026-10-19",
-    "sha256": "326bfebab9d82c14ee6940e1f5dc3c1cd7a47603b9a6f695af195899a1bf9c1b",
+    "sha256": "9f2761f043a847c9171e168ee50ba1d2bd8d70fcce325cf19f25b4e30f21e113",
     "firstAppeared": "2026-01-23",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

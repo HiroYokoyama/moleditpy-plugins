@@ -64,7 +64,7 @@ jobs:
         run: python scripts/validate_json.py
 
       - name: Run registry integrity tests
-        run: pytest tests/test_registry.py -v --tb=short
+        run: pytest tests/test_registry.py tests/test_intra_repo_packages.py -v --tb=short
 
       # The registry scripts are not imported by any test, so a script that
       # fails to even import on a supported interpreter would otherwise ship
