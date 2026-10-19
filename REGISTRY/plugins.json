@@ -2148,9 +2148,9 @@
   {
     "id": "auto_rotator",
     "visible": true,
-    "supported_moleditpy_version": ">=3.0.0, <5.0.0",
+    "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Auto Rotator",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_auto_rotator",
@@ -2160,14 +2160,14 @@
     ],
     "dependencies": [
       "pyvista",
-      "PyQt6",
+      "PySide6-Essentials",
       "numpy"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_auto_rotator/releases/download/v1.0.0/auto_rotator.py",
-    "lastUpdated": "2026-07-22",
-    "sha256": "06c0e88954aa706c9c8928448418c312a73a487bc472811585948c9f9f3253f8",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_auto_rotator/releases/download/v2.0.0/auto_rotator.py",
+    "lastUpdated": "2026-10-19",
+    "sha256": "6db76a7a4bf848d2850c3ad07596b05935b23ace6e784197aa8f415a2a2a6577",
     "firstAppeared": "2026-07-22",
-    "supported_python_version": ">=3.9, <3.15",
+    "supported_python_version": ">=3.10, <3.15",
     "supported_os": [
       "Windows",
       "macOS",
