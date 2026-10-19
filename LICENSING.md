@@ -42,3 +42,8 @@ Open Babel's current official metadata/library documentation specifies GPLv2.
 No claim is made that an in-process Open Babel combination is LGPLv3-compatible.
 Resolve that combination before distributing it; changing a wrapper label does
 not change the engine's license. Source: https://openbabel.org/docs/UseTheLibrary/intro.html
+
+## Dependency audit
+
+See [the MoleditPy 5 plugin licensing audit](docs/PLUGIN_LICENSE_AUDIT.md) for
+repository scopes, inspected dependency versions, packaging checks and exceptions.
