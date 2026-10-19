@@ -152,7 +152,7 @@ jobs:
           if ! git diff --cached --quiet; then
             NAME="${{ steps.run_script.outputs.plugin_name }}"
             FIELDS="${{ steps.run_script.outputs.changed_fields }}"
-            git commit -m "Update metadata for '$NAME' ($FIELDS)"
+            git commit -m "Update metadata for '$NAME' ($FIELDS)" -m "Assisted-by: GPT-6.1 Sol"
             git push origin main
           else
             echo "No changes to commit."
