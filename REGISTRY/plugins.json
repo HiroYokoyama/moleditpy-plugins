@@ -1804,9 +1804,9 @@
   {
     "id": "cif_viewer",
     "visible": true,
-    "supported_moleditpy_version": ">=4.0.0, <5.0.0",
+    "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "CIF Viewer",
-    "version": "1.5.0",
+    "version": "2.0.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_cif_viewer",
@@ -1817,13 +1817,13 @@
     "dependencies": [
       "numpy",
       "pymatgen",
-      "PyQt6",
+      "PySide6-Essentials",
       "pyvista",
       "rdkit"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_cif_viewer/releases/download/v1.5.0/cif_viewer_1.5.0.zip",
-    "lastUpdated": "2026-10-12",
-    "sha256": "e4c2a7f7f0b0256db93113d552d5c6444b46a4f5e8f9a574b0cc5d75f6ce57c0",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_cif_viewer/releases/download/v2.0.0/cif_viewer_2.0.0.zip",
+    "lastUpdated": "2026-10-19",
+    "sha256": "4de5aa45f2a2b8abb50eef9e96f5bc7ad8f2908efb5f8e54e749cf13cef20bb5",
     "firstAppeared": "2026-05-21",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
