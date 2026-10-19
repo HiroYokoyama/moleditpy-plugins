@@ -4,7 +4,7 @@
 [![Coverage](https://img.shields.io/badge/coverage-%3E80%25-brightgreen)](https://github.com/HiroYokoyama/moleditpy-plugins/actions/workflows/test-plugins.yml)
 [![MoleditPy](https://img.shields.io/badge/MoleditPy-5.x-3577F7)](https://github.com/HiroYokoyama/python_molecular_editor)
 [![Plugin Explorer](https://img.shields.io/badge/Plugin%20Explorer-Live-3577F7)](https://hiroyokoyama.github.io/moleditpy-plugins/explorer/)
-[![License: GPL v3](https://img.shields.io/badge/License-LGPLv3-blue.svg)](LICENSE)
+[![License: LGPL v3](https://img.shields.io/badge/License-LGPLv3-blue.svg)](LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18140902.svg)](https://doi.org/10.5281/zenodo.18140902)
 [![](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=%23fe8e86)](https://github.com/sponsors/HiroYokoyama)
 
@@ -50,7 +50,15 @@ To install by hand, copy a plugin's `.py` file, or its folder containing `__init
 - **Windows:** `C:\Users\<YourUser>\.moleditpy\plugins`
 - **macOS / Linux:** `~/.moleditpy/plugins`
 
-The plugins here target MoleditPy 4. For older versions, use the [MoleditPy 3 tag](https://github.com/HiroYokoyama/moleditpy-plugins/tree/2026.06.19-MoleditPy_3) or the [MoleditPy 2 tag](https://github.com/HiroYokoyama/moleditpy-plugins/tree/2026.03.31-MoleditPy_2).
+The maintained collection targets **MoleditPy 5 / PySide6**. For earlier hosts, use the matching historical snapshot:
+
+| MoleditPy | Collection tag |
+| :--- | :--- |
+| 4 / PyQt6 | [`2026.10.19-MoleditPy_4`](https://github.com/HiroYokoyama/moleditpy-plugins/tree/2026.10.19-MoleditPy_4) |
+| 3 | [`2026.06.19-MoleditPy_3`](https://github.com/HiroYokoyama/moleditpy-plugins/tree/2026.06.19-MoleditPy_3) |
+| 2 | [`2026.03.31-MoleditPy_2`](https://github.com/HiroYokoyama/moleditpy-plugins/tree/2026.03.31-MoleditPy_2) |
+
+Historical tags preserve the earlier collection and registry; they do not receive security updates. External plugins have their own releases and supported-host metadata.
 
 ## Writing a plugin
 
@@ -94,9 +102,9 @@ Please also cite MoleditPy itself: [![DOI](https://zenodo.org/badge/DOI/10.5281/
 
 This project is licensed under the GNU Lesser General Public License v3.0 (LGPLv3) - see the [LICENSE](LICENSE) file for details. As open-source software, it is provided 'as is' without warranty of any kind, and the author assumes no responsibility or liability for the results. Although outputs have been carefully verified, users are strongly encouraged to independently check and validate them for critical applications (such as publications). If you encounter any bugs, please open an issue.
 
-## MoleditPy 5 migration branch
+## MoleditPy 5 compatibility
 
-The `migrate/pyside6` branch ports the collection's active plugins and tests to
+The maintained collection's active plugins and tests use
 PySide6 for MoleditPy 5. Maintained first-party plugins use LGPL-3.0-or-later, except the components identified in LICENSING.md; historical releases and external plugins keep their own terms. External plugin
 entries still identify their published release assets; they will be updated
 through the registration scripts after each migrated plugin is released.
