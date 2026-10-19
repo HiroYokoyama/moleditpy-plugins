@@ -105,11 +105,7 @@ This project is licensed under the GNU Lesser General Public License v3.0 (LGPLv
 ## MoleditPy 5 compatibility
 
 The maintained collection's active plugins and tests use
-PySide6 for MoleditPy 5. Maintained first-party plugins use LGPL-3.0-or-later, except the components identified in LICENSING.md; historical releases and external plugins keep their own terms. External plugin
-entries still identify their published release assets; they will be updated
-through the registration scripts after each migrated plugin is released.
-The new Open Babel optimizer is developed separately and is not registered
-until a downloadable release is available.
+PySide6 for MoleditPy 5. Maintained first-party plugins use LGPL-3.0-or-later, except the components identified in LICENSING.md; historical releases and external plugins keep their own terms. External plugin entries still identify their published release assets; they will be updated through the registration scripts after each migrated plugin is released.
 
 ## Licensing scope
 
