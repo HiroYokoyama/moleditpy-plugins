@@ -2594,9 +2594,9 @@
   {
     "id": "pets_in_editor",
     "visible": true,
-    "supported_moleditpy_version": "4.*",
+    "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Pets in Editor",
-    "version": "0.3.1",
+    "version": "0.4.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_pets_in_editor",
@@ -2605,9 +2605,9 @@
       "Utility"
     ],
     "dependencies": [],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_pets_in_editor/releases/download/v0.3.1/pets_in_editor_0.3.1.zip",
-    "lastUpdated": "2026-10-11",
-    "sha256": "e27abb88296f2c270cc5ca31e6aa4ed4f0aca4dab6f8b8fc6225184ce054df9a",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_pets_in_editor/releases/download/v0.4.0/pets_in_editor_0.4.0.zip",
+    "lastUpdated": "2026-10-19",
+    "sha256": "2f2c8db014bc4fc8f75a0d913771c5943eef10192bde3326b82994e331eaf605",
     "firstAppeared": "2026-10-10",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
