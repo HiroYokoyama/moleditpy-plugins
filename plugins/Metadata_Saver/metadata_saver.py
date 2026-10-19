@@ -8,7 +8,7 @@ and embeds it into the .pmeprj project file via the save hook.
    this metadata with anonymous users.
 
 Author : HiroYokoyama
-License: GPL-3.0
+License: LGPL-3.0-or-later
 """
 
 from __future__ import annotations

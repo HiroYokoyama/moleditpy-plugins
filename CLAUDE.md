@@ -175,7 +175,7 @@ Some `initialize()` plugins legitimately have no menu entry:
 - `context.get_window(key)` / `context.register_window(key, win)` — managed dialog lifecycle
 - `context.register_save_handler(fn)` / `context.register_load_handler(fn)` / `context.register_reset_handler(fn)` — session persistence
 
-Full API: `python_molecular_editor/docs/PLUGIN_DEVELOPMENT_MANUAL_V4.md`
+Full API: `python_molecular_editor/docs/PLUGIN_DEVELOPMENT_MANUAL_V5.md`
 
 ## Test Infrastructure (`tests/conftest.py`)
 

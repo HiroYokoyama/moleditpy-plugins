@@ -14,7 +14,7 @@
     "dependencies": [],
     "downloadUrl": "../plugins/Metadata_Saver/metadata_saver.py",
     "lastUpdated": "2026-10-19",
-    "sha256": "d226d010f97a609d7634383885a8669e268cb0f36baa7247b5d58b4cf1d37e5b",
+    "sha256": "d76d1602e8afd3874578e57d23a89bdb1bc51d756c8bb117b4cd18d8a4692119",
     "firstAppeared": "2026-07-13",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

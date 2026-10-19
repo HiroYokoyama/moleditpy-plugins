@@ -4,7 +4,7 @@
 [![Coverage](https://img.shields.io/badge/coverage-%3E80%25-brightgreen)](https://github.com/HiroYokoyama/moleditpy-plugins/actions/workflows/test-plugins.yml)
 [![MoleditPy](https://img.shields.io/badge/MoleditPy-5.x-3577F7)](https://github.com/HiroYokoyama/python_molecular_editor)
 [![Plugin Explorer](https://img.shields.io/badge/Plugin%20Explorer-Live-3577F7)](https://hiroyokoyama.github.io/moleditpy-plugins/explorer/)
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+[![License: GPL v3](https://img.shields.io/badge/License-LGPLv3-blue.svg)](LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18140902.svg)](https://doi.org/10.5281/zenodo.18140902)
 [![](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=%23fe8e86)](https://github.com/sponsors/HiroYokoyama)
 
@@ -65,7 +65,7 @@ def initialize(context):
     context.add_menu_action("My Plugin/Say Hello", lambda: print("Hello!"))
 ```
 
-For a new plugin, start from the [plugin template repository](https://github.com/HiroYokoyama/moleditpy-plugin-template), which includes headless tests, an API check against the application source, and a release workflow. The full API is in the [Plugin Development Manual (V4)](https://github.com/HiroYokoyama/python_molecular_editor/blob/main/docs/PLUGIN_DEVELOPMENT_MANUAL_V4.md). To list your plugin in the Explorer, see [CONTRIBUTING.md](CONTRIBUTING.md).
+For a new plugin, start from the [plugin template repository](https://github.com/HiroYokoyama/moleditpy-plugin-template), which includes headless tests, an API check against the application source, and a release workflow. The full API is in the [Plugin Development Manual (V5)](https://github.com/HiroYokoyama/python_molecular_editor/blob/main/docs/PLUGIN_DEVELOPMENT_MANUAL_V5.md). To list your plugin in the Explorer, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Citation
 
@@ -92,13 +92,17 @@ Please also cite MoleditPy itself: [![DOI](https://zenodo.org/badge/DOI/10.5281/
 
 ## License & Disclaimer
 
-This project is licensed under the GNU General Public License v3.0 (GPLv3) - see the [LICENSE](LICENSE) file for details. As open-source software, it is provided 'as is' without warranty of any kind, and the author assumes no responsibility or liability for the results. Although outputs have been carefully verified, users are strongly encouraged to independently check and validate them for critical applications (such as publications). If you encounter any bugs, please open an issue.
+This project is licensed under the GNU Lesser General Public License v3.0 (LGPLv3) - see the [LICENSE](LICENSE) file for details. As open-source software, it is provided 'as is' without warranty of any kind, and the author assumes no responsibility or liability for the results. Although outputs have been carefully verified, users are strongly encouraged to independently check and validate them for critical applications (such as publications). If you encounter any bugs, please open an issue.
 
 ## MoleditPy 5 migration branch
 
 The `migrate/pyside6` branch ports the collection's active plugins and tests to
-PySide6 for MoleditPy 5. Existing plugin licenses are unchanged. External plugin
+PySide6 for MoleditPy 5. Maintained first-party plugins use LGPL-3.0-or-later, except the components identified in LICENSING.md; historical releases and external plugins keep their own terms. External plugin
 entries still identify their published release assets; they will be updated
 through the registration scripts after each migrated plugin is released.
 The new Open Babel optimizer is developed separately and is not registered
 until a downloadable release is available.
+
+## Licensing scope
+
+First-party code in this migration is LGPL-3.0-or-later. See [LICENSE](LICENSE), [COPYING](COPYING) and [dependency/provenance terms](LICENSING.md). Third-party components and historical releases retain their own terms.
