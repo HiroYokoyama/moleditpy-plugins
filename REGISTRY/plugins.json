@@ -2421,7 +2421,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "OPSIN Name to Structure",
-    "version": "2.0.0",
+    "version": "2.0.1",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_opsin_name_to_structure",
@@ -2432,11 +2432,11 @@
     "dependencies": [
       "py2opsin"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_opsin_name_to_structure/releases/download/v2.0.0/opsin_name_to_structure_2.0.0.zip",
-    "lastUpdated": "2026-10-19",
-    "sha256": "0af073126262c29666705083fcb89233c0555628509fdaff411ec48983040d64",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_opsin_name_to_structure/releases/download/v2.0.1/opsin_name_to_structure_2.0.1.zip",
+    "lastUpdated": "2026-10-20",
+    "sha256": "d2d0b75d36ee159a7c445dff5f51b5a82cb41ac415b7bb2443cd155776972ff1",
     "firstAppeared": "2026-08-22",
-    "supported_python_version": ">=3.10, <3.15",
+    "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
       "Windows",
       "macOS",
