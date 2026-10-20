@@ -43,6 +43,8 @@ Notes
   - For the moleditpy-plugins repo, prefer api-checker/check_api.py which has repo-specific defaults.
 """
 
+from __future__ import annotations
+
 import argparse
 import ast
 import io

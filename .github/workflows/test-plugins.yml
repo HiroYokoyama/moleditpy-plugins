@@ -107,7 +107,9 @@ jobs:
       # on CI instead of skipping. Best-effort fallback on interpreters where binary
       # wheels might not be published yet.
       - name: Install scientific libraries (best effort)
-        run: pip install rdkit scipy pymatgen-core pillow || echo "scientific wheels unavailable on this interpreter; gated tests will skip"
+        run: |
+          pip install rdkit scipy pillow || echo "scientific wheels unavailable on this interpreter; gated tests will skip"
+          pip install pymatgen-core || echo "pymatgen-core unavailable on this interpreter; pymatgen-gated tests will skip"
 
       - name: Run plugin tests
         run: pytest tests/ --ignore=tests/test_registry.py -v --tb=short
@@ -155,7 +157,9 @@ jobs:
       # before. VTK/pyvista are deliberately NOT installed — their offscreen
       # render paths are abort-prone on headless CI.
       - name: Install real chemistry & scientific libs (best effort)
-        run: pip install rdkit numpy pillow scipy pymatgen-core || echo "chemistry wheels unavailable on this interpreter; rdkit-gated tests will skip"
+        run: |
+          pip install rdkit numpy pillow scipy || echo "chemistry wheels unavailable on this interpreter; rdkit-gated tests will skip"
+          pip install pymatgen-core || echo "pymatgen-core unavailable on this interpreter; pymatgen-gated tests will skip"
 
       - name: Fetch selected MoleditPy revision
         shell: bash
