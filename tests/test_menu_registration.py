@@ -77,6 +77,12 @@ def test_initialize_registers_something(name: str, path: Path) -> None:
 
     with mock_optional_imports():
         mod = load_plugin(path)
+        if name == "OpenBabel Conversion Tool":
+            # Format discovery now runs in a native worker; supply its plain
+            # result for this host-registration contract test.
+            mod.pybel.informats = {"pdb": "Protein Data Bank"}
+            mod.pybel.outformats = {"xyz": "XYZ"}
+            mod.OBABEL_AVAILABLE = True
         ctx = make_context()
         mod.initialize(ctx)  # type: ignore[attr-defined]
 

@@ -68,7 +68,8 @@ class TestNativeEngineIsolation:
 
     def test_frozen_executable_never_recursively_launches_editor(self):
         import pytest
-        mod = load_plugin(OBABEL_PATH)
+        with mock_optional_imports():
+            mod = load_plugin(OBABEL_PATH)
         with patch.object(mod.sys, 'frozen', True, create=True), patch.object(mod, 'QProcess') as process:
             with pytest.raises(ValueError, match='Python-installed MoleditPy'):
                 mod._run_conversion('print(1)', [], None)
