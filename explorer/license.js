@@ -1,7 +1,7 @@
 /* License metadata shared by the Explorer and its rendering tests. */
 function renderLicenseMetadata(value) {
-    const label = typeof value === 'string' && value.trim() && value !== 'NOASSERTION'
-        ? value.trim() : 'Not specified';
+    const declared = typeof value === 'string' ? value.trim() : '';
+    const label = declared && declared !== 'NOASSERTION' ? declared : 'Not specified';
     const escaped = label.replace(/[&<>"']/g, c => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     }[c]));

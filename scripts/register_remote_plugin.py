@@ -189,7 +189,8 @@ def extract_metadata_from_code(code_text: str) -> dict:
                             elif target.id == "PLUGIN_DESCRIPTION":
                                 meta["description"] = str(val).strip()
                             elif target.id == "PLUGIN_LICENSE":
-                                meta["license"] = val
+                                if node in tree.body:
+                                    meta["license"] = val
                             elif target.id == "PLUGIN_SUPPORTED_MOLEDITPY_VERSION":
                                 meta["supported_moleditpy_version"] = str(val).strip()
                             elif target.id == "PLUGIN_SUPPORTED_PYTHON_VERSION":

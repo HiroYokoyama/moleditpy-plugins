@@ -16,7 +16,7 @@ def test_explorer_license_rendering():
 const assert = require('node:assert/strict');
 const {renderLicenseMetadata: render} = require('./explorer/license.js');
 assert.match(render('LGPL-3.0-or-later'), /LGPL-3.0-or-later/);
-for (const absent of [undefined, null, '', 'NOASSERTION', 42]) {
+for (const absent of [undefined, null, '', ' ', 'NOASSERTION', ' NOASSERTION ', 42]) {
     assert.match(render(absent), /Not specified/);
 }
 const html = render('<img src=x onerror="alert(1)">');

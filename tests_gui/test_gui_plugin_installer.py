@@ -562,6 +562,8 @@ class TestLicenseDetails:
     @pytest.mark.parametrize("value,label", [
         ("LGPL-3.0-or-later", "LGPL-3.0-or-later"),
         (None, "Not specified"),
+        (" ", "Not specified"),
+        (" NOASSERTION ", "Not specified"),
         ("NOASSERTION", "Not specified"),
         ("<b>MIT</b>", "&lt;b&gt;MIT&lt;/b&gt;"),
     ])

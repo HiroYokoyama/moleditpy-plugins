@@ -47,6 +47,11 @@ def test_reads_license_from_python_and_zip_without_importing(tmp_path):
     assert registration.extract_metadata_from_code_regex(body)["license"] == "MIT"
 
 
+def test_nested_assignments_do_not_override_the_declared_license():
+    body = 'PLUGIN_NAME = "Demo"\nPLUGIN_LICENSE = "MIT"\ndef example():\n    PLUGIN_LICENSE = "GPL-3.0-only"\n'
+    assert registration.extract_metadata_from_code(body)["license"] == "MIT"
+
+
 @pytest.fixture
 def registry(tmp_path, monkeypatch):
     folder = tmp_path / "REGISTRY"

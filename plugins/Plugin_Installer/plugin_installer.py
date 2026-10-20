@@ -724,7 +724,9 @@ class PluginDetailsDialog(QDialog):
         lbl_name = QLabel(f"<h2>{name}</h2>")
         lbl_author = QLabel(f"<b>Author:</b> {author}")
         lbl_ver = QLabel(f"<b>Version:</b> {version}")
-        license_text = plugin_license if plugin_license and plugin_license != "NOASSERTION" else "Not specified"
+        license_text = str(plugin_license or "").strip()
+        if not license_text or license_text == "NOASSERTION":
+            license_text = "Not specified"
         lbl_license = QLabel(f"<b>License:</b> {html.escape(str(license_text))}")
         lbl_license.setWordWrap(True)
         lbl_license.setToolTip("Plugin code license. Dependencies may have different terms; see the project notices.")
