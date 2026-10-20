@@ -559,6 +559,17 @@ def bare_installer(qapp):
 
 
 class TestLicenseDetails:
+    def test_installer_passes_registry_license_to_details(self, bare_installer):
+        from unittest.mock import patch
+        from PySide6.QtWidgets import QTableWidgetItem
+        bare_installer.table.setRowCount(1)
+        bare_installer.table.setItem(0, 0, QTableWidgetItem("Demo"))
+        bare_installer.remote_data = [{"name": "Demo", "license": "MIT"}]
+        with patch.object(_plugin_installer, "PluginDetailsDialog") as dialog:
+            bare_installer.show_plugin_details(0, 0)
+        assert dialog.call_args.kwargs["plugin_license"] == "MIT"
+        dialog.return_value.exec.assert_called_once()
+
     @pytest.mark.parametrize("value,label", [
         ("LGPL-3.0-or-later", "LGPL-3.0-or-later"),
         (None, "Not specified"),

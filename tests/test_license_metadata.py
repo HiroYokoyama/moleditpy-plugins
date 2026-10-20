@@ -105,7 +105,7 @@ def test_new_registration_has_explicit_unknown_license(registry, monkeypatch):
     assert json.loads(registry.read_text())[0]["license"] == "NOASSERTION"
 
 
-@pytest.mark.parametrize("declaration,expected", [("", "GPL-3.0-only"), ('PLUGIN_LICENSE = "MIT"', "MIT")])
+@pytest.mark.parametrize("declaration,expected", [("", "GPL-3.0-only"), ('PLUGIN_LICENSE = ""', "GPL-3.0-only"), ('PLUGIN_LICENSE = "MIT"', "MIT")])
 def test_intra_repo_sync_keeps_registry_only_license(registry, declaration, expected):
     data = json.loads(registry.read_text())
     data[0]["downloadUrl"] = "../plugins/Demo/demo.py"
@@ -130,3 +130,22 @@ def test_registry_only_update_is_atomic_on_invalid_id(registry):
     with pytest.raises(ValueError):
         update_licenses(registry, ["demo=MIT", "missing=MIT"])
     assert registry.read_bytes() == original
+
+
+def test_registry_only_update_leaves_retired_entries_untouched(registry):
+    data = json.loads(registry.read_text())
+    data[0]["visible"] = False
+    registry.write_text(json.dumps(data), encoding="utf-8")
+    original = registry.read_bytes()
+    with pytest.raises(ValueError):
+        update_licenses(registry, ["demo=MIT"])
+    assert registry.read_bytes() == original
+
+
+@pytest.mark.parametrize("value", [[], "", "<script>"])
+def test_json_validation_rejects_malformed_license(registry, value):
+    from validate_json import validate_json
+    data = json.loads(registry.read_text())
+    data[0]["license"] = value
+    registry.write_text(json.dumps(data), encoding="utf-8")
+    assert not validate_json(str(registry))
