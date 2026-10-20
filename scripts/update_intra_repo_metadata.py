@@ -21,6 +21,8 @@ import re
 import sys
 from pathlib import Path
 
+from qt_dependency_metadata import normalize_inherited_qt_dependencies
+
 
 PLUGIN_VERSION_RE = re.compile(r"^\s*PLUGIN_VERSION\s*=\s*(['\"])(?P<version>.+?)\1", re.MULTILINE)
 DUUNDER_VERSION_RE = re.compile(r"^\s*__version__\s*=\s*(['\"])(?P<version>.+?)\1", re.MULTILINE)
@@ -261,6 +263,8 @@ def update_single_json(json_path: Path) -> tuple[int, int, int, int, int, int, i
     # Every visible entry (external ones included) gets a python spec; the
     # per-target pass below overrides it from PLUGIN_SUPPORTED_PYTHON_VERSION.
     for plugin in data:
+        if normalize_inherited_qt_dependencies(plugin):
+            updated_display += 1
         if plugin.get("visible", True) and not plugin.get("supported_python_version"):
             plugin["supported_python_version"] = DEFAULT_PYTHON_SPEC
             updated_supported_py += 1

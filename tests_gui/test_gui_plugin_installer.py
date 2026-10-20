@@ -317,7 +317,7 @@ class TestPluginInstallerWindowWidgets:
 # Plugin Installer — supported_python_version compatibility (GUI)
 # ===========================================================================
 
-PY_OK_SPEC = ">=3.10, <3.15"
+PY_OK_SPEC = ">=3.9, <3.15"
 PY_BAD_SPEC = ">=99.0"
 APP_OK_SPEC = ">=5.0.0, <6.0.0"
 APP_BAD_SPEC = ">=99.0"

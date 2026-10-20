@@ -917,10 +917,14 @@ class TestMOSphericalHarmonicShapes:
 
     @staticmethod
     def _real_sph_harm(l, m, theta, phi):
-        sph_harm_y = pytest.importorskip("scipy.special").sph_harm_y
+        special = pytest.importorskip("scipy.special")
+        if hasattr(special, "sph_harm_y"):
+            y = special.sph_harm_y(l, abs(m), theta, phi)
+        else:
+            # Older SciPy uses the opposite angle order and (m, l) indices.
+            y = special.sph_harm(abs(m), l, phi, theta)
         if m == 0:
-            return sph_harm_y(l, 0, theta, phi).real
-        y = sph_harm_y(l, abs(m), theta, phi)
+            return y.real
         sign = (-1) ** abs(m)
         return math.sqrt(2) * sign * (y.real if m > 0 else y.imag)
 

@@ -21,29 +21,21 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 import logging
 
-# Try importing openbabel
-OBABEL_AVAILABLE = False
-try:
-    from openbabel import pybel
-
-    OBABEL_AVAILABLE = True
-except ImportError:
-    try:
-        # Fallback for some environments
-        import pybel
-
-        OBABEL_AVAILABLE = True
-    except ImportError:
-        OBABEL_AVAILABLE = False
+# Only plain format metadata lives in the editor process. Native Open Babel
+# imports and parsing run in disposable workers, including format discovery.
+OBABEL_AVAILABLE = None
+pybel = SimpleNamespace(informats={}, outformats={})
 
 PLUGIN_NAME = "OpenBabel Conversion Tool"
-PLUGIN_VERSION = "2026.10.19"
+PLUGIN_VERSION = "2026.10.20"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
-    "Import various chemical file formats using OpenBabel with multi-molecule support."
+    "Import various chemical file formats using OpenBabel with multi-molecule support. "
+    "Requires Python-installed MoleditPy; portable and frozen bundles are unsupported."
 )
-PLUGIN_DEPENDENCIES = ["openbabel-wheel"]
+PLUGIN_DEPENDENCIES = ["openbabel>=3.2.1,<3.3"]
+PLUGIN_SUPPORTED_PYTHON_VERSION = ">=3.10, <3.15"
 
 # MoleditPy 4.11.0 lists multi-molecule SDF files in its own selector.
 HOST_SDF_SELECTOR_VERSION = (4, 11, 0)
@@ -56,6 +48,43 @@ MAX_FILE_BYTES = 32 * 1024 * 1024
 MAX_MOLECULES = 500
 MAX_ATOMS = 10000
 CONVERSION_TIMEOUT_MS = 30000
+_FORMAT_SCRIPT = r"""
+import json, sys
+from openbabel import pybel
+with open(sys.argv[1], 'w', encoding='utf-8') as handle:
+    json.dump({'informats': pybel.informats, 'outformats': pybel.outformats}, handle)
+"""
+
+
+def _ensure_formats(parent=None):
+    """Discover native formats once, without importing the engine in the GUI."""
+    global OBABEL_AVAILABLE
+    if OBABEL_AVAILABLE is not None:
+        return OBABEL_AVAILABLE
+    try:
+        with tempfile.TemporaryDirectory(prefix='moleditpy-obabel-') as directory:
+            output = os.path.join(directory, 'formats.json')
+            _run_conversion(_FORMAT_SCRIPT, [output], parent)
+            with open(output, 'rb') as handle:
+                raw = handle.read(1024 * 1024 + 1)
+            if len(raw) > 1024 * 1024:
+                raise ValueError('OpenBabel format list is too large.')
+            formats = json.loads(raw)
+            for name in ('informats', 'outformats'):
+                mapping = formats[name]
+                if not isinstance(mapping, dict) or not all(
+                    isinstance(key, str) and isinstance(value, str)
+                    for key, value in mapping.items()
+                ):
+                    raise ValueError('OpenBabel returned invalid format metadata.')
+                setattr(pybel, name, mapping)
+        OBABEL_AVAILABLE = True
+    except Exception as error:
+        logging.warning('OpenBabel format discovery failed: %s', error)
+        OBABEL_AVAILABLE = False
+    return OBABEL_AVAILABLE
+
+
 _CONVERSION_SCRIPT = r"""
 import sys, json
 try:
@@ -86,6 +115,14 @@ else:
 
 
 def _run_conversion(script, arguments, parent):
+    # A frozen executable interprets '-c' as application arguments and would
+    # recursively launch the editor. Native workers need a Python installation.
+    if getattr(sys, 'frozen', False):
+        raise ValueError(
+            'OpenBabel Conversion Tool requires the Python-installed MoleditPy. '
+            'Install MoleditPy and openbabel>=3.2.1,<3.3 in a Python environment '
+            'and start moleditpy there.'
+        )
     process = QProcess(parent)
     loop = QEventLoop()
     progress = QProgressDialog('Converting with OpenBabel...', 'Cancel', 0, 0, parent)
@@ -182,7 +219,7 @@ def initialize(context):
     """
     Initialize the OpenBabel Conversion Tool plugin.
     """
-    if not OBABEL_AVAILABLE:
+    if not _ensure_formats(context.get_main_window()):
         print(f"[{PLUGIN_NAME}] OpenBabel (pybel) not found. Plugin disabled.")
         return
 
@@ -358,7 +395,7 @@ def export_with_openbabel(context):
     Export the current molecule using OpenBabel.
     """
     mw = context.get_main_window()
-    if not OBABEL_AVAILABLE:
+    if not _ensure_formats(mw):
         QMessageBox.warning(mw, "Error", "OpenBabel is not available.")
         return
 

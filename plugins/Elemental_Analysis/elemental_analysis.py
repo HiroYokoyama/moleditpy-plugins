@@ -57,9 +57,9 @@ except ImportError:
     rdMolDescriptors = None
 
 PLUGIN_ID = "elemental_analysis"
-PLUGIN_VERSION = "2026.10.19"
+PLUGIN_VERSION = "2026.10.20"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
-PLUGIN_SUPPORTED_PYTHON_VERSION = ">=3.10, <3.15"
+PLUGIN_SUPPORTED_PYTHON_VERSION = ">=3.9, <3.15"
 PLUGIN_AUTHOR = "HiroYokoyama"
 
 PLUGIN_NAME = "Elemental Analysis"

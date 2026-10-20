@@ -322,7 +322,7 @@
     ],
     "dependencies": [
       "rdkit",
-      "PyQt6"
+      "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/Python_Console/console.py",
     "lastUpdated": "2026-10-19",
@@ -352,7 +352,7 @@
     "dependencies": [
       "numpy",
       "pyvista",
-      "PyQt6"
+      "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/Atom_Colorizer/atom_colorizer.py",
     "lastUpdated": "2026-10-19",
@@ -382,7 +382,7 @@
     "dependencies": [
       "numpy",
       "pyvista",
-      "PyQt6"
+      "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/Bond_Colorizer/bond_colorizer.py",
     "lastUpdated": "2026-10-19",
@@ -409,7 +409,7 @@
       "Visualization"
     ],
     "dependencies": [
-      "PyQt6"
+      "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/Dark_Mode_Theme/dark_mode_plugin.py",
     "lastUpdated": "2026-10-19",
@@ -460,7 +460,7 @@
     "dependencies": [
       "pyvista",
       "numpy",
-      "PyQt6"
+      "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/VDW_Radii_Overlay/vdw_radii_overlay.py",
     "lastUpdated": "2026-10-19",
@@ -490,7 +490,7 @@
     "dependencies": [
       "numpy",
       "pyvista",
-      "PyQt6",
+      "PySide6-Essentials",
       "rdkit"
     ],
     "downloadUrl": "../plugins/Mapped_Cube_Viewer/mapped_cube_viewer.py",
@@ -591,7 +591,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Elemental Analysis",
-    "version": "2026.10.19",
+    "version": "2026.10.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Calculates the theoretical elemental composition (mass %) of the currently loaded molecule, with optional solvate, and formats the 'Anal. Calcd for' line for publications.",
@@ -603,10 +603,10 @@
       "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/Elemental_Analysis/elemental_analysis.py",
-    "lastUpdated": "2026-10-19",
-    "sha256": "255b00d8076a7ce9cdffa5ab2c188dd5dacfe00671f192397370f68c5c7c22f9",
+    "lastUpdated": "2026-10-20",
+    "sha256": "e9207f4a3456fc71ca93d2484437d05c54dd454b0e6c9e491d2aa7cc10fc7ae3",
     "firstAppeared": "2026-09-26",
-    "supported_python_version": ">=3.10, <3.15",
+    "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
       "Windows",
       "macOS",
@@ -630,7 +630,7 @@
     ],
     "dependencies": [
       "rdkit",
-      "PyQt6",
+      "PySide6-Essentials",
       "numpy",
       "Pillow"
     ],
@@ -662,7 +662,7 @@
     ],
     "dependencies": [
       "rdkit",
-      "PyQt6",
+      "PySide6-Essentials",
       "numpy",
       "Pillow"
     ],
@@ -727,7 +727,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Plugin Installer",
-    "version": "2026.10.19",
+    "version": "2026.10.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Checks for updates, installs new plugins, and allows manual reinstallation.",
@@ -735,13 +735,13 @@
       "Utility"
     ],
     "dependencies": [
-      "PyQt6"
+      "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/Plugin_Installer/plugin_installer.py",
-    "lastUpdated": "2026-10-19",
-    "sha256": "760f2a8bb86a80100a4be057b0612d08f44357f0df1b5a16b1207415325902be",
+    "lastUpdated": "2026-10-20",
+    "sha256": "4d91b7b9245751525807e13b76012b8d0c24ed1f4f2f84bf6f5b399a4abf0170",
     "firstAppeared": "2026-01-04",
-    "supported_python_version": ">=3.10, <3.15",
+    "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
       "Windows",
       "macOS",
@@ -787,7 +787,7 @@
     "dependencies": [
       "google-genai",
       "rdkit",
-      "PyQt6",
+      "PySide6-Essentials",
       "markdown",
       "matplotlib"
     ],
@@ -817,7 +817,7 @@
     ],
     "dependencies": [
       "rdkit",
-      "PyQt6"
+      "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/PubChem_Structure_Identifier/pubchem_structure_identifier.py",
     "lastUpdated": "2026-10-19",
@@ -846,7 +846,7 @@
     "dependencies": [
       "openai",
       "rdkit",
-      "PyQt6",
+      "PySide6-Essentials",
       "markdown",
       "matplotlib"
     ],
@@ -877,7 +877,7 @@
     "dependencies": [
       "openai",
       "rdkit",
-      "PyQt6",
+      "PySide6-Essentials",
       "markdown",
       "matplotlib"
     ],
@@ -907,7 +907,7 @@
     ],
     "dependencies": [
       "rdkit",
-      "PyQt6",
+      "PySide6-Essentials",
       "pymatgen"
     ],
     "downloadUrl": "../plugins/Symmetry_Analyzer/symmetry_analyzer.py",
@@ -937,7 +937,7 @@
     ],
     "dependencies": [
       "numpy",
-      "PyQt6",
+      "PySide6-Essentials",
       "pyvista"
     ],
     "downloadUrl": "../plugins/Vector_Viewer/vector_viewer.py",
@@ -967,7 +967,7 @@
     ],
     "dependencies": [
       "rdkit",
-      "PyQt6"
+      "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/Mopac_Input_Generator/mopac_input_generator.py",
     "lastUpdated": "2026-10-19",
@@ -996,7 +996,7 @@
     ],
     "dependencies": [
       "rdkit",
-      "PyQt6"
+      "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/Gamess_Input_Generator/gamess_input_generator.py",
     "lastUpdated": "2026-10-19",
@@ -1026,7 +1026,7 @@
     ],
     "dependencies": [
       "rdkit",
-      "PyQt6"
+      "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/PySCF_Input_Generator/pyscf_input_generator.py",
     "lastUpdated": "2026-10-19",
@@ -1055,7 +1055,7 @@
     ],
     "dependencies": [
       "rdkit",
-      "PyQt6"
+      "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/Psi4_Input_Generator/psi4_input_generator.py",
     "lastUpdated": "2026-10-19",
@@ -1084,7 +1084,7 @@
     ],
     "dependencies": [
       "rdkit",
-      "PyQt6"
+      "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/Molecule_Comparator/molecule_comparator.py",
     "lastUpdated": "2026-10-19",
@@ -1113,7 +1113,7 @@
     ],
     "dependencies": [
       "rdkit",
-      "PyQt6"
+      "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/NWChem_Input_Generator/nwchem_input_generator.py",
     "lastUpdated": "2026-10-19",
@@ -1142,7 +1142,7 @@
     ],
     "dependencies": [
       "rdkit",
-      "PyQt6"
+      "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/XYZ_Editor/xyz_editor.py",
     "lastUpdated": "2026-10-19",
@@ -1213,22 +1213,22 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "OpenBabel Conversion Tool",
-    "version": "2026.10.19",
+    "version": "2026.10.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "Import various chemical file formats using OpenBabel with multi-molecule support.",
+    "description": "Import various chemical file formats using OpenBabel with multi-molecule support. Requires Python-installed MoleditPy; portable and frozen bundles are unsupported.",
     "tags": [
       "File",
       "Utility"
     ],
     "dependencies": [
-      "openbabel-wheel"
+      "openbabel>=3.2.1,<3.3"
     ],
     "downloadUrl": "../plugins/OpenBabel_Conversion_Tool/openbabel_conversion_tool.py",
-    "lastUpdated": "2026-10-19",
-    "sha256": "4b662ecc2f7dd4dcf02a3d8a163323ec074c1286a52fb394e66daa9dce4cbe68",
+    "lastUpdated": "2026-10-20",
+    "sha256": "aceb15abbf4111d76b15de7908a6a21f7756d1ae0d7e747357d460f44b923edb",
     "firstAppeared": "2026-01-10",
-    "supported_python_version": ">=3.9, <3.15",
+    "supported_python_version": ">=3.10, <3.15",
     "supported_os": [
       "Windows",
       "macOS",
@@ -1275,7 +1275,7 @@
     ],
     "dependencies": [
       "rdkit",
-      "PyQt6"
+      "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/Compound_Info_Report/compound_info_report.py",
     "lastUpdated": "2026-10-19",
@@ -1308,7 +1308,7 @@
       "rdkit",
       "numpy",
       "pyvista",
-      "PyQt6"
+      "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/Gaussian_MO_Analyzer/gaussian_fchk_mo_analyzer.zip",
     "lastUpdated": "2026-10-19",
@@ -1336,7 +1336,7 @@
       "Utility"
     ],
     "dependencies": [
-      "PyQt6"
+      "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/Gaussian_FCHK_Loader/gaussian_fchk_loader.py",
     "lastUpdated": "2026-10-19",
@@ -1363,7 +1363,7 @@
       "Utility"
     ],
     "dependencies": [
-      "PyQt6"
+      "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/Settings_Saver/settings_saver.py",
     "lastUpdated": "2026-10-19",
@@ -1391,7 +1391,7 @@
     ],
     "dependencies": [
       "rdkit",
-      "PyQt6"
+      "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/Structural_Updater/structural_updater.py",
     "lastUpdated": "2026-10-19",
@@ -1458,7 +1458,7 @@
       "pyvista",
       "numpy",
       "matplotlib",
-      "PyQt6"
+      "PySide6-Essentials"
     ],
     "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_nmr_predicator_nmrshiftdb2/releases/download/v3.0.0/nmr_predicator_nmrshiftdb2_3.0.0.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_nmr_predicator_nmrshiftdb2",
@@ -1490,7 +1490,7 @@
       "rdkit",
       "pyvista",
       "numpy",
-      "PyQt6"
+      "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer_Advanced/cube_viewer_advanced.py",
     "lastUpdated": "2026-10-19",
@@ -1518,7 +1518,7 @@
     ],
     "dependencies": [
       "pyvista",
-      "PyQt6",
+      "PySide6-Essentials",
       "numpy"
     ],
     "downloadUrl": "../plugins/Advanced_Rendering/advanced_rendering.py",
@@ -1548,7 +1548,7 @@
     ],
     "dependencies": [
       "pyvista",
-      "PyQt6"
+      "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/High_Resolution_Imager/high_res_imager.py",
     "lastUpdated": "2026-10-19",
@@ -1578,7 +1578,7 @@
     "dependencies": [
       "rdkit",
       "numpy",
-      "PyQt6"
+      "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/Blender_Export/blender_export.py",
     "lastUpdated": "2026-10-19",
@@ -1638,7 +1638,7 @@
     ],
     "dependencies": [
       "rdkit",
-      "PyQt6"
+      "PySide6-Essentials"
     ],
     "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_reaction_sketcher_plugin/releases/download/v4.0.0/reaction_sketcher_4.0.0.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_reaction_sketcher_plugin",
@@ -1696,7 +1696,7 @@
     ],
     "dependencies": [
       "rdkit",
-      "PyQt6",
+      "PySide6-Essentials",
       "numpy"
     ],
     "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_3d-molecule-on-2d/releases/download/v4.0.0/3d_molecule_on_2d.py",
@@ -1727,7 +1727,7 @@
     ],
     "dependencies": [
       "rdkit",
-      "PyQt6"
+      "PySide6-Essentials"
     ],
     "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/releases/download/v4.0.0/orca_input_generator_pro_4.0.0.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro",
@@ -1757,7 +1757,7 @@
     ],
     "dependencies": [
       "rdkit",
-      "PyQt6"
+      "PySide6-Essentials"
     ],
     "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_nics_placer/releases/download/v3.0.0/nics_placer_3.0.0.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_nics_placer",
@@ -1845,7 +1845,7 @@
     ],
     "dependencies": [
       "pyvista",
-      "PyQt6",
+      "PySide6-Essentials",
       "Pillow"
     ],
     "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_rotation_giffer/releases/download/v2.0.0/rotation_giffer.py",
@@ -1903,7 +1903,7 @@
     ],
     "dependencies": [
       "rdkit",
-      "PyQt6"
+      "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/Dummy_Atom_Mode/dummy_atom_mode.py",
     "lastUpdated": "2026-10-19",
@@ -2096,7 +2096,7 @@
     ],
     "dependencies": [
       "rdkit",
-      "PyQt6",
+      "PySide6-Essentials",
       "pyvista",
       "numpy"
     ],
@@ -2126,7 +2126,7 @@
     ],
     "dependencies": [
       "rdkit",
-      "PyQt6",
+      "PySide6-Essentials",
       "pyvista",
       "numpy"
     ],
@@ -2186,7 +2186,7 @@
       "Visualization"
     ],
     "dependencies": [
-      "PyQt6",
+      "PySide6-Essentials",
       "numpy",
       "pyvista"
     ],
