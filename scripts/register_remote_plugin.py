@@ -325,7 +325,7 @@ def main():
     tag = url_info["tag"]
     filename = url_info["filename"]
     
-    print(f"GitHub Release Details:")
+    print("GitHub Release Details:")
     print(f"  Owner:    {owner}")
     print(f"  Repo:     {repo}")
     print(f"  Tag:      {tag}")
@@ -449,7 +449,7 @@ def main():
         )
         sys.exit(1)
         
-    print(f"Metadata extracted successfully:")
+    print("Metadata extracted successfully:")
     print(f"  Name:        {meta.get('name')}")
     print(f"  Version:     {code_version}")
     print(f"  Author:      {meta.get('author')}")
@@ -675,7 +675,7 @@ def main():
         with open(registry_path, "w", encoding="utf-8", newline="\n") as f:
             json.dump(plugins, f, indent=2, ensure_ascii=False)
             f.write("\n")
-        print(f"Successfully saved changes to REGISTRY/plugins.json!")
+        print("Successfully saved changes to REGISTRY/plugins.json!")
     
     # 7. Write outputs to GitHub Actions environment if present
     if "GITHUB_OUTPUT" in os.environ:

@@ -17,10 +17,8 @@ leaves undeclared:
 """
 
 import argparse
-import datetime
 import json
 import os
-import re
 import sys
 import tempfile
 import urllib.request
@@ -30,8 +28,6 @@ from license_metadata import resolve_license
 # Import helpers from register_remote_plugin
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from register_remote_plugin import (
-    DEFAULT_OS_LIST,
-    DEFAULT_PYTHON_SPEC,
     _set_after,
     canonicalize_os_list,
     extract_metadata_from_file,
