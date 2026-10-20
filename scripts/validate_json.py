@@ -8,6 +8,7 @@ Usage:
 import json
 import sys
 import os
+from license_metadata import normalize_license
 
 def validate_json(file_path):
     print(f"Validating {file_path}...")
@@ -48,6 +49,15 @@ def validate_json(file_path):
             if plugin.get("visible") is True and not plugin.get("supported_moleditpy_version"):
                 print(f"Error at index {index} ({plugin_id}): Visible plugin is missing 'supported_moleditpy_version'")
                 errors += 1
+
+            # Conflict checks
+            if "license" in plugin:
+                try:
+                    if normalize_license(plugin["license"]) is None:
+                        raise ValueError("license is empty")
+                except ValueError as exc:
+                    print(f"Error at index {index} ({plugin_id}): {exc}")
+                    errors += 1
 
             # Conflict checks
             if plugin_id:

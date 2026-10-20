@@ -11,6 +11,10 @@ on:
         description: 'Plugin ID (optional, derived from the file name if adding a new plugin)'
         required: false
         type: string
+      license:
+        description: 'License SPDX identifier/expression (optional; PLUGIN_LICENSE in code wins)'
+        required: false
+        type: string
       tags:
         description: 'Comma-separated tags (e.g., Visualization, Analysis) — used only when the code does not declare it as PLUGIN_TAGS'
         required: false
@@ -82,6 +86,7 @@ jobs:
         env:
           RELEASE_URL: ${{ github.event.inputs.release_url }}
           PLUGIN_ID: ${{ github.event.inputs.plugin_id }}
+          LICENSE_VALUE: ${{ github.event.inputs.license }}
           TAGS: ${{ github.event.inputs.tags }}
           DEPS: ${{ github.event.inputs.dependencies }}
           OPT_DEPS: ${{ github.event.inputs.optional_dependencies }}
@@ -93,43 +98,44 @@ jobs:
           SUPPORTED_PYTHON: ${{ github.event.inputs.supported_python }}
           ALLOW_SAME_VERSION: ${{ github.event.inputs.allow_same_version }}
         run: |
-          ARGS=""
+          args=("$RELEASE_URL")
           if [ -n "$PLUGIN_ID" ]; then
-            ARGS="$ARGS --id \"$PLUGIN_ID\""
+            args+=(--id "$PLUGIN_ID")
+          fi
+          if [ -n "$LICENSE_VALUE" ]; then
+            args+=(--license "$LICENSE_VALUE")
           fi
           if [ -n "$TAGS" ]; then
-            ARGS="$ARGS --tags \"$TAGS\""
-          fi
-          if [ -n "$DEPS" ]; then
-            ARGS="$ARGS --dependencies \"$DEPS\""
-          fi
-          if [ -n "$OPT_DEPS" ]; then
-            ARGS="$ARGS --optional-dependencies \"$OPT_DEPS\""
-          fi
-          if [ -n "$VISIBLE" ]; then
-            ARGS="$ARGS --visible \"$VISIBLE\""
-          fi
-          if [ -n "$EXPECTED_SHA" ]; then
-            ARGS="$ARGS --expected-sha256 \"$EXPECTED_SHA\""
-          fi
-          if [ "$DRY_RUN" = "true" ]; then
-            ARGS="$ARGS --dry-run"
-          fi
-          if [ -n "$DATE" ]; then
-            ARGS="$ARGS --date \"$DATE\""
+            args+=(--tags "$TAGS")
           fi
           if [ -n "$SUPPORTED_VERSION" ]; then
-            ARGS="$ARGS --supported-version \"$SUPPORTED_VERSION\""
+            args+=(--supported-version "$SUPPORTED_VERSION")
           fi
           if [ -n "$SUPPORTED_PYTHON" ]; then
-            ARGS="$ARGS --supported-python \"$SUPPORTED_PYTHON\""
+            args+=(--supported-python "$SUPPORTED_PYTHON")
+          fi
+          if [ -n "$DEPS" ]; then
+            args+=(--dependencies "$DEPS")
+          fi
+          if [ -n "$OPT_DEPS" ]; then
+            args+=(--optional-dependencies "$OPT_DEPS")
+          fi
+          if [ -n "$VISIBLE" ]; then
+            args+=(--visible "$VISIBLE")
+          fi
+          if [ -n "$EXPECTED_SHA" ]; then
+            args+=(--expected-sha256 "$EXPECTED_SHA")
+          fi
+          if [ -n "$DATE" ]; then
+            args+=(--date "$DATE")
+          fi
+          if [ "$DRY_RUN" = "true" ]; then
+            args+=(--dry-run)
           fi
           if [ "$ALLOW_SAME_VERSION" = "true" ]; then
-            ARGS="$ARGS --allow-same-version"
+            args+=(--allow-same-version)
           fi
-          
-          # Execute the python script with the safely built arguments list
-          eval "python scripts/register_remote_plugin.py \"$RELEASE_URL\" $ARGS"
+          python scripts/register_remote_plugin.py "${args[@]}"
 
       - name: Install test dependencies
         run: pip install pytest

@@ -25,6 +25,7 @@ import sys
 import tempfile
 import urllib.request
 from pathlib import Path
+from license_metadata import resolve_license
 
 # Import helpers from register_remote_plugin
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -53,6 +54,7 @@ def update_metadata_only(
     visible: str | None = None,
     sync_all_from_code: bool = True,
     dry_run: bool = False,
+    plugin_license: str | None = None,
 ) -> dict:
     """Updates metadata fields of an existing plugin in plugins.json from URL or CLI flags."""
     url_info = parse_github_release_url(release_url)
@@ -182,6 +184,14 @@ def update_metadata_only(
         existing_entry["supported_os"] = new_os
         changed_fields.append("supported_os")
 
+    new_license = resolve_license(
+        code_meta.get("license") if sync_all_from_code else None,
+        plugin_license, existing_entry.get("license"),
+    )
+    if existing_entry.get("license") != new_license:
+        existing_entry["license"] = new_license
+        changed_fields.append("license")
+
     if changed_fields:
         print(f"Updated fields for '{existing_entry.get('name')}': {', '.join(changed_fields)}")
     else:
@@ -209,6 +219,7 @@ def main():
     parser.add_argument("release_url", help="GitHub Release file URL (.zip or .py)")
     parser.add_argument("--id", dest="plugin_id", help="Plugin ID (optional, matched by repository or filename if omitted)")
     parser.add_argument("--tags", help="Comma-separated tags, used only when the code declares no PLUGIN_TAGS.")
+    parser.add_argument("--license", dest="plugin_license", help="License SPDX identifier/expression, used when PLUGIN_LICENSE is absent")
     parser.add_argument("--description", help="Description, used only when the code declares no PLUGIN_DESCRIPTION.")
     parser.add_argument("--name", help="Plugin name, used only when the code declares no PLUGIN_NAME.")
     parser.add_argument("--supported-version", dest="supported_version", help="Supported MoleditPy version spec")
@@ -234,6 +245,7 @@ def main():
         optional_dependencies=args.optional_dependencies,
         visible=args.visible,
         dry_run=args.dry_run,
+        plugin_license=args.plugin_license,
     )
 
     if "GITHUB_OUTPUT" in os.environ:

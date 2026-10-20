@@ -23,12 +23,14 @@ import zipfile
 from pathlib import Path
 
 from qt_dependency_metadata import normalize_inherited_qt_dependencies
+from license_metadata import resolve_license
 
 # Match metadata constants in python files
 PLUGIN_NAME_RE = re.compile(r"^\s*PLUGIN_NAME\s*=\s*(['\"])(?P<val>.*?)\1", re.MULTILINE)
 PLUGIN_VERSION_RE = re.compile(r"^\s*PLUGIN_VERSION\s*=\s*(['\"])(?P<val>.*?)\1", re.MULTILINE)
 PLUGIN_AUTHOR_RE = re.compile(r"^\s*PLUGIN_AUTHOR\s*=\s*(['\"])(?P<val>.*?)\1", re.MULTILINE)
 PLUGIN_DESCRIPTION_RE = re.compile(r"^\s*PLUGIN_DESCRIPTION\s*=\s*(['\"])(?P<val>.*?)\1", re.MULTILINE)
+PLUGIN_LICENSE_RE = re.compile(r"^\s*PLUGIN_LICENSE\s*=\s*(['\"])(?P<val>.*?)\1", re.MULTILINE)
 PLUGIN_TAGS_RE = re.compile(r"^\s*PLUGIN_TAGS\s*=\s*(?P<val>.*?)\s*$", re.MULTILINE)
 PLUGIN_DEPENDENCIES_RE = re.compile(r"^\s*PLUGIN_DEPENDENCIES\s*=\s*(?P<val>.*?)\s*$", re.MULTILINE)
 PLUGIN_OPTIONAL_DEPENDENCIES_RE = re.compile(r"^\s*PLUGIN_OPTIONAL_DEPENDENCIES\s*=\s*(?P<val>.*?)\s*$", re.MULTILINE)
@@ -130,6 +132,7 @@ def extract_metadata_from_code_regex(code_text: str) -> dict:
         ("version", PLUGIN_VERSION_RE),
         ("author", PLUGIN_AUTHOR_RE),
         ("description", PLUGIN_DESCRIPTION_RE),
+        ("license", PLUGIN_LICENSE_RE),
     ]:
         match = regex.search(code_text)
         if match:
@@ -173,7 +176,7 @@ def extract_metadata_from_code(code_text: str) -> dict:
             if isinstance(node, ast.Assign):
                 for target in node.targets:
                     if isinstance(target, ast.Name) and target.id in [
-                        "PLUGIN_NAME", "PLUGIN_VERSION", "PLUGIN_AUTHOR", "PLUGIN_DESCRIPTION", "PLUGIN_TAGS", "PLUGIN_DEPENDENCIES", "PLUGIN_OPTIONAL_DEPENDENCIES", "PLUGIN_SUPPORTED_MOLEDITPY_VERSION", "PLUGIN_SUPPORTED_PYTHON_VERSION", "PLUGIN_SUPPORTED_OS"
+                        "PLUGIN_NAME", "PLUGIN_VERSION", "PLUGIN_AUTHOR", "PLUGIN_DESCRIPTION", "PLUGIN_TAGS", "PLUGIN_DEPENDENCIES", "PLUGIN_OPTIONAL_DEPENDENCIES", "PLUGIN_SUPPORTED_MOLEDITPY_VERSION", "PLUGIN_SUPPORTED_PYTHON_VERSION", "PLUGIN_SUPPORTED_OS", "PLUGIN_LICENSE"
                     ]:
                         try:
                             val = ast.literal_eval(node.value)
@@ -185,6 +188,8 @@ def extract_metadata_from_code(code_text: str) -> dict:
                                 meta["author"] = str(val).strip()
                             elif target.id == "PLUGIN_DESCRIPTION":
                                 meta["description"] = str(val).strip()
+                            elif target.id == "PLUGIN_LICENSE":
+                                meta["license"] = val
                             elif target.id == "PLUGIN_SUPPORTED_MOLEDITPY_VERSION":
                                 meta["supported_moleditpy_version"] = str(val).strip()
                             elif target.id == "PLUGIN_SUPPORTED_PYTHON_VERSION":
@@ -294,6 +299,7 @@ def main():
     parser.add_argument("release_url", help="GitHub Release file URL")
     parser.add_argument("--id", dest="plugin_id", help="Plugin ID (optional, derived for new plugins if omitted)")
     parser.add_argument("--tags", help="Comma-separated tags, used only when the code declares no PLUGIN_TAGS.")
+    parser.add_argument("--license", dest="plugin_license", help="License SPDX identifier/expression, used when PLUGIN_LICENSE is absent")
     parser.add_argument("--dependencies", help="Comma-separated dependencies for new plugins")
     parser.add_argument("--optional-dependencies", dest="optional_dependencies", help="Comma-separated optional dependencies (packages that unlock extra features but are not needed to run the plugin)")
     parser.add_argument("--visible", default=None, help="Set visibility of the plugin (new plugins default to true; for an existing plugin the current value is kept unless this is passed)")
@@ -651,6 +657,9 @@ def main():
         plugin_name = meta["name"]
         target_entry = new_entry
         
+    target_entry["license"] = resolve_license(
+        meta.get("license"), args.plugin_license, target_entry.get("license")
+    )
     if meta.get("dependencies") is None:
         normalize_inherited_qt_dependencies(target_entry)
 
