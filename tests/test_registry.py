@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 REGISTRY_PATH = ROOT / "REGISTRY" / "plugins.json"
 PLUGINS_DIR = ROOT / "plugins"
 
-REQUIRED_FIELDS = ["name", "version", "description", "downloadUrl", "sha256", "supported_moleditpy_version", "supported_python_version", "supported_os"]
+REQUIRED_FIELDS = ["name", "version", "description", "downloadUrl", "sha256", "supported_moleditpy_version", "supported_python_version", "supported_os", "license"]
 
 # Canonical OS tokens. "WSL" means Windows support exists only through the
 # Windows Subsystem for Linux, never natively.

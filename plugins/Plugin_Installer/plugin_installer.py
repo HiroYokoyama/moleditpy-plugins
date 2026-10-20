@@ -45,7 +45,7 @@ import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.10.20"
+PLUGIN_VERSION = "2026.10.21"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_SUPPORTED_PYTHON_VERSION = ">=3.9, <3.15"
 PLUGIN_SUPPORTED_OS = ["Windows", "macOS", "Linux", "WSL"]
@@ -709,6 +709,7 @@ class PluginDetailsDialog(QDialog):
         supported_os=None,
         optional_dependencies=None,
         project_url=None,
+        plugin_license=None,
     ):
         super().__init__(parent)
         self.setWindowTitle(f"{name} - Details")
@@ -723,6 +724,12 @@ class PluginDetailsDialog(QDialog):
         lbl_name = QLabel(f"<h2>{name}</h2>")
         lbl_author = QLabel(f"<b>Author:</b> {author}")
         lbl_ver = QLabel(f"<b>Version:</b> {version}")
+        license_text = str(plugin_license or "").strip()
+        if not license_text or license_text == "NOASSERTION":
+            license_text = "Not specified"
+        lbl_license = QLabel(f"<b>License:</b> {html.escape(str(license_text))}")
+        lbl_license.setWordWrap(True)
+        lbl_license.setToolTip("Plugin code license. Dependencies may have different terms; see the project notices.")
         lbl_supported = QLabel(
             f"<b>Supported MoleditPy:</b> {html.escape(str(supported_version))}"
         )
@@ -742,6 +749,7 @@ class PluginDetailsDialog(QDialog):
         layout.addWidget(lbl_name)
         layout.addWidget(lbl_author)
         layout.addWidget(lbl_ver)
+        layout.addWidget(lbl_license)
         layout.addWidget(lbl_supported)
         layout.addWidget(lbl_supported_py)
         layout.addWidget(lbl_supported_os)
@@ -1783,6 +1791,7 @@ class PluginInstallerWindow(QDialog):
             supported_os,
             optional_dependencies,
             project_url=_project_page_url(remote_info),
+            plugin_license=remote_info.get("license") if remote_info else None,
         )
         dialog.exec()
 
@@ -1939,6 +1948,7 @@ class PluginInstallerWindow(QDialog):
                         supported_os,
                         optional_dependencies,
                         project_url=_project_page_url(remote_info),
+                        plugin_license=remote_info.get("license") if remote_info else None,
                     )
                     dialog.exec()
                     return
@@ -2304,6 +2314,7 @@ class PluginInstallerWindow(QDialog):
                         supported_os,
                         optional_dependencies,
                         project_url=_project_page_url(remote_info),
+                        plugin_license=remote_info.get("license") if remote_info else None,
                     )
                     dialog.exec()
                 elif not self._batch_updating:

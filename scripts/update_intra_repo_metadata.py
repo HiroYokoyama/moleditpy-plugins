@@ -22,6 +22,7 @@ import sys
 from pathlib import Path
 
 from qt_dependency_metadata import normalize_inherited_qt_dependencies
+from license_metadata import normalize_license
 
 
 PLUGIN_VERSION_RE = re.compile(r"^\s*PLUGIN_VERSION\s*=\s*(['\"])(?P<version>.+?)\1", re.MULTILINE)
@@ -141,6 +142,7 @@ DISPLAY_CONSTANTS = {
     "PLUGIN_TAGS": "tags",
     "PLUGIN_DEPENDENCIES": "dependencies",
     "PLUGIN_SUPPORTED_OS": "supported_os",
+    "PLUGIN_LICENSE": "license",
 }
 # List fields where a declared empty list is meaningful ("needs nothing").
 EMPTY_LIST_ALLOWED = {"dependencies"}
@@ -177,6 +179,8 @@ def _read_display_metadata(path: Path) -> dict:
             value = value.strip()
         else:
             continue
+        if key == "license":
+            value = normalize_license(value)
         if value or (key in EMPTY_LIST_ALLOWED and value == []):
             found[key] = value
     return found

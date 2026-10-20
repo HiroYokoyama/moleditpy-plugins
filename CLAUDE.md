@@ -129,6 +129,7 @@ PLUGIN_SUPPORTED_OS = ["Windows", "macOS", "Linux", "WSL"]  # optional; declare 
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_NAME = "My Plugin"
 PLUGIN_DESCRIPTION = "One-line description."
+PLUGIN_LICENSE = "LGPL-3.0-or-later"              # optional: actual plugin-code SPDX license
 PLUGIN_DEPENDENCIES = ["numpy"]                   # optional; packages the plugin cannot run without
 PLUGIN_OPTIONAL_DEPENDENCIES = ["matplotlib"]     # optional; extra-feature packages, install never gated on them
 ```
@@ -178,6 +179,14 @@ Some `initialize()` plugins legitimately have no menu entry:
 Full API: `python_molecular_editor/docs/PLUGIN_DEVELOPMENT_MANUAL_V5.md`
 
 ## Test Infrastructure (`tests/conftest.py`)
+
+License metadata: `PLUGIN_LICENSE` is optional. Sync it into registry `license`
+when declared, otherwise preserve the curated registry value. Workflows also
+accept a `license` input for code that omits it. New unconfirmed entries use
+`NOASSERTION`, displayed as "Not specified". Do not add license constants across
+existing plugin sources just to populate the registry; use
+`scripts/update_registry_licenses.py --set id=SPDX` after reviewing their notices.
+The value describes first-party plugin code, not every dependency or data file.
 
 | Symbol | Purpose |
 |---|---|
