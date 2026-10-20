@@ -75,6 +75,15 @@ def initialize(context):
 
 For a new plugin, start from the [plugin template repository](https://github.com/HiroYokoyama/moleditpy-plugin-template), which includes headless tests, an API check against the application source, and a release workflow. The full API is in the [Plugin Development Manual (V5)](https://github.com/HiroYokoyama/python_molecular_editor/blob/main/docs/PLUGIN_DEVELOPMENT_MANUAL_V5.md). To list your plugin in the Explorer, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
+Plugin license information appears in the Explorer and Plugin Installer details.
+New plugins can declare `PLUGIN_LICENSE = "LGPL-3.0-or-later"` (or their actual
+SPDX license identifier/expression) for automatic registry updates. Existing
+plugins can keep their source unchanged: maintainers record the documented
+license in the registry, and subsequent updates preserve it when no constant is
+declared. Unconfirmed licenses display as **Not specified**. The value describes
+plugin code; dependencies, bundled data and additional permissions retain their
+own terms. See [license metadata rules](CONTRIBUTING.md#license-metadata).
+
 ## Citation
 
 If you use a plugin in your work, please cite it. Which DOI to cite depends on where the plugin lives:

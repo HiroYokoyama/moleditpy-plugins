@@ -22,7 +22,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "xtb_optimizer",
@@ -50,7 +51,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "all-trans_optimizer",
@@ -77,7 +79,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "animated_xyz_giffer",
@@ -105,7 +108,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "animated_xyz_player",
@@ -150,7 +154,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "conformational_search",
@@ -177,7 +182,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "cube_file_viewer",
@@ -206,7 +212,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "gaussian_input_generator",
@@ -306,7 +313,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "console",
@@ -334,7 +342,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "atom_colorizer",
@@ -364,7 +373,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "bond_colorizer",
@@ -394,7 +404,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "dark_mode_theme",
@@ -421,7 +432,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "gaussian_input_generator_neo",
@@ -472,7 +484,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "mapped_cube_viewer",
@@ -503,7 +516,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "orca_input_generator_neo",
@@ -584,7 +598,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "elemental_analysis",
@@ -612,7 +627,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "gaussian_freq_analyzer",
@@ -644,7 +660,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "orca_freq_analyzer",
@@ -676,7 +693,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "paste_xyz",
@@ -701,7 +719,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "version_checker",
@@ -727,7 +746,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Plugin Installer",
-    "version": "2026.10.20",
+    "version": "2026.10.21",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Checks for updates, installs new plugins, and allows manual reinstallation.",
@@ -738,8 +757,8 @@
       "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/Plugin_Installer/plugin_installer.py",
-    "lastUpdated": "2026-10-20",
-    "sha256": "4d91b7b9245751525807e13b76012b8d0c24ed1f4f2f84bf6f5b399a4abf0170",
+    "lastUpdated": "2026-10-21",
+    "sha256": "2e02b905e06e8fafee190914073457d316d3e94df1aa369fe66ea6c5214a3512",
     "firstAppeared": "2026-01-04",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -747,7 +766,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "chat_with_molecule",
@@ -801,7 +821,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "pubchem_structure_identifier",
@@ -829,7 +850,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "chat_with_molecule_neo_chatgpt",
@@ -860,7 +882,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "chat_with_molecule_neo_local",
@@ -891,7 +914,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "symmetry_analyzer",
@@ -920,7 +944,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "vector_viewer",
@@ -950,7 +975,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "mopac_input_generator",
@@ -979,7 +1005,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "gamess_input_generator",
@@ -1008,7 +1035,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "pyscf_input_generator",
@@ -1038,7 +1066,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "psi4_input_generator",
@@ -1067,7 +1096,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "molecule_comparator",
@@ -1096,7 +1126,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "nwchem_input_generator",
@@ -1125,7 +1156,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "xyz_editor",
@@ -1154,7 +1186,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "hello_world_folder",
@@ -1206,7 +1239,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "GPL-3.0-only"
   },
   {
     "id": "openbabel_conversion_tool",
@@ -1234,7 +1268,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "GPL-3.0-only"
   },
   {
     "id": "paste_from_chemdraw",
@@ -1259,7 +1294,8 @@
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
       "Windows"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "compound_info_report",
@@ -1287,7 +1323,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "gaussian_mo_analyzer",
@@ -1320,7 +1357,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "gaussian_fchk_loader",
@@ -1348,7 +1386,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "settings_saver",
@@ -1375,7 +1414,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "structural_updater",
@@ -1403,7 +1443,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "orca_result_analyzer",
@@ -1439,7 +1480,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "nmr_predictor_nmrshiftdb2",
@@ -1471,7 +1513,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "GPL-3.0-only"
   },
   {
     "id": "cube_file_viewer_advanced",
@@ -1502,7 +1545,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "advanced_rendering",
@@ -1531,7 +1575,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "high_res_imager",
@@ -1560,7 +1605,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "blender_export",
@@ -1590,7 +1636,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "povray_export",
@@ -1620,7 +1667,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "reaction_sketcher",
@@ -1651,7 +1699,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "encrypted_project",
@@ -1679,7 +1728,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "3d_molecule_on_2d",
@@ -1710,7 +1760,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "orca_input_generator_pro",
@@ -1740,7 +1791,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "nics_placer",
@@ -1770,7 +1822,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "molibrary",
@@ -1796,7 +1849,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "cif_viewer",
@@ -1828,7 +1882,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "rotation_giffer",
@@ -1858,7 +1913,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "strain_homodesmotic_reaction_generator",
@@ -1887,7 +1943,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "dummy_atom_mode",
@@ -1915,7 +1972,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "decimer_plugin",
@@ -1945,7 +2003,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "blender_export_pro",
@@ -1971,7 +2030,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "pmeff_plugin",
@@ -2000,7 +2060,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "mcp_server",
@@ -2026,7 +2087,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "gaussian_input_generator_pro",
@@ -2053,7 +2115,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "step_optimizer",
@@ -2080,7 +2143,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "bond_editor",
@@ -2110,7 +2174,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "charge_editor",
@@ -2140,7 +2205,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "auto_rotator",
@@ -2170,7 +2236,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "orbital_comparator",
@@ -2200,7 +2267,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "orca_nics_analyzer",
@@ -2232,7 +2300,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "vasp_input_generator",
@@ -2263,7 +2332,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "qe_input_generator",
@@ -2294,7 +2364,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "cp2k_input_generator",
@@ -2325,7 +2396,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "slab_builder",
@@ -2355,7 +2427,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "job_manager",
@@ -2385,7 +2458,8 @@
       "Linux",
       "WSL"
     ],
-    "supported_python_version": ">=3.9, <3.15"
+    "supported_python_version": ">=3.9, <3.15",
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "group_template",
@@ -2414,7 +2488,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "opsin_name_to_structure",
@@ -2442,7 +2517,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "camera_position_setter",
@@ -2473,7 +2549,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "functional_group_replacer_3d",
@@ -2502,7 +2579,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "reshiki_importer",
@@ -2528,7 +2606,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "molecule_styler",
@@ -2558,7 +2637,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "nmr_predictor_cascade",
@@ -2586,7 +2666,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "pets_in_editor",
@@ -2612,7 +2693,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   },
   {
     "id": "openbabel_optimizer",
@@ -2640,7 +2722,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "GPL-3.0-or-later"
   },
   {
     "id": "crash_traceback_logger",
@@ -2666,6 +2749,7 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "license": "LGPL-3.0-or-later"
   }
 ]

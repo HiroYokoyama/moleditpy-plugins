@@ -42,8 +42,9 @@ A plugin should define its metadata constants and an `initialize` function:
 PLUGIN_NAME = "My Plugin"
 PLUGIN_VERSION = "1.0.0"
 PLUGIN_AUTHOR = "YourGitHubUsername"                  # Must match your GitHub username
+PLUGIN_LICENSE = "LGPL-3.0-or-later"                  # Your plugin's actual license; SPDX identifier/expression
 PLUGIN_DESCRIPTION = "Brief description of what the plugin does."
-PLUGIN_SUPPORTED_MOLEDITPY_VERSION = "3.*"             # Optional: parsed automatically by script
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"  # Parsed automatically by script
 PLUGIN_SUPPORTED_PYTHON_VERSION = ">=3.10, <3.15"       # Optional: parsed automatically by script; visible plugins default to ">=3.10, <3.15" when omitted
 PLUGIN_SUPPORTED_OS = ["Windows", "macOS", "Linux", "WSL"]  # Optional: only declare it when the plugin is OS-restricted
 PLUGIN_TAGS = ["Visualization", "Utility"]             # Optional: parsed automatically by script
@@ -56,6 +57,29 @@ def initialize(context):
 ```
 
 ## Contribution Workflow
+
+### License metadata
+
+`PLUGIN_LICENSE` is optional and describes the plugin's own code. Use an SPDX
+identifier or expression, such as `MIT`, `LGPL-3.0-or-later` or
+`MIT OR Apache-2.0`, matching the license documents you distribute. This metadata
+does not change the license or cover separately licensed dependencies and data.
+
+Registration and metadata workflows use **code constant → workflow `license`
+input → existing registry value → `NOASSERTION`**. `NOASSERTION` is displayed as
+**Not specified**. Existing plugins do not need a source change or new release:
+maintainers can populate the registry from their existing license documents.
+Missing or blank constants never erase a stored license. A later release with
+an explicit constant updates it automatically, including on auto-registration.
+
+For reviewed registry-only changes (without downloading or modifying plugins):
+
+```sh
+python scripts/update_registry_licenses.py --set my_plugin_id=MIT
+```
+
+Multiple `--set` arguments are supported. This only changes `license`, leaving
+release versions, hashes, URLs and dates intact; retired entries stay unchanged.
 
 Contributions are handled differently depending on whether the plugin's source code is hosted inside this repository (intra-repo) or externally (inter-repo).
 
@@ -111,6 +135,7 @@ The `REGISTRY/plugins.json` file is the registry that the application uses to di
 - `name`: **Critical Identifier**. This must be unique across all plugins. It is used as the primary identifier by the application for indexing, updates, and UI display.
 - `version`: Version string (e.g., `2026.02.18` or `1.0.0`).
 - `author`: Your GitHub username (must match your release repository owner).
+- `license`: SPDX identifier/expression for the plugin code, or `NOASSERTION` when unconfirmed. Dependencies may have different licenses; consult the plugin's own notices. Automatically synchronized from `PLUGIN_LICENSE` when declared; otherwise curated registry values are retained.
 - `authorUrl`: URL to your GitHub profile.
 - `projectUrl`: URL to the plugin's source code repository.
 - `description`: A clear, concise description.
@@ -137,6 +162,7 @@ When adding or updating a plugin, use the following structure:
   "name": "My Awesome Plugin",
   "version": "1.0.0",
   "author": "Your Name",
+  "license": "LGPL-3.0-or-later",
   "authorUrl": "https://github.com/YourUsername",
   "projectUrl": "https://github.com/YourUsername/my-awesome-plugin",
   "description": "A brief description of what your plugin does.",

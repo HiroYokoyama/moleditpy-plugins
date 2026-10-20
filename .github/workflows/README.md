@@ -38,6 +38,7 @@ When registering or updating a plugin, the entry in `REGISTRY/plugins.json` is g
 | `name` | **Code Constant** | Extracted from `PLUGIN_NAME` defined at the top of the downloaded `.py` or `__init__.py` file — on every version bump, not only at registration. |
 | `version` | **Code Constant** | Extracted from `PLUGIN_VERSION` in the code. Normalised to remove leading `v/V`. Checked for tag consistency. |
 | `author` | **Code Constant** | Extracted from `PLUGIN_AUTHOR` in the code. Must match the GitHub owner of the repository. |
+| `license` | **Code Constant / Input / Stored** | `PLUGIN_LICENSE` in the release asset wins; otherwise use the workflow `license` input, then preserve the existing registry value. A new entry without a confirmed value gets `NOASSERTION` (shown as Not specified). Existing plugin code needs no new constant. |
 | `authorUrl` | **Derived** | Generated automatically as `https://github.com/{owner}` where `{owner}` is parsed from the `release_url`. |
 | `projectUrl` | **Derived** | Generated automatically as `https://github.com/{owner}/{repo}` where `{owner}/{repo}` is parsed from the `release_url`. |
 | `description` | **Code Constant** | Extracted from `PLUGIN_DESCRIPTION` defined in the downloaded code — on every version bump, not only at registration. |
