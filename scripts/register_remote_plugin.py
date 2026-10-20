@@ -22,6 +22,8 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
+from qt_dependency_metadata import normalize_inherited_qt_dependencies
+
 # Match metadata constants in python files
 PLUGIN_NAME_RE = re.compile(r"^\s*PLUGIN_NAME\s*=\s*(['\"])(?P<val>.*?)\1", re.MULTILINE)
 PLUGIN_VERSION_RE = re.compile(r"^\s*PLUGIN_VERSION\s*=\s*(['\"])(?P<val>.*?)\1", re.MULTILINE)
@@ -649,6 +651,9 @@ def main():
         plugin_name = meta["name"]
         target_entry = new_entry
         
+    if meta.get("dependencies") is None:
+        normalize_inherited_qt_dependencies(target_entry)
+
     if args.dry_run:
         print("[Dry Run] Verification complete. Skipping writing modifications to registry.")
         print("[Dry Run] Proposed registry entry changes:")

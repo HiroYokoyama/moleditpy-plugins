@@ -2132,7 +2132,8 @@ class TestPythonVersionCheck:
         assert _re.fullmatch(r"\d+\.\d+\.\d+", PI.get_python_version())
 
     def test_constant_present(self):
-        assert PI.PLUGIN_SUPPORTED_PYTHON_VERSION == ">=3.10, <3.15"
+        assert PI.is_app_version_compatible("3.9.0", PI.PLUGIN_SUPPORTED_PYTHON_VERSION)
+        assert not PI.is_app_version_compatible("3.8.0", PI.PLUGIN_SUPPORTED_PYTHON_VERSION)
 
     def test_constant_matches_registry(self):
         registry = json.loads(
@@ -2147,8 +2148,8 @@ class TestPythonVersionCheck:
         )
 
     def test_default_spec_boundaries(self):
-        spec = ">=3.10, <3.15"
-        assert PI.is_app_version_compatible("3.9.0", spec) is False
+        spec = PI.PLUGIN_SUPPORTED_PYTHON_VERSION
+        assert PI.is_app_version_compatible("3.9.0", spec) is True
         assert PI.is_app_version_compatible("3.12.4", spec) is True
         assert PI.is_app_version_compatible("3.14.2", spec) is True
         assert PI.is_app_version_compatible("3.8.19", spec) is False
@@ -2156,7 +2157,7 @@ class TestPythonVersionCheck:
 
     def test_running_interpreter_compatible_with_default(self):
         assert (
-            PI.is_app_version_compatible(PI.get_python_version(), ">=3.10, <3.15")
+            PI.is_app_version_compatible(PI.get_python_version(), PI.PLUGIN_SUPPORTED_PYTHON_VERSION)
             is True
         )
 

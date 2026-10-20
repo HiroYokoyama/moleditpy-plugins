@@ -248,3 +248,14 @@ def test_registry_all_visible_have_python_spec():
     assert not visible_missing, (
         f"Visible entries missing supported_python_version: {visible_missing}"
     )
+
+
+def test_moleditpy5_plugins_do_not_request_the_retired_qt_binding():
+    stale = [
+        plugin["id"]
+        for plugin in _visible_plugins()
+        if plugin.get("supported_moleditpy_version", "").replace(" ", "")
+        == ">=5.0.0,<6.0.0"
+        and "PyQt6" in plugin.get("dependencies", [])
+    ]
+    assert not stale, f"MoleditPy 5 plugins still request PyQt6: {stale}"
