@@ -1213,22 +1213,22 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "OpenBabel Conversion Tool",
-    "version": "2026.10.19",
+    "version": "2026.10.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
-    "description": "Import various chemical file formats using OpenBabel with multi-molecule support.",
+    "description": "Import various chemical file formats using OpenBabel with multi-molecule support. Requires Python-installed MoleditPy; portable and frozen bundles are unsupported.",
     "tags": [
       "File",
       "Utility"
     ],
     "dependencies": [
-      "openbabel-wheel"
+      "openbabel>=3.2.1,<3.3"
     ],
     "downloadUrl": "../plugins/OpenBabel_Conversion_Tool/openbabel_conversion_tool.py",
-    "lastUpdated": "2026-10-19",
-    "sha256": "4b662ecc2f7dd4dcf02a3d8a163323ec074c1286a52fb394e66daa9dce4cbe68",
+    "lastUpdated": "2026-10-20",
+    "sha256": "aceb15abbf4111d76b15de7908a6a21f7756d1ae0d7e747357d460f44b923edb",
     "firstAppeared": "2026-01-10",
-    "supported_python_version": ">=3.9, <3.15",
+    "supported_python_version": ">=3.10, <3.15",
     "supported_os": [
       "Windows",
       "macOS",

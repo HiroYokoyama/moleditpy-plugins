@@ -10,10 +10,69 @@ import os
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from conftest import load_plugin, make_context, mock_optional_imports
+from conftest import load_plugin as _load_plugin, make_context, mock_optional_imports
 
 PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
 OBABEL_PATH = PLUGINS_DIR / "OpenBabel_Conversion_Tool" / "openbabel_conversion_tool.py"
+
+
+def load_plugin(path):
+    """Supply plain discovered formats for tests of the existing UI flows."""
+    mod = _load_plugin(path)
+    mod.pybel = MagicMock()
+    mod.OBABEL_AVAILABLE = True
+    return mod
+
+
+class TestNativeEngineIsolation:
+    def test_import_never_imports_native_engine(self):
+        import builtins
+        original_import = builtins.__import__
+
+        def guarded_import(name, *args, **kwargs):
+            assert name.split('.')[0] not in {'openbabel', 'pybel'}
+            return original_import(name, *args, **kwargs)
+
+        with mock_optional_imports(), patch('builtins.__import__', guarded_import):
+            mod = _load_plugin(OBABEL_PATH)
+        assert mod.OBABEL_AVAILABLE is None
+        assert mod.pybel.informats == {}
+
+    def test_format_discovery_uses_worker_once(self, tmp_path):
+        import json
+        with mock_optional_imports():
+            mod = _load_plugin(OBABEL_PATH)
+
+        def discover(script, args, parent):
+            assert script == mod._FORMAT_SCRIPT
+            Path(args[0]).write_text(json.dumps({
+                'informats': {'pdb': 'PDB'}, 'outformats': {'xyz': 'XYZ'},
+            }), encoding='utf-8')
+
+        with patch.object(mod, '_run_conversion', side_effect=discover) as worker:
+            assert mod._ensure_formats()
+            assert mod._ensure_formats()
+        worker.assert_called_once()
+        assert mod.pybel.informats == {'pdb': 'PDB'}
+        assert mod.pybel.outformats == {'xyz': 'XYZ'}
+
+    def test_worker_failure_disables_handlers(self):
+        with mock_optional_imports():
+            mod = _load_plugin(OBABEL_PATH)
+        ctx = make_context()
+        with patch.object(mod, '_run_conversion', side_effect=ValueError('native crash')):
+            mod.initialize(ctx)
+        assert mod.OBABEL_AVAILABLE is False
+        ctx.register_file_opener.assert_not_called()
+        ctx.register_drop_handler.assert_not_called()
+
+    def test_frozen_executable_never_recursively_launches_editor(self):
+        import pytest
+        mod = load_plugin(OBABEL_PATH)
+        with patch.object(mod.sys, 'frozen', True, create=True), patch.object(mod, 'QProcess') as process:
+            with pytest.raises(ValueError, match='Python-installed MoleditPy'):
+                mod._run_conversion('print(1)', [], None)
+        process.assert_not_called()
 
 
 class TestOpenBabelConversionTool:

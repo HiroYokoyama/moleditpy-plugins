@@ -22,6 +22,10 @@ OPENBABEL_PATH = PLUGINS_DIR / "OpenBabel_Conversion_Tool" / "openbabel_conversi
 with mock_chemistry_imports():
     _openbabel = load_plugin_for_gui(OPENBABEL_PATH)
 
+# Native format discovery is exercised separately; dialog tests use the plain
+# metadata the discovery worker returns rather than importing native Open Babel.
+_openbabel.OBABEL_AVAILABLE = True
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -97,6 +101,23 @@ class TestMoleculeSelectionDialog:
 
 
 class TestIsolatedConversion:
+    def test_format_discovery_worker_returns_plain_metadata(self, qapp, monkeypatch):
+        monkeypatch.setattr(_openbabel, 'OBABEL_AVAILABLE', None)
+        monkeypatch.setattr(_openbabel, '_FORMAT_SCRIPT', """
+import json, sys
+with open(sys.argv[1], 'w', encoding='utf-8') as handle:
+    json.dump({'informats': {'pdb': 'PDB'}, 'outformats': {'xyz': 'XYZ'}}, handle)
+"""
+        )
+        assert _openbabel._ensure_formats()
+        assert _openbabel.pybel.informats == {'pdb': 'PDB'}
+        assert _openbabel.pybel.outformats == {'xyz': 'XYZ'}
+
+    def test_format_discovery_native_crash_does_not_crash_gui(self, qapp, monkeypatch):
+        monkeypatch.setattr(_openbabel, 'OBABEL_AVAILABLE', None)
+        monkeypatch.setattr(_openbabel, '_FORMAT_SCRIPT', 'import os; os._exit(139)')
+        assert _openbabel._ensure_formats() is False
+
     def test_process_success_and_failure(self, qapp):
         _openbabel._run_conversion('print("done")', [], None)
         with pytest.raises(ValueError, match='failed'):
