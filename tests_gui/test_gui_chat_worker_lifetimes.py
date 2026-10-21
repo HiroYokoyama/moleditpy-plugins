@@ -98,3 +98,68 @@ def test_old_stream_completion_does_not_clear_replacement(chat_module, qapp, mon
     monkeypatch.setattr(window, "sender", lambda: replacement)
     window.on_worker_finished()
     assert window.worker is None
+
+
+def test_application_exit_joins_native_worker(chat_module, qapp):
+    release = threading.Event()
+    stopped = []
+
+    class SyntheticWorker(chat_module._RetainedThread):
+        def run(self):
+            release.wait(5)
+
+        def stop(self):
+            stopped.append(True)
+
+    worker = SyntheticWorker()
+    worker.start()
+    timer = threading.Timer(0.03, release.set)
+    timer.start()
+    try:
+        worker._wait_for_exit()
+        assert stopped == [True]
+        assert not worker.isRunning()
+    finally:
+        release.set()
+        timer.join()
+        worker.wait()
+    pump_until(qapp, lambda: not chat_module._active_threads)
+
+
+def test_dismiss_detaches_temporary_model_fetch(chat_module, qapp, monkeypatch):
+    from PySide6.QtWidgets import QDialog
+    from unittest.mock import MagicMock
+
+    release = threading.Event()
+    monkeypatch.setattr(chat_module.InitWorker, "run", lambda self: release.wait(5))
+    args = ("synthetic-key", "http://localhost") if "Local" in chat_module.PLUGIN_NAME else ("synthetic-key",)
+    worker = chat_module.InitWorker(*args)
+    window = chat_module.ChatMoleculeWindow.__new__(chat_module.ChatMoleculeWindow)
+    QDialog.__init__(window)
+    window.worker = None
+    window.temp_worker = worker
+    window.on_models_fetched = MagicMock()
+    worker.completed.connect(window.on_models_fetched)
+    worker.start()
+    try:
+        window._release_workers()
+        worker.completed.emit(["late-model"], "")
+        qapp.processEvents()
+        window.on_models_fetched.assert_not_called()
+    finally:
+        release.set()
+        worker.wait()
+    pump_until(qapp, lambda: not chat_module._active_threads)
+
+
+def test_resolver_can_outlive_deleted_signal_object(chat_module, qapp):
+    from shiboken6 import isValid
+
+    worker = chat_module.NameResolverWorker("synthetic-inchikey")
+    signals = worker.signals
+    signals.deleteLater()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    assert not isValid(signals)
+    # Application-owned signals may already be gone during final teardown.
+    del worker
+    gc.collect()
