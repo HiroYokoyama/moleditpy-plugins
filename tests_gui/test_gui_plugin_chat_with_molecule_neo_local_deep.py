@@ -245,7 +245,7 @@ class TestInitWorker:
         worker = _mod.InitWorker("key123", "http://localhost:1234/v1")
         assert worker.base_url == "http://localhost:1234/v1"
         seen = []
-        worker.finished.connect(lambda models, err: seen.append((models, err)))
+        worker.completed.connect(lambda models, err: seen.append((models, err)))
         orig = _mod.openai
         _mod.openai = fake_openai
         try:
@@ -259,7 +259,7 @@ class TestInitWorker:
         fake_openai.OpenAI.side_effect = RuntimeError("connection refused")
         worker = _mod.InitWorker("key123", "http://localhost:1234/v1")
         seen = []
-        worker.finished.connect(lambda models, err: seen.append((models, err)))
+        worker.completed.connect(lambda models, err: seen.append((models, err)))
         orig = _mod.openai
         _mod.openai = fake_openai
         try:

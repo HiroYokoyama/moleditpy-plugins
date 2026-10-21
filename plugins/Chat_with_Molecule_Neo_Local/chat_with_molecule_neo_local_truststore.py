@@ -3,7 +3,7 @@
 
 
 PLUGIN_NAME = "Chat with Molecule Neo (Local) (truststore)"
-PLUGIN_VERSION = "2026.10.19"
+PLUGIN_VERSION = "2026.10.22"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Chat with local LLM about the current molecule. Automatically injects SMILES context. (Neo Version)"
@@ -89,6 +89,7 @@ from PySide6.QtCore import (
     Qt,
     QThread,
     Signal,
+    Slot,
     QTimer,
     QPointF,
     QRunnable,
@@ -573,8 +574,41 @@ class ChatBrowser(QTextBrowser):
         pass
 
 
-class InitWorker(QThread):
-    finished = Signal(list, str)  # available_models, error_message
+# Keep parentless threads alive even when a dialog drops/replaces its reference.
+# The native finished signal (not the API result) retires them on the GUI thread.
+_active_threads = set()
+
+
+class _RetainedThread(QThread):
+    def start(self, *args, **kwargs):
+        _active_threads.add(self)
+        self.finished.connect(self._retire, Qt.ConnectionType.QueuedConnection)
+        app = QApplication.instance()
+        if app is not None:
+            app.aboutToQuit.connect(self._wait_for_exit)
+        super().start(*args, **kwargs)
+
+    @Slot()
+    def _wait_for_exit(self):
+        self.requestInterruption()
+        stop = getattr(self, "stop", None)
+        if stop is not None:
+            stop()
+        self.wait()
+
+    @Slot()
+    def _retire(self):
+        # finished can precede native thread-local destruction; join before release.
+        self.wait()
+        app = QApplication.instance()
+        if app is not None:
+            app.aboutToQuit.disconnect(self._wait_for_exit)
+        self.finished.disconnect(self._retire)
+        _active_threads.discard(self)
+
+
+class InitWorker(_RetainedThread):
+    completed = Signal(list, str)  # available_models, error_message
 
     def __init__(self, api_key, base_url):
         super().__init__()
@@ -590,9 +624,9 @@ class InitWorker(QThread):
             # Return ALL models, no filtering for "gpt"
             models = [m.id for m in all_models]
             models.sort()
-            self.finished.emit(models, "")
+            self.completed.emit(models, "")
         except Exception as e:  # noqa: BLE001 - the dialog only unblocks on finished
-            self.finished.emit([], str(e))
+            self.completed.emit([], str(e))
 
 
 class NameResolverWorker(QRunnable):
@@ -606,7 +640,15 @@ class NameResolverWorker(QRunnable):
     def __init__(self, inchikey):
         super().__init__()
         self.inchikey = inchikey
-        self.signals = self.Signals()
+        self.signals = self.Signals(QApplication.instance())
+
+    def __del__(self):
+        # QRunnable auto-deletion can drop the last reference on a pool thread.
+        # Schedule its QObject's destruction on its owning GUI thread.
+        try:
+            self.signals.deleteLater()
+        except RuntimeError:
+            pass
 
     def run(self):
         try:
@@ -618,7 +660,7 @@ class NameResolverWorker(QRunnable):
             logging.warning("[chat_with_molecule_neo_local.py:535] silenced: %s", _e)
 
 
-class OpenAIWorker(QThread):
+class OpenAIWorker(_RetainedThread):
     """Worker thread to handle API calls to avoid freezing UI"""
 
     response_received = Signal(str)  # Return full text
@@ -1238,6 +1280,13 @@ class ChatMoleculeWindow(QDialog):
             if getattr(self, "thread_pool", None) is not None:
                 self.thread_pool.clear()
 
+            temp_worker = getattr(self, "temp_worker", None)
+            if temp_worker is not None and temp_worker.isRunning():
+                try:
+                    temp_worker.completed.disconnect(self.on_models_fetched)
+                except (RuntimeError, TypeError):
+                    pass
+
             # Disconnect signals from active workers to prevent UI updates after close
             if self.worker and self.worker.isRunning():
                 try:
@@ -1253,7 +1302,7 @@ class ChatMoleculeWindow(QDialog):
                         "[chat_with_molecule_neo_local.py:1108] silenced: %s", _e
                     )
                 try:
-                    self.worker.finished.disconnect()
+                    self.worker.finished.disconnect(self.on_worker_finished)
                 except (RuntimeError, AttributeError) as _e:
                     logging.warning(
                         "[chat_with_molecule_neo_local.py:1110] silenced: %s", _e
@@ -1271,7 +1320,7 @@ class ChatMoleculeWindow(QDialog):
                 and self.init_worker.isRunning()
             ):
                 try:
-                    self.init_worker.finished.disconnect()
+                    self.init_worker.completed.disconnect()
                 except (RuntimeError, AttributeError) as _e:
                     logging.warning(
                         "[chat_with_molecule_neo_local.py:1116] silenced: %s", _e
@@ -1305,7 +1354,7 @@ class ChatMoleculeWindow(QDialog):
 
         api_base = self.txt_api_base.text().strip()
         worker = InitWorker(api_key, api_base)
-        worker.finished.connect(self.on_models_fetched)
+        worker.completed.connect(self.on_models_fetched)
         worker.start()
         self.temp_worker = worker
 
@@ -1378,7 +1427,7 @@ class ChatMoleculeWindow(QDialog):
                 logging.warning(
                     "[chat_with_molecule_neo_local.py:1196] silenced: %s", _e
                 )
-            # try: self.worker.finished.disconnect() # Worker is QThread, finished might not be used here but good practice
+            # try: self.worker.finished.disconnect(self.on_worker_finished) # Worker is QThread, finished might not be used here but good practice
             # except: pass
 
             self.worker.stop()
@@ -1664,7 +1713,7 @@ class ChatMoleculeWindow(QDialog):
 
         # Start background worker
         self.init_worker = InitWorker(api_key, api_base)
-        self.init_worker.finished.connect(self.on_init_finished)
+        self.init_worker.completed.connect(self.on_init_finished)
         self.init_worker.start()
 
     def on_init_finished(self, available_models, error_msg):
@@ -3987,7 +4036,7 @@ class ChatMoleculeWindow(QDialog):
         """Called when worker thread finishes (success or failure)"""
         # Just ensure worker reference is cleared
         # UI re-enabling is handled in on_final_response or on_error
-        if self.worker:
+        if self.worker and (self.sender() is None or self.sender() is self.worker):
             self.worker = None
 
     def on_final_response(self, response):

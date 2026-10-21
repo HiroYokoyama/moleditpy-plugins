@@ -215,7 +215,7 @@ class TestInitWorker:
 
         worker = _mod.InitWorker("key123")
         seen = []
-        worker.finished.connect(lambda models, err: seen.append((models, err)))
+        worker.completed.connect(lambda models, err: seen.append((models, err)))
         orig = _mod.openai
         _mod.openai = fake_openai
         try:
@@ -230,7 +230,7 @@ class TestInitWorker:
         fake_openai.OpenAI.side_effect = RuntimeError("bad key")
         worker = _mod.InitWorker("key123")
         seen = []
-        worker.finished.connect(lambda models, err: seen.append((models, err)))
+        worker.completed.connect(lambda models, err: seen.append((models, err)))
         orig = _mod.openai
         _mod.openai = fake_openai
         try:
@@ -250,7 +250,7 @@ class TestInitWorker:
         fake_openai.OpenAI.return_value = client
         worker = _mod.InitWorker("key")
         seen = []
-        worker.finished.connect(lambda models, err: seen.append((models, err)))
+        worker.completed.connect(lambda models, err: seen.append((models, err)))
         orig = _mod.openai
         _mod.openai = fake_openai
         try:
