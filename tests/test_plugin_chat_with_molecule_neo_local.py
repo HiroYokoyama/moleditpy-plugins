@@ -91,7 +91,7 @@ class TestInitWorkerRun:
         ]
         self_stub = _Stub(api_key="lm-studio", base_url="http://localhost:1234/v1", finished=MagicMock())
         fn(self_stub)
-        models, err = self_stub.finished.emit.call_args[0]
+        models, err = self_stub.completed.emit.call_args[0]
         assert models == ["llama3", "mistral-7b", "text-embedding-ada"]
         assert err == ""
 
@@ -108,7 +108,7 @@ class TestInitWorkerRun:
         openai_mock.OpenAI.side_effect = RuntimeError("connection refused")
         self_stub = _Stub(api_key="k", base_url="http://x", finished=MagicMock())
         fn(self_stub)  # must not raise
-        models, err = self_stub.finished.emit.call_args[0]
+        models, err = self_stub.completed.emit.call_args[0]
         assert models == []
         assert err == "connection refused"
 
@@ -155,7 +155,7 @@ class TestFetchModels:
         fn, self_stub, init_worker_cls = self._run("real-key")
         worker = init_worker_cls.return_value
         fn(self_stub)
-        worker.finished.connect.assert_called_once_with(self_stub.on_models_fetched)
+        worker.completed.connect.assert_called_once_with(self_stub.on_models_fetched)
         worker.start.assert_called_once()
         assert self_stub.temp_worker is worker
 

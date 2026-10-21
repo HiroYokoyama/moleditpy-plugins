@@ -209,7 +209,7 @@ class TestInitWorker:
 
         worker = _mod.InitWorker("key123")
         seen = []
-        worker.finished.connect(lambda models, err: seen.append((models, err)))
+        worker.completed.connect(lambda models, err: seen.append((models, err)))
         import types as _t
 
         orig = _mod.genai
@@ -226,7 +226,7 @@ class TestInitWorker:
         fake_genai.Client.side_effect = RuntimeError("bad key")
         worker = _mod.InitWorker("key123")
         seen = []
-        worker.finished.connect(lambda models, err: seen.append((models, err)))
+        worker.completed.connect(lambda models, err: seen.append((models, err)))
         orig = _mod.genai
         _mod.genai = fake_genai
         try:
@@ -245,7 +245,7 @@ class TestInitWorker:
         fake_genai.Client.return_value = client
         worker = _mod.InitWorker("key")
         seen = []
-        worker.finished.connect(lambda models, err: seen.append((models, err)))
+        worker.completed.connect(lambda models, err: seen.append((models, err)))
         orig = _mod.genai
         _mod.genai = fake_genai
         try:
