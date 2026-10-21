@@ -89,7 +89,7 @@ class TestInitWorkerRun:
             MagicMock(id="gpt-3.5-turbo"),
             MagicMock(id="whisper-1"),
         ]
-        self_stub = _Stub(api_key="sk-test", finished=MagicMock())
+        self_stub = _Stub(api_key="sk-test", completed=MagicMock())
         fn(self_stub)
         models, err = self_stub.completed.emit.call_args[0]
         assert models == ["gpt-3.5-turbo", "gpt-4o"]
@@ -99,14 +99,14 @@ class TestInitWorkerRun:
         fn, openai_mock = self._run()
         client = openai_mock.OpenAI.return_value
         client.models.list.return_value = []
-        self_stub = _Stub(api_key="sk-abc", finished=MagicMock())
+        self_stub = _Stub(api_key="sk-abc", completed=MagicMock())
         fn(self_stub)
         openai_mock.OpenAI.assert_called_once_with(api_key="sk-abc")
 
     def test_exception_emits_empty_list_and_message(self):
         fn, openai_mock = self._run()
         openai_mock.OpenAI.side_effect = RuntimeError("network down")
-        self_stub = _Stub(api_key="sk-test", finished=MagicMock())
+        self_stub = _Stub(api_key="sk-test", completed=MagicMock())
         fn(self_stub)  # must not raise
         models, err = self_stub.completed.emit.call_args[0]
         assert models == []
@@ -116,7 +116,7 @@ class TestInitWorkerRun:
         fn, openai_mock = self._run()
         client = openai_mock.OpenAI.return_value
         client.models.list.return_value = [MagicMock(id="text-embedding-3-small")]
-        self_stub = _Stub(api_key="sk-test", finished=MagicMock())
+        self_stub = _Stub(api_key="sk-test", completed=MagicMock())
         fn(self_stub)
         models, err = self_stub.completed.emit.call_args[0]
         assert models == []

@@ -89,7 +89,7 @@ class TestInitWorkerRun:
             MagicMock(id="text-embedding-ada"),
             MagicMock(id="mistral-7b"),
         ]
-        self_stub = _Stub(api_key="lm-studio", base_url="http://localhost:1234/v1", finished=MagicMock())
+        self_stub = _Stub(api_key="lm-studio", base_url="http://localhost:1234/v1", completed=MagicMock())
         fn(self_stub)
         models, err = self_stub.completed.emit.call_args[0]
         assert models == ["llama3", "mistral-7b", "text-embedding-ada"]
@@ -99,14 +99,14 @@ class TestInitWorkerRun:
         fn, openai_mock = self._run()
         client = openai_mock.OpenAI.return_value
         client.models.list.return_value = []
-        self_stub = _Stub(api_key="k", base_url="http://localhost:11434/v1", finished=MagicMock())
+        self_stub = _Stub(api_key="k", base_url="http://localhost:11434/v1", completed=MagicMock())
         fn(self_stub)
         openai_mock.OpenAI.assert_called_once_with(api_key="k", base_url="http://localhost:11434/v1")
 
     def test_exception_emits_empty_list_and_message(self):
         fn, openai_mock = self._run()
         openai_mock.OpenAI.side_effect = RuntimeError("connection refused")
-        self_stub = _Stub(api_key="k", base_url="http://x", finished=MagicMock())
+        self_stub = _Stub(api_key="k", base_url="http://x", completed=MagicMock())
         fn(self_stub)  # must not raise
         models, err = self_stub.completed.emit.call_args[0]
         assert models == []
