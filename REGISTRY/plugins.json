@@ -2645,7 +2645,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "NMR Predictor (CASCADE)",
-    "version": "2.0.0",
+    "version": "2.0.1",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_nmr_predictor_cascade",
@@ -2656,9 +2656,9 @@
     "dependencies": [
       "matplotlib"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_nmr_predictor_cascade/releases/download/v2.0.0/nmr_predictor_cascade_2.0.0.zip",
-    "lastUpdated": "2026-10-19",
-    "sha256": "bda9f54470234021451966212c9e64ada0acce30fd846bf2819c16a795220723",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_nmr_predictor_cascade/releases/download/v2.0.1/nmr_predictor_cascade_2.0.1.zip",
+    "lastUpdated": "2026-10-21",
+    "sha256": "b92d972a62fb5eb2536e917dabc91807b287bc60f975113375476afb78c81153",
     "firstAppeared": "2026-10-06",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
