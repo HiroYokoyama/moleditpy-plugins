@@ -291,9 +291,7 @@ class TestComparatorResults:
             "M0\t0.0000",
             "M1\t1.2346",
         ]
-        ctx.show_status_message.assert_called_with(
-            "Results copied to clipboard", 3000
-        )
+        ctx.show_status_message.assert_called_with("Results copied to clipboard", 3000)
         w.destroy()
 
     def test_run_alignment_needs_two_molecules(self, qapp):
@@ -440,7 +438,7 @@ class _WAtom:
     def GetNumRadicalElectrons(self):
         # Real RDKit atoms always expose this; without it the
         # derivation raised into the dialog's silent except.
-        return getattr(self, '_radicals', 0)
+        return getattr(self, "_radicals", 0)
 
 
 class _WMol:
@@ -560,9 +558,7 @@ class TestAlignmentWorkerMCS:
     def test_best_match_selected_without_ignore_hs(self, qapp, monkeypatch):
         self._patch_fmcs(monkeypatch, num_atoms=3, ref_matches=None, probe_matches=None)
         ref = _WMol([_WAtom(0), _WAtom(1), _WAtom(2)], matches=((0, 1, 2),))
-        probe = _WMol(
-            [_WAtom(0), _WAtom(1), _WAtom(2)], matches=((0, 1, 2), (2, 1, 0))
-        )
+        probe = _WMol([_WAtom(0), _WAtom(1), _WAtom(2)], matches=((0, 1, 2), (2, 1, 0)))
         rms_values = iter([0.9, 0.3])
         monkeypatch.setattr(
             _comparator.AllChem, "AlignMol", lambda *a, **k: next(rms_values)
@@ -576,15 +572,11 @@ class TestAlignmentWorkerMCS:
     def test_ignore_hs_full_map_transform_applied(self, qapp, monkeypatch):
         self._patch_fmcs(monkeypatch, num_atoms=2, ref_matches=None, probe_matches=None)
         # Match indices are positions within the heavy-atom-only substructure
-        # (as RemoveHs would produce), i.e. 0-based positions into p_heavy /
+        # (as RemoveAllHs would produce), i.e. 0-based positions into p_heavy /
         # r_heavy — not original full-molecule atom indices.
-        ref = _WMol(
-            [_WAtom(0, 6), _WAtom(1, 1), _WAtom(2, 8)], matches=((0, 1),)
-        )
-        probe = _WMol(
-            [_WAtom(0, 6), _WAtom(1, 1), _WAtom(2, 8)], matches=((0, 1),)
-        )
-        monkeypatch.setattr(_comparator.Chem, "RemoveHs", lambda m: m)
+        ref = _WMol([_WAtom(0, 6), _WAtom(1, 1), _WAtom(2, 8)], matches=((0, 1),))
+        probe = _WMol([_WAtom(0, 6), _WAtom(1, 1), _WAtom(2, 8)], matches=((0, 1),))
+        monkeypatch.setattr(_comparator.Chem, "RemoveAllHs", lambda m: m)
         monkeypatch.setattr(_comparator.AllChem, "AlignMol", lambda *a, **k: 0.05)
         worker = _comparator.AlignmentWorker(
             ref, [(0, probe)], "Substructure (MCS)", True
@@ -607,7 +599,7 @@ class TestAlignmentWorkerMCS:
                 return 0.5
             raise ValueError("full map alignment failed")
 
-        monkeypatch.setattr(_comparator.Chem, "RemoveHs", lambda m: m)
+        monkeypatch.setattr(_comparator.Chem, "RemoveAllHs", lambda m: m)
         monkeypatch.setattr(_comparator.AllChem, "AlignMol", _align)
         worker = _comparator.AlignmentWorker(
             ref, [(0, probe)], "Substructure (MCS)", True
@@ -621,9 +613,7 @@ class TestAlignmentWorkerMCS:
     def test_max_combinations_limit_aborts_search(self, qapp, monkeypatch, capsys):
         self._patch_fmcs(monkeypatch, num_atoms=2, ref_matches=None, probe_matches=None)
         ref = _WMol([_WAtom(0), _WAtom(1)], matches=((0, 1), (1, 0)))
-        probe = _WMol(
-            [_WAtom(0), _WAtom(1)], matches=((0, 1), (1, 0), (0, 0))
-        )
+        probe = _WMol([_WAtom(0), _WAtom(1)], matches=((0, 1), (1, 0), (0, 0)))
         monkeypatch.setattr(_comparator.AllChem, "AlignMol", lambda *a, **k: 1.0)
         worker = _comparator.AlignmentWorker(
             ref, [(0, probe)], "Substructure (MCS)", False
@@ -853,7 +843,9 @@ class TestLoadAndDrop:
         f = tmp_path / "a.mol"
         f.write_text("dummy")
         fake_mol = _WMol([_WAtom(0)])
-        monkeypatch.setattr(_comparator.Chem, "MolFromMolFile", lambda *a, **k: fake_mol)
+        monkeypatch.setattr(
+            _comparator.Chem, "MolFromMolFile", lambda *a, **k: fake_mol
+        )
         monkeypatch.setattr(_comparator.Chem, "SanitizeMol", lambda m: None)
         w.add_molecule_from_path(str(f))
         assert len(w.molecules) == 1
@@ -866,7 +858,9 @@ class TestLoadAndDrop:
         f = tmp_path / "b.pdb"
         f.write_text("dummy")
         fake_mol = _WMol([_WAtom(0)])
-        monkeypatch.setattr(_comparator.Chem, "MolFromPDBFile", lambda *a, **k: fake_mol)
+        monkeypatch.setattr(
+            _comparator.Chem, "MolFromPDBFile", lambda *a, **k: fake_mol
+        )
         monkeypatch.setattr(_comparator.Chem, "SanitizeMol", lambda m: None)
         w.add_molecule_from_path(str(f))
         assert len(w.molecules) == 1
@@ -909,7 +903,9 @@ class TestLoadAndDrop:
         assert len(w.molecules) == 1  # failure is swallowed, mol still added
         w.destroy()
 
-    def test_add_molecule_from_path_load_failure_warns(self, qapp, monkeypatch, tmp_path):
+    def test_add_molecule_from_path_load_failure_warns(
+        self, qapp, monkeypatch, tmp_path
+    ):
         w, _ctx = _make_comp()
         f = tmp_path / "e.mol"
         f.write_text("dummy")
@@ -928,7 +924,9 @@ class TestLoadAndDrop:
         f = tmp_path / "f.mol"
         f.write_text("dummy")
         fake_mol = _WMol([_WAtom(0)])
-        monkeypatch.setattr(_comparator.Chem, "MolFromMolFile", lambda *a, **k: fake_mol)
+        monkeypatch.setattr(
+            _comparator.Chem, "MolFromMolFile", lambda *a, **k: fake_mol
+        )
 
         def _sanitize_boom(m):
             raise ValueError("bad valence")
@@ -995,6 +993,8 @@ class TestLoadAndDrop:
         event = MagicMock()
         event.mimeData.return_value.urls.return_value = [url]
         w.dropEvent(event)
+        w.add_molecules_from_paths.assert_not_called()
+        qapp.processEvents()
         w.add_molecules_from_paths.assert_called_once_with([str(f)])
         event.acceptProposedAction.assert_called_once()
         w.destroy()
@@ -1268,7 +1268,7 @@ class _VAtom:
     def GetNumRadicalElectrons(self):
         # Real RDKit atoms always expose this; without it the
         # derivation raised into the dialog's silent except.
-        return getattr(self, '_radicals', 0)
+        return getattr(self, "_radicals", 0)
 
 
 class _VMol:
@@ -1310,7 +1310,9 @@ class TestUpdateVisualization:
     def test_controller_path_applies_colors_by_scope(self, qapp, monkeypatch):
         _patch_chem_combine(monkeypatch)
         w, ctx = _make_comp()
-        w.update_visualization = _comparator.MoleculeComparator.update_visualization.__get__(w)
+        w.update_visualization = (
+            _comparator.MoleculeComparator.update_visualization.__get__(w)
+        )
         w.molecules = [
             {
                 "name": "A",
@@ -1341,7 +1343,9 @@ class TestUpdateVisualization:
     def test_controller_set_atom_color_exception_is_silenced(self, qapp, monkeypatch):
         _patch_chem_combine(monkeypatch)
         w, ctx = _make_comp()
-        w.update_visualization = _comparator.MoleculeComparator.update_visualization.__get__(w)
+        w.update_visualization = (
+            _comparator.MoleculeComparator.update_visualization.__get__(w)
+        )
         w.molecules = [
             {
                 "name": "A",
@@ -1360,7 +1364,9 @@ class TestUpdateVisualization:
     def test_fallback_path_sets_color_overrides(self, qapp, monkeypatch):
         _patch_chem_combine(monkeypatch)
         w, ctx = _make_comp()
-        w.update_visualization = _comparator.MoleculeComparator.update_visualization.__get__(w)
+        w.update_visualization = (
+            _comparator.MoleculeComparator.update_visualization.__get__(w)
+        )
         w.mw = MagicMock()
         ctx.get_3d_controller.return_value = None
         w.molecules = [
@@ -1545,7 +1551,9 @@ class TestResetView:
         w, ctx = _raw_comp()
         ctx.reset_3d_camera.reset_mock()
         ctx.plotter.render.reset_mock()
-        monkeypatch.setattr(_comparator.QTimer, "singleShot", lambda ms, fn: fn())
+        monkeypatch.setattr(
+            _comparator.QTimer, "singleShot", lambda ms, owner, fn: fn()
+        )
         w.reset_view()
         ctx.reset_3d_camera.assert_called_once()
         ctx.plotter.render.assert_called_once()
@@ -1554,7 +1562,9 @@ class TestResetView:
     def test_reset_view_exception_is_silenced(self, qapp, monkeypatch):
         w, ctx = _raw_comp()
         ctx.reset_3d_camera.side_effect = RuntimeError("no camera")
-        monkeypatch.setattr(_comparator.QTimer, "singleShot", lambda ms, fn: fn())
+        monkeypatch.setattr(
+            _comparator.QTimer, "singleShot", lambda ms, owner, fn: fn()
+        )
         w.reset_view()  # must not raise
         w.destroy()
 
@@ -1656,10 +1666,7 @@ class TestXyzParsing:
         assert len(_comparator.parse_xyz_rows(text)) == 2
 
     def test_trajectory_stops_after_the_first_frame(self):
-        text = (
-            "2\nframe 1\nC 0 0 0\nO 1 0 0\n"
-            "2\nframe 2\nC 0 0 9\nO 1 0 9\n"
-        )
+        text = "2\nframe 1\nC 0 0 0\nO 1 0 0\n2\nframe 2\nC 0 0 9\nO 1 0 9\n"
         rows = _comparator.parse_xyz_rows(text)
         assert len(rows) == 2
         assert rows[0][3] == 0.0
@@ -1717,7 +1724,9 @@ class TestMolFromXyzText:
         fallback.GetNumAtoms.return_value = 1
         fallback.GetNumBonds.return_value = 1
         monkeypatch.setattr(_comparator.Chem, "MolFromXYZBlock", lambda t: fallback)
-        host = SimpleNamespace(io_manager=SimpleNamespace(load_xyz_block=lambda t: None))
+        host = SimpleNamespace(
+            io_manager=SimpleNamespace(load_xyz_block=lambda t: None)
+        )
         assert _comparator.mol_from_xyz_text("C 0 0 0", host) is fallback
 
     def test_rdkit_refusal_falls_back_to_the_hand_parse(self, monkeypatch):
@@ -1802,7 +1811,9 @@ class TestLoadingGuards:
         assert [entry["name"] for entry in w.molecules] == ["one", "two"]
         w.destroy()
 
-    def test_single_record_sdf_is_named_after_the_file(self, qapp, monkeypatch, tmp_path):
+    def test_single_record_sdf_is_named_after_the_file(
+        self, qapp, monkeypatch, tmp_path
+    ):
         w, _ctx = _make_comp()
         f = tmp_path / "only.sdf"
         f.write_text("dummy")
@@ -1861,7 +1872,9 @@ class TestLoadingGuards:
         assert "bad.mol" in warned.call_args[0][2]
         w.destroy()
 
-    def test_add_current_refuses_a_molecule_without_coordinates(self, qapp, monkeypatch):
+    def test_add_current_refuses_a_molecule_without_coordinates(
+        self, qapp, monkeypatch
+    ):
         w, ctx = _make_comp()
         mol = MagicMock()
         mol.GetNumConformers.return_value = 0
@@ -1983,6 +1996,49 @@ class TestAlignmentWorkerBondFreeFallback:
 
 
 class TestAlignmentSafety:
+    def test_pending_close_discards_results_and_finishes_after_thread_exit(self, qapp):
+        comp, _ctx = _make_comp()
+        _add_mols(comp, 2)
+        original = comp.molecules[1]["mol"]
+        comp.progress_dialog = MagicMock()
+        comp.worker = MagicMock()
+        comp.worker.isRunning.return_value = True
+        comp.show()
+        comp.close()
+        comp.on_alignment_finished([{"index": 1, "mol": object(), "rms": 0.0}])
+        assert comp.molecules[1]["mol"] is original
+        comp.update_visualization.assert_not_called()
+        comp.worker.isRunning.return_value = False
+        comp._alignment_stopped()
+        qapp.processEvents()
+        assert not comp.isVisible()
+        comp.destroy()
+
+    def test_mcs_ignores_isotope_hydrogens_without_losing_atom_mapping(
+        self, qapp, monkeypatch
+    ):
+        from rdkit import Chem
+        from rdkit.Chem import AllChem, rdFMCS
+
+        monkeypatch.setattr(_comparator, "Chem", Chem)
+        monkeypatch.setattr(_comparator, "AllChem", AllChem)
+        monkeypatch.setattr(_comparator, "rdFMCS", rdFMCS)
+        mol = Chem.MolFromSmiles("[2H]C(O)C")
+        conf = Chem.Conformer(mol.GetNumAtoms())
+        for index in range(mol.GetNumAtoms()):
+            conf.SetAtomPosition(index, (float(index), float(index % 2), 0.0))
+        mol.AddConformer(conf)
+        worker = _comparator.AlignmentWorker(
+            mol, [(1, mol)], "Substructure (MCS)", True
+        )
+        results, errors = [], []
+        worker.finished_signal.connect(results.extend)
+        worker.error_signal.connect(errors.append)
+        worker.run()
+        assert errors == []
+        assert results[0]["rms"] == pytest.approx(0.0, abs=1e-6)
+        assert results[0]["mol"].GetNumAtoms() == mol.GetNumAtoms()
+
     def test_close_requests_stop_and_keeps_running_worker_alive(self, qapp):
         comp, ctx = _make_comp()
         comp.worker = MagicMock()
@@ -2004,7 +2060,7 @@ class TestAlignmentSafety:
         comp.run_alignment()
         comp.remove_molecule()
         comp.add_current_molecule()
-        comp.add_molecules_from_paths(['bad.xyz'])
+        comp.add_molecules_from_paths(["bad.xyz"])
         assert comp.worker is worker
         assert comp.molecules == entries
         worker.isRunning.return_value = False
@@ -2015,28 +2071,31 @@ class TestAlignmentSafety:
         _add_mols(comp, 2)
         comp._alignment_entries = tuple(comp.molecules)
         comp.molecules[1] = dict(comp.molecules[1])
-        original = comp.molecules[1]['mol']
+        original = comp.molecules[1]["mol"]
         comp.progress_dialog = MagicMock()
         comp.progress_dialog.wasCanceled.return_value = False
         comp.on_alignment_finished([dict(index=1, mol=object(), rms=1.0)])
-        assert comp.molecules[1]['mol'] is original
+        assert comp.molecules[1]["mol"] is original
         comp.close()
 
-    @pytest.mark.parametrize('coord', ['nan', 'inf', '-inf'])
+    @pytest.mark.parametrize("coord", ["nan", "inf", "-inf"])
     def test_nonfinite_xyz_rejected(self, qapp, coord):
-        with pytest.raises(ValueError, match='finite'):
-            _comparator.parse_xyz_rows('1\ncomment\nC ' + coord + ' 0 0')
-        assert _comparator.parse_xyz_rows('0\ncomment\nC 0 0 0') == []
+        with pytest.raises(ValueError, match="finite"):
+            _comparator.parse_xyz_rows("1\ncomment\nC " + coord + " 0 0")
+        assert _comparator.parse_xyz_rows("0\ncomment\nC 0 0 0") == []
 
     def test_csv_escapes_quotes_and_newlines(self, qapp, tmp_path, monkeypatch):
         import csv
+
         comp, ctx = _make_comp()
         _add_mols(comp, 1)
-        comp.molecules[0]['name'] = 'quoted "name",\nnext'
-        target = tmp_path / 'results.csv'
-        monkeypatch.setattr(_comparator.QFileDialog, 'getSaveFileName', lambda *a: (str(target), ''))
+        comp.molecules[0]["name"] = 'quoted "name",\nnext'
+        target = tmp_path / "results.csv"
+        monkeypatch.setattr(
+            _comparator.QFileDialog, "getSaveFileName", lambda *a: (str(target), "")
+        )
         comp.save_results_to_file()
-        with target.open(encoding='utf-8', newline='') as handle:
+        with target.open(encoding="utf-8", newline="") as handle:
             rows = list(csv.reader(handle))
-        assert rows[1][0] == comp.molecules[0]['name']
+        assert rows[1][0] == comp.molecules[0]["name"]
         comp.close()
