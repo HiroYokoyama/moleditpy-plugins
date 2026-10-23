@@ -148,8 +148,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p dist
-          gh release download "$TAG" --pattern "*.zip" --dir dist --skip-existing || true
-          curl -L -o "dist/source.tar.gz" \
+          gh release download "$TAG" --pattern "*.zip" --dir dist --skip-existing
+          curl --fail --location --retry 3 -o "dist/source.tar.gz" \
             "https://github.com/${{ github.repository }}/archive/refs/tags/${TAG}.tar.gz"
           ls -la dist/
 
