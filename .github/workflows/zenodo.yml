@@ -17,6 +17,11 @@ on:
         description: "Override the Zenodo record ID (defaults to DEPOSITION_ID in scripts/update_zenodo.py)."
         required: false
         type: string
+      isolated_draft_test:
+        description: "Validate saving in a separate unpublished test draft (requires draft=true)."
+        required: false
+        type: boolean
+        default: false
       draft_id:
         description: "Existing draft ID to resume without creating a new version (optional)."
         required: false
@@ -79,6 +84,8 @@ jobs:
         env:
           ZENODO_TOKEN: ${{ secrets.ZENODO_TOKEN }}
           RESUME_DRAFT_ID: ${{ inputs.draft_id }}
+          ISOLATED_DRAFT_TEST: ${{ inputs.isolated_draft_test }}
+          KEEP_DRAFT: ${{ inputs.draft }}
         run: |
           DEP_ARG=""
           if [ -n "${{ github.event.inputs.deposition_id }}" ]; then
@@ -91,6 +98,11 @@ jobs:
           fi
 
           DRAFT_ARG=()
+          if [ "$ISOLATED_DRAFT_TEST" = "true" ]; then
+            [ "$KEEP_DRAFT" = "true" ] || exit 1
+            [ -z "$RESUME_DRAFT_ID" ] || exit 1
+            DRAFT_ARG=(--isolated-draft-test)
+          fi
           if [ -n "$RESUME_DRAFT_ID" ]; then
             [[ "$RESUME_DRAFT_ID" =~ ^[0-9]+$ ]] || exit 1
             DRAFT_ARG=(--draft-id "$RESUME_DRAFT_ID")

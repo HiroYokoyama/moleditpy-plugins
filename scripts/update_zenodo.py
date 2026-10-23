@@ -200,6 +200,11 @@ def main():
         help="Resume this existing draft without creating another version.",
     )
     parser.add_argument(
+        "--isolated-draft-test",
+        action="store_true",
+        help="Test uploads in a separate unpublished draft; never publish or resume a draft.",
+    )
+    parser.add_argument(
         "--version-string",
         help="Version to release (defaults to pyproject.toml version)",
     )
@@ -225,6 +230,10 @@ def main():
     )
 
     args = parser.parse_args()
+    if args.isolated_draft_test and (args.publish or args.draft_id):
+        raise ValueError(
+            "Isolated draft tests cannot publish or modify an existing draft."
+        )
 
     # Determine base API URL
     base_url = (
@@ -290,7 +299,12 @@ def main():
     # A fixed record ID may be years behind the current published version.
     parent_url = f"{base_url}/records/{deposition_id}/versions/latest"
     latest = make_request(parent_url, headers=headers)
-    published = find_published_version(latest, version, base_url, headers)
+    today_str = datetime.date.today().isoformat()
+    published = (
+        None
+        if args.isolated_draft_test
+        else find_published_version(latest, version, base_url, headers)
+    )
     if published is not None:
         check_published_files(published, args.files)
         print(
@@ -301,9 +315,21 @@ def main():
     deposition_id = latest["id"]
 
     # 1. Create a new version of the latest published record.
-    print(f"\n[1/6] Creating new version draft for record {deposition_id}...")
+    if args.isolated_draft_test:
+        print("\n[1/6] Creating a separate unpublished upload-test draft...")
+    else:
+        print(f"\n[1/6] Creating new version draft for record {deposition_id}...")
     new_version_url = f"{base_url}/records/{deposition_id}/versions"
-    if args.draft_id:
+    if args.isolated_draft_test:
+        test_payload = build_draft_update(latest, version, today_str)
+        test_payload.pop("pids", None)
+        test_payload["metadata"]["title"] = (
+            "[UNPUBLISHED UPLOAD TEST] " + test_payload["metadata"]["title"]
+        )
+        resp = make_request(
+            f"{base_url}/records", data=test_payload, headers=headers, method="POST"
+        )
+    elif args.draft_id:
         resp = make_request(
             f"{base_url}/records/{args.draft_id}/draft", headers=headers
         )
@@ -334,7 +360,6 @@ def main():
         latest.get("metadata", {}).get("version"),
     ):
         raise ValueError("The selected draft contains a different pending version.")
-    today_str = datetime.date.today().isoformat()
     update_payload = build_draft_update(draft, version, today_str)
 
     # 3. Register files to the draft
@@ -404,6 +429,20 @@ def main():
         f"Updating draft {draft_id} metadata: version={version}, publication_date={today_str}"
     )
     make_request(draft_self_url, data=update_payload, headers=headers, method="PUT")
+    if args.isolated_draft_test:
+        saved = make_request(draft_self_url, headers=headers)
+        if saved.get("is_published") is True:
+            raise RuntimeError("Upload-test record must remain unpublished.")
+        expected = update_payload["metadata"]
+        for key in ("title", "version", "publication_date"):
+            if saved.get("metadata", {}).get(key) != expected[key]:
+                raise RuntimeError(f"Draft readback mismatch: {key}")
+        files = make_request(draft_files_url, headers=headers)
+        if plan_file_uploads(files.get("entries", []), args.files) != ([], []):
+            raise RuntimeError("Draft file checksum verification failed.")
+        print(
+            f"Draft save and file checksums verified: {saved.get('links', {}).get('self_html', draft_self_url)}"
+        )
 
     # 6. Publish (Optional)
     if args.publish:

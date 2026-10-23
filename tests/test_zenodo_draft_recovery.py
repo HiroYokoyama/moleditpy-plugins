@@ -310,3 +310,68 @@ def test_new_publication_uses_latest_record_and_uploads_before_publish(
 
     invoke(monkeypatch, tmp_path, request, "--publish")
     assert calls[-1] == ("POST", draft["links"]["publish"])
+
+
+@pytest.mark.parametrize("conflict", [["--publish"], ["--draft-id", "300"]])
+def test_isolated_verification_never_publishes_or_modifies_existing_drafts(
+    monkeypatch, tmp_path, conflict
+):
+    request = MagicMock()
+    with pytest.raises(ValueError, match="cannot publish or modify"):
+        invoke(monkeypatch, tmp_path, request, "--isolated-draft-test", *conflict)
+    request.assert_not_called()
+
+
+def test_isolated_draft_saves_and_checks_assets_without_version_or_publish_actions(
+    monkeypatch, tmp_path, draft
+):
+    calls = []
+    source = copy.deepcopy(draft)
+    source["id"] = "200"
+    source["metadata"]["version"] = "next"  # Already public: must still exercise PUT.
+    source["pids"]["doi"]["identifier"] = "10.5281/zenodo.200"
+    uploaded = False
+
+    def request(url, **kwargs):
+        nonlocal uploaded
+        method = kwargs.get("method", "GET")
+        calls.append((method, url))
+        assert "/versions?" not in url
+        assert not url.endswith(("/actions/publish", "/versions"))
+        assert method != "DELETE"
+        if url.endswith("/versions/latest"):
+            return source
+        if method == "POST" and url == BASE + "/records":
+            payload = kwargs["data"]
+            assert "pids" not in payload and "parent" not in payload
+            assert payload["metadata"]["title"].startswith("[UNPUBLISHED UPLOAD TEST]")
+            draft["metadata"] = copy.deepcopy(payload["metadata"])
+            return draft
+        if method == "GET" and url.endswith("/draft"):
+            return draft
+        if method == "POST" and url.endswith("/commit"):
+            uploaded = True
+        if method == "GET" and url.endswith("/files"):
+            return {
+                "entries": (
+                    [
+                        {
+                            "key": "test.zip",
+                            "status": "completed",
+                            "checksum": "md5:"
+                            + hashlib.md5(b"synthetic zip").hexdigest(),
+                        }
+                    ]
+                    if uploaded
+                    else []
+                )
+            }
+        if method == "PUT" and url.endswith("/draft"):
+            assert kwargs["data"]["pids"]["doi"]["identifier"] != "10.5281/zenodo.200"
+            draft["metadata"] = copy.deepcopy(kwargs["data"]["metadata"])
+            return draft
+        return {}
+
+    invoke(monkeypatch, tmp_path, request, "--isolated-draft-test")
+    assert ("PUT", draft["links"]["self"]) in calls
+    assert uploaded

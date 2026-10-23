@@ -323,6 +323,7 @@ Triggers on `release: published`, so section 5 chains straight into it, and on
 | Pre-releases | Skipped. A permanent DOI should not point at one. |
 | Duplicate version | Published version history is checked before mutations. A matching version is a no-op only when the requested asset checksums match; otherwise it fails without creating a draft. |
 | Leftover draft | Resume a failed upload with the manual workflow's `draft_id` input (`--draft-id` in the CLI). The uploader checks the draft family and pending version. Do not discard it as routine recovery. |
+| Live save test | Set `draft: true` and `isolated_draft_test: true` to upload into a separate unpublished test draft, verify metadata and file checksums, and keep it for inspection. Publication and existing-draft modification are prohibited in this mode. |
 
 `test-zenodo.yml` is the same flow against Zenodo Sandbox. Its deposition ID is
 a **required** input: the production default does not exist on sandbox.

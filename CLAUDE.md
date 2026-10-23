@@ -369,6 +369,10 @@ Guards, so a mistake is loud rather than silent:
 - A failed upload may leave a resumable draft. Supply its ID through the manual
   Zenodo workflow's `draft_id` input (or `--draft-id`); the script checks its
   record family before modifying it. Do not discard the draft as routine recovery.
+- For live save verification, set `isolated_draft_test: true` and `draft: true`
+  in the manual workflow. This creates a clearly labeled standalone unpublished
+  draft, verifies metadata readback and file checksums, and cannot publish or
+  modify an existing draft. Keep its returned URL for inspection.
 - Manual production backfills include release ZIPs and the source archive.
 - `release.yml` and `zenodo.yml` both accept `workflow_dispatch`, for archiving
   an older tag or rehearsing against a draft (`draft: true` uploads without
