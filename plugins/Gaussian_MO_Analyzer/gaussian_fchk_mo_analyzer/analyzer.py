@@ -1,7 +1,7 @@
 import math
+import re
 
 import numpy as np
-import re
 
 
 class UnsupportedBasisError(ValueError):

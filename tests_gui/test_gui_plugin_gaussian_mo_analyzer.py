@@ -15,7 +15,6 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from conftest import mock_chemistry_imports
 
 PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
@@ -255,6 +254,7 @@ class TestOrbitalWidgetWithRealMOData:
 
     def test_native_worker_is_retained_until_thread_exit(self, win, qapp):
         import threading
+
         from PySide6.QtCore import QThread, Signal
         from PySide6.QtTest import QTest
 

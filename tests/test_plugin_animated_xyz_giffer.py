@@ -13,7 +13,6 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-
 from conftest import load_plugin, mock_optional_imports
 
 PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"

@@ -632,7 +632,7 @@ class MappedWidget(QWidget):
             try:
                 self.context.plotter.render()
             except (RuntimeError, AttributeError, ValueError) as exc:
-                logging.warning("Mapped viewer render unavailable: %s", exc)
+                logging.getLogger(__name__).warning("Mapped viewer render unavailable: %s", exc)
 
     def _remove_surface(self):
         if self.actor is not None:
