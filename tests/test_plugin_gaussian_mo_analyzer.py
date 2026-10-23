@@ -103,7 +103,7 @@ class _FakeNP:
 
 def _make_fchk_reader_class():
     src = _extract_class_source(MO_ANALYZER_PATH, "FCHKReader")
-    ns = {"np": _FakeNP(), "re": __import__("re")}
+    ns = {"np": _FakeNP(), "re": __import__("re"), "math": math}
     exec(src, ns)  # noqa: S102
     return ns["FCHKReader"]
 
@@ -159,13 +159,22 @@ class TestMOFCHKReader:
         )
         assert r.get("MO coefficients") == pytest.approx([0.5, -0.25])
 
-    def test_values_truncated_to_declared_count(self, tmp_path):
-        r = self._read(
-            tmp_path,
-            "Shell types                                I   N=           2\n"
-            "           0           1           2\n",
-        )
-        assert r.get("Shell types") == [0, 1]
+    def test_excess_values_are_rejected(self, tmp_path):
+        with pytest.raises(ValueError, match="count"):
+            self._read(tmp_path, "Shell types                                I   N= 2\n0 1 2\n")
+
+    @pytest.mark.parametrize("body", ["1.0\n", "1.0\nNext record                                I   2\n"])
+    def test_truncated_array_is_rejected(self, tmp_path, body):
+        with pytest.raises(ValueError, match="Incomplete"):
+            self._read(tmp_path, "MO coefficients                            R   N= 2\n" + body)
+
+    def test_scalar_fortran_lowercase_exponent(self, tmp_path):
+        reader = self._read(tmp_path, "Total Energy                               R   -7.5d+01\n")
+        assert reader.get("Total Energy") == [-75.0]
+
+    def test_nonfinite_numeric_record_is_rejected(self, tmp_path):
+        with pytest.raises(ValueError, match="Nonfinite"):
+            self._read(tmp_path, "MO coefficients                            R   N= 1\n1e999\n")
 
     def test_get_default_for_missing_key(self, tmp_path):
         r = self._read(
@@ -198,12 +207,12 @@ class TestMOFCHKReaderRealModuleScalarAndCharDtypes:
         r = RealFCHKReader(str(f))
         assert r.get("Total Energy") == pytest.approx([-76.02676])
 
-    def test_scalar_real_bad_value_silently_ignored(self, tmp_path):
+    def test_scalar_real_bad_value_is_rejected(self, tmp_path):
         f = tmp_path / "mo.fchk"
         # Matches the scalar regex but float() will fail -> except: pass
         f.write_text("Bad Value                                  R     --.-\n")
-        r = RealFCHKReader(str(f))
-        assert r.get("Bad Value") is None
+        with pytest.raises(ValueError, match="Malformed"):
+            RealFCHKReader(str(f))
 
     def test_array_char_dtype_stored_as_raw_tokens(self, tmp_path):
         f = tmp_path / "mo.fchk"
@@ -795,6 +804,21 @@ def _make_engine(tmp_path, content, name="mo.fchk"):
 
 
 class TestMOBasisSetEnginePrepareBasisSet:
+    @pytest.mark.parametrize("key,value", [
+        ("Number of primitives per shell", [2]),
+        ("Number of primitives per shell", [0]),
+        ("Shell to atom map", [0]),
+        ("Primitive exponents", [-1.0]),
+        ("Contraction coefficients", []),
+        ("Number of basis functions", [2]),
+        ("Alpha MO coefficients", [float("nan")]),
+    ])
+    def test_invalid_basis_records_are_rejected(self, tmp_path, key, value):
+        _, reader = _make_engine(tmp_path, _s_shell_fchk())
+        reader.data[key] = np.array(value)
+        with pytest.raises(ValueError):
+            RealBasisSetEngine(reader)
+
     def test_s_shell_single_basis_function(self, tmp_path):
         engine, _ = _make_engine(tmp_path, _s_shell_fchk())
         assert engine.n_basis == 1
@@ -1199,6 +1223,8 @@ class TestMOPackageInitialize:
         mod.OrbitalWidget = MagicMock()
         handler = ctx.register_drop_handler.call_args[0][0]
         assert handler("job.fchk") is True
+        mod.OrbitalWidget.assert_not_called()
+        mod.QTimer.singleShot.call_args.args[-1]()
         mod.OrbitalWidget.assert_called_once()
 
     def test_version_constant_present(self):

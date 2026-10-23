@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 import re
 
@@ -36,68 +38,60 @@ class FCHKReader:
         self.parse()
 
     def parse(self):
-        with open(self.filepath, "r", encoding="utf-8", errors="replace") as f:
-            lines = f.readlines()
-
+        limit = 256 * 1024 * 1024
+        with open(self.filepath, "rb") as handle:
+            raw = handle.read(limit + 1)
+        if len(raw) > limit:
+            raise ValueError("FCHK exceeds the 256 MiB loading limit")
+        lines = raw.decode("utf-8", errors="replace").splitlines()
+        self.data = {}
+        header = re.compile(r"^(.*?)\s{2,}([IRC])\s+(?:N=\s*(\d+)|(.+))$")
+        number = re.compile(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[EeDd][+-]?\d+)?")
         i = 0
         while i < len(lines):
-            line = lines[i].strip()
-            # Match Array Header: "Atomic numbers   I   N=   12"
-            match_array = re.match(r"^(.*)\s+([IRC])\s+N=\s+(\d+)$", line)
-
-            # Match Scalar: "Number of electrons   I   42" or "Charge   R   0.0"
-            # Note: Scalars usually don't have N=, just the value at the end.
-            match_scalar = re.match(r"^(.*)\s+([IRC])\s+([-\d\.E\+]+)$", line)
-
-            if match_array:
-                tag = match_array.group(1).strip()
-                dtype = match_array.group(2)
-                count = int(match_array.group(3))
-
-                raw_values = []
+            match = header.match(lines[i].strip())
+            i += 1
+            if not match:
+                continue
+            tag, dtype, count_text, scalar = match.groups()
+            tag = tag.strip()
+            count = int(count_text) if count_text is not None else 1
+            values = []
+            text = scalar or ""
+            while True:
+                if dtype == "C":
+                    values.extend(text.split())
+                elif text.strip():
+                    tokens = number.findall(text)
+                    if number.sub("", text).strip():
+                        raise ValueError(f"Malformed FCHK record: {tag}")
+                    for token in tokens:
+                        value = int(token) if dtype == "I" else float(token.replace("D", "E").replace("d", "e"))
+                        if not math.isfinite(value):
+                            raise ValueError(f"Nonfinite FCHK value: {tag}")
+                        values.append(value)
+                if len(values) >= count:
+                    break
+                if i >= len(lines) or header.match(lines[i].strip()):
+                    raise ValueError(f"Incomplete FCHK record: {tag}")
+                text = lines[i]
                 i += 1
-
-                # Read data lines until we have enough values
-                while len(raw_values) < count and i < len(lines):
-                    # Robust splitting for packed Fortran numbers
-                    l_str = (
-                        lines[i]
-                        .replace("D+", "E+")
-                        .replace("D-", "E-")
-                        .replace("\n", "")
-                        .strip()
-                    )
-                    l_str = l_str.replace("-", " -").replace("E -", "E-")
-                    vals = l_str.split()
-                    raw_values.extend(vals)
-                    i += 1
-
-                # Convert to numpy array
-                if dtype == "I":
-                    self.data[tag] = np.array(raw_values[:count], dtype=int)
-                elif dtype == "R":
-                    self.data[tag] = np.array(raw_values[:count], dtype=float)
-                else:
-                    self.data[tag] = raw_values[:count]
-
-            elif match_scalar:
-                tag = match_scalar.group(1).strip()
-                dtype = match_scalar.group(2)
-                val_str = match_scalar.group(3)
-
-                # Store as single-element array for consistency/easy access
-                if dtype == "I":
-                    self.data[tag] = np.array([int(val_str)], dtype=int)
-                elif dtype == "R":
-                    try:
-                        v = float(val_str.replace("D", "E"))
-                        self.data[tag] = np.array([v], dtype=float)
-                    except:
-                        pass  # Ignore if parse fail
-
-                i += 1
+            if dtype != "C" and len(values) != count:
+                raise ValueError(f"FCHK count mismatch: {tag}")
+            if dtype != "C":
+                next_line = i
+                while next_line < len(lines) and not lines[next_line].strip():
+                    next_line += 1
+                if next_line < len(lines):
+                    extra = lines[next_line]
+                    if number.findall(extra) and not number.sub("", extra).strip():
+                        raise ValueError(f"Excess FCHK values after declared count: {tag}")
+            if dtype == "I":
+                self.data[tag] = np.array(values, dtype=int)
+            elif dtype == "R":
+                self.data[tag] = np.array(values, dtype=float)
             else:
-                i += 1
+                self.data[tag] = values[:count]
 
     def get(self, key, default=None):
         return self.data.get(key, default)
@@ -112,8 +106,12 @@ class FCHKReader:
         if atoms is None or coords is None:
             return None
 
-        coords = coords.reshape(-1, 3)
         n_atoms = len(atoms)
+        if len(coords) != n_atoms * 3 or not np.isfinite(coords).all():
+            raise ValueError("FCHK coordinates do not match the atom count or contain nonfinite values")
+        if np.any(atoms < 0) or np.any(atoms > 118):
+            raise ValueError("Invalid FCHK atomic number")
+        coords = coords.reshape(-1, 3)
 
         # Periodic Table map (simplified or import from rdkit)
         # Since we are in the plugin env, we can try importing rdkit,
@@ -280,6 +278,17 @@ class BasisSetEngine:
         shell_to_atom = self.fchk.get("Shell to atom map", None)
         prim_exps = self.fchk.get("Primitive exponents", None)
         cont_coeffs = self.fchk.get("Contraction coefficients", None)
+        required = (shell_types, prim_per_shell, shell_to_atom, prim_exps, cont_coeffs)
+        if any(value is None for value in required):
+            raise ValueError("FCHK is missing required basis records")
+        if len(prim_per_shell) != len(shell_types) or len(shell_to_atom) != len(shell_types):
+            raise ValueError("FCHK shell record counts disagree")
+        if any(value <= 0 for value in prim_per_shell):
+            raise ValueError("Each FCHK shell needs positive primitive counts")
+        if sum(prim_per_shell) != len(prim_exps) or not np.isfinite(prim_exps).all() or np.any(prim_exps <= 0):
+            raise ValueError("Invalid or incomplete FCHK primitive exponents")
+        if not np.isfinite(cont_coeffs).all():
+            raise ValueError("FCHK contraction coefficients must be finite")
 
         # Pure/Cartesian Flags (0=Pure/Spherical, 1=Cartesian)
         # Default to 1 (Cartesian) if not found, to match old behavior
@@ -449,7 +458,21 @@ class BasisSetEngine:
         if p_modifiers is None:
             p_modifiers = self.fchk.get("P(S=P) modifiers", None)
 
-        coords = self.fchk.get("Current cartesian coordinates").reshape(-1, 3)  # Bohr
+        raw_coords = self.fchk.get("Current cartesian coordinates", None)
+        if raw_coords is None or len(raw_coords) % 3 or not np.isfinite(raw_coords).all():
+            raise ValueError("Invalid FCHK atom coordinates")
+        coords = raw_coords.reshape(-1, 3)  # Bohr
+        if any(index < 1 or index > len(coords) for index in shell_to_atom):
+            raise ValueError("FCHK shell points to an invalid atom")
+        n_primitives = sum(prim_per_shell)
+        expected_coeffs = n_primitives
+        if p_modifiers is not None and len(p_modifiers):
+            if len(p_modifiers) != n_primitives or not np.isfinite(p_modifiers).all():
+                raise ValueError("Invalid FCHK SP contraction coefficients")
+        else:
+            expected_coeffs += sum(n for st, n in zip(shell_types, prim_per_shell) if st == -1)
+        if len(cont_coeffs) != expected_coeffs:
+            raise ValueError("FCHK contraction coefficient count mismatch")
 
         exp_ptr = 0
         coeff_ptr = 0
@@ -550,6 +573,13 @@ class BasisSetEngine:
                 self.shells.append(sh)
 
         self.n_basis = basis_idx_counter
+        declared = self.fchk.get("Number of basis functions", None)
+        if declared is not None and (len(declared) != 1 or declared[0] != self.n_basis):
+            raise ValueError("FCHK basis count does not match its shell definitions")
+        for key in ("Alpha MO coefficients", "Beta MO coefficients"):
+            coefficients = self.fchk.get(key, None)
+            if coefficients is not None and (not self.n_basis or len(coefficients) % self.n_basis or not np.isfinite(coefficients).all()):
+                raise ValueError(f"Incomplete or invalid FCHK {key}")
 
     def evaluate_mo_on_grid(
         self,

@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
     QCheckBox,
 )
 from PySide6.QtGui import QColor, QBrush
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer, Slot
 
 # Relative imports
 from .analyzer import FCHKReader, BasisSetEngine
@@ -43,6 +43,7 @@ class OrbitalWidget(QWidget):
         # and doesn't sit on top of other apps (unlike WindowStaysOnTopHint)
         # self.setWindowFlags(Qt.WindowType.Tool)
 
+        self._closing = False
         self.context = context
         self.fchk_path = fchk_path
         self._source_digest = _file_digest(fchk_path)
@@ -200,7 +201,7 @@ class OrbitalWidget(QWidget):
             # MO Mode
             n_basis = self.engine.n_basis
             coeffs = self.reader.get("Alpha MO coefficients", None)
-            if not n_basis or not len(coeffs):
+            if not n_basis or coeffs is None or not len(coeffs):
                 self.list_widget.addItem("Error reading MOs")
                 return
 
@@ -273,6 +274,8 @@ class OrbitalWidget(QWidget):
         self.generate_selected()
 
     def generate_selected(self):
+        if self.worker is not None or self._closing:
+            return
         items = self.list_widget.selectedItems()
         if not items:
             return
@@ -280,7 +283,8 @@ class OrbitalWidget(QWidget):
         self.generation_queue = []
         for item in items:
             mo_idx = item.data(Qt.ItemDataRole.UserRole)
-            self.generation_queue.append(mo_idx)
+            if isinstance(mo_idx, int) and mo_idx > 0:
+                self.generation_queue.append(mo_idx)
 
         if not self.generation_queue:
             return
@@ -294,59 +298,55 @@ class OrbitalWidget(QWidget):
         self.process_generation_queue()
 
     def process_generation_queue(self):
-        if not self.generation_queue:
-            # All done
-            self.pbar.setVisible(False)
-            self.btn_gen.setEnabled(True)
-            self.list_widget.setEnabled(True)
+        if self.worker is not None or self._closing:
             return
+        while self.generation_queue:
+            self.current_gen_mo_idx = self.generation_queue.pop(0)
+            path = self.get_cube_path(self.current_gen_mo_idx)
+            self.last_cube_path = path
+            try:
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+            except OSError as exc:
+                QMessageBox.warning(self, "Generation failed", str(exc))
+                self.generation_queue.clear()
+                break
+            if os.path.exists(path):
+                self.update_list_item(self.current_gen_mo_idx)
+                self.visualize(path)
+                continue
+            atoms = self.reader.get("Current cartesian coordinates").reshape(-1, 3)
+            coeffs = self.reader.get("Alpha MO coefficients", None)
+            self.pbar.setValue(0)
+            self.worker = CalcWorker(
+                self.engine, self.current_gen_mo_idx - 1,
+                self.spin_points.value(), self.spin_gap.value(), atoms,
+                coeffs, path, mode="MO",
+            )
+            self.worker.progress_sig.connect(self.pbar.setValue)
+            self.worker.finished_sig.connect(self.on_finished)
+            self.worker.finished.connect(self._on_worker_stopped)
+            self.worker.start()
+            return
+        self.pbar.setVisible(False)
+        self.btn_gen.setEnabled(True)
+        self.list_widget.setEnabled(True)
 
-        self.current_gen_mo_idx = self.generation_queue.pop(0)
-
-        # Setup Path
-        path = self.get_cube_path(self.current_gen_mo_idx)
-        self.last_cube_path = path
-
-        # Ensure output directory exists
-        out_dir = os.path.dirname(path)
-        os.makedirs(out_dir, exist_ok=True)
-
-        # Check Existence
-        if os.path.exists(path):
-            # Already exists, just skip calculation but trigger visualization of last one?
-            # Or visualize all? Standard behavior: Visualize last one or all?
-            # Let's visualize and move to next
-            self.update_list_item(self.current_gen_mo_idx)
-            # If it's the last one (or single selection), visualize it
-            # But continuous visualization might be heavy.
-            # Let's visualize only if queue is empty or one by one?
-            # User might want to see them pop up.
-            self.visualize(path)
+    @Slot()
+    def _on_worker_stopped(self):
+        self.worker = None
+        if self._closing:
+            QTimer.singleShot(0, self.close)
+        else:
             self.process_generation_queue()
+
+    def closeEvent(self, event):
+        self._closing = True
+        self.generation_queue.clear()
+        if self.worker is not None and self.worker.isRunning():
+            self.worker._is_cancelled = True
+            event.ignore()
             return
-
-        # Calc
-        mode_str = "MO"
-        row_idx = self.current_gen_mo_idx - 1  # 0-based for engine
-
-        atoms = self.reader.get("Current cartesian coordinates").reshape(-1, 3)
-        coeffs = self.reader.get("Alpha MO coefficients", None)
-
-        self.pbar.setValue(0)
-
-        self.worker = CalcWorker(
-            self.engine,
-            row_idx,
-            self.spin_points.value(),
-            self.spin_gap.value(),
-            atoms,
-            coeffs,
-            path,
-            mode=mode_str,
-        )
-        self.worker.progress_sig.connect(self.pbar.setValue)
-        self.worker.finished_sig.connect(self.on_finished)
-        self.worker.start()
+        super().closeEvent(event)
 
     def update_list_item(self, mo_idx):
         # Update color
@@ -356,7 +356,10 @@ class OrbitalWidget(QWidget):
                 item.setForeground(QBrush(QColor("darkgreen")))
                 break
 
+    @Slot(bool, str)
     def on_finished(self, success, result):
+        if self._closing:
+            return
         if success:
             # Mark as generated
             self.update_list_item(self.current_gen_mo_idx)
@@ -371,8 +374,7 @@ class OrbitalWidget(QWidget):
             )
             # Continue queue even if fail? Yes.
 
-        # Next
-        self.process_generation_queue()
+        # The next worker starts only after QThread.finished is delivered.
 
     def visualize(self, cube_path):
         mw = self.context.get_main_window()
