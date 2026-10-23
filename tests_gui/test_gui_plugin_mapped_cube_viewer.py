@@ -371,6 +371,16 @@ class TestMappedWidgetUpdateMeshSignals:
         ctx.plotter.add_mesh.assert_not_called()
         w.destroy()
 
+    def test_render_failure_does_not_escape_error_handler(self, qapp):
+        mw = _make_mw()
+        ctx = MagicMock()
+        ctx.get_main_window.return_value = mw
+        ctx.plotter.render.side_effect = RuntimeError("render window closed")
+        surf, prop = _make_grids(contour_n_points=0)
+        w = _mapped.MappedWidget(ctx, MagicMock(), surf, prop)
+        assert "closed" in w.warning_label.text()
+        w.destroy()
+
 
 class TestMappedWidgetClosePlugin:
     def _widget(self, qapp, mw_extra=None):

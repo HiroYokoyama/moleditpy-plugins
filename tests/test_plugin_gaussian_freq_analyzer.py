@@ -59,6 +59,11 @@ class TestFCHKParserParse:
         p = self._parse(tmp_path)
         assert p.atoms == [8, 1, 1]
 
+    def test_record_labels_are_consistently_case_insensitive(self, tmp_path):
+        p = self._parse(tmp_path, _WATER_FCHK.replace("Atomic numbers", "atomic numbers").replace("Charge", "charge"))
+        assert p.atoms == [8, 1, 1]
+        assert p.charge == 0
+
     def test_coord_count_equals_atom_count(self, tmp_path):
         p = self._parse(tmp_path)
         assert len(p.coords) == 3

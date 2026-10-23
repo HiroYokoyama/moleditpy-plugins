@@ -494,6 +494,9 @@ class TestDragAndDrop:
         event = _FakeDropEvent([_FakeUrl(path)])
         with patch.object(onp_widget, "load_file") as mock_load:
             onp_widget.dropEvent(event)
+            mock_load.assert_not_called()
+            from PySide6.QtWidgets import QApplication
+            QApplication.processEvents()
         mock_load.assert_called_once_with(path)
         assert event.accepted
 
@@ -1341,7 +1344,10 @@ class TestInitializeReal:
         monkeypatch.setattr(
             _onp, "load_from_file", lambda m, f: called.update(fname=f)
         )
-        assert handler(path) is True
+        with patch.object(_onp, "QTimer") as timer:
+            assert handler(path) is True
+            assert called == {}
+            timer.singleShot.call_args.args[-1]()
         assert called["fname"] == path
 
         called.clear()

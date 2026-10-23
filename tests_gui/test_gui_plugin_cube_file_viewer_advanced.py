@@ -223,6 +223,17 @@ def _fallback_plotter_getattr(exclude):
 
 
 class TestCubeViewerWidgetConstruction:
+    def test_close_cancels_initial_draw(self, qapp):
+        w, ctx, _, _, _ = _make_viewer()
+        try:
+            w.close()
+            ctx.plotter.reset_mock()
+            assert not w._initial_update_timer.isActive()
+            w.initial_update()
+            ctx.plotter.render.assert_not_called()
+        finally:
+            _teardown_viewer(w)
+
     @pytest.fixture
     def viewer(self, qapp):
         w, ctx, mw, dock, grid = _make_viewer()
@@ -777,10 +788,13 @@ class TestCubeAdvancedInitialize:
         ctx = MagicMock()
         _cube_adv.initialize(ctx)
         handler = ctx.register_drop_handler.call_args.args[0]
-        with patch.object(_cube_adv, "open_cube_viewer") as ocv:
+        with patch.object(_cube_adv, "open_cube_viewer") as ocv, patch.object(_cube_adv, "QTimer") as timer:
             assert handler("orbital.cube") is True
             assert handler("orbital.CUB") is True
             assert handler("structure.xyz") is False
+            ocv.assert_not_called()
+            for call in timer.singleShot.call_args_list:
+                call.args[-1]()
             assert ocv.call_count == 2
 
 

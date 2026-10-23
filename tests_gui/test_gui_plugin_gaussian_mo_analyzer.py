@@ -15,7 +15,6 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from conftest import mock_chemistry_imports
 
 PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
@@ -47,9 +46,11 @@ class TestMOAnalyzerInitialize:
         ctx = MagicMock()
         _mo.initialize(ctx)
         handler = ctx.register_drop_handler.call_args.args[0]
-        with patch.object(_mo, "OrbitalWidget") as ow:
+        with patch.object(_mo, "OrbitalWidget") as ow, patch.object(_mo, "QTimer") as timer:
             assert handler("mol.fchk") is True
             assert handler("mol.xyz") is False
+            ow.assert_not_called()
+            timer.singleShot.call_args.args[-1]()
             ow.assert_called_once()
 
 
@@ -205,6 +206,7 @@ class _SyncCalcWorker(_mo.worker.CalcWorker):
 
     def start(self):
         self.run()
+        self.finished.emit()
 
 
 _S_SHELL_MO_FCHK = textwrap.dedent(
@@ -249,6 +251,55 @@ class TestOrbitalWidgetWithRealMOData:
         # ceil(Number of electrons / 2), exercising the np.ceil branch.
         assert win.list_widget.count() == 1
         assert "HOMO" in win.list_widget.item(0).text()
+
+    def test_native_worker_is_retained_until_thread_exit(self, win, qapp):
+        import threading
+
+        from PySide6.QtCore import QThread, Signal
+        from PySide6.QtTest import QTest
+
+        release = threading.Event()
+
+        class Worker(QThread):
+            progress_sig = Signal(int)
+            finished_sig = Signal(bool, str)
+
+            def run(self):
+                self.finished_sig.emit(True, "result.cube")
+                release.wait(3)
+
+        worker = Worker()
+        try:
+            with patch.object(_mo.gui, "CalcWorker", return_value=worker), patch.object(win, "visualize") as visualize:
+                win.generation_queue = [1, 2]
+                win.process_generation_queue()
+                for _ in range(100):
+                    QTest.qWait(5)
+                    if visualize.called:
+                        break
+                assert visualize.called
+                assert worker.isRunning()
+                assert win.worker is worker
+                assert win.generation_queue == [2]
+                assert win.close() is False
+                assert worker._is_cancelled is True
+                release.set()
+                assert worker.wait(1000)
+                QTest.qWait(20)
+                assert win.worker is None
+                assert win.generation_queue == []
+        finally:
+            release.set()
+            worker.wait(1000)
+            qapp.processEvents()
+
+    def test_many_cached_orbitals_do_not_recurse(self, win):
+        with patch.object(_mo.gui.os.path, "exists", return_value=True), patch.object(_mo.gui.os, "makedirs"), patch.object(win, "visualize") as visualize:
+            win.generation_queue = [1] * 1500
+            win.process_generation_queue()
+            assert visualize.call_count == 1500
+            assert win.generation_queue == []
+            assert win.btn_gen.isEnabled()
 
     def test_molecule_load_branch_reaches_reset_camera(self, win):
         # Constructor's rdkit/molecule-loading branch (real xyz block) runs

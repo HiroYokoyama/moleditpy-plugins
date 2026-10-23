@@ -33,7 +33,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 
 try:
     import numpy as np
@@ -47,7 +47,7 @@ except ImportError:  # pragma: no cover - host always ships pyvista
 
 
 PLUGIN_NAME = "Orbital Comparator"
-PLUGIN_VERSION = "2026.10.19"
+PLUGIN_VERSION = "2026.10.23"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -418,6 +418,7 @@ class OrbitalComparator(QWidget):
 
         self.slots = []
         self._ready = False
+        self._closed = False
         self._suspend = 0
         self._loading_structure = False
         self._structure_loaded = False
@@ -763,7 +764,7 @@ class OrbitalComparator(QWidget):
     # -- rendering ---------------------------------------------------------
 
     def render_all(self):
-        if self._suspend or not self._ready:
+        if self._suspend or not self._ready or self._closed:
             return
         plotter = getattr(self.mw, "plotter", None)
         if plotter is None:
@@ -836,12 +837,17 @@ class OrbitalComparator(QWidget):
             if u.toLocalFile().lower().endswith((".cube", ".cub"))
         ]
         if paths:
-            self.load_paths(paths)
+            QTimer.singleShot(0, self, lambda: self.load_paths(paths) if not self._closed else None)
             event.acceptProposedAction()
 
     # -- teardown ----------------------------------------------------------
 
+    def showEvent(self, event):
+        self._closed = False
+        super().showEvent(event)
+
     def closeEvent(self, event):
+        self._closed = True
         for slot in self.slots:
             self._remove_actors(slot.prefix)
         plotter = getattr(self.mw, "plotter", None)

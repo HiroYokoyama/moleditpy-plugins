@@ -298,9 +298,14 @@ That runs **`release.yml`** (trigger: tags matching
 
 1. `release` creates the GitHub release, titled `Up to the release of
    2026.08.01` — the leading `v` is dropped from the title so it reads like the
-   releases made before the prefix was adopted. This repo publishes no build
-   artifacts; the tag's source archive is the payload.
-2. `zenodo-upload` uploads to Zenodo and mints a DOI, updating record 21522477
+   releases made before the prefix was adopted. It checks out the exact tag,
+   builds deterministic ZIPs from tracked package source and public license
+   notices, and attaches them to that release. It then updates the ZIP entries
+   in the current `main` registry with the Release URL, source metadata and
+   SHA-256. A concurrent external-plugin registration is preserved by retrying
+   the registry update on the newest `main`. Manual backfills cannot downgrade
+   newer ZIP entries.
+2. `zenodo-upload` uploads the generated ZIP assets and tagged source archive to Zenodo and mints a DOI, updating record 21522477
    — this collection's own record, hardcoded once as `DEPOSITION_ID` in
    `scripts/update_zenodo.py`. A tag push always archives; a manual dispatch can
    opt out with the `zenodo` input.
@@ -313,9 +318,39 @@ a separate Zenodo workflow run after a tag — there isn't one, and its absence 
 not a failure. `zenodo.yml` still exists, but as `workflow_dispatch` only, for
 manual backfills and re-runs.
 
-Nothing else is needed. There is no version constant to bump: a release here
-marks a snapshot of the whole collection, and each plugin carries its own
-`PLUGIN_VERSION`.
+There is no collection version constant to bump: each changed collection
+plugin gets today's `YYYY.MM.DD` in its own `PLUGIN_VERSION`. Finish the current
+release batch, validate the PR and merged `main`, then push its date tag. Never
+move or overwrite an existing tag.
+
+### Package ZIPs and Pages
+
+- Pages continues publishing the root of `main`. There is no `deploy` branch.
+  External-plugin release notifications continue registering into `main`.
+- `scripts/package_intra_repo_plugins.py --output-dir <temporary-directory>
+  --manifest <temporary-directory>/manifest.json` builds ZIPs from the checked
+  out source. Only tracked package files and the public license notices enter
+  the ZIP; untracked preferences, calculation results and caches are excluded.
+- The release workflow runs that command **after checking out the tag**, uploads
+  the ZIPs, then uses `scripts/update_release_packages.py` to publish the exact
+  URLs/checksums to `REGISTRY/plugins.json`. Do not edit the registry manually.
+- `sourcePath` is the script-maintained path identifying the package sources
+  after `downloadUrl` moves to a GitHub Release asset. Future tags keep finding
+  the package through this field. Published ZIP metadata changes at release
+  time; ordinary source edits must not repoint an existing released URL or its
+  checksum to an unreleased build.
+- For the initial migration, switch the registry to the upcoming Release URL
+  and remove the tracked active package ZIP in the same PR. Immediately tag the
+  merge commit so the release workflow uploads the asset. Keep package sources
+  and `sourcePath`; future releases build without a tracked ZIP. Old tagged
+  snapshots retain their historical ZIP. Do not remove retired `_old` archives.
+- The release workflow explicitly requests a Pages build after its registry
+  commit, because a `GITHUB_TOKEN` push does not itself start a Pages build.
+  See [GitHub Pages build API](https://docs.github.com/en/rest/pages/pages#request-a-github-pages-build).
+- Before reporting completion, verify the release asset contents/version/SHA,
+  the registry URL and SHA on `main`, the live Pages registry, the successful
+  release and Zenodo jobs, and the Pages build. Retry a failed workflow without
+  moving its tag. Existing releases accept deterministic asset re-uploads.
 
 Guards, so a mistake is loud rather than silent:
 

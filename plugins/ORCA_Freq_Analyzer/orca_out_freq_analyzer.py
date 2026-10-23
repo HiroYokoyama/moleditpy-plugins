@@ -43,7 +43,7 @@ except ImportError:
 
 PLUGIN_NAME = "ORCA Freq Analyzer"
 PLUGIN_DESCRIPTION = "Analyzes vibrational frequencies from ORCA output files. View IR spectrum, animate normal modes, and export GIF animations."
-PLUGIN_VERSION = "2026.10.19"
+PLUGIN_VERSION = "2026.10.23"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_CONTEXT = None
@@ -86,8 +86,17 @@ class OrcaParser:
     def parse(self, filename):
         self.__init__()
         self.filename = filename
-        with open(filename, "r", encoding="utf-8", errors="strict") as source:
-            lines = source.readlines()
+        limit = 256 * 1024 * 1024
+        with open(filename, "rb") as source:
+            raw = source.read(limit + 1)
+        if len(raw) > limit:
+            raise ValueError("ORCA output exceeds the 256 MiB loading limit")
+        lines = raw.decode("utf-8-sig").splitlines()
+        start = 0
+        for i, line in enumerate(lines):
+            if re.match(r"^\s*Program Version\s+\d", line) or re.match(r"^\s*\*?\s*JOB NUMBER\s+\d+\s*\*?\s*$", line):
+                start = i
+        lines = lines[start:]
 
         def number(token):
             value = float(token.replace("D", "E").replace("d", "e"))
@@ -385,7 +394,7 @@ class OrcaOutFreqAnalyzer(QWidget):
         for url in event.mimeData().urls():
             file_path = url.toLocalFile()
             if file_path.lower().endswith((".out", ".log")):
-                self.load_file(file_path)
+                QTimer.singleShot(0, self, lambda path=file_path: self.load_file(path))
                 event.acceptProposedAction()
                 break
 
@@ -980,9 +989,10 @@ class SpectrumDialog(QDialog):
             try:
                 # Capture the widget
                 pixmap = self.plot_widget.grab()
-                pixmap.save(fname)
+                if not pixmap.save(fname):
+                    raise OSError(f"Could not write image: {fname}")
                 QMessageBox.information(self, "Success", "Saved Image.")
-            except (RuntimeError, AttributeError) as e:
+            except (OSError, RuntimeError, AttributeError) as e:
                 QMessageBox.critical(self, "Error", str(e))
 
 
@@ -1276,7 +1286,7 @@ def initialize(context):
         fpath = file_path.lower()
         if fpath.endswith((".out", ".log")):
             if is_valid_orca_file(file_path):
-                load_from_file(mw, file_path)
+                QTimer.singleShot(0, mw, lambda: load_from_file(mw, file_path))
                 return True
         return False
 

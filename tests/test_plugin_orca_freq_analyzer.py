@@ -90,6 +90,16 @@ class TestIsValidOrcaFile:
 
 
 class TestOrcaParserParse:
+    @pytest.mark.parametrize("boundary", ["Program Version 6.1.1", "JOB NUMBER 2", "* JOB NUMBER 2 *"])
+    def test_new_job_does_not_inherit_previous_frequencies(self, tmp_path, boundary):
+        f = tmp_path / "combined.out"
+        f.write_text(_WATER_ORCA + "\n" + boundary + "\n")
+        parser = _orca.OrcaParser()
+        parser.parse(str(f))
+        assert parser.atoms == []
+        assert parser.frequencies == []
+        assert parser.final_modes == []
+
     def _parsed_water(self, tmp_path):
         f = tmp_path / "water.out"
         f.write_text(_WATER_ORCA)

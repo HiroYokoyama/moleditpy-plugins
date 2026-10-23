@@ -1,9 +1,10 @@
 from .gui import OrbitalWidget
 from .analyzer import UnsupportedBasisError
+from PySide6.QtCore import QTimer
 
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Gaussian MO Analyzer"
-PLUGIN_VERSION = "2026.10.19"
+PLUGIN_VERSION = "2026.10.23"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -19,6 +20,12 @@ def _warn_unsupported(parent, exc):
     from PySide6.QtWidgets import QMessageBox
 
     QMessageBox.warning(parent, "Unsupported basis set", str(exc))
+
+
+def _warn_invalid(parent, exc):
+    from PySide6.QtWidgets import QMessageBox
+
+    QMessageBox.warning(parent, "Invalid FCHK data", str(exc))
 
 
 def initialize(context):
@@ -37,6 +44,9 @@ def initialize(context):
         except UnsupportedBasisError as exc:
             _warn_unsupported(mw, exc)
             return
+        except (OSError, ValueError, TypeError, IndexError, RuntimeError) as exc:
+            _warn_invalid(mw, exc)
+            return
         context._fchk_dialog.show()
 
     context.register_file_opener(".fchk", open_fchk, priority=10)
@@ -45,7 +55,7 @@ def initialize(context):
 
     def handle_drop(path):
         if path.lower().endswith((".fchk", ".fck", ".fch")):
-            open_fchk(path)
+            QTimer.singleShot(0, context.get_main_window(), lambda: open_fchk(path))
             return True
         return False
 
@@ -68,5 +78,8 @@ def run(mw):
         dialog = OrbitalWidget(mw, context, path)
     except UnsupportedBasisError as exc:
         _warn_unsupported(mw, exc)
+        return
+    except (OSError, ValueError, TypeError, IndexError, RuntimeError) as exc:
+        _warn_invalid(mw, exc)
         return
     dialog.show()

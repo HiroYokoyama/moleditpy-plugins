@@ -226,6 +226,8 @@ class TestCubeViewerInitialize:
             mod.open_cube_viewer = MagicMock()
             handler = ctx.register_drop_handler.call_args[0][0]
             assert handler("/some/path/mo.CUBE") is True
+            mod.open_cube_viewer.assert_not_called()
+            mod.QTimer.singleShot.call_args.args[-1]()
             mod.open_cube_viewer.assert_called_once_with(ctx, "/some/path/mo.CUBE")
 
     def test_drop_handler_ignores_other_extension(self):

@@ -791,6 +791,8 @@ class TestRunPluginAndInitialize:
         called = []
         mod.open_cube_viewer = lambda c, f: called.append((c, f))
         assert handler("molecule.cube") is True
+        assert called == []
+        mod.QTimer.singleShot.call_args.args[-1]()
         assert called == [(ctx, "molecule.cube")]
 
     def test_initialize_drop_handler_rejects_other_extension(self):

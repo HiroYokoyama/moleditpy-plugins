@@ -6,11 +6,13 @@ from __future__ import annotations
 
 import ast
 import logging
+import math
 import textwrap
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import pytest
 from conftest import load_plugin, mock_optional_imports
 
 PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
@@ -49,7 +51,7 @@ def _extract_method_as_fn(path: Path, class_name: str, method_name: str, extra_g
                     func_src = ast.get_source_segment(source, item)
                     if func_src:
                         local_ns: dict = {}
-                        globs = {"logging": logging, **(extra_globals or {})}
+                        globs = {"logging": logging, "math": math, **(extra_globals or {})}
                         exec(textwrap.dedent(func_src), globs, local_ns)
                         return local_ns[method_name]
     return None
@@ -112,14 +114,26 @@ class TestParseMultiFrameXYZ:
         assert abs(y - (-2.3)) < 1e-9
         assert abs(z - 0.001) < 1e-9
 
-    def test_bad_coord_line_skipped(self, tmp_path):
-        """Atom lines with a non-float coordinate are silently skipped."""
+    def test_bad_coord_line_is_rejected(self, tmp_path):
         content = "2\nbad\nH 0 0 0\nO not_a_float 0 1\n"
         p = tmp_path / "bad.xyz"
         p.write_text(content, encoding="utf-8")
-        frames = _parse_xyz(str(p))
-        assert len(frames) == 1
-        assert frames[0]["symbols"] == ["H"]  # O line dropped
+        with pytest.raises(ValueError, match="coordinates"):
+            _parse_xyz(str(p))
+
+    @pytest.mark.parametrize("count", [-2, -1, 0])
+    def test_nonpositive_count_is_rejected_without_looping(self, tmp_path, count):
+        p = tmp_path / "bad.xyz"
+        p.write_text(f"{count}\ncomment\n")
+        with pytest.raises(ValueError, match="positive"):
+            _parse_xyz(str(p))
+
+    @pytest.mark.parametrize("value", ["nan", "inf", "1e999"])
+    def test_nonfinite_coordinate_is_rejected(self, tmp_path, value):
+        p = tmp_path / "bad.xyz"
+        p.write_text(f"1\ncomment\nH {value} 0 0\n")
+        with pytest.raises(ValueError, match="coordinates"):
+            _parse_xyz(str(p))
 
     def test_non_integer_atom_count_line_skipped(self, tmp_path):
         """Lines that can't be parsed as an int atom count are skipped."""

@@ -47,7 +47,7 @@ except ImportError:
     rdDetermineBonds = None
 
 PLUGIN_NAME = "Gaussian Freq Analyzer"
-PLUGIN_VERSION = "2026.10.19"
+PLUGIN_VERSION = "2026.10.23"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Analyzes vibrational frequencies from Gaussian FCHK files. View IR spectrum, animate normal modes, and export GIF animations."
@@ -76,12 +76,16 @@ class FCHKParser:
         self.intensities = []  # IR Intensities
         self.vib_modes = []  # list of list of (dx, dy, dz)
 
-        with open(filename, "r", encoding="utf-8", errors="replace") as f:
-            lines = f.readlines()
+        limit = 256 * 1024 * 1024
+        with open(filename, "rb") as f:
+            raw = f.read(limit + 1)
+        if len(raw) > limit:
+            raise ValueError("FCHK exceeds the 256 MiB loading limit")
+        lines = raw.decode("utf-8", errors="replace").splitlines()
 
         data = {}
         wanted = {"Atomic numbers", "Current cartesian coordinates", "Vib-E2", "Vib-Modes", "Dipole Derivatives", "IR Inten", "IR intensities", "Real atomic weights", "Charge", "Multiplicity", "Number of Normal Modes"}
-        wanted_labels = {name.casefold() for name in wanted}
+        wanted_labels = {name.casefold(): name for name in wanted}
         header_pattern = re.compile(r"^(.+?)\s+([IRCLH])\s+(?:N=\s*(\d+)|(.+))$")
         numeric_pattern = re.compile(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[EeDd][+-]?\d+)?")
         i = 0
@@ -93,6 +97,7 @@ class FCHKParser:
             label, dtype, count_text, scalar = match.groups()
             if label.casefold() not in wanted_labels:
                 continue
+            label = wanted_labels[label.casefold()]
             expected_type = "I" if label in {"Atomic numbers", "Charge", "Multiplicity", "Number of Normal Modes"} else "R"
             if dtype != expected_type:
                 raise ValueError(f"Invalid FCHK record type: {label}")
@@ -498,7 +503,7 @@ class GaussianFCHKFreqAnalyzer(QWidget):
         for url in event.mimeData().urls():
             file_path = url.toLocalFile()
             if file_path.lower().endswith((".fchk", ".fck", ".fch")):
-                self.load_file(file_path)
+                QTimer.singleShot(0, self, lambda path=file_path: self.load_file(path))
                 event.acceptProposedAction()
                 break
 
@@ -811,6 +816,9 @@ class GaussianFCHKFreqAnalyzer(QWidget):
     def save_as_gif(self):
         if not self.parser or not self.base_mol:
             return
+        if not HAS_PIL:
+            QMessageBox.warning(self, "GIF export", "Pillow is required to export GIF animations.")
+            return
 
         # Pause to configure
         was_playing = self.is_playing
@@ -824,6 +832,11 @@ class GaussianFCHKFreqAnalyzer(QWidget):
             )
             return
         row = self.list_freq.indexOfTopLevelItem(curr)
+        if row < 0 or row >= len(self.parser.vib_modes):
+            QMessageBox.warning(self, "GIF export", "No displacement vectors are available for this frequency.")
+            if was_playing:
+                self.toggle_play()
+            return
 
         dialog = QDialog(self)
         dialog.setWindowTitle("Export GIF Settings")
@@ -1105,9 +1118,10 @@ class SpectrumDialog(QDialog):
             try:
                 # Capture the widget
                 pixmap = self.plot_widget.grab()
-                pixmap.save(fname)
+                if not pixmap.save(fname):
+                    raise OSError(f"Could not write image: {fname}")
                 QMessageBox.information(self, "Success", "Saved Image.")
-            except (RuntimeError, AttributeError) as e:
+            except (OSError, RuntimeError, AttributeError) as e:
                 QMessageBox.critical(self, "Error", str(e))
 
 
@@ -1376,7 +1390,7 @@ def initialize(context):
     # 3. Register Drop Handler
     def drop_handler(file_path):
         if file_path.lower().endswith((".fchk", ".fck", ".fch")):
-            load_from_file(context, file_path)
+            QTimer.singleShot(0, context.get_main_window(), lambda: load_from_file(context, file_path))
             return True
         return False
 
