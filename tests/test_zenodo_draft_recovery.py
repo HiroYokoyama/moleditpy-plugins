@@ -228,7 +228,9 @@ def test_resume_existing_draft_without_creating_a_version(
         invoke(monkeypatch, tmp_path, request, "--draft-id", "300", "--publish")
         assert ("POST", draft["links"]["publish"]) in calls
     else:
-        message = "different pending version" if same_family else "different record family"
+        message = (
+            "different pending version" if same_family else "different record family"
+        )
         with pytest.raises(ValueError, match=message):
             invoke(monkeypatch, tmp_path, request, "--draft-id", "300", "--publish")
         assert all(method == "GET" for method, _ in calls)
