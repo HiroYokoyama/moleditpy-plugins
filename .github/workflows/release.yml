@@ -21,6 +21,11 @@ on:
 
 permissions:
   contents: write
+  pages: write
+
+concurrency:
+  group: collection-release
+  cancel-in-progress: false
 
 jobs:
   release:
@@ -33,12 +38,15 @@ jobs:
           fetch-depth: 0
 
       - name: Resolve tag
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
         run: |
           if [ "${{ github.event_name }}" = "push" ]; then
             TAG="${GITHUB_REF#refs/tags/}"
           else
-            TAG="${{ github.event.inputs.tag }}"
+            TAG="$INPUT_TAG"
           fi
+          [[ "$TAG" =~ ^v[0-9]{4}\.[0-9]{2}\.[0-9]{2}$ ]] || exit 1
           echo "Tag: $TAG"
           echo "TAG=$TAG" >> $GITHUB_ENV
 
@@ -50,26 +58,61 @@ jobs:
             echo "::error::Tag '${TAG}' does not exist in this repository."
             exit 1
           fi
+          git checkout --detach "refs/tags/$TAG"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build ZIP assets from the tag
+        run: |
+          python scripts/package_intra_repo_plugins.py \
+            --output-dir "$RUNNER_TEMP/plugin-packages" \
+            --manifest "$RUNNER_TEMP/plugin-packages/manifest.json"
 
       - name: Create the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Re-running for a tag that is already released is a no-op rather
-          # than a failure, so a retry after an unrelated hiccup is safe.
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Release $TAG already exists; nothing to do."
-            exit 0
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            TITLE="Up to the release of ${TAG#v}"
+            gh release create "$TAG" --verify-tag --title "$TITLE" --notes "$TITLE"
           fi
+          # Deterministic output makes retries produce the same bytes.
+          gh release upload "$TAG" "$RUNNER_TEMP/plugin-packages/"*.zip --clobber
 
-          # Title carries the date without the tag's leading "v", so it reads
-          # the same as the releases made before the prefix was adopted.
-          TITLE="Up to the release of ${TAG#v}"
-          gh release create "$TAG" \
-            --title "$TITLE" \
-            --notes "$TITLE"
+      - name: Check out current main for the registry update
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          path: registry-main
 
-          echo "Created release: $TITLE"
+      - name: Publish ZIP URLs and checksums to main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git -C registry-main config user.name "github-actions[bot]"
+          git -C registry-main config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3 4 5; do
+            python scripts/update_release_packages.py \
+              --registry registry-main/REGISTRY/plugins.json \
+              --manifest "$RUNNER_TEMP/plugin-packages/manifest.json" \
+              --repository "$GITHUB_REPOSITORY" --tag "$TAG"
+            python registry-main/scripts/validate_json.py registry-main/REGISTRY/plugins.json
+            git -C registry-main add REGISTRY/plugins.json
+            if git -C registry-main diff --cached --quiet; then
+              break
+            fi
+            git -C registry-main commit -m "Publish collection ZIP assets: $TAG" -m "Assisted-by: GPT-6.1 Sol"
+            if git -C registry-main push origin HEAD:main; then
+              break
+            fi
+            if [ "$attempt" = 5 ]; then exit 1; fi
+            git -C registry-main fetch origin main
+            git -C registry-main reset --hard origin/main
+          done
+          # Token-authored pushes do not start a legacy Pages build.
+          gh api --method POST "repos/$GITHUB_REPOSITORY/pages/builds"
 
   # Archiving runs here rather than from zenodo.yml's `release: published`
   # trigger: this workflow mints the release with GITHUB_TOKEN, and GitHub does
