@@ -228,6 +228,16 @@ class BasisSetEngine:
         of the orbital. Either way the picture is wrong with nothing on screen
         to say so. Better to refuse the file and name the shell type.
         """
+        signs_by_l = {}
+        for stype in shell_types:
+            stype = int(stype)
+            if abs(stype) >= 2:
+                signs_by_l.setdefault(abs(stype), set()).add(stype > 0)
+        if any(len(signs) > 1 for signs in signs_by_l.values()):
+            raise UnsupportedBasisError(
+                "Mixed Cartesian and spherical shells of the same angular "
+                "momentum are not supported by this renderer."
+            )
         offenders = []
         for stype in shell_types:
             stype = int(stype)

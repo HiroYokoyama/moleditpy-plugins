@@ -53,6 +53,9 @@ class OrbitalWidget(QWidget):
         # Init Backend
         self.reader = FCHKReader(fchk_path)
         self.engine = BasisSetEngine(self.reader)
+        beta = self.reader.get("Beta MO coefficients", None)
+        if beta is not None and len(beta):
+            self.setWindowTitle(self.windowTitle() + " - Alpha orbitals only")
 
         # Load Molecule to Main Window
         try:
@@ -206,6 +209,14 @@ class OrbitalWidget(QWidget):
                 return
 
             n_mos = len(coeffs) // n_basis
+            beta = self.reader.get("Beta MO coefficients", None)
+            unrestricted = beta is not None and len(beta) > 0
+            if unrestricted:
+                self.list_widget.setToolTip(
+                    "Unrestricted FCHK: alpha orbitals are displayed. "
+                    "Beta orbitals are not supported by this viewer. "
+                    "HOMO/LUMO labels refer to the alpha channel."
+                )
             energies = self.reader.get("Alpha Orbital Energies", None)
             n_alpha = self.reader.get("Number of alpha electrons", None)
             if n_alpha is not None and len(n_alpha) > 0:
@@ -218,7 +229,7 @@ class OrbitalWidget(QWidget):
             # Populate in Reverse Order (High Energy Top)
             for i in range(n_mos - 1, -1, -1):
                 mo_idx = i + 1
-                label = f"MO {mo_idx:3d}"
+                label = f"{'Alpha MO' if unrestricted else 'MO'} {mo_idx:3d}"
                 if energies is not None and i < len(energies):
                     label += f"   E={energies[i]:.5f} Ha"
 
