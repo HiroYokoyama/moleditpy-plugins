@@ -393,3 +393,7 @@ Plugins are validated against the real `PluginContext` contract defined in:
 
 When the main app's `PluginContext` API changes, plugin repos may need updates. The `test-api` CI job catches regressions automatically.
 
+
+## Copied maintenance scripts
+
+See [scripts/COMMON_TOOLS.md](scripts/COMMON_TOOLS.md) for canonical ownership, pinned versions and update instructions. Common script unit tests stay in the canonical repository; retain this repository's own integration checks.
