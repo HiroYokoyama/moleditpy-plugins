@@ -576,7 +576,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "MS Spectrum Simulation Neo",
-    "version": "2026.10.19",
+    "version": "2026.10.24",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Simulates the isotope pattern of the molecular ion (M, or an adduct ion such as [M+H]+ or [M+Na]+) for the currently loaded molecule. Fragment peaks are not simulated. Includes Gaussian broadening and interactive zoom/pan.",
@@ -589,8 +589,8 @@
       "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/MS_Spectrum_Simulation_Neo/ms_spectrum_neo.py",
-    "lastUpdated": "2026-10-19",
-    "sha256": "72926a54db7bae3076f69d9cda5d5b3c750574ac962d8e14419b42575e8d67d8",
+    "lastUpdated": "2026-10-24",
+    "sha256": "9e1e5f06ffa39990f2630e9277ff98cebd4ed6a350660bbef3a3ea0e8f211b07",
     "firstAppeared": "2025-12-18",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -606,7 +606,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Elemental Analysis",
-    "version": "2026.10.20",
+    "version": "2026.10.24",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Calculates the theoretical elemental composition (mass %) of the currently loaded molecule, with optional solvate, and formats the 'Anal. Calcd for' line for publications.",
@@ -618,8 +618,8 @@
       "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/Elemental_Analysis/elemental_analysis.py",
-    "lastUpdated": "2026-10-20",
-    "sha256": "e9207f4a3456fc71ca93d2484437d05c54dd454b0e6c9e491d2aa7cc10fc7ae3",
+    "lastUpdated": "2026-10-24",
+    "sha256": "750aa59f2165d945c55dd054bec0f8451219dda6b0d73cbdf0e06eca1f6cd4e2",
     "firstAppeared": "2026-09-26",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -922,7 +922,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Symmetry Analyzer",
-    "version": "2026.10.19",
+    "version": "2026.10.24",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Analyzes molecular symmetry (point group) and symmetrizes structures.",
@@ -935,8 +935,8 @@
       "pymatgen"
     ],
     "downloadUrl": "../plugins/Symmetry_Analyzer/symmetry_analyzer.py",
-    "lastUpdated": "2026-10-19",
-    "sha256": "ae9fe3394137e134d899b1486d5463f85f831007b43670b807f16b5b23b1840a",
+    "lastUpdated": "2026-10-24",
+    "sha256": "e9fe035895c6d28e0d4574f22c67053f933244417eee16dba316bc8bec67f496",
     "firstAppeared": "2025-12-31",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1104,7 +1104,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Molecule Comparator",
-    "version": "2026.10.19",
+    "version": "2026.10.24",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Compare multiple molecules in 3D, calculate RMSD, and align them.",
@@ -1117,8 +1117,8 @@
       "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/Molecule_Comparator/molecule_comparator.py",
-    "lastUpdated": "2026-10-19",
-    "sha256": "6c0e7e4bfc154f2f55ad284984c0a439f4644ecc53493ba33687a967909bbe28",
+    "lastUpdated": "2026-10-24",
+    "sha256": "5332889eeb4a6343995c9b3e5c6b94cf8fdae46729c6efc55a233152212c6ee3",
     "firstAppeared": "2026-01-03",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1302,7 +1302,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Compound Info Report",
-    "version": "2026.10.19",
+    "version": "2026.10.24",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generate a compound info report with properties, adducts, and structure. Useful for organic synthesis experiments.",
@@ -1314,8 +1314,8 @@
       "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/Compound_Info_Report/compound_info_report.py",
-    "lastUpdated": "2026-10-19",
-    "sha256": "a43f95d2c2adbec460bdcca2d28e90b99776d76b7e500ed52cbcfba55770a629",
+    "lastUpdated": "2026-10-24",
+    "sha256": "3ed56021842187d9f637eeb8658dff4722b38e585c76b35e3362cdf22de5dfed",
     "firstAppeared": "2026-01-21",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1522,7 +1522,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Cube File Viewer Advanced",
-    "version": "2026.10.23",
+    "version": "2026.10.24",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Advanced 3D visualization for Gaussian Cube files with PBR, SSAO, and other effects.",
@@ -1537,8 +1537,8 @@
       "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer_Advanced/cube_viewer_advanced.py",
-    "lastUpdated": "2026-10-23",
-    "sha256": "f981abf2cf239b03fa2c9b6d9b3e9a080c1d23ff54627052531a5d2febe8be6f",
+    "lastUpdated": "2026-10-24",
+    "sha256": "776cd9df409d125b947cf9e8299800572f7d83996b4b019454636d3a1e445c82",
     "firstAppeared": "2026-02-02",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

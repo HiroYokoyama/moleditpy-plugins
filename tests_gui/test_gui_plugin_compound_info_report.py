@@ -206,6 +206,32 @@ def _real_dlg(mol=None, parent=None):
 
 @requires_real_chem
 class TestCaptureSceneImage:
+    @pytest.mark.parametrize("fail_render", [False, True])
+    def test_huge_scene_is_bounded_and_painter_always_ends(self, qapp, fail_render):
+        parent = QWidget()
+        scene = MagicMock()
+        parent.scene = scene
+        scene.items.return_value = []
+        scene.itemsBoundingRect.return_value = QRectF(0, 0, 1000000, 500000)
+        painters, sizes = [], []
+
+        def render(painter, target, source):
+            painters.append(painter)
+            sizes.append((target.width(), target.height()))
+            if fail_render:
+                raise RuntimeError("capture failed")
+
+        scene.render.side_effect = render
+        d = _real_dlg(mol=_ethanol_mol(), parent=parent)
+        try:
+            image, _width, _height = d.capture_scene_image()
+            assert image
+            assert max(sizes[0]) <= 1600
+            assert all(not p.isActive() for p in painters)
+        finally:
+            d.destroy()
+            parent.deleteLater()
+
     def test_no_parent_scene_falls_back_to_rdkit(self, qapp):
         mol = _ethanol_mol()
         d = _real_dlg(mol=mol, parent=None)
@@ -779,3 +805,47 @@ def test_report_reentry_is_ignored(qapp, monkeypatch):
         callback.assert_not_called()
     finally:
         d.close()
+
+
+@requires_real_chem
+@pytest.mark.parametrize("cancel_step", [1, 2, 3])
+def test_pdf_cancel_after_event_processing_stops_export(
+    qapp, monkeypatch, tmp_path, cancel_step
+):
+    d = _real_dlg(_ethanol_mol())
+    progress = MagicMock()
+    state = {"events": 0, "canceled": False}
+    progress.wasCanceled.side_effect = lambda: state["canceled"]
+
+    def process_events():
+        state["events"] += 1
+        state["canceled"] = state["events"] == cancel_step
+
+    output = tmp_path / "canceled.pdf"
+    fetch = MagicMock(return_value={})
+    build = MagicMock(return_value="<html>report</html>")
+    printer = MagicMock()
+    try:
+        d.last_img = ("image", 10, 10)
+        d.last_pubchem_data = None
+        monkeypatch.setattr(
+            _compound_real.QFileDialog,
+            "getSaveFileName",
+            lambda *args: (str(output), ""),
+        )
+        monkeypatch.setattr(_compound_real, "QProgressDialog", lambda *args: progress)
+        monkeypatch.setattr(
+            _compound_real.QApplication, "processEvents", process_events
+        )
+        monkeypatch.setattr(_compound_real, "QPrinter", printer)
+        monkeypatch.setattr(d, "fetch_pubchem_data", fetch)
+        monkeypatch.setattr(d, "build_html", build)
+        d.save_pdf()
+        printer.assert_not_called()
+        assert not output.exists()
+        progress.close.assert_called_once()
+        if cancel_step < 3:
+            fetch.assert_not_called()
+            build.assert_not_called()
+    finally:
+        d.destroy()

@@ -1,5 +1,5 @@
 PLUGIN_NAME = "Compound Info Report"
-PLUGIN_VERSION = "2026.10.19"
+PLUGIN_VERSION = "2026.10.24"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Generate a compound info report with properties, adducts, and structure. Useful for organic synthesis experiments."
@@ -57,7 +57,10 @@ class PubChemFetcher:
         raw = response.read(PubChemFetcher.MAX_RESPONSE_BYTES + 1)
         if len(raw) > PubChemFetcher.MAX_RESPONSE_BYTES:
             raise ValueError("PubChem response is too large.")
-        return json.loads(raw.decode("utf-8"))
+        data = json.loads(raw.decode("utf-8"))
+        if not isinstance(data, dict):
+            raise TypeError("PubChem response must be a JSON object.")
+        return data
 
     BASE_URL = "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
 
@@ -75,7 +78,7 @@ class PubChemFetcher:
                     information = data.get("InformationList", {}).get("Information", [])
                     if information:
                         return information[0].get("Synonym", [])
-        except (OSError, IndexError, TypeError, ValueError) as _e:
+        except (OSError, IndexError, AttributeError, TypeError, ValueError) as _e:
             logging.warning("[compound_info_report.py:52] silenced: %s", _e)
         return []
 
@@ -94,7 +97,7 @@ class PubChemFetcher:
                     cids = data.get("IdentifierList", {}).get("CID", [])
                     if cids:
                         return cids[0]
-        except (OSError, IndexError, TypeError, ValueError) as _e:
+        except (OSError, IndexError, AttributeError, TypeError, ValueError) as _e:
             logging.warning("[compound_info_report.py:69] silenced: %s", _e)
         return None
 
@@ -343,13 +346,17 @@ class ReportDialog(QDialog):
                     h = int(source_rect.height())
 
                     if w > 0 and h > 0:
+                        scale = min(1.0, 1600 / max(w, h))
+                        w, h = max(1, round(w * scale)), max(1, round(h * scale))
                         img = QImage(w, h, QImage.Format.Format_ARGB32)
                         img.fill(Qt.GlobalColor.white)
 
                         painter = QPainter(img)
-                        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-                        scene.render(painter, QRectF(0, 0, w, h), source_rect)
-                        painter.end()
+                        try:
+                            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+                            scene.render(painter, QRectF(0, 0, w, h), source_rect)
+                        finally:
+                            painter.end()
 
                         ba = QByteArray()
                         buf = QBuffer(ba)
@@ -658,9 +665,11 @@ class ReportDialog(QDialog):
             progress.setWindowModality(Qt.WindowModality.WindowModal)
             progress.setMinimumDuration(0)
             progress.setValue(0)
-            QApplication.processEvents()
 
             try:
+                QApplication.processEvents()
+                if progress.wasCanceled():
+                    return
                 # 1. Capture Image
                 # Use cached image if available, else capture
                 if getattr(self, "last_img", None) is not None and self.last_img[0]:
@@ -671,6 +680,8 @@ class ReportDialog(QDialog):
 
                 progress.setValue(1)
                 QApplication.processEvents()
+                if progress.wasCanceled():
+                    return
 
                 # 2. Build HTML
                 if getattr(self, "last_pubchem_data", None) is None:
@@ -690,6 +701,8 @@ class ReportDialog(QDialog):
                 )
                 progress.setValue(2)
                 QApplication.processEvents()
+                if progress.wasCanceled():
+                    return
 
                 # 3. Print
                 printer = QPrinter(QPrinter.PrinterMode.HighResolution)

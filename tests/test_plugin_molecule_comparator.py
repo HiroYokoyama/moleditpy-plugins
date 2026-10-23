@@ -216,7 +216,7 @@ def _run_fn():
     import logging as _logging
 
     globs = {
-        "Chem": SimpleNamespace(RemoveHs=lambda m: m),
+        "Chem": SimpleNamespace(RemoveAllHs=lambda m: m),
         "AllChem": SimpleNamespace(AlignMol=_kabsch_align_mol),
         "copy": _copy,
         "logging": _logging,

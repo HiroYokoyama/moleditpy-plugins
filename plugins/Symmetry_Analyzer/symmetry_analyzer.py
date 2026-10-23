@@ -1,6 +1,6 @@
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Symmetry Analyzer"
-PLUGIN_VERSION = "2026.10.19"
+PLUGIN_VERSION = "2026.10.24"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Analyzes molecular symmetry (point group) and symmetrizes structures."
@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
     QSplitter,
     QDialog,
 )
-from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtCore import Qt, QThread, Signal, Slot
 
 # --- RDKit Imports ---
 try:
@@ -159,7 +159,9 @@ class SymmetryAnalysisWorker(QThread):
             # The dialog only unblocks when `analysis_finished` is emitted, so
             # an unexpected error must still report whatever the scan found
             # rather than leaving the UI waiting forever.
-            logging.exception("Symmetry: scan aborted early; reporting partial results")
+            logging.getLogger(__name__).exception(
+                "Symmetry: scan aborted early; reporting partial results"
+            )
 
         # A group can drop out and come back (hydrazine is C2, then D2, then C2
         # again), so a single min-max span would hide the group in between.
@@ -440,6 +442,7 @@ class SymmetryAnalysisPlugin(QDialog):
         self.worker.finished.connect(self._worker_stopped)
         self.worker.start()
 
+    @Slot(dict, bool)
     def on_analysis_finished(self, group_data, found_any):
         """Handle the finished scan."""
         self.calc_btn.setEnabled(True)
@@ -708,7 +711,12 @@ class SymmetryAnalysisPlugin(QDialog):
 
         owner = self._vis_plotter or plotter
         for actor in self.vis_actors:
-            owner.remove_actor(actor)
+            try:
+                owner.remove_actor(actor)
+            except (RuntimeError, AttributeError, KeyError, ValueError):
+                logging.getLogger(__name__).exception(
+                    "Symmetry: could not remove a stale visualization actor"
+                )
         self.vis_actors = []
         self._vis_plotter = plotter
 
@@ -984,9 +992,19 @@ class SymmetryAnalysisPlugin(QDialog):
         plotter = getattr(self, "_vis_plotter", None) or self.context.plotter
         if plotter and getattr(self, "vis_actors", None) is not None:
             for actor in self.vis_actors:
-                plotter.remove_actor(actor)
+                try:
+                    plotter.remove_actor(actor)
+                except (RuntimeError, AttributeError, KeyError, ValueError):
+                    logging.getLogger(__name__).exception(
+                        "Symmetry: could not remove an analysis actor"
+                    )
             self.vis_actors = []
-            plotter.render()
+            try:
+                plotter.render()
+            except (RuntimeError, AttributeError, KeyError, ValueError):
+                logging.getLogger(__name__).exception(
+                    "Symmetry: could not redraw after clearing analysis"
+                )
 
         # 2. Reset the UI and the internal data
         self.groups_list.clear()
@@ -999,6 +1017,7 @@ class SymmetryAnalysisPlugin(QDialog):
         self.analyzer = None
         self._scanned_fingerprint = None
 
+    @Slot()
     def _worker_stopped(self):
         worker = self.worker
         self.worker = None

@@ -1100,6 +1100,39 @@ class TestCubeViewerRemoveEnvTextureBranches:
 
 
 class TestCubeViewerLoadEnvTexture:
+    def test_close_during_event_pump_stops_texture_application(
+        self, viewer, monkeypatch
+    ):
+        w, _mw, tmp_path = viewer
+        p = tmp_path / "closing.png"
+        p.write_bytes(b"x")
+        w.plotter.set_environment_texture.reset_mock()
+        monkeypatch.setattr(
+            _cube_adv.QCoreApplication,
+            "processEvents",
+            lambda: setattr(w, "_closing", True),
+        )
+        w.load_env_texture(str(p))
+        w.plotter.set_environment_texture.assert_not_called()
+
+    def test_texture_button_handles_loader_error(self, viewer, monkeypatch):
+        w, _mw, tmp_path = viewer
+        monkeypatch.setattr(
+            _cube_adv.QFileDialog,
+            "getOpenFileName",
+            lambda *a: (str(tmp_path / "bad.png"), ""),
+        )
+        w.load_env_texture = MagicMock(side_effect=ValueError("already reported"))
+        w.on_load_env_texture()
+
+    def test_empty_preset_texture_clears_renderer(self, viewer):
+        w, _mw, _tmp_path = viewer
+        w.env_texture_path = "old.png"
+        w.plotter.remove_environment_texture.reset_mock()
+        w.load_preset_settings({"env_texture_path": ""})
+        w.plotter.remove_environment_texture.assert_called_once()
+        assert w.env_texture_path == ""
+
     @pytest.fixture
     def viewer(self, qapp, tmp_path):
         w, ctx, mw, dock, grid = _make_viewer()

@@ -1089,6 +1089,23 @@ def test_overlay_is_removed_from_its_original_plotter(dlgnp):
     assert new.removed == []
 
 
+def test_stale_renderer_does_not_interrupt_cleanup_or_worker_cancellation(dlgnp):
+    plotter = MagicMock()
+    plotter.remove_actor.side_effect = RuntimeError("stale actor")
+    plotter.render.side_effect = RuntimeError("closed renderer")
+    dlgnp._vis_plotter = plotter
+    dlgnp.vis_actors = [object()]
+    worker = MagicMock()
+    worker.isRunning.return_value = True
+    dlgnp.worker = worker
+    assert dlgnp._cleanup() is False
+    assert dlgnp.worker is worker
+    worker.abort.assert_called_once()
+    assert dlgnp.vis_actors == []
+    assert dlgnp.analyzer is None
+    dlgnp.worker = None
+
+
 def test_visualization_uses_analyzers_center_for_isotopes(dlgnp, monkeypatch):
     plotter = _FakePlotter()
     dlgnp.context.plotter = plotter

@@ -48,6 +48,10 @@ PT = _FakePT()
 
 
 class TestParseFormula:
+    @pytest.mark.parametrize("formula", ["C" + "9" * 400, "(CH2)" + "9" * 400])
+    def test_oversized_counts_are_invalid_instead_of_overflowing(self, formula):
+        assert ea.parse_formula(formula) is None
+
     def test_simple(self):
         assert ea.parse_formula("C8H10N4O2") == {"C": 8, "H": 10, "N": 4, "O": 2}
 

@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
 )
-from PySide6.QtCore import Qt, QTimer, QThread, Signal
+from PySide6.QtCore import Qt, QTimer, QThread, Signal, Slot
 from PySide6.QtGui import QColor, QAction
 from rdkit import Chem
 from rdkit.Chem import AllChem, rdFMCS
@@ -42,7 +42,7 @@ import copy
 import logging
 
 PLUGIN_NAME = "Molecule Comparator"
-PLUGIN_VERSION = "2026.10.19"
+PLUGIN_VERSION = "2026.10.24"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Compare multiple molecules in 3D, calculate RMSD, and align them."
@@ -76,7 +76,7 @@ class AlignmentWorker(QThread):
         try:
             # Pre-calculation for Reference
             if self.ignore_hs and self.method == "Substructure (MCS)":
-                ref_calc = Chem.RemoveHs(self.ref_work)
+                ref_calc = Chem.RemoveAllHs(self.ref_work)
             else:
                 ref_calc = self.ref_work
 
@@ -92,7 +92,7 @@ class AlignmentWorker(QThread):
 
                 # Pre-calc for Probe
                 if self.ignore_hs and self.method == "Substructure (MCS)":
-                    probe_calc = Chem.RemoveHs(probe_work)
+                    probe_calc = Chem.RemoveAllHs(probe_work)
                 else:
                     probe_calc = probe_work
 
@@ -473,6 +473,8 @@ class MoleculeComparator(QWidget):
         self.context = context
         self.mw = mw
         self.setWindowTitle("Molecule Comparator")
+        self._closing = False
+        self._close_pending = False
         self.molecules = []  # List of dicts: {'name': str, 'mol': Mol, 'color': str, 'scope': str, 'rms': float}
 
         self.setWindowFlags(Qt.WindowType.Window)
@@ -677,9 +679,12 @@ class MoleculeComparator(QWidget):
     def closeEvent(self, event):
         worker = getattr(self, 'worker', None)
         if worker is not None and worker.isRunning():
+            self._closing = True
+            self._close_pending = True
             worker.requestInterruption()
             event.ignore()
             return
+        self._close_pending = False
         self.cleanup_and_close()
         super().closeEvent(event)
 
@@ -901,7 +906,11 @@ class MoleculeComparator(QWidget):
             event.ignore()
             return
         event.acceptProposedAction()
-        self.add_molecules_from_paths(paths)
+        QTimer.singleShot(0, self, lambda: self._load_dropped_paths(paths))
+
+    def _load_dropped_paths(self, paths):
+        if not self._closing:
+            self.add_molecules_from_paths(paths)
 
     def remove_molecule(self):
         worker = getattr(self, 'worker', None)
@@ -1054,14 +1063,18 @@ class MoleculeComparator(QWidget):
         # Start
         self.worker.start()
 
+    @Slot()
     def _alignment_stopped(self):
         for button in (self.btn_align, self.btn_add_current, self.btn_load_file, self.btn_remove, self.btn_set_ref):
             button.setEnabled(True)
+        if self._close_pending:
+            QTimer.singleShot(0, self, self.close)
 
     def showEvent(self, event):
         self._closing = False
         super().showEvent(event)
 
+    @Slot(int, int, str)
     def update_progress(self, current, total, message):
         if self.progress_dialog.wasCanceled():
             return
@@ -1069,7 +1082,11 @@ class MoleculeComparator(QWidget):
         self.progress_dialog.setValue(current)
         self.progress_dialog.setLabelText(message)
 
+    @Slot(list)
     def on_alignment_finished(self, results):
+        if self._closing:
+            self.progress_dialog.close()
+            return
         snapshot = getattr(self, '_alignment_entries', None)
         if self.progress_dialog.wasCanceled() or (snapshot is not None and
                 (len(snapshot) != len(self.molecules) or any(a is not b for a, b in zip(snapshot, self.molecules)))):
@@ -1100,8 +1117,11 @@ class MoleculeComparator(QWidget):
             message += " — unmatched molecules show N/A; try the Atom IDs method"
         self.context.show_status_message(message, 5000)
 
+    @Slot(str)
     def on_alignment_error(self, message):
         self.progress_dialog.close()
+        if self._closing:
+            return
         QMessageBox.critical(
             self.mw,
             "Alignment Error",
@@ -1446,7 +1466,7 @@ class MoleculeComparator(QWidget):
             except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
                 logging.warning("[molecule_comparator.py:1010] silenced: %s", _e)
 
-        QTimer.singleShot(100, _do_reset)
+        QTimer.singleShot(100, self, _do_reset)
 
     def enter_3d_only_mode(self):
         # Save current splitter state if not already collapsed (approximately)
