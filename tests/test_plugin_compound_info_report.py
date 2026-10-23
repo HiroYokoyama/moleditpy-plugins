@@ -337,6 +337,22 @@ def test_oversized_pubchem_response_is_rejected():
         COMPOUND_MOD.PubChemFetcher._read_json(response)
 
 
+@pytest.mark.parametrize("payload", [[], None, "unexpected"])
+def test_nonobject_pubchem_json_is_rejected(payload):
+    with pytest.raises(TypeError, match="object"):
+        COMPOUND_MOD.PubChemFetcher._read_json(_url_response(payload))
+
+
+def test_malformed_pubchem_nested_records_are_ignored(monkeypatch):
+    monkeypatch.setattr(
+        COMPOUND_MOD.urllib.request,
+        "urlopen",
+        lambda *a, **k: _url_response({"IdentifierList": None, "InformationList": []}),
+    )
+    assert COMPOUND_MOD.PubChemFetcher.get_cid("key") is None
+    assert COMPOUND_MOD.PubChemFetcher.get_synonyms("key") == []
+
+
 def test_density_number_retains_unit(monkeypatch):
     payload = _pugview_payload([{"TOCHeading": "Density", "Information": [{"Value": {"Number": [0.879], "Unit": "g/cm3"}}]}])
     monkeypatch.setattr(COMPOUND_MOD.urllib.request, "urlopen", lambda *args, **kwargs: _FakeResponse(payload))
