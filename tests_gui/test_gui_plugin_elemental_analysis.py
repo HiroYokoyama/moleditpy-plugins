@@ -93,6 +93,31 @@ def dlg(qapp, fake_chem):
 
 
 class TestDialogBasics:
+    def test_large_formula_clears_result_without_raising(self, dlg):
+        dlg.formula_input.setText("C" + "9" * 400)
+        assert dlg.rows == []
+        assert dlg.total_formula == ""
+
+    def test_scene_capture_is_bounded_and_painter_ends_after_error(self, dlg):
+        from PySide6.QtCore import QRectF
+
+        scene = MagicMock()
+        scene.items.return_value = []
+        scene.itemsBoundingRect.return_value = QRectF(0, 0, 1000000, 500000)
+        dlg.context.scene = scene
+        dlg.mol = object()
+        painters, sizes = [], []
+
+        def render(painter, target, source):
+            painters.append(painter)
+            sizes.append((target.width(), target.height()))
+            raise RuntimeError("capture failed")
+
+        scene.render.side_effect = render
+        assert dlg._molecule_image_b64() == ("", 0, 0)
+        assert max(sizes[0]) <= 1600
+        assert all(not p.isActive() for p in painters)
+
     def test_title_and_widgets(self, dlg):
         assert dlg.windowTitle() == "Elemental Analysis"
         assert dlg.btn_export_csv.text() == "Export CSV"
