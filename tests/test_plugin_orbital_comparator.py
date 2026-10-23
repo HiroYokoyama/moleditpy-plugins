@@ -1425,7 +1425,10 @@ class TestDragAndDrop:
 
     def test_dropping_cube_files_loads_them(self, comparator):
         path = str(_write_cube(comparator.tmp))
+        comparator.mod.QTimer = MagicMock()
         comparator.win.dropEvent(self._event([path]))
+        assert comparator.win.slots[0].grid is None
+        comparator.mod.QTimer.singleShot.call_args.args[-1]()
         assert comparator.win.slots[0].grid is not None
 
     def test_dropping_other_files_is_ignored(self, comparator):

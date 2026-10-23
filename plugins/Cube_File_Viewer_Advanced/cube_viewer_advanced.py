@@ -44,7 +44,7 @@ except ImportError:
 __author__ = "HiroYokoyama"
 PLUGIN_AUTHOR = __author__
 PLUGIN_NAME = "Cube File Viewer Advanced"
-PLUGIN_VERSION = "2026.10.19"
+PLUGIN_VERSION = "2026.10.23"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_DESCRIPTION = "Advanced 3D visualization for Gaussian Cube files with PBR, SSAO, and other effects."
 PLUGIN_CONTEXT = None
@@ -296,6 +296,7 @@ class CubeViewerWidget(QWidget):
         self.mw = context.get_main_window()
         self.dock = dock_widget
         self.grid = grid
+        self._closing = False
         # Ensure we have a reasonable positive max value
         self.data_max = max(abs(float(data_max)), 1e-6)
 
@@ -352,12 +353,17 @@ class CubeViewerWidget(QWidget):
         # DELAY INITIAL UPDATE:
         # When opening from command line, the window might not be fully ready.
         # A small delay ensures the plotter is ready for actors.
-        QTimer.singleShot(100, self.initial_update)
+        self._initial_update_timer = QTimer(self)
+        self._initial_update_timer.setSingleShot(True)
+        self._initial_update_timer.timeout.connect(self.initial_update)
+        self._initial_update_timer.start(100)
 
         # Ensure settings are saved when application quits (Main Window X button)
         QCoreApplication.instance().aboutToQuit.connect(self.save_settings)
 
     def initial_update(self):
+        if getattr(self, "_closing", False) is True:
+            return
         self.update_iso()
         self.plotter.reset_camera()
         self.plotter.render()
@@ -969,6 +975,8 @@ class CubeViewerWidget(QWidget):
             self.update_iso()
 
     def update_iso(self):
+        if getattr(self, "_closing", False) is True:
+            return
         val = self.spin.value()
         # Prefer numeric spinbox value (kept in sync with slider)
         opacity_val = (
@@ -1949,6 +1957,9 @@ class CubeViewerWidget(QWidget):
     def _detach_stale_view(self):
         """Remove this cube's surfaces/dock without touching the (unrelated)
         structure that has since replaced it in the main 3D view."""
+        self._closing = True
+        if getattr(self, "_initial_update_timer", None) is not None:
+            self._initial_update_timer.stop()
         self.save_settings()
         try:
             if self.use_edl:
@@ -1998,12 +2009,18 @@ class CubeViewerWidget(QWidget):
         self.deleteLater()
 
     def closeEvent(self, event):
+        self._closing = True
+        if getattr(self, "_initial_update_timer", None) is not None:
+            self._initial_update_timer.stop()
         if getattr(self, "_structure_watch_timer", None) is not None:
             self._structure_watch_timer.stop()
         self.save_settings()
         super().closeEvent(event)
 
     def close_plugin(self):
+        self._closing = True
+        if getattr(self, "_initial_update_timer", None) is not None:
+            self._initial_update_timer.stop()
         if self._bound_mol is not None and getattr(self.mw, "current_mol", None) is not self._bound_mol:
             self._detach_stale_view()
             return
@@ -2269,7 +2286,7 @@ def initialize(context):
     # 3. Register Drop Handler (for robustness)
     def drop_handler(file_path):
         if file_path.lower().endswith((".cube", ".cub")):
-            open_cube_viewer(context, file_path)
+            QTimer.singleShot(0, context.get_main_window(), lambda: open_cube_viewer(context, file_path))
             return True
         return False
 

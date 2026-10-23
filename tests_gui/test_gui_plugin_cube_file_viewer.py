@@ -118,6 +118,19 @@ class TestCubeViewerWidgetConstruction:
         assert w.data_max == pytest.approx(1e-6)
         _teardown(w)
 
+    def test_close_cancels_initial_draw(self, qapp):
+        w, mw, _ = _make_viewer(qapp)
+        try:
+            w.close()
+            w.update_iso.reset_mock()
+            mw.plotter.reset_mock()
+            assert not w._initial_update_timer.isActive()
+            w.initial_update()
+            w.update_iso.assert_not_called()
+            mw.plotter.render.assert_not_called()
+        finally:
+            _teardown(w)
+
     def test_isovalue_spin_range(self, qapp):
         w, mw, dock = _make_viewer(qapp, data_max=2.0)
         assert w.spin.minimum() == pytest.approx(0.00001)

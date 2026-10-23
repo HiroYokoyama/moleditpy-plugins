@@ -51,7 +51,7 @@ except ImportError:
 __author__ = "HiroYokoyama"
 PLUGIN_AUTHOR = __author__
 PLUGIN_NAME = "Mapped Cube Viewer"
-PLUGIN_VERSION = "2026.10.19"
+PLUGIN_VERSION = "2026.10.23"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_DESCRIPTION = "Visualizes a property (e.g. ESP) mapped onto an isosurface (e.g. electron density) from two Cube files."
 
@@ -359,6 +359,7 @@ class MappedWidget(QWidget):
         self.grid_surf = grid_surf
         self.grid_prop = grid_prop
         self.actor = None
+        self._closing = False
         self._bound_mol = None
         self._structure_watch_timer = QTimer(self)
         self._structure_watch_timer.timeout.connect(self._check_structure_still_bound)
@@ -570,6 +571,8 @@ class MappedWidget(QWidget):
                     pl.close()
 
     def update_mesh(self, auto_fit=False):
+        if getattr(self, "_closing", False) is True:
+            return
         try:
             # As in PySCF's MappedVisualizer, remove the old actor before
             # contouring: an empty or failed update must leave no stale surface.
@@ -626,7 +629,10 @@ class MappedWidget(QWidget):
         except Exception as e:
             logging.warning("Update Error: %s", e)
             self.warning_label.setText(str(e))
-            self.context.plotter.render()
+            try:
+                self.context.plotter.render()
+            except (RuntimeError, AttributeError, ValueError) as exc:
+                logging.warning("Mapped viewer render unavailable: %s", exc)
 
     def _remove_surface(self):
         if self.actor is not None:
@@ -643,6 +649,7 @@ class MappedWidget(QWidget):
             self.close_plugin()
 
     def closeEvent(self, event):
+        self._closing = True
         self._structure_watch_timer.stop()
         try:
             self._remove_surface()
@@ -651,6 +658,7 @@ class MappedWidget(QWidget):
         super().closeEvent(event)
 
     def close_plugin(self):
+        self._closing = True
         self._structure_watch_timer.stop()
         try:
             self._remove_surface()
