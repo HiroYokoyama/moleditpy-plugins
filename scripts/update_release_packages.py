@@ -78,9 +78,8 @@ def update_registry(registry_path, manifest_path, repository, tag):
         version = entry["version"]
         if re.fullmatch(r"\d{4}\.\d{2}\.\d{2}", version):
             entry["lastUpdated"] = version.replace(".", "-")
-    registry_path.write_text(
-        json.dumps(entries, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
+    with registry_path.open("w", encoding="utf-8", newline="\n") as stream:
+        stream.write(json.dumps(entries, indent=2, ensure_ascii=False) + "\n")
 
 
 if __name__ == "__main__":

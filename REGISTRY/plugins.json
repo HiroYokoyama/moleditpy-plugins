@@ -508,7 +508,7 @@
     ],
     "downloadUrl": "../plugins/Mapped_Cube_Viewer/mapped_cube_viewer.py",
     "lastUpdated": "2026-10-23",
-    "sha256": "2d026ceefe31d6c84ae641a59d4b7eba4f95717685cf83c3acd51ddd5bd1da54",
+    "sha256": "0b581bf78ff4f7d0edca3d9ee9bb31af4666c86913811ed9d0220c177561f26c",
     "firstAppeared": "2025-12-17",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1347,9 +1347,9 @@
       "pyvista",
       "PySide6-Essentials"
     ],
-    "downloadUrl": "../plugins/Gaussian_MO_Analyzer/gaussian_fchk_mo_analyzer.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy-plugins/releases/download/v2026.10.23/gaussian_fchk_mo_analyzer.zip",
     "lastUpdated": "2026-10-23",
-    "sha256": "59211761d1ec945c052430485bacf677ec394684a664785747aabde5cf94ec04",
+    "sha256": "d88d84d56634b44e64b4ee36463686096968abfcad068c579a4e2320bfcffcb4",
     "firstAppeared": "2026-01-23",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1358,7 +1358,8 @@
       "Linux",
       "WSL"
     ],
-    "license": "LGPL-3.0-or-later"
+    "license": "LGPL-3.0-or-later",
+    "sourcePath": "../plugins/Gaussian_MO_Analyzer/gaussian_fchk_mo_analyzer.zip"
   },
   {
     "id": "gaussian_fchk_loader",

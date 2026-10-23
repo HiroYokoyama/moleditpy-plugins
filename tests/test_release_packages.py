@@ -105,6 +105,14 @@ def test_future_build_finds_sources_after_url_migration(
     )
 
 
+def test_package_build_does_not_need_a_tracked_zip(scripts, package_repo, tmp_path):
+    packager, _ = scripts
+    (package_repo / "plugins/Example/example.zip").unlink()
+    packages = packager.build_packages(package_repo, tmp_path / "assets")
+    assert packages[0]["metadata"]["version"] == "2026.10.23"
+    assert (tmp_path / "assets/example.zip").is_file()
+
+
 def _publish(scripts, root, tmp_path, mutate=None):
     packager, publisher = scripts
     packages = packager.build_packages(root, tmp_path / "assets")

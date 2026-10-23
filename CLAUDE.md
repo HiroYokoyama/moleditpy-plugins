@@ -339,10 +339,11 @@ move or overwrite an existing tag.
   the package through this field. Published ZIP metadata changes at release
   time; ordinary source edits must not repoint an existing released URL or its
   checksum to an unreleased build.
-- Retain the existing repository ZIP as a legacy download URL. New releases are
-  built from package sources, so that legacy ZIP does not need to be updated
-  for subsequent releases. The default packaging command remains available for
-  an intentional legacy refresh.
+- For the initial migration, switch the registry to the upcoming Release URL
+  and remove the tracked active package ZIP in the same PR. Immediately tag the
+  merge commit so the release workflow uploads the asset. Keep package sources
+  and `sourcePath`; future releases build without a tracked ZIP. Old tagged
+  snapshots retain their historical ZIP. Do not remove retired `_old` archives.
 - The release workflow explicitly requests a Pages build after its registry
   commit, because a `GITHUB_TOKEN` push does not itself start a Pages build.
   See [GitHub Pages build API](https://docs.github.com/en/rest/pages/pages#request-a-github-pages-build).
