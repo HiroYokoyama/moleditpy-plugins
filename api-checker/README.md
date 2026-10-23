@@ -224,7 +224,7 @@ To integrate this static API checker into a new or external MoleditPy plugin rep
 
 ### 1. Copy the Checker Engine
 Copy `plugin_api_checker.py` into the `tests/` directory of your plugin repository:
-- Source: [plugin_api_checker.py](file:///E:/Research/Calculation/moleditpy/DEV_MAIN/moleditpy-plugins/api-checker/plugin_api_checker.py)
+- Source: [plugin_api_checker.py](https://github.com/HiroYokoyama/moleditpy-plugins/blob/main/api-checker/plugin_api_checker.py)
 - Destination: `tests/plugin_api_checker.py` (in your new repo)
 
 ### 2. Create the Test Runner
@@ -334,3 +334,9 @@ If your plugin uses custom dynamic attributes or variables named `ctx` that repr
   }
 }
 ```
+
+## Canonical version and testing
+
+The canonical engine stays in this directory. Version **1.1.3** retains Python 3.9 support and fixes importlib loading by consumer test runners without requiring sys.modules registration. Use typing.Union for the two union annotations instead of deferred dataclass annotations.
+
+Engine unit tests live only in tests_api_checker/. A dedicated workflow runs them once on Python 3.9 when this tool changes. Consumers retain their own plugin API compatibility checks; they do not duplicate engine unit tests. Copy only the tested canonical revision and record its version, commit and normalized SHA-256 in scripts/api-checker.lock.json. Common release/Zenodo/materialization tools are maintained separately in [moleditpy-common-tools](https://github.com/HiroYokoyama/moleditpy-common-tools).
