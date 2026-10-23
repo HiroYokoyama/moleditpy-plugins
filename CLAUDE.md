@@ -359,10 +359,17 @@ Guards, so a mistake is loud rather than silent:
   dispatch it manually with the tag as input.
 - Pre-releases are skipped by the Zenodo job: a permanent DOI should not point
   at one.
-- `update_zenodo.py` refuses a version identical to the record's current one,
-  so a re-run cannot mint a duplicate DOI. It fails *after* uploading the file,
-  which leaves an unpublished draft behind — Zenodo permits only one draft per
-  record, so discard it in the Zenodo UI or the next upload cannot start.
+- `update_zenodo.py` resolves the latest published version before creating a draft.
+  Re-running that version is a no-op only when its requested assets have matching
+  checksums; missing/different assets fail without creating another draft.
+- Record requests explicitly use `application/vnd.inveniordm.v1+json`; file
+  endpoints use `application/json`. Never rebuild RDM draft metadata from the
+  legacy public JSON serializer: it omits or reshapes fields. Preserve draft
+  metadata, access, DOI and custom fields, changing version/date only.
+- A failed upload may leave a resumable draft. Supply its ID through the manual
+  Zenodo workflow's `draft_id` input (or `--draft-id`); the script checks its
+  record family before modifying it. Do not discard the draft as routine recovery.
+- Manual production backfills include release ZIPs and the source archive.
 - `release.yml` and `zenodo.yml` both accept `workflow_dispatch`, for archiving
   an older tag or rehearsing against a draft (`draft: true` uploads without
   publishing).

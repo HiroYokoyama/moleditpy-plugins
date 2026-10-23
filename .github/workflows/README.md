@@ -321,8 +321,8 @@ Triggers on `release: published`, so section 5 chains straight into it, and on
 | Guard | Behaviour |
 | :--- | :--- |
 | Pre-releases | Skipped. A permanent DOI should not point at one. |
-| Duplicate version | `update_zenodo.py` refuses a version identical to the record's current one, so a re-run cannot mint a duplicate DOI. |
-| Leftover draft | That refusal happens *after* the file uploads, leaving an unpublished draft. Zenodo permits one draft per record, so discard it in the Zenodo UI or the next upload cannot start. |
+| Duplicate version | Published version history is checked before mutations. A matching version is a no-op only when the requested asset checksums match; otherwise it fails without creating a draft. |
+| Leftover draft | Resume a failed upload with the manual workflow's `draft_id` input (`--draft-id` in the CLI). The uploader checks the draft family and pending version. Do not discard it as routine recovery. |
 
 `test-zenodo.yml` is the same flow against Zenodo Sandbox. Its deposition ID is
 a **required** input: the production default does not exist on sandbox.
