@@ -1347,9 +1347,9 @@
       "pyvista",
       "PySide6-Essentials"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy-plugins/releases/download/v2026.10.23/gaussian_fchk_mo_analyzer.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy-plugins/releases/download/v2026.10.24/gaussian_fchk_mo_analyzer.zip",
     "lastUpdated": "2026-10-23",
-    "sha256": "d88d84d56634b44e64b4ee36463686096968abfcad068c579a4e2320bfcffcb4",
+    "sha256": "7714ade12299d9259c2209888dad34ca5b1eacea1d24410ae8cadb64ed0cacb2",
     "firstAppeared": "2026-01-23",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
