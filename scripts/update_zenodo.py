@@ -120,6 +120,12 @@ def build_draft_update(draft, version, publication_date):
         raise ValueError("Legacy draft representation received; RDM JSON is required.")
     metadata["version"] = version
     metadata["publication_date"] = publication_date
+    # RDM RightsSchema accepts either a vocabulary ID or free text, never both.
+    if "rights" in metadata:
+        metadata["rights"] = [
+            {"id": right["id"]} if right.get("id") else right
+            for right in metadata["rights"]
+        ]
     payload = {"metadata": metadata, "files": {"enabled": True}}
     access = draft.get("access", {})
     if access:

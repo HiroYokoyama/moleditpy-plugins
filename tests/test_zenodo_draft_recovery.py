@@ -61,6 +61,40 @@ def test_metadata_preserves_rdm_fields_and_draft_doi(draft):
 
 
 @pytest.mark.parametrize(
+    "right,expected",
+    [
+        (
+            {
+                "id": "lgpl-3.0-or-later",
+                "title": {"en": "GNU LGPL"},
+                "description": {"en": "Vocabulary description"},
+                "props": {"scheme": "spdx"},
+            },
+            {"id": "lgpl-3.0-or-later"},
+        ),
+        (
+            {
+                "title": {"en": "Custom license"},
+                "description": {"en": "Custom terms"},
+                "link": "https://example.org/license",
+            },
+            {
+                "title": {"en": "Custom license"},
+                "description": {"en": "Custom terms"},
+                "link": "https://example.org/license",
+            },
+        ),
+        ({"id": "gpl-3.0-or-later"}, {"id": "gpl-3.0-or-later"}),
+    ],
+)
+def test_rights_follow_official_id_or_free_text_schema(draft, right, expected):
+    draft["metadata"]["rights"] = [copy.deepcopy(right)]
+    payload = zen.build_draft_update(draft, "next", "2026-10-23")
+    assert payload["metadata"]["rights"] == [expected]
+    assert draft["metadata"]["rights"] == [right]
+
+
+@pytest.mark.parametrize(
     "metadata",
     [
         {},
