@@ -423,6 +423,9 @@ class TestDragAndDrop:
         event = _FakeDropEvent([_FakeUrl(path)])
         with patch.object(gnp_widget, "load_file") as mock_load:
             gnp_widget.dropEvent(event)
+            mock_load.assert_not_called()
+            from PySide6.QtWidgets import QApplication
+            QApplication.processEvents()
         mock_load.assert_called_once_with(path)
         assert event.accepted
 
@@ -741,6 +744,15 @@ class TestShowSpectrumReal:
 
 
 class TestSaveAsGifReal:
+    def test_missing_mode_is_reported_before_export_dialog(self, loaded_widget, monkeypatch):
+        calls = _no_block_msgbox(monkeypatch)
+        _select_first_row(loaded_widget)
+        loaded_widget.parser.vib_modes = []
+        with patch.object(_gnp.QDialog, "exec") as dialog:
+            loaded_widget.save_as_gif()
+        dialog.assert_not_called()
+        assert calls["warning"]
+
     def test_noop_without_parser_or_base_mol(self, gnp_widget):
         gnp_widget.save_as_gif()  # should not raise
 
@@ -948,6 +960,15 @@ class TestCloseAction:
 
 
 class TestSpectrumDialogReal:
+    def test_png_save_false_reports_failure(self, dlg, monkeypatch):
+        calls = _no_block_msgbox(monkeypatch, module=_gnp)
+        pixmap = MagicMock()
+        pixmap.save.return_value = False
+        with patch.object(dlg.plot_widget, "grab", return_value=pixmap), patch.object(_gnp.QFileDialog, "getSaveFileName", return_value=("unwritable.png", "")):
+            dlg.export_png()
+        assert calls["critical"]
+        assert not calls["information"]
+
     @pytest.fixture
     def dlg(self, qapp):
         d = _gnp.SpectrumDialog([1000.0, 2000.0], [50.0, 100.0], parent=None)
@@ -1208,7 +1229,10 @@ class TestInitializeAndRunReal:
         monkeypatch.setattr(
             _gnp, "load_from_file", lambda c, f: called.update(fname=f)
         )
-        assert handler("/tmp/mine.fchk") is True
+        with patch.object(_gnp, "QTimer") as timer:
+            assert handler("/tmp/mine.fchk") is True
+            assert called == {}
+            timer.singleShot.call_args.args[-1]()
         assert called["fname"] == "/tmp/mine.fchk"
 
         called.clear()

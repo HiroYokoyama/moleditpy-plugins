@@ -204,12 +204,12 @@ class TestAnimatedXYZParser:
         frames = _player_instance.parse_multi_frame_xyz(str(p))
         assert len(frames) == 1
 
-    def test_bad_coord_line_skipped(self, tmp_path, _player_instance):
+    def test_bad_coord_line_is_rejected(self, tmp_path, _player_instance):
         content = "2\nbad\nH 0 0 0\nO not_a_float 0 1\n"
         p = tmp_path / "bad_coord.xyz"
         p.write_text(content)
-        frames = _player_instance.parse_multi_frame_xyz(str(p))
-        assert frames[0]["symbols"] == ["H"]
+        with pytest.raises(ValueError, match="coordinates"):
+            _player_instance.parse_multi_frame_xyz(str(p))
 
 
 # ===========================================================================

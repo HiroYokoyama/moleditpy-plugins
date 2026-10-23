@@ -6,6 +6,7 @@ Allows loading and playing multi-frame XYZ files (e.g., MD trajectories).
 """
 
 import os
+import math
 from PySide6.QtWidgets import (
     QDialog,
     QVBoxLayout,
@@ -37,7 +38,7 @@ try:
 except ImportError:
     rdDetermineBonds = None
 
-PLUGIN_VERSION = "2026.10.19"
+PLUGIN_VERSION = "2026.10.23"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_NAME = "Animated XYZ Giffer"
@@ -235,8 +236,12 @@ class AnimatedXYZPlayer(QDialog):
         Let's store: [ {'symbols': [str], 'coords': [(x,y,z)]}, ... ]
         """
         frames = []
-        with open(file_path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
+        limit = 256 * 1024 * 1024
+        with open(file_path, "rb") as f:
+            raw = f.read(limit + 1)
+        if len(raw) > limit:
+            raise ValueError("XYZ trajectory exceeds the 256 MiB loading limit")
+        lines = raw.decode("utf-8-sig").splitlines()
 
         i = 0
         n_lines = len(lines)
@@ -254,6 +259,8 @@ class AnimatedXYZPlayer(QDialog):
                 continue
 
             # Start of a frame
+            if num_atoms <= 0:
+                raise ValueError("XYZ atom count must be positive")
             # i = atom count
             # i+1 = comment
             # i+2 ... i+2+num_atoms = atoms
@@ -274,10 +281,14 @@ class AnimatedXYZPlayer(QDialog):
                         x = float(parts[1])
                         y = float(parts[2])
                         z = float(parts[3])
+                        if not all(math.isfinite(value) for value in (x, y, z)):
+                            raise ValueError("XYZ coordinates must be finite")
                         frame_atoms.append(sym)
                         frame_coords.append((x, y, z))
                     except ValueError as _e:
-                        logging.warning("[animated_xyz_giffer.py:240] silenced: %s", _e)
+                        raise ValueError(f"Invalid XYZ coordinates in frame {len(frames) + 1}") from _e
+                else:
+                    raise ValueError(f"Incomplete XYZ atom row in frame {len(frames) + 1}")
 
             frames.append(
                 {"symbols": frame_atoms, "coords": frame_coords, "comment": comment}
