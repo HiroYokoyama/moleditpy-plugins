@@ -44,7 +44,7 @@ except ImportError:
 __author__ = "HiroYokoyama"
 PLUGIN_AUTHOR = __author__
 PLUGIN_NAME = "Cube File Viewer Advanced"
-PLUGIN_VERSION = "2026.10.23"
+PLUGIN_VERSION = "2026.10.24"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_DESCRIPTION = "Advanced 3D visualization for Gaussian Cube files with PBR, SSAO, and other effects."
 PLUGIN_CONTEXT = None
@@ -1258,9 +1258,9 @@ class CubeViewerWidget(QWidget):
                 self._enable_shadows()
             else:
                 self.plotter.disable_shadows()
+            self.plotter.render()
         except (RuntimeError, AttributeError, KeyError, ValueError) as _e:
             logging.warning("[cube_viewer_advanced.py:1110] silenced: %s", _e)
-        self.plotter.render()
 
     def on_light_intensity_changed(self, val):
         self.light_intensity = val / 100.0
@@ -1603,7 +1603,7 @@ class CubeViewerWidget(QWidget):
                 if os.path.exists(self.env_texture_path):
                     self.load_env_texture(self.env_texture_path)
             else:
-                self.line_env_path.clear()
+                self.on_remove_env_texture()
 
         if "use_ssao" in settings:
             self.check_ssao.setChecked(bool(settings["use_ssao"]))
@@ -1659,11 +1659,24 @@ class CubeViewerWidget(QWidget):
                     "Please move the file to a path without spaces and try again.",
                 )
                 return
-            self.load_env_texture(fname)
+            try:
+                self.load_env_texture(fname)
+            except (
+                AttributeError,
+                KeyError,
+                OSError,
+                RuntimeError,
+                TypeError,
+                ValueError,
+            ):
+                # The loader already reports the failure to the user.
+                return
 
     def load_env_texture(self, path):
         """Load environment texture - PNG/JPG only."""
         progress = None
+        if getattr(self, "_closing", False) is True:
+            return
         try:
             # Validate file exists
             if not os.path.exists(path):
@@ -1707,7 +1720,7 @@ class CubeViewerWidget(QWidget):
             QCoreApplication.processEvents()
 
             # Check for cancellation
-            if progress.wasCanceled():
+            if getattr(self, "_closing", False) is True or progress.wasCanceled():
                 logging.info("Texture loading cancelled by user")
                 return
 
@@ -1718,12 +1731,14 @@ class CubeViewerWidget(QWidget):
                 raise ValueError(f"Failed to read texture file: {tex_err}")
 
             # Check for cancellation
-            if progress.wasCanceled():
+            if getattr(self, "_closing", False) is True or progress.wasCanceled():
                 logging.info("Texture loading cancelled by user")
                 return
 
             progress.setLabelText("Applying texture to renderer...")
             QCoreApplication.processEvents()
+            if getattr(self, "_closing", False) is True or progress.wasCanceled():
+                return
 
             try:
                 self.plotter.set_environment_texture(texture)
@@ -1755,12 +1770,14 @@ class CubeViewerWidget(QWidget):
                 self.mw.current_env_texture_path = path
 
             # Check for cancellation
-            if progress.wasCanceled():
+            if getattr(self, "_closing", False) is True or progress.wasCanceled():
                 logging.info("Texture loading cancelled by user")
                 return
 
             progress.setLabelText("Rendering...")
             QCoreApplication.processEvents()
+            if getattr(self, "_closing", False) is True or progress.wasCanceled():
+                return
 
             self.plotter.render()
             self._update_tex_label(path)
@@ -1779,7 +1796,10 @@ class CubeViewerWidget(QWidget):
         finally:
             # Always close progress dialog
             if progress:
-                progress.close()
+                try:
+                    progress.close()
+                except RuntimeError:
+                    pass  # Its parent may have been deleted during processEvents().
 
     def on_remove_env_texture(self):
         try:
