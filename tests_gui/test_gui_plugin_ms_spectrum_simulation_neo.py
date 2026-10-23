@@ -763,6 +763,65 @@ class TestMSExportCsv:
 
 
 class TestMSCreateReport:
+    def test_plot_failure_ends_painter_and_reports_error(
+        self, qapp, tmp_path, monkeypatch
+    ):
+        d, _ctx = _make_dlg()
+        monkeypatch.setattr(
+            _ms_neo.QFileDialog,
+            "getSaveFileName",
+            lambda *a: (str(tmp_path / "bad.pdf"), ""),
+        )
+        error = MagicMock()
+        monkeypatch.setattr(_ms_neo.QMessageBox, "critical", error)
+        painters = []
+        original = _ms_neo.QPainter
+
+        def painter(*args):
+            result = original(*args)
+            painters.append(result)
+            return result
+
+        monkeypatch.setattr(_ms_neo, "QPainter", painter)
+        d.plot_widget.draw_spectrum = MagicMock(
+            side_effect=RuntimeError("drawing failed")
+        )
+        d.create_report()
+        assert error.call_count == 1
+        assert painters and all(not p.isActive() for p in painters)
+        d.destroy()
+
+    def test_scene_capture_is_bounded_and_ends_painter_on_failure(
+        self, qapp, tmp_path, monkeypatch
+    ):
+        from PySide6.QtCore import QRectF
+
+        d, ctx = _make_dlg()
+        d.mol = object()
+        ctx.scene = MagicMock()
+        ctx.scene.items.return_value = []
+        ctx.scene.itemsBoundingRect.return_value = QRectF(0, 0, 1000000, 500000)
+        painters, sizes = [], []
+
+        def render(painter, target, source):
+            painters.append(painter)
+            sizes.append((target.width(), target.height()))
+            raise RuntimeError("scene failed")
+
+        ctx.scene.render.side_effect = render
+        monkeypatch.setattr(_ms_neo, "Draw", None)
+        monkeypatch.setattr(
+            _ms_neo.QFileDialog,
+            "getSaveFileName",
+            lambda *a: (str(tmp_path / "bounded.pdf"), ""),
+        )
+        monkeypatch.setattr(_ms_neo.QMessageBox, "information", MagicMock())
+        d.create_report()
+        assert sizes and max(sizes[0]) <= 1600
+        assert all(not p.isActive() for p in painters)
+        assert (tmp_path / "bounded.pdf").exists()
+        d.destroy()
+
     def test_create_report_writes_pdf(self, qapp, tmp_path, monkeypatch):
         monkeypatch.setattr(_ms_neo, "Chem", _FakeChem)
         d, ctx = _make_dlg()
