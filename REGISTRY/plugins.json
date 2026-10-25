@@ -1423,7 +1423,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Structural Updater",
-    "version": "2026.10.25",
+    "version": "2026.10.27",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Applies 2D structural changes to 3D conformation without full re-embedding.",
@@ -1435,8 +1435,8 @@
       "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/Structural_Updater/structural_updater.py",
-    "lastUpdated": "2026-10-25",
-    "sha256": "ea5843355231ed0bf4bb4beb5246c2ac0219bc0fdd64d8026359e3660aa37998",
+    "lastUpdated": "2026-10-27",
+    "sha256": "480a000648f1a6fbcd091cef7a3d7eaa31404a164c8b09a152c53cde45b7cfc9",
     "firstAppeared": "2026-01-28",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
