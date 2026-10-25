@@ -13,7 +13,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 
 PLUGIN_NAME = "Structural Updater"
-PLUGIN_VERSION = "2026.10.19"
+PLUGIN_VERSION = "2026.10.25"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Applies 2D structural changes to 3D conformation without full re-embedding."
@@ -164,14 +164,9 @@ class StructuralUpdaterPlugin:
             self.new_on_calculation_finished
         )
 
-        # CRITICAL: Reconnect the button signal!
-        # The existing connection points to the OLD trigger_conversion function object.
-        try:
-            # # [DIRECT ACCESS] to button signals
-            self.mw.init_manager.convert_button.clicked.disconnect()
-        except Exception as _e:  # noqa: BLE001 - disconnect() raises freely when unconnected
-            logging.warning("[structural_updater.py:153] silenced: %s", _e)
-        self.mw.init_manager.convert_button.clicked.connect(self.new_trigger_conversion)
+        # MoleditPy 5's button callback resolves compute_manager.trigger_conversion
+        # at click time. Patching the method is enough; leave the host's callback
+        # and other listeners intact, including its temporary Halt connection.
 
     def new_trigger_conversion(self):
         """Replacement for MainWindow.trigger_conversion"""
@@ -192,14 +187,6 @@ class StructuralUpdaterPlugin:
         """Replacement for MainWindow.on_calculation_finished"""
         # 1. Run original (handles UI reset, loading mol into mw.current_mol, etc.)
         _ORIGINAL_METHODS["on_calculation_finished"](result)
-
-        # Force reconnection to our method because original method resets it to self.trigger_conversion
-        # ensuring it points to our wrapper
-        try:
-            self.mw.init_manager.convert_button.clicked.disconnect()
-        except Exception as _e:  # noqa: BLE001 - disconnect() raises freely when unconnected
-            logging.warning("[structural_updater.py:181] silenced: %s", _e)
-        self.mw.init_manager.convert_button.clicked.connect(self.new_trigger_conversion)
 
         # 2. If plugin is enabled and conversion was successful, switch to "Apply Mode"
         if self.enabled:
@@ -471,11 +458,5 @@ def finalize():
         setattr(mw.compute_manager, name, method)
 
     _PLUGIN_INSTANCE.timer.stop()
-    try:
-        mw.init_manager.convert_button.clicked.disconnect(_PLUGIN_INSTANCE.new_trigger_conversion)
-    except (TypeError, RuntimeError):
-        pass
-    if 'trigger_conversion' in _ORIGINAL_METHODS:
-        mw.init_manager.convert_button.clicked.connect(_ORIGINAL_METHODS['trigger_conversion'])
     _ORIGINAL_METHODS.clear()
     _PLUGIN_INSTANCE = None

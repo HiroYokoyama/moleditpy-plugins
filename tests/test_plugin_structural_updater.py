@@ -330,11 +330,10 @@ class TestUpdaterCalculationFinished:
             "Convert 2D to 3D"
         )
 
-    def test_button_reconnected_to_wrapper(self):
+    def test_button_connections_are_left_to_the_host(self):
         inst, _ = self._run(mol=None)
-        inst.mw.init_manager.convert_button.clicked.connect.assert_called_with(
-            inst.new_trigger_conversion
-        )
+        inst.mw.init_manager.convert_button.clicked.connect.assert_not_called()
+        inst.mw.init_manager.convert_button.clicked.disconnect.assert_not_called()
 
 
 class TestUpdaterCheckState:
@@ -441,12 +440,12 @@ class TestUpdaterSettingsExceptionPaths:
 
 
 # ---------------------------------------------------------------------------
-# patch_mainwindow / new_on_calculation_finished — disconnect() exception
+# Host button connections must survive patching and calculation completion.
 # ---------------------------------------------------------------------------
 
 
-class TestUpdaterDisconnectExceptionPaths:
-    def test_patch_mainwindow_disconnect_exception_is_silenced(self):
+class TestUpdaterSignalOwnership:
+    def test_patch_mainwindow_does_not_rewire_the_host_button(self):
         with mock_optional_imports():
             ctx = make_context()
             mw = ctx.get_main_window()
@@ -454,12 +453,10 @@ class TestUpdaterDisconnectExceptionPaths:
                 "no connections"
             )
             plugin = SU.StructuralUpdaterPlugin(ctx)  # must not raise
-        # Connect still happens after the silenced exception
-        mw.init_manager.convert_button.clicked.connect.assert_called_with(
-            plugin.new_trigger_conversion
-        )
+        mw.init_manager.convert_button.clicked.disconnect.assert_not_called()
+        mw.init_manager.convert_button.clicked.connect.assert_not_called()
 
-    def test_calculation_finished_disconnect_exception_is_silenced(self):
+    def test_calculation_finished_does_not_rewire_the_host_button(self):
         with mock_optional_imports():
             mod = load_plugin(STRUCTURAL_PATH)
             orig = MagicMock()
@@ -469,9 +466,8 @@ class TestUpdaterDisconnectExceptionPaths:
                 "boom"
             )
             inst.new_on_calculation_finished("RESULT")  # must not raise
-            inst.mw.init_manager.convert_button.clicked.connect.assert_called_with(
-                inst.new_trigger_conversion
-            )
+            inst.mw.init_manager.convert_button.clicked.disconnect.assert_not_called()
+            inst.mw.init_manager.convert_button.clicked.connect.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
