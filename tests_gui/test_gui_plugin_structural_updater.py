@@ -181,16 +181,18 @@ class TestStructuralUpdaterPlugin:
 
 
 class TestFinalizeLifecycle:
-    def test_finalize_stops_timer_and_restores_connection(self, qapp, monkeypatch):
+    def test_finalize_stops_timer_and_preserves_host_dispatch(self, qapp, monkeypatch):
         from PySide6.QtWidgets import QWidget, QPushButton
         from types import SimpleNamespace
         mw = QWidget()
         button = QPushButton(mw)
         original = MagicMock()
         patched = MagicMock()
-        button.clicked.connect(patched)
+        button.clicked.connect(lambda: mw.compute_manager.trigger_conversion())
+        observer = MagicMock()
+        button.clicked.connect(observer)
         timer = MagicMock()
-        mw.compute_manager = SimpleNamespace()
+        mw.compute_manager = SimpleNamespace(trigger_conversion=patched)
         mw.init_manager = SimpleNamespace(convert_button=button)
         instance = SimpleNamespace(mw=mw, timer=timer, new_trigger_conversion=patched)
         monkeypatch.setattr(_updater, '_PLUGIN_INSTANCE', instance)
@@ -199,7 +201,74 @@ class TestFinalizeLifecycle:
         timer.stop.assert_called_once()
         button.click()
         original.assert_called_once()
+        observer.assert_called_once()
         patched.assert_not_called()
         assert _updater._PLUGIN_INSTANCE is None
         assert not _updater._ORIGINAL_METHODS
+        mw.destroy()
+
+    def test_initialize_and_completion_preserve_single_host_dispatch(self, qapp, monkeypatch):
+        from PySide6.QtWidgets import QWidget, QPushButton
+        from types import SimpleNamespace
+        mw = QWidget()
+        button = QPushButton(mw)
+        original = MagicMock()
+        finished = MagicMock()
+        mw.compute_manager = SimpleNamespace(
+            trigger_conversion=original, on_calculation_finished=finished,
+        )
+        mw.init_manager = SimpleNamespace(convert_button=button)
+        button.clicked.connect(lambda: mw.compute_manager.trigger_conversion())
+        observer = MagicMock()
+        button.clicked.connect(observer)
+        context = MagicMock()
+        context.get_main_window.return_value = mw
+        context.current_molecule = None
+        monkeypatch.setattr(_updater, '_PLUGIN_INSTANCE', None)
+        monkeypatch.setattr(_updater, '_ORIGINAL_METHODS', {})
+        monkeypatch.setattr(_updater.StructuralUpdaterPlugin, 'load_settings', lambda self: None)
+        _updater.initialize(context)
+        try:
+            button.click()
+            original.assert_called_once_with()
+            for _ in range(3):
+                mw.compute_manager.on_calculation_finished(None)
+                button.click()
+            assert original.call_count == 4
+            assert observer.call_count == 4
+            assert finished.call_count == 3
+        finally:
+            _updater.finalize()
+        button.click()
+        assert original.call_count == 5
+        assert observer.call_count == 5
+        mw.destroy()
+
+    def test_initializing_during_halt_keeps_halt_callback(self, qapp, monkeypatch):
+        from PySide6.QtWidgets import QWidget, QPushButton
+        from types import SimpleNamespace
+        mw = QWidget()
+        button = QPushButton('Halt conversion', mw)
+        halt = MagicMock()
+        button.clicked.connect(halt)
+        original = MagicMock()
+        mw.compute_manager = SimpleNamespace(
+            trigger_conversion=original, on_calculation_finished=MagicMock(),
+        )
+        mw.init_manager = SimpleNamespace(convert_button=button)
+        context = MagicMock()
+        context.get_main_window.return_value = mw
+        monkeypatch.setattr(_updater, '_PLUGIN_INSTANCE', None)
+        monkeypatch.setattr(_updater, '_ORIGINAL_METHODS', {})
+        monkeypatch.setattr(_updater.StructuralUpdaterPlugin, 'load_settings', lambda self: None)
+        _updater.initialize(context)
+        try:
+            button.click()
+            halt.assert_called_once()
+            original.assert_not_called()
+        finally:
+            _updater.finalize()
+        button.click()
+        assert halt.call_count == 2
+        original.assert_not_called()
         mw.destroy()
