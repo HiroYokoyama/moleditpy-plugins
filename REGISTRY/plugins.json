@@ -2436,11 +2436,11 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Job Manager",
-    "version": "3.2.0",
+    "version": "3.3.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_job_manager",
-    "description": "Submit calculations to remote HPC clusters over SSH, track queue status, and fetch results back into MoleditPy. Ready-made command lines for ORCA, Gaussian, CP2K, GAMESS, MOPAC, NWChem, Psi4, PySCF, Quantum ESPRESSO, VASP and xTB; job lists export to CSV or .pmejbs and reopen by drag and drop. Runs on this machine too, with no SSH; chains jobs with each scheduler's own dependency flag; and can hold a job until a chosen time. Installing paramiko adds a backend that keeps one SSH session open and can log in with a password. Optional cryptography adds authenticated Job Server destinations on localhost, private LANs or Tailscale.",
+    "description": "Submit calculations to remote HPC clusters over SSH, track queue status, and fetch results back into MoleditPy. Ready-made command lines for ORCA, Gaussian, CP2K, GAMESS, MOPAC, NWChem, Psi4, PySCF, Quantum ESPRESSO, VASP and xTB; job lists save as SQLite .pmejdb or legacy .pmejbs and export to CSV and reopen by drag and drop. Runs on this machine too, with no SSH; chains jobs with each scheduler's own dependency flag; and can hold a job until a chosen time. Installing paramiko adds a backend that keeps one SSH session open and can log in with a password. Optional cryptography adds authenticated Job Server destinations on localhost, private LANs or Tailscale.",
     "tags": [
       "Utility"
     ],
@@ -2449,9 +2449,9 @@
       "paramiko",
       "cryptography"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_job_manager/releases/download/v3.2.0/job_manager_3.2.0.zip",
-    "lastUpdated": "2026-10-25",
-    "sha256": "d10fbe610acb846e32a95bd9e4135aa84180e442595630aca93d41453cf5c0f9",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_job_manager/releases/download/v3.3.0/job_manager_3.3.0.zip",
+    "lastUpdated": "2026-10-26",
+    "sha256": "757a63ada3442a72a9bf60e86f8f0aeda1833a182d31a387d9fd575f3b9f5e7d",
     "firstAppeared": "2026-08-06",
     "supported_os": [
       "Windows",
