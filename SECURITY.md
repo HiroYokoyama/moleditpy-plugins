@@ -7,7 +7,7 @@ The latest maintained collection for MoleditPy 5 / PySide6 receives security upd
 ## Trust and scope
 
 - Plugins execute Python with the same permissions as MoleditPy and are not sandboxed. Install only code and dependencies from publishers you trust.
-- Registry SHA-256 verification detects a mismatch against catalogued bytes. It is not a code audit, publisher authentication or a guarantee that a plugin is safe.
+- Plugin Installer SHA-256 verification confirms that each downloaded file is unchanged from the reviewed version recorded in the registry. A mismatch blocks installation, keeping the installed file tied to the version that was reviewed.
 - Reports may concern downloaded code, archive/path handling, molecular-file parsers, external calculation commands, credentials or optional network integrations. Include the plugin ID, version, download URL and enabled features, without sending real credentials or private calculation data.
 - Network-capable plugins can expose local HTTP/MCP services or use remote SSH/API endpoints. Their access controls and binding defaults are part of their security scope; report them to the owning plugin repository as well as this collection when relevant.
 
