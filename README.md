@@ -43,7 +43,7 @@ All 80+ plugins, with their requirements and supported platforms, are listed in 
 
 ## Installation
 
-The easiest way is the **Plugin Installer** plugin: download it from the [Plugin Explorer](https://hiroyokoyama.github.io/moleditpy-plugins/explorer/?q=Plugin%20Installer), open **Plugin › Plugin Manager…** in MoleditPy, and drag the file into the window. Then use **Plugin › Plugin Installer…** to browse, install, and update plugins; every download is checked against the SHA-256 recorded in the registry.
+The easiest way is the **Plugin Installer** plugin: download it from the [Plugin Explorer](https://hiroyokoyama.github.io/moleditpy-plugins/explorer/?q=Plugin%20Installer), open **Plugin › Plugin Manager…** in MoleditPy, and drag the file into the window. Then use **Plugin › Plugin Installer…** to browse, install, and update plugins; every download is checked against the SHA-256 recorded in the registry to confirm that it is unchanged from the reviewed version. A mismatch blocks installation.
 
 To install by hand, copy a plugin's `.py` file, or its folder containing `__init__.py`, into the plugin directory and restart MoleditPy:
 
