@@ -19,6 +19,10 @@ PUBCHEM_PATH = PLUGINS_DIR / "PubChem_Name_Ressolver" / "pubchem_ressolver.py"
 
 with mock_chemistry_imports():
     _pubchem = load_plugin_for_gui(PUBCHEM_PATH)
+    # The plugin imports requests on first use; keep it on this block's mock.
+    import requests as _mocked_requests
+
+    _pubchem.requests = _mocked_requests
 
 
 # ===========================================================================

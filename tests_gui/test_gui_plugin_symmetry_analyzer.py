@@ -33,8 +33,24 @@ PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
 
 SYMMETRY_PATH = PLUGINS_DIR / "Symmetry_Analyzer" / "symmetry_analyzer.py"
 
+def _bind_mocked_libraries(module):
+    """Point the plugin's pymatgen/SciPy names at this block's mocks.
+
+    The plugin imports them on first use, which would otherwise happen after
+    the mocks are gone and reach the real (possibly absent) packages.
+    """
+    import pymatgen.core
+    import pymatgen.symmetry.analyzer
+    import scipy.optimize
+
+    module.Molecule = pymatgen.core.Molecule
+    module.PointGroupAnalyzer = pymatgen.symmetry.analyzer.PointGroupAnalyzer
+    module.linear_sum_assignment = scipy.optimize.linear_sum_assignment
+
+
 with mock_chemistry_imports():
     _symmetry = load_plugin_for_gui(SYMMETRY_PATH)
+    _bind_mocked_libraries(_symmetry)
 
 
 @contextlib.contextmanager
@@ -57,6 +73,7 @@ def _mock_chemistry_keep_numpy():
 # above, which keeps numpy mocked for the plain widget-construction tests).
 with _mock_chemistry_keep_numpy():
     _symnp = load_plugin_for_gui(SYMMETRY_PATH)
+    _bind_mocked_libraries(_symnp)
 
 
 def _ctx_no_mol() -> MagicMock:
