@@ -1260,7 +1260,7 @@
     ],
     "downloadUrl": "../plugins/OpenBabel_Conversion_Tool/openbabel_conversion_tool.py",
     "lastUpdated": "2026-10-29",
-    "sha256": "63f39857c2d68463cc286790eb4f8f302ccc4a72288027f9baaa6517bd812168",
+    "sha256": "c9d59d9d2f3f7f6523d92dee12986cc1a332c0df1b1de2348d78571bf824dd80",
     "firstAppeared": "2026-01-10",
     "supported_python_version": ">=3.10, <3.15",
     "supported_os": [
