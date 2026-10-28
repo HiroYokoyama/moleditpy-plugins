@@ -292,7 +292,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "PubChem Name Resolver",
-    "version": "2026.10.19",
+    "version": "2026.10.29",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Resolves chemical names and identifiers to structures using the PubChem PUG REST API.",
@@ -304,8 +304,8 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/PubChem_Name_Ressolver/pubchem_ressolver.py",
-    "lastUpdated": "2026-10-19",
-    "sha256": "e89b4a74bfd76d4a3372b1ae9fc2b593e0b1f287427ace6e9ae3d1814f79cde2",
+    "lastUpdated": "2026-10-29",
+    "sha256": "c065a1618a2c34132e4199e070175cf1951b8088d9a512d63eb6ef1aa1535b85",
     "firstAppeared": "2025-12-15",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -922,7 +922,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Symmetry Analyzer",
-    "version": "2026.10.24",
+    "version": "2026.10.29",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Analyzes molecular symmetry (point group) and symmetrizes structures.",
@@ -935,8 +935,8 @@
       "pymatgen"
     ],
     "downloadUrl": "../plugins/Symmetry_Analyzer/symmetry_analyzer.py",
-    "lastUpdated": "2026-10-24",
-    "sha256": "e9fe035895c6d28e0d4574f22c67053f933244417eee16dba316bc8bec67f496",
+    "lastUpdated": "2026-10-29",
+    "sha256": "db8377d85de2ce3065f6b97ec6fbd4c9441c6ad03ed92c6a6b93a4f267cf5bf2",
     "firstAppeared": "2025-12-31",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1247,7 +1247,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "OpenBabel Conversion Tool",
-    "version": "2026.10.20",
+    "version": "2026.10.29",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Import various chemical file formats using OpenBabel with multi-molecule support. Requires Python-installed MoleditPy; portable and frozen bundles are unsupported.",
@@ -1259,8 +1259,8 @@
       "openbabel>=3.2.1,<3.3"
     ],
     "downloadUrl": "../plugins/OpenBabel_Conversion_Tool/openbabel_conversion_tool.py",
-    "lastUpdated": "2026-10-20",
-    "sha256": "aceb15abbf4111d76b15de7908a6a21f7756d1ae0d7e747357d460f44b923edb",
+    "lastUpdated": "2026-10-29",
+    "sha256": "63f39857c2d68463cc286790eb4f8f302ccc4a72288027f9baaa6517bd812168",
     "firstAppeared": "2026-01-10",
     "supported_python_version": ">=3.10, <3.15",
     "supported_os": [
