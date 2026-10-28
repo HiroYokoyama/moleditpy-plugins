@@ -222,7 +222,7 @@ class TestInitialize:
         PI.save_settings({"check_at_startup": True})
 
         timer_mock = MagicMock()
-        monkeypatch.setattr(PI.QTimer, "singleShot", timer_mock)
+        monkeypatch.setattr(PI, "QTimer", MagicMock(singleShot=timer_mock))
 
         ctx = self._make_context()
         PI.initialize(ctx)
@@ -238,7 +238,7 @@ class TestInitialize:
         (tmp_path / "s.json").unlink(missing_ok=True)
 
         timer_mock = MagicMock()
-        monkeypatch.setattr(PI.QTimer, "singleShot", timer_mock)
+        monkeypatch.setattr(PI, "QTimer", MagicMock(singleShot=timer_mock))
 
         ctx = self._make_context()
         PI.initialize(ctx)
@@ -252,7 +252,7 @@ class TestInitialize:
         PI.save_settings({"check_at_startup": False})
 
         timer_mock = MagicMock()
-        monkeypatch.setattr(PI.QTimer, "singleShot", timer_mock)
+        monkeypatch.setattr(PI, "QTimer", MagicMock(singleShot=timer_mock))
 
         ctx = self._make_context()
         PI.initialize(ctx)
@@ -264,7 +264,7 @@ class TestInitialize:
         PI.save_settings({"check_at_startup": True})
 
         timer_mock = MagicMock()
-        monkeypatch.setattr(PI.QTimer, "singleShot", timer_mock)
+        monkeypatch.setattr(PI, "QTimer", MagicMock(singleShot=timer_mock))
 
         ctx = self._make_context()
         PI.initialize(ctx)
@@ -347,7 +347,7 @@ class TestStartupCheckGuard:
         monkeypatch.setattr(PI, "SETTINGS_FILE", str(tmp_path / "s.json"))
         PI.save_settings({"check_at_startup": True})
         timer_mock = MagicMock()
-        monkeypatch.setattr(PI.QTimer, "singleShot", timer_mock)
+        monkeypatch.setattr(PI, "QTimer", MagicMock(singleShot=timer_mock))
 
         app_mock = PI.QApplication.instance.return_value
         app_mock.property.return_value = False
