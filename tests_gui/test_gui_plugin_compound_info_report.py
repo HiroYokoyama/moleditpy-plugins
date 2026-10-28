@@ -817,7 +817,8 @@ def test_pdf_cancel_after_event_processing_stops_export(
     state = {"events": 0, "canceled": False}
     progress.wasCanceled.side_effect = lambda: state["canceled"]
 
-    def process_events():
+    # Any signature: pytest-qt 4.5 calls processEvents(flags) itself.
+    def process_events(*args, **kwargs):
         state["events"] += 1
         state["canceled"] = state["events"] == cancel_step
 

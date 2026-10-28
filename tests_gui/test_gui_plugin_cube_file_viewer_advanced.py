@@ -1110,7 +1110,8 @@ class TestCubeViewerLoadEnvTexture:
         monkeypatch.setattr(
             _cube_adv.QCoreApplication,
             "processEvents",
-            lambda: setattr(w, "_closing", True),
+            # Any signature: pytest-qt 4.5 calls processEvents(flags) itself.
+            lambda *args, **kwargs: setattr(w, "_closing", True),
         )
         w.load_env_texture(str(p))
         w.plotter.set_environment_texture.assert_not_called()

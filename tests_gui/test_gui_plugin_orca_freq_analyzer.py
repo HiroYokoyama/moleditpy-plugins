@@ -1208,7 +1208,14 @@ class TestLoadFromFileReal:
         _onp.load_from_file(mw, path)
 
         assert not gauss_dock.isVisible()
+        # Destroy the window now, while onp_ctx still provides the plugin
+        # context: left to pytest-qt's teardown event pass, the analyzer dock
+        # would hide after the context is gone and fail in its close handler.
+        from PySide6.QtCore import QCoreApplication, QEvent
+
+        mw.close()
         mw.deleteLater()
+        QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
 
 
 def _host_with_file(path):
