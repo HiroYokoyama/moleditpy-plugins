@@ -1,6 +1,7 @@
 import os
 import sys
 import importlib
+import importlib.machinery
 import json
 import tempfile
 import shutil
@@ -27,7 +28,7 @@ OBABEL_AVAILABLE = None
 pybel = SimpleNamespace(informats={}, outformats={})
 
 PLUGIN_NAME = "OpenBabel Conversion Tool"
-PLUGIN_VERSION = "2026.10.20"
+PLUGIN_VERSION = "2026.10.29"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -56,28 +57,95 @@ with open(sys.argv[1], 'w', encoding='utf-8') as handle:
 """
 
 
+def _formats_cache_path():
+    return os.path.splitext(os.path.abspath(__file__))[0] + '.formats-cache.json'
+
+
+def _openbabel_fingerprint():
+    """What the cached format list depends on, or None without openbabel.
+
+    Found on sys.path by the path finder alone, so neither openbabel nor any
+    import hook runs in the GUI process. Reinstalling or upgrading it changes
+    the package files' sizes or times, and so the fingerprint.
+    """
+    try:
+        spec = importlib.machinery.PathFinder.find_spec('openbabel')
+    except (ImportError, ValueError):
+        return None
+    if spec is None or not spec.origin:
+        return None
+    folder = os.path.dirname(spec.origin)
+    try:
+        entries = []
+        for name in sorted(os.listdir(folder)):
+            stat = os.stat(os.path.join(folder, name))
+            entries.append([name, stat.st_size, stat.st_mtime_ns])
+    except OSError:
+        return None
+    return {'python': sys.executable, 'folder': folder, 'entries': entries}
+
+
+def _validated_formats(formats):
+    for name in ('informats', 'outformats'):
+        mapping = formats[name]
+        if not isinstance(mapping, dict) or not all(
+            isinstance(key, str) and isinstance(value, str)
+            for key, value in mapping.items()
+        ):
+            raise ValueError('OpenBabel returned invalid format metadata.')
+    return formats
+
+
+def _cached_formats(fingerprint):
+    try:
+        with open(_formats_cache_path(), encoding='utf-8') as handle:
+            cached = json.load(handle)
+        if cached.get('fingerprint') != fingerprint:
+            return None
+        return _validated_formats(cached['formats'])
+    except (OSError, ValueError, TypeError, KeyError, AttributeError):
+        return None
+
+
+def _store_formats(fingerprint, formats):
+    try:
+        with open(_formats_cache_path(), 'w', encoding='utf-8') as handle:
+            json.dump({'fingerprint': fingerprint, 'formats': formats}, handle)
+    except OSError as error:
+        logging.debug('OpenBabel format cache not written: %s', error)
+
+
+def _discover_formats(parent):
+    with tempfile.TemporaryDirectory(prefix='moleditpy-obabel-') as directory:
+        output = os.path.join(directory, 'formats.json')
+        _run_conversion(_FORMAT_SCRIPT, [output], parent)
+        with open(output, 'rb') as handle:
+            raw = handle.read(1024 * 1024 + 1)
+        if len(raw) > 1024 * 1024:
+            raise ValueError('OpenBabel format list is too large.')
+        return _validated_formats(json.loads(raw))
+
+
 def _ensure_formats(parent=None):
     """Discover native formats once, without importing the engine in the GUI."""
     global OBABEL_AVAILABLE
     if OBABEL_AVAILABLE is not None:
         return OBABEL_AVAILABLE
+    # The discovery worker is a fresh interpreter importing openbabel: about
+    # 0.25 s and a progress dialog on every MoleditPy start. Its answer only
+    # changes with the interpreter or the openbabel install, so it is cached
+    # against those; failures are not cached and are retried next start.
+    fingerprint = _openbabel_fingerprint()
+    if fingerprint is None:
+        OBABEL_AVAILABLE = False
+        return OBABEL_AVAILABLE
     try:
-        with tempfile.TemporaryDirectory(prefix='moleditpy-obabel-') as directory:
-            output = os.path.join(directory, 'formats.json')
-            _run_conversion(_FORMAT_SCRIPT, [output], parent)
-            with open(output, 'rb') as handle:
-                raw = handle.read(1024 * 1024 + 1)
-            if len(raw) > 1024 * 1024:
-                raise ValueError('OpenBabel format list is too large.')
-            formats = json.loads(raw)
-            for name in ('informats', 'outformats'):
-                mapping = formats[name]
-                if not isinstance(mapping, dict) or not all(
-                    isinstance(key, str) and isinstance(value, str)
-                    for key, value in mapping.items()
-                ):
-                    raise ValueError('OpenBabel returned invalid format metadata.')
-                setattr(pybel, name, mapping)
+        formats = _cached_formats(fingerprint)
+        if formats is None:
+            formats = _discover_formats(parent)
+            _store_formats(fingerprint, formats)
+        for name in ('informats', 'outformats'):
+            setattr(pybel, name, formats[name])
         OBABEL_AVAILABLE = True
     except Exception as error:
         logging.warning('OpenBabel format discovery failed: %s', error)

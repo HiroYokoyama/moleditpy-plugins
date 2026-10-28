@@ -1,13 +1,15 @@
 # --- Plugin Metadata ---
 PLUGIN_NAME = "Symmetry Analyzer"
-PLUGIN_VERSION = "2026.10.24"
+PLUGIN_VERSION = "2026.10.29"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Analyzes molecular symmetry (point group) and symmetrizes structures."
 PLUGIN_CONTEXT = None
 
+import importlib.util
 import logging
 import re
+import sys
 import warnings
 from fractions import Fraction
 import numpy as np
@@ -32,25 +34,49 @@ try:
 except ImportError:
     pass  # always present in a MoleditPy environment
 
-# --- Pymatgen Imports ---
-try:
-    from pymatgen.core import Molecule
-    from pymatgen.symmetry.analyzer import PointGroupAnalyzer
-
-    HAS_PYMATGEN = True
-except ImportError:
-    HAS_PYMATGEN = False
-
-
 try:
     import pyvista as pv
 except ImportError:
     pv = None
 
-try:
-    from scipy.optimize import linear_sum_assignment
-except ImportError:
-    linear_sum_assignment = None
+
+def _module_available(name):
+    """True when *name* can be imported, without importing it."""
+    if name in sys.modules:
+        return True
+    try:
+        return importlib.util.find_spec(name) is not None
+    except (ImportError, ValueError):
+        return False
+
+
+# --- Pymatgen / SciPy, imported on first use ---
+# Importing them here added about a second to every MoleditPy start, so these
+# stand-ins keep the module-level names and import only when called.
+def _molecule(*args, **kwargs):
+    from pymatgen.core import Molecule as cls
+
+    return cls(*args, **kwargs)
+
+
+def _point_group_analyzer(*args, **kwargs):
+    from pymatgen.symmetry.analyzer import PointGroupAnalyzer as cls
+
+    return cls(*args, **kwargs)
+
+
+def _linear_sum_assignment(*args, **kwargs):
+    from scipy.optimize import linear_sum_assignment as fn
+
+    return fn(*args, **kwargs)
+
+
+HAS_PYMATGEN = _module_available("pymatgen.core")
+Molecule = _molecule
+PointGroupAnalyzer = _point_group_analyzer
+linear_sum_assignment = (
+    _linear_sum_assignment if _module_available("scipy.optimize") else None
+)
 
 
 def _rotation_order(angle):
@@ -411,6 +437,9 @@ class SymmetryAnalysisPlugin(QDialog):
             return
         try:
             mol_pmg = self.get_pymatgen_molecule()
+        except ImportError as exc:
+            QMessageBox.critical(self, "Dependency Error", f"pymatgen could not be loaded:\n{exc}")
+            return
         except (ValueError, TypeError) as exc:
             QMessageBox.warning(self, "Invalid Molecule", str(exc))
             return
@@ -836,6 +865,9 @@ class SymmetryAnalysisPlugin(QDialog):
             return
         try:
             mol_pmg = self.get_pymatgen_molecule()
+        except ImportError as exc:
+            QMessageBox.critical(self, "Dependency Error", f"pymatgen could not be loaded:\n{exc}")
+            return
         except (ValueError, TypeError) as exc:
             QMessageBox.warning(self, "Invalid Molecule", str(exc))
             self._invalidate_analysis()

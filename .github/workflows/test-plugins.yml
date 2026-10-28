@@ -149,6 +149,9 @@ jobs:
     needs: changes
     if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.code == 'true'
     runs-on: ${{ matrix.python-version == '3.9' && 'ubuntu-24.04' || 'ubuntu-latest' }}
+    # A run takes about 1.5 minutes; a modal dialog left open by a test
+    # otherwise holds the runner for GitHub's 6-hour default.
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:

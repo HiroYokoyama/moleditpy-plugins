@@ -12,7 +12,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from conftest import load_plugin_for_gui, mock_chemistry_imports
+from conftest import load_plugin_for_gui, mock_chemistry_imports, patch_mock_attr
 
 PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
 
@@ -180,7 +180,7 @@ class TestMopacGenerateContentReal:
         assert atom_line.split()[2] == "0"
 
     def test_calc_initial_charge_mult_sets_spinboxes(self, dlg, monkeypatch):
-        monkeypatch.setattr(_mopac.Chem, "GetFormalCharge", lambda m: 0)
+        patch_mock_attr(monkeypatch, _mopac, "Chem", "GetFormalCharge", lambda m: 0)
         dlg.calc_initial_charge_mult()
         assert dlg.charge_spin.value() == 0
         assert dlg.mult_spin.value() == 1
@@ -188,7 +188,7 @@ class TestMopacGenerateContentReal:
     def test_calc_initial_charge_mult_odd_electrons(self, dlg, monkeypatch):
         mol = _FakeMol([_FakeAtom("O", 8), _FakeAtom("H", 1)], [(0, 0, 0), (1, 0, 0)])
         dlg.mol = mol
-        monkeypatch.setattr(_mopac.Chem, "GetFormalCharge", lambda m: 0)
+        patch_mock_attr(monkeypatch, _mopac, "Chem", "GetFormalCharge", lambda m: 0)
         dlg.calc_initial_charge_mult()
         assert dlg.mult_spin.value() == 2
 
@@ -196,7 +196,7 @@ class TestMopacGenerateContentReal:
         def _raise(_m):
             raise ValueError("boom")
 
-        monkeypatch.setattr(_mopac.Chem, "GetFormalCharge", _raise)
+        patch_mock_attr(monkeypatch, _mopac, "Chem", "GetFormalCharge", _raise)
         dlg.calc_initial_charge_mult()  # should not raise
 
 

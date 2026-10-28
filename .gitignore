@@ -18,6 +18,7 @@ htmlcov/
 **/*.trj
 tmp/
 plugins/Structural_Updater/structural_updater.json
+plugins/OpenBabel_Conversion_Tool/*.formats-cache.json
 new.json
 old.json
 *.log

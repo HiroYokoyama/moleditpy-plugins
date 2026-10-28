@@ -1,4 +1,17 @@
-import requests  # API通信に必要 (pip install requests)
+class _LazyRequests:
+    """``requests`` (pip install requests), imported on first use.
+
+    Importing it at load time added about 0.2 s to every MoleditPy start,
+    though only a PubChem search needs it.
+    """
+
+    def __getattr__(self, name):
+        import requests as module
+
+        return getattr(module, name)
+
+
+requests = _LazyRequests()
 from PySide6.QtWidgets import (
     QDialog,
     QVBoxLayout,
@@ -17,7 +30,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from rdkit import Chem
 
-PLUGIN_VERSION = "2026.10.19"
+PLUGIN_VERSION = "2026.10.29"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Resolves chemical names and identifiers to structures using the PubChem PUG REST API."

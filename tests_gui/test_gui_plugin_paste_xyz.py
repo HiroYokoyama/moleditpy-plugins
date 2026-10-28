@@ -18,7 +18,7 @@ from unittest.mock import MagicMock
 import pytest
 from PySide6.QtWidgets import QDialog, QDialogButtonBox, QLineEdit, QPushButton, QWidget
 
-from conftest import load_plugin_for_gui, mock_chemistry_imports
+from conftest import load_plugin_for_gui, mock_chemistry_imports, patch_mock_attr
 
 PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
 
@@ -140,7 +140,7 @@ class TestApplyBonds:
         result.SetIntProp.assert_called_once_with("_xyz_charge", 1)
 
     def test_fallback_when_determine_bonds_raises(self, qapp, monkeypatch):
-        monkeypatch.setattr(_paste_xyz.Chem.RWMol, "side_effect", RuntimeError("boom"))
+        patch_mock_attr(monkeypatch, _paste_xyz, "Chem", "RWMol", MagicMock(side_effect=RuntimeError("boom")))
         rwmol = MagicMock()
         mw = MagicMock()
         result = _paste_xyz._apply_bonds(rwmol, -1, mw)
@@ -148,13 +148,13 @@ class TestApplyBonds:
         result.SetIntProp.assert_called_once_with("_xyz_charge", -1)
 
     def test_fallback_without_io_manager(self, qapp, monkeypatch):
-        monkeypatch.setattr(_paste_xyz.Chem.RWMol, "side_effect", RuntimeError("boom"))
+        patch_mock_attr(monkeypatch, _paste_xyz, "Chem", "RWMol", MagicMock(side_effect=RuntimeError("boom")))
         rwmol = MagicMock()
         result = _paste_xyz._apply_bonds(rwmol, 2, SimpleNamespace())
         result.SetIntProp.assert_called_once_with("_xyz_charge", 2)
 
     def test_fallback_estimator_exception_swallowed(self, qapp, monkeypatch):
-        monkeypatch.setattr(_paste_xyz.Chem.RWMol, "side_effect", RuntimeError("boom"))
+        patch_mock_attr(monkeypatch, _paste_xyz, "Chem", "RWMol", MagicMock(side_effect=RuntimeError("boom")))
         rwmol = MagicMock()
         mw = MagicMock()
         mw.io_manager.estimate_bonds_from_distances.side_effect = ValueError("bad geom")
@@ -246,7 +246,7 @@ class TestResolveMolWithCharge:
     def test_retry_after_failed_charge_then_success(self, qapp, patch_exec, monkeypatch):
         ctx = MagicMock()
         ctx.get_setting.return_value = True
-        monkeypatch.setattr(_paste_xyz.Chem.RWMol, "side_effect", RuntimeError("bad"))
+        patch_mock_attr(monkeypatch, _paste_xyz, "Chem", "RWMol", MagicMock(side_effect=RuntimeError("bad")))
         rwmol = MagicMock()
         rwmol.GetMol.side_effect = [RuntimeError("boom"), MagicMock()]
 

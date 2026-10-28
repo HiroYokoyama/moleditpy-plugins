@@ -49,22 +49,90 @@ class TestNativeEngineIsolation:
                 'informats': {'pdb': 'PDB'}, 'outformats': {'xyz': 'XYZ'},
             }), encoding='utf-8')
 
-        with patch.object(mod, '_run_conversion', side_effect=discover) as worker:
+        cache = tmp_path / 'formats.json'
+        with patch.object(mod, '_run_conversion', side_effect=discover) as worker,                 patch.object(mod, '_formats_cache_path', return_value=str(cache)),                 patch.object(mod, '_openbabel_fingerprint', return_value={'v': 1}):
             assert mod._ensure_formats()
             assert mod._ensure_formats()
         worker.assert_called_once()
         assert mod.pybel.informats == {'pdb': 'PDB'}
         assert mod.pybel.outformats == {'xyz': 'XYZ'}
 
-    def test_worker_failure_disables_handlers(self):
+    def test_worker_failure_disables_handlers(self, tmp_path):
         with mock_optional_imports():
             mod = _load_plugin(OBABEL_PATH)
         ctx = make_context()
-        with patch.object(mod, '_run_conversion', side_effect=ValueError('native crash')):
+        cache = tmp_path / 'formats.json'
+        with patch.object(mod, '_run_conversion', side_effect=ValueError('native crash')),                 patch.object(mod, '_formats_cache_path', return_value=str(cache)),                 patch.object(mod, '_openbabel_fingerprint', return_value={'v': 1}):
             mod.initialize(ctx)
         assert mod.OBABEL_AVAILABLE is False
+        assert not cache.exists()  # a failure is retried next start, not cached
         ctx.register_file_opener.assert_not_called()
         ctx.register_drop_handler.assert_not_called()
+
+    def test_cached_formats_skip_the_worker(self, tmp_path):
+        import json
+        cache = tmp_path / 'formats.json'
+        cache.write_text(json.dumps({
+            'fingerprint': {'v': 1},
+            'formats': {'informats': {'pdb': 'PDB'}, 'outformats': {'xyz': 'XYZ'}},
+        }), encoding='utf-8')
+        with mock_optional_imports():
+            mod = _load_plugin(OBABEL_PATH)
+        with patch.object(mod, '_run_conversion') as worker,                 patch.object(mod, '_formats_cache_path', return_value=str(cache)),                 patch.object(mod, '_openbabel_fingerprint', return_value={'v': 1}):
+            assert mod._ensure_formats()
+        worker.assert_not_called()
+        assert mod.pybel.informats == {'pdb': 'PDB'}
+
+    def test_a_changed_install_rediscovers_and_rewrites_the_cache(self, tmp_path):
+        import json
+        cache = tmp_path / 'formats.json'
+        cache.write_text(json.dumps({
+            'fingerprint': {'v': 1},
+            'formats': {'informats': {'old': 'Old'}, 'outformats': {}},
+        }), encoding='utf-8')
+        with mock_optional_imports():
+            mod = _load_plugin(OBABEL_PATH)
+
+        def discover(script, args, parent):
+            Path(args[0]).write_text(json.dumps({
+                'informats': {'pdb': 'PDB'}, 'outformats': {'xyz': 'XYZ'},
+            }), encoding='utf-8')
+
+        with patch.object(mod, '_run_conversion', side_effect=discover) as worker,                 patch.object(mod, '_formats_cache_path', return_value=str(cache)),                 patch.object(mod, '_openbabel_fingerprint', return_value={'v': 2}):
+            assert mod._ensure_formats()
+        worker.assert_called_once()
+        assert mod.pybel.informats == {'pdb': 'PDB'}
+        assert json.loads(cache.read_text(encoding='utf-8'))['fingerprint'] == {'v': 2}
+
+    def test_a_corrupt_cache_is_ignored(self, tmp_path):
+        cache = tmp_path / 'formats.json'
+        cache.write_text('{half', encoding='utf-8')
+        with mock_optional_imports():
+            mod = _load_plugin(OBABEL_PATH)
+        with patch.object(mod, '_formats_cache_path', return_value=str(cache)):
+            assert mod._cached_formats({'v': 1}) is None
+
+    def test_without_openbabel_no_worker_starts(self):
+        with mock_optional_imports():
+            mod = _load_plugin(OBABEL_PATH)
+        with patch.object(mod, '_run_conversion') as worker,                 patch.object(mod.importlib.machinery.PathFinder, 'find_spec', return_value=None):
+            assert mod._ensure_formats() is False
+        worker.assert_not_called()
+
+    def test_fingerprint_follows_the_package_files(self, tmp_path):
+        from types import SimpleNamespace
+        package = tmp_path / 'openbabel'
+        package.mkdir()
+        (package / '__init__.py').write_text('', encoding='utf-8')
+        with mock_optional_imports():
+            mod = _load_plugin(OBABEL_PATH)
+        spec = SimpleNamespace(origin=str(package / '__init__.py'))
+        with patch.object(mod.importlib.machinery.PathFinder, 'find_spec', return_value=spec):
+            before = mod._openbabel_fingerprint()
+            (package / '_openbabel.pyd').write_bytes(b'x')
+            after = mod._openbabel_fingerprint()
+        assert before['folder'] == str(package)
+        assert before != after
 
     def test_frozen_executable_never_recursively_launches_editor(self):
         import pytest

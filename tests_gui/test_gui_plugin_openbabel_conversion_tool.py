@@ -13,7 +13,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from conftest import load_plugin_for_gui, mock_chemistry_imports
+from conftest import load_plugin_for_gui, mock_chemistry_imports, patch_mock_attr
 
 PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
 
@@ -101,8 +101,12 @@ class TestMoleculeSelectionDialog:
 
 
 class TestIsolatedConversion:
-    def test_format_discovery_worker_returns_plain_metadata(self, qapp, monkeypatch):
+    def test_format_discovery_worker_returns_plain_metadata(self, qapp, monkeypatch, tmp_path):
         monkeypatch.setattr(_openbabel, 'OBABEL_AVAILABLE', None)
+        # Exercise the worker whether or not openbabel is installed here, and
+        # never read or write a format cache beside the plugin source.
+        monkeypatch.setattr(_openbabel, '_openbabel_fingerprint', lambda: {'v': 1})
+        monkeypatch.setattr(_openbabel, '_formats_cache_path', lambda: str(tmp_path / 'formats.json'))
         monkeypatch.setattr(_openbabel, '_FORMAT_SCRIPT', """
 import json, sys
 with open(sys.argv[1], 'w', encoding='utf-8') as handle:
@@ -113,8 +117,12 @@ with open(sys.argv[1], 'w', encoding='utf-8') as handle:
         assert _openbabel.pybel.informats == {'pdb': 'PDB'}
         assert _openbabel.pybel.outformats == {'xyz': 'XYZ'}
 
-    def test_format_discovery_native_crash_does_not_crash_gui(self, qapp, monkeypatch):
+    def test_format_discovery_native_crash_does_not_crash_gui(self, qapp, monkeypatch, tmp_path):
         monkeypatch.setattr(_openbabel, 'OBABEL_AVAILABLE', None)
+        # Exercise the worker whether or not openbabel is installed here, and
+        # never read or write a format cache beside the plugin source.
+        monkeypatch.setattr(_openbabel, '_openbabel_fingerprint', lambda: {'v': 1})
+        monkeypatch.setattr(_openbabel, '_formats_cache_path', lambda: str(tmp_path / 'formats.json'))
         monkeypatch.setattr(_openbabel, '_FORMAT_SCRIPT', 'import os; os._exit(139)')
         assert _openbabel._ensure_formats() is False
 
@@ -201,7 +209,7 @@ with open(sys.argv[1], 'w', encoding='utf-8') as handle:
         ctx.get_main_window.return_value = None
         ctx.current_molecule.GetNumAtoms.return_value = 2
         monkeypatch.setattr(_openbabel.pybel, 'outformats', {'xyz': 'XYZ'})
-        monkeypatch.setattr(_openbabel.Chem, 'MolToMolBlock', lambda *a: 'MOL')
+        patch_mock_attr(monkeypatch, _openbabel, "Chem", 'MolToMolBlock', lambda *a: 'MOL')
         monkeypatch.setattr(_openbabel.QFileDialog, 'getSaveFileName', lambda *a: (str(target), ''))
         monkeypatch.setattr(_openbabel, '_run_conversion', MagicMock(side_effect=ValueError('timed out')))
         critical = MagicMock()
