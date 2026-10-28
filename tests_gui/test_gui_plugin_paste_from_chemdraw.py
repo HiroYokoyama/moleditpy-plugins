@@ -16,7 +16,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from conftest import load_plugin_for_gui, mock_chemistry_imports
+from conftest import load_plugin_for_gui, mock_chemistry_imports, patch_mock_attr
 
 PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
 
@@ -90,7 +90,7 @@ class TestReconstructBuildsValidMolBlock:
             captured.append(block)
             return sentinel
 
-        monkeypatch.setattr(_chemdraw.Chem, "MolFromMolBlock", fake_mol_from_block)
+        patch_mock_attr(monkeypatch, _chemdraw, "Chem", "MolFromMolBlock", fake_mol_from_block)
 
         # counts line tokens sit 10-from-the-end: n_atoms=1, n_bonds=0
         atom_tok = "0.5 -1.25 0.0 N " + " ".join(["0"] * 12)
@@ -108,8 +108,8 @@ class TestReconstructBuildsValidMolBlock:
 
     def test_atom_and_bond_block(self, monkeypatch):
         captured = []
-        monkeypatch.setattr(
-            _chemdraw.Chem,
+        patch_mock_attr(monkeypatch,
+            _chemdraw, "Chem",
             "MolFromMolBlock",
             lambda block, *a, **k: captured.append(block) or object(),
         )
@@ -128,8 +128,8 @@ class TestReconstructBuildsValidMolBlock:
 
     def test_phantom_f_token_before_atom_is_skipped(self, monkeypatch):
         captured = []
-        monkeypatch.setattr(
-            _chemdraw.Chem,
+        patch_mock_attr(monkeypatch,
+            _chemdraw, "Chem",
             "MolFromMolBlock",
             lambda block, *a, **k: captured.append(block) or object(),
         )
@@ -254,8 +254,8 @@ class TestRunClipboardPaths:
     def test_v2000_text_fallback_draws_molecule(
         self, ctx, clipboard, warnings, criticals, monkeypatch
     ):
-        monkeypatch.setattr(
-            _chemdraw.Chem, "MolFromMolBlock", lambda *a, **k: _FakeMol()
+        patch_mock_attr(monkeypatch,
+            _chemdraw, "Chem", "MolFromMolBlock", lambda *a, **k: _FakeMol()
         )
         clipboard.setText("fake molblock V2000 content\nM  END")
         _chemdraw.run(ctx)
@@ -271,8 +271,8 @@ class TestRunClipboardPaths:
         self, ctx, clipboard, warnings, monkeypatch
     ):
         # Both direct parse and flat-text reconstruction fail → warning path
-        monkeypatch.setattr(
-            _chemdraw.Chem, "MolFromMolBlock", lambda *a, **k: None
+        patch_mock_attr(monkeypatch,
+            _chemdraw, "Chem", "MolFromMolBlock", lambda *a, **k: None
         )
         clipboard.setText("V2000 garbage that cannot be reconstructed")
         _chemdraw.run(ctx)
@@ -379,8 +379,8 @@ class TestBinaryFormatDecoding:
     def test_mdlct_binary_v2000_payload_parsed(
         self, ctx, clipboard, warnings, monkeypatch
     ):
-        monkeypatch.setattr(
-            _chemdraw.Chem, "MolFromMolBlock", lambda *a, **k: _FakeMol()
+        patch_mock_attr(monkeypatch,
+            _chemdraw, "Chem", "MolFromMolBlock", lambda *a, **k: _FakeMol()
         )
         block = "\n\n\nfake header\n  1  0  0  0  0  0  0  0  0  0999 V2000\nM  END\n"
         self._set_mdlct(clipboard, block.encode("utf-8"))
@@ -393,8 +393,8 @@ class TestBinaryFormatDecoding:
     ):
         from PySide6.QtCore import QMimeData, QByteArray
 
-        monkeypatch.setattr(
-            _chemdraw.Chem, "MolFromMolBlock", lambda *a, **k: _FakeMol()
+        patch_mock_attr(monkeypatch,
+            _chemdraw, "Chem", "MolFromMolBlock", lambda *a, **k: _FakeMol()
         )
         mime = QMimeData()
         mime.setData("MDLCT", QByteArray(b""))  # empty -> "continue"
@@ -418,7 +418,7 @@ class TestBinaryFormatDecoding:
         def _raise(*a, **k):
             raise ValueError("boom")
 
-        monkeypatch.setattr(_chemdraw.Chem, "MolFromMolBlock", _raise)
+        patch_mock_attr(monkeypatch, _chemdraw, "Chem", "MolFromMolBlock", _raise)
         block = "\n\n\nheader\n  1  0  0  0  0  0  0  0  0  0999 V2000\nM  END\n"
         self._set_mdlct(clipboard, block.encode("utf-8"))
         _chemdraw.run(ctx)
@@ -565,10 +565,10 @@ class TestDrawingLoopFullFlow:
             None,
         ]
         fake_mol = _FakeMolFull(bond_dirs)
-        monkeypatch.setattr(
-            _chemdraw.Chem, "MolFromMolBlock", lambda *a, **k: fake_mol
+        patch_mock_attr(monkeypatch,
+            _chemdraw, "Chem", "MolFromMolBlock", lambda *a, **k: fake_mol
         )
-        monkeypatch.setattr(_chemdraw.AllChem, "Compute2DCoords", MagicMock())
+        patch_mock_attr(monkeypatch,_chemdraw, "AllChem", "Compute2DCoords", MagicMock())
         # Kekulize raises -> must be silenced and drawing must still proceed
         monkeypatch.setattr(
             _chemdraw.Chem, "Kekulize", MagicMock(side_effect=Exception("kek boom"))
@@ -596,8 +596,8 @@ class TestDrawingLoopFullFlow:
             staticmethod(lambda *a, **k: criticals.append(a)),
         )
         fake_mol = _FakeMolFull([None, None, None])
-        monkeypatch.setattr(
-            _chemdraw.Chem, "MolFromMolBlock", lambda *a, **k: fake_mol
+        patch_mock_attr(monkeypatch,
+            _chemdraw, "Chem", "MolFromMolBlock", lambda *a, **k: fake_mol
         )
         ctx_with_view2d.scene.create_atom.side_effect = RuntimeError("draw boom")
         clipboard.setText("fake V2000 block\nM  END")

@@ -13,7 +13,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from conftest import load_plugin_for_gui, mock_chemistry_imports
+from conftest import load_plugin_for_gui, mock_chemistry_imports, patch_mock_attr
 
 PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
 
@@ -276,7 +276,7 @@ class TestMappedWidgetInitDefaultBranches:
     def test_low_max_surf_values_uses_mean_iso(self, qapp, monkeypatch):
         # np is mocked in this suite; MagicMock's default __float__ returns
         # 1.0, which would mask the real `float(np.mean(vals))` computation.
-        monkeypatch.setattr(_mapped.np, "mean", lambda v: sum(v._v) / len(v._v))
+        patch_mock_attr(monkeypatch, _mapped, "np", "mean", lambda v: sum(v._v) / len(v._v))
         mw = _make_mw()
         ctx = MagicMock()
         ctx.get_main_window.return_value = mw
@@ -526,8 +526,8 @@ class TestMappedWidgetExportColorbar:
         self.info.assert_called_once()
 
     def test_plotter_construction_failure_shows_critical(self, widget, tmp_path, monkeypatch):
-        monkeypatch.setattr(
-            _mapped.pv, "Plotter", MagicMock(side_effect=RuntimeError("no display"))
+        patch_mock_attr(monkeypatch,
+            _mapped, "pv", "Plotter", MagicMock(side_effect=RuntimeError("no display"))
         )
         f = str(tmp_path / "cbar.png")
         self._save_ret = (f, "")

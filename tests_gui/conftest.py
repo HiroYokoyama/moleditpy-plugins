@@ -146,6 +146,31 @@ def load_plugin_for_gui(path: Path) -> object:
     return mod
 
 
+class _MockOverlay:
+    """Stand-in for a mock that overrides some attributes and forwards the rest."""
+
+    def __init__(self, base: object, **attrs: object) -> None:
+        self.__dict__.update(attrs)
+        self.__dict__["_overlay_base"] = base
+
+    def __getattr__(self, name: str) -> object:
+        return getattr(self.__dict__["_overlay_base"], name)
+
+    def __call__(self, *args: object, **kwargs: object) -> object:
+        return self.__dict__["_overlay_base"](*args, **kwargs)
+
+
+def patch_mock_attr(monkeypatch, owner: object, name: str, attr: str, value: object) -> None:
+    """Patch ``owner.<name>.<attr>`` where ``owner.<name>`` is one of the suite's mocks.
+
+    pytest 9.2 undoes ``monkeypatch.setattr(mock, attr, ...)`` by deleting the
+    attribute, after which a MagicMock raises AttributeError for it in every
+    later test.  Swap ``owner.<name>`` for an overlay instead, so the shared
+    mock is never touched; patches on the same name stack.
+    """
+    monkeypatch.setattr(owner, name, _MockOverlay(getattr(owner, name), **{attr: value}))
+
+
 # ---------------------------------------------------------------------------
 # Session-scoped QApplication
 # ---------------------------------------------------------------------------

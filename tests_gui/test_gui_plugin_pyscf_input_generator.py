@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from conftest import load_plugin_for_gui, mock_chemistry_imports
+from conftest import load_plugin_for_gui, mock_chemistry_imports, patch_mock_attr
 
 PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
 PYSCF_PATH = PLUGINS_DIR / "PySCF_Input_Generator" / "pyscf_input_generator.py"
@@ -200,7 +200,7 @@ def _no_block_msgbox(monkeypatch):
 
 class TestPyscfChargeMultReal:
     def test_neutral_singlet_water(self, qapp, monkeypatch):
-        monkeypatch.setattr(_pyscf.Chem, "GetFormalCharge", lambda mol: 0)
+        patch_mock_attr(monkeypatch, _pyscf, "Chem", "GetFormalCharge", lambda mol: 0)
         d = _pyscf.PyscfSetupDialog(parent=None, mol=_water())
         try:
             assert d.charge_spin.value() == 0
@@ -214,7 +214,7 @@ class TestPyscfChargeMultReal:
             [_FakeAtom("C", 6), _FakeAtom("H", 1), _FakeAtom("H", 1), _FakeAtom("H", 1)],
             [(0, 0, 0), (0, 0, 1), (0, 1, 0), (1, 0, 0)],
         )
-        monkeypatch.setattr(_pyscf.Chem, "GetFormalCharge", lambda mol: 0)
+        patch_mock_attr(monkeypatch, _pyscf, "Chem", "GetFormalCharge", lambda mol: 0)
         d = _pyscf.PyscfSetupDialog(parent=None, mol=mol)
         try:
             assert d.mult_spin.value() == 2
@@ -230,7 +230,7 @@ class TestPyscfChargeMultReal:
         a1, a2 = _FakeAtom("O", 8), _FakeAtom("O", 8)
         a1._radicals = a2._radicals = 1
         mol = _FakeMol([a1, a2], [(0, 0, 0), (0, 0, 1.2)])
-        monkeypatch.setattr(_pyscf.Chem, "GetFormalCharge", lambda mol: 0)
+        patch_mock_attr(monkeypatch, _pyscf, "Chem", "GetFormalCharge", lambda mol: 0)
         d = _pyscf.PyscfSetupDialog(parent=None, mol=mol)
         try:
             assert d.mult_spin.value() == 3
@@ -241,7 +241,7 @@ class TestPyscfChargeMultReal:
         def boom(mol):
             raise RuntimeError("bad mol")
 
-        monkeypatch.setattr(_pyscf.Chem, "GetFormalCharge", boom)
+        patch_mock_attr(monkeypatch, _pyscf, "Chem", "GetFormalCharge", boom)
         # Must not raise despite calc_initial_charge_mult's internal failure.
         d = _pyscf.PyscfSetupDialog(parent=None, mol=_water())
         try:
@@ -259,7 +259,7 @@ class TestPyscfChargeMultReal:
 class TestPyscfPreviewReal:
     @pytest.fixture
     def dlg(self, qapp, monkeypatch):
-        monkeypatch.setattr(_pyscf.Chem, "GetFormalCharge", lambda mol: 0)
+        patch_mock_attr(monkeypatch, _pyscf, "Chem", "GetFormalCharge", lambda mol: 0)
         d = _pyscf.PyscfSetupDialog(parent=None, mol=_water())
         yield d
         d.destroy()
@@ -334,7 +334,7 @@ class TestPyscfPreviewReal:
 class TestPyscfSaveFileReal:
     @pytest.fixture
     def dlg(self, qapp, monkeypatch):
-        monkeypatch.setattr(_pyscf.Chem, "GetFormalCharge", lambda mol: 0)
+        patch_mock_attr(monkeypatch, _pyscf, "Chem", "GetFormalCharge", lambda mol: 0)
         d = _pyscf.PyscfSetupDialog(parent=None, mol=_water())
         yield d
         d.destroy()
@@ -370,7 +370,7 @@ class TestPyscfSaveFileReal:
         assert len(calls["critical"]) == 1
 
     def test_default_save_name_derived_from_source_filename(self, qapp, monkeypatch, tmp_path):
-        monkeypatch.setattr(_pyscf.Chem, "GetFormalCharge", lambda mol: 0)
+        patch_mock_attr(monkeypatch, _pyscf, "Chem", "GetFormalCharge", lambda mol: 0)
         d = _pyscf.PyscfSetupDialog(parent=None, mol=_water(), filename="mystructure.xyz")
         try:
             captured = {}
@@ -561,7 +561,7 @@ class TestPyscfRun:
         assert len(calls["warning"]) == 1
 
     def test_with_molecule_opens_dialog(self, qapp, monkeypatch):
-        monkeypatch.setattr(_pyscf.Chem, "GetFormalCharge", lambda mol: 0)
+        patch_mock_attr(monkeypatch, _pyscf, "Chem", "GetFormalCharge", lambda mol: 0)
         exec_calls = []
         monkeypatch.setattr(
             _pyscf.PyscfSetupDialog, "exec",
