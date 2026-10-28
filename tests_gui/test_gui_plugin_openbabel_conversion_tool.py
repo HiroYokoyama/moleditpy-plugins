@@ -13,7 +13,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from conftest import load_plugin_for_gui, mock_chemistry_imports
+from conftest import load_plugin_for_gui, mock_chemistry_imports, patch_mock_attr
 
 PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
 
@@ -209,7 +209,7 @@ with open(sys.argv[1], 'w', encoding='utf-8') as handle:
         ctx.get_main_window.return_value = None
         ctx.current_molecule.GetNumAtoms.return_value = 2
         monkeypatch.setattr(_openbabel.pybel, 'outformats', {'xyz': 'XYZ'})
-        monkeypatch.setattr(_openbabel.Chem, 'MolToMolBlock', lambda *a: 'MOL')
+        patch_mock_attr(monkeypatch, _openbabel, "Chem", 'MolToMolBlock', lambda *a: 'MOL')
         monkeypatch.setattr(_openbabel.QFileDialog, 'getSaveFileName', lambda *a: (str(target), ''))
         monkeypatch.setattr(_openbabel, '_run_conversion', MagicMock(side_effect=ValueError('timed out')))
         critical = MagicMock()

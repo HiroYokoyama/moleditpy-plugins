@@ -15,7 +15,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from conftest import load_plugin_for_gui, mock_chemistry_imports
+from conftest import load_plugin_for_gui, mock_chemistry_imports, patch_mock_attr
 
 PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
 
@@ -480,7 +480,7 @@ def _run_worker(worker):
 
 class TestAlignmentWorkerAtomIds:
     def test_success_updates_mol_and_rms(self, qapp, monkeypatch):
-        monkeypatch.setattr(_comparator.AllChem, "AlignMol", lambda *a, **k: 0.42)
+        patch_mock_attr(monkeypatch, _comparator, "AllChem", "AlignMol", lambda *a, **k: 0.42)
         ref = _WMol([_WAtom(0), _WAtom(1), _WAtom(2)])
         probe = _WMol([_WAtom(0), _WAtom(1), _WAtom(2)])
         worker = _comparator.AlignmentWorker(ref, [(1, probe)], "Atom IDs", False)
@@ -490,7 +490,7 @@ class TestAlignmentWorkerAtomIds:
         assert results[0]["index"] == 1
 
     def test_ignore_hs_uses_heavy_atom_map(self, qapp, monkeypatch):
-        monkeypatch.setattr(_comparator.AllChem, "AlignMol", lambda *a, **k: 0.1)
+        patch_mock_attr(monkeypatch, _comparator, "AllChem", "AlignMol", lambda *a, **k: 0.1)
         ref = _WMol([_WAtom(0, 6), _WAtom(1, 1), _WAtom(2, 8)])
         probe = _WMol([_WAtom(0, 6), _WAtom(1, 1), _WAtom(2, 8)])
         worker = _comparator.AlignmentWorker(ref, [(0, probe)], "Atom IDs", True)
@@ -499,7 +499,7 @@ class TestAlignmentWorkerAtomIds:
 
     def test_mismatched_count_skips_alignment(self, qapp, monkeypatch):
         align = MagicMock()
-        monkeypatch.setattr(_comparator.AllChem, "AlignMol", align)
+        patch_mock_attr(monkeypatch, _comparator, "AllChem", "AlignMol", align)
         ref = _WMol([_WAtom(0), _WAtom(1)])
         probe = _WMol([_WAtom(0), _WAtom(1), _WAtom(2)])
         worker = _comparator.AlignmentWorker(ref, [(0, probe)], "Atom IDs", False)
@@ -511,7 +511,7 @@ class TestAlignmentWorkerAtomIds:
         def _boom(*a, **k):
             raise RuntimeError("no match")
 
-        monkeypatch.setattr(_comparator.AllChem, "AlignMol", _boom)
+        patch_mock_attr(monkeypatch, _comparator, "AllChem", "AlignMol", _boom)
         ref = _WMol([_WAtom(0), _WAtom(1)])
         probe = _WMol([_WAtom(0), _WAtom(1)])
         worker = _comparator.AlignmentWorker(ref, [(0, probe)], "Atom IDs", False)
@@ -543,7 +543,7 @@ class TestAlignmentWorkerMCS:
             ),
             raising=False,
         )
-        monkeypatch.setattr(_comparator.Chem, "MolFromSmarts", lambda s: "PATT")
+        patch_mock_attr(monkeypatch, _comparator, "Chem", "MolFromSmarts", lambda s: "PATT")
 
     def test_no_mcs_match_leaves_rms_sentinel(self, qapp, monkeypatch):
         self._patch_fmcs(monkeypatch, num_atoms=0, ref_matches=(), probe_matches=())
@@ -560,8 +560,8 @@ class TestAlignmentWorkerMCS:
         ref = _WMol([_WAtom(0), _WAtom(1), _WAtom(2)], matches=((0, 1, 2),))
         probe = _WMol([_WAtom(0), _WAtom(1), _WAtom(2)], matches=((0, 1, 2), (2, 1, 0)))
         rms_values = iter([0.9, 0.3])
-        monkeypatch.setattr(
-            _comparator.AllChem, "AlignMol", lambda *a, **k: next(rms_values)
+        patch_mock_attr(monkeypatch,
+            _comparator, "AllChem", "AlignMol", lambda *a, **k: next(rms_values)
         )
         worker = _comparator.AlignmentWorker(
             ref, [(0, probe)], "Substructure (MCS)", False
@@ -577,7 +577,7 @@ class TestAlignmentWorkerMCS:
         ref = _WMol([_WAtom(0, 6), _WAtom(1, 1), _WAtom(2, 8)], matches=((0, 1),))
         probe = _WMol([_WAtom(0, 6), _WAtom(1, 1), _WAtom(2, 8)], matches=((0, 1),))
         monkeypatch.setattr(_comparator.Chem, "RemoveAllHs", lambda m: m)
-        monkeypatch.setattr(_comparator.AllChem, "AlignMol", lambda *a, **k: 0.05)
+        patch_mock_attr(monkeypatch,_comparator, "AllChem", "AlignMol", lambda *a, **k: 0.05)
         worker = _comparator.AlignmentWorker(
             ref, [(0, probe)], "Substructure (MCS)", True
         )
@@ -600,7 +600,7 @@ class TestAlignmentWorkerMCS:
             raise ValueError("full map alignment failed")
 
         monkeypatch.setattr(_comparator.Chem, "RemoveAllHs", lambda m: m)
-        monkeypatch.setattr(_comparator.AllChem, "AlignMol", _align)
+        patch_mock_attr(monkeypatch,_comparator, "AllChem", "AlignMol", _align)
         worker = _comparator.AlignmentWorker(
             ref, [(0, probe)], "Substructure (MCS)", True
         )
@@ -614,7 +614,7 @@ class TestAlignmentWorkerMCS:
         self._patch_fmcs(monkeypatch, num_atoms=2, ref_matches=None, probe_matches=None)
         ref = _WMol([_WAtom(0), _WAtom(1)], matches=((0, 1), (1, 0)))
         probe = _WMol([_WAtom(0), _WAtom(1)], matches=((0, 1), (1, 0), (0, 0)))
-        monkeypatch.setattr(_comparator.AllChem, "AlignMol", lambda *a, **k: 1.0)
+        patch_mock_attr(monkeypatch,_comparator, "AllChem", "AlignMol", lambda *a, **k: 1.0)
         worker = _comparator.AlignmentWorker(
             ref, [(0, probe)], "Substructure (MCS)", False
         )
@@ -630,7 +630,7 @@ class TestAlignmentWorkerMCS:
         probe_matches = tuple((0, 1) for _ in range(12))  # 60 combos > 50
         ref = _WMol([_WAtom(0), _WAtom(1)], matches=ref_matches)
         probe = _WMol([_WAtom(0), _WAtom(1)], matches=probe_matches)
-        monkeypatch.setattr(_comparator.AllChem, "AlignMol", lambda *a, **k: 1.0)
+        patch_mock_attr(monkeypatch,_comparator, "AllChem", "AlignMol", lambda *a, **k: 1.0)
         worker = _comparator.AlignmentWorker(
             ref, [(0, probe)], "Substructure (MCS)", False
         )
@@ -643,7 +643,7 @@ class TestAlignmentWorkerMCS:
         self._patch_fmcs(monkeypatch, num_atoms=2, ref_matches=None, probe_matches=None)
         ref = _WMol([_WAtom(0), _WAtom(1)], matches=((0, 1),))
         probe = _WMol([_WAtom(0), _WAtom(1)], matches=((0, 1), (1, 0)))
-        monkeypatch.setattr(_comparator.AllChem, "AlignMol", lambda *a, **k: 1.0)
+        patch_mock_attr(monkeypatch,_comparator, "AllChem", "AlignMol", lambda *a, **k: 1.0)
         worker = _comparator.AlignmentWorker(
             ref, [(0, probe)], "Substructure (MCS)", False
         )
@@ -716,7 +716,7 @@ class TestRunAlignmentIntegration:
         w.destroy()
 
     def test_full_run_updates_results_table(self, qapp, monkeypatch):
-        monkeypatch.setattr(_comparator.AllChem, "AlignMol", lambda *a, **k: 0.77)
+        patch_mock_attr(monkeypatch, _comparator, "AllChem", "AlignMol", lambda *a, **k: 0.77)
         w, ctx = self._comp_with_two_mols(monkeypatch)
         w.run_alignment()
         assert w.molecules[0]["rms"] == 0.0
@@ -725,7 +725,7 @@ class TestRunAlignmentIntegration:
         w.destroy()
 
     def test_error_signal_shows_critical_dialog(self, qapp, monkeypatch):
-        monkeypatch.setattr(_comparator.AllChem, "AlignMol", lambda *a, **k: 0.5)
+        patch_mock_attr(monkeypatch, _comparator, "AllChem", "AlignMol", lambda *a, **k: 0.5)
         w, ctx = self._comp_with_two_mols(monkeypatch)
         w.molecules[1]["mol"] = None  # forces AttributeError -> error_signal
         critical = MagicMock()
@@ -843,10 +843,10 @@ class TestLoadAndDrop:
         f = tmp_path / "a.mol"
         f.write_text("dummy")
         fake_mol = _WMol([_WAtom(0)])
-        monkeypatch.setattr(
-            _comparator.Chem, "MolFromMolFile", lambda *a, **k: fake_mol
+        patch_mock_attr(monkeypatch,
+            _comparator, "Chem", "MolFromMolFile", lambda *a, **k: fake_mol
         )
-        monkeypatch.setattr(_comparator.Chem, "SanitizeMol", lambda m: None)
+        patch_mock_attr(monkeypatch, _comparator, "Chem", "SanitizeMol", lambda m: None)
         w.add_molecule_from_path(str(f))
         assert len(w.molecules) == 1
         assert w.molecules[0]["name"] == "a.mol"
@@ -858,10 +858,10 @@ class TestLoadAndDrop:
         f = tmp_path / "b.pdb"
         f.write_text("dummy")
         fake_mol = _WMol([_WAtom(0)])
-        monkeypatch.setattr(
-            _comparator.Chem, "MolFromPDBFile", lambda *a, **k: fake_mol
+        patch_mock_attr(monkeypatch,
+            _comparator, "Chem", "MolFromPDBFile", lambda *a, **k: fake_mol
         )
-        monkeypatch.setattr(_comparator.Chem, "SanitizeMol", lambda m: None)
+        patch_mock_attr(monkeypatch, _comparator, "Chem", "SanitizeMol", lambda m: None)
         w.add_molecule_from_path(str(f))
         assert len(w.molecules) == 1
         w.destroy()
@@ -875,8 +875,8 @@ class TestLoadAndDrop:
         fake_mol = MagicMock()
         fake_mol.GetNumBonds.return_value = 0
         fake_mol.GetNumConformers.return_value = 1
-        monkeypatch.setattr(_comparator.Chem, "MolFromXYZBlock", lambda s: fake_mol)
-        monkeypatch.setattr(_comparator.Chem, "SanitizeMol", lambda m: None)
+        patch_mock_attr(monkeypatch, _comparator, "Chem", "MolFromXYZBlock", lambda s: fake_mol)
+        patch_mock_attr(monkeypatch, _comparator, "Chem", "SanitizeMol", lambda m: None)
         determine = MagicMock()
         monkeypatch.setattr(_comparator, "rdDetermineBonds", determine)
         w.add_molecule_from_path(str(f))
@@ -894,7 +894,7 @@ class TestLoadAndDrop:
         fake_mol = MagicMock()
         fake_mol.GetNumBonds.return_value = 0
         fake_mol.GetNumConformers.return_value = 1
-        monkeypatch.setattr(_comparator.Chem, "MolFromXYZBlock", lambda s: fake_mol)
+        patch_mock_attr(monkeypatch, _comparator, "Chem", "MolFromXYZBlock", lambda s: fake_mol)
         monkeypatch.setattr(_comparator.Chem, "SanitizeMol", lambda m: None)
         determine = MagicMock()
         determine.DetermineConnectivity.side_effect = ValueError("boom")
@@ -909,7 +909,7 @@ class TestLoadAndDrop:
         w, _ctx = _make_comp()
         f = tmp_path / "e.mol"
         f.write_text("dummy")
-        monkeypatch.setattr(_comparator.Chem, "MolFromMolFile", lambda *a, **k: None)
+        patch_mock_attr(monkeypatch, _comparator, "Chem", "MolFromMolFile", lambda *a, **k: None)
         warned = MagicMock()
         monkeypatch.setattr(_comparator.QMessageBox, "warning", warned)
         w.add_molecule_from_path(str(f))
@@ -924,8 +924,8 @@ class TestLoadAndDrop:
         f = tmp_path / "f.mol"
         f.write_text("dummy")
         fake_mol = _WMol([_WAtom(0)])
-        monkeypatch.setattr(
-            _comparator.Chem, "MolFromMolFile", lambda *a, **k: fake_mol
+        patch_mock_attr(monkeypatch,
+            _comparator, "Chem", "MolFromMolFile", lambda *a, **k: fake_mol
         )
 
         def _sanitize_boom(m):
@@ -946,7 +946,7 @@ class TestLoadAndDrop:
         def _boom(*a, **k):
             raise ValueError("catastrophic")
 
-        monkeypatch.setattr(_comparator.Chem, "MolFromMolFile", _boom)
+        patch_mock_attr(monkeypatch, _comparator, "Chem", "MolFromMolFile", _boom)
         warned = MagicMock()
         monkeypatch.setattr(_comparator.QMessageBox, "warning", warned)
         w.add_molecule_from_path(str(f))
@@ -1071,8 +1071,8 @@ class TestResultsContextMenu:
         monkeypatch.setattr(
             QFileDialog, "getSaveFileName", lambda *a, **k: (str(out), "")
         )
-        monkeypatch.setattr(
-            _comparator.Chem, "MolToMolBlock", lambda m: "MOLBLOCK-DATA"
+        patch_mock_attr(monkeypatch,
+            _comparator, "Chem", "MolToMolBlock", lambda m: "MOLBLOCK-DATA"
         )
         info = MagicMock()
         monkeypatch.setattr(_comparator.QMessageBox, "information", info)
@@ -1090,7 +1090,7 @@ class TestResultsContextMenu:
         monkeypatch.setattr(
             QFileDialog, "getSaveFileName", lambda *a, **k: (str(out), "")
         )
-        monkeypatch.setattr(_comparator.Chem, "MolToXYZBlock", lambda m: "XYZ-DATA")
+        patch_mock_attr(monkeypatch, _comparator, "Chem", "MolToXYZBlock", lambda m: "XYZ-DATA")
         info = MagicMock()
         monkeypatch.setattr(_comparator.QMessageBox, "information", info)
         w.export_molecule_coords(0, "xyz")
@@ -1117,7 +1117,7 @@ class TestResultsContextMenu:
         monkeypatch.setattr(
             QFileDialog, "getSaveFileName", lambda *a, **k: (bad_path, "")
         )
-        monkeypatch.setattr(_comparator.Chem, "MolToMolBlock", lambda m: "X")
+        patch_mock_attr(monkeypatch, _comparator, "Chem", "MolToMolBlock", lambda m: "X")
         critical = MagicMock()
         monkeypatch.setattr(_comparator.QMessageBox, "critical", critical)
         w.export_molecule_coords(0, "mol")
@@ -1294,8 +1294,8 @@ def _patch_chem_combine(monkeypatch):
     def fake_combine(a, b):
         return _VMol(a.GetAtoms() + b.GetAtoms())
 
-    monkeypatch.setattr(_comparator.Chem, "Mol", fake_mol_ctor)
-    monkeypatch.setattr(_comparator.Chem, "CombineMols", fake_combine)
+    patch_mock_attr(monkeypatch, _comparator, "Chem", "Mol", fake_mol_ctor)
+    patch_mock_attr(monkeypatch, _comparator, "Chem", "CombineMols", fake_combine)
 
 
 class TestUpdateVisualization:
@@ -1715,7 +1715,7 @@ class TestMolFromXyzText:
         fallback = MagicMock()
         fallback.GetNumAtoms.return_value = 1
         fallback.GetNumBonds.return_value = 1
-        monkeypatch.setattr(_comparator.Chem, "MolFromXYZBlock", lambda t: fallback)
+        patch_mock_attr(monkeypatch, _comparator, "Chem", "MolFromXYZBlock", lambda t: fallback)
         host = SimpleNamespace(io_manager=SimpleNamespace(load_xyz_block=_boom))
         assert _comparator.mol_from_xyz_text("C 0 0 0", host) is fallback
 
@@ -1723,21 +1723,21 @@ class TestMolFromXyzText:
         fallback = MagicMock()
         fallback.GetNumAtoms.return_value = 1
         fallback.GetNumBonds.return_value = 1
-        monkeypatch.setattr(_comparator.Chem, "MolFromXYZBlock", lambda t: fallback)
+        patch_mock_attr(monkeypatch, _comparator, "Chem", "MolFromXYZBlock", lambda t: fallback)
         host = SimpleNamespace(
             io_manager=SimpleNamespace(load_xyz_block=lambda t: None)
         )
         assert _comparator.mol_from_xyz_text("C 0 0 0", host) is fallback
 
     def test_rdkit_refusal_falls_back_to_the_hand_parse(self, monkeypatch):
-        monkeypatch.setattr(_comparator.Chem, "MolFromXYZBlock", lambda t: None)
+        patch_mock_attr(monkeypatch, _comparator, "Chem", "MolFromXYZBlock", lambda t: None)
         built = MagicMock()
         built.GetNumBonds.return_value = 1
         monkeypatch.setattr(_comparator, "mol_from_xyz_lines", lambda t: built)
         assert _comparator.mol_from_xyz_text("C 0 0 0", None) is built
 
     def test_returns_none_when_nothing_can_read_it(self, monkeypatch):
-        monkeypatch.setattr(_comparator.Chem, "MolFromXYZBlock", lambda t: None)
+        patch_mock_attr(monkeypatch, _comparator, "Chem", "MolFromXYZBlock", lambda t: None)
         monkeypatch.setattr(_comparator, "mol_from_xyz_lines", lambda t: None)
         assert _comparator.mol_from_xyz_text("garbage", None) is None
 
@@ -1745,7 +1745,7 @@ class TestMolFromXyzText:
         mol = MagicMock()
         mol.GetNumAtoms.return_value = 2
         mol.GetNumBonds.return_value = 0
-        monkeypatch.setattr(_comparator.Chem, "MolFromXYZBlock", lambda t: mol)
+        patch_mock_attr(monkeypatch, _comparator, "Chem", "MolFromXYZBlock", lambda t: mol)
         determine = MagicMock()
         monkeypatch.setattr(_comparator, "rdDetermineBonds", determine)
         _comparator.mol_from_xyz_text("C 0 0 0", None)
@@ -1803,10 +1803,10 @@ class TestLoadingGuards:
         for mol, name in ((first, "one"), (second, "two")):
             mol.HasProp = lambda _k, _n=name: True
             mol.GetProp = lambda _k, _n=name: _n
-        monkeypatch.setattr(
-            _comparator.Chem, "SDMolSupplier", lambda *a, **k: [first, None, second]
+        patch_mock_attr(monkeypatch,
+            _comparator, "Chem", "SDMolSupplier", lambda *a, **k: [first, None, second]
         )
-        monkeypatch.setattr(_comparator.Chem, "SanitizeMol", lambda m: None)
+        patch_mock_attr(monkeypatch, _comparator, "Chem", "SanitizeMol", lambda m: None)
         w.add_molecule_from_path(str(f))
         assert [entry["name"] for entry in w.molecules] == ["one", "two"]
         w.destroy()
@@ -1819,7 +1819,7 @@ class TestLoadingGuards:
         f.write_text("dummy")
         mol = _WMol([_WAtom(0)])
         mol.HasProp = lambda _k: False
-        monkeypatch.setattr(_comparator.Chem, "SDMolSupplier", lambda *a, **k: [mol])
+        patch_mock_attr(monkeypatch, _comparator, "Chem", "SDMolSupplier", lambda *a, **k: [mol])
         monkeypatch.setattr(_comparator.Chem, "SanitizeMol", lambda m: None)
         w.add_molecule_from_path(str(f))
         assert w.molecules[0]["name"] == "only.sdf"
@@ -1831,7 +1831,7 @@ class TestLoadingGuards:
         f.write_text("1\ntitle\nC 0 0 0\n")
         mol = _WMol([_WAtom(0)])
         monkeypatch.setattr(_comparator, "mol_from_xyz_text", lambda *a: mol)
-        monkeypatch.setattr(_comparator.Chem, "SanitizeMol", lambda m: None)
+        patch_mock_attr(monkeypatch, _comparator, "Chem", "SanitizeMol", lambda m: None)
         w.add_molecule_from_path(str(f))
         assert len(w.molecules) == 1
         w.destroy()
@@ -1843,7 +1843,7 @@ class TestLoadingGuards:
         f = tmp_path / "flat.mol"
         f.write_text("dummy")
         mol = _WMol([_WAtom(0)], conformers=0)
-        monkeypatch.setattr(_comparator.Chem, "MolFromMolFile", lambda *a, **k: mol)
+        patch_mock_attr(monkeypatch, _comparator, "Chem", "MolFromMolFile", lambda *a, **k: mol)
         monkeypatch.setattr(_comparator.Chem, "SanitizeMol", lambda m: None)
         warned = MagicMock()
         monkeypatch.setattr(_comparator.QMessageBox, "warning", warned)
@@ -1863,7 +1863,7 @@ class TestLoadingGuards:
         def _reader(path, **kwargs):
             return None if path.endswith("bad.mol") else mol
 
-        monkeypatch.setattr(_comparator.Chem, "MolFromMolFile", _reader)
+        patch_mock_attr(monkeypatch, _comparator, "Chem", "MolFromMolFile", _reader)
         monkeypatch.setattr(_comparator.Chem, "SanitizeMol", lambda m: None)
         warned = MagicMock()
         monkeypatch.setattr(_comparator.QMessageBox, "warning", warned)
@@ -1949,7 +1949,7 @@ class TestAlignmentWorkerBondFreeFallback:
 
     def test_bond_free_pair_falls_back_to_atom_order(self, qapp, monkeypatch):
         align = MagicMock(return_value=0.25)
-        monkeypatch.setattr(_comparator.AllChem, "AlignMol", align)
+        patch_mock_attr(monkeypatch, _comparator, "AllChem", "AlignMol", align)
         ref = _WMol([_WAtom(0), _WAtom(1)], bonds=0)
         probe = _WMol([_WAtom(0), _WAtom(1)], bonds=0)
         worker = _comparator.AlignmentWorker(
@@ -1962,7 +1962,7 @@ class TestAlignmentWorkerBondFreeFallback:
 
     def test_bond_free_pair_of_different_sizes_reports_na(self, qapp, monkeypatch):
         align = MagicMock()
-        monkeypatch.setattr(_comparator.AllChem, "AlignMol", align)
+        patch_mock_attr(monkeypatch, _comparator, "AllChem", "AlignMol", align)
         ref = _WMol([_WAtom(0)], bonds=0)
         probe = _WMol([_WAtom(0), _WAtom(1)], bonds=0)
         worker = _comparator.AlignmentWorker(

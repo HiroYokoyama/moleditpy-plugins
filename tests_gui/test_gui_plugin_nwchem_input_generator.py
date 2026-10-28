@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from conftest import load_plugin_for_gui, mock_chemistry_imports
+from conftest import load_plugin_for_gui, mock_chemistry_imports, patch_mock_attr
 
 PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
 NWCHEM_PATH = PLUGINS_DIR / "NWChem_Input_Generator" / "nwchem_input_generator.py"
@@ -188,7 +188,7 @@ def _no_block_msgbox(monkeypatch):
 
 class TestNwchemChargeMultReal:
     def test_neutral_singlet_water(self, qapp, monkeypatch):
-        monkeypatch.setattr(_nwchem.Chem, "GetFormalCharge", lambda mol: 0)
+        patch_mock_attr(monkeypatch, _nwchem, "Chem", "GetFormalCharge", lambda mol: 0)
         d = _nwchem.NwchemSetupDialog(parent=None, mol=_water())
         try:
             assert d.charge_spin.value() == 0
@@ -202,7 +202,7 @@ class TestNwchemChargeMultReal:
             [_FakeAtom("C", 6), _FakeAtom("H", 1), _FakeAtom("H", 1), _FakeAtom("H", 1)],
             [(0, 0, 0), (0, 0, 1), (0, 1, 0), (1, 0, 0)],
         )
-        monkeypatch.setattr(_nwchem.Chem, "GetFormalCharge", lambda mol: 0)
+        patch_mock_attr(monkeypatch, _nwchem, "Chem", "GetFormalCharge", lambda mol: 0)
         d = _nwchem.NwchemSetupDialog(parent=None, mol=mol)
         try:
             assert d.mult_spin.value() == 2
@@ -213,7 +213,7 @@ class TestNwchemChargeMultReal:
         def boom(mol):
             raise RuntimeError("bad mol")
 
-        monkeypatch.setattr(_nwchem.Chem, "GetFormalCharge", boom)
+        patch_mock_attr(monkeypatch, _nwchem, "Chem", "GetFormalCharge", boom)
         d = _nwchem.NwchemSetupDialog(parent=None, mol=_water())
         try:
             assert d is not None
@@ -228,7 +228,7 @@ class TestNwchemChargeMultReal:
 
 class TestNwchemHeavyAtomsReal:
     def test_heavy_atom_sets_warning(self, qapp, monkeypatch):
-        monkeypatch.setattr(_nwchem.Chem, "GetFormalCharge", lambda mol: 0)
+        patch_mock_attr(monkeypatch, _nwchem, "Chem", "GetFormalCharge", lambda mol: 0)
         d = _nwchem.NwchemSetupDialog(parent=None, mol=_iodine_pair())
         try:
             assert "ECP" in d.ecp_warning.text()
@@ -236,7 +236,7 @@ class TestNwchemHeavyAtomsReal:
             d.destroy()
 
     def test_light_atoms_no_warning(self, qapp, monkeypatch):
-        monkeypatch.setattr(_nwchem.Chem, "GetFormalCharge", lambda mol: 0)
+        patch_mock_attr(monkeypatch, _nwchem, "Chem", "GetFormalCharge", lambda mol: 0)
         d = _nwchem.NwchemSetupDialog(parent=None, mol=_water())
         try:
             assert d.ecp_warning.text() == ""
@@ -252,7 +252,7 @@ class TestNwchemHeavyAtomsReal:
 class TestNwchemPreviewReal:
     @pytest.fixture
     def dlg(self, qapp, monkeypatch):
-        monkeypatch.setattr(_nwchem.Chem, "GetFormalCharge", lambda mol: 0)
+        patch_mock_attr(monkeypatch, _nwchem, "Chem", "GetFormalCharge", lambda mol: 0)
         d = _nwchem.NwchemSetupDialog(parent=None, mol=_water())
         yield d
         d.destroy()
@@ -291,7 +291,7 @@ class TestNwchemPreviewReal:
 class TestNwchemSaveFileReal:
     @pytest.fixture
     def dlg(self, qapp, monkeypatch):
-        monkeypatch.setattr(_nwchem.Chem, "GetFormalCharge", lambda mol: 0)
+        patch_mock_attr(monkeypatch, _nwchem, "Chem", "GetFormalCharge", lambda mol: 0)
         d = _nwchem.NwchemSetupDialog(parent=None, mol=_water())
         yield d
         d.destroy()
@@ -309,7 +309,7 @@ class TestNwchemSaveFileReal:
         assert len(calls["information"]) == 1
 
     def test_save_uses_filename_stem_as_default(self, qapp, monkeypatch):
-        monkeypatch.setattr(_nwchem.Chem, "GetFormalCharge", lambda mol: 0)
+        patch_mock_attr(monkeypatch, _nwchem, "Chem", "GetFormalCharge", lambda mol: 0)
         d = _nwchem.NwchemSetupDialog(parent=None, mol=_water(), filename="/tmp/foo/bar.xyz")
         try:
             captured = {}
@@ -479,7 +479,7 @@ class TestNwchemRun:
         assert len(calls["warning"]) == 1
 
     def test_with_molecule_opens_dialog(self, qapp, monkeypatch):
-        monkeypatch.setattr(_nwchem.Chem, "GetFormalCharge", lambda mol: 0)
+        patch_mock_attr(monkeypatch, _nwchem, "Chem", "GetFormalCharge", lambda mol: 0)
         exec_calls = []
         monkeypatch.setattr(
             _nwchem.NwchemSetupDialog, "exec",

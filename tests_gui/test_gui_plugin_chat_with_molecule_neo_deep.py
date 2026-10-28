@@ -29,7 +29,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from conftest import load_plugin_for_gui, mock_chemistry_imports
+from conftest import load_plugin_for_gui, mock_chemistry_imports, patch_mock_attr
 
 PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
 GEMINI_PATH = PLUGINS_DIR / "Chat_with_Molecule_Neo" / "chat_with_molecule_neo.py"
@@ -1313,7 +1313,7 @@ class TestHandleLink:
 
 class TestUpdateStructureDiffBased:
     def test_invalid_smiles_returns_silently(self, win, monkeypatch):
-        monkeypatch.setattr(_mod.Chem, "MolFromSmiles", lambda s: None)
+        patch_mock_attr(monkeypatch, _mod, "Chem", "MolFromSmiles", lambda s: None)
         win.main_window = _make_mw()
         win.update_structure_diff_based("garbage")  # must not raise
 
@@ -1325,7 +1325,7 @@ class TestUpdateStructureDiffBased:
 
 class TestLoadSmilesUndoSafe:
     def test_invalid_smiles_shows_error(self, win, monkeypatch):
-        monkeypatch.setattr(_mod.Chem, "MolFromSmiles", lambda s, sanitize=True: None)
+        patch_mock_attr(monkeypatch, _mod, "Chem", "MolFromSmiles", lambda s, sanitize=True: None)
         win.main_window = _make_mw()
         win.load_smiles_undo_safe("garbage!!")
         assert "invalid" in win.chat_history_log[-1]["text"].lower()
@@ -1356,7 +1356,7 @@ class TestEnsureMainWindow3DConversion:
 class TestGetDescriptorsStr:
     def test_no_molecule_returns_empty(self, win, monkeypatch):
         win.context.current_molecule = None
-        monkeypatch.setattr(_mod.Chem, "MolFromSmiles", lambda s: None)
+        patch_mock_attr(monkeypatch, _mod, "Chem", "MolFromSmiles", lambda s: None)
         assert win._get_descriptors_str("CCO") == ""
 
     def test_success_returns_properties_string(self, win):
@@ -1609,9 +1609,9 @@ class TestUpdateStructureDiffBasedDeep:
         atoms = [_FakeAtom("C", map_num=1), _FakeAtom("O", map_num=0)]
         bonds = [_FakeBond(0, 1, order=1.0)]
         fake_mol = _FakeMol(atoms, bonds)
-        monkeypatch.setattr(_mod.Chem, "MolFromSmiles", lambda s: fake_mol)
+        patch_mock_attr(monkeypatch, _mod, "Chem", "MolFromSmiles", lambda s: fake_mol)
         monkeypatch.setattr(_mod.Chem, "Kekulize", lambda *a, **k: None)
-        monkeypatch.setattr(_mod.AllChem, "Compute2DCoords", lambda m: None)
+        patch_mock_attr(monkeypatch,_mod, "AllChem", "Compute2DCoords", lambda m: None)
 
         mw = _make_mw(atoms={0: {"symbol": "C"}})
         import itertools
@@ -1624,7 +1624,7 @@ class TestUpdateStructureDiffBasedDeep:
         assert "Structure updated" in win.chat_history_log[-1]["text"]
 
     def test_invalid_smiles_returns_silently(self, win, monkeypatch):
-        monkeypatch.setattr(_mod.Chem, "MolFromSmiles", lambda s: None)
+        patch_mock_attr(monkeypatch, _mod, "Chem", "MolFromSmiles", lambda s: None)
         win.main_window = _make_mw()
         before = len(win.chat_history_log)
         win.update_structure_diff_based("garbage")
@@ -1633,9 +1633,9 @@ class TestUpdateStructureDiffBasedDeep:
     def test_deletes_atoms_missing_from_new_smiles(self, win, monkeypatch):
         atoms = [_FakeAtom("C", map_num=1)]
         fake_mol = _FakeMol(atoms, [])
-        monkeypatch.setattr(_mod.Chem, "MolFromSmiles", lambda s: fake_mol)
+        patch_mock_attr(monkeypatch, _mod, "Chem", "MolFromSmiles", lambda s: fake_mol)
         monkeypatch.setattr(_mod.Chem, "Kekulize", lambda *a, **k: None)
-        monkeypatch.setattr(_mod.AllChem, "Compute2DCoords", lambda m: None)
+        patch_mock_attr(monkeypatch,_mod, "AllChem", "Compute2DCoords", lambda m: None)
         # Existing atom id 5 (map_num 6) is not present in fake_mol -> deleted.
         mw = _make_mw(atoms={0: {"symbol": "C"}, 5: {"symbol": "N"}})
         win.main_window = mw
@@ -1663,9 +1663,9 @@ class TestUpdateStructureDiffBasedDeep:
             )
         ]
         fake_mol = _FakeMol(atoms, bonds)
-        monkeypatch.setattr(_mod.Chem, "MolFromSmiles", lambda s: fake_mol)
+        patch_mock_attr(monkeypatch, _mod, "Chem", "MolFromSmiles", lambda s: fake_mol)
         monkeypatch.setattr(_mod.Chem, "Kekulize", lambda *a, **k: None)
-        monkeypatch.setattr(_mod.AllChem, "Compute2DCoords", lambda m: None)
+        patch_mock_attr(monkeypatch,_mod, "AllChem", "Compute2DCoords", lambda m: None)
 
         mw = _make_mw(
             atoms={0: {"symbol": "C"}, 1: {"symbol": "O"}},
@@ -1680,9 +1680,9 @@ class TestUpdateStructureDiffBasedDeep:
     def test_new_id_specified_atom_created_and_remapped(self, win, monkeypatch):
         atoms = [_FakeAtom("N", map_num=3, idx=0)]  # target_id=2, not on canvas
         fake_mol = _FakeMol(atoms, [])
-        monkeypatch.setattr(_mod.Chem, "MolFromSmiles", lambda s: fake_mol)
+        patch_mock_attr(monkeypatch, _mod, "Chem", "MolFromSmiles", lambda s: fake_mol)
         monkeypatch.setattr(_mod.Chem, "Kekulize", lambda *a, **k: None)
-        monkeypatch.setattr(_mod.AllChem, "Compute2DCoords", lambda m: None)
+        patch_mock_attr(monkeypatch,_mod, "AllChem", "Compute2DCoords", lambda m: None)
 
         mw = _make_mw(atoms={0: {"symbol": "C"}})
         import itertools
@@ -1708,9 +1708,9 @@ class TestLoadSmilesUndoSafeDeep:
             )
         ]
         fake_mol = _FakeMol(atoms, bonds)
-        monkeypatch.setattr(_mod.Chem, "MolFromSmiles", lambda s, sanitize=True: fake_mol)
+        patch_mock_attr(monkeypatch, _mod, "Chem", "MolFromSmiles", lambda s, sanitize=True: fake_mol)
         monkeypatch.setattr(_mod.Chem, "Kekulize", lambda *a, **k: None)
-        monkeypatch.setattr(_mod.AllChem, "Compute2DCoords", lambda m: None)
+        patch_mock_attr(monkeypatch,_mod, "AllChem", "Compute2DCoords", lambda m: None)
         monkeypatch.setattr(_mod.AllChem, "AssignStereochemistry", lambda *a, **k: None)
         monkeypatch.setattr(_mod.AllChem, "WedgeMolBonds", lambda *a, **k: None)
 
@@ -1921,7 +1921,7 @@ class TestExecuteSetElectronicStateDeep:
         atoms = [_FakeAtom("C", map_num=1), _FakeAtom("O", map_num=2)]
         fake_mol = _FakeMol(atoms, [])
         win.get_current_molecule_smiles = lambda: ("CCO", None)
-        monkeypatch.setattr(_mod.Chem, "MolFromSmiles", lambda s: fake_mol)
+        patch_mock_attr(monkeypatch, _mod, "Chem", "MolFromSmiles", lambda s: fake_mol)
         monkeypatch.setattr(_mod.Chem, "SanitizeMol", lambda m: None)
         monkeypatch.setattr(_mod.Chem, "GetFormalCharge", lambda m: 1)
         monkeypatch.setattr(_mod.Chem, "MolToSmiles", lambda m: "CCO")
@@ -1937,7 +1937,7 @@ class TestExecuteSetElectronicStateDeep:
         atoms = [_FakeAtom("C", map_num=1)]
         fake_mol = _FakeMol(atoms, [])
         win.get_current_molecule_smiles = lambda: ("CCO", None)
-        monkeypatch.setattr(_mod.Chem, "MolFromSmiles", lambda s: fake_mol)
+        patch_mock_attr(monkeypatch, _mod, "Chem", "MolFromSmiles", lambda s: fake_mol)
         mw = _make_mw()
         mw.state_manager.current_charge = None
         mw.state_manager.current_mult = None
@@ -1949,7 +1949,7 @@ class TestExecuteSetElectronicStateDeep:
         atoms = [_FakeAtom("C", map_num=1)]
         fake_mol = _FakeMol(atoms, [])
         win.get_current_molecule_smiles = lambda: ("CCO", None)
-        monkeypatch.setattr(_mod.Chem, "MolFromSmiles", lambda s: fake_mol)
+        patch_mock_attr(monkeypatch, _mod, "Chem", "MolFromSmiles", lambda s: fake_mol)
         win.main_window = MagicMock(spec=[])
         win.execute_set_electronic_state({"target_smarts": "[C]"})
         assert "No atoms targeted" in win.chat_history_log[-1]["text"]
@@ -1958,7 +1958,7 @@ class TestExecuteSetElectronicStateDeep:
         atoms = [_FakeAtom("C", map_num=1), _FakeAtom("O", map_num=2)]
         fake_mol = _FakeMol(atoms, [])
         win.get_current_molecule_smiles = lambda: ("CCO", None)
-        monkeypatch.setattr(_mod.Chem, "MolFromSmiles", lambda s: fake_mol)
+        patch_mock_attr(monkeypatch, _mod, "Chem", "MolFromSmiles", lambda s: fake_mol)
         monkeypatch.setattr(_mod.Chem, "SanitizeMol", lambda m: None)
         monkeypatch.setattr(_mod.Chem, "GetFormalCharge", lambda m: 1)
         monkeypatch.setattr(_mod.Chem, "MolToSmiles", lambda m: "CCO")
@@ -1989,7 +1989,7 @@ class TestExecuteCalculateDescriptorsDeep:
             },
         )
         win.get_current_molecule_smiles = lambda: ("CCO", None)
-        monkeypatch.setattr(_mod.Chem, "MolFromSmiles", lambda s: MagicMock())
+        patch_mock_attr(monkeypatch, _mod, "Chem", "MolFromSmiles", lambda s: MagicMock())
         win.execute_calculate_descriptors(
             {
                 "properties": [
@@ -2023,7 +2023,7 @@ class TestExecuteInputGeneratorsDeep:
         _install_fake_rdkit_chem_submodules(
             monkeypatch, Descriptors={"NumRadicalElectrons": lambda m: 0}
         )
-        monkeypatch.setattr(_mod.Chem, "GetFormalCharge", lambda m: 0)
+        patch_mock_attr(monkeypatch, _mod, "Chem", "GetFormalCharge", lambda m: 0)
         monkeypatch.setattr(win, "_get_molecule_for_export", lambda: self._mol())
         target = str(tmp_path / "a.inp")
         monkeypatch.setattr(
@@ -2040,7 +2040,7 @@ class TestExecuteInputGeneratorsDeep:
         _install_fake_rdkit_chem_submodules(
             monkeypatch, Descriptors={"NumRadicalElectrons": lambda m: 0}
         )
-        monkeypatch.setattr(_mod.Chem, "GetFormalCharge", lambda m: 0)
+        patch_mock_attr(monkeypatch, _mod, "Chem", "GetFormalCharge", lambda m: 0)
         monkeypatch.setattr(win, "_get_molecule_for_export", lambda: self._mol())
         target = str(tmp_path / "a.gjf")
         monkeypatch.setattr(

@@ -14,7 +14,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from conftest import load_plugin_for_gui, mock_chemistry_imports
+from conftest import load_plugin_for_gui, mock_chemistry_imports, patch_mock_attr
 
 PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
 
@@ -120,7 +120,7 @@ class TestAllTransRunPlugin:
 
     def test_applies_one_dihedral_per_bond(self, no_msgbox, monkeypatch):
         set_dihedral = MagicMock()
-        monkeypatch.setattr(_all_trans.rdMolTransforms, "SetDihedralDeg", set_dihedral)
+        patch_mock_attr(monkeypatch, _all_trans, "rdMolTransforms", "SetDihedralDeg", set_dihedral)
         ctx = _ctx()
         mol = MagicMock()
         mol.GetNumConformers.return_value = 1

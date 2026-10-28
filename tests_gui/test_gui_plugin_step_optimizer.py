@@ -14,7 +14,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from conftest import load_plugin_for_gui, mock_chemistry_imports
+from conftest import load_plugin_for_gui, mock_chemistry_imports, patch_mock_attr
 
 PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
 
@@ -220,7 +220,7 @@ class TestStepOptimizerStartTickReal:
     def allchem(self, dlg, monkeypatch):
         ac = MagicMock()
         monkeypatch.setattr(_step, "AllChem", ac)
-        monkeypatch.setattr(_step.Geometry, "Point3D", _FakePos)
+        patch_mock_attr(monkeypatch, _step, "Geometry", "Point3D", _FakePos)
         return ac
 
     def test_start_mmff_success(self, dlg, allchem):
