@@ -1233,8 +1233,13 @@ class TestCubeViewerLoadEnvTexture:
         p.write_bytes(b"x")
         box = MagicMock()
         monkeypatch.setattr(_cube_adv, "QMessageBox", box)
+        # Patch pv itself, not an attribute of the shared pv mock: pytest 9.2
+        # undoes the latter by deleting it, which leaves read_texture missing
+        # for every later test.
         monkeypatch.setattr(
-            _cube_adv.pv, "read_texture", MagicMock(side_effect=RuntimeError("bad tex"))
+            _cube_adv,
+            "pv",
+            MagicMock(read_texture=MagicMock(side_effect=RuntimeError("bad tex"))),
         )
         with pytest.raises(ValueError):
             w.load_env_texture(str(p))
