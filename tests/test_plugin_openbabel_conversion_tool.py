@@ -115,7 +115,7 @@ class TestNativeEngineIsolation:
     def test_without_openbabel_no_worker_starts(self):
         with mock_optional_imports():
             mod = _load_plugin(OBABEL_PATH)
-        with patch.object(mod, '_run_conversion') as worker,                 patch.object(mod.importlib.util, 'find_spec', return_value=None):
+        with patch.object(mod, '_run_conversion') as worker,                 patch.object(mod.importlib.machinery.PathFinder, 'find_spec', return_value=None):
             assert mod._ensure_formats() is False
         worker.assert_not_called()
 
@@ -127,7 +127,7 @@ class TestNativeEngineIsolation:
         with mock_optional_imports():
             mod = _load_plugin(OBABEL_PATH)
         spec = SimpleNamespace(origin=str(package / '__init__.py'))
-        with patch.object(mod.importlib.util, 'find_spec', return_value=spec):
+        with patch.object(mod.importlib.machinery.PathFinder, 'find_spec', return_value=spec):
             before = mod._openbabel_fingerprint()
             (package / '_openbabel.pyd').write_bytes(b'x')
             after = mod._openbabel_fingerprint()

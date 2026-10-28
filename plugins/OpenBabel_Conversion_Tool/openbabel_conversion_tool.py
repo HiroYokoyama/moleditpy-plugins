@@ -1,7 +1,7 @@
 import os
 import sys
 import importlib
-import importlib.util
+import importlib.machinery
 import json
 import tempfile
 import shutil
@@ -64,11 +64,12 @@ def _formats_cache_path():
 def _openbabel_fingerprint():
     """What the cached format list depends on, or None without openbabel.
 
-    Found without importing openbabel. Reinstalling or upgrading it changes
+    Found on sys.path by the path finder alone, so neither openbabel nor any
+    import hook runs in the GUI process. Reinstalling or upgrading it changes
     the package files' sizes or times, and so the fingerprint.
     """
     try:
-        spec = importlib.util.find_spec('openbabel')
+        spec = importlib.machinery.PathFinder.find_spec('openbabel')
     except (ImportError, ValueError):
         return None
     if spec is None or not spec.origin:
