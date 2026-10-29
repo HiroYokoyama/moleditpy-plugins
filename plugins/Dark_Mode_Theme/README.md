@@ -19,6 +19,15 @@ or icon colors because the host does not provide a plugin unload callback.
 Earlier versions may already have saved `background_color: "#2b2b2b"` and
 `icon_foreground: "#FFFFFF"` in `~/.moleditpy/settings.json`. This update leaves
 those existing values intact because they cannot be distinguished from intentional
-user choices. Change the 3D background through Settings if needed. To restore
-automatic icon color selection, remove `icon_foreground` from that JSON file while
-MoleditPy is closed (keep a backup first).
+user choices. **Updating or disabling the plugin does not clear these previously
+saved overrides.**
+
+After updating, use **Settings > Reset All Settings** from the application's main
+menu and restart MoleditPy to clear the old overrides. This resets all application
+preferences, including your chosen background color; set your preferred colors
+again afterward. Use the main-menu reset action, which deletes the settings file
+and reloads the defaults, so plugin-added keys are removed as well.
+
+To keep your other preferences, you can instead close MoleditPy, back up
+`~/.moleditpy/settings.json`, restore the desired `background_color`, and remove
+`icon_foreground` from that JSON file to restore automatic icon color selection.
