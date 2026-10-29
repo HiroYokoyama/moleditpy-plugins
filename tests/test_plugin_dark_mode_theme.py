@@ -1,5 +1,5 @@
 """
-Tests for the Dark Mode Theme plugin: stylesheet content, autorun settings mutation.
+Tests for the Dark Mode Theme plugin: stylesheet and settings preservation.
 """
 
 from __future__ import annotations
@@ -8,7 +8,6 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-
 from conftest import load_plugin, make_context, mock_optional_imports
 
 PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
@@ -21,12 +20,27 @@ class TestDarkModeStylesheet:
         with mock_optional_imports():
             return load_plugin(DARK_PATH)
 
-    @pytest.mark.parametrize("selector", [
-        "QWidget", "QMainWindow", "QMenuBar", "QMenu", "QTabBar::tab",
-        "QToolBar", "QPushButton", "QLineEdit", "QCheckBox", "QSlider",
-        "QScrollBar:vertical", "QHeaderView::section", "QGroupBox",
-        "QStatusBar", "QSplitter::handle", "QTableView",
-    ])
+    @pytest.mark.parametrize(
+        "selector",
+        [
+            "QWidget",
+            "QMainWindow",
+            "QMenuBar",
+            "QMenu",
+            "QTabBar::tab",
+            "QToolBar",
+            "QPushButton",
+            "QLineEdit",
+            "QCheckBox",
+            "QSlider",
+            "QScrollBar:vertical",
+            "QHeaderView::section",
+            "QGroupBox",
+            "QStatusBar",
+            "QSplitter::handle",
+            "QTableView",
+        ],
+    )
     def test_stylesheet_covers_widget(self, mod, selector):
         assert selector in mod.DARK_STYLESHEET
 
@@ -54,28 +68,35 @@ class TestDarkModeAutorun:
         mod.autorun(mw)
         mw.setStyleSheet.assert_called_once_with(mod.DARK_STYLESHEET)
 
-    def test_sets_dark_3d_background_in_settings(self):
+    def test_preserves_user_background_and_icon_settings(self):
+        mod = self._fresh()
+        mw = MagicMock()
+        mw.init_manager.settings = {
+            "background_color": "#000000",
+            "icon_foreground": "#123456",
+        }
+        mod.autorun(mw)
+        assert mw.init_manager.settings == {
+            "background_color": "#000000",
+            "icon_foreground": "#123456",
+        }
+
+    def test_does_not_add_settings(self):
         mod = self._fresh()
         mw = MagicMock()
         mw.init_manager.settings = {}
         mod.autorun(mw)
-        assert mw.init_manager.settings["background_color"] == "#2b2b2b"
+        assert mw.init_manager.settings == {}
 
-    def test_sets_white_icon_foreground(self):
+    def test_does_not_redraw_3d_or_save_settings(self):
         mod = self._fresh()
         mw = MagicMock()
         mw.init_manager.settings = {}
         mod.autorun(mw)
-        assert mw.init_manager.settings["icon_foreground"] == "#FFFFFF"
+        mw.view_3d_manager.apply_3d_settings.assert_not_called()
+        mw.init_manager.save_settings.assert_not_called()
 
-    def test_triggers_apply_3d_settings(self):
-        mod = self._fresh()
-        mw = MagicMock()
-        mw.init_manager.settings = {}
-        mod.autorun(mw)
-        mw.view_3d_manager.apply_3d_settings.assert_called_once_with()
-
-    def test_settings_error_does_not_raise(self):
+    def test_does_not_access_settings(self):
         mod = self._fresh()
         mw = MagicMock()
         broken = MagicMock()
@@ -83,6 +104,15 @@ class TestDarkModeAutorun:
         mw.init_manager.settings = broken
         mod.autorun(mw)  # must be swallowed
         mw.setStyleSheet.assert_called_once()
+        assert not broken.mock_calls
+
+    def test_icon_tint_is_deferred_with_window_context(self):
+        mod = self._fresh()
+        mw = MagicMock()
+        mod.autorun(mw)
+        args = mod.QTimer.singleShot.call_args.args
+        assert args[:2] == (0, mw)
+        assert callable(args[2])
 
     def test_status_message_via_context_after_initialize(self):
         mod = self._fresh()

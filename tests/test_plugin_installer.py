@@ -2423,3 +2423,30 @@ class TestIsUsableVersion:
         assert not PI._is_usable_version("Unknown")
         assert not PI._is_usable_version(None)
         assert not PI._is_usable_version("")
+
+
+class TestRegistryRetirementMetadata:
+    @pytest.mark.parametrize("entry,expected", [
+        (None, False), ({}, False), ({"visible": True}, False),
+        ({"visible": False}, True), ({"visible": "false"}, False),
+        ({"visible": 0}, False), ([], False),
+    ])
+    def test_only_explicit_hidden_flag_is_stale(self, entry, expected):
+        assert PI._is_registry_hidden(entry) is expected
+
+    @pytest.mark.parametrize("entry", [None, {}, {"migration_to": None},
+        {"migration_to": []}, {"migration_to": " "}, {"migration_to": 12}])
+    def test_missing_or_malformed_migration_is_ignored(self, entry):
+        assert PI._migration_target_name(entry, []) == ""
+
+    def test_target_is_resolved_by_id_not_old_display_name(self):
+        assert PI._migration_target_name({"migration_to": "new"}, [
+            {"id": "new", "name": "Renamed Replacement"}
+        ]) == "Renamed Replacement"
+
+    def test_missing_target_keeps_reference_as_plain_text(self):
+        assert PI._migration_target_name({"migration_to": " missing "}, []) == "missing"
+
+    def test_malformed_target_name_uses_reference(self):
+        assert PI._migration_target_name({"migration_to": "new"}, [None,
+            {"id": "new", "name": []}]) == "new"

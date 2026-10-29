@@ -8,6 +8,7 @@ A management plugin for MoleditPy that installs, updates, and removes plugins di
 
 - **Non-blocking registry fetch**: Background `QThread` fetches the PyPI app version and remote registry JSON concurrently — the UI stays responsive while loading.
 - **Alphabetical plugin table**: All plugins sorted A–Z; status badge and action button on each row.
+- **Hidden installed plugins**: Registry entries with `visible: false` are shown as `Stale` when already installed, with migration guidance in the name/status tooltips and details dialog. Disabled entries show `Stale (Disabled)`. Hidden entries remain excluded from new installs and Update All; manual reinstallation and deletion remain available.
 - **Update count label**: Shows "N plugin(s) have updates available" (amber) or "All plugins are up to date" (green) above the Update All button.
 - **Chunked download with progress**: Downloads in 8 KB chunks with a live progress dialog; cancellable mid-transfer.
 - **Batch update**: "Update All" iterates every "Update Available" row in one pass with a single batch progress dialog.
@@ -72,6 +73,18 @@ Plugin downloads are a third request, one per plugin, made by `_download_chunked
 - `format_supported_os(supported_os)` — the list as displayed in the table and warning dialog
 
 ## Plugin Metadata Constants
+
+Migration guidance is curated registry metadata: a hidden entry's optional
+`migration_to` field contains the replacement plugin's ID. The installer resolves
+the ID to its current display name. Without a migration target, only the Stale
+notice is shown. Plugins missing from the registry remain `Not in Registry`.
+No migration is performed automatically.
+
+Maintainers can record a target without modifying a retired plugin's source:
+
+```bash
+python scripts/update_registry_migrations.py --set orca_xyz2inp_gui=orca_input_generator_pro
+```
 
 The installer reads these constants from each plugin file (via the registry or AST):
 
