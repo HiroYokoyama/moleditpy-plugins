@@ -412,7 +412,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Dark Mode Theme",
-    "version": "2026.10.19",
+    "version": "2026.10.30",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A plugin that automatically applies a dark mode stylesheet to MoleditPy upon loading.",
@@ -423,8 +423,8 @@
       "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/Dark_Mode_Theme/dark_mode_plugin.py",
-    "lastUpdated": "2026-10-19",
-    "sha256": "1706aea63c4c443fd48e899f115f789b1c16dacc9f2f4507939905f9f522361b",
+    "lastUpdated": "2026-10-30",
+    "sha256": "28fc961cc28b26ed0900476f6741cec94f8c6fe54ab1af2f36c6921f17a77bb2",
     "firstAppeared": "2025-12-16",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

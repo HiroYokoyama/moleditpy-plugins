@@ -2,20 +2,41 @@
 dark_mode_plugin.py
 
 A plugin that automatically applies a dark mode stylesheet to MoleditPy upon loading.
+
+2026.10.30: Preserve saved settings and tint toolbar icons only in memory.
 """
 
-PLUGIN_VERSION = "2026.10.19"
+import logging
+from collections.abc import Mapping
+from typing import Any
+
+from PySide6.QtCore import QTimer
+from PySide6.QtGui import QColor, QIcon, QPainter
+
+PLUGIN_VERSION = "2026.10.30"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "A plugin that automatically applies a dark mode stylesheet to MoleditPy upon loading."
 
 PLUGIN_NAME = "Dark Mode Theme"
-import logging
+_LOGGER = logging.getLogger(__name__)
 
 _CONTEXT = None
 
+_TOOL_ICON_MODES = (
+    "bond_1_0",
+    "bond_2_0",
+    "bond_3_0",
+    "bond_1_1",
+    "bond_1_2",
+    "rs_label",
+    "bond_2_5",
+    "template_benzene",
+    "chain",
+) + tuple(f"template_{n}" for n in range(3, 10))
 
-def initialize(context):
+
+def initialize(context: Any) -> None:
     global _CONTEXT
     _CONTEXT = context
     autorun(context.get_main_window())
@@ -297,11 +318,48 @@ QTableView {
 """
 
 
-def autorun(main_window):
+def _tint_tool_icons(main_window: Any) -> None:
+    """Tint built-in tool icons without changing settings or third-party icons."""
+    manager = getattr(main_window, "init_manager", None)
+    actions = getattr(manager, "mode_actions", None)
+    if not isinstance(actions, Mapping):
+        return
+
+    for mode in _TOOL_ICON_MODES:
+        action = actions.get(mode)
+        if action is None:
+            continue
+        try:
+            original = action.icon()
+            if original.isNull():
+                continue
+            tinted = QIcon()
+            for size in original.availableSizes():
+                pixmap = original.pixmap(size)
+                if pixmap.isNull():
+                    continue
+                painter = QPainter(pixmap)
+                try:
+                    painter.setCompositionMode(
+                        QPainter.CompositionMode.CompositionMode_SourceIn
+                    )
+                    painter.fillRect(pixmap.rect(), QColor("#FFFFFF"))
+                finally:
+                    painter.end()
+                tinted.addPixmap(pixmap)
+            if not tinted.isNull():
+                action.setIcon(tinted)
+        except (AttributeError, RuntimeError, TypeError):
+            _LOGGER.warning(
+                "[%s] Could not tint tool icon %s", PLUGIN_NAME, mode, exc_info=True
+            )
+
+
+def autorun(main_window: Any) -> None:
     """
     Executed automatically when the plugin is loaded (and 'autorun' is detected).
     """
-    print(f"[{PLUGIN_NAME}] Applying Dark Mode Stylesheet...")
+    _LOGGER.info("[%s] Applying Dark Mode Stylesheet...", PLUGIN_NAME)
 
     # 1. Apply QSS to the main window (and thus all children)
     # Note: Applying to main_window is safer than QApplication for plugins to avoid
@@ -309,37 +367,14 @@ def autorun(main_window):
     # value-add plugin for this specific app, it works well.
     main_window.setStyleSheet(DARK_STYLESHEET)
 
-    # 2. Update 3D Background Color to match dark theme
-    # The default light background (#919191 or #FFFFFF) might be too bright.
+    # Plugins initialize before the host creates its standard tool actions.
+    # The window context cancels the callback if it closes before delivery.
     try:
-        new_bg_color = "#2b2b2b"  # Dark grey
-
-        # Check if settings exist and update
-        if hasattr(main_window, "init_manager") and hasattr(
-            main_window.init_manager, "settings"
-        ):
-            main_window.init_manager.settings["background_color"] = new_bg_color
-
-            # Since we modify the settings directly, we should try to trigger an update
-            # The 'apply_3d_settings' method in main_window usually handles this.
-            if (
-                hasattr(main_window, "view_3d_manager")
-                and hasattr(main_window.view_3d_manager, "apply_3d_settings")
-                and hasattr(main_window, "plotter")
-            ):
-                main_window.view_3d_manager.apply_3d_settings()
-
-            # Note: We don't try to change the toolbar icon color here as the main window handles it
-            # if it observes settings changes.
-            main_window.init_manager.settings["icon_foreground"] = "#FFFFFF"
-
-            # Helper: Force update icons if main_window has the method (it's in init_ui usually)
-            # Re-calling init_menu_bar might be too destructive, but we can try to refresh toolbars
-            # if there is a specific method. For now, rely on restart or dynamic icon color logic
-            # if it observes settings changes.
-
-    except Exception as e:
-        logging.warning("[%s] Warning: Could not auto-set 3D background color: %s", PLUGIN_NAME, e)
+        QTimer.singleShot(0, main_window, lambda: _tint_tool_icons(main_window))
+    except (RuntimeError, TypeError):
+        _LOGGER.warning(
+            "[%s] Could not schedule tool icon tinting", PLUGIN_NAME, exc_info=True
+        )
 
     # 3. Inform user
     if _CONTEXT:
