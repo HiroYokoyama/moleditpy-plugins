@@ -127,7 +127,8 @@
     "downloadUrl": "../plugins/_old/Animated_XYZ_Player/animated_xyz.py",
     "lastUpdated": "2025-12-15",
     "sha256": "125d4389cbdb690f423b61fd7a5a7d2588eb46b6c0e8a829d1df8cc7558b0413",
-    "firstAppeared": "2025-12-15"
+    "firstAppeared": "2025-12-15",
+    "migration_to": "animated_xyz_giffer"
   },
   {
     "id": "complex_molecule_untangler",
@@ -231,7 +232,8 @@
     "downloadUrl": "../plugins/_old/Gaussian_Input_Generator/gaussian_input_generator.py",
     "lastUpdated": "2025-12-15",
     "sha256": "712452a58769557a05579e74d3c9f7916c8a8e670926dc1720f33d3fb620d669",
-    "firstAppeared": "2025-12-15"
+    "firstAppeared": "2025-12-15",
+    "migration_to": "gaussian_input_generator_pro"
   },
   {
     "id": "hello_world",
@@ -267,7 +269,8 @@
     "downloadUrl": "../plugins/_old/MS_Spectrum_Simulation/ms_spectrum.py",
     "lastUpdated": "2025-12-25",
     "sha256": "73fbf2ba40b33623d7416812cd64b1ee704a5ce52f47f1731e82f36cea69441d",
-    "firstAppeared": "2025-12-15"
+    "firstAppeared": "2025-12-15",
+    "migration_to": "ms_spectrum_simulation_neo"
   },
   {
     "id": "orca_input_generator",
@@ -285,7 +288,8 @@
     "downloadUrl": "../plugins/_old/ORCA_Input_Generator/orca_input_generator.py",
     "lastUpdated": "2025-12-15",
     "sha256": "2fe7bb274dc0c9ee829cc2dd51ec22d4c78013fdc778a7c6d2cafe33b33ee670",
-    "firstAppeared": "2025-12-15"
+    "firstAppeared": "2025-12-15",
+    "migration_to": "orca_input_generator_pro"
   },
   {
     "id": "pubchem_name_ressolver",
@@ -455,7 +459,8 @@
     "downloadUrl": "../plugins/_old/Gaussian_Input_Generator_Neo/gaussian_input_generator_neo.py",
     "lastUpdated": "2026-06-26",
     "sha256": "93619cf409141ea20e29f6aaf247cf4570d2d7fc22a7f5c00a9d670e104119f5",
-    "firstAppeared": "2025-12-16"
+    "firstAppeared": "2025-12-16",
+    "migration_to": "gaussian_input_generator_pro"
   },
   {
     "id": "vdw_radii_overlay",
@@ -538,7 +543,8 @@
     "downloadUrl": "../plugins/_old/Orca_Input_Generator_Neo/orca_input_generator_neo.py",
     "lastUpdated": "2026-01-04",
     "sha256": "3c786c12ab3d8881c21f78938affba408b2ee63d386a1e249a3914fab7e18379",
-    "firstAppeared": "2026-01-03"
+    "firstAppeared": "2026-01-03",
+    "migration_to": "orca_input_generator_pro"
   },
   {
     "id": "orca_xyz2inp_gui",
@@ -569,7 +575,8 @@
       "macOS",
       "Linux",
       "WSL"
-    ]
+    ],
+    "migration_to": "orca_input_generator_pro"
   },
   {
     "id": "ms_spectrum_simulation_neo",
@@ -739,14 +746,15 @@
     "downloadUrl": "../plugins/_old/Version_Checker/version_checker.py",
     "lastUpdated": "2025-12-26",
     "sha256": "c658a92b1dcaa0fe7ef90d502174027aecd7a1ef122517c013f6ef9fd01eb950",
-    "firstAppeared": "2025-12-26"
+    "firstAppeared": "2025-12-26",
+    "migration_to": "plugin_installer"
   },
   {
     "id": "plugin_installer",
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Plugin Installer",
-    "version": "2026.10.21",
+    "version": "2026.10.30",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Checks for updates, installs new plugins, and allows manual reinstallation.",
@@ -757,8 +765,8 @@
       "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/Plugin_Installer/plugin_installer.py",
-    "lastUpdated": "2026-10-21",
-    "sha256": "87244a7f37f03ee9cd71eacc080f9de1cb4cd707e0f76ba93ec010ea145b4089",
+    "lastUpdated": "2026-10-30",
+    "sha256": "d97a0b5dfc58bb163dd70b60033567a2d95886e4f77adee7bc7d469aa06c9b25",
     "firstAppeared": "2026-01-04",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -790,7 +798,8 @@
     "downloadUrl": "../plugins/_old/Chat_with_Molecule/chat_with_molecule.py",
     "lastUpdated": "2025-12-27",
     "sha256": "41bb6109a357fc6961a06bc4e3470b90b135c91a55824ede88e6cb82323867f2",
-    "firstAppeared": "2025-12-26"
+    "firstAppeared": "2025-12-26",
+    "migration_to": "chat_with_molecule_neo"
   },
   {
     "id": "chat_with_molecule_neo",

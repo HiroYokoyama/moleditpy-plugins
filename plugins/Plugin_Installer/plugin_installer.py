@@ -45,7 +45,7 @@ import tempfile
 
 # --- Metadata ---
 PLUGIN_NAME = "Plugin Installer"
-PLUGIN_VERSION = "2026.10.21"
+PLUGIN_VERSION = "2026.10.30"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_SUPPORTED_PYTHON_VERSION = ">=3.9, <3.15"
 PLUGIN_SUPPORTED_OS = ["Windows", "macOS", "Linux", "WSL"]
@@ -693,6 +693,27 @@ class _FetchWorker(QThread):
 # ---------------------------------------------------------------------------
 
 
+def _is_registry_hidden(remote_info) -> bool:
+    """Only an explicit hidden flag retires a known registry entry."""
+    return isinstance(remote_info, dict) and remote_info.get("visible") is False
+
+
+def _migration_target_name(remote_info, registry) -> str:
+    """Resolve the curated migration target ID to its current display name."""
+    if not isinstance(remote_info, dict):
+        return ""
+    target = remote_info.get("migration_to")
+    if not isinstance(target, str) or not target.strip():
+        return ""
+    target = target.strip()
+    for entry in registry:
+        if isinstance(entry, dict) and entry.get("id") == target:
+            name = entry.get("name")
+            if isinstance(name, str) and name.strip():
+                return name.strip()
+    return target
+
+
 class PluginDetailsDialog(QDialog):
     def __init__(
         self,
@@ -710,6 +731,8 @@ class PluginDetailsDialog(QDialog):
         optional_dependencies=None,
         project_url=None,
         plugin_license=None,
+        registry_hidden=False,
+        migration_target="",
     ):
         super().__init__(parent)
         self.setWindowTitle(f"{name} - Details")
@@ -753,6 +776,19 @@ class PluginDetailsDialog(QDialog):
         layout.addWidget(lbl_supported)
         layout.addWidget(lbl_supported_py)
         layout.addWidget(lbl_supported_os)
+        if registry_hidden:
+            lbl_stale = QLabel(
+                "<b>Status:</b> Stale — hidden in the plugin registry; "
+                "no longer offered for new installations."
+            )
+            lbl_stale.setWordWrap(True)
+            layout.addWidget(lbl_stale)
+            if migration_target:
+                lbl_migration = QLabel(
+                    f"<b>Migration to:</b> {html.escape(str(migration_target))}"
+                )
+                lbl_migration.setWordWrap(True)
+                layout.addWidget(lbl_migration)
         if _is_plugin_disabled(local_info):
             lbl_disabled = QLabel(
                 "<b>Status:</b> <span style='color:gray'>Disabled</span> "
@@ -1309,6 +1345,8 @@ class PluginInstallerWindow(QDialog):
             color = None
             is_installed = local_info is not None
             is_disabled = _is_plugin_disabled(local_info)
+            is_stale = is_installed and _is_registry_hidden(remote_info)
+            migration_target = _migration_target_name(remote_info, self.remote_data)
 
             is_compatible = True
             py_compatible = True
@@ -1359,7 +1397,13 @@ class PluginInstallerWindow(QDialog):
                 author = local_info.get("author", "Unknown")
 
             if is_installed:
-                if remote_info:
+                if is_stale:
+                    status = "Stale"
+                    color = QColor("#fff3cd")
+                    # Keep manual reinstallation, but never recommend a hidden
+                    # entry as an update or include it in Update All.
+                    can_update = True
+                elif remote_info:
                     if local_ver != "Unknown" and remote_ver != "Unknown":
                         comp = self.compare_versions(remote_ver, local_ver)
                         if comp > 0:
@@ -1404,7 +1448,9 @@ class PluginInstallerWindow(QDialog):
             # or reinstalled); only what the Status cell says changes.
             status_text = status
             if is_disabled:
-                if status == "Update Available":
+                if is_stale:
+                    status_text = "Stale (Disabled)"
+                elif status == "Update Available":
                     status_text = "Update Available (Disabled)"
                 else:
                     status_text = "Disabled"
@@ -1419,6 +1465,8 @@ class PluginInstallerWindow(QDialog):
                     status=status,
                     status_text=status_text,
                     is_disabled=is_disabled,
+                    is_stale=is_stale,
+                    migration_target=migration_target,
                     color=color,
                     is_installed=is_installed,
                     is_compatible=is_compatible,
@@ -1456,6 +1504,12 @@ class PluginInstallerWindow(QDialog):
             if row_data["color"]:
                 status_item.setBackground(row_data["color"])
             tips = []
+            if row_data["is_stale"]:
+                tips.append(
+                    "Hidden in the plugin registry; no longer offered for new installations."
+                )
+                if row_data["migration_target"]:
+                    tips.append(f"Migration to: {row_data['migration_target']}")
             if row_data["is_disabled"]:
                 tips.append(
                     "Disabled in the Plugin Manager - installed but not loaded. "
@@ -1479,6 +1533,8 @@ class PluginInstallerWindow(QDialog):
                     )
             if tips:
                 status_item.setToolTip("\n".join(tips))
+                if row_data["is_stale"]:
+                    self.table.item(row, 0).setToolTip("\n".join(tips))
             self.table.setItem(row, 4, status_item)
 
             if remote_info and "downloadUrl" in remote_info:
@@ -1535,6 +1591,7 @@ class PluginInstallerWindow(QDialog):
         if getattr(self, "btn_update_all", None) is not None:
             self.btn_update_all.setEnabled(plugin_update_count > 0)
 
+        self._stale_plugin_count = sum(row["is_stale"] for row in rows)
         self._update_status_label(plugin_update_count)
 
         if getattr(self, "search_input", None) is not None:
@@ -1556,6 +1613,17 @@ class PluginInstallerWindow(QDialog):
             self._status_label.setText("All plugins are up to date")
         else:
             self._status_label.setText("")
+        stale_count = getattr(self, "_stale_plugin_count", 0)
+        if stale_count:
+            stale_text = (
+                "1 installed plugin is stale"
+                if stale_count == 1
+                else f"{stale_count} installed plugins are stale"
+            )
+            if plugin_update_count:
+                stale_text = f"{self._status_label.text()}; {stale_text}"
+            self._status_label.setStyleSheet("color: #856404; font-weight: bold;")
+            self._status_label.setText(stale_text)
 
     # ------------------------------------------------------------------
     # Misc helpers
@@ -1792,6 +1860,8 @@ class PluginInstallerWindow(QDialog):
             optional_dependencies,
             project_url=_project_page_url(remote_info),
             plugin_license=remote_info.get("license") if remote_info else None,
+            registry_hidden=_is_registry_hidden(remote_info),
+            migration_target=_migration_target_name(remote_info, self.remote_data),
         )
         dialog.exec()
 
@@ -1949,6 +2019,8 @@ class PluginInstallerWindow(QDialog):
                         optional_dependencies,
                         project_url=_project_page_url(remote_info),
                         plugin_license=remote_info.get("license") if remote_info else None,
+                        registry_hidden=_is_registry_hidden(remote_info),
+                        migration_target=_migration_target_name(remote_info, self.remote_data),
                     )
                     dialog.exec()
                     return
@@ -2315,6 +2387,8 @@ class PluginInstallerWindow(QDialog):
                         optional_dependencies,
                         project_url=_project_page_url(remote_info),
                         plugin_license=remote_info.get("license") if remote_info else None,
+                        registry_hidden=_is_registry_hidden(remote_info),
+                        migration_target=_migration_target_name(remote_info, self.remote_data),
                     )
                     dialog.exec()
                 elif not self._batch_updating:
