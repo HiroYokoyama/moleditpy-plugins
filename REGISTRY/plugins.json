@@ -2767,7 +2767,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Paste 3D to PowerPoint",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_paste_3d_to_powerpoint",
@@ -2781,9 +2781,9 @@
       "PySide6-Essentials",
       "pyvista"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_paste_3d_to_powerpoint/releases/download/v0.1.0/paste_3d_to_powerpoint_0.1.0.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_paste_3d_to_powerpoint/releases/download/v0.1.1/paste_3d_to_powerpoint_0.1.1.zip",
     "lastUpdated": "2026-10-30",
-    "sha256": "05693f1c7a4d543060440f5f9f7443a3dd9e7261cb83ad6dddaf6c8ca3f16b2c",
+    "sha256": "c299445bf6bf165dd64d411d423926056a289c4716d6e1af81c79a8ba47af145",
     "firstAppeared": "2026-10-30",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
