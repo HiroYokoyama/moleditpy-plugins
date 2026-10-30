@@ -502,7 +502,7 @@ class TestGifferPlaybackReal:
 
 class TestGifferDynamicBondsReal:
     def test_dynamic_bonds_default_reconstructs_topology(self, loaded_player):
-        """Default (checked) path: MolFromXYZBlock returns a fresh mol per frame."""
+        """Default (checked) path: a fresh mol is built per frame."""
         w = loaded_player
         assert w.chk_dynamic_bonds.isChecked()
         w.next_frame()
@@ -517,10 +517,15 @@ class TestGifferDynamicBondsReal:
         w.next_frame()
         assert w.base_mol.GetNumBonds() == 0  # restored from original_topology
 
-    def test_dynamic_bonds_xyz_block_none_falls_back_to_coords(self, loaded_player, tmp_path):
+    def test_dynamic_bonds_rebuild_without_xyz_text(self, loaded_player, tmp_path):
+        # MolFromXYZBlock drops fractional coordinates under a comma-decimal
+        # numeric locale (HiroYokoyama/python_molecular_editor#185), so frames never go through it.
+        def _forbidden(_block):
+            raise AssertionError("MolFromXYZBlock must not be called")
+
         ctx = _giffer_ctx()
         ctx.plotter = MagicMock()
-        fake_chem = FakeChem(xyz_block_mol_factory=lambda block: None)
+        fake_chem = FakeChem(xyz_block_mol_factory=_forbidden)
         with patch.object(_giffer, "Chem", fake_chem), \
              patch.object(_giffer, "rdGeometry", SimpleNamespace(Point3D=lambda x, y, z: (x, y, z))), \
              patch.object(_giffer, "rdDetermineBonds", SimpleNamespace(
@@ -533,7 +538,8 @@ class TestGifferDynamicBondsReal:
             path = _make_multiframe_xyz(tmp_path, name="fallback.xyz")
             w.load_from_path(path)
             w.next_frame()
-            assert w.last_display_mol is w.base_mol
+            assert w.last_display_mol is not None
+            assert w.last_display_mol is not w.base_mol
             w.timer.stop()
             w._reload_timer.stop()
             w.destroy()
@@ -894,5 +900,5 @@ class TestMultiImageXYZRealRDKit:
         w.next_frame()
         w.next_frame()  # loops back to the e-notation water frame
         mol = w.drawn[-1]
-        assert mol is not w.base_mol  # rebuilt by MolFromXYZBlock, not a fallback
+        assert mol is not w.base_mol  # rebuilt from the frame, not a fallback
         assert mol.GetNumBonds() == 2

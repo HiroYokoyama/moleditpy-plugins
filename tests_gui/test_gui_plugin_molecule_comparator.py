@@ -875,7 +875,7 @@ class TestLoadAndDrop:
         fake_mol = MagicMock()
         fake_mol.GetNumBonds.return_value = 0
         fake_mol.GetNumConformers.return_value = 1
-        patch_mock_attr(monkeypatch, _comparator, "Chem", "MolFromXYZBlock", lambda s: fake_mol)
+        monkeypatch.setattr(_comparator, "mol_from_xyz_lines", lambda s: fake_mol)
         patch_mock_attr(monkeypatch, _comparator, "Chem", "SanitizeMol", lambda m: None)
         determine = MagicMock()
         monkeypatch.setattr(_comparator, "rdDetermineBonds", determine)
@@ -894,7 +894,7 @@ class TestLoadAndDrop:
         fake_mol = MagicMock()
         fake_mol.GetNumBonds.return_value = 0
         fake_mol.GetNumConformers.return_value = 1
-        patch_mock_attr(monkeypatch, _comparator, "Chem", "MolFromXYZBlock", lambda s: fake_mol)
+        monkeypatch.setattr(_comparator, "mol_from_xyz_lines", lambda s: fake_mol)
         monkeypatch.setattr(_comparator.Chem, "SanitizeMol", lambda m: None)
         determine = MagicMock()
         determine.DetermineConnectivity.side_effect = ValueError("boom")
@@ -1708,36 +1708,40 @@ class TestMolFromXyzText:
         host = SimpleNamespace(io_manager=SimpleNamespace(load_xyz_block=lambda t: mol))
         assert _comparator.mol_from_xyz_text("C 0 0 0", host) is mol
 
-    def test_host_failure_falls_back_to_rdkit(self, monkeypatch):
+    def test_host_failure_falls_back_to_the_hand_parse(self, monkeypatch):
         def _boom(_text):
             raise RuntimeError("charge dialog exploded")
 
         fallback = MagicMock()
         fallback.GetNumAtoms.return_value = 1
         fallback.GetNumBonds.return_value = 1
-        patch_mock_attr(monkeypatch, _comparator, "Chem", "MolFromXYZBlock", lambda t: fallback)
+        monkeypatch.setattr(_comparator, "mol_from_xyz_lines", lambda t: fallback)
         host = SimpleNamespace(io_manager=SimpleNamespace(load_xyz_block=_boom))
         assert _comparator.mol_from_xyz_text("C 0 0 0", host) is fallback
 
-    def test_host_returning_none_falls_back_to_rdkit(self, monkeypatch):
+    def test_host_returning_none_falls_back_to_the_hand_parse(self, monkeypatch):
         fallback = MagicMock()
         fallback.GetNumAtoms.return_value = 1
         fallback.GetNumBonds.return_value = 1
-        patch_mock_attr(monkeypatch, _comparator, "Chem", "MolFromXYZBlock", lambda t: fallback)
+        monkeypatch.setattr(_comparator, "mol_from_xyz_lines", lambda t: fallback)
         host = SimpleNamespace(
             io_manager=SimpleNamespace(load_xyz_block=lambda t: None)
         )
         assert _comparator.mol_from_xyz_text("C 0 0 0", host) is fallback
 
-    def test_rdkit_refusal_falls_back_to_the_hand_parse(self, monkeypatch):
-        patch_mock_attr(monkeypatch, _comparator, "Chem", "MolFromXYZBlock", lambda t: None)
+    def test_rdkit_xyz_reader_is_never_used(self, monkeypatch):
+        # MolFromXYZBlock drops fractional coordinates under a comma-decimal
+        # numeric locale (HiroYokoyama/python_molecular_editor#185).
+        def _forbidden(_text):
+            raise AssertionError("MolFromXYZBlock must not be called")
+
+        patch_mock_attr(monkeypatch, _comparator, "Chem", "MolFromXYZBlock", _forbidden)
         built = MagicMock()
         built.GetNumBonds.return_value = 1
         monkeypatch.setattr(_comparator, "mol_from_xyz_lines", lambda t: built)
         assert _comparator.mol_from_xyz_text("C 0 0 0", None) is built
 
     def test_returns_none_when_nothing_can_read_it(self, monkeypatch):
-        patch_mock_attr(monkeypatch, _comparator, "Chem", "MolFromXYZBlock", lambda t: None)
         monkeypatch.setattr(_comparator, "mol_from_xyz_lines", lambda t: None)
         assert _comparator.mol_from_xyz_text("garbage", None) is None
 
@@ -1745,7 +1749,7 @@ class TestMolFromXyzText:
         mol = MagicMock()
         mol.GetNumAtoms.return_value = 2
         mol.GetNumBonds.return_value = 0
-        patch_mock_attr(monkeypatch, _comparator, "Chem", "MolFromXYZBlock", lambda t: mol)
+        monkeypatch.setattr(_comparator, "mol_from_xyz_lines", lambda t: mol)
         determine = MagicMock()
         monkeypatch.setattr(_comparator, "rdDetermineBonds", determine)
         _comparator.mol_from_xyz_text("C 0 0 0", None)

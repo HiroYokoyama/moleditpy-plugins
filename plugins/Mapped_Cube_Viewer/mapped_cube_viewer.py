@@ -51,7 +51,7 @@ except ImportError:
 __author__ = "HiroYokoyama"
 PLUGIN_AUTHOR = __author__
 PLUGIN_NAME = "Mapped Cube Viewer"
-PLUGIN_VERSION = "2026.10.23"
+PLUGIN_VERSION = "2026.10.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_DESCRIPTION = "Visualizes a property (e.g. ESP) mapped onto an isosurface (e.g. electron density) from two Cube files."
 
@@ -264,6 +264,25 @@ def build_grid_from_meta(meta):
     grid.point_data["property_values"] = vol_3d.flatten(order="F")
 
     return {"atoms": atoms}, grid
+
+
+def mol_from_cube_atoms(atoms):
+    """Build an unbonded RDKit molecule from parsed (atomic number, position) pairs.
+
+    The coordinates go straight into a conformer. Round-tripping them through
+    Chem.MolFromXYZBlock drops their fractional part under a numeric locale
+    with a comma decimal separator, which corrupts bond perception
+    (HiroYokoyama/python_molecular_editor#185).
+    """
+    mol = Chem.RWMol()
+    conf = Chem.Conformer(len(atoms))
+    for atomic_num, pos in atoms:
+        idx = mol.AddAtom(Chem.Atom(int(atomic_num)))
+        conf.SetAtomPosition(
+            idx, Geometry.Point3D(float(pos[0]), float(pos[1]), float(pos[2]))
+        )
+    mol.AddConformer(conf, assignId=True)
+    return mol
 
 
 def read_cube(filename):
@@ -721,11 +740,7 @@ def run_plugin(context):
         # Visualize Atoms
         atoms = meta1["atoms"]
         if Chem:
-            s = f"{len(atoms)}\n\n"
-            for n, p in atoms:
-                sym = pt.GetElementSymbol(n) if pt else "C"
-                s += f"{sym} {p[0]} {p[1]} {p[2]}\n"
-            mol = Chem.MolFromXYZBlock(s)
+            mol = mol_from_cube_atoms(atoms)
             try:
                 rdDetermineBonds.DetermineConnectivity(mol)
             except Exception as _e:  # noqa: BLE001 - bond perception is optional here

@@ -62,40 +62,38 @@ class OrbitalWidget(QWidget):
             from rdkit import Chem
             from rdkit.Chem import rdDetermineBonds
 
-            xyz = self.reader.get_xyz_block()
-            if xyz:
-                raw_mol = Chem.MolFromXYZBlock(xyz)
-                if raw_mol:
-                    mol = Chem.RWMol(raw_mol)
+            raw_mol = self.reader.get_rdkit_mol()
+            if raw_mol is not None:
+                mol = Chem.RWMol(raw_mol)
 
-                    # Get charge from FCHK for better bond order guess
-                    charge = 0
-                    try:
-                        c_arr = self.reader.get("Charge", None)
-                        if c_arr is not None:
-                            charge = int(c_arr[0])
-                    except Exception as _e:
-                        logging.warning("[gui.py:48] silenced: %s", _e)
+                # Get charge from FCHK for better bond order guess
+                charge = 0
+                try:
+                    c_arr = self.reader.get("Charge", None)
+                    if c_arr is not None:
+                        charge = int(c_arr[0])
+                except Exception as _e:
+                    logging.warning("[gui.py:48] silenced: %s", _e)
 
-                    # Connectivity and Bond Order
-                    try:
-                        rdDetermineBonds.DetermineConnectivity(mol)
-                        rdDetermineBonds.DetermineBondOrders(mol, charge=charge)
-                    except Exception as e:
-                        print(f"rdDetermineBonds failed: {e}")
+                # Connectivity and Bond Order
+                try:
+                    rdDetermineBonds.DetermineConnectivity(mol)
+                    rdDetermineBonds.DetermineBondOrders(mol, charge=charge)
+                except Exception as e:
+                    print(f"rdDetermineBonds failed: {e}")
 
-                    context.current_molecule = mol
+                context.current_molecule = mol
 
-                    mw = context.get_main_window()
+                mw = context.get_main_window()
 
-                    if hasattr(context, "enter_3d_viewer_mode"):
-                        context.enter_3d_viewer_mode()
-                    elif hasattr(mw, "ui_manager") and hasattr(
-                        mw.ui_manager, "enter_3d_viewer_ui_mode"
-                    ):
-                        mw.ui_manager.enter_3d_viewer_ui_mode()
+                if hasattr(context, "enter_3d_viewer_mode"):
+                    context.enter_3d_viewer_mode()
+                elif hasattr(mw, "ui_manager") and hasattr(
+                    mw.ui_manager, "enter_3d_viewer_ui_mode"
+                ):
+                    mw.ui_manager.enter_3d_viewer_ui_mode()
 
-                    context.reset_3d_camera()
+                context.reset_3d_camera()
         except Exception as e:
             print(f"Failed to load molecule structure: {e}")
 

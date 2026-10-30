@@ -38,7 +38,7 @@ try:
 except ImportError:
     rdDetermineBonds = None
 
-PLUGIN_VERSION = "2026.10.23"
+PLUGIN_VERSION = "2026.10.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_NAME = "Animated XYZ Giffer"
@@ -316,8 +316,13 @@ class AnimatedXYZPlayer(QDialog):
         # Reset camera on first load
         self.context.reset_3d_camera()
 
-    def _build_frame_mol(self, frame):
-        """Build a standalone RDKit Mol (atoms, conformer, estimated bonds) for one frame."""
+    def _frame_atoms_mol(self, frame):
+        """Unbonded RDKit Mol (atoms and conformer) for one frame.
+
+        Coordinates go straight into the conformer: an XYZ text round-trip
+        through Chem.MolFromXYZBlock drops their fractional part under a
+        numeric locale with a comma decimal separator (HiroYokoyama/python_molecular_editor#185).
+        """
         mol = Chem.RWMol()
 
         # Add atoms
@@ -334,6 +339,11 @@ class AnimatedXYZPlayer(QDialog):
         for idx, (x, y, z) in enumerate(frame["coords"]):
             conf.SetAtomPosition(idx, rdGeometry.Point3D(x, y, z))
         mol.AddConformer(conf)
+        return mol
+
+    def _build_frame_mol(self, frame):
+        """Build a standalone RDKit Mol (atoms, conformer, estimated bonds) for one frame."""
+        mol = self._frame_atoms_mol(frame)
 
         # Estimate bonds (topology)
         # We try to use the main window's helper function if available,
@@ -430,19 +440,8 @@ class AnimatedXYZPlayer(QDialog):
                 # Dynamic Bonds: Reconstruct Mol from scratch to ensure topology refresh
                 if self.chk_dynamic_bonds.isChecked() and rdDetermineBonds:
                     try:
-                        # Construct XYZ block
-                        xyz_lines = [
-                            str(len(frame["symbols"])),
-                            frame.get("comment", ""),
-                        ]
-                        # Fixed-point: RDKit's XYZ parser rejects e-notation
-                        # (repr of e.g. -7.2e-05), which made this block fail.
-                        for sym, (x, y, z) in zip(frame["symbols"], frame["coords"]):
-                            xyz_lines.append(f"{sym} {x:.10f} {y:.10f} {z:.10f}")
-                        xyz_block = "\n".join(xyz_lines)
-
-                        # Create fresh mol
-                        new_mol = Chem.MolFromXYZBlock(xyz_block)
+                        # Create fresh unbonded mol from the frame coordinates
+                        new_mol = self._frame_atoms_mol(frame)
                         if new_mol:
                             # Re-add bonds using rdDetermineBonds
                             rdDetermineBonds.DetermineConnectivity(new_mol)
