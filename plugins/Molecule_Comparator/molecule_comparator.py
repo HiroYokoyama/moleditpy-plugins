@@ -42,7 +42,7 @@ import copy
 import logging
 
 PLUGIN_NAME = "Molecule Comparator"
-PLUGIN_VERSION = "2026.10.24"
+PLUGIN_VERSION = "2026.10.31"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Compare multiple molecules in 3D, calculate RMSD, and align them."
@@ -383,7 +383,12 @@ def parse_xyz_rows(text):
 
 
 def mol_from_xyz_lines(text):
-    """Build a molecule from XYZ text the RDKit reader would not accept."""
+    """Build a molecule from XYZ text, parsing the numbers in Python.
+
+    Chem.MolFromXYZBlock is not used: under a numeric locale with a comma
+    decimal separator it drops the fractional part of every coordinate
+    (HiroYokoyama/python_molecular_editor#185).
+    """
     rows = parse_xyz_rows(text)
     if not rows or Point3D is None:
         return None
@@ -433,13 +438,7 @@ def mol_from_xyz_text(text, host=None):
         if mol is not None and mol.GetNumAtoms():
             return mol if mol.GetNumBonds() else perceive_bonds(mol)
 
-    mol = None
-    try:
-        mol = Chem.MolFromXYZBlock(text)
-    except (RuntimeError, ValueError, TypeError) as exc:
-        logging.warning("[molecule_comparator.py] MolFromXYZBlock failed: %s", exc)
-    if mol is None or not mol.GetNumAtoms():
-        mol = mol_from_xyz_lines(text)
+    mol = mol_from_xyz_lines(text)
     if mol is None:
         return None
     return mol if mol.GetNumBonds() else perceive_bonds(mol)

@@ -692,7 +692,7 @@ class TestOpenCubeViewer:
         ctx.get_window.return_value = None
         mol = MagicMock()
         mol.GetNumBonds.return_value = 2
-        mod.Chem.MolFromXYZBlock.return_value = mol
+        mod.Chem.RWMol.return_value = mol
         mod.open_cube_viewer(ctx, str(cube_file))
         assert ctx.current_molecule is mol
         # Assigning current_molecule already redraws through the real host API.
@@ -700,17 +700,18 @@ class TestOpenCubeViewer:
         msg = ctx.show_status_message.call_args[0][0]
         assert "Bonds: 2" in msg
 
-    def test_mol_none_triggers_fallback_construction(self, cube_file):
+    def test_builds_molecule_from_coordinates_not_xyz_text(self, cube_file):
+        # MolFromXYZBlock loses fractional coordinates under a comma-decimal
+        # numeric locale (HiroYokoyama/python_molecular_editor#185), so the viewer must never call it.
         mod = _fresh_mod()
         ctx = make_context()
         ctx.get_window.return_value = None
-        mod.Chem.MolFromXYZBlock.return_value = None
         rwmol = MagicMock()
+        rwmol.GetNumBonds.return_value = 2
         mod.Chem.RWMol.return_value = rwmol
         mod.open_cube_viewer(ctx, str(cube_file))
         rwmol.AddConformer.assert_called_once()
-        # Fallback path constructs from Chem.RWMol(); confirm it was used.
-        mod.Chem.RWMol.assert_called_once()
+        mod.Chem.MolFromXYZBlock.assert_not_called()
 
     def test_zero_bonds_no_rddeterminebonds_skips_retry_loop(self, cube_file):
         mod = _fresh_mod()
@@ -719,7 +720,7 @@ class TestOpenCubeViewer:
         ctx.get_window.return_value = None
         mol = MagicMock()
         mol.GetNumBonds.return_value = 0
-        mod.Chem.MolFromXYZBlock.return_value = mol
+        mod.Chem.RWMol.return_value = mol
         mod.open_cube_viewer(ctx, str(cube_file))
         assert ctx.current_molecule is mol
         ctx.draw_molecule_3d.assert_not_called()

@@ -87,7 +87,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Animated XYZ Giffer",
-    "version": "2026.10.23",
+    "version": "2026.10.31",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "A player for viewing multi-frame XYZ files and recording GIF animations using PIL.",
@@ -99,8 +99,8 @@
       "Pillow"
     ],
     "downloadUrl": "../plugins/Animated_XYZ_Giffer/animated_xyz_giffer.py",
-    "lastUpdated": "2026-10-23",
-    "sha256": "c31fa38e7dcfa46e71aaa62f9ba6ace632deb002d6daaf663837835cea388327",
+    "lastUpdated": "2026-10-31",
+    "sha256": "b4c529074ac25262ebd814081a1da8c8f71b9fd9081a337a754a6ef62f45e509",
     "firstAppeared": "2025-12-15",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -191,7 +191,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Cube File Viewer",
-    "version": "2026.10.23",
+    "version": "2026.10.31",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes Gaussian Cube files (.cube) containing volumetric data (e.g., orbitals, densities).",
@@ -204,8 +204,8 @@
       "numpy"
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer/cube_viewer.py",
-    "lastUpdated": "2026-10-23",
-    "sha256": "218f60758f4011e7534e2b021388c9e66205d5baa6058b1af85aacfb5a5b3b68",
+    "lastUpdated": "2026-10-31",
+    "sha256": "88de5f0f55dcbdebf54648749601ac647408ee81607583481104f3a5c742a357",
     "firstAppeared": "2025-12-15",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -497,7 +497,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Mapped Cube Viewer",
-    "version": "2026.10.23",
+    "version": "2026.10.31",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Visualizes a property (e.g. ESP) mapped onto an isosurface (e.g. electron density) from two Cube files.",
@@ -512,8 +512,8 @@
       "rdkit"
     ],
     "downloadUrl": "../plugins/Mapped_Cube_Viewer/mapped_cube_viewer.py",
-    "lastUpdated": "2026-10-23",
-    "sha256": "0b581bf78ff4f7d0edca3d9ee9bb31af4666c86913811ed9d0220c177561f26c",
+    "lastUpdated": "2026-10-31",
+    "sha256": "14ecee49595a98b4f3e4e0cc52a3909899d971293c67abb425847a13db89e499",
     "firstAppeared": "2025-12-17",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1113,7 +1113,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Molecule Comparator",
-    "version": "2026.10.24",
+    "version": "2026.10.31",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Compare multiple molecules in 3D, calculate RMSD, and align them.",
@@ -1126,8 +1126,8 @@
       "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/Molecule_Comparator/molecule_comparator.py",
-    "lastUpdated": "2026-10-24",
-    "sha256": "5332889eeb4a6343995c9b3e5c6b94cf8fdae46729c6efc55a233152212c6ee3",
+    "lastUpdated": "2026-10-31",
+    "sha256": "27dde8176473dbfeb8bd608a5fd78dc43b90ee140825574d0fcc1bbbebd63bcd",
     "firstAppeared": "2026-01-03",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1531,7 +1531,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Cube File Viewer Advanced",
-    "version": "2026.10.24",
+    "version": "2026.10.31",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Advanced 3D visualization for Gaussian Cube files with PBR, SSAO, and other effects.",
@@ -1546,8 +1546,8 @@
       "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/Cube_File_Viewer_Advanced/cube_viewer_advanced.py",
-    "lastUpdated": "2026-10-24",
-    "sha256": "776cd9df409d125b947cf9e8299800572f7d83996b4b019454636d3a1e445c82",
+    "lastUpdated": "2026-10-31",
+    "sha256": "ded801b709b6eb496cd02a0cc221e70c3b669a55359713f1607ec5c6a302c97a",
     "firstAppeared": "2026-02-02",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

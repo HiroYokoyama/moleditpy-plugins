@@ -483,6 +483,11 @@ def _base_mol_self(frames, mw_has_estimator=True, extra_globals=None):
         extra_globals=extra_globals,
     )
     fake._build_frame_mol = lambda frame: build(fake, frame)
+    atoms = _extract_method_as_fn(
+        GIFFER_PATH, "AnimatedXYZPlayer", "_frame_atoms_mol",
+        extra_globals=extra_globals,
+    )
+    fake._frame_atoms_mol = lambda frame: atoms(fake, frame)
     return fake
 
 

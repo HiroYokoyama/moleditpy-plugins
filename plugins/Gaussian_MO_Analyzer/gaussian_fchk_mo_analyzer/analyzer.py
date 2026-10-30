@@ -96,9 +96,9 @@ class FCHKReader:
     def get(self, key, default=None):
         return self.data.get(key, default)
 
-    def get_xyz_block(self):
+    def get_atoms_angstrom(self):
         """
-        Reconstructs an XYZ block string (in Angstroms) for RDKit.
+        Returns [(atomic number, (x, y, z) in Angstroms), ...], or None.
         """
         atoms = self.get("Atomic numbers", None)
         coords = self.get("Current cartesian coordinates", None)
@@ -113,24 +113,57 @@ class FCHKReader:
             raise ValueError("Invalid FCHK atomic number")
         coords = coords.reshape(-1, 3)
 
-        # Periodic Table map (simplified or import from rdkit)
-        # Since we are in the plugin env, we can try importing rdkit,
-        # or just use a small lookup if we want to keep analyzer pure?
-        # Let's import rdkit here as it is guaranteed in MoleditPy environment
+        BOHR_TO_ANG = 0.529177249
+
+        return [
+            (int(atoms[i]), tuple(float(v) for v in coords[i] * BOHR_TO_ANG))
+            for i in range(n_atoms)
+        ]
+
+    def get_xyz_block(self):
+        """
+        Reconstructs an XYZ block string (in Angstroms) for RDKit.
+        """
+        records = self.get_atoms_angstrom()
+        if records is None:
+            return None
+
+        # Imported lazily: RDKit is guaranteed in the MoleditPy environment,
+        # but the reader itself stays loadable without it.
         from rdkit import Chem
 
         pt = Chem.GetPeriodicTable()
 
-        BOHR_TO_ANG = 0.529177249
-
-        out = [f"{n_atoms}", "Generated from FCHK"]
-        for i in range(n_atoms):
-            sym = pt.GetElementSymbol(int(atoms[i]))
-            x, y, z = coords[i] * BOHR_TO_ANG
+        out = [f"{len(records)}", "Generated from FCHK"]
+        for atomic_num, (x, y, z) in records:
+            sym = pt.GetElementSymbol(atomic_num)
             out.append(f"{sym} {x:.6f} {y:.6f} {z:.6f}")
 
         return "\n".join(out)
 
+    def get_rdkit_mol(self):
+        """
+        Unbonded RDKit molecule built straight from the FCHK coordinates, or None.
+
+        Parsing get_xyz_block() back with Chem.MolFromXYZBlock drops the
+        fractional part of every coordinate under a numeric locale with a
+        comma decimal separator, so the numbers never go through text here
+        (HiroYokoyama/python_molecular_editor#185).
+        """
+        records = self.get_atoms_angstrom()
+        if not records:
+            return None
+
+        from rdkit import Chem
+        from rdkit.Geometry import Point3D
+
+        mol = Chem.RWMol()
+        conf = Chem.Conformer(len(records))
+        for atomic_num, (x, y, z) in records:
+            idx = mol.AddAtom(Chem.Atom(atomic_num))
+            conf.SetAtomPosition(idx, Point3D(x, y, z))
+        mol.AddConformer(conf, assignId=True)
+        return mol.GetMol()
 
 class BasisSetEngine:
     """
