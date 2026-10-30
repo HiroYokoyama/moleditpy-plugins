@@ -895,7 +895,7 @@ class TestLoadAndDrop:
         fake_mol.GetNumBonds.return_value = 0
         fake_mol.GetNumConformers.return_value = 1
         monkeypatch.setattr(_comparator, "mol_from_xyz_lines", lambda s: fake_mol)
-        monkeypatch.setattr(_comparator.Chem, "SanitizeMol", lambda m: None)
+        patch_mock_attr(monkeypatch, _comparator, "Chem", "SanitizeMol", lambda m: None)
         determine = MagicMock()
         determine.DetermineConnectivity.side_effect = ValueError("boom")
         monkeypatch.setattr(_comparator, "rdDetermineBonds", determine)
