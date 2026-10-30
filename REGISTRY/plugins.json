@@ -2793,5 +2793,37 @@
       "WSL"
     ],
     "license": "LGPL-3.0-or-later"
+  },
+  {
+    "id": "homa_analyzer",
+    "visible": true,
+    "supported_moleditpy_version": ">=5.0.0, <6.0.0",
+    "name": "HOMA Analyzer",
+    "version": "0.0.1",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "projectUrl": "https://github.com/HiroYokoyama/moleditpy_homa_analyzer",
+    "description": "Compute the HOMA aromaticity index of each ring in the 3D structure, label it at the ring centers and export the list as CSV.",
+    "tags": [
+      "Analysis",
+      "Visualization"
+    ],
+    "dependencies": [
+      "PySide6-Essentials",
+      "pyvista",
+      "rdkit"
+    ],
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_homa_analyzer/releases/download/v0.0.1/homa_analyzer_0.0.1.zip",
+    "lastUpdated": "2026-10-30",
+    "sha256": "d627f1c46892595c4ae28ae59a153dc079fc857dba9347bf5a19e2cb46ef84d0",
+    "firstAppeared": "2026-10-30",
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ],
+    "license": "NOASSERTION"
   }
 ]
