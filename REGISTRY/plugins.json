@@ -2799,7 +2799,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "HOMA Analyzer",
-    "version": "0.0.1",
+    "version": "0.1.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_homa_analyzer",
@@ -2809,13 +2809,14 @@
       "Visualization"
     ],
     "dependencies": [
+      "numpy",
       "PySide6-Essentials",
       "pyvista",
       "rdkit"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_homa_analyzer/releases/download/v0.0.1/homa_analyzer_0.0.1.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_homa_analyzer/releases/download/v0.1.0/homa_analyzer_0.1.0.zip",
     "lastUpdated": "2026-10-30",
-    "sha256": "d627f1c46892595c4ae28ae59a153dc079fc857dba9347bf5a19e2cb46ef84d0",
+    "sha256": "6e671998ef0445b924e36583ea7cbe9b948fc4e70bbede903003cf9f8a3e78ba",
     "firstAppeared": "2026-10-30",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
