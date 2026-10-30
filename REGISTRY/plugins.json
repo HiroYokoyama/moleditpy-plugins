@@ -2761,5 +2761,37 @@
       "WSL"
     ],
     "license": "LGPL-3.0-or-later"
+  },
+  {
+    "id": "paste_3d_to_powerpoint",
+    "visible": true,
+    "supported_moleditpy_version": ">=5.0.0, <6.0.0",
+    "name": "Paste 3D to PowerPoint",
+    "version": "0.1.0",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "projectUrl": "https://github.com/HiroYokoyama/moleditpy_paste_3d_to_powerpoint",
+    "description": "Copy the 3D view as a native PowerPoint 3D model (Windows clipboard) or export it as glTF (.glb).",
+    "tags": [
+      "File",
+      "Visualization"
+    ],
+    "dependencies": [
+      "numpy",
+      "PySide6-Essentials",
+      "pyvista"
+    ],
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_paste_3d_to_powerpoint/releases/download/v0.1.0/paste_3d_to_powerpoint_0.1.0.zip",
+    "lastUpdated": "2026-10-30",
+    "sha256": "05693f1c7a4d543060440f5f9f7443a3dd9e7261cb83ad6dddaf6c8ca3f16b2c",
+    "firstAppeared": "2026-10-30",
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ],
+    "license": "NOASSERTION"
   }
 ]
