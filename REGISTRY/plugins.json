@@ -2597,7 +2597,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "ReShiki Importer",
-    "version": "0.3.0",
+    "version": "0.4.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_reshiki_importer",
@@ -2606,9 +2606,9 @@
       "Import"
     ],
     "dependencies": [],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_reshiki_importer/releases/download/v0.3.0/reshiki_importer.py",
-    "lastUpdated": "2026-10-19",
-    "sha256": "ba6395a07dbef7b7c076d41d42e1af8bc095e1682aa0b57d769dff8e234bc79d",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_reshiki_importer/releases/download/v0.4.0/reshiki_importer.py",
+    "lastUpdated": "2026-10-31",
+    "sha256": "8d6ed7e3155c911a038aac1e4814f3c2e718c6eaead04f40dc31abe016de53ad",
     "firstAppeared": "2026-09-27",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
