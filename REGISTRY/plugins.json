@@ -2826,5 +2826,36 @@
       "WSL"
     ],
     "license": "LGPL-3.0-or-later"
+  },
+  {
+    "id": "copy_xyz",
+    "visible": true,
+    "supported_moleditpy_version": ">=5.0.0, <6.0.0",
+    "name": "Copy XYZ",
+    "version": "2026.11.01",
+    "author": "borisiori",
+    "authorUrl": "https://github.com/borisiori",
+    "projectUrl": "https://github.com/borisiori/moleditpy-copy-xyz",
+    "description": "Show the current 3D structure as XYZ coordinates in a dialog and copy them to the clipboard",
+    "tags": [
+      "File",
+      "Visualization"
+    ],
+    "dependencies": [
+      "rdkit",
+      "PySide6-Essentials"
+    ],
+    "downloadUrl": "https://github.com/borisiori/moleditpy-copy-xyz/releases/download/v2026.11.01/copy_xyz.py",
+    "lastUpdated": "2026-11-01",
+    "sha256": "c0af003ea5d56c8766302787e7ba0e802ef46f8cead29afe0e4a73db86120f5f",
+    "firstAppeared": "2026-11-01",
+    "supported_python_version": ">=3.10, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ],
+    "license": "LGPL-3.0-or-later"
   }
 ]
