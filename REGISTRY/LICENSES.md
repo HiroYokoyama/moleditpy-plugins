@@ -15,8 +15,8 @@ details include:
 
 | Plugin | Recorded license | Additional context |
 | --- | --- | --- |
-| OpenBabel Conversion Tool | `GPL-3.0-only` | Excluded from the collection's LGPL grant; Open Babel has its own GPL terms. |
-| Open Babel Optimizer | `GPL-3.0-or-later` | Declared in the [v1.0.0 README](https://github.com/HiroYokoyama/moleditpy_openbabel_optimizer/blob/v1.0.0/README.md#license). |
+| OpenBabel Conversion Tool | `GPL-2.0-or-later` | External package from v2026.11.02; see its [licensing and process-boundary notes](https://github.com/HiroYokoyama/moleditpy_openbabel_converter/blob/v2026.11.02/LICENSING.md). Open Babel retains GPL-2.0-only. |
+| Open Babel Optimizer | `GPL-2.0-or-later` | Applies from v1.0.1; see its [licensing and process-boundary notes](https://github.com/HiroYokoyama/moleditpy_openbabel_optimizer/blob/v1.0.1/LICENSING.md). Historical releases retain their original grants. |
 | PySCF Calculator | `GPL-3.0-only` | Its [v5.0.0 licensing notes](https://github.com/HiroYokoyama/moleditpy_pyscf-calculator/blob/v5.0.0/LICENSING.md) also grant a geomeTRIC combination permission. The base-license field does not replace that permission or geomeTRIC's terms. |
 | NMR Predictor nmrshiftdb2 | `GPL-3.0-only` | The [v3.0.0 README](https://github.com/HiroYokoyama/moleditpy_nmr_predicator_nmrshiftdb2/blob/v3.0.0/README.md#licenses--credits) distinguishes plugin code from predictor JARs and data. |
 | Molibrary Browser | `LGPL-3.0-or-later` | The [plugin licensing document](https://github.com/HiroYokoyama/chem_db_web/blob/2.0.0/moleditpy_plugin/LICENSING.md) applies; the web application has a separate root license. |

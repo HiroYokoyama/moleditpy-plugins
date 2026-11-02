@@ -31,16 +31,18 @@ compatibility.
 
 ## Collection exceptions
 
-The grant covers the maintained first-party plugins except
-`plugins/OpenBabel_Conversion_Tool/`, which keeps its existing GPL terms.
+The grant covers the maintained first-party collection plugins.
 `plugins/_old/` is excluded and remains byte-for-byte unchanged under its
-existing license. Third-party remote entries in REGISTRY are pointers to their
-authors' distributions and do not adopt this repository's license.
+existing license. Remote entries in REGISTRY are pointers to their authors'
+distributions and do not adopt this repository's license.
 
-Open Babel's current official metadata/library documentation specifies GPLv2.
-No claim is made that an in-process Open Babel combination is LGPLv3-compatible.
-Resolve that combination before distributing it; changing a wrapper label does
-not change the engine's license. Source: https://openbabel.org/docs/UseTheLibrary/intro.html
+OpenBabel Conversion Tool is maintained and distributed separately in
+[moleditpy_openbabel_converter](https://github.com/HiroYokoyama/moleditpy_openbabel_converter).
+Its implementation and regression tests are no longer shipped in the current
+collection. The registry preserves its plugin ID while pointing to the external
+ZIP. Open Babel Optimizer is also an external plugin. Their GPL terms and process
+boundaries are documented in their own repositories; the collection's LGPL grant
+does not apply to them. Historical collection releases retain their original terms.
 
 ## Dependency audit
 

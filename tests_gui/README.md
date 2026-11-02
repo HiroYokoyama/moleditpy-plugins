@@ -70,7 +70,6 @@ in [`gui_test_helpers.py`](file:///e:/Research/Calculation/moleditpy/DEV_MAIN/mo
 | Metadata Saver | `test_gui_plugin_metadata_saver.py` | `MetadataSaverDialog` + save/load handlers |
 | Molecule Comparator | `test_gui_plugin_molecule_comparator.py` | `MoleculeComparator` (list management, set-as-reference, selection state, scope, RMSD results/clipboard, cleanup, document reset) |
 | NWChem Input Generator | `test_gui_plugin_nwchem_input_generator.py` | `NwchemSetupDialog` |
-| OpenBabel Conversion Tool | `test_gui_plugin_openbabel_conversion_tool.py` | `MoleculeSelectionDialog` |
 | ORCA Freq Analyzer | `test_gui_plugin_orca_freq_analyzer.py` | `OrcaOutFreqAnalyzer`, `SpectrumDialog`, `OrcaParser` |
 | Paste from ChemDraw | `test_gui_plugin_paste_from_chemdraw.py` | `reconstruct_from_flat_text()` extra edge cases |
 | Paste XYZ | `test_gui_plugin_paste_xyz.py` | `PasteXYZDialog` |

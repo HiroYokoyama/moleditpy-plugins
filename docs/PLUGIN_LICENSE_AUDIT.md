@@ -150,3 +150,12 @@ Local evidence: `plugin-license-inventory.json`, `plugin-dependency-license-deta
 `dependency-official-pypi-licenses.json`, `geometric-published-license.json`,
 `lgpl-static-verification.json`, `lgpl-shared-pins.json`, `lgpl-committed.json`,
 `lgpl-pushed.json` and the build logs/artifacts in `lgpl-packages/`.
+
+## 2026-11-02 follow-up: external Open Babel packages
+
+The external Converter 2026.11.02 and Optimizer 1.0.1 offer first-party runtime code
+under GPL-2.0-or-later. The converter implementation and its regression tests move
+out of this collection; the existing registry ID points to the external ZIP.
+Their own LICENSING.md files document the intended independent-program boundary,
+MOL/JSON protocols and version choices. Open Babel itself retains GPL-2.0-only.
+Earlier audit statements and releases above are historical, not rewritten grants.

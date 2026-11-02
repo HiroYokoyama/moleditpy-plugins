@@ -1256,7 +1256,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "OpenBabel Conversion Tool",
-    "version": "2026.10.29",
+    "version": "2026.11.02",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Import various chemical file formats using OpenBabel with multi-molecule support. Requires Python-installed MoleditPy; portable and frozen bundles are unsupported.",
@@ -1267,9 +1267,9 @@
     "dependencies": [
       "openbabel>=3.2.1,<3.3"
     ],
-    "downloadUrl": "../plugins/OpenBabel_Conversion_Tool/openbabel_conversion_tool.py",
-    "lastUpdated": "2026-10-29",
-    "sha256": "c9d59d9d2f3f7f6523d92dee12986cc1a332c0df1b1de2348d78571bf824dd80",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_openbabel_converter/releases/download/v2026.11.02/openbabel_converter_2026.11.02.zip",
+    "lastUpdated": "2026-11-02",
+    "sha256": "b57c3afe1aff0720aebcbcf56f994acad21e972a2d12463455da1f0a35d42f9a",
     "firstAppeared": "2026-01-10",
     "supported_python_version": ">=3.10, <3.15",
     "supported_os": [
@@ -1278,7 +1278,8 @@
       "Linux",
       "WSL"
     ],
-    "license": "GPL-3.0-only"
+    "license": "GPL-2.0-or-later",
+    "projectUrl": "https://github.com/HiroYokoyama/moleditpy_openbabel_converter"
   },
   {
     "id": "paste_from_chemdraw",
@@ -2711,7 +2712,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0,<6",
     "name": "Open Babel Optimizer",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_openbabel_optimizer",
@@ -2722,9 +2723,9 @@
     "dependencies": [
       "openbabel>=3.2.1,<3.3"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_openbabel_optimizer/releases/download/v1.0.0/openbabel_optimizer_1.0.0.zip",
-    "lastUpdated": "2026-10-19",
-    "sha256": "37d3ef6a1b8fdf3c2f4716c29f8bae48e03a5fd4486fa48e1de8f6f0789aeb8f",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_openbabel_optimizer/releases/download/v1.0.1/openbabel_optimizer_1.0.1.zip",
+    "lastUpdated": "2026-11-02",
+    "sha256": "36553f53d9964265ad8c1cd0a3a3a6bc9d1342bb1ba9ec1db03e9e1cd8cfd966",
     "firstAppeared": "2026-10-19",
     "supported_python_version": ">=3.10, <3.15",
     "supported_os": [
@@ -2733,7 +2734,7 @@
       "Linux",
       "WSL"
     ],
-    "license": "GPL-3.0-or-later"
+    "license": "GPL-2.0-or-later"
   },
   {
     "id": "crash_traceback_logger",
