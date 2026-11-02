@@ -103,7 +103,7 @@ jobs:
             if git -C registry-main diff --cached --quiet; then
               break
             fi
-            git -C registry-main commit -m "Publish collection ZIP assets: $TAG" -m "Assisted-by: GPT-6.1 Sol"
+            git -C registry-main commit -m "Publish collection ZIP assets: $TAG"
             if git -C registry-main push origin HEAD:main; then
               break
             fi

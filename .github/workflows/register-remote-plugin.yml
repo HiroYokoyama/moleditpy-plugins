@@ -162,9 +162,9 @@ jobs:
             VER="${{ steps.run_script.outputs.version }}"
             
             if [ "$MODE" = "UPDATE" ]; then
-              git commit -m "Update plugin '$NAME' to v$VER" -m "Assisted-by: GPT-6.1 Sol"
+              git commit -m "Update plugin '$NAME' to v$VER"
             else
-              git commit -m "Register new plugin '$NAME' (v$VER)" -m "Assisted-by: GPT-6.1 Sol"
+              git commit -m "Register new plugin '$NAME' (v$VER)"
             fi
             git push origin main
           else
