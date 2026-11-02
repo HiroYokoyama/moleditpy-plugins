@@ -36,14 +36,6 @@ The grant covers the maintained first-party collection plugins.
 existing license. Remote entries in REGISTRY are pointers to their authors'
 distributions and do not adopt this repository's license.
 
-OpenBabel Conversion Tool is maintained and distributed separately in
-[moleditpy_openbabel_converter](https://github.com/HiroYokoyama/moleditpy_openbabel_converter).
-Its implementation and regression tests are no longer shipped in the current
-collection. The registry preserves its plugin ID while pointing to the external
-ZIP. Open Babel Optimizer is also an external plugin. Their GPL terms and process
-boundaries are documented in their own repositories; the collection's LGPL grant
-does not apply to them. Historical collection releases retain their original terms.
-
 ## Dependency audit
 
 See [the MoleditPy 5 plugin licensing audit](docs/PLUGIN_LICENSE_AUDIT.md) for
