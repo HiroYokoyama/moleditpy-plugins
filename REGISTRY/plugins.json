@@ -2858,5 +2858,38 @@
       "WSL"
     ],
     "license": "LGPL-3.0-or-later"
+  },
+  {
+    "id": "encrypted_project_pro",
+    "visible": true,
+    "supported_moleditpy_version": ">=5.0.0,<6.0.0",
+    "name": "Encrypted Project Pro",
+    "version": "0.1.0",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "projectUrl": "https://github.com/HiroYokoyama/moleditpy_encrypted_project_pro",
+    "description": "Authenticated project encryption with passwords, key files, PEM keys and YubiKey PIV.",
+    "tags": [
+      "File",
+      "Utility"
+    ],
+    "dependencies": [
+      "cryptography>=46,<52"
+    ],
+    "optional_dependencies": [
+      "yubikey-manager>=5.9,<6"
+    ],
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_encrypted_project_pro/releases/download/v0.1.0/encrypted_project_pro_0.1.0.zip",
+    "lastUpdated": "2026-11-03",
+    "sha256": "b9c0f2527896748b89ec26045b40bb72b49573b62888ec20e5f76fcff5a01bb1",
+    "firstAppeared": "2026-11-03",
+    "supported_python_version": ">=3.10,<3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ],
+    "license": "LGPL-3.0-or-later"
   }
 ]
