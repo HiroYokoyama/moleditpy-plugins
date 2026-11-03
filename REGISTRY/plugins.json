@@ -2864,7 +2864,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0,<6.0.0",
     "name": "Encrypted Project Pro",
-    "version": "0.1.1",
+    "version": "0.2.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_encrypted_project_pro",
@@ -2879,9 +2879,9 @@
     "optional_dependencies": [
       "yubikey-manager>=5.9,<6"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_encrypted_project_pro/releases/download/v0.1.1/encrypted_project_pro_0.1.1.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_encrypted_project_pro/releases/download/v0.2.0/encrypted_project_pro_0.2.0.zip",
     "lastUpdated": "2026-11-03",
-    "sha256": "3033326698f9e7268df0781cc2cbbece65539e75858a687803b7c44b3bd70b08",
+    "sha256": "9f0d3fb4d9b935df967dbd0fbc9bdc9a95c5ae5d3d48e010ba2143fcc7b03644",
     "firstAppeared": "2026-11-03",
     "supported_python_version": ">=3.10,<3.15",
     "supported_os": [
