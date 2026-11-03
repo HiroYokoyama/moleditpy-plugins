@@ -2891,5 +2891,32 @@
       "WSL"
     ],
     "license": "LGPL-3.0-or-later"
+  },
+  {
+    "id": "project_notes",
+    "visible": true,
+    "supported_moleditpy_version": ">=5.0.0, <6.0.0",
+    "name": "Project Notes",
+    "version": "0.1.1",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "projectUrl": "https://github.com/HiroYokoyama/moleditpy_project_notes",
+    "description": "Markdown project notes with live preview and automatic reopening.",
+    "tags": [
+      "Utility"
+    ],
+    "dependencies": [],
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_project_notes/releases/download/v0.1.1/project_notes.py",
+    "lastUpdated": "2026-11-03",
+    "sha256": "7dd0d8eec56d6b7d015222154dc491c6d525df378f5ae369267a69c01923d4e4",
+    "firstAppeared": "2026-11-03",
+    "supported_python_version": ">=3.10, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ],
+    "license": "LGPL-3.0-or-later"
   }
 ]
