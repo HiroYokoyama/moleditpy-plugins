@@ -2446,7 +2446,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Job Manager",
-    "version": "3.6.1",
+    "version": "3.6.2",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_job_manager",
@@ -2459,9 +2459,9 @@
       "paramiko",
       "cryptography"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_job_manager/releases/download/v3.6.1/job_manager_3.6.1.zip",
-    "lastUpdated": "2026-11-02",
-    "sha256": "b22f1f9784af08e5deecfca16dfe8fb1fbe7229fad08b8242223f209917c2493",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_job_manager/releases/download/v3.6.2/job_manager_3.6.2.zip",
+    "lastUpdated": "2026-11-03",
+    "sha256": "3b0c7a39ce48e3048aef911168e73b30565db031e2aab7ba5c6f82742e8c1519",
     "firstAppeared": "2026-08-06",
     "supported_os": [
       "Windows",
