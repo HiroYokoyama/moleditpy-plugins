@@ -43,7 +43,7 @@ except ImportError:
 
 PLUGIN_NAME = "ORCA Freq Analyzer"
 PLUGIN_DESCRIPTION = "Analyzes vibrational frequencies from ORCA output files. View IR spectrum, animate normal modes, and export GIF animations."
-PLUGIN_VERSION = "2026.10.23"
+PLUGIN_VERSION = "2026.11.05"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_CONTEXT = None
@@ -202,6 +202,21 @@ class OrcaParser:
             if (first_vibration is not None and mode < first_vibration) or frequency == 0:
                 continue
             self.final_modes.append(dict(freq=frequency, intensity=intensity_map.get(mode), vector=[tuple(vector[i:i + 3]) for i in range(0, n_coords, 3)]))
+
+
+def _accept_drop_as_copy(event):
+    """Accept a file drag as a copy. False, and refused, if the source cannot copy.
+
+    Never acceptProposedAction(): Shift during a drag from Explorer proposes a
+    move, and accepting one tells Explorer the file now lives here, so it removes
+    the original. A dropped file is only ever read.
+    """
+    if not event.possibleActions() & Qt.DropAction.CopyAction:
+        event.ignore()
+        return False
+    event.setDropAction(Qt.DropAction.CopyAction)
+    event.accept()
+    return True
 
 
 class OrcaOutFreqAnalyzer(QWidget):
@@ -386,17 +401,21 @@ class OrcaOutFreqAnalyzer(QWidget):
             for url in event.mimeData().urls():
                 fname = url.toLocalFile().lower()
                 if fname.endswith(".out") or fname.endswith(".log"):
-                    event.acceptProposedAction()
+                    _accept_drop_as_copy(event)
                     return
         event.ignore()
+
+    def dragMoveEvent(self, event):
+        self.dragEnterEvent(event)
 
     def dropEvent(self, event):
         for url in event.mimeData().urls():
             file_path = url.toLocalFile()
             if file_path.lower().endswith((".out", ".log")):
-                QTimer.singleShot(0, self, lambda path=file_path: self.load_file(path))
-                event.acceptProposedAction()
-                break
+                if _accept_drop_as_copy(event):
+                    QTimer.singleShot(0, self, lambda path=file_path: self.load_file(path))
+                return
+        event.ignore()
 
     def open_file_dialog(self):
         fname, _ = QFileDialog.getOpenFileName(

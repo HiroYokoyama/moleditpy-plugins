@@ -47,7 +47,7 @@ except ImportError:  # pragma: no cover - host always ships pyvista
 
 
 PLUGIN_NAME = "Orbital Comparator"
-PLUGIN_VERSION = "2026.10.23"
+PLUGIN_VERSION = "2026.11.05"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = (
@@ -403,6 +403,21 @@ class CubeSlot:
         if not self.meta:
             return os.path.basename(self.path)
         return f"{os.path.basename(self.path)} — {describe_cube(self.meta)}"
+
+
+def _accept_drop_as_copy(event):
+    """Accept a file drag as a copy. False, and refused, if the source cannot copy.
+
+    Never acceptProposedAction(): Shift during a drag from Explorer proposes a
+    move, and accepting one tells Explorer the file now lives here, so it removes
+    the original. A dropped file is only ever read.
+    """
+    if not event.possibleActions() & Qt.DropAction.CopyAction:
+        event.ignore()
+        return False
+    event.setDropAction(Qt.DropAction.CopyAction)
+    event.accept()
+    return True
 
 
 class OrbitalComparator(QWidget):
@@ -825,7 +840,10 @@ class OrbitalComparator(QWidget):
     def dragEnterEvent(self, event):
         mime = event.mimeData()
         if mime and mime.hasUrls():
-            event.acceptProposedAction()
+            _accept_drop_as_copy(event)
+
+    def dragMoveEvent(self, event):
+        self.dragEnterEvent(event)
 
     def dropEvent(self, event):
         mime = event.mimeData()
@@ -836,9 +854,8 @@ class OrbitalComparator(QWidget):
             for u in mime.urls()
             if u.toLocalFile().lower().endswith((".cube", ".cub"))
         ]
-        if paths:
+        if paths and _accept_drop_as_copy(event):
             QTimer.singleShot(0, self, lambda: self.load_paths(paths) if not self._closed else None)
-            event.acceptProposedAction()
 
     # -- teardown ----------------------------------------------------------
 

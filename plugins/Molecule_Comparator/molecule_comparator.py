@@ -42,7 +42,7 @@ import copy
 import logging
 
 PLUGIN_NAME = "Molecule Comparator"
-PLUGIN_VERSION = "2026.10.31"
+PLUGIN_VERSION = "2026.11.05"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Compare multiple molecules in 3D, calculate RMSD, and align them."
@@ -463,6 +463,21 @@ DEFAULT_COLORS = [
     "#FFA500",  # Orange
     "#800080",  # Purple
 ]
+
+
+def _accept_drop_as_copy(event):
+    """Accept a file drag as a copy. False, and refused, if the source cannot copy.
+
+    Never acceptProposedAction(): Shift during a drag from Explorer proposes a
+    move, and accepting one tells Explorer the file now lives here, so it removes
+    the original. A dropped file is only ever read.
+    """
+    if not event.possibleActions() & Qt.DropAction.CopyAction:
+        event.ignore()
+        return False
+    event.setDropAction(Qt.DropAction.CopyAction)
+    event.accept()
+    return True
 
 
 class MoleculeComparator(QWidget):
@@ -893,19 +908,19 @@ class MoleculeComparator(QWidget):
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
-            event.acceptProposedAction()
+            _accept_drop_as_copy(event)
 
     def dragMoveEvent(self, event):
         if event.mimeData().hasUrls():
-            event.acceptProposedAction()
+            _accept_drop_as_copy(event)
 
     def dropEvent(self, event):
         paths = self._dropped_files(event.mimeData())
         if not paths:
             event.ignore()
             return
-        event.acceptProposedAction()
-        QTimer.singleShot(0, self, lambda: self._load_dropped_paths(paths))
+        if _accept_drop_as_copy(event):
+            QTimer.singleShot(0, self, lambda: self._load_dropped_paths(paths))
 
     def _load_dropped_paths(self, paths):
         if not self._closing:
