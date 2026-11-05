@@ -1442,7 +1442,7 @@ class TestDragAndDrop:
     def test_dragging_cube_files_is_accepted(self, comparator):
         event = self._event(["/cubes/a.cube"])
         comparator.win.dragEnterEvent(event)
-        event.acceptProposedAction.assert_called_once()
+        event.accept.assert_called_once()
 
 
 class TestTeardown:

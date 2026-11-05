@@ -972,7 +972,7 @@ class TestLoadAndDrop:
         event = MagicMock()
         event.mimeData.return_value.hasUrls.return_value = True
         w.dragEnterEvent(event)
-        event.acceptProposedAction.assert_called_once()
+        event.accept.assert_called_once()
         w.destroy()
 
     def test_drag_enter_ignores_without_urls(self, qapp):
@@ -980,7 +980,7 @@ class TestLoadAndDrop:
         event = MagicMock()
         event.mimeData.return_value.hasUrls.return_value = False
         w.dragEnterEvent(event)
-        event.acceptProposedAction.assert_not_called()
+        event.accept.assert_not_called()
         w.destroy()
 
     def test_drop_event_loads_local_files(self, qapp, monkeypatch, tmp_path):
@@ -996,7 +996,7 @@ class TestLoadAndDrop:
         w.add_molecules_from_paths.assert_not_called()
         qapp.processEvents()
         w.add_molecules_from_paths.assert_called_once_with([str(f)])
-        event.acceptProposedAction.assert_called_once()
+        event.accept.assert_called_once()
         w.destroy()
 
     def test_drop_event_skips_missing_files(self, qapp):
@@ -1907,7 +1907,7 @@ class TestLoadingGuards:
         event = MagicMock()
         event.mimeData.return_value.hasUrls.return_value = True
         w.dragMoveEvent(event)
-        event.acceptProposedAction.assert_called_once()
+        event.accept.assert_called_once()
         w.destroy()
 
     def test_queued_reset_is_dropped_after_close(self, qapp):

@@ -388,7 +388,15 @@ class _FakeDropEvent:
     def mimeData(self):
         return self._mime
 
-    def acceptProposedAction(self):
+    def possibleActions(self):
+        from PySide6.QtCore import Qt
+
+        return Qt.DropAction.CopyAction
+
+    def setDropAction(self, action):
+        self.action = action
+
+    def accept(self):
         self.accepted = True
 
     def ignore(self):
@@ -1396,3 +1404,43 @@ def test_missing_ir_intensity_does_not_enter_spectrum(loaded_widget, monkeypatch
     loaded_widget.show_spectrum()
     dialog.assert_not_called()
     warnings.assert_called_once()
+
+
+def _shift_drop(path, actions):
+    """A real Qt drop with Shift held, the way Explorer asks for a move."""
+    from PySide6.QtCore import QMimeData, QPointF, Qt, QUrl
+    from PySide6.QtGui import QDropEvent
+
+    mime = QMimeData()
+    mime.setUrls([QUrl.fromLocalFile(str(path))])
+    event = QDropEvent(
+        QPointF(1, 1), actions, mime, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.ShiftModifier
+    )
+    event.keepalive = mime  # the event does not own its mime data
+    return event
+
+
+class TestShiftDropIsACopy:
+    def test_a_shift_drop_is_a_copy_not_a_move(self, onp_widget, tmp_path):
+        from PySide6.QtCore import Qt
+        from PySide6.QtWidgets import QApplication
+
+        event = _shift_drop(
+            tmp_path / "x.out", Qt.DropAction.CopyAction | Qt.DropAction.MoveAction
+        )
+        assert event.proposedAction() == Qt.DropAction.MoveAction
+        with patch.object(onp_widget, "load_file"):
+            onp_widget.dropEvent(event)
+            QApplication.processEvents()
+        assert event.isAccepted()
+        assert event.dropAction() == Qt.DropAction.CopyAction
+
+    def test_a_source_that_can_only_move_is_refused(self, onp_widget, tmp_path):
+        from PySide6.QtCore import Qt
+        from PySide6.QtWidgets import QApplication
+
+        event = _shift_drop(tmp_path / "x.out", Qt.DropAction.MoveAction)
+        with patch.object(onp_widget, "load_file"):
+            onp_widget.dropEvent(event)
+            QApplication.processEvents()
+        assert not event.isAccepted()
