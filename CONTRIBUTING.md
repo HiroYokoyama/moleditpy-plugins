@@ -193,6 +193,7 @@ shasum -a 256 my_plugin.py
 - **Isolation**: Ensure your plugin does not interfere with core application functions unless intended.
 - **Error Handling**: Wrap UI callbacks in `try...except` blocks to prevent application crashes.
 - **Dependencies**: Keep dependencies to a minimum. If you use external libraries, list them in the `dependencies` field in `plugins.json` — or in `optional_dependencies` when the plugin still works without them (guard the import and degrade gracefully).
+- **Cross-Platform CI Testing**: If possible, add Continuous Integration (CI) (e.g., GitHub Actions) to test your plugin across platforms (Windows, Linux, macOS) and supported Python versions. This helps catch platform-specific issues (such as file path separators, platform-specific libraries, or GUI backend differences) early. If using the [plugin template](https://github.com/HiroYokoyama/moleditpy-plugin-template), you can easily enable the pre-configured cross-platform test matrix in `.github/workflows/test.yml` for push and pull requests.
 
 ## Security and Verification Policy
 
