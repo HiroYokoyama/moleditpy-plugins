@@ -9,9 +9,9 @@ assignees: []
 
 Please provide the details below to request the registration of a new plugin or an update to an existing one. Maintainers will review the submission and run the automated registration workflow to update `REGISTRY/plugins.json`.
 
-> [!IMPORTANT]
-> **Please declare every possible field in your plugin code!**
-> The registry reads all metadata directly from your release code (`PLUGIN_*` constants) on registration and on every version release. Please define all applicable constants in your plugin code so that future updates seamlessly inherit your metadata.
+> [!NOTE]
+> **Declare metadata constants in your plugin code (`PLUGIN_*`)**
+> The registry reads metadata directly from your release code (`PLUGIN_*` constants) on registration and on every version release. Please define all applicable constants directly in your plugin code so that future updates seamlessly inherit your metadata.
 
 ### 1. Target Action
 * [ ] **Register a New Plugin**
@@ -42,12 +42,12 @@ To verify integrity and security, calculate and paste the SHA-256 hash of the re
 * **SHA-256:** 
   *(Strictly required for security validation.)*
 
-### 7. Tags
-Comma-separated categories for the Plugin Manager (e.g., `Visualization, Analysis, Utility, File, Calculation`). Please declare in your code as `PLUGIN_TAGS`:
+### 7. Tags (Optional)
+Comma-separated categories for the Plugin Manager (e.g., `Visualization, Analysis, Utility, File, Calculation`). If used, please declare in your code as `PLUGIN_TAGS`:
 * **Tags:** 
 
-### 8. Dependencies
-Required and optional Python packages. Please declare in your code as `PLUGIN_DEPENDENCIES` (and `PLUGIN_OPTIONAL_DEPENDENCIES` if applicable):
+### 8. Dependencies (Optional)
+Required and optional Python packages. If external packages are needed, please declare them in your code as `PLUGIN_DEPENDENCIES` (and `PLUGIN_OPTIONAL_DEPENDENCIES` if applicable):
 * **Dependencies:** 
 * **Optional Dependencies:** 
 
@@ -56,26 +56,28 @@ Required and optional Python packages. Please declare in your code as `PLUGIN_DE
 * [ ] No, keep it hidden for now.
 
 ### 10. Supported Versions
-Please declare in your code as `PLUGIN_SUPPORTED_MOLEDITPY_VERSION` and `PLUGIN_SUPPORTED_PYTHON_VERSION`:
+Please declare in your code as `PLUGIN_SUPPORTED_MOLEDITPY_VERSION` and optionally `PLUGIN_SUPPORTED_PYTHON_VERSION`:
 * **Supported MoleditPy Version:** *(e.g., `>=5.0.0, <6.0.0`; required if visible)*
-* **Supported Python Version:** *(e.g., `>=3.10, <3.15`; defaults to `>=3.10, <3.15` if omitted)*
+* **Supported Python Version (optional):** *(e.g., `>=3.10, <3.15`; defaults to `>=3.10, <3.15` if omitted)*
 
 ---
 
 ### Verification Instructions for Developers
 
-1. **Declare every possible metadata constant** at the top of your plugin file (`__init__.py` or single `.py` file):
-   * `PLUGIN_NAME = "..."`
-   * `PLUGIN_VERSION = "..."` (must match the release tag version, e.g. `1.2.0`)
-   * `PLUGIN_AUTHOR = "..."` (must match your GitHub username / repository owner)
-   * `PLUGIN_LICENSE = "..."` (SPDX identifier, e.g. `LGPL-3.0-or-later`, `MIT`)
-   * `PLUGIN_DESCRIPTION = "..."` (brief summary of functionality)
-   * `PLUGIN_SUPPORTED_MOLEDITPY_VERSION = "..."` (e.g. `>=5.0.0, <6.0.0`)
-   * `PLUGIN_SUPPORTED_PYTHON_VERSION = "..."` (e.g. `>=3.10, <3.15`)
-   * `PLUGIN_TAGS = [...]` (e.g. `["Visualization", "Analysis"]`)
-   * `PLUGIN_DEPENDENCIES = [...]` (e.g. `["numpy>=1.20", "rdkit>=2022.03"]`)
-   * `PLUGIN_OPTIONAL_DEPENDENCIES = [...]` (optional, for extra-feature packages)
-   * `PLUGIN_SUPPORTED_OS = [...]` (optional, e.g. `["Windows", "macOS", "Linux", "WSL"]` if OS-restricted)
+1. **Declare metadata constants in your plugin code** (`__init__.py` or single `.py` file):
+   * **Required constants:**
+     * `PLUGIN_NAME = "..."`
+     * `PLUGIN_VERSION = "..."` (must match the release tag version, e.g. `1.2.0`)
+     * `PLUGIN_AUTHOR = "..."` (must match your GitHub username / repository owner)
+     * `PLUGIN_DESCRIPTION = "..."` (brief summary of functionality)
+     * `PLUGIN_SUPPORTED_MOLEDITPY_VERSION = "..."` (e.g. `>=5.0.0, <6.0.0`; required if visible)
+   * **Optional constants (declare if applicable):**
+     * `PLUGIN_LICENSE = "..."` (SPDX identifier, e.g. `LGPL-3.0-or-later`, `MIT`)
+     * `PLUGIN_SUPPORTED_PYTHON_VERSION = "..."` (e.g. `>=3.10, <3.15`; visible plugins default to this if omitted)
+     * `PLUGIN_TAGS = [...]` (e.g. `["Visualization", "Analysis"]`)
+     * `PLUGIN_DEPENDENCIES = [...]` (e.g. `["numpy>=1.20", "rdkit>=2022.03"]`)
+     * `PLUGIN_OPTIONAL_DEPENDENCIES = [...]` (optional, for extra-feature packages)
+     * `PLUGIN_SUPPORTED_OS = [...]` (optional, e.g. `["Windows", "macOS", "Linux", "WSL"]` if OS-restricted)
 2. **Calculate the SHA-256 hash** of the release asset:
    * **Windows (PowerShell)**: `Get-FileHash ./plugin_file.py -Algorithm SHA256`
    * **Linux / macOS (Bash)**: `shasum -a 256 plugin_file.py`
