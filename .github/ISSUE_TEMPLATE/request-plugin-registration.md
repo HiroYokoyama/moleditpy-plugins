@@ -31,7 +31,6 @@ Link to the public GitHub repository hosting the plugin source code:
 Provide a brief description of the plugin and the scientific workflow or problem it solves (should match `PLUGIN_DESCRIPTION` in code):
 * **Description:** 
 * **Key Features / Workflow:** 
-  - 
 
 ### 5. Plugin Source URL (Release Asset)
 Provide the direct link to your plugin's GitHub Release asset (must end in `.py` or `.zip`):
