@@ -11,7 +11,7 @@ Please provide the details below to request the registration of a new plugin or 
 
 > [!NOTE]
 > **Declare metadata constants in your plugin code (`PLUGIN_*`)**
-> The registry reads metadata directly from your release code (`PLUGIN_*` constants) on registration and on every version release. Please define all applicable constants directly in your plugin code so that future updates seamlessly inherit your metadata.
+> The registry reads metadata directly from your release code (`PLUGIN_*` constants) on registration and on every version release. Please define all required and applicable constants directly in your plugin code so that future updates seamlessly inherit your metadata.
 
 ### 1. Target Action
 * [ ] **Register a New Plugin**
@@ -55,10 +55,10 @@ Required and optional Python packages. If external packages are needed, please d
 * [ ] Yes, make this plugin visible in the registry manager.
 * [ ] No, keep it hidden for now.
 
-### 10. Supported Versions
-Please declare in your code as `PLUGIN_SUPPORTED_MOLEDITPY_VERSION` and optionally `PLUGIN_SUPPORTED_PYTHON_VERSION`:
-* **Supported MoleditPy Version:** *(e.g., `>=5.0.0, <6.0.0`; required if visible)*
-* **Supported Python Version (optional):** *(e.g., `>=3.10, <3.15`; defaults to `>=3.10, <3.15` if omitted)*
+### 10. Supported Versions (Required)
+Please declare both `PLUGIN_SUPPORTED_MOLEDITPY_VERSION` and `PLUGIN_SUPPORTED_PYTHON_VERSION` in your plugin code:
+* **Supported MoleditPy Version:** *(Required, e.g., `>=5.0.0, <6.0.0`)*
+* **Supported Python Version:** *(Required, e.g., `>=3.10, <3.15`)*
 
 ---
 
@@ -70,10 +70,10 @@ Please declare in your code as `PLUGIN_SUPPORTED_MOLEDITPY_VERSION` and optional
      * `PLUGIN_VERSION = "..."` (must match the release tag version, e.g. `1.2.0`)
      * `PLUGIN_AUTHOR = "..."` (must match your GitHub username / repository owner)
      * `PLUGIN_DESCRIPTION = "..."` (brief summary of functionality)
-     * `PLUGIN_SUPPORTED_MOLEDITPY_VERSION = "..."` (e.g. `>=5.0.0, <6.0.0`; required if visible)
+     * `PLUGIN_SUPPORTED_MOLEDITPY_VERSION = "..."` (e.g. `>=5.0.0, <6.0.0`)
+     * `PLUGIN_SUPPORTED_PYTHON_VERSION = "..."` (e.g. `>=3.10, <3.15`)
    * **Optional constants (declare if applicable):**
      * `PLUGIN_LICENSE = "..."` (SPDX identifier, e.g. `LGPL-3.0-or-later`, `MIT`)
-     * `PLUGIN_SUPPORTED_PYTHON_VERSION = "..."` (e.g. `>=3.10, <3.15`; visible plugins default to this if omitted)
      * `PLUGIN_TAGS = [...]` (e.g. `["Visualization", "Analysis"]`)
      * `PLUGIN_DEPENDENCIES = [...]` (e.g. `["numpy>=1.20", "rdkit>=2022.03"]`)
      * `PLUGIN_OPTIONAL_DEPENDENCIES = [...]` (optional, for extra-feature packages)
