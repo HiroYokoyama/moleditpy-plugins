@@ -18,7 +18,7 @@ Please provide the details below to request the registration of a new plugin or 
 ### 2. Plugin Information
 * **Plugin Name:** 
 * **Plugin ID:** 
-  *(Unique lowercase identifier, e.g. `my_awesome_plugin`. For new plugins, if left blank, this will automatically be derived from the asset filename.)*
+  *(Unique lowercase identifier, e.g. `my_awesome_plugin`. For new plugins, make it the same as the file name without `.py` or package name; if left blank, this will automatically be derived from the asset filename.)*
 
 ### 3. GitHub Repository
 Link to the public GitHub repository hosting the plugin source code:
