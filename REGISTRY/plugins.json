@@ -3075,5 +3075,32 @@
       "Linux"
     ],
     "license": "LGPL-3.0-or-later"
+  },
+  {
+    "id": "clear_without_saving",
+    "visible": true,
+    "supported_moleditpy_version": ">=5.0.0, <6.0.0",
+    "name": "Clear Without Saving",
+    "version": "2026.11.08",
+    "author": "borisiori",
+    "authorUrl": "https://github.com/borisiori",
+    "projectUrl": "https://github.com/borisiori/moleditpy-clear-without-saving",
+    "description": "Reset the 2D/3D workspace in one step (File menu, below New), skipping the unsaved-changes dialog",
+    "tags": [
+      "Utility"
+    ],
+    "dependencies": [],
+    "downloadUrl": "https://github.com/borisiori/moleditpy-clear-without-saving/releases/download/v2026.11.08/clear_without_saving.py",
+    "lastUpdated": "2026-11-09",
+    "sha256": "6a7776d456b48d020e94157661ca9b6d31b68b0ee735e141f4ae6fb796a254a3",
+    "firstAppeared": "2026-11-09",
+    "supported_python_version": ">=3.10, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ],
+    "license": "LGPL-3.0-or-later"
   }
 ]
