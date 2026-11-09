@@ -3049,5 +3049,31 @@
       "WSL"
     ],
     "license": "LGPL-3.0-or-later"
+  },
+  {
+    "id": "orca_batch_runner",
+    "visible": true,
+    "supported_moleditpy_version": ">=5.0.0, <6.0.0",
+    "name": "ORCA Batch Runner",
+    "version": "2026.11.08",
+    "author": "borisiori",
+    "authorUrl": "https://github.com/borisiori",
+    "projectUrl": "https://github.com/borisiori/moleditpy-orca-batch-runner",
+    "description": "Run ORCA calculations as a sequential job queue: load input files, follow the live output, monitor running and finished jobs, and sort or delete the results. Input generation is provided by the ORCA Input Generator Pro plugin.",
+    "tags": [
+      "Optimization"
+    ],
+    "dependencies": [
+      "PySide6-Essentials"
+    ],
+    "downloadUrl": "https://github.com/borisiori/moleditpy-orca-batch-runner/releases/download/v2026.11.08/orca_batch_runner.zip",
+    "lastUpdated": "2026-11-09",
+    "sha256": "7a5df747dfab8cf219c1c331d67c8896584c870ff2f3f2af3402069872e6ba24",
+    "firstAppeared": "2026-11-09",
+    "supported_python_version": ">=3.10, <3.15",
+    "supported_os": [
+      "Linux"
+    ],
+    "license": "LGPL-3.0-or-later"
   }
 ]
