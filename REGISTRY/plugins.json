@@ -3102,5 +3102,37 @@
       "WSL"
     ],
     "license": "LGPL-3.0-or-later"
+  },
+  {
+    "id": "vmd_tachyon_export",
+    "visible": true,
+    "supported_moleditpy_version": ">=5.0.0, <6.0.0",
+    "name": "VMD-Tachyon Export",
+    "version": "2026.11.07",
+    "author": "borisiori",
+    "authorUrl": "https://github.com/borisiori",
+    "projectUrl": "https://github.com/borisiori/moleditpy-vmd-tachyon-export",
+    "description": "Render the current molecule (and Gaussian cube data) with a local VMD installation using the Tachyon engine, producing publication-quality images plus fully editable, reproducible VMD scene projects.",
+    "tags": [
+      "File",
+      "Utility",
+      "Visualization"
+    ],
+    "dependencies": [
+      "PySide6-Essentials",
+      "numpy"
+    ],
+    "downloadUrl": "https://github.com/borisiori/moleditpy-vmd-tachyon-export/releases/download/v2026.11.07/VMD-tachyon_export.py",
+    "lastUpdated": "2026-11-09",
+    "sha256": "db557ef07b66be1bfd17029f6f45c3204f44f0ea1b5d306e2bc02e91e3a35fce",
+    "firstAppeared": "2026-11-09",
+    "supported_python_version": ">=3.12, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ],
+    "license": "LGPL-3.0-or-later"
   }
 ]
