@@ -3021,11 +3021,11 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "GAMESS Result Analyzer",
-    "version": "0.1.2",
+    "version": "0.2.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_gamess_result_analyzer",
-    "description": "UNDER DEVELOPMENT: Comprehensive analyzer for GAMESS output files (.log, .out). Includes Vibrational, MO, TDDFT, and NMR analysis.",
+    "description": "Comprehensive analyzer for GAMESS output files (.log, .out). Includes Vibrational, MO, TDDFT, and NMR analysis.",
     "tags": [
       "Analysis",
       "DFT",
@@ -3037,9 +3037,9 @@
       "matplotlib",
       "Pillow"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_gamess_result_analyzer/releases/download/v0.1.2/gamess_result_analyzer_0.1.2.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_gamess_result_analyzer/releases/download/v0.2.0/gamess_result_analyzer_0.2.0.zip",
     "lastUpdated": "2026-11-10",
-    "sha256": "fef51dc4838938299792544228e8ed6f28ae68f52632567d6a26752bb8bbab43",
+    "sha256": "6442bdd6b2793716fd83f70a967bb667401cdc0ef9c70d50642975d633efcc75",
     "firstAppeared": "2026-11-08",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
