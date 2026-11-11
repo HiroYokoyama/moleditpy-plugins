@@ -2961,19 +2961,19 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "GAMESS Input Generator Pro",
-    "version": "0.1.2",
+    "version": "0.2.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_gamess_input_generator_pro",
-    "description": "UNDER DEVELOPMENT: GAMESS (US) input generator with a group builder, live preview, presets and input loading.",
+    "description": "GAMESS (US) input generator with a group builder, live preview, presets and input loading.",
     "tags": [
       "File",
       "Generator"
     ],
     "dependencies": [],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_gamess_input_generator_pro/releases/download/v0.1.2/gamess_input_generator_pro_0.1.2.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_gamess_input_generator_pro/releases/download/v0.2.0/gamess_input_generator_pro_0.2.0.zip",
     "lastUpdated": "2026-11-11",
-    "sha256": "b69c64174c033871650cfbad1c81a44676aba7a1926988298205406fe1b94f09",
+    "sha256": "c3e051361fb83363cba322f31be353628cbb2b0a5aea2e108187c5c5311c4bd5",
     "firstAppeared": "2026-11-07",
     "supported_python_version": ">=3.10, <3.15",
     "supported_os": [
