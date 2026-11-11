@@ -639,7 +639,7 @@
   },
   {
     "id": "gaussian_freq_analyzer",
-    "visible": true,
+    "visible": false,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Gaussian Freq Analyzer",
     "version": "2026.11.05",
@@ -668,11 +668,12 @@
       "Linux",
       "WSL"
     ],
-    "license": "LGPL-3.0-or-later"
+    "license": "LGPL-3.0-or-later",
+    "migration_to": "gaussian_result_analyzer"
   },
   {
     "id": "orca_freq_analyzer",
-    "visible": true,
+    "visible": false,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "ORCA Freq Analyzer",
     "version": "2026.11.05",
@@ -701,7 +702,8 @@
       "Linux",
       "WSL"
     ],
-    "license": "LGPL-3.0-or-later"
+    "license": "LGPL-3.0-or-later",
+    "migration_to": "orca_result_analyzer"
   },
   {
     "id": "paste_xyz",
@@ -1019,7 +1021,7 @@
   },
   {
     "id": "gamess_input_generator",
-    "visible": true,
+    "visible": false,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "GAMESS Input Generator",
     "version": "2026.10.19",
@@ -1045,7 +1047,8 @@
       "Linux",
       "WSL"
     ],
-    "license": "LGPL-3.0-or-later"
+    "license": "LGPL-3.0-or-later",
+    "migration_to": "gamess_input_generator_pro"
   },
   {
     "id": "pyscf_input_generator",
@@ -1338,7 +1341,7 @@
   },
   {
     "id": "gaussian_mo_analyzer",
-    "visible": true,
+    "visible": false,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Gaussian MO Analyzer",
     "version": "2026.10.31",
@@ -1369,11 +1372,12 @@
       "WSL"
     ],
     "license": "LGPL-3.0-or-later",
-    "sourcePath": "../plugins/Gaussian_MO_Analyzer/gaussian_fchk_mo_analyzer.zip"
+    "sourcePath": "../plugins/Gaussian_MO_Analyzer/gaussian_fchk_mo_analyzer.zip",
+    "migration_to": "gaussian_result_analyzer"
   },
   {
     "id": "gaussian_fchk_loader",
-    "visible": true,
+    "visible": false,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Gaussian FCHK Loader",
     "version": "2026.10.19",
@@ -1398,7 +1402,8 @@
       "Linux",
       "WSL"
     ],
-    "license": "LGPL-3.0-or-later"
+    "license": "LGPL-3.0-or-later",
+    "migration_to": "gaussian_result_analyzer"
   },
   {
     "id": "settings_saver",
