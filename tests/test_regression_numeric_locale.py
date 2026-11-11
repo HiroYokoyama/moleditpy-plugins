@@ -89,19 +89,6 @@ def test_cube_viewers_keep_fractional_coordinates(path):
         assert_ethanol(mod.mol_from_cube_atoms(ATOMS))
 
 
-def test_gaussian_mo_reader_keeps_fractional_coordinates():
-    with mocks_with_real_numpy():
-        mod = load_plugin(ROOT / "Gaussian_MO_Analyzer/gaussian_fchk_mo_analyzer/analyzer.py")
-    reader = mod.FCHKReader.__new__(mod.FCHKReader)
-    reader.data = {
-        "Atomic numbers": np.array([z for z, _ in ATOMS]),
-        "Current cartesian coordinates": (
-            np.array([p for _, p in ATOMS]) / 0.529177249
-        ).ravel(),
-    }
-    with comma_numeric_locale():
-        assert_ethanol(reader.get_rdkit_mol())
-
 
 def test_animated_xyz_giffer_frame_keeps_fractional_coordinates():
     # AnimatedXYZPlayer derives from a mocked QDialog, so take the method by AST.

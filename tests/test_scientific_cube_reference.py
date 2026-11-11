@@ -2,7 +2,6 @@
 
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
@@ -14,7 +13,6 @@ PATHS = [
     ROOT / "Cube_File_Viewer_Advanced/cube_viewer_advanced.py",
     ROOT / "Mapped_Cube_Viewer/mapped_cube_viewer.py",
     ROOT / "Orbital_Comparator/orbital_comparator.py",
-    ROOT / "Gaussian_MO_Analyzer/gaussian_fchk_mo_analyzer/vis.py",
 ]
 
 
@@ -55,11 +53,7 @@ def test_skew_grid_matches_independent_affine_field(path, angstrom, datasets, tm
         module = load_plugin(path)
     module.np = np
     module.pv = SimpleNamespace(StructuredGrid=Grid)
-    if path.name == "vis.py":
-        viewer = module.CubeVisualizer(MagicMock())
-        meta = viewer._parse_cube(source)
-        grid = viewer._build_grid(meta)
-    elif path.name == "orbital_comparator.py":
+    if path.name == "orbital_comparator.py":
         meta = module.parse_cube(source)
         grid = module.build_grid(meta)
     else:

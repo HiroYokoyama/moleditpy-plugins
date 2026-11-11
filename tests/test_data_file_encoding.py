@@ -31,10 +31,6 @@ DATA_FILE_IO = [
     ("Cube_File_Viewer", "cube_viewer.py"),
     ("Cube_File_Viewer_Advanced", "cube_viewer_advanced.py"),
     ("Mapped_Cube_Viewer", "mapped_cube_viewer.py"),
-    ("Gaussian_Freq_Analyzer", "gaussian_fchk_freq_analyzer.py"),
-    ("Gaussian_MO_Analyzer", "gaussian_fchk_mo_analyzer/analyzer.py"),
-    ("Gaussian_MO_Analyzer", "gaussian_fchk_mo_analyzer/vis.py"),
-    ("ORCA_Freq_Analyzer", "orca_out_freq_analyzer.py"),
     ("Molecule_Comparator", "molecule_comparator.py"),
 ]
 

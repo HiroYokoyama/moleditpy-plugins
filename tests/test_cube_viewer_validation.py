@@ -15,7 +15,6 @@ PATHS = (
     ROOT / "plugins/Cube_File_Viewer_Advanced/cube_viewer_advanced.py",
     ROOT / "plugins/Mapped_Cube_Viewer/mapped_cube_viewer.py",
     ROOT / "plugins/Orbital_Comparator/orbital_comparator.py",
-    ROOT / "plugins/Gaussian_MO_Analyzer/gaussian_fchk_mo_analyzer/vis.py",
 )
 
 
@@ -24,8 +23,8 @@ def module(request):
     with mock_optional_imports():
         mod = load_plugin(request.param)
     mod.np = np
-    if request.param.name in ("orbital_comparator.py", "vis.py"):
-        parser = mod.parse_cube if request.param.name == "orbital_comparator.py" else mod.CubeVisualizer(MagicMock())._parse_cube
+    if request.param.name == "orbital_comparator.py":
+        parser = mod.parse_cube
 
         def normalized_parse(path):
             meta = parser(path)

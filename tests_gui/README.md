@@ -58,11 +58,7 @@ in [`gui_test_helpers.py`](file:///e:/Research/Calculation/moleditpy/DEV_MAIN/mo
 | Dark Mode Theme | `test_gui_plugin_dark_mode_theme.py` | module constants, `autorun()` on a real `QWidget`, `initialize()` |
 | Dummy Atom Mode | `test_gui_plugin_dummy_atom_mode.py` | `initialize()` with a real `QColor` |
 | Encrypted Project | `test_gui_plugin_encrypted_project.py` | `PmeencPlugin` (patch/unpatch with real `QAction`s) |
-| GAMESS Input Generator | `test_gui_plugin_gamess_input_generator.py` | `GamessSetupDialog` |
-| Gaussian FCHK Loader | `test_gui_plugin_gaussian_fchk_loader.py` | `FCHKLoaderDialog` |
-| Gaussian Freq Analyzer | `test_gui_plugin_gaussian_freq_analyzer.py` | `GaussianFCHKFreqAnalyzer`, `SpectrumDialog`, `FCHKParser` |
 | Gaussian Input Generator Neo (retired) | `test_gui_plugin_gaussian_input_generator_neo.py` | `RouteBuilderDialog` — whole class skipped |
-| Gaussian MO Analyzer | `test_gui_plugin_gaussian_mo_analyzer.py` | `initialize()`, `OrbitalWidget` |
 | High Resolution Imager | `test_gui_plugin_high_resolution_imager.py` | Module constants, `initialize()` (no dialog class) |
 | MOPAC Input Generator | `test_gui_plugin_mopac_input_generator.py` | `MopacSetupDialog` |
 | MS Spectrum Simulation Neo | `test_gui_plugin_ms_spectrum_simulation_neo.py` | `MSSpectrumDialog` (formula parsing, adduct deltas & combo, charge/zoom behavior, sync timer), `HistogramWidget` (real profile-peak local-maxima labels, view range) |
@@ -70,7 +66,6 @@ in [`gui_test_helpers.py`](file:///e:/Research/Calculation/moleditpy/DEV_MAIN/mo
 | Metadata Saver | `test_gui_plugin_metadata_saver.py` | `MetadataSaverDialog` + save/load handlers |
 | Molecule Comparator | `test_gui_plugin_molecule_comparator.py` | `MoleculeComparator` (list management, set-as-reference, selection state, scope, RMSD results/clipboard, cleanup, document reset) |
 | NWChem Input Generator | `test_gui_plugin_nwchem_input_generator.py` | `NwchemSetupDialog` |
-| ORCA Freq Analyzer | `test_gui_plugin_orca_freq_analyzer.py` | `OrcaOutFreqAnalyzer`, `SpectrumDialog`, `OrcaParser` |
 | Paste from ChemDraw | `test_gui_plugin_paste_from_chemdraw.py` | `reconstruct_from_flat_text()` extra edge cases |
 | Paste XYZ | `test_gui_plugin_paste_xyz.py` | `PasteXYZDialog` |
 | Plugin Installer | `test_gui_plugin_installer.py` | `PluginDetailsDialog`, `PluginInstallerWindow`, version/dependency parsing |
