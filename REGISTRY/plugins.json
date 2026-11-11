@@ -657,7 +657,7 @@
       "numpy",
       "Pillow"
     ],
-    "downloadUrl": "../plugins/Gaussian_Freq_Analyzer/gaussian_fchk_freq_analyzer.py",
+    "downloadUrl": "../plugins/_old/Gaussian_Freq_Analyzer/gaussian_fchk_freq_analyzer.py",
     "lastUpdated": "2026-11-05",
     "sha256": "e3fe1b4e91999c1b30a68eee26f7e62344398dc3578728f8746c421a533b7378",
     "firstAppeared": "2025-12-20",
@@ -691,7 +691,7 @@
       "numpy",
       "Pillow"
     ],
-    "downloadUrl": "../plugins/ORCA_Freq_Analyzer/orca_out_freq_analyzer.py",
+    "downloadUrl": "../plugins/_old/ORCA_Freq_Analyzer/orca_out_freq_analyzer.py",
     "lastUpdated": "2026-11-05",
     "sha256": "9c4f1f6d1499e203db749a6c508df49b2e025f506d54a3e08015abae51eb6cf1",
     "firstAppeared": "2025-12-20",
@@ -1036,7 +1036,7 @@
       "rdkit",
       "PySide6-Essentials"
     ],
-    "downloadUrl": "../plugins/Gamess_Input_Generator/gamess_input_generator.py",
+    "downloadUrl": "../plugins/_old/Gamess_Input_Generator/gamess_input_generator.py",
     "lastUpdated": "2026-10-19",
     "sha256": "06a969c50b936ed38af9348836f320c8bf8b77a0b28b4e5a86d2a5068a1b1f6f",
     "firstAppeared": "2026-01-03",
@@ -1372,7 +1372,7 @@
       "WSL"
     ],
     "license": "LGPL-3.0-or-later",
-    "sourcePath": "../plugins/Gaussian_MO_Analyzer/gaussian_fchk_mo_analyzer.zip",
+    "sourcePath": "../plugins/_old/Gaussian_MO_Analyzer/gaussian_fchk_mo_analyzer.zip",
     "migration_to": "gaussian_result_analyzer"
   },
   {
@@ -1391,7 +1391,7 @@
     "dependencies": [
       "PySide6-Essentials"
     ],
-    "downloadUrl": "../plugins/Gaussian_FCHK_Loader/gaussian_fchk_loader.py",
+    "downloadUrl": "../plugins/_old/Gaussian_FCHK_Loader/gaussian_fchk_loader.py",
     "lastUpdated": "2026-10-19",
     "sha256": "5d0bb5121666868722de1cc3d01473c07b604414ff38a658f55d2830d486eb3a",
     "firstAppeared": "2026-01-23",
