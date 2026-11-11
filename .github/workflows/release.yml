@@ -79,7 +79,15 @@ jobs:
             gh release create "$TAG" --verify-tag --title "$TITLE" --notes "$TITLE"
           fi
           # Deterministic output makes retries produce the same bytes.
-          gh release upload "$TAG" "$RUNNER_TEMP/plugin-packages/"*.zip --clobber
+          # A collection with no packaged plugin builds no ZIP; the release
+          # then carries only GitHub's source archive.
+          shopt -s nullglob
+          zips=("$RUNNER_TEMP/plugin-packages/"*.zip)
+          if [ "${#zips[@]}" -gt 0 ]; then
+            gh release upload "$TAG" "${zips[@]}" --clobber
+          else
+            echo "No package ZIPs to upload."
+          fi
 
       - name: Check out current main for the registry update
         uses: actions/checkout@v6
@@ -148,7 +156,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p dist
-          gh release download "$TAG" --pattern "*.zip" --dir dist --skip-existing
+          # gh fails when no asset matches, so ask first: a release without
+          # package ZIPs archives the source tarball alone.
+          zip_count=$(gh release view "$TAG" --json assets \
+            --jq '[.assets[] | select(.name | endswith(".zip"))] | length')
+          if [ "$zip_count" -gt 0 ]; then
+            gh release download "$TAG" --pattern "*.zip" --dir dist --skip-existing
+          else
+            echo "No package ZIPs on $TAG."
+          fi
           curl --fail --location --retry 3 -o "dist/source.tar.gz" \
             "https://github.com/${{ github.repository }}/archive/refs/tags/${TAG}.tar.gz"
           ls -la dist/
