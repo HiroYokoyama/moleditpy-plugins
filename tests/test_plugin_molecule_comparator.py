@@ -360,8 +360,17 @@ class _ResultsTableStub:
         self.items[(row, col)] = item
 
 
+def _mcs_text_fn():
+    return extract_function(
+        MOLECULE_COMPARATOR_PATH,
+        None,
+        "mcs_coverage_text",
+        {"MIN_MCS_COVERAGE": 0.5},
+    )
+
+
 def _update_results_table_fn():
-    globs = {"QTableWidgetItem": _ResultItem}
+    globs = {"QTableWidgetItem": _ResultItem, "mcs_coverage_text": _mcs_text_fn()}
     return extract_function(
         MOLECULE_COMPARATOR_PATH, "MoleculeComparator", "update_results_table", globs
     )
@@ -384,10 +393,23 @@ class TestUpdateResultsTable:
         assert table.items[(1, 1)].text() == "N/A"
         assert table.items[(2, 1)].text() == "-"
         assert table.items[(0, 0)].text() == "A"
+        assert table.items[(0, 2)].text() == "-"
+
+    def test_matched_atoms_column(self):
+        fn = _update_results_table_fn()
+        table = _ResultsTableStub()
+        stub = SimpleNamespace(
+            table_results=table,
+            molecules=[
+                {"name": "A", "rms": 0.1, "matched": 72, "of": 74, "loose": True},
+            ],
+        )
+        fn(stub)
+        assert table.items[(0, 2)].text() == "72/74 (loose)"
 
 
 def _copy_results_fn():
-    globs = {"QApplication": MagicMock()}
+    globs = {"QApplication": MagicMock(), "mcs_coverage_text": _mcs_text_fn()}
     return extract_function(
         MOLECULE_COMPARATOR_PATH, "MoleculeComparator", "copy_results_to_clipboard", globs
     ), globs["QApplication"]
@@ -413,7 +435,7 @@ class TestCopyResultsToClipboard:
             qapp.clipboard.return_value = clipboard
             stub = SimpleNamespace(
                 molecules=[
-                    {"name": "A", "rms": 1.5},
+                    {"name": "A", "rms": 1.5, "matched": 4, "of": 74},
                     {"name": "B", "rms": -1.0},
                 ],
                 context=MagicMock(),
@@ -421,8 +443,9 @@ class TestCopyResultsToClipboard:
             fn(stub)
 
         text = clipboard.setText.call_args[0][0]
-        assert "A\t1.5000" in text
-        assert "B\tN/A" in text
+        assert text.splitlines()[0] == "Molecule\tRMSD (\u00c5)\tMatched atoms"
+        assert "A\t1.5000\t4/74 \u26a0" in text
+        assert "B\tN/A\t-" in text
         stub.context.show_status_message.assert_called_once()
 
 
@@ -447,11 +470,16 @@ class TestSaveResultsToFile:
             MOLECULE_COMPARATOR_PATH,
             "MoleculeComparator",
             "save_results_to_file",
-            {"QFileDialog": fake_qfd, "QMessageBox": fake_qmb, "csv": __import__("csv")},
+            {
+                "QFileDialog": fake_qfd,
+                "QMessageBox": fake_qmb,
+                "csv": __import__("csv"),
+                "mcs_coverage_text": _mcs_text_fn(),
+            },
         )
         stub = SimpleNamespace(
             molecules=[
-                {"name": "Mol, A", "rms": 2.0},
+                {"name": "Mol, A", "rms": 2.0, "matched": 72, "of": 74},
                 {"name": "Mol B", "rms": None},
             ],
             mw=MagicMock(),
@@ -459,8 +487,9 @@ class TestSaveResultsToFile:
         fn(stub)
 
         content = out_file.read_text(encoding="utf-8")
-        assert '"Mol, A",2.0000' in content
-        assert "Mol B,-" in content
+        assert content.splitlines()[0] == "Molecule,RMSD (\u00c5),Matched atoms"
+        assert '"Mol, A",2.0000,72/74' in content
+        assert "Mol B,-,-" in content
         fake_qmb.information.assert_called_once()
 
 
@@ -661,3 +690,155 @@ class TestAddMoleculeFromPath:
         stub.molecules = [{"name": "existing", "mol": None, "color": "x", "rms": None}]
         fn(stub, str(xyz_file))
         assert stub.molecules[1]["color"] == DEFAULT_COLORS[1 % len(DEFAULT_COLORS)]
+
+
+# ---------------------------------------------------------------------------
+# MCS selection and coverage text (2026.11.13)
+#
+# Regression: structures without hydrogens (X-ray models before H placement,
+# XYZ imports) come out of bond perception with radicals and different bond
+# orders, so the strict MCS collapsed to ~4 atoms and the plugin reported a
+# ~0 A RMSD for a badly displaced overlay.
+# ---------------------------------------------------------------------------
+
+
+class _FakeMol:
+    def __init__(self, n):
+        self._n = n
+
+    def GetNumAtoms(self):
+        return self._n
+
+
+def _fake_fmcs(strict_atoms, loose_atoms):
+    """rdFMCS stand-in answering the strict search first, then the loose one."""
+    calls = []
+
+    def find_mcs(mols, **kwargs):
+        calls.append(kwargs)
+        loose = "atomCompare" in kwargs
+        return SimpleNamespace(numAtoms=loose_atoms if loose else strict_atoms)
+
+    fake = SimpleNamespace(
+        FindMCS=find_mcs,
+        AtomCompare=SimpleNamespace(CompareElements="elements"),
+        BondCompare=SimpleNamespace(CompareAny="any"),
+    )
+    return fake, calls
+
+
+def _find_mcs_fn(fmcs):
+    return extract_function(
+        MOLECULE_COMPARATOR_PATH,
+        None,
+        "find_mcs",
+        {"rdFMCS": fmcs, "MIN_MCS_COVERAGE": 0.5},
+    )
+
+
+class TestFindMcs:
+    def test_adequate_strict_match_is_kept_without_a_second_search(self):
+        fmcs, calls = _fake_fmcs(strict_atoms=72, loose_atoms=80)
+        res, loose = _find_mcs_fn(fmcs)(_FakeMol(82), _FakeMol(74))
+        assert (res.numAtoms, loose) == (72, False)
+        assert len(calls) == 1
+        assert calls[0]["matchValences"] is True
+
+    def test_exactly_half_coverage_is_adequate(self):
+        fmcs, calls = _fake_fmcs(strict_atoms=3, loose_atoms=6)
+        res, loose = _find_mcs_fn(fmcs)(_FakeMol(6), _FakeMol(6))
+        assert (res.numAtoms, loose) == (3, False)
+        assert len(calls) == 1
+
+    def test_small_strict_match_falls_back_to_loose(self):
+        fmcs, calls = _fake_fmcs(strict_atoms=4, loose_atoms=75)
+        res, loose = _find_mcs_fn(fmcs)(_FakeMol(82), _FakeMol(75))
+        assert (res.numAtoms, loose) == (75, True)
+        assert len(calls) == 2
+        second = calls[1]
+        assert second["matchValences"] is False
+        assert second["atomCompare"] == "elements"
+        assert second["bondCompare"] == "any"
+
+    def test_loose_search_that_is_no_larger_keeps_strict(self):
+        fmcs, _calls = _fake_fmcs(strict_atoms=4, loose_atoms=4)
+        res, loose = _find_mcs_fn(fmcs)(_FakeMol(82), _FakeMol(75))
+        assert (res.numAtoms, loose) == (4, False)
+
+    def test_empty_molecule_still_returns_a_result(self):
+        fmcs, _calls = _fake_fmcs(strict_atoms=0, loose_atoms=0)
+        res, loose = _find_mcs_fn(fmcs)(_FakeMol(0), _FakeMol(5))
+        assert (res.numAtoms, loose) == (0, False)
+
+
+class TestMcsCoverageText:
+    def test_unknown_when_nothing_matched(self):
+        fn = _mcs_text_fn()
+        assert fn({}) == "-"
+        assert fn({"matched": 0, "of": 74}) == "-"
+        assert fn({"matched": 4, "of": 0}) == "-"
+
+    def test_plain_ratio(self):
+        assert _mcs_text_fn()({"matched": 72, "of": 74}) == "72/74"
+
+    def test_loose_is_labelled(self):
+        text = _mcs_text_fn()({"matched": 72, "of": 74, "loose": True})
+        assert text == "72/74 (loose)"
+
+    def test_low_coverage_is_flagged(self):
+        assert _mcs_text_fn()({"matched": 4, "of": 74}).endswith("\u26a0")
+
+    def test_exactly_half_is_not_flagged(self):
+        assert _mcs_text_fn()({"matched": 3, "of": 6}) == "3/6"
+
+
+# Real RDKit: the case from the bug report. A probe whose bonds are all single
+# and whose atoms carry no hydrogens (what bond perception makes of a
+# hydrogen-free model) shares no strict MCS with the proper structure, yet is
+# the same graph.
+try:
+    from rdkit import Chem as _rk_Chem
+    from rdkit.Chem import rdFMCS as _rk_rdFMCS
+except ImportError:  # CI runs without rdkit installed
+    _rk_Chem = _rk_rdFMCS = None
+
+
+@pytest.mark.skipif(_rk_rdFMCS is None, reason="rdkit not installed")
+class TestFindMcsRealRdkit:
+    SMILES = "c1ccc(cc1)C(=O)Nc1ccccc1C(=O)O"
+
+    def _pair(self):
+        ref = _rk_Chem.RemoveHs(_rk_Chem.AddHs(_rk_Chem.MolFromSmiles(self.SMILES)))
+        rw = _rk_Chem.RWMol(ref)
+        for bond in rw.GetBonds():
+            bond.SetBondType(_rk_Chem.BondType.SINGLE)
+            bond.SetIsAromatic(False)
+        for atom in rw.GetAtoms():
+            atom.SetIsAromatic(False)
+            atom.SetNoImplicit(True)
+            atom.SetNumExplicitHs(0)
+        probe = rw.GetMol()
+        _rk_Chem.SanitizeMol(
+            probe, _rk_Chem.SANITIZE_ALL ^ _rk_Chem.SANITIZE_PROPERTIES
+        )
+        return ref, probe
+
+    def test_hydrogen_free_probe_matches_in_full_only_when_loose(self):
+        ref, probe = self._pair()
+        strict = _rk_rdFMCS.FindMCS(
+            [ref, probe],
+            matchValences=True,
+            ringMatchesRingOnly=True,
+            completeRingsOnly=True,
+            timeout=5,
+        )
+        assert strict.numAtoms < 0.5 * probe.GetNumAtoms()
+        res, loose = _find_mcs_fn(_rk_rdFMCS)(ref, probe)
+        assert loose is True
+        assert res.numAtoms == probe.GetNumAtoms()
+
+    def test_identical_structures_stay_strict(self):
+        ref, _probe = self._pair()
+        res, loose = _find_mcs_fn(_rk_rdFMCS)(ref, _rk_Chem.Mol(ref))
+        assert loose is False
+        assert res.numAtoms == ref.GetNumAtoms()

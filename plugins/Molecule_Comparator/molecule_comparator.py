@@ -42,11 +42,62 @@ import copy
 import logging
 
 PLUGIN_NAME = "Molecule Comparator"
-PLUGIN_VERSION = "2026.11.05"
+PLUGIN_VERSION = "2026.11.13"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Compare multiple molecules in 3D, calculate RMSD, and align them."
 PLUGIN_CONTEXT = None
+
+# An MCS that covers less than this share of the smaller molecule is not a
+# meaningful overlay: a 4-atom match fits to ~0 Å and hides a bad alignment.
+MIN_MCS_COVERAGE = 0.5
+
+
+def find_mcs(ref, probe, timeout=5):
+    """Find the MCS used for alignment. Returns (FMCS result, loose_used).
+
+    The strict search (matching valences and bond orders) runs first. Structures
+    without hydrogens -- X-ray models before H placement, XYZ imports -- come out
+    of bond perception with radicals and different bond orders, and the strict
+    search then collapses to a few atoms. If it covers less than
+    MIN_MCS_COVERAGE of the smaller molecule, retry matching elements and
+    connectivity only, and keep whichever match is larger.
+    """
+    strict = rdFMCS.FindMCS(
+        [ref, probe],
+        matchValences=True,
+        ringMatchesRingOnly=True,
+        completeRingsOnly=True,
+        timeout=timeout,
+    )
+    smaller = min(ref.GetNumAtoms(), probe.GetNumAtoms())
+    if smaller and strict.numAtoms >= MIN_MCS_COVERAGE * smaller:
+        return strict, False
+    loose = rdFMCS.FindMCS(
+        [ref, probe],
+        atomCompare=rdFMCS.AtomCompare.CompareElements,
+        bondCompare=rdFMCS.BondCompare.CompareAny,
+        matchValences=False,
+        ringMatchesRingOnly=True,
+        completeRingsOnly=True,
+        timeout=timeout,
+    )
+    if loose.numAtoms > strict.numAtoms:
+        return loose, True
+    return strict, False
+
+
+def mcs_coverage_text(entry):
+    """'72/74', '72/74 (loose)', '4/74 ⚠' for the results table; '-' if unknown."""
+    matched, total = entry.get("matched"), entry.get("of")
+    if not matched or not total:
+        return "-"
+    text = f"{matched}/{total}"
+    if entry.get("loose"):
+        text += " (loose)"
+    if matched < MIN_MCS_COVERAGE * total:
+        text += " ⚠"
+    return text
 
 
 class AlignmentWorker(QThread):
@@ -177,14 +228,10 @@ class AlignmentWorker(QThread):
                         results.append(result_entry)
                         continue
 
-                    # タイムアウトを少し短く設定 (5秒は長い場合があるため適宜調整)
-                    res = rdFMCS.FindMCS(
-                        [ref_calc, probe_calc],
-                        matchValences=True,
-                        ringMatchesRingOnly=True,
-                        completeRingsOnly=True,
-                        timeout=5,
-                    )
+                    res, loose = find_mcs(ref_calc, probe_calc)
+                    result_entry["matched"] = res.numAtoms
+                    result_entry["of"] = min(ref_calc.GetNumAtoms(), probe_calc.GetNumAtoms())
+                    result_entry["loose"] = loose
 
                     if res.numAtoms > 0:
                         patt = Chem.MolFromSmarts(res.smartsString)
@@ -585,8 +632,8 @@ class MoleculeComparator(QWidget):
 
         # Results
         self.table_results = QTableWidget()
-        self.table_results.setColumnCount(2)
-        self.table_results.setHorizontalHeaderLabels(["Molecule", "RMSD (Å)"])
+        self.table_results.setColumnCount(3)
+        self.table_results.setHorizontalHeaderLabels(["Molecule", "RMSD (Å)", "Matched atoms"])
         self.table_results.horizontalHeader().setSectionResizeMode(
             QHeaderView.ResizeMode.Stretch
         )
@@ -1112,6 +1159,8 @@ class MoleculeComparator(QWidget):
             if idx < len(self.molecules):
                 self.molecules[idx]["mol"] = res["mol"]
                 self.molecules[idx]["rms"] = res["rms"]
+                for key in ("matched", "of", "loose"):
+                    self.molecules[idx][key] = res.get(key)
 
         # self.progress_dialog.display() # Ensure events processed
         self.progress_dialog.close()
@@ -1129,7 +1178,29 @@ class MoleculeComparator(QWidget):
             message += f" ({fallbacks} matched by atom order: no bonds to compare)"
         if success_count < len(results):
             message += " — unmatched molecules show N/A; try the Atom IDs method"
+        loose = sum(1 for r in results if r.get("loose"))
+        if loose:
+            message += f"; {loose} matched ignoring valence/bond order"
+        poor = [
+            self.molecules[r["index"]]["name"]
+            for r in results
+            if r.get("matched") and r.get("of")
+            and r["matched"] < MIN_MCS_COVERAGE * r["of"]
+            and r["index"] < len(self.molecules)
+        ]
         self.context.show_status_message(message, 5000)
+        if poor:
+            # A tiny common substructure always fits to ~0 Å, so the RMSD
+            # alone looks excellent while the overlay is wrong. Say so.
+            QMessageBox.warning(
+                self,
+                "Low MCS coverage",
+                "The common substructure covers less than "
+                f"{int(MIN_MCS_COVERAGE * 100)}% of the atoms for:\n\n"
+                + "\n".join(poor)
+                + "\n\nTheir RMSD is computed on that small fragment only and "
+                "does not describe the whole molecule.",
+            )
 
     @Slot(str)
     def on_alignment_error(self, message):
@@ -1153,6 +1224,7 @@ class MoleculeComparator(QWidget):
                 else ("N/A" if rms_val == -1.0 else "-")
             )
             self.table_results.setItem(i, 1, QTableWidgetItem(rms_str))
+            self.table_results.setItem(i, 2, QTableWidgetItem(mcs_coverage_text(entry)))
 
     def copy_results_to_clipboard(self):
         """Copy results table to clipboard as tab-separated text."""
@@ -1160,7 +1232,7 @@ class MoleculeComparator(QWidget):
             return
 
         # Create tab-separated text
-        lines = ["Molecule\tRMSD (Å)"]
+        lines = ["Molecule\tRMSD (Å)\tMatched atoms"]
         for entry in self.molecules:
             name = entry["name"]
             rms_val = entry["rms"]
@@ -1169,7 +1241,7 @@ class MoleculeComparator(QWidget):
                 if rms_val is not None and rms_val >= 0
                 else ("N/A" if rms_val == -1.0 else "-")
             )
-            lines.append(f"{name}\t{rms_str}")
+            lines.append(f"{name}\t{rms_str}\t{mcs_coverage_text(entry)}")
 
         text = "\n".join(lines)
 
@@ -1200,11 +1272,11 @@ class MoleculeComparator(QWidget):
         try:
             with open(file_path, "w", encoding="utf-8", newline="") as f:
                 writer = csv.writer(f)
-                writer.writerow(["Molecule", "RMSD (Å)"])
+                writer.writerow(["Molecule", "RMSD (Å)", "Matched atoms"])
                 for entry in self.molecules:
                     rms = entry["rms"]
                     value = f"{rms:.4f}" if rms is not None and rms >= 0 else ("N/A" if rms == -1.0 else "-")
-                    writer.writerow([entry["name"], value])
+                    writer.writerow([entry["name"], value, mcs_coverage_text(entry)])
 
             # Show confirmation
             QMessageBox.information(self.mw, "Saved", f"Results saved to:\n{file_path}")

@@ -287,9 +287,9 @@ class TestComparatorResults:
         w.copy_results_to_clipboard()
         text = QApplication.clipboard().text()
         assert text.splitlines() == [
-            "Molecule\tRMSD (Å)",
-            "M0\t0.0000",
-            "M1\t1.2346",
+            "Molecule\tRMSD (Å)\tMatched atoms",
+            "M0\t0.0000\t-",
+            "M1\t1.2346\t-",
         ]
         ctx.show_status_message.assert_called_with("Results copied to clipboard", 3000)
         w.destroy()
@@ -537,6 +537,8 @@ class TestAlignmentWorkerMCS:
             _comparator,
             "rdFMCS",
             SimpleNamespace(
+                AtomCompare=SimpleNamespace(CompareElements="elements"),
+                BondCompare=SimpleNamespace(CompareAny="any"),
                 FindMCS=lambda mols, **kw: SimpleNamespace(
                     numAtoms=num_atoms, smartsString="C"
                 )
@@ -2103,3 +2105,115 @@ class TestAlignmentSafety:
             rows = list(csv.reader(handle))
         assert rows[1][0] == comp.molecules[0]["name"]
         comp.close()
+
+
+# ===========================================================================
+# MCS coverage (2026.11.13)
+#
+# Regression: for structures without hydrogens the strict MCS collapsed to a
+# handful of atoms, and the plugin reported a ~0 A RMSD for a displaced overlay
+# with no hint of how little had been matched.
+# ===========================================================================
+
+
+class TestMcsCoverage:
+    def _fmcs(self, monkeypatch, strict, loose):
+        calls = []
+
+        def find(mols, **kw):
+            calls.append(kw)
+            n = loose if "atomCompare" in kw else strict
+            return SimpleNamespace(numAtoms=n, smartsString="C")
+
+        monkeypatch.setattr(
+            _comparator,
+            "rdFMCS",
+            SimpleNamespace(
+                FindMCS=find,
+                AtomCompare=SimpleNamespace(CompareElements="elements"),
+                BondCompare=SimpleNamespace(CompareAny="any"),
+            ),
+            raising=False,
+        )
+        patch_mock_attr(monkeypatch, _comparator, "Chem", "MolFromSmarts", lambda s: "PATT")
+        patch_mock_attr(monkeypatch, _comparator, "AllChem", "AlignMol", lambda *a, **k: 0.3)
+        return calls
+
+    def _run(self, n_atoms, match):
+        ref = _WMol([_WAtom(i) for i in range(n_atoms)], matches=(match,))
+        probe = _WMol([_WAtom(i) for i in range(n_atoms)], matches=(match,))
+        worker = _comparator.AlignmentWorker(
+            ref, [(1, probe)], "Substructure (MCS)", False
+        )
+        results, err = _run_worker(worker)
+        assert err is None
+        return results[0]
+
+    def test_strict_match_records_coverage(self, qapp, monkeypatch):
+        calls = self._fmcs(monkeypatch, strict=3, loose=0)
+        entry = self._run(4, (0, 1, 2))
+        assert (entry["matched"], entry["of"], entry["loose"]) == (3, 4, False)
+        assert len(calls) == 1
+
+    def test_small_strict_match_falls_back_to_loose(self, qapp, monkeypatch):
+        calls = self._fmcs(monkeypatch, strict=1, loose=3)
+        entry = self._run(4, (0, 1, 2))
+        assert (entry["matched"], entry["of"], entry["loose"]) == (3, 4, True)
+        assert len(calls) == 2
+        assert calls[1]["matchValences"] is False
+
+    def test_results_table_has_matched_atoms_column(self, qapp):
+        w, _ctx = _make_comp()
+        assert w.table_results.columnCount() == 3
+        assert w.table_results.horizontalHeaderItem(2).text() == "Matched atoms"
+        _add_mols(w, 3)
+        w.molecules[1].update(rms=0.36, matched=72, of=74, loose=True)
+        w.molecules[2].update(rms=0.02, matched=4, of=74, loose=False)
+        w.update_results_table()
+        assert w.table_results.item(0, 2).text() == "-"
+        assert w.table_results.item(1, 2).text() == "72/74 (loose)"
+        assert w.table_results.item(2, 2).text().startswith("4/74")
+        w.destroy()
+
+    def _finish(self, w, results):
+        w.progress_dialog = MagicMock()
+        w.progress_dialog.wasCanceled.return_value = False
+        w.on_alignment_finished(results)
+
+    def test_low_coverage_warns_naming_the_molecule(self, qapp):
+        w, ctx = _make_comp()
+        _add_mols(w, 3)
+        self._finish(
+            w,
+            [
+                {"index": 1, "mol": MagicMock(), "rms": 0.02, "matched": 4, "of": 74, "loose": False},
+                {"index": 2, "mol": MagicMock(), "rms": 0.36, "matched": 72, "of": 74, "loose": True},
+            ],
+        )
+        warning = _comparator.QMessageBox.warning
+        warning.assert_called_once()
+        title, text = warning.call_args[0][1], warning.call_args[0][2]
+        assert title == "Low MCS coverage"
+        assert "M1" in text and "M2" not in text
+        status = ctx.show_status_message.call_args[0][0]
+        assert "1 matched ignoring valence/bond order" in status
+        w.destroy()
+
+    def test_adequate_coverage_does_not_warn(self, qapp):
+        w, ctx = _make_comp()
+        _add_mols(w, 2)
+        self._finish(
+            w,
+            [{"index": 1, "mol": MagicMock(), "rms": 0.4, "matched": 3, "of": 6, "loose": False}],
+        )
+        _comparator.QMessageBox.warning.assert_not_called()
+        assert "ignoring valence" not in ctx.show_status_message.call_args[0][0]
+        w.destroy()
+
+    def test_atom_ids_result_without_coverage_does_not_warn(self, qapp):
+        w, _ctx = _make_comp()
+        _add_mols(w, 2)
+        self._finish(w, [{"index": 1, "mol": MagicMock(), "rms": 0.4}])
+        _comparator.QMessageBox.warning.assert_not_called()
+        assert w.molecules[1]["matched"] is None
+        w.destroy()
