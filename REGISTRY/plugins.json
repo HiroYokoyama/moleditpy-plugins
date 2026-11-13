@@ -2989,7 +2989,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Gaussian Result Analyzer",
-    "version": "0.3.1",
+    "version": "1.0.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_gaussian_result_analyzer",
@@ -3008,9 +3008,9 @@
     "optional_dependencies": [
       "nmrsim"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_gaussian_result_analyzer/releases/download/v0.3.1/gaussian_result_analyzer_0.3.1.zip",
-    "lastUpdated": "2026-11-11",
-    "sha256": "3f563accc93db4e3b87e339f8a1dcae9d861216a66fd8920723338cdba77b020",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_gaussian_result_analyzer/releases/download/v1.0.0/gaussian_result_analyzer_1.0.0.zip",
+    "lastUpdated": "2026-11-13",
+    "sha256": "2d0aef744fda2cfff1ca98e0ed626889753a9d25d927d044dd0c71d0c49b324b",
     "firstAppeared": "2026-11-08",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
