@@ -994,7 +994,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "MOPAC Input Generator",
-    "version": "2026.10.19",
+    "version": "2026.11.14",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates input files for MOPAC semi-empirical quantum chemistry calculations.",
@@ -1007,8 +1007,8 @@
       "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/Mopac_Input_Generator/mopac_input_generator.py",
-    "lastUpdated": "2026-10-19",
-    "sha256": "2f2110acdc2fef5db5a080b3855594d5a3fd1993e454ede2d9117b7feeb47727",
+    "lastUpdated": "2026-11-14",
+    "sha256": "77aab5468d79ac47b4b1de11d73ae5f435ee96c5eca8cb6cb20455daf969b70e",
     "firstAppeared": "2026-01-03",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1055,7 +1055,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "PySCF Input Generator",
-    "version": "2026.10.19",
+    "version": "2026.11.14",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates Python scripts for PySCF quantum chemistry calculations.",
@@ -1069,8 +1069,8 @@
       "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/PySCF_Input_Generator/pyscf_input_generator.py",
-    "lastUpdated": "2026-10-19",
-    "sha256": "0d961fba0bb70231d3c777fbb544b2f5e72b6256fd28933ee150098e237a0a55",
+    "lastUpdated": "2026-11-14",
+    "sha256": "016302d6f194f61c6118271e1086141c0542746431779c42c8cfe1edf89fc1ea",
     "firstAppeared": "2026-01-03",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1086,7 +1086,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Psi4 Input Generator",
-    "version": "2026.10.19",
+    "version": "2026.11.14",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates input files for Psi4 quantum chemistry calculations.",
@@ -1099,8 +1099,8 @@
       "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/Psi4_Input_Generator/psi4_input_generator.py",
-    "lastUpdated": "2026-10-19",
-    "sha256": "c97268fe6885e3a1e412361630a62584dd87fff03a374dc13b198500693c1ac4",
+    "lastUpdated": "2026-11-14",
+    "sha256": "6eed850b891a40e3ff73fbb0d0e2a8b8404ffda92e8c33b0e12fbebe634bcad6",
     "firstAppeared": "2026-01-03",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1146,7 +1146,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "NWChem Input Generator",
-    "version": "2026.10.19",
+    "version": "2026.11.14",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Generates input files for NWChem quantum chemistry calculations.",
@@ -1159,8 +1159,8 @@
       "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/NWChem_Input_Generator/nwchem_input_generator.py",
-    "lastUpdated": "2026-10-19",
-    "sha256": "0ffd77efae9e29a55021dd883ce1cc86a4bfc9f0d51324b8b0bde9af57782de9",
+    "lastUpdated": "2026-11-14",
+    "sha256": "ae9fde7fdb032e5a2393cc3693225d7ace3a440f854636f191abbc189131de96",
     "firstAppeared": "2026-01-03",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
