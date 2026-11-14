@@ -24,14 +24,40 @@ from PySide6.QtCore import Qt
 from rdkit import Chem
 
 PLUGIN_NAME = "MOPAC Input Generator"
-PLUGIN_VERSION = "2026.10.19"
+PLUGIN_VERSION = "2026.11.14"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Generates input files for MOPAC semi-empirical quantum chemistry calculations."
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "mopac_input_generator.json")
 
 
+JOB_MANAGER_PLUGIN_NAME = "Job Manager"
+
+
+def find_job_manager(main_window):
+    """The Job Manager module when it is installed and offers submit_file, else None.
+
+    Plugins cannot import each other by name, so Job Manager is found in the
+    host's plugin list and recognized by its public ``submit_file`` entry point.
+    """
+    manager = getattr(main_window, "plugin_manager", None)
+    for record in getattr(manager, "plugins", None) or []:
+        try:
+            if record.get("name") != JOB_MANAGER_PLUGIN_NAME:
+                continue
+            module = record.get("module")
+        except AttributeError:
+            continue
+        if module is not None and callable(getattr(module, "submit_file", None)):
+            return module
+    return None
+
+
 class MopacSetupDialog(QDialog):
+    saved_path = None  # the last file written by save_file
+    _saved_preview = None  # the preview text when it was written
+    _quiet_save = False  # skip the "File saved" box when submitting
+
     def __init__(self, parent=None, mol=None, filename=None):
         super().__init__(parent)
         self.setWindowTitle(PLUGIN_NAME)
@@ -161,6 +187,16 @@ class MopacSetupDialog(QDialog):
         self.btn_save = QPushButton("Save Input File...")
         self.btn_save.clicked.connect(self.save_file)
         self.btn_save.setStyleSheet("font-weight: bold; padding: 5px;")
+        self.btn_submit = QPushButton("Submit to Cluster...")
+        self.btn_submit.clicked.connect(self.submit_to_cluster)
+        self.btn_submit.setStyleSheet("padding: 5px;")
+        self.btn_submit.setToolTip(
+            "Save the input and hand it to the Job Manager plugin, which uploads "
+            "and submits it to a remote cluster."
+        )
+        # Only meaningful with Job Manager installed; otherwise it is not shown.
+        self.btn_submit.setVisible(find_job_manager(self.parent()) is not None)
+        btn_layout.addWidget(self.btn_submit)
         btn_layout.addWidget(self.btn_save)
         layout.addLayout(btn_layout)
 
@@ -287,6 +323,41 @@ class MopacSetupDialog(QDialog):
             self._generation_error = str(exc)
             self.preview_text.setText(f"Invalid input: {exc}")
 
+    def _saved_is_current(self):
+        return (
+            bool(self.saved_path)
+            and os.path.isfile(self.saved_path)
+            and self.preview_text.toPlainText() == self._saved_preview
+        )
+
+    def submit_to_cluster(self):
+        """Hand the saved input to Job Manager. Saves first when needed."""
+        if not self._saved_is_current():
+            self._quiet_save = True
+            try:
+                self.save_file()
+            finally:
+                self._quiet_save = False
+            if not self._saved_is_current():
+                return  # the save was cancelled or failed
+        path = self.saved_path
+        name = os.path.splitext(os.path.basename(path))[0]
+        module = find_job_manager(self.parent())
+        try:
+            accepted = module is not None and bool(module.submit_file(path, name=name))
+        except Exception:
+            logging.warning("Could not hand the input to Job Manager", exc_info=True)
+            accepted = False
+        if not accepted:
+            QMessageBox.warning(
+                self,
+                PLUGIN_NAME,
+                "Job Manager could not accept the file. Check that the plugin is "
+                "installed and enabled.",
+            )
+            return
+        self.accept()
+
     def save_file(self):
         # Use content from preview text to allow manual edits
         content = self.preview_text.toPlainText()
@@ -305,7 +376,10 @@ class MopacSetupDialog(QDialog):
             try:
                 with open(path, "w", encoding="utf-8", newline="\n") as f:
                     f.write(content)
-                QMessageBox.information(self, "Success", f"File saved to {path}")
+                self.saved_path = path
+                self._saved_preview = self.preview_text.toPlainText()
+                if not getattr(self, "_quiet_save", False):
+                    QMessageBox.information(self, "Success", f"File saved to {path}")
                 # Do not close dialog automatically
             except (OSError, TypeError, ValueError) as e:
                 QMessageBox.critical(self, "Error", str(e))
