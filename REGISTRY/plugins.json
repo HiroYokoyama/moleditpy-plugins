@@ -3139,5 +3139,37 @@
       "WSL"
     ],
     "license": "LGPL-3.0-or-later"
+  },
+  {
+    "id": "gltf_exporter",
+    "visible": true,
+    "supported_moleditpy_version": ">=5.0.0, <6.0.0",
+    "name": "glTF Exporter",
+    "version": "1.0.0",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "projectUrl": "https://github.com/HiroYokoyama/moleditpy_gltf_exporter",
+    "description": "Export the 3D view as a glTF 2.0 model (.glb or .gltf) with its colors, transparency and camera.",
+    "tags": [
+      "File",
+      "Visualization"
+    ],
+    "dependencies": [
+      "numpy",
+      "PySide6-Essentials",
+      "pyvista"
+    ],
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_gltf_exporter/releases/download/v1.0.0/gltf_exporter_1.0.0.zip",
+    "lastUpdated": "2026-11-14",
+    "sha256": "050e51459506e126f68e9a933d75b7c51c2aec2a4bed9e7d44a434668bb66c6e",
+    "firstAppeared": "2026-11-14",
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ],
+    "license": "NOASSERTION"
   }
 ]
