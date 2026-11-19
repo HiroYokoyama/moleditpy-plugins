@@ -1467,7 +1467,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "ORCA Result Analyzer",
-    "version": "5.2.1",
+    "version": "5.2.2",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Comprehensive analyzer for ORCA output files (.out). Includes Vibrational, MO, TDDFT, and NMR analysis.",
@@ -1485,10 +1485,10 @@
     "optional_dependencies": [
       "nmrsim"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin/releases/download/v5.2.1/orca_result_analyzer_5.2.1.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin/releases/download/v5.2.2/orca_result_analyzer_5.2.2.zip",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_orca_result_analyzer_plugin",
-    "lastUpdated": "2026-11-18",
-    "sha256": "da88599dfb66adf32f05e1a488490b74e61d91b5e1bbb6648727f39fd9d0e0fa",
+    "lastUpdated": "2026-11-19",
+    "sha256": "47392463637ec26d263cdebaa2c591e71001727f283a7a2983fcba3b9c94afec",
     "firstAppeared": "2026-01-27",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
