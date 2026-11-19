@@ -3026,7 +3026,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "GAMESS Result Analyzer",
-    "version": "1.2.4",
+    "version": "1.3.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_gamess_result_analyzer",
@@ -3042,9 +3042,9 @@
       "matplotlib",
       "Pillow"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_gamess_result_analyzer/releases/download/v1.2.4/gamess_result_analyzer_1.2.4.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_gamess_result_analyzer/releases/download/v1.3.0/gamess_result_analyzer_1.3.0.zip",
     "lastUpdated": "2026-11-19",
-    "sha256": "5de564104f00d4507ef966f238277384a9f523b11aafcb53354320e3f1948c58",
+    "sha256": "26f671ac6eeab59217d271e0998f2bf8f796bea326a53daa73604270d4ef96e0",
     "firstAppeared": "2026-11-08",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
