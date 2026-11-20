@@ -3205,7 +3205,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Reaction Energy Diagram",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_energy_diagram",
@@ -3217,9 +3217,9 @@
     "dependencies": [
       "matplotlib"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_energy_diagram/releases/download/v0.0.2/energy_diagram_0.0.2.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_energy_diagram/releases/download/v0.0.3/energy_diagram_0.0.3.zip",
     "lastUpdated": "2026-11-20",
-    "sha256": "5239cf8663c4d062757000c284facfdbec39bf4f2ec418a2427313639226310f",
+    "sha256": "775a4bb35bca1fb5933e91d122263052ca7d9d33e1f0ada6170ef06f738bad9f",
     "firstAppeared": "2026-11-20",
     "supported_python_version": ">=3.10, <3.15",
     "supported_os": [
