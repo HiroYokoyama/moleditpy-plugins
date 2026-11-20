@@ -10,6 +10,8 @@ import contextlib
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from conftest import (
     FakeMol,
     load_plugin,
@@ -365,6 +367,60 @@ class TestPovraySceneAdditionalBranches:
             assert "Bond 0 center" in scene
             assert "Bond 0 side 1" in scene
             assert "Bond 0 side 2" in scene
+
+
+class TestPovrayNonDoubleTripleBondRegression:
+    """
+    Regression: only SINGLE/AROMATIC, DOUBLE and TRIPLE bonds produced
+    cylinders, so coordination (DATIVE) bonds from MOL/SDF files, and ZERO
+    bonds, were dropped from the scene. Like the host 3D view, every other
+    bond type now exports as a single bond.
+    """
+
+    @staticmethod
+    def _scene(bond_kinds, color_map=None):
+        with povray_env() as mod:
+            import rdkit
+
+            bt = rdkit.Chem.rdchem.BondType
+            mol = _simple_mol([getattr(bt, k) for k in bond_kinds])
+            scene, _, _ = mod.generate_povray_scene(
+                mol, make_export_mw(color_map=color_map)
+            )
+            return scene
+
+    @pytest.mark.parametrize("kind", ["DATIVE", "ZERO"])
+    def test_exported_as_single_gray_cylinder(self, kind):
+        scene = self._scene((kind,))
+        assert scene.count("cylinder {") == 1
+        assert "// Bond 0 (fallback)" in scene
+        assert "color rgb <0.600, 0.600, 0.600>" in scene
+
+    @pytest.mark.parametrize("kind", ["DATIVE", "ZERO"])
+    def test_uses_uniform_host_color(self, kind):
+        scene = self._scene((kind,), color_map={"bond_0": (10, 20, 30)})
+        assert scene.count("cylinder {") == 1
+        assert "color rgb <0.039, 0.078, 0.118>" in scene
+
+    @pytest.mark.parametrize("kind", ["DATIVE", "ZERO"])
+    def test_uses_split_host_colors(self, kind):
+        scene = self._scene(
+            (kind,),
+            color_map={"bond_0_start": (255, 0, 0), "bond_0_end": (0, 255, 0)},
+        )
+        assert scene.count("cylinder {") == 2
+        assert "// Bond 0 start" in scene
+        assert "// Bond 0 end" in scene
+
+    def test_dative_bond_keeps_host_bond_counter_in_step(self):
+        scene = self._scene(
+            ("DATIVE", "DOUBLE"),
+            color_map={"bond_1_1": (255, 0, 0), "bond_1_2": (0, 0, 255)},
+        )
+        assert scene.count("cylinder {") == 3
+        assert "// Bond 0 (fallback)" in scene
+        assert "// Bond 1 segment 1" in scene
+        assert "// Bond 1 segment 2" in scene
 
 
 class TestPOVRayExportInitialize:

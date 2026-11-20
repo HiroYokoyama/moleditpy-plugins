@@ -1629,7 +1629,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Blender Export",
-    "version": "2026.10.19",
+    "version": "2026.11.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Export molecular structures as Blender Python scripts that create 3D visualizations",
@@ -1643,8 +1643,8 @@
       "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/Blender_Export/blender_export.py",
-    "lastUpdated": "2026-10-19",
-    "sha256": "c98f6da18ce0a91c4d633db7030d3da1c82113ec97924c6955ff891728f1a90f",
+    "lastUpdated": "2026-11-20",
+    "sha256": "19821223a3f4bfa45945b3d2c9b9b4a6083c316a5e1926aeb3805cb20a9a2c9f",
     "firstAppeared": "2026-02-05",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
@@ -1660,7 +1660,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "POV-Ray Export",
-    "version": "2026.10.19",
+    "version": "2026.11.20",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Export molecular structures as POV-Ray scene files for professional ray-traced rendering",
@@ -1674,8 +1674,8 @@
       "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/POV-Ray_Export/povray_export.py",
-    "lastUpdated": "2026-10-19",
-    "sha256": "0a362d43c5c9ba06ce92ef2f62b77fd1876e089d083b3368d61992656fe7860e",
+    "lastUpdated": "2026-11-20",
+    "sha256": "0d8a0ec7a59d9279e6fdae8dc09a1b1addfd558a386e1a12e92236f81fe59d18",
     "firstAppeared": "2026-02-05",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

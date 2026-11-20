@@ -9,7 +9,7 @@ Exports molecular structures as Blender Python scripts
 import logging
 
 PLUGIN_NAME = "Blender Export"
-PLUGIN_VERSION = "2026.10.19"
+PLUGIN_VERSION = "2026.11.20"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Export molecular structures as Blender Python scripts that create 3D visualizations"
@@ -427,9 +427,12 @@ def generate_blender_script(mol, mw):
                 off_dir = np.cross(v1, v_arb)
                 off_dir /= np.linalg.norm(off_dir)
 
-            if (
-                bond_type == Chem.rdchem.BondType.SINGLE
-                or bond_type == Chem.rdchem.BondType.AROMATIC
+            # Every bond type other than double or triple (single, aromatic,
+            # dative, zero, ...) is exported as one cylinder, like the host's
+            # 3D view, so coordination bonds from MOL/SDF files are kept.
+            if bond_type not in (
+                Chem.rdchem.BondType.DOUBLE,
+                Chem.rdchem.BondType.TRIPLE,
             ):
                 if f"bond_{bond_counter}" in color_map:
                     # Uniform color
