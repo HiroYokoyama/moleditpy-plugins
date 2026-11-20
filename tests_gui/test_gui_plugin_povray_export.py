@@ -238,6 +238,7 @@ def _export_mw(color_map=None):
 class TestPovRayExportDativeBonds:
     @pytest.fixture(autouse=True)
     def _qt(self, qapp, monkeypatch):
+        self._monkeypatch = monkeypatch
         from PySide6.QtWidgets import QFileDialog, QMessageBox
 
         self.critical = MagicMock()
@@ -253,7 +254,7 @@ class TestPovRayExportDativeBonds:
         ctx = MagicMock()
         ctx.get_main_window.return_value = _export_mw(color_map)
         ctx.current_molecule = mol
-        _povray.PLUGIN_CONTEXT = ctx
+        self._monkeypatch.setattr(_povray, "PLUGIN_CONTEXT", ctx)
         self._save_ret = (str(tmp_path / "scene.pov"), "")
         _povray.export_to_povray(ctx)
         self.critical.assert_not_called()

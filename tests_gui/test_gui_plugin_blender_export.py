@@ -221,6 +221,7 @@ def _export_mw(color_map=None):
 class TestBlenderExportDativeBonds:
     @pytest.fixture(autouse=True)
     def _qt(self, qapp, monkeypatch):
+        self._monkeypatch = monkeypatch
         from PySide6.QtWidgets import QFileDialog, QMessageBox
 
         self.critical = MagicMock()
@@ -236,7 +237,7 @@ class TestBlenderExportDativeBonds:
         ctx = MagicMock()
         ctx.get_main_window.return_value = _export_mw(color_map)
         ctx.current_molecule = mol
-        _blender.PLUGIN_CONTEXT = ctx
+        self._monkeypatch.setattr(_blender, "PLUGIN_CONTEXT", ctx)
         self._save_ret = (str(tmp_path / "scene.py"), "")
         _blender.export_to_blender(ctx)
         self.critical.assert_not_called()
