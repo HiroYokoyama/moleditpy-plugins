@@ -10,6 +10,7 @@ Chemistry libraries are mocked via mock_chemistry_imports().
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -174,3 +175,102 @@ class TestPovRayExportFlow:
         self._save_ret = (str(target), "")
         _povray.export_to_povray(ctx)
         assert (tmp_path / "scene.pov").exists()
+
+
+# ===========================================================================
+# Regression: dative / zero bonds through the real export, with real RDKit
+# ===========================================================================
+
+# H3N->BH3 core as MoleditPy reads it from a V3000 MOL file: bond type 9 is a
+# coordination (DATIVE) bond.
+_DATIVE_MOLBLOCK = """
+  MoleditPy
+
+  0  0  0     0  0            999 V3000
+M  V30 BEGIN CTAB
+M  V30 COUNTS 2 1 0 0 0
+M  V30 BEGIN ATOM
+M  V30 1 N 0.0 0.0 0.0 0
+M  V30 2 B 1.6 0.0 0.0 0
+M  V30 END ATOM
+M  V30 BEGIN BOND
+M  V30 1 9 1 2
+M  V30 END BOND
+M  V30 END CTAB
+M  END
+"""
+
+
+def _real_mol(kind):
+    """N-B molecule with one *kind* bond and a 3D conformer, in real RDKit."""
+    pytest.importorskip("numpy")
+    Chem = pytest.importorskip("rdkit.Chem")
+    if kind == "DATIVE":
+        mol = Chem.MolFromMolBlock(_DATIVE_MOLBLOCK, removeHs=False)
+    else:
+        from rdkit.Geometry import Point3D
+
+        rw = Chem.RWMol()
+        rw.AddAtom(Chem.Atom("N"))
+        rw.AddAtom(Chem.Atom("B"))
+        rw.AddBond(0, 1, getattr(Chem.BondType, kind))
+        conf = Chem.Conformer(2)
+        conf.SetAtomPosition(0, Point3D(0.0, 0.0, 0.0))
+        conf.SetAtomPosition(1, Point3D(1.6, 0.0, 0.0))
+        mol = rw.GetMol()
+        mol.AddConformer(conf, assignId=True)
+    assert mol.GetBondWithIdx(0).GetBondType() == getattr(Chem.BondType, kind)
+    return mol
+
+
+def _export_mw(color_map=None):
+    return SimpleNamespace(
+        init_manager=SimpleNamespace(settings={}, current_file_path=None),
+        view_3d_manager=SimpleNamespace(
+            _3d_color_map=color_map or {},
+            current_3d_style="ball_and_stick",
+            glyph_source=None,
+        ),
+        plotter=None,
+    )
+
+
+class TestPovRayExportDativeBonds:
+    @pytest.fixture(autouse=True)
+    def _qt(self, qapp, monkeypatch):
+        from PySide6.QtWidgets import QFileDialog, QMessageBox
+
+        self.critical = MagicMock()
+        monkeypatch.setattr(QMessageBox, "information", MagicMock())
+        monkeypatch.setattr(QMessageBox, "warning", MagicMock())
+        monkeypatch.setattr(QMessageBox, "critical", self.critical)
+        self._save_ret = ("", "")
+        monkeypatch.setattr(
+            QFileDialog, "getSaveFileName", lambda *a, **k: self._save_ret
+        )
+
+    def _export(self, tmp_path, mol, color_map=None):
+        ctx = MagicMock()
+        ctx.get_main_window.return_value = _export_mw(color_map)
+        ctx.current_molecule = mol
+        _povray.PLUGIN_CONTEXT = ctx
+        self._save_ret = (str(tmp_path / "scene.pov"), "")
+        _povray.export_to_povray(ctx)
+        self.critical.assert_not_called()
+        return (tmp_path / "scene.pov").read_text(encoding="utf-8")
+
+    @pytest.mark.parametrize("kind", ["DATIVE", "ZERO"])
+    def test_bond_exported_as_single_cylinder(self, tmp_path, kind):
+        scene = self._export(tmp_path, _real_mol(kind))
+        assert scene.count("cylinder {") == 1
+        assert "// Bond 0 (fallback)" in scene
+
+    def test_dative_bond_uses_host_split_colors(self, tmp_path):
+        scene = self._export(
+            tmp_path,
+            _real_mol("DATIVE"),
+            color_map={"bond_0_start": (255, 0, 0), "bond_0_end": (0, 0, 255)},
+        )
+        assert scene.count("cylinder {") == 2
+        assert "// Bond 0 start" in scene
+        assert "// Bond 0 end" in scene
