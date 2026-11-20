@@ -3199,5 +3199,35 @@
       "WSL"
     ],
     "license": "LGPL-3.0-or-later"
+  },
+  {
+    "id": "energy_diagram",
+    "visible": true,
+    "supported_moleditpy_version": ">=5.0.0, <6.0.0",
+    "name": "Reaction Energy Diagram",
+    "version": "0.0.2",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "projectUrl": "https://github.com/HiroYokoyama/moleditpy_energy_diagram",
+    "description": "Draw publication-quality reaction energy diagrams in a separate window: energies typed in or read from ORCA/Gaussian/GAMESS outputs, draggable and hideable labels, several pathways, barrier arrows and structures; saved as .pmeedg or in the project.",
+    "tags": [
+      "Visualization",
+      "Analysis"
+    ],
+    "dependencies": [
+      "matplotlib"
+    ],
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_energy_diagram/releases/download/v0.0.2/energy_diagram_0.0.2.zip",
+    "lastUpdated": "2026-11-20",
+    "sha256": "5239cf8663c4d062757000c284facfdbec39bf4f2ec418a2427313639226310f",
+    "firstAppeared": "2026-11-20",
+    "supported_python_version": ">=3.10, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ],
+    "license": "LGPL-3.0-or-later"
   }
 ]
