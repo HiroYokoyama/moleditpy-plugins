@@ -142,6 +142,44 @@ class TestBlenderScriptGeneration:
         script, _ = self._generate(bond_kinds=("TRIPLE",))
         assert script.count("obj = create_bond(") == 6
 
+    # Regression: only SINGLE/AROMATIC, DOUBLE and TRIPLE produced geometry, so
+    # coordination (DATIVE) bonds from MOL/SDF files, and ZERO bonds, were
+    # dropped from the export. Like the host 3D view, they now export as single.
+    @pytest.mark.parametrize("kind", ["DATIVE", "ZERO"])
+    def test_non_double_triple_bond_exports_as_single(self, kind):
+        script, _ = self._generate(bond_kinds=(kind,))
+        assert script.count("obj = create_bond(") == 1
+        assert "color=(0.6, 0.6, 0.6)," in script
+
+    @pytest.mark.parametrize("kind", ["DATIVE", "ZERO"])
+    def test_non_double_triple_bond_uses_uniform_host_color(self, kind):
+        script, _ = self._generate(
+            bond_kinds=(kind,), color_map={"bond_0": (255, 0, 0)}
+        )
+        assert script.count("obj = create_bond(") == 1
+        assert "color=(1.0, 0.0, 0.0)," in script
+
+    @pytest.mark.parametrize("kind", ["DATIVE", "ZERO"])
+    def test_non_double_triple_bond_uses_split_host_colors(self, kind):
+        script, _ = self._generate(
+            bond_kinds=(kind,),
+            color_map={"bond_0_start": (255, 0, 0), "bond_0_end": (0, 0, 255)},
+        )
+        assert script.count("obj = create_bond(") == 2
+        assert "color=(1.0, 0.0, 0.0)," in script
+        assert "color=(0.0, 0.0, 1.0)," in script
+
+    def test_dative_bond_keeps_host_bond_counter_in_step(self):
+        # bond_1 is the double bond after the dative one; its colour keys must
+        # still be found, so the dative bond has to advance the counter.
+        script, _ = self._generate(
+            bond_kinds=("DATIVE", "DOUBLE"),
+            color_map={"bond_1_1": (255, 0, 0), "bond_1_2": (0, 0, 255)},
+        )
+        assert script.count("obj = create_bond(") == 3
+        assert "color=(1.0, 0.0, 0.0)," in script
+        assert "color=(0.0, 0.0, 1.0)," in script
+
     def test_atom_color_map_override(self):
         script, _ = self._generate(color_map={"atom_0": (255, 0, 0)})
         assert "color=(1.0, 0.0, 0.0)," in script
