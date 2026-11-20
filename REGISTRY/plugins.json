@@ -3171,5 +3171,33 @@
       "WSL"
     ],
     "license": "LGPL-3.0-or-later"
+  },
+  {
+    "id": "atom_index_mapper",
+    "visible": true,
+    "supported_moleditpy_version": ">=5.0.0, <6.0.0",
+    "name": "Atom Index Mapper",
+    "version": "0.0.1",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "projectUrl": "https://github.com/HiroYokoyama/moleditpy_atom_index_mapper",
+    "description": "Renumber the loaded molecule to the atom order of another structure file, keeping bonds where possible (for NEB/IRC endpoints), and superimpose it onto that file by atom index at minimum RMSD.",
+    "tags": [
+      "Utility",
+      "DFT"
+    ],
+    "dependencies": [],
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_atom_index_mapper/releases/download/v0.0.1/atom_index_mapper_0.0.1.zip",
+    "lastUpdated": "2026-11-20",
+    "sha256": "d3b2eb26db6fab1ad44edb0b4cb59dd514c528c1a50b0828fea00d26a26ec0f8",
+    "firstAppeared": "2026-11-20",
+    "supported_python_version": ">=3.10, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ],
+    "license": "LGPL-3.0-or-later"
   }
 ]
