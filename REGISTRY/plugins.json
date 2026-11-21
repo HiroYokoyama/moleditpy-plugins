@@ -756,7 +756,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Plugin Installer",
-    "version": "2026.10.30",
+    "version": "2026.11.22",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "description": "Checks for updates, installs new plugins, and allows manual reinstallation.",
@@ -767,8 +767,8 @@
       "PySide6-Essentials"
     ],
     "downloadUrl": "../plugins/Plugin_Installer/plugin_installer.py",
-    "lastUpdated": "2026-10-30",
-    "sha256": "d97a0b5dfc58bb163dd70b60033567a2d95886e4f77adee7bc7d469aa06c9b25",
+    "lastUpdated": "2026-11-22",
+    "sha256": "f3227892d527a27a0349fc33d51a22d0cc76d0bb47c172b46dd2e90d84b969bb",
     "firstAppeared": "2026-01-04",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [

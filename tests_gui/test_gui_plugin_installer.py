@@ -2113,3 +2113,101 @@ def test_fetch_close_wait_timeout_preserves_worker(bare_installer, qapp):
     worker.finished.emit()
     assert not bare_installer.isVisible()
     assert bare_installer._fetch_worker is None
+
+
+# ---------------------------------------------------------------------------
+# Command line, run for real in a child process
+# ---------------------------------------------------------------------------
+
+
+def _child_env(home):
+    import os
+
+    env = dict(os.environ)
+    env.update(
+        {
+            "HOME": str(home),
+            "USERPROFILE": str(home),
+            "QT_QPA_PLATFORM": "offscreen",
+            "PYTHONIOENCODING": "utf-8",
+        }
+    )
+    return env
+
+
+def test_cli_help_runs_as_a_script(tmp_path):
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [sys.executable, str(PLUGIN_INSTALLER_PATH), "--help"],
+        capture_output=True,
+        text=True,
+        env=_child_env(tmp_path),
+        timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    for command in ("list", "check", "update", "install"):
+        assert command in result.stdout
+
+
+def test_cli_without_a_command_prints_usage(tmp_path):
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [sys.executable, str(PLUGIN_INSTALLER_PATH)],
+        capture_output=True,
+        text=True,
+        env=_child_env(tmp_path),
+        timeout=120,
+    )
+    assert result.returncode == 2
+    assert "usage: moleditpy -r plugin_installer" in result.stdout
+
+
+def test_moleditpy_run_plugin_starts_the_cli(tmp_path, app_src_path):
+    """`moleditpy -r plugin_installer --help` through the real main app."""
+    import importlib.util
+    import os
+    import shutil
+    import subprocess
+    import sys
+
+    runner = app_src_path / "moleditpy" / "plugins" / "plugin_runner.py"
+    if "def has_main_guard" not in runner.read_text(encoding="utf-8"):
+        pytest.skip("this main app cannot run single-file plugins (needs 5.3.2+)")
+    if importlib.util.find_spec("rdkit") is None:
+        pytest.skip("importing moleditpy needs rdkit")
+
+    plugin_dir = tmp_path / ".moleditpy" / "plugins"
+    plugin_dir.mkdir(parents=True)
+    shutil.copy2(PLUGIN_INSTALLER_PATH, plugin_dir / "plugin_installer.py")
+    env = _child_env(tmp_path)
+    env["PYTHONPATH"] = os.pathsep.join(
+        [str(app_src_path), env.get("PYTHONPATH", "")]
+    ).rstrip(os.pathsep)
+
+    def moleditpy(*args):
+        code = (
+            "import sys; from moleditpy.main import main; "
+            f"sys.argv = ['moleditpy', *{list(args)!r}]; main()"
+        )
+        return subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            env=env,
+            cwd=str(tmp_path),
+            timeout=300,
+        )
+
+    listed = moleditpy("--list-plugins")
+    line = next(
+        (ln for ln in listed.stdout.splitlines() if "plugin_installer" in ln), ""
+    )
+    assert "[run]" in line, listed.stdout + listed.stderr
+
+    result = moleditpy("-r", "plugin_installer", "--help")
+    assert result.returncode == 0, result.stderr
+    assert "usage: moleditpy -r plugin_installer" in result.stdout

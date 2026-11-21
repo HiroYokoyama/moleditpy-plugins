@@ -2450,3 +2450,1123 @@ class TestRegistryRetirementMetadata:
     def test_malformed_target_name_uses_reference(self):
         assert PI._migration_target_name({"migration_to": "new"}, [None,
             {"id": "new", "name": []}]) == "new"
+
+
+# ===========================================================================
+# Qt-free core shared by the dialog and the command line
+# ===========================================================================
+
+import hashlib as _hashlib
+import io as _io
+import zipfile as _zipfile
+
+
+def _sha(data: bytes) -> str:
+    return _hashlib.sha256(data).hexdigest()
+
+
+def _plugin_source(version, name="Alpha Tool"):
+    return (
+        f'PLUGIN_NAME = "{name}"\nPLUGIN_VERSION = "{version}"\n'
+        "def initialize(context):\n    pass\n"
+    ).encode()
+
+
+def _fake_response(content: bytes, length=True):
+    resp = MagicMock()
+    resp.__enter__ = lambda s: s
+    resp.__exit__ = MagicMock(return_value=False)
+    resp.headers = {"Content-Length": str(len(content))} if length else {}
+    resp.read.side_effect = [content, b""]
+    resp.status = 200
+    return resp
+
+
+class TestModuleLevelHelpers:
+    def test_compare_versions_matches_the_method(self):
+        inst = object.__new__(PI.PluginInstallerWindow)
+        for a, b in [("2.10", "2.5"), ("1.0", "1.0.0"), ("1", "2"), ("x", "y")]:
+            assert PI.compare_versions(a, b) == inst.compare_versions(a, b)
+        assert PI.compare_versions("2026.11.22", "2026.10.30") == 1
+
+    def test_compare_versions_falls_back_to_string_order(self):
+        with patch.object(PI.re, "findall", side_effect=TypeError("boom")):
+            assert PI.compare_versions("b", "a") == 1
+            assert PI.compare_versions("a", "b") == -1
+
+    def test_method_wrappers_delegate(self, monkeypatch, tmp_path):
+        inst = object.__new__(PI.PluginInstallerWindow)
+        monkeypatch.setattr(PI, "_resolve_app_package", lambda: "moleditpy_linux")
+        assert inst._get_package_name() == "moleditpy-linux"
+        f = tmp_path / "x.bin"
+        f.write_bytes(b"abc")
+        assert inst.calculate_sha256(str(f)) == _sha(b"abc")
+
+    @pytest.mark.parametrize(
+        ("url", "expected"),
+        [
+            ("https://example.com/p.py", "https://example.com/p.py"),
+            (
+                "../plugins/A/a.py",
+                "https://hiroyokoyama.github.io/moleditpy-plugins/plugins/A/a.py",
+            ),
+        ],
+    )
+    def test_resolve_download_url(self, url, expected):
+        assert PI._resolve_download_url(url) == expected
+
+    def test_download_filename_keeps_installed_single_file_name(self, tmp_path):
+        existing = tmp_path / "my_local_name.py"
+        existing.write_text("x")
+        url = "https://example.com/plugins/remote_name.py"
+        assert PI._download_filename(url, str(existing)) == "my_local_name.py"
+
+    def test_download_filename_uses_url_for_zip_and_fresh_installs(self, tmp_path):
+        existing = tmp_path / "old.py"
+        existing.write_text("x")
+        assert PI._download_filename("https://e.com/p.zip", str(existing)) == "p.zip"
+        assert PI._download_filename("https://e.com/new.py", None) == "new.py"
+        init = tmp_path / "pkg" / "__init__.py"
+        init.parent.mkdir()
+        init.write_text("")
+        assert PI._download_filename("https://e.com/new.py", str(init)) == "new.py"
+
+    def test_download_filename_defaults_when_url_has_no_name(self):
+        assert PI._download_filename("https://e.com/", None) == "plugin_update.py"
+
+    def test_fetch_registry_retries_then_gives_up(self):
+        import urllib.error
+
+        with patch(
+            "urllib.request.urlopen", side_effect=urllib.error.URLError("down")
+        ) as op, patch("time.sleep") as sleep:
+            assert PI._fetch_registry("https://example.com/r.json") == []
+        assert op.call_count == PI._FETCH_RETRIES
+        assert sleep.call_count == PI._FETCH_RETRIES - 1
+
+    def test_fetch_registry_reads_json_with_bom(self):
+        body = "﻿[{\"name\": \"A\"}]".encode("utf-8")
+        with patch("urllib.request.urlopen", return_value=_fake_response(body)):
+            assert PI._fetch_registry() == [{"name": "A"}]
+
+    def test_fetch_pypi_version(self):
+        body = json.dumps({"info": {"version": "9.9.9"}}).encode()
+        with patch("urllib.request.urlopen", return_value=_fake_response(body)):
+            assert PI._fetch_pypi_version("moleditpy") == "9.9.9"
+        with patch("urllib.request.urlopen", side_effect=OSError("x")), patch(
+            "time.sleep"
+        ):
+            assert PI._fetch_pypi_version("moleditpy") == "Unknown"
+
+    def test_worker_uses_the_shared_fetchers(self, monkeypatch):
+        monkeypatch.setattr(PI, "_fetch_pypi_version", lambda pkg: f"v-{pkg}")
+        monkeypatch.setattr(PI, "_fetch_registry", lambda url: [url])
+        worker = PI._FetchWorker("pkg", "https://r")
+        assert worker._fetch_pypi() == "v-pkg"
+        assert worker._fetch_remote() == ["https://r"]
+
+
+class TestDownloadFile:
+    def test_writes_the_file(self, tmp_path):
+        dest = tmp_path / "a.py"
+        with patch("urllib.request.urlopen", return_value=_fake_response(b"hello")):
+            assert PI._download_file("https://e.com/a.py", str(dest)) is True
+        assert dest.read_bytes() == b"hello"
+
+    def test_abort_from_progress_returns_false(self, tmp_path):
+        with patch("urllib.request.urlopen", return_value=_fake_response(b"hi")):
+            assert (
+                PI._download_file(
+                    "https://e.com/a.py", str(tmp_path / "a"), lambda r, t: False
+                )
+                is False
+            )
+
+    def test_oversized_download_raises_without_retry(self, tmp_path):
+        resp = _fake_response(b"x")
+        resp.headers = {"Content-Length": str(PI.MAX_DOWNLOAD_BYTES + 1)}
+        with patch("urllib.request.urlopen", return_value=resp) as op:
+            with pytest.raises(PI.DownloadError, match="100 MiB"):
+                PI._download_file("https://e.com/a.py", str(tmp_path / "a"))
+        assert op.call_count == 1
+
+    def test_network_failure_raises_after_retries(self, tmp_path):
+        import urllib.error
+
+        with patch(
+            "urllib.request.urlopen", side_effect=urllib.error.URLError("down")
+        ), patch("time.sleep"):
+            with pytest.raises(PI.DownloadError, match="after 3 attempts"):
+                PI._download_file("https://e.com/a.py", str(tmp_path / "a"))
+
+    def test_incomplete_download_is_retried(self, tmp_path):
+        short = _fake_response(b"abc")
+        short.headers = {"Content-Length": "10"}
+        with patch(
+            "urllib.request.urlopen", side_effect=[short, _fake_response(b"abc")]
+        ), patch("time.sleep"):
+            assert PI._download_file("https://e.com/a.py", str(tmp_path / "a"))
+
+
+def _zip_bytes(files, top="pkg"):
+    buf = _io.BytesIO()
+    with _zipfile.ZipFile(buf, "w") as z:
+        for rel, data in files.items():
+            z.writestr(f"{top}/{rel}" if top else rel, data)
+    return buf.getvalue()
+
+
+class TestInstallDownload:
+    def test_single_file_is_overwritten_in_place(self, tmp_path):
+        target = tmp_path / "plugins" / "tool.py"
+        target.parent.mkdir()
+        target.write_bytes(b"old")
+        download = tmp_path / "dl" / "tool.py"
+        download.parent.mkdir()
+        download.write_bytes(b"new")
+        host = MagicMock()
+        PI._install_download(str(download), "tool.py", str(target), str(tmp_path), host)
+        assert target.read_bytes() == b"new"
+        host.assert_not_called()
+
+    def test_single_file_falls_back_to_host_when_copy_fails(self, tmp_path):
+        target = tmp_path / "tool.py"
+        target.write_bytes(b"old")
+        download = tmp_path / "dl.py"
+        download.write_bytes(b"new")
+        host = MagicMock(return_value=(True, "ok"))
+        with patch.object(PI.shutil, "copy2", side_effect=OSError("locked")):
+            PI._install_download(
+                str(download), "tool.py", str(target), str(tmp_path), host
+            )
+        host.assert_called_once_with(str(download))
+
+    def test_folder_plugin_is_replaced_and_keeps_settings(self, tmp_path):
+        pkg = tmp_path / "plugins" / "pkg"
+        pkg.mkdir(parents=True)
+        (pkg / "__init__.py").write_text("old")
+        (pkg / "stale.py").write_text("gone")
+        (pkg / "settings.json").write_text('{"keep": 1}')
+        download = tmp_path / "pkg.zip"
+        download.write_bytes(_zip_bytes({"__init__.py": "new", "extra.py": "x"}))
+        work = tmp_path / "work"
+        work.mkdir()
+        PI._install_download(
+            str(download), "pkg.zip", str(pkg / "__init__.py"), str(work), MagicMock()
+        )
+        assert (pkg / "__init__.py").read_text() == "new"
+        assert (pkg / "extra.py").exists()
+        assert not (pkg / "stale.py").exists()
+        assert (pkg / "settings.json").read_text() == '{"keep": 1}'
+
+    def test_folder_plugin_zip_without_top_folder(self, tmp_path):
+        pkg = tmp_path / "pkg"
+        pkg.mkdir()
+        (pkg / "__init__.py").write_text("old")
+        download = tmp_path / "pkg.zip"
+        download.write_bytes(_zip_bytes({"__init__.py": "new"}, top=None))
+        work = tmp_path / "work"
+        work.mkdir()
+        overwrite = MagicMock()
+        PI._install_download(
+            str(download), "pkg.zip", str(pkg / "__init__.py"), str(work), MagicMock(),
+            overwrite_folder=overwrite,
+        )
+        source, target = overwrite.call_args.args
+        assert target == str(pkg)
+        assert os.path.basename(source) == "extracted"
+
+    def test_unsafe_zip_entry_is_rejected(self, tmp_path):
+        pkg = tmp_path / "pkg"
+        pkg.mkdir()
+        (pkg / "__init__.py").write_text("old")
+        download = tmp_path / "evil.zip"
+        download.write_bytes(_zip_bytes({"../../evil.py": "x"}, top=None))
+        work = tmp_path / "work"
+        work.mkdir()
+        with pytest.raises(ValueError, match="Unsafe zip entry"):
+            PI._install_download(
+                str(download), "evil.zip", str(pkg / "__init__.py"), str(work),
+                MagicMock(),
+            )
+        assert (pkg / "__init__.py").read_text() == "old"
+
+    def test_fresh_install_goes_through_the_host(self, tmp_path):
+        download = tmp_path / "new.py"
+        download.write_bytes(b"x")
+        host = MagicMock(return_value=(True, "Installed"))
+        pumped = []
+        PI._install_download(
+            str(download), "new.py", None, str(tmp_path), host,
+            pump=lambda: pumped.append(1),
+        )
+        host.assert_called_once_with(str(download))
+        assert pumped
+
+    def test_host_failure_raises(self, tmp_path):
+        download = tmp_path / "new.py"
+        download.write_bytes(b"x")
+        with pytest.raises(RuntimeError, match="nope"):
+            PI._install_download(
+                str(download), "new.py", None, str(tmp_path),
+                MagicMock(return_value=(False, "nope")),
+            )
+        with pytest.raises(RuntimeError, match="Host plugin installation failed"):
+            PI._install_download(
+                str(download), "new.py", None, str(tmp_path),
+                MagicMock(return_value=(False, "")),
+            )
+
+    def test_single_file_turning_into_a_package_removes_the_old_file(self, tmp_path):
+        old = tmp_path / "tool.py"
+        old.write_text("old")
+        download = tmp_path / "tool.zip"
+        download.write_bytes(b"zip")
+        PI._install_download(
+            str(download), "tool.zip", str(old), str(tmp_path),
+            MagicMock(return_value=(True, "ok")),
+        )
+        assert not old.exists()
+
+    def test_package_turning_into_a_single_file_removes_the_old_folder(
+        self, tmp_path
+    ):
+        pkg = tmp_path / "tool"
+        pkg.mkdir()
+        (pkg / "__init__.py").write_text("old")
+        (pkg / "settings.json").write_text("{}")
+        download = tmp_path / "tool.py"
+        download.write_bytes(b"new")
+        PI._install_download(
+            str(download), "tool.py", str(pkg / "__init__.py"), str(tmp_path),
+            MagicMock(return_value=(True, "ok")),
+        )
+        assert not pkg.exists()
+
+
+# ===========================================================================
+# Status classification
+# ===========================================================================
+
+
+def _remote(name="Alpha Tool", version="2.0", **extra):
+    entry = {
+        "id": name.lower().replace(" ", "_"),
+        "name": name,
+        "version": version,
+        "author": "Someone",
+        "downloadUrl": f"https://example.com/{name.lower().replace(' ', '_')}.py",
+        "sha256": "0" * 64,
+    }
+    entry.update(extra)
+    return entry
+
+
+def _local(path, name="Alpha Tool", **extra):
+    info = {"name": name, "version": "Unknown", "filepath": str(path)}
+    info.update(extra)
+    return info
+
+
+class TestClassifyPlugin:
+    def _installed(self, tmp_path, version):
+        path = tmp_path / "alpha.py"
+        path.write_bytes(_plugin_source(version))
+        return path
+
+    @pytest.mark.parametrize(
+        ("local", "remote", "status"),
+        [
+            ("1.0", "2.0", "Update Available"),
+            ("2.0", "2.0", "Up to date"),
+            ("3.0", "2.0", "Newer"),
+            ("2.0", "Unknown", "Version Mismatch"),
+        ],
+    )
+    def test_installed_statuses(self, tmp_path, local, remote, status):
+        path = self._installed(tmp_path, local)
+        row = PI._classify_plugin(
+            "Alpha Tool", _remote(version=remote), _local(path), "5.3.2", []
+        )
+        assert row["status"] == status
+        assert row["local_ver"] == local
+        assert row["can_update"] is True
+
+    def test_version_comes_from_the_file_not_the_cached_info(self, tmp_path):
+        path = self._installed(tmp_path, "1.5")
+        row = PI._classify_plugin(
+            "Alpha Tool", _remote(), _local(path, version="9.9"), "5.3.2", []
+        )
+        assert row["local_ver"] == "1.5"
+
+    def test_package_version_comes_from_local_info(self, tmp_path):
+        row = PI._classify_plugin(
+            "Alpha Tool", _remote(), _local(tmp_path / "missing", version="1.0"),
+            "5.3.2", [],
+        )
+        assert row["local_ver"] == "1.0"
+        assert row["status"] == "Update Available"
+
+    def test_not_in_registry(self, tmp_path):
+        path = self._installed(tmp_path, "1.0")
+        row = PI._classify_plugin("Alpha Tool", None, _local(path), "5.3.2", [])
+        assert row["status"] == "Not in Registry"
+        assert row["can_update"] is False
+
+    def test_stale_entry_with_migration(self, tmp_path):
+        path = self._installed(tmp_path, "1.0")
+        registry = [{"id": "beta", "name": "Beta Tool"}]
+        row = PI._classify_plugin(
+            "Alpha Tool",
+            _remote(visible=False, migration_to="beta"),
+            _local(path),
+            "5.3.2",
+            registry,
+        )
+        assert row["status"] == "Stale"
+        assert row["migration_target"] == "Beta Tool"
+
+    def test_hidden_entry_that_is_not_installed_is_skipped(self):
+        assert (
+            PI._classify_plugin("Alpha Tool", _remote(visible=False), None, "5.3.2", [])
+            is None
+        )
+
+    def test_not_installed_and_incompatible(self):
+        row = PI._classify_plugin("Alpha Tool", _remote(), None, "5.3.2", [])
+        assert row["status"] == "Not Installed"
+        assert row["can_download"] is True
+        assert row["target_file"].endswith("alpha_tool.py")
+        row = PI._classify_plugin(
+            "Alpha Tool",
+            _remote(supported_moleditpy_version=">=6.0"),
+            None,
+            "5.3.2",
+            [],
+        )
+        assert row["status"] == "Incompatible"
+        assert row["is_compatible"] is False
+
+    def test_python_and_os_requirements(self, monkeypatch):
+        monkeypatch.setattr(PI, "get_current_os", lambda: "Windows")
+        row = PI._classify_plugin(
+            "Alpha Tool",
+            _remote(supported_python_version=">=99", supported_os=["Linux"]),
+            None,
+            "5.3.2",
+            [],
+        )
+        assert row["py_compatible"] is False
+        assert row["os_compatible"] is False
+        assert row["is_compatible"] is False
+
+    @pytest.mark.parametrize(
+        ("local", "visible", "text"),
+        [
+            ("1.0", True, "Update Available (Disabled)"),
+            ("2.0", True, "Disabled"),
+            ("1.0", False, "Stale (Disabled)"),
+        ],
+    )
+    def test_disabled_status_text(self, tmp_path, local, visible, text):
+        path = self._installed(tmp_path, local)
+        row = PI._classify_plugin(
+            "Alpha Tool",
+            _remote(visible=visible),
+            _local(path, disabled=True),
+            "5.3.2",
+            [],
+        )
+        assert row["status_text"] == text
+
+    def test_author_falls_back_to_local_info(self, tmp_path):
+        path = self._installed(tmp_path, "1.0")
+        row = PI._classify_plugin(
+            "Alpha Tool", None, _local(path, author="Me"), "5.3.2", []
+        )
+        assert row["author"] == "Me"
+
+
+class TestRowColor:
+    def _row(self, status, compatible=True, disabled=False, stale=False):
+        return {
+            "status": status,
+            "is_compatible": compatible,
+            "is_disabled": disabled,
+            "is_stale": stale,
+        }
+
+    @pytest.mark.parametrize(
+        ("status", "color"),
+        [
+            ("Update Available", "#f8d7da"),
+            ("Up to date", "#d4edda"),
+            ("Newer", "#cce5ff"),
+            ("Not in Registry", "#e2e3e5"),
+            ("Stale", "#fff3cd"),
+            ("Version Mismatch", None),
+            ("Not Installed", None),
+        ],
+    )
+    def test_status_colors(self, status, color):
+        assert PI._row_color(self._row(status)) == color
+
+    def test_incompatible_and_disabled_override(self):
+        assert PI._row_color(self._row("Up to date", compatible=False)) == "#fff3cd"
+        assert PI._row_color(self._row("Up to date", disabled=True)) == "#d6d8db"
+        assert (
+            PI._row_color(self._row("Update Available", disabled=True)) == "#f8d7da"
+        )
+        assert PI._row_color(self._row("Stale", disabled=True, stale=True)) == "#fff3cd"
+
+
+# ===========================================================================
+# Command line
+# ===========================================================================
+
+
+class _Cli:
+    """A plugin folder, a registry and a fake host, wired into the CLI."""
+
+    def __init__(self, tmp_path, monkeypatch):
+        self.dir = tmp_path / "plugins"
+        self.dir.mkdir()
+        self.registry = []
+        self.installed = {}
+        self.downloads = {}
+        self.monkeypatch = monkeypatch
+        self.app_version = "5.3.2"
+        self.pypi_version = "5.3.2"
+        monkeypatch.setattr(PI, "_fetch_registry", lambda url=None: self.registry)
+        monkeypatch.setattr(PI, "_installed_plugin_infos", lambda: self.installed)
+        monkeypatch.setattr(PI, "get_app_version", lambda: self.app_version)
+        monkeypatch.setattr(PI, "get_package_name", lambda: "moleditpy")
+        monkeypatch.setattr(PI, "_fetch_pypi_version", lambda pkg: self.pypi_version)
+        monkeypatch.setattr(PI, "_download_file", self._download)
+        monkeypatch.setattr(PI, "_host_install_plugin", self._host_install)
+        self.host_installs = []
+
+    def _download(self, url, dest, on_progress=None):
+        if url not in self.downloads:
+            raise PI.DownloadError(f"Download failed:\n404 for {url}")
+        with open(dest, "wb") as f:
+            f.write(self.downloads[url])
+        return True
+
+    def _host_install(self, path):
+        self.host_installs.append(path)
+        dest = self.dir / os.path.basename(path)
+        dest.write_bytes(Path(path).read_bytes())
+        return True, f"Installed {dest.name}"
+
+    def publish(self, name, version, sha=True, **extra):
+        data = _plugin_source(version, name)
+        entry = _remote(name=name, version=version, **extra)
+        entry["sha256"] = _sha(data) if sha is True else sha
+        if sha is None:
+            del entry["sha256"]
+        self.registry.append(entry)
+        self.downloads[entry["downloadUrl"]] = data
+        return entry
+
+    def install(self, name, version, **extra):
+        path = self.dir / (name.lower().replace(" ", "_") + ".py")
+        path.write_bytes(_plugin_source(version, name))
+        self.installed[name] = _local(path, name=name, version=version, **extra)
+        return path
+
+    def run(self, *argv):
+        out, err = _io.StringIO(), _io.StringIO()
+        code = PI.cli_main(list(argv), out, err)
+        return code, out.getvalue(), err.getvalue()
+
+
+@pytest.fixture
+def cli(tmp_path, monkeypatch):
+    return _Cli(tmp_path, monkeypatch)
+
+
+def _installed_version(path):
+    return PI._read_plugin_version_ast(str(path))
+
+
+class TestCliBasics:
+    def test_no_command_prints_help(self, cli):
+        code, out, _ = cli.run()
+        assert code == PI.EXIT_USAGE
+        assert "list" in out and "update" in out and "install" in out
+
+    def test_help_exits_zero(self, cli, capsys):
+        assert PI.cli_main(["--help"]) == 0
+        assert "plugin_installer" in capsys.readouterr().out
+
+    def test_unknown_command_is_a_usage_error(self, cli):
+        assert PI.cli_main(["frobnicate"]) == PI.EXIT_USAGE
+
+    def test_unavailable_registry(self, cli):
+        cli.registry = []
+        code, _, err = cli.run("list")
+        assert code == PI.EXIT_UNAVAILABLE
+        assert "Could not fetch the plugin registry" in err
+
+    def test_non_dict_registry_entries_are_ignored(self, cli):
+        cli.publish("Alpha Tool", "2.0")
+        cli.registry.append("garbage")
+        code, out, _ = cli.run("list", "--all")
+        assert code == 0
+        assert "Alpha Tool" in out
+
+    def test_keyboard_interrupt(self, cli, monkeypatch):
+        def boom(args, out, err):
+            raise KeyboardInterrupt
+
+        monkeypatch.setattr(PI, "_cmd_list", boom)
+        code, _, err = cli.run("list")
+        assert code == PI.EXIT_FAILED
+        assert "Interrupted" in err
+
+    def test_main_guard_is_top_level(self):
+        import ast
+
+        tree = ast.parse(PLUGIN_PATH.read_text(encoding="utf-8"))
+        guards = [
+            node
+            for node in tree.body
+            if isinstance(node, ast.If)
+            and isinstance(node.test, ast.Compare)
+            and getattr(node.test.left, "id", None) == "__name__"
+        ]
+        assert len(guards) == 1
+
+    def test_the_main_apps_runner_sees_the_installer_as_runnable(self):
+        src = (
+            Path(__file__).resolve().parents[2]
+            / "python_molecular_editor"
+            / "moleditpy"
+            / "src"
+        )
+        runner = src / "moleditpy" / "plugins" / "plugin_runner.py"
+        if not runner.exists() or "def has_main_guard" not in runner.read_text(
+            encoding="utf-8"
+        ):
+            pytest.skip("main app with single-file --run-plugin support not present")
+        import ast
+
+        ns = {"ast": ast, "logging": __import__("logging")}
+        tree = ast.parse(runner.read_text(encoding="utf-8"))
+        wanted = [
+            n
+            for n in tree.body
+            if isinstance(n, ast.FunctionDef)
+            and n.name in ("_is_main_guard", "has_main_guard")
+        ]
+        exec(  # noqa: S102 - two pure functions from the main app's source
+            compile(ast.Module(body=wanted, type_ignores=[]), str(runner), "exec"),
+            ns,
+        )
+        assert ns["has_main_guard"](str(PLUGIN_PATH)) is True
+
+
+class TestCliInstalledPluginInfos:
+    def test_maps_the_hosts_plugin_list(self, monkeypatch, tmp_path):
+        from dataclasses import dataclass
+
+        @dataclass
+        class Fake:
+            name: str
+            path: str
+            display_name: str
+            version: str
+            package: bool
+            enabled: bool
+
+        plugins = [
+            Fake("a", str(tmp_path / "a.py"), "Alpha", "1.0", False, True),
+            Fake("b", str(tmp_path / "b"), "Beta", "2.0", True, False),
+            Fake("a2", str(tmp_path / "x" / "a.py"), "Alpha", "0.1", False, True),
+        ]
+        runner = types.ModuleType("moleditpy.plugins.plugin_runner")
+        runner.installed_plugins = lambda: plugins
+        monkeypatch.setitem(sys.modules, "moleditpy.plugins.plugin_runner", runner)
+        infos = PI._installed_plugin_infos()
+        assert infos["Alpha"]["filepath"] == str(tmp_path / "a.py")
+        assert infos["Alpha"]["version"] == "1.0"
+        assert infos["Beta"]["filepath"] == os.path.join(str(tmp_path / "b"), "__init__.py")
+        assert infos["Beta"]["disabled"] is True
+
+    def test_old_host_is_reported(self, monkeypatch):
+        monkeypatch.setitem(sys.modules, "moleditpy.plugins.plugin_runner", None)
+        with pytest.raises(PI._CliError, match="5.3.2 or later") as info:
+            PI._installed_plugin_infos()
+        assert info.value.code == PI.EXIT_UNAVAILABLE
+
+    def test_old_host_exit_status(self, tmp_path, monkeypatch):
+        monkeypatch.setitem(sys.modules, "moleditpy.plugins.plugin_runner", None)
+        monkeypatch.setattr(PI, "_fetch_registry", lambda url=None: [_remote()])
+        err = _io.StringIO()
+        assert PI.cli_main(["list"], _io.StringIO(), err) == PI.EXIT_UNAVAILABLE
+        assert "5.3.2" in err.getvalue()
+
+    def test_host_install_uses_the_plugin_manager(self, monkeypatch):
+        manager = MagicMock()
+        manager.return_value.install_plugin.return_value = (True, "ok")
+        pm = types.ModuleType("moleditpy.plugins.plugin_manager")
+        pm.PluginManager = manager
+        monkeypatch.setitem(sys.modules, "moleditpy.plugins.plugin_manager", pm)
+        assert PI._host_install_plugin("/tmp/x.py") == (True, "ok")
+        manager.return_value.install_plugin.assert_called_once_with("/tmp/x.py")
+
+
+class TestCliList:
+    def test_lists_installed_plugins_only_by_default(self, cli):
+        cli.publish("Alpha Tool", "2.0")
+        cli.publish("Beta Tool", "1.0")
+        cli.install("Alpha Tool", "1.0")
+        code, out, _ = cli.run("list")
+        assert code == 0
+        assert "Alpha Tool" in out
+        assert "Update Available" in out
+        assert "Beta Tool" not in out
+
+    def test_all_includes_plugins_that_are_not_installed(self, cli):
+        cli.publish("Beta Tool", "1.0")
+        code, out, _ = cli.run("list", "--all")
+        assert "Beta Tool" in out and "Not Installed" in out
+        assert "beta_tool" in out
+
+    def test_empty(self, cli):
+        cli.publish("Beta Tool", "1.0")
+        code, out, _ = cli.run("list")
+        assert code == 0
+        assert "No plugins to show." in out
+
+    def test_json(self, cli):
+        cli.publish("Alpha Tool", "2.0")
+        path = cli.install("Alpha Tool", "1.0", disabled=True)
+        code, out, _ = cli.run("list", "--json")
+        data = json.loads(out)
+        assert data == [
+            {
+                "name": "Alpha Tool",
+                "id": "alpha_tool",
+                "installed_version": "1.0",
+                "latest_version": "2.0",
+                "status": "Update Available",
+                "disabled": True,
+                "compatible": True,
+                "path": str(path),
+            }
+        ]
+
+    def test_json_for_a_plugin_outside_the_registry(self, cli):
+        cli.publish("Beta Tool", "1.0")
+        cli.install("Local Only", "0.1")
+        data = json.loads(cli.run("list", "--json")[1])
+        assert data[0]["id"] is None
+        assert data[0]["latest_version"] is None
+        assert data[0]["status"] == "Not in Registry"
+
+
+class TestCliCheck:
+    def test_up_to_date(self, cli):
+        cli.publish("Alpha Tool", "1.0")
+        cli.install("Alpha Tool", "1.0")
+        code, out, _ = cli.run("check")
+        assert code == 0
+        assert "MoleditPy 5.3.2 is up to date." in out
+        assert "All installed plugins are up to date." in out
+
+    def test_updates_and_app_update(self, cli):
+        cli.publish("Alpha Tool", "2.0")
+        cli.install("Alpha Tool", "1.0")
+        cli.pypi_version = "5.4.0"
+        code, out, _ = cli.run("check")
+        assert code == 0
+        assert "MoleditPy 5.4.0 is available" in out
+        assert "pip install --upgrade moleditpy" in out
+        assert "1 plugin update(s) available" in out
+        assert "update --all" in out
+
+    def test_exit_code_flag(self, cli):
+        cli.publish("Alpha Tool", "2.0")
+        cli.install("Alpha Tool", "1.0")
+        assert cli.run("check", "--exit-code")[0] == PI.EXIT_FAILED
+        cli.installed.clear()
+        cli.install("Alpha Tool", "2.0")
+        assert cli.run("check", "--exit-code")[0] == 0
+        cli.pypi_version = "9.0"
+        assert cli.run("check", "--exit-code")[0] == PI.EXIT_FAILED
+
+    def test_pypi_unreachable(self, cli):
+        cli.publish("Alpha Tool", "1.0")
+        cli.pypi_version = "Unknown"
+        out = cli.run("check")[1]
+        assert "could not check PyPI" in out
+
+    def test_stale_plugins_are_reported_with_migration(self, cli):
+        cli.publish("Beta Tool", "1.0")
+        cli.publish("Alpha Tool", "1.0", visible=False, migration_to="beta_tool")
+        cli.install("Alpha Tool", "1.0")
+        out = cli.run("check")[1]
+        assert "Alpha Tool is no longer offered by the registry" in out
+        assert "moved to Beta Tool" in out
+
+    def test_json(self, cli):
+        cli.publish("Alpha Tool", "2.0")
+        cli.publish("Old Tool", "1.0", visible=False)
+        cli.install("Alpha Tool", "1.0")
+        cli.install("Old Tool", "1.0")
+        cli.pypi_version = "Unknown"
+        data = json.loads(cli.run("check", "--json")[1])
+        assert data["app"] == {
+            "package": "moleditpy",
+            "installed_version": "5.3.2",
+            "latest_version": None,
+            "update_available": False,
+        }
+        assert [u["name"] for u in data["updates"]] == ["Alpha Tool"]
+        assert [s["name"] for s in data["stale"]] == ["Old Tool"]
+
+
+class TestCliUpdate:
+    def test_needs_names_or_all(self, cli):
+        code, _, err = cli.run("update")
+        assert code == PI.EXIT_USAGE
+        assert "--all" in err
+        assert cli.run("update", "x", "--all")[0] == PI.EXIT_USAGE
+
+    def test_update_all(self, cli):
+        cli.publish("Alpha Tool", "2.0")
+        cli.publish("Beta Tool", "1.0")
+        alpha = cli.install("Alpha Tool", "1.0")
+        beta = cli.install("Beta Tool", "1.0")
+        code, out, err = cli.run("update", "--all", "--yes")
+        assert (code, err) == (0, "")
+        assert _installed_version(alpha) == "2.0"
+        assert _installed_version(beta) == "1.0"
+        assert "Alpha Tool  1.0 -> 2.0" in out
+        assert "Alpha Tool: updated to 2.0." in out
+        assert "Restart MoleditPy" in out
+        assert cli.host_installs == []  # single files are overwritten in place
+
+    def test_update_all_when_nothing_to_do(self, cli):
+        cli.publish("Alpha Tool", "1.0")
+        cli.install("Alpha Tool", "1.0")
+        code, out, _ = cli.run("update", "--all")
+        assert code == 0
+        assert "All installed plugins are up to date." in out
+
+    def test_update_all_skips_stale_and_includes_disabled(self, cli):
+        cli.publish("Alpha Tool", "2.0", visible=False)
+        cli.publish("Beta Tool", "2.0")
+        alpha = cli.install("Alpha Tool", "1.0")
+        beta = cli.install("Beta Tool", "1.0", disabled=True)
+        assert cli.run("update", "--all", "--yes")[0] == 0
+        assert _installed_version(alpha) == "1.0"
+        assert _installed_version(beta) == "2.0"
+
+    def test_dry_run_changes_nothing(self, cli):
+        cli.publish("Alpha Tool", "2.0")
+        alpha = cli.install("Alpha Tool", "1.0")
+        code, out, _ = cli.run("update", "--all", "--dry-run")
+        assert code == 0
+        assert "Dry run" in out
+        assert _installed_version(alpha) == "1.0"
+
+    def test_refuses_to_prompt_without_a_terminal(self, cli, monkeypatch):
+        cli.publish("Alpha Tool", "2.0")
+        alpha = cli.install("Alpha Tool", "1.0")
+        monkeypatch.setattr(sys, "stdin", _io.StringIO("y\n"))
+        code, _, err = cli.run("update", "--all")
+        assert code == PI.EXIT_USAGE
+        assert "--yes" in err
+        assert _installed_version(alpha) == "1.0"
+
+    @pytest.mark.parametrize(("answer", "updated"), [("y\n", True), ("n\n", False)])
+    def test_prompt_on_a_terminal(self, cli, monkeypatch, answer, updated):
+        cli.publish("Alpha Tool", "2.0")
+        alpha = cli.install("Alpha Tool", "1.0")
+        stdin = _io.StringIO(answer)
+        stdin.isatty = lambda: True
+        monkeypatch.setattr(sys, "stdin", stdin)
+        code, out, _ = cli.run("update", "--all")
+        assert "Proceed? [y/N]" in out
+        assert _installed_version(alpha) == ("2.0" if updated else "1.0")
+        assert code == (0 if updated else PI.EXIT_FAILED)
+        if not updated:
+            assert "Cancelled." in out
+
+    def test_prompt_without_stdin(self, cli, monkeypatch):
+        cli.publish("Alpha Tool", "2.0")
+        cli.install("Alpha Tool", "1.0")
+        monkeypatch.setattr(sys, "stdin", None)
+        assert cli.run("update", "--all")[0] == PI.EXIT_USAGE
+
+    def test_checksum_mismatch_stops_the_update(self, cli):
+        cli.publish("Alpha Tool", "2.0", sha="f" * 64)
+        alpha = cli.install("Alpha Tool", "1.0")
+        code, _, err = cli.run("update", "--all", "-y")
+        assert code == PI.EXIT_FAILED
+        assert "SHA256 checksum mismatch" in err
+        assert "f" * 64 in err
+        assert _installed_version(alpha) == "1.0"
+
+    def test_missing_checksum_needs_allow_unverified(self, cli):
+        cli.publish("Alpha Tool", "2.0", sha=None)
+        alpha = cli.install("Alpha Tool", "1.0")
+        code, _, err = cli.run("update", "--all", "-y")
+        assert code == PI.EXIT_FAILED
+        assert "--allow-unverified" in err
+        assert _installed_version(alpha) == "1.0"
+        assert cli.run("update", "--all", "-y", "--allow-unverified")[0] == 0
+        assert _installed_version(alpha) == "2.0"
+
+    def test_incompatible_plugin_needs_force(self, cli):
+        cli.publish("Alpha Tool", "2.0", supported_moleditpy_version=">=6.0")
+        alpha = cli.install("Alpha Tool", "1.0")
+        code, _, err = cli.run("update", "--all", "-y")
+        assert code == PI.EXIT_FAILED
+        assert "requires MoleditPy >=6.0 (running 5.3.2)" in err
+        assert "--force" in err
+        assert _installed_version(alpha) == "1.0"
+        assert cli.run("update", "--all", "-y", "--force")[0] == 0
+        assert _installed_version(alpha) == "2.0"
+
+    def test_incompatible_python_and_os_are_explained(self, cli, monkeypatch):
+        monkeypatch.setattr(PI, "get_current_os", lambda: "Windows")
+        cli.publish(
+            "Alpha Tool",
+            "2.0",
+            supported_python_version=">=99",
+            supported_os=["Linux"],
+        )
+        cli.install("Alpha Tool", "1.0")
+        err = cli.run("update", "--all", "-y")[2]
+        assert "Python >=99" in err
+        assert "OS Linux (running Windows)" in err
+
+    def test_one_failure_does_not_stop_the_rest(self, cli):
+        cli.publish("Alpha Tool", "2.0", sha="0" * 64)
+        cli.publish("Beta Tool", "2.0")
+        alpha = cli.install("Alpha Tool", "1.0")
+        beta = cli.install("Beta Tool", "1.0")
+        code, out, _ = cli.run("update", "--all", "-y")
+        assert code == PI.EXIT_FAILED
+        assert _installed_version(alpha) == "1.0"
+        assert _installed_version(beta) == "2.0"
+        assert "Restart MoleditPy" in out
+
+    def test_named_update_by_id_or_any_case_name(self, cli):
+        cli.publish("Alpha Tool", "2.0")
+        cli.publish("Beta Tool", "2.0")
+        alpha = cli.install("Alpha Tool", "1.0")
+        beta = cli.install("Beta Tool", "1.0")
+        assert cli.run("update", "ALPHA_TOOL", "-y")[0] == 0
+        assert _installed_version(alpha) == "2.0"
+        assert _installed_version(beta) == "1.0"
+        assert cli.run("update", "beta tool", "-y")[0] == 0
+        assert _installed_version(beta) == "2.0"
+
+    def test_named_up_to_date_plugin_needs_reinstall(self, cli):
+        cli.publish("Alpha Tool", "2.0")
+        alpha = cli.install("Alpha Tool", "2.0")
+        alpha.write_bytes(_plugin_source("2.0") + b"# edited locally\n")
+        code, out, _ = cli.run("update", "alpha_tool", "-y")
+        assert code == 0
+        assert "up to date (2.0)" in out
+        assert "--reinstall" in out
+        assert b"edited locally" in alpha.read_bytes()
+        assert cli.run("update", "alpha_tool", "-y", "--reinstall")[0] == 0
+        assert b"edited locally" not in alpha.read_bytes()
+
+    def test_named_stale_plugin_can_be_reinstalled(self, cli):
+        cli.publish("Alpha Tool", "2.0", visible=False)
+        alpha = cli.install("Alpha Tool", "1.0")
+        assert cli.run("update", "alpha_tool", "-y")[0] == 0
+        assert _installed_version(alpha) == "1.0"
+        assert cli.run("update", "alpha_tool", "-y", "--reinstall")[0] == 0
+        assert _installed_version(alpha) == "2.0"
+
+    def test_named_plugin_that_is_not_installed(self, cli):
+        cli.publish("Alpha Tool", "2.0")
+        code, _, err = cli.run("update", "alpha_tool")
+        assert code == PI.EXIT_USAGE
+        assert "use 'install'" in err
+
+    def test_named_plugin_outside_the_registry(self, cli):
+        cli.publish("Beta Tool", "1.0")
+        cli.install("Local Only", "1.0")
+        code, _, err = cli.run("update", "local only", "-y")
+        assert code == 0
+        assert "not in the registry" in err
+
+    def test_unknown_name(self, cli):
+        cli.publish("Alpha Tool", "2.0")
+        code, _, err = cli.run("update", "nothing")
+        assert code == PI.EXIT_USAGE
+        assert "No plugin named 'nothing'" in err
+
+    def test_blank_name_matches_nothing(self, cli):
+        cli.publish("Alpha Tool", "2.0")
+        cli.registry[0]["id"] = ""
+        assert cli.run("update", " ")[0] == PI.EXIT_USAGE
+
+    def test_download_failure(self, cli):
+        entry = cli.publish("Alpha Tool", "2.0")
+        del cli.downloads[entry["downloadUrl"]]
+        cli.install("Alpha Tool", "1.0")
+        code, _, err = cli.run("update", "--all", "-y")
+        assert code == PI.EXIT_FAILED
+        assert "404" in err
+
+    def test_unsafe_url_is_refused(self, cli):
+        cli.publish("Alpha Tool", "2.0", downloadUrl="file:///etc/passwd")
+        cli.install("Alpha Tool", "1.0")
+        code, _, err = cli.run("update", "--all", "-y")
+        assert code == PI.EXIT_FAILED
+        assert "unsafe URL" in err
+
+    def test_entry_without_download_url(self, cli):
+        cli.publish("Alpha Tool", "2.0")
+        del cli.registry[0]["downloadUrl"]
+        cli.install("Alpha Tool", "1.0")
+        code, _, err = cli.run("update", "--all", "-y")
+        assert code == PI.EXIT_FAILED
+        assert "no download URL" in err
+
+    def test_install_step_failure_is_reported(self, cli, monkeypatch):
+        cli.publish("Alpha Tool", "2.0")
+        cli.install("Alpha Tool", "1.0")
+
+        def broken(*a, **k):
+            raise RuntimeError("disk full")
+
+        monkeypatch.setattr(PI, "_install_download", broken)
+        code, _, err = cli.run("update", "--all", "-y")
+        assert code == PI.EXIT_FAILED
+        assert "installation failed: disk full" in err
+
+    def test_relative_download_url_is_resolved(self, cli, monkeypatch):
+        entry = cli.publish("Alpha Tool", "2.0")
+        data = cli.downloads.pop(entry["downloadUrl"])
+        entry["downloadUrl"] = "../plugins/Alpha/alpha_tool.py"
+        cli.downloads[PI._resolve_download_url(entry["downloadUrl"])] = data
+        alpha = cli.install("Alpha Tool", "1.0")
+        assert cli.run("update", "--all", "-y")[0] == 0
+        assert _installed_version(alpha) == "2.0"
+
+
+class TestCliInstall:
+    def test_installs_through_the_host(self, cli):
+        cli.publish("Beta Tool", "1.0")
+        code, out, err = cli.run("install", "beta_tool", "-y")
+        assert (code, err) == (0, "")
+        assert len(cli.host_installs) == 1
+        assert _installed_version(cli.dir / "beta_tool.py") == "1.0"
+        assert "Beta Tool: installed to 1.0." in out
+        assert "not installed -> 1.0" in out
+
+    def test_already_installed(self, cli):
+        cli.publish("Alpha Tool", "2.0")
+        cli.install("Alpha Tool", "1.0")
+        code, out, _ = cli.run("install", "Alpha Tool", "-y")
+        assert code == 0
+        assert "already installed (1.0)" in out
+        assert cli.host_installs == []
+
+    def test_missing_dependencies_are_listed_with_a_pip_command(
+        self, cli, monkeypatch
+    ):
+        cli.publish("Beta Tool", "1.0", dependencies=["numpy>=1.20", "evil; rm"])
+        monkeypatch.setattr(PI, "check_dependency_satisfied", lambda d: False)
+        code, out, _ = cli.run("install", "beta_tool", "--dry-run")
+        assert code == 0
+        assert "missing dependencies: numpy>=1.20, evil; rm" in out
+        assert 'pip install "numpy>=1.20"' in out
+        assert "rm" not in out.split("pip install", 1)[1].splitlines()[0]
+
+    def test_missing_dependency_without_a_safe_pip_command(self, cli, monkeypatch):
+        cli.publish("Beta Tool", "1.0", dependencies=["evil; rm"])
+        monkeypatch.setattr(PI, "check_dependency_satisfied", lambda d: False)
+        out = cli.run("install", "beta_tool", "--dry-run")[1]
+        assert "missing dependencies: evil; rm" in out
+        assert "pip install" not in out
+
+    def test_satisfied_dependencies_are_not_mentioned(self, cli, monkeypatch):
+        cli.publish("Beta Tool", "1.0", dependencies=["numpy"])
+        monkeypatch.setattr(PI, "check_dependency_satisfied", lambda d: True)
+        out = cli.run("install", "beta_tool", "--dry-run")[1]
+        assert "missing dependencies" not in out
+
+    def test_incompatible_install_is_skipped(self, cli):
+        cli.publish("Beta Tool", "1.0", supported_moleditpy_version="<5")
+        code, _, err = cli.run("install", "beta_tool", "-y")
+        assert code == PI.EXIT_FAILED
+        assert "use --force to install anyway" in err
+        assert cli.host_installs == []
+
+    def test_install_needs_a_name(self, cli, capsys):
+        assert cli.run("install")[0] == PI.EXIT_USAGE
+
+
+class TestCoreEdgeCases:
+    def test_stream_larger_than_the_limit_without_a_length(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(PI, "MAX_DOWNLOAD_BYTES", 4)
+        resp = _fake_response(b"123456", length=False)
+        with patch("urllib.request.urlopen", return_value=resp):
+            with pytest.raises(PI.DownloadError, match="100 MiB"):
+                PI._download_file("https://e.com/a.py", str(tmp_path / "a"))
+
+    def test_failed_cleanup_of_the_old_form_is_only_logged(self, tmp_path, caplog):
+        old = tmp_path / "tool.py"
+        old.write_text("old")
+        download = tmp_path / "tool.zip"
+        download.write_bytes(b"zip")
+        with patch.object(PI.os, "remove", side_effect=OSError("busy")):
+            PI._install_download(
+                str(download), "tool.zip", str(old), str(tmp_path),
+                MagicMock(return_value=(True, "ok")),
+            )
+        assert "failed to remove old .py" in caplog.text
+
+        pkg = tmp_path / "pkg"
+        pkg.mkdir()
+        (pkg / "__init__.py").write_text("")
+        single = tmp_path / "pkg.py"
+        single.write_text("new")
+        with patch.object(PI.shutil, "rmtree", side_effect=OSError("busy")):
+            PI._install_download(
+                str(single), "pkg.py", str(pkg / "__init__.py"), str(tmp_path),
+                MagicMock(return_value=(True, "ok")),
+            )
+        assert "failed to remove old folder" in caplog.text
+
+    def test_settings_are_restored_after_a_host_install_into_the_folder(
+        self, tmp_path
+    ):
+        pkg = tmp_path / "pkg"
+        pkg.mkdir()
+        (pkg / "__init__.py").write_text("")
+        (pkg / "settings.json").write_text('{"a": 1}')
+
+        def host(path):
+            (pkg / "settings.json").write_text("{}")
+            return True, "ok"
+
+        download = tmp_path / "pkg.py"
+        download.write_text("new")
+        with patch.object(PI.shutil, "rmtree"):
+            PI._install_download(
+                str(download), "pkg.py", str(pkg / "__init__.py"), str(tmp_path), host
+            )
+        assert (pkg / "settings.json").read_text() == '{"a": 1}'
+
+    def test_a_stdin_read_error_counts_as_no(self, cli, monkeypatch):
+        cli.publish("Alpha Tool", "2.0")
+        alpha = cli.install("Alpha Tool", "1.0")
+        stdin = MagicMock()
+        stdin.isatty.return_value = True
+        stdin.readline.side_effect = OSError("closed")
+        monkeypatch.setattr(sys, "stdin", stdin)
+        assert cli.run("update", "--all")[0] == PI.EXIT_FAILED
+        assert _installed_version(alpha) == "1.0"
