@@ -13,7 +13,7 @@ A manual workflow (`workflow_dispatch`) used to automatically register new third
 | Input Field | Required? | Description |
 | :--- | :--- | :--- |
 | `release_url` | **Yes** | The direct download URL of the GitHub Release asset (must be a `.py` file or a `.zip` file). Format: `https://github.com/{owner}/{repo}/releases/download/{tag}/{filename}`. |
-| `plugin_id` | No | The unique ID for the plugin. For new plugins, if omitted, it will be automatically derived from the release file name (stem). |
+| `plugin_id` | No | The unique ID for the plugin. For new plugins, if omitted, it will be automatically derived from the release file name (stem). Leave it blank and name the file after the plugin instead: the ID should equal the installed file or package name (lowercase snake_case, a valid Python identifier), which is also the name `moleditpy -r` uses. |
 | `tags` | No | A comma-separated list of tags (e.g., `Analysis, Visualization`). Used only when the code declares no `PLUGIN_TAGS`; a declared value always wins. |
 | `dependencies` | No | A comma-separated list of required Python packages (e.g., `numpy, rdkit`). Used only when the code declares no `PLUGIN_DEPENDENCIES`. |
 | `optional_dependencies` | No | A comma-separated list of optional Python packages — extra features only, the plugin runs without them (e.g., `matplotlib, pillow`). Used only when the code declares no `PLUGIN_OPTIONAL_DEPENDENCIES`. |
@@ -31,7 +31,7 @@ When registering or updating a plugin, the entry in `REGISTRY/plugins.json` is g
 
 | Field in `plugins.json` | Source | How it is Derived / Formatted |
 | :--- | :--- | :--- |
-| `id` | **Input / Derived** | Used directly if `plugin_id` is supplied as a workflow input. If left blank, it is derived from the release file name (stem) converted to lowercase with dashes replaced by underscores. |
+| `id` | **Input / Derived** | Used directly if `plugin_id` is supplied as a workflow input. If left blank, it is derived from the release file name (stem) converted to lowercase with dashes replaced by underscores and a trailing version (e.g. `_0.11.0`) removed. |
 | `visible` | **Input** | Directly from the `visible` selection input in the workflow (defaults to `true`). |
 | `supported_moleditpy_version` | **Code Constant / Input / Registry** | Prioritizes: 1. `PLUGIN_SUPPORTED_MOLEDITPY_VERSION` defined at the top of the downloaded python file, 2. `supported_version` input from the workflow/CLI, 3. The existing registry value (when updating). Mandatory for visible plugins. |
 | `supported_python_version` | **Code Constant / Input / Registry / Default** | Prioritizes: 1. `PLUGIN_SUPPORTED_PYTHON_VERSION` in the downloaded code, 2. `supported_python` input from the workflow/CLI, 3. The existing registry value (when updating), 4. The default `>=3.10, <3.15` for visible plugins. |
