@@ -384,6 +384,34 @@ for `test-zenodo.yml`).
 3. Add `initialize()` smoke test to `test_initialize.py` (or its own test file for non-trivial logic).
 4. Run the registry update script to add the entry to `REGISTRY/plugins.json`.
 
+### Naming: the file name is the plugin ID
+
+A plugin has three names, and they are used in different places:
+
+| Name | Example | Used by |
+|---|---|---|
+| File stem (package: folder name) | `bond_length_table` | the install location, `moleditpy -r NAME` |
+| Registry `id` | `bond_length_table` | `moleditpy -r plugin_installer update ID`, migrations, release ZIPs |
+| `PLUGIN_NAME` | `Bond Length Table` | menus, the installer table |
+
+For a new plugin, make the registry `id` the same as the file stem. Choose the
+file stem from `PLUGIN_NAME`: lowercase snake_case, words joined with `_`, no
+abbreviation (`Bond Length Table` → `bond_length_table.py`). It must be
+lowercase and a valid Python identifier (`str.isidentifier()`): no `-`, no
+spaces, no leading digit. A name that is not an identifier can never be run with
+`moleditpy -r`, and capitals are lowercased when an ID is derived
+(`register_remote_plugin.py` `derive_plugin_id` also turns `-` into `_` and
+strips a trailing version), so the ID would no longer match the file.
+
+Leave a version suffix out of the installed name; only a release ZIP's asset
+name carries one. Do not pass a different `--plugin-id` to the registry
+scripts.
+
+Existing plugins whose ID and file differ (`conf_search` / `conformational_search`,
+`cube_viewer` / `cube_file_viewer`, `all-trans_optimizer`, `3d_molecule_on_2d`, …)
+keep their names. Renaming the file moves the installed path and the plugin's
+`settings.json`, and leaves the old file behind on users' machines.
+
 ## Relationship with the Main App
 
 Plugins are validated against the real `PluginContext` contract defined in:

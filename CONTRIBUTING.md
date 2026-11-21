@@ -121,7 +121,7 @@ All new registrations and updates to external plugins **must be requested by ope
 The `REGISTRY/plugins.json` file is the registry that the application uses to discover and install plugins. 
 
 ### Field Descriptions
-- `id`: A unique string identifier (e.g., `my_plugin_id`).
+- `id`: A unique string identifier (e.g., `my_plugin_id`). For a new plugin, make it the same as the plugin's file name without `.py` (for a package, the package folder name): lowercase snake_case taken from `PLUGIN_NAME` without abbreviation, and a valid Python identifier, with no `-`, spaces or leading digit (`Bond Length Table` -> `bond_length_table.py`, id `bond_length_table`). That name is also what `moleditpy -r NAME` runs and what `moleditpy -r plugin_installer update ID` takes, so keeping them equal means one name everywhere. Do not put a version in it; only a release ZIP's asset name carries one. Existing plugins keep their IDs and file names, because renaming the file moves users' installed copies and settings.
 - `visible`: Whether the plugin is shown in the registry interface (`true` or `false`).
 - `supported_moleditpy_version`: The supported version of MoleditPy. Required for visible plugins. Supports:
     - Wildcards (e.g., `3.*` to match any v3 version).
