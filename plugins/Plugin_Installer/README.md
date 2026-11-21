@@ -23,6 +23,36 @@ A management plugin for MoleditPy that installs, updates, and removes plugins di
 - **Optional dependencies**: `optional_dependencies` entries get their own details section — missing ones read "Not installed" (amber) with a separate copy-install-command button. They never trigger the missing-dependency prompt, so an install is never gated on a package the plugin only needs for extras.
 - **State Preservation**: Backs up and restores plugin `settings.json` when overwriting an existing installation.
 - **Startup check**: On first launch asks whether to enable automatic update checks; thereafter runs a silent background check at startup if opted in.
+- **Command line**: With MoleditPy 5.3.2 or later, `moleditpy -r plugin_installer` lists, checks, updates and installs plugins without opening the editor (see below).
+
+## Command Line (MoleditPy 5.3.2+)
+
+MoleditPy 5.3.2 runs single-file plugins that have a top-level `if __name__ == "__main__":` block, so the installer works from a terminal. It uses the same registry, compatibility rules, SHA-256 check and install steps as the dialog.
+
+```sh
+moleditpy -r plugin_installer list              # installed plugins and their status
+moleditpy -r plugin_installer list --all        # also plugins that are not installed
+moleditpy -r plugin_installer check             # MoleditPy and plugin updates
+moleditpy -r plugin_installer update --all      # update every out-of-date plugin
+moleditpy -r plugin_installer update xyz_editor # update named plugins
+moleditpy -r plugin_installer install pyscf_calculator
+```
+
+| Command | What it does |
+|---|---|
+| `list [--all] [--json]` | Name, registry id, installed and latest version, and status — the same statuses as the dialog (*Update Available*, *Up to date*, *Stale*, *Disabled*, …). |
+| `check [--json] [--exit-code]` | Reports a newer MoleditPy on PyPI, plugins with updates, and stale plugins with their replacement. `--exit-code` exits with `1` when anything can be updated. |
+| `update PLUGIN... \| --all` | Updates installed plugins. `--all` takes every plugin marked *Update Available*, disabled ones included and stale ones left out. A named plugin that is up to date is skipped unless `--reinstall` is given. |
+| `install PLUGIN...` | Installs plugins that are not installed yet, and lists missing dependencies with a `pip install` command. |
+
+- A plugin is named by its registry id (the `Id` column of `list --all`) or by its name, in any case; quote names with spaces.
+- `update` and `install` list what they will do and ask `Proceed? [y/N]`. `-y` / `--yes` answers yes; without a terminal they refuse to run unless `--yes` is given. `--dry-run` only lists.
+- A plugin that requires another MoleditPy, Python or OS is skipped with the reason; `--force` installs it anyway. A registry entry without a SHA-256 checksum is refused unless `--allow-unverified` is given. A checksum mismatch always stops that plugin.
+- Exit status: `0` success or nothing to do, `1` a plugin failed, was skipped or the confirmation was declined, `2` a usage error, `3` the registry could not be fetched or MoleditPy is older than 5.3.2.
+- An editor that is already running keeps the plugin code it loaded; restart MoleditPy after updating.
+- An installer older than 2026.11.22 has no command line; update it once from the dialog (or with `moleditpy --install-plugin`) first.
+
+The command line is `cli_main(argv)` at the end of `plugin_installer.py`. It finds installed plugins through `moleditpy.plugins.plugin_runner.installed_plugins` and installs through the host's `PluginManager.install_plugin`, and shares the module-level helpers below with the dialog.
 
 ## Entry Point
 
@@ -44,7 +74,7 @@ Exactly two network requests per check cycle (both handled by `_FetchWorker`):
 | PyPI metadata | `https://pypi.org/pypi/{package}/json` | Detect app updates |
 | Registry JSON | `https://hiroyokoyama.github.io/moleditpy-plugins/REGISTRY/plugins.json` | Plugin list and versions |
 
-Plugin downloads are a third request, one per plugin, made by `_download_chunked`.
+Plugin downloads are a third request, one per plugin, made by `_download_file` (wrapped by the dialog's `_download_chunked`). The command line makes the same requests, without the thread.
 
 ## Key Internal Components
 
@@ -58,7 +88,8 @@ Plugin downloads are a third request, one per plugin, made by `_download_chunked
 | `_on_finished(result)` | Connected to `finished` signal — runs `discover_plugins` + menu rebuild once on close |
 | `_update_status_label(count)` | Updates the status label above Update All |
 | `PluginDetailsDialog._add_dependency_section(...)` | Renders one dependency block (required or optional) and returns its missing entries |
-| `_download_chunked(url, dest, on_progress)` | 8 KB chunked download; `on_progress(received, total) -> bool` callback |
+| `_download_chunked(url, dest, on_progress)` | Dialog wrapper around `_download_file`; shows a message box on `DownloadError` |
+| `cli_main(argv=None, out=None, err=None)` | Command-line entry point (`list`, `check`, `update`, `install`); returns the exit status |
 
 ## Module-Level Helpers (unit-testable)
 
@@ -71,6 +102,12 @@ Plugin downloads are a third request, one per plugin, made by `_download_chunked
 - `get_current_os()` — this machine as one of the `supported_os` tokens
 - `is_os_compatible(current_os, supported_os)` — checks it against a registry entry's list; a missing or malformed list means compatible
 - `format_supported_os(supported_os)` — the list as displayed in the table and warning dialog
+- `compare_versions(v1, v2)` / `get_app_version()` / `get_package_name()` — version comparison and the running app's version and PyPI name
+- `_fetch_pypi_version(package)` / `_fetch_registry(url=None)` — the two network fetches, used by `_FetchWorker` and the command line
+- `_download_file(url, dest, on_progress)` — 8 KB chunked download; `on_progress(received, total) -> bool` can cancel; raises `DownloadError`
+- `_resolve_download_url(url)` / `_download_filename(final_url, target_file)` — the URL and file name a registry entry downloads to
+- `_install_download(...)` — installs a downloaded `.py` or ZIP, overwriting a folder plugin while keeping its `settings.json`
+- `_classify_plugin(name, remote_info, local_info, app_ver, registry)` — one table row (status, compatibility, stale migration target); `_row_color(row)` gives its colour
 
 ## Plugin Metadata Constants
 
