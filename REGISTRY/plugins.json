@@ -2929,7 +2929,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Job Server",
-    "version": "1.4.5",
+    "version": "1.5.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_job_server",
@@ -2944,9 +2944,9 @@
       "psutil",
       "packaging"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_job_server/releases/download/v1.4.5/job_server_1.4.5.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_job_server/releases/download/v1.5.0/job_server_1.5.0.zip",
     "lastUpdated": "2026-11-21",
-    "sha256": "4e7166abf24d13c4157565f47f2243b5f53db9e5df80e75e7326aecb4ae0fc44",
+    "sha256": "fe26de96cccad8c17e7b578b3d595f6d331178f26971a20a7855a34aa8068b04",
     "firstAppeared": "2026-11-03",
     "supported_python_version": ">=3.11",
     "supported_os": [
