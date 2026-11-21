@@ -1371,6 +1371,17 @@ class TestCubeViewerCloseAndDetachEffects:
         mw.statusBar.return_value.showMessage.assert_called_once()
         assert w.dock is None
 
+    def test_detach_stale_view_leaves_shared_named_surfaces(self, qapp):
+        # "cube_iso_p"/"cube_iso_n" may already be a newer viewer's surfaces.
+        w, ctx, mw, dock, grid = _make_viewer()
+        own = MagicMock()
+        w.iso_actor_p = own
+        mw.statusBar = MagicMock(return_value=MagicMock())
+        w._detach_stale_view()
+        removed = [c.args[0] for c in w.plotter.remove_actor.call_args_list]
+        assert own in removed
+        assert "cube_iso_p" not in removed and "cube_iso_n" not in removed
+
 
 # ===========================================================================
 # CubeViewerWidget — effect-toggle exception / gating branches

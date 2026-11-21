@@ -44,7 +44,7 @@ except ImportError:
 __author__ = "HiroYokoyama"
 PLUGIN_AUTHOR = __author__
 PLUGIN_NAME = "Cube File Viewer Advanced"
-PLUGIN_VERSION = "2026.10.31"
+PLUGIN_VERSION = "2026.11.21"
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = ">=5.0.0, <6.0.0"
 PLUGIN_DESCRIPTION = "Advanced 3D visualization for Gaussian Cube files with PBR, SSAO, and other effects."
 PLUGIN_CONTEXT = None
@@ -2006,8 +2006,8 @@ class CubeViewerWidget(QWidget):
             ]:
                 if actor:
                     self.plotter.remove_actor(actor)
-            self.plotter.remove_actor("cube_iso_p")
-            self.plotter.remove_actor("cube_iso_n")
+            # Not by the shared "cube_iso_p"/"cube_iso_n" names: those may
+            # already belong to a newer viewer's surfaces in the same plotter.
             self.plotter.render()
         except (RuntimeError, AttributeError, KeyError, IndexError, ValueError) as e:
             logging.warning("[cube_viewer_advanced.py] silenced: %s", e)
@@ -2164,6 +2164,33 @@ def mol_from_cube_atoms(atoms):
     return mol
 
 
+def _open_viewer_docks(context, main_window):
+    """Cube viewer docks currently open in *main_window*.
+
+    ``context.get_window`` only knows windows registered through that same
+    context, so a cube opened by another plugin (e.g. a script run through the
+    MCP server) would miss the viewer opened from File > Import. That stale
+    viewer then saw the new molecule, closed itself as "structure changed" and
+    took the new viewer's surfaces with it. Look the docks up on the main
+    window as well.
+    """
+    docks = []
+    registered = context.get_window("main_panel")
+    if registered:
+        docks.append(registered)
+    try:
+        found = list(main_window.findChildren(CubeViewerDock))
+    except (RuntimeError, AttributeError, TypeError) as _e:
+        logging.warning("[cube_viewer_advanced.py] silenced: %s", _e)
+        found = []
+    for dock in found:
+        if not any(dock is d for d in docks):
+            docks.append(dock)
+    # A viewer already shutting down has removed its dock and is only
+    # waiting for deleteLater(); closing it again would clear the plotter.
+    return [d for d in docks if getattr(d.widget(), "_closing", False) is not True]
+
+
 def open_cube_viewer(context, file_path):
     """
     Main entry point: opens the cube file and creates the viewer dock.
@@ -2204,9 +2231,8 @@ def open_cube_viewer(context, file_path):
                     else:
                         return  # User Cancelled plugin load
 
-        # Close existing dock via context
-        old_dock = context.get_window("main_panel")
-        if old_dock:
+        # Close every viewer that is already open, whichever context opened it
+        for old_dock in _open_viewer_docks(context, main_window):
             try:
                 widget = old_dock.widget()
                 if hasattr(widget, "close_plugin"):

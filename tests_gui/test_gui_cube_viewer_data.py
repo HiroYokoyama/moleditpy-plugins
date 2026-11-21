@@ -164,3 +164,114 @@ def test_title_bar_close_runs_plugin_cleanup(directory, filename, qapp):
     assert dock.close()
     child.close_plugin.assert_called_once_with()
     dock.deleteLater()
+
+
+def _water_cube_text():
+    atoms = [(8, (0.0, 0.0, 0.0)), (1, (0.0, 0.0, 1.8)), (1, (1.7, 0.0, -0.5))]
+    lines = ["Title 1", "Title 2", f"   {len(atoms)}   0.0   0.0   0.0"]
+    lines += ["   3   0.4   0.0   0.0", "   3   0.0   0.4   0.0", "   3   0.0   0.0   0.4"]
+    lines += [f"   {z}   0.0   {x}   {y}   {w}" for z, (x, y, w) in atoms]
+    lines += [" ".join(str(float(i % 5) - 2.0) for i in range(r, min(r + 6, 27))) for r in range(0, 27, 6)]
+    return "\n".join(lines) + "\n"
+
+
+class _HostContext:
+    """Per-plugin context on a shared main window, like the real PluginContext:
+    windows are registered per plugin, the molecule lives on the main window."""
+
+    def __init__(self, mw):
+        self._mw = mw
+        self.plotter = mw.plotter
+        self.windows = {}
+
+    def get_main_window(self):
+        return self._mw
+
+    def get_window(self, key):
+        return self.windows.get(key)
+
+    def register_window(self, key, win):
+        self.windows[key] = win
+
+    @property
+    def current_molecule(self):
+        return self._mw.current_mol
+
+    @current_molecule.setter
+    def current_molecule(self, mol):
+        self._mw.current_mol = mol
+
+    def show_status_message(self, msg):
+        self._mw.statusBar().showMessage(msg)
+
+
+@pytest.fixture
+def advanced_host(qapp, tmp_path, monkeypatch):
+    from PySide6.QtWidgets import QMainWindow
+
+    path = ROOT / "plugins/Cube_File_Viewer_Advanced/cube_viewer_advanced.py"
+    spec = importlib.util.spec_from_file_location("cube_adv_rebind_real", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    settings = str(tmp_path / "cube_viewer_advanced.json")
+    monkeypatch.setattr(mod.CubeViewerWidget, "get_settings_path", lambda self: settings)
+    # The deferred update_iso is not under test and must not outlive the widgets.
+    monkeypatch.setattr(mod.QTimer, "singleShot", staticmethod(lambda *a, **k: None))
+    mw = QMainWindow()
+    mw.plotter = MagicMock()
+    mw.init_manager = SimpleNamespace(current_file_path=None)
+    mw.ui_manager = SimpleNamespace(enter_3d_viewer_ui_mode=MagicMock(), restore_ui_for_editing=MagicMock())
+    mw.current_mol = None
+    cube = tmp_path / "homo.cube"
+    cube.write_text(_water_cube_text())
+    yield mod, mw, str(cube)
+    for dock in mw.findChildren(mod.CubeViewerDock):
+        widget = dock.widget()
+        if widget is not None:
+            widget._structure_watch_timer.stop()
+    mw.deleteLater()
+
+
+def _viewers(mod, mw):
+    return [d.widget() for d in mw.findChildren(mod.CubeViewerDock)
+            if d.widget() is not None and d.widget()._closing is not True]
+
+
+def test_opened_cube_stays_bound_to_the_main_window_molecule(advanced_host):
+    mod, mw, cube = advanced_host
+    mod.open_cube_viewer(_HostContext(mw), cube)
+    (viewer,) = _viewers(mod, mw)
+    assert viewer._bound_mol is mw.current_mol
+    viewer._check_structure_still_bound()
+    assert viewer._structure_watch_timer.isActive()
+    assert viewer.dock is not None
+
+
+def test_cube_opened_from_another_plugin_closes_the_previous_viewer(advanced_host):
+    # File > Import opens through the viewer's own context; a script (the MCP
+    # server's run_python, another plugin) opens through a different one.
+    mod, mw, cube = advanced_host
+    mod.open_cube_viewer(_HostContext(mw), cube)
+    (first,) = _viewers(mod, mw)
+    mod.open_cube_viewer(_HostContext(mw), cube)
+    assert first._closing is True
+    assert not first._structure_watch_timer.isActive()
+    (second,) = _viewers(mod, mw)
+    assert second is not first
+    mw.plotter.remove_actor.reset_mock()
+    second._check_structure_still_bound()
+    assert second._structure_watch_timer.isActive()
+    assert "structure changed" not in mw.statusBar().currentMessage()
+    removed = [c.args[0] for c in mw.plotter.remove_actor.call_args_list if c.args]
+    assert "cube_iso_p" not in removed and "cube_iso_n" not in removed
+
+
+def test_replacing_the_structure_still_closes_the_viewer(advanced_host):
+    mod, mw, cube = advanced_host
+    mod.open_cube_viewer(_HostContext(mw), cube)
+    (viewer,) = _viewers(mod, mw)
+    mw.current_mol = object()  # File > Open of an unrelated .xyz
+    viewer._check_structure_still_bound()
+    assert viewer._closing is True
+    assert viewer.dock is None
+    assert "structure changed" in mw.statusBar().currentMessage()

@@ -686,6 +686,56 @@ class TestOpenCubeViewer:
         mod.open_cube_viewer(ctx, str(cube_file))
         old_dock.close.assert_called_once()
 
+    def test_viewer_opened_by_another_context_is_closed(self, cube_file):
+        # get_window() only sees this context's own windows; a viewer opened
+        # from File > Import must still be found when a script opens a cube.
+        mod = _fresh_mod()
+        ctx = make_context()
+        ctx.get_window.return_value = None
+        foreign_widget = MagicMock()
+        foreign_widget._closing = False
+        foreign_dock = MagicMock()
+        foreign_dock.widget.return_value = foreign_widget
+        ctx.get_main_window.return_value.findChildren.return_value = [foreign_dock]
+        mod.open_cube_viewer(ctx, str(cube_file))
+        foreign_widget.close_plugin.assert_called_once()
+
+    def test_registered_and_found_dock_is_closed_once(self, cube_file):
+        mod = _fresh_mod()
+        ctx = make_context()
+        widget = MagicMock()
+        widget._closing = False
+        dock = MagicMock()
+        dock.widget.return_value = widget
+        ctx.get_window.return_value = dock
+        ctx.get_main_window.return_value.findChildren.return_value = [dock]
+        mod.open_cube_viewer(ctx, str(cube_file))
+        widget.close_plugin.assert_called_once()
+
+    def test_viewer_already_closing_is_left_alone(self, cube_file):
+        mod = _fresh_mod()
+        ctx = make_context()
+        ctx.get_window.return_value = None
+        widget = MagicMock()
+        widget._closing = True
+        dock = MagicMock()
+        dock.widget.return_value = widget
+        ctx.get_main_window.return_value.findChildren.return_value = [dock]
+        mod.open_cube_viewer(ctx, str(cube_file))
+        widget.close_plugin.assert_not_called()
+
+    def test_find_children_failure_falls_back_to_registered_window(self):
+        mod = _fresh_mod()
+        ctx = make_context()
+        widget = MagicMock()
+        widget._closing = False
+        dock = MagicMock()
+        dock.widget.return_value = widget
+        ctx.get_window.return_value = dock
+        mw = MagicMock()
+        mw.findChildren.side_effect = RuntimeError("deleted")
+        assert mod._open_viewer_docks(ctx, mw) == [dock]
+
     def test_successful_load_sets_current_molecule_and_status(self, cube_file):
         mod = _fresh_mod()
         ctx = make_context()
