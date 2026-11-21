@@ -721,7 +721,7 @@ def _fetch_pypi_version(package_name: str) -> str:
     return "Unknown"
 
 
-def _fetch_registry(url: str = None) -> list:
+def _fetch_registry(url=None) -> list:
     """The plugin registry entries, or [] when it cannot be fetched."""
     url = url or REMOTE_JSON_URL
     for attempt in range(1, _FETCH_RETRIES + 1):
@@ -2577,3 +2577,526 @@ class PluginInstallerWindow(QDialog):
             f"Command copied to clipboard:\n\n{cmd}\n\n"
             f"Please close MoleditPy and run this command in your terminal.",
         )
+
+
+# ---------------------------------------------------------------------------
+# Command line: moleditpy -r plugin_installer COMMAND ...  (MoleditPy 5.3.2+)
+# ---------------------------------------------------------------------------
+
+EXIT_OK = 0
+EXIT_FAILED = 1
+EXIT_USAGE = 2
+EXIT_UNAVAILABLE = 3
+
+
+class _CliError(Exception):
+    """Stops a command; ``code`` becomes the exit status."""
+
+    def __init__(self, message, code=EXIT_USAGE):
+        super().__init__(message)
+        self.code = code
+
+
+def _installed_plugin_infos():
+    """Installed plugins as the dialog's ``local_info`` dicts, keyed by name.
+
+    Read from the plugin folder without importing any plugin, the way
+    ``moleditpy --list-plugins`` does.
+    """
+    try:
+        from moleditpy.plugins.plugin_runner import installed_plugins
+    except ImportError as e:
+        raise _CliError(
+            "The command line needs MoleditPy 5.3.2 or later "
+            f"(moleditpy.plugins.plugin_runner is not available: {e}).",
+            EXIT_UNAVAILABLE,
+        ) from e
+
+    infos = {}
+    for plugin in installed_plugins():
+        filepath = (
+            os.path.join(plugin.path, "__init__.py") if plugin.package else plugin.path
+        )
+        infos.setdefault(
+            plugin.display_name,
+            {
+                "name": plugin.display_name,
+                "version": plugin.version,
+                "filepath": filepath,
+                "disabled": not plugin.enabled,
+            },
+        )
+    return infos
+
+
+def _host_install_plugin(path):
+    from moleditpy.plugins.plugin_manager import PluginManager
+
+    return PluginManager().install_plugin(path)
+
+
+def _collect_rows(registry, installed):
+    """Every plugin the dialog would list, in the same order."""
+    remote_map = {entry.get("name", ""): entry for entry in registry}
+    app_ver = get_app_version()
+    rows = []
+    for name in sorted(set(remote_map) | set(installed), key=str.lower):
+        row = _classify_plugin(
+            name, remote_map.get(name), installed.get(name), app_ver, registry
+        )
+        if row is not None:
+            rows.append(row)
+    return rows
+
+
+def _row_id(row):
+    remote = row["remote_info"] or {}
+    return remote.get("id") or ""
+
+
+def _find_rows(rows, wanted):
+    """Resolve each requested plugin by registry id or by name (any case)."""
+    found = []
+    for request in wanted:
+        key = request.strip().lower()
+        matches = [
+            r for r in rows if key and key in (r["name"].lower(), _row_id(r).lower())
+        ]
+        if not matches:
+            raise _CliError(
+                f"No plugin named '{request}'. "
+                "'list --all' shows the names and ids that can be used."
+            )
+        for row in matches:
+            if row not in found:
+                found.append(row)
+    return found
+
+
+def _incompatibility(row):
+    """Why a plugin does not suit this MoleditPy/Python/OS, or ""."""
+    if row["is_compatible"]:
+        return ""
+    reasons = []
+    if row["supported_ver_str"] and not is_app_version_compatible(
+        get_app_version(), row["supported_ver_str"]
+    ):
+        reasons.append(
+            f"MoleditPy {row['supported_ver_str']} (running {get_app_version()})"
+        )
+    if not row["py_compatible"] and row["supported_py_str"]:
+        reasons.append(
+            f"Python {row['supported_py_str']} (running {get_python_version()})"
+        )
+    if not row["os_compatible"] and row["supported_os_list"]:
+        reasons.append(
+            f"OS {format_supported_os(row['supported_os_list'])} "
+            f"(running {get_current_os()})"
+        )
+    return "requires " + "; ".join(reasons) if reasons else "incompatible"
+
+
+def _print_table(rows, out):
+    if not rows:
+        print("No plugins to show.", file=out)
+        return
+    headers = ("Name", "Id", "Installed", "Latest", "Status")
+    data = [
+        (r["name"], _row_id(r), str(r["local_ver"]), str(r["remote_ver"]), r["status_text"])
+        for r in rows
+    ]
+    widths = [max(len(h), *(len(d[i]) for d in data)) for i, h in enumerate(headers)]
+    line = "  ".join(f"{{:<{w}}}" for w in widths)
+    print(line.format(*headers).rstrip(), file=out)
+    print(line.format(*("-" * w for w in widths)).rstrip(), file=out)
+    for d in data:
+        print(line.format(*d).rstrip(), file=out)
+
+
+def _row_json(row):
+    return {
+        "name": row["name"],
+        "id": _row_id(row) or None,
+        "installed_version": row["local_ver"] if row["is_installed"] else None,
+        "latest_version": None
+        if row["remote_ver"] == "Unknown"
+        else row["remote_ver"],
+        "status": row["status"],
+        "disabled": row["is_disabled"],
+        "compatible": row["is_compatible"],
+        "path": row["local_info"].get("filepath") if row["local_info"] else None,
+    }
+
+
+def _load_registry():
+    registry = _fetch_registry()
+    if not registry:
+        raise _CliError(
+            f"Could not fetch the plugin registry from {REMOTE_JSON_URL}.",
+            EXIT_UNAVAILABLE,
+        )
+    return [entry for entry in registry if isinstance(entry, dict)]
+
+
+def _cmd_list(args, out, err):
+    installed = _installed_plugin_infos()
+    registry = _load_registry()
+    rows = _collect_rows(registry, installed)
+    if not args.all:
+        rows = [r for r in rows if r["is_installed"]]
+    if args.json:
+        json.dump([_row_json(r) for r in rows], out, indent=2)
+        print(file=out)
+    else:
+        _print_table(rows, out)
+    return EXIT_OK
+
+
+def _cmd_check(args, out, err):
+    installed = _installed_plugin_infos()
+    registry = _load_registry()
+    rows = [r for r in _collect_rows(registry, installed) if r["is_installed"]]
+    updates = [r for r in rows if r["status"] == "Update Available"]
+    stale = [r for r in rows if r["is_stale"]]
+
+    app_ver = get_app_version()
+    package = get_package_name()
+    latest_app = _fetch_pypi_version(package)
+    app_update = latest_app != "Unknown" and compare_versions(latest_app, app_ver) > 0
+
+    if args.json:
+        json.dump(
+            {
+                "app": {
+                    "package": package,
+                    "installed_version": app_ver,
+                    "latest_version": None if latest_app == "Unknown" else latest_app,
+                    "update_available": app_update,
+                },
+                "updates": [_row_json(r) for r in updates],
+                "stale": [_row_json(r) for r in stale],
+            },
+            out,
+            indent=2,
+        )
+        print(file=out)
+    else:
+        if app_update:
+            print(
+                f"MoleditPy {latest_app} is available (running {app_ver}): "
+                f"pip install --upgrade {package}",
+                file=out,
+            )
+        elif latest_app == "Unknown":
+            print(f"MoleditPy {app_ver} (could not check PyPI)", file=out)
+        else:
+            print(f"MoleditPy {app_ver} is up to date.", file=out)
+        if updates:
+            print(
+                f"{len(updates)} plugin update(s) available:",
+                file=out,
+            )
+            _print_table(updates, out)
+            print(
+                "\nRun 'moleditpy -r plugin_installer update --all' to install them.",
+                file=out,
+            )
+        else:
+            print("All installed plugins are up to date.", file=out)
+        for row in stale:
+            note = f"{row['name']} is no longer offered by the registry"
+            if row["migration_target"]:
+                note += f"; it has moved to {row['migration_target']}"
+            print(note + ".", file=out)
+
+    if args.exit_code and (updates or app_update):
+        return EXIT_FAILED
+    return EXIT_OK
+
+
+def _confirm(prompt, args, out):
+    if args.yes:
+        return True
+    stdin = sys.stdin
+    if stdin is None or not stdin.isatty():
+        raise _CliError(
+            "Not asking for confirmation without a terminal; pass --yes to proceed."
+        )
+    print(prompt + " [y/N] ", end="", file=out, flush=True)
+    try:
+        answer = stdin.readline()
+    except (OSError, KeyboardInterrupt):
+        return False
+    return answer.strip().lower() in ("y", "yes")
+
+
+def _install_row(row, args, out, err):
+    """Download, verify and install one plugin; True on success."""
+    name = row["name"]
+    remote_info = row["remote_info"] or {}
+    download_url = remote_info.get("downloadUrl")
+    if not download_url:
+        print(f"{name}: the registry has no download URL.", file=err)
+        return False
+
+    final_url = _resolve_download_url(download_url)
+    if not _is_allowed_download_url(final_url):
+        print(
+            f"{name}: refusing to download from an unsupported or unsafe URL "
+            "(only http/https are allowed).",
+            file=err,
+        )
+        return False
+
+    expected_sha256 = remote_info.get("sha256")
+    if not expected_sha256 and not args.allow_unverified:
+        print(
+            f"{name}: the registry has no SHA256 checksum, so the download "
+            "cannot be verified. Pass --allow-unverified to install it anyway.",
+            file=err,
+        )
+        return False
+
+    target_file = row["target_file"]
+    temp_dir = tempfile.mkdtemp()
+    try:
+        filename = _download_filename(final_url, target_file)
+        download_path = os.path.join(temp_dir, filename)
+        try:
+            _download_file(final_url, download_path)
+        except DownloadError as e:
+            print(f"{name}: {e}", file=err)
+            return False
+
+        if expected_sha256:
+            actual = _sha256_file(download_path)
+            if actual != expected_sha256:
+                print(
+                    f"{name}: SHA256 checksum mismatch; installation stopped.\n"
+                    f"  expected: {expected_sha256}\n  received: {actual}\n"
+                    "Please report this at "
+                    "https://github.com/HiroYokoyama/moleditpy-plugins/issues",
+                    file=err,
+                )
+                return False
+
+        try:
+            _install_download(
+                download_path, filename, target_file, temp_dir, _host_install_plugin
+            )
+        except Exception as e:
+            logging.exception("Plugin Installer: installation error for %s", name)
+            print(f"{name}: installation failed: {e}", file=err)
+            return False
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+    verb = "updated" if row["is_installed"] else "installed"
+    print(f"{name}: {verb} to {row['remote_ver']}.", file=out)
+    return True
+
+
+def _missing_dependency_note(row):
+    deps = (row["remote_info"] or {}).get("dependencies") or []
+    missing = [d for d in deps if not check_dependency_satisfied(d)]
+    if not missing:
+        return ""
+    quoted = [q for q in (sanitize_and_quote_dependency(d) for d in missing) if q]
+    note = f"  missing dependencies: {', '.join(missing)}"
+    if quoted:
+        note += f"\n  install them with: pip install {' '.join(quoted)}"
+    return note
+
+
+def _run_installs(rows, args, out, err, action):
+    """Shared tail of update/install: filter, confirm, install, report."""
+    selected = []
+    for row in rows:
+        reason = _incompatibility(row)
+        if reason and not args.force:
+            print(f"{row['name']}: skipped, {reason} (use --force to {action} anyway).", file=err)
+            continue
+        selected.append(row)
+
+    if not selected:
+        return EXIT_FAILED if rows else EXIT_OK
+
+    print(f"Plugins to {action}:", file=out)
+    for row in selected:
+        current = row["local_ver"] if row["is_installed"] else "not installed"
+        print(f"  {row['name']}  {current} -> {row['remote_ver']}", file=out)
+        if not row["is_installed"]:
+            note = _missing_dependency_note(row)
+            if note:
+                print(note, file=out)
+
+    if args.dry_run:
+        print("Dry run: nothing was changed.", file=out)
+        return EXIT_OK
+    if not _confirm("Proceed?", args, out):
+        print("Cancelled.", file=out)
+        return EXIT_FAILED
+
+    failed = [row for row in selected if not _install_row(row, args, out, err)]
+    done = len(selected) - len(failed)
+    if done:
+        print(
+            "Restart MoleditPy if it is running to load the new plugin code.",
+            file=out,
+        )
+    if failed or len(selected) < len(rows):
+        return EXIT_FAILED
+    return EXIT_OK
+
+
+def _cmd_update(args, out, err):
+    if not args.plugins and not args.all:
+        raise _CliError("Name the plugins to update, or pass --all.")
+    if args.plugins and args.all:
+        raise _CliError("Pass plugin names or --all, not both.")
+
+    rows = _collect_rows(_load_registry(), _installed_plugin_infos())
+
+    if args.all:
+        targets = [
+            r for r in rows if r["is_installed"] and r["status"] == "Update Available"
+        ]
+        if not targets:
+            print("All installed plugins are up to date.", file=out)
+            return EXIT_OK
+        return _run_installs(targets, args, out, err, "update")
+
+    targets = []
+    for row in _find_rows(rows, args.plugins):
+        if not row["is_installed"]:
+            raise _CliError(
+                f"{row['name']} is not installed; use 'install' to add it."
+            )
+        if not (row["remote_info"] or {}).get("downloadUrl"):
+            print(f"{row['name']}: not in the registry, nothing to update.", file=err)
+            continue
+        if row["status"] != "Update Available" and not args.reinstall:
+            print(
+                f"{row['name']}: {row['status_text'].lower()} ({row['local_ver']}); "
+                "pass --reinstall to install it again.",
+                file=out,
+            )
+            continue
+        targets.append(row)
+    if not targets:
+        return EXIT_OK
+    return _run_installs(targets, args, out, err, "update")
+
+
+def _cmd_install(args, out, err):
+    rows = _collect_rows(_load_registry(), _installed_plugin_infos())
+    targets = []
+    for row in _find_rows(rows, args.plugins):
+        if row["is_installed"]:
+            print(
+                f"{row['name']} is already installed ({row['local_ver']}); "
+                "use 'update' to change it.",
+                file=out,
+            )
+            continue
+        targets.append(row)
+    if not targets:
+        return EXIT_OK
+    return _run_installs(targets, args, out, err, "install")
+
+
+def _build_parser():
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        prog="moleditpy -r plugin_installer",
+        description="List, check, update and install MoleditPy plugins "
+        "from the official registry, without opening the editor.",
+    )
+    sub = parser.add_subparsers(dest="command", metavar="COMMAND")
+
+    p_list = sub.add_parser("list", help="list installed plugins and their status")
+    p_list.add_argument(
+        "--all", action="store_true", help="include plugins that are not installed"
+    )
+    p_list.add_argument("--json", action="store_true", help="print JSON")
+    p_list.set_defaults(func=_cmd_list)
+
+    p_check = sub.add_parser(
+        "check", help="report available MoleditPy and plugin updates"
+    )
+    p_check.add_argument("--json", action="store_true", help="print JSON")
+    p_check.add_argument(
+        "--exit-code",
+        action="store_true",
+        help="exit with status 1 when an update is available",
+    )
+    p_check.set_defaults(func=_cmd_check)
+
+    def add_install_options(p, action):
+        p.add_argument(
+            "-y", "--yes", action="store_true", help="do not ask for confirmation"
+        )
+        p.add_argument(
+            "--dry-run", action="store_true", help=f"show what would {action}, change nothing"
+        )
+        p.add_argument(
+            "--force",
+            action="store_true",
+            help=f"{action} even when the plugin requires another "
+            "MoleditPy, Python or OS",
+        )
+        p.add_argument(
+            "--allow-unverified",
+            action="store_true",
+            help="install a download that has no SHA256 checksum in the registry",
+        )
+
+    p_update = sub.add_parser("update", help="update installed plugins")
+    p_update.add_argument(
+        "plugins", nargs="*", metavar="PLUGIN", help="plugin name or registry id"
+    )
+    p_update.add_argument(
+        "--all", action="store_true", help="update every plugin with an update"
+    )
+    p_update.add_argument(
+        "--reinstall",
+        action="store_true",
+        help="reinstall a named plugin even when it is up to date",
+    )
+    add_install_options(p_update, "update")
+    p_update.set_defaults(func=_cmd_update)
+
+    p_install = sub.add_parser("install", help="install plugins from the registry")
+    p_install.add_argument(
+        "plugins", nargs="+", metavar="PLUGIN", help="plugin name or registry id"
+    )
+    add_install_options(p_install, "install")
+    p_install.set_defaults(func=_cmd_install)
+    return parser
+
+
+def cli_main(argv=None, out=None, err=None) -> int:
+    """Entry point of ``moleditpy -r plugin_installer``; returns the exit status."""
+    out = out or sys.stdout
+    err = err or sys.stderr
+    parser = _build_parser()
+    try:
+        args = parser.parse_args(argv)
+    except SystemExit as e:
+        return e.code if isinstance(e.code, int) else EXIT_USAGE
+    if not getattr(args, "func", None):
+        parser.print_help(out)
+        return EXIT_USAGE
+    try:
+        return args.func(args, out, err)
+    except _CliError as e:
+        print(f"Error: {e}", file=err)
+        return e.code
+    except KeyboardInterrupt:
+        print("Interrupted.", file=err)
+        return EXIT_FAILED
+
+
+if __name__ == "__main__":
+    sys.exit(cli_main(sys.argv[1:]))
