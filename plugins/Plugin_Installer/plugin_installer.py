@@ -631,6 +631,375 @@ def sanitize_and_quote_dependency(dep_str: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Qt-free core shared by the dialog and the command line
+# ---------------------------------------------------------------------------
+
+_FETCH_RETRIES = 3
+_DOWNLOAD_RETRIES = 3
+
+
+def compare_versions(v1, v2) -> int:
+    """Compare two version strings numerically: 1, 0 or -1."""
+    try:
+
+        def parse(v):
+            return [int(x) for x in re.findall(r"\d+", v)]
+
+        p1 = parse(v1)
+        p2 = parse(v2)
+        length = max(len(p1), len(p2))
+        p1 += [0] * (length - len(p1))
+        p2 += [0] * (length - len(p2))
+        if p1 > p2:
+            return 1
+        if p1 < p2:
+            return -1
+        return 0
+    except (IndexError, TypeError, ValueError) as e:
+        logging.warning(
+            "Plugin Installer: version comparison failed (%r vs %r): %s", v1, v2, e
+        )
+        if v1 > v2:
+            return 1
+        if v1 < v2:
+            return -1
+        return 0
+
+
+def get_app_version() -> str:
+    """Version of the running MoleditPy, or "0.0.0" when it cannot be found."""
+    main_mod = sys.modules.get("__main__")
+    main_version = getattr(main_mod, "VERSION", None) if main_mod else None
+    if _is_usable_version(main_version):
+        return main_version
+
+    pkg = _resolve_app_package()
+    if pkg is not None:
+        constants = _import_app_constants(pkg)
+        version = getattr(constants, "VERSION", None) if constants else None
+        if _is_usable_version(version):
+            return version
+
+    version = _version_from_pyproject()
+    if version is not None:
+        return version
+
+    return "0.0.0"
+
+
+def get_package_name() -> str:
+    """PyPI distribution name of the running app (for the update check)."""
+    pkg = _resolve_app_package()
+    return _APP_PACKAGES.get(pkg, "moleditpy")
+
+
+def _sha256_file(filepath) -> str:
+    sha256_hash = hashlib.sha256()
+    with open(filepath, "rb") as f:
+        for byte_block in iter(lambda: f.read(4096), b""):
+            sha256_hash.update(byte_block)
+    return sha256_hash.hexdigest()
+
+
+def _fetch_pypi_version(package_name: str) -> str:
+    """Latest version of *package_name* on PyPI, or "Unknown"."""
+    url = f"https://pypi.org/pypi/{package_name}/json"
+    for attempt in range(1, _FETCH_RETRIES + 1):
+        try:
+            with urllib.request.urlopen(url, timeout=5) as r:
+                if r.status == 200:
+                    return json.loads(r.read().decode("utf-8"))["info"]["version"]
+        except (OSError, KeyError, IndexError, ValueError) as e:
+            logging.warning(
+                "Plugin Installer: PyPI fetch attempt %d/%d failed: %s",
+                attempt,
+                _FETCH_RETRIES,
+                e,
+            )
+            if attempt < _FETCH_RETRIES:
+                time.sleep(2)
+    return "Unknown"
+
+
+def _fetch_registry(url: str = None) -> list:
+    """The plugin registry entries, or [] when it cannot be fetched."""
+    url = url or REMOTE_JSON_URL
+    for attempt in range(1, _FETCH_RETRIES + 1):
+        try:
+            with urllib.request.urlopen(url, timeout=5) as r:
+                if r.status == 200:
+                    return json.loads(r.read().decode("utf-8-sig"))
+        except (OSError, ValueError) as e:
+            logging.warning(
+                "Plugin Installer: registry fetch attempt %d/%d failed: %s",
+                attempt,
+                _FETCH_RETRIES,
+                e,
+            )
+            if attempt < _FETCH_RETRIES:
+                time.sleep(2)
+    return []
+
+
+class DownloadError(Exception):
+    """A plugin download failed; the message is meant for the user."""
+
+
+def _download_file(url: str, dest_path: str, on_progress=None) -> bool:
+    """Download *url* to *dest_path* in 8 KB chunks.
+
+    *on_progress(received, total)* is called after each chunk; returning False
+    aborts, and this returns False. Network errors are retried; when every
+    attempt fails, or the download is refused (too large, malformed), raises
+    DownloadError.
+    """
+    last_exc: Exception = Exception("unknown")
+    for attempt in range(1, _DOWNLOAD_RETRIES + 1):
+        try:
+            with urllib.request.urlopen(url, timeout=15) as response:
+                total = int(response.headers.get("Content-Length") or 0)
+                if total < 0 or total > MAX_DOWNLOAD_BYTES:
+                    raise ValueError("Plugin download exceeds 100 MiB.")
+                received = 0
+                with open(dest_path, "wb") as f:
+                    while True:
+                        chunk = response.read(8192)
+                        if not chunk:
+                            break
+                        received += len(chunk)
+                        if received > MAX_DOWNLOAD_BYTES:
+                            raise ValueError("Plugin download exceeds 100 MiB.")
+                        f.write(chunk)
+                        if on_progress is not None:
+                            if not on_progress(received, total):
+                                return False
+                if total and received != total:
+                    raise urllib.error.URLError("Incomplete plugin download.")
+            return True
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            last_exc = e
+            logging.warning(
+                "Plugin Installer: download attempt %d/%d failed from %s: %s",
+                attempt,
+                _DOWNLOAD_RETRIES,
+                url,
+                e,
+            )
+            if attempt < _DOWNLOAD_RETRIES:
+                time.sleep(2)
+        except (TypeError, ValueError) as e:
+            logging.exception("Plugin Installer: download failed from %s: %s", url, e)
+            raise DownloadError(f"Download failed:\n{e}") from e
+    logging.error(
+        "Plugin Installer: download failed after %d attempts from %s: %s",
+        _DOWNLOAD_RETRIES,
+        url,
+        last_exc,
+    )
+    raise DownloadError(
+        f"Download failed after {_DOWNLOAD_RETRIES} attempts:\n{last_exc}"
+    ) from last_exc
+
+
+def _resolve_download_url(download_url: str) -> str:
+    """Make a registry-relative download URL absolute."""
+    if download_url.startswith("http"):
+        return download_url
+    base_url = REMOTE_JSON_URL.rsplit("/", 1)[0]
+    return urllib.parse.urljoin(base_url + "/", download_url)
+
+
+def _download_filename(final_url: str, target_file) -> str:
+    """Name to save a download under: an installed single file keeps its name."""
+    download_url_path = urllib.parse.urlparse(final_url).path
+    is_zip_download = download_url_path.lower().endswith(".zip")
+    if target_file and os.path.exists(target_file):
+        existing = os.path.basename(target_file)
+        if (
+            existing != "__init__.py"
+            and existing.endswith(".py")
+            and not is_zip_download
+        ):
+            return existing
+    filename = os.path.basename(download_url_path)
+    if filename:
+        return filename
+    return "plugin_update.zip" if is_zip_download else "plugin_update.py"
+
+
+def _overwrite_folder_plugin(source_dir: str, target_dir: str) -> None:
+    """Replace an installed folder plugin with the freshly downloaded copy.
+
+    Prepare the complete replacement before moving the installed copy.
+    Keep the original as a backup until the replacement is in place, and
+    restore it if promotion fails. Settings survive and stale files vanish.
+    """
+    settings_backup = None
+    settings_path = os.path.join(target_dir, "settings.json")
+    if os.path.exists(settings_path):
+        with open(settings_path, "rb") as f:
+            settings_backup = f.read()
+
+    target_dir = os.path.abspath(target_dir)
+    # A sibling staging area keeps renames on the same filesystem.
+    stage = tempfile.mkdtemp(prefix=".plugin-update-", dir=os.path.dirname(target_dir))
+    replacement = os.path.join(stage, "replacement")
+    backup = os.path.join(stage, "backup")
+    committed = False
+    try:
+        shutil.copytree(source_dir, replacement)
+        if settings_backup is not None:
+            with open(os.path.join(replacement, "settings.json"), "wb") as f:
+                f.write(settings_backup)
+
+        had_target = os.path.isdir(target_dir)
+        if had_target:
+            os.replace(target_dir, backup)
+        try:
+            os.replace(replacement, target_dir)
+        except OSError:
+            if had_target:
+                os.replace(backup, target_dir)
+            raise
+        committed = True
+    finally:
+        if committed or not os.path.exists(backup):
+            shutil.rmtree(stage, ignore_errors=True)
+        else:
+            # If rollback itself fails, preserve the only intact old copy.
+            logging.error("Plugin Installer: recovery copy retained at %s", backup)
+
+
+def _install_download(
+    download_path,
+    filename,
+    target_file,
+    temp_dir,
+    install_plugin,
+    overwrite_folder=_overwrite_folder_plugin,
+    pump=None,
+) -> None:
+    """Put a verified download in place of *target_file*, or install it fresh.
+
+    An installed single file is overwritten in place and an installed folder
+    plugin is replaced from the ZIP, both keeping their location. Anything
+    else goes through the host's *install_plugin(path) -> (ok, message)*,
+    which also removes the other form when a plugin changes between a single
+    file and a folder. Raises on failure. *pump* is called between steps so a
+    GUI can repaint.
+    """
+    pump = pump or (lambda: None)
+    is_zip_download = filename.lower().endswith(".zip")
+    did_manual_overwrite = False
+
+    if target_file and os.path.exists(target_file):
+        file_name_existing = os.path.basename(target_file)
+        if (
+            file_name_existing != "__init__.py"
+            and file_name_existing.endswith(".py")
+            and not is_zip_download
+        ):
+            try:
+                logging.info("Plugin Installer: overwriting %s", target_file)
+                shutil.copy2(download_path, target_file)
+                did_manual_overwrite = True
+            except OSError as e:
+                logging.warning(
+                    "Plugin Installer: manual overwrite failed: %s "
+                    "— falling back to manager",
+                    e,
+                )
+
+        elif file_name_existing == "__init__.py" and is_zip_download:
+            try:
+                target_dir = os.path.dirname(target_file)
+                logging.info(
+                    "Plugin Installer: overwriting folder plugin %s", target_dir
+                )
+                extract_temp = os.path.join(temp_dir, "extracted")
+                os.makedirs(extract_temp, exist_ok=True)
+                with zipfile.ZipFile(download_path, "r") as z:
+                    for member in _validate_plugin_archive(z, extract_temp):
+                        target_path = os.path.join(extract_temp, member.filename)
+                        if not _is_within_directory(extract_temp, target_path):
+                            raise ValueError("Unsafe zip entry: " + member.filename)
+                        z.extract(member, extract_temp)
+
+                items = os.listdir(extract_temp)
+                if len(items) == 1 and os.path.isdir(
+                    os.path.join(extract_temp, items[0])
+                ):
+                    source = os.path.join(extract_temp, items[0])
+                else:
+                    source = extract_temp
+
+                overwrite_folder(source, target_dir)
+                pump()
+
+                did_manual_overwrite = True
+            except Exception as e:
+                logging.warning(
+                    "Plugin Installer: manual folder overwrite failed: %s"
+                    " — keeping installed plugin",
+                    e,
+                )
+                raise
+
+    if did_manual_overwrite:
+        return
+
+    saved_settings_content = None
+    target_dir_for_restore = None
+
+    if target_file and os.path.exists(target_file):
+        if os.path.basename(target_file) == "__init__.py":
+            folder_dir = os.path.dirname(target_file)
+            settings_json = os.path.join(folder_dir, "settings.json")
+            if os.path.exists(settings_json):
+                try:
+                    with open(settings_json, "r", encoding="utf-8") as f:
+                        saved_settings_content = f.read()
+                    target_dir_for_restore = folder_dir
+                except (OSError, ValueError) as e:
+                    logging.warning(
+                        "Plugin Installer: failed to backup settings.json: %s", e
+                    )
+
+    pump()
+    success, message = install_plugin(download_path)
+    if not success:
+        raise RuntimeError(message or "Host plugin installation failed")
+    pump()
+
+    if saved_settings_content and target_dir_for_restore:
+        if os.path.exists(target_dir_for_restore):
+            settings_json = os.path.join(target_dir_for_restore, "settings.json")
+            try:
+                with open(settings_json, "w", encoding="utf-8") as f:
+                    f.write(saved_settings_content)
+                logging.info("Plugin Installer: restored settings.json")
+            except (OSError, ValueError) as e:
+                logging.warning(
+                    "Plugin Installer: failed to restore settings.json: %s", e
+                )
+
+    if target_file and os.path.exists(target_file):
+        old_is_py = target_file.lower().endswith(".py")
+        old_is_init = os.path.basename(target_file) == "__init__.py"
+
+        if is_zip_download and old_is_py and not old_is_init:
+            try:
+                os.remove(target_file)
+            except OSError as e:
+                logging.warning("Plugin Installer: failed to remove old .py: %s", e)
+        elif not is_zip_download and old_is_init:
+            try:
+                shutil.rmtree(os.path.dirname(target_file))
+            except OSError as e:
+                logging.warning("Plugin Installer: failed to remove old folder: %s", e)
+
+
+# ---------------------------------------------------------------------------
 # Background worker: fetches PyPI version + remote registry without blocking
 # ---------------------------------------------------------------------------
 
@@ -650,42 +1019,13 @@ class _FetchWorker(QThread):
         remote = self._fetch_remote()
         self.done.emit(pypi_ver, remote)
 
-    _MAX_RETRIES = 3
+    _MAX_RETRIES = _FETCH_RETRIES
 
     def _fetch_pypi(self) -> str:
-        url = f"https://pypi.org/pypi/{self._pkg}/json"
-        for attempt in range(1, self._MAX_RETRIES + 1):
-            try:
-                with urllib.request.urlopen(url, timeout=5) as r:
-                    if r.status == 200:
-                        return json.loads(r.read().decode("utf-8"))["info"]["version"]
-            except (OSError, KeyError, IndexError, ValueError) as e:
-                logging.warning(
-                    "Plugin Installer: PyPI fetch attempt %d/%d failed: %s",
-                    attempt,
-                    self._MAX_RETRIES,
-                    e,
-                )
-                if attempt < self._MAX_RETRIES:
-                    time.sleep(2)
-        return "Unknown"
+        return _fetch_pypi_version(self._pkg)
 
     def _fetch_remote(self) -> list:
-        for attempt in range(1, self._MAX_RETRIES + 1):
-            try:
-                with urllib.request.urlopen(self._url, timeout=5) as r:
-                    if r.status == 200:
-                        return json.loads(r.read().decode("utf-8-sig"))
-            except (OSError, ValueError) as e:
-                logging.warning(
-                    "Plugin Installer: registry fetch attempt %d/%d failed: %s",
-                    attempt,
-                    self._MAX_RETRIES,
-                    e,
-                )
-                if attempt < self._MAX_RETRIES:
-                    time.sleep(2)
-        return []
+        return _fetch_registry(self._url)
 
 
 # ---------------------------------------------------------------------------
@@ -1194,104 +1534,13 @@ class PluginInstallerWindow(QDialog):
         The caller is responsible for showing any progress UI — this method
         only drives the data transfer and reports progress via the callback.
         """
-        _MAX_RETRIES = 3
-        last_exc: Exception = Exception("unknown")
-        for attempt in range(1, _MAX_RETRIES + 1):
-            try:
-                with urllib.request.urlopen(url, timeout=15) as response:
-                    total = int(response.headers.get("Content-Length") or 0)
-                    if total < 0 or total > MAX_DOWNLOAD_BYTES:
-                        raise ValueError("Plugin download exceeds 100 MiB.")
-                    received = 0
-                    with open(dest_path, "wb") as f:
-                        while True:
-                            chunk = response.read(8192)
-                            if not chunk:
-                                break
-                            received += len(chunk)
-                            if received > MAX_DOWNLOAD_BYTES:
-                                raise ValueError("Plugin download exceeds 100 MiB.")
-                            f.write(chunk)
-                            if on_progress is not None:
-                                if not on_progress(received, total):
-                                    return False
-                    if total and received != total:
-                        raise urllib.error.URLError("Incomplete plugin download.")
-                return True
-            except (urllib.error.URLError, TimeoutError, OSError) as e:
-                last_exc = e
-                logging.warning(
-                    "Plugin Installer: download attempt %d/%d failed from %s: %s",
-                    attempt,
-                    _MAX_RETRIES,
-                    url,
-                    e,
-                )
-                if attempt < _MAX_RETRIES:
-                    time.sleep(2)
-            except (OSError, TypeError, ValueError) as e:
-                logging.exception(
-                    "Plugin Installer: download failed from %s: %s", url, e
-                )
-                QMessageBox.warning(self, "Download Error", f"Download failed:\n{e}")
-                return False
-        logging.error(
-            "Plugin Installer: download failed after %d attempts from %s: %s",
-            _MAX_RETRIES,
-            url,
-            last_exc,
-        )
-        QMessageBox.warning(
-            self,
-            "Download Error",
-            f"Download failed after {_MAX_RETRIES} attempts:\n{last_exc}",
-        )
-        return False
-
-    @staticmethod
-    def _overwrite_folder_plugin(source_dir: str, target_dir: str) -> None:
-        """Replace an installed folder plugin with the freshly downloaded copy.
-
-        Prepare the complete replacement before moving the installed copy.
-        Keep the original as a backup until the replacement is in place, and
-        restore it if promotion fails. Settings survive and stale files vanish.
-        """
-        settings_backup = None
-        settings_path = os.path.join(target_dir, "settings.json")
-        if os.path.exists(settings_path):
-            with open(settings_path, "rb") as f:
-                settings_backup = f.read()
-
-        target_dir = os.path.abspath(target_dir)
-        # A sibling staging area keeps renames on the same filesystem.
-        stage = tempfile.mkdtemp(
-            prefix=".plugin-update-", dir=os.path.dirname(target_dir)
-        )
-        replacement = os.path.join(stage, "replacement")
-        backup = os.path.join(stage, "backup")
-        committed = False
         try:
-            shutil.copytree(source_dir, replacement)
-            if settings_backup is not None:
-                with open(os.path.join(replacement, "settings.json"), "wb") as f:
-                    f.write(settings_backup)
+            return _download_file(url, dest_path, on_progress)
+        except DownloadError as e:
+            QMessageBox.warning(self, "Download Error", str(e))
+            return False
 
-            had_target = os.path.isdir(target_dir)
-            if had_target:
-                os.replace(target_dir, backup)
-            try:
-                os.replace(replacement, target_dir)
-            except OSError:
-                if had_target:
-                    os.replace(backup, target_dir)
-                raise
-            committed = True
-        finally:
-            if committed or not os.path.exists(backup):
-                shutil.rmtree(stage, ignore_errors=True)
-            else:
-                # If rollback itself fails, preserve the only intact old copy.
-                logging.error("Plugin Installer: recovery copy retained at %s", backup)
+    _overwrite_folder_plugin = staticmethod(_overwrite_folder_plugin)
 
     # ------------------------------------------------------------------
     # Table population
@@ -1634,61 +1883,17 @@ class PluginInstallerWindow(QDialog):
         save_settings(self.settings)
 
     def calculate_sha256(self, filepath):
-        sha256_hash = hashlib.sha256()
-        with open(filepath, "rb") as f:
-            for byte_block in iter(lambda: f.read(4096), b""):
-                sha256_hash.update(byte_block)
-        return sha256_hash.hexdigest()
+        return _sha256_file(filepath)
 
     def compare_versions(self, v1, v2):
-        try:
-
-            def parse(v):
-                return [int(x) for x in re.findall(r"\d+", v)]
-
-            p1 = parse(v1)
-            p2 = parse(v2)
-            length = max(len(p1), len(p2))
-            p1 += [0] * (length - len(p1))
-            p2 += [0] * (length - len(p2))
-            if p1 > p2:
-                return 1
-            if p1 < p2:
-                return -1
-            return 0
-        except (IndexError, TypeError, ValueError) as e:
-            logging.warning(
-                "Plugin Installer: version comparison failed (%r vs %r): %s", v1, v2, e
-            )
-            if v1 > v2:
-                return 1
-            if v1 < v2:
-                return -1
-            return 0
+        return compare_versions(v1, v2)
 
     def _get_package_name(self):
         """PyPI distribution name of the running app (for the update check)."""
-        pkg = _resolve_app_package()
-        return _APP_PACKAGES.get(pkg, "moleditpy")
+        return get_package_name()
 
     def get_app_version(self):
-        main_mod = sys.modules.get("__main__")
-        main_version = getattr(main_mod, "VERSION", None) if main_mod else None
-        if _is_usable_version(main_version):
-            return main_version
-
-        pkg = _resolve_app_package()
-        if pkg is not None:
-            constants = _import_app_constants(pkg)
-            version = getattr(constants, "VERSION", None) if constants else None
-            if _is_usable_version(version):
-                return version
-
-        version = _version_from_pyproject()
-        if version is not None:
-            return version
-
-        return "0.0.0"
+        return get_app_version()
 
     def filter_plugins(self):
         text = self.search_input.text().lower()
@@ -2044,11 +2249,7 @@ class PluginInstallerWindow(QDialog):
             if ret != QMessageBox.StandardButton.Yes:
                 return
 
-        # Resolve URL
-        final_url = download_url
-        if not download_url.startswith("http"):
-            base_url = REMOTE_JSON_URL.rsplit("/", 1)[0]
-            final_url = urllib.parse.urljoin(base_url + "/", download_url)
+        final_url = _resolve_download_url(download_url)
 
         if not _is_allowed_download_url(final_url):
             QMessageBox.warning(
@@ -2065,29 +2266,7 @@ class PluginInstallerWindow(QDialog):
 
         temp_dir = tempfile.mkdtemp()
         try:
-            download_url_path = urllib.parse.urlparse(final_url).path
-            is_zip_download = download_url_path.lower().endswith(".zip")
-            # Determine filename
-            filename = None
-            if target_file and os.path.exists(target_file):
-                file_name_existing = os.path.basename(target_file)
-                if (
-                    file_name_existing != "__init__.py"
-                    and file_name_existing.endswith(".py")
-                    and not is_zip_download
-                ):
-                    filename = file_name_existing
-
-            if not filename:
-                filename = os.path.basename(download_url_path)
-
-            if not filename:
-                filename = (
-                    "plugin_update.zip"
-                    if is_zip_download
-                    else "plugin_update.py"
-                )
-
+            filename = _download_filename(final_url, target_file)
             download_path = os.path.join(temp_dir, filename)
             dl_label = (
                 f"{'Updating' if is_installed else 'Installing'} {plugin_name}..."
@@ -2174,142 +2353,15 @@ class PluginInstallerWindow(QDialog):
 
             # ---- Install / update ----
             try:
-                did_manual_overwrite = False
-
-                if target_file and os.path.exists(target_file):
-                    file_name_existing = os.path.basename(target_file)
-                    if (
-                        file_name_existing != "__init__.py"
-                        and file_name_existing.endswith(".py")
-                        and not is_zip_download
-                    ):
-                        try:
-                            logging.info(
-                                "Plugin Installer: overwriting %s", target_file
-                            )
-                            shutil.copy2(download_path, target_file)
-                            did_manual_overwrite = True
-                        except OSError as e:
-                            logging.warning(
-                                "Plugin Installer: manual overwrite failed: %s "
-                                "— falling back to manager",
-                                e,
-                            )
-
-                    elif (
-                        file_name_existing == "__init__.py"
-                        and is_zip_download
-                    ):
-                        try:
-                            target_dir = os.path.dirname(target_file)
-                            logging.info(
-                                "Plugin Installer: overwriting folder plugin %s",
-                                target_dir,
-                            )
-                            extract_temp = os.path.join(temp_dir, "extracted")
-                            os.makedirs(extract_temp, exist_ok=True)
-                            with zipfile.ZipFile(download_path, "r") as z:
-                                for member in _validate_plugin_archive(z, extract_temp):
-                                    target_path = os.path.join(
-                                        extract_temp, member.filename
-                                    )
-                                    if not _is_within_directory(
-                                        extract_temp, target_path
-                                    ):
-                                        raise ValueError(
-                                            "Unsafe zip entry: " + member.filename
-                                        )
-                                    z.extract(member, extract_temp)
-
-                            items = os.listdir(extract_temp)
-                            if len(items) == 1 and os.path.isdir(
-                                os.path.join(extract_temp, items[0])
-                            ):
-                                source = os.path.join(extract_temp, items[0])
-                            else:
-                                source = extract_temp
-
-                            self._overwrite_folder_plugin(source, target_dir)
-                            QApplication.processEvents()
-
-                            did_manual_overwrite = True
-                        except Exception as e:
-                            logging.warning(
-                                "Plugin Installer: manual folder overwrite failed: %s"
-                                " — keeping installed plugin",
-                                e,
-                            )
-                            raise
-
-                if not did_manual_overwrite:
-                    saved_settings_content = None
-                    target_dir_for_restore = None
-
-                    if target_file and os.path.exists(target_file):
-                        if os.path.basename(target_file) == "__init__.py":
-                            folder_dir = os.path.dirname(target_file)
-                            settings_json = os.path.join(folder_dir, "settings.json")
-                            if os.path.exists(settings_json):
-                                try:
-                                    with open(
-                                        settings_json, "r", encoding="utf-8"
-                                    ) as f:
-                                        saved_settings_content = f.read()
-                                    target_dir_for_restore = folder_dir
-                                except (OSError, ValueError) as e:
-                                    logging.warning(
-                                        "Plugin Installer: failed to backup "
-                                        "settings.json: %s",
-                                        e,
-                                    )
-
-                    QApplication.processEvents()
-                    success, message = self.main_window.plugin_manager.install_plugin(
-                        download_path
-                    )
-                    if not success:
-                        raise RuntimeError(message or "Host plugin installation failed")
-                    QApplication.processEvents()
-
-                    if saved_settings_content and target_dir_for_restore:
-                        if os.path.exists(target_dir_for_restore):
-                            settings_json = os.path.join(
-                                target_dir_for_restore, "settings.json"
-                            )
-                            try:
-                                with open(settings_json, "w", encoding="utf-8") as f:
-                                    f.write(saved_settings_content)
-                                logging.info("Plugin Installer: restored settings.json")
-                            except (OSError, ValueError) as e:
-                                logging.warning(
-                                    "Plugin Installer: failed to restore "
-                                    "settings.json: %s",
-                                    e,
-                                )
-
-                    if target_file and os.path.exists(target_file):
-                        _, new_ext = os.path.splitext(filename)
-                        new_is_zip = new_ext.lower() == ".zip"
-                        old_is_py = target_file.lower().endswith(".py")
-                        old_is_init = os.path.basename(target_file) == "__init__.py"
-
-                        if new_is_zip and old_is_py and not old_is_init:
-                            try:
-                                os.remove(target_file)
-                            except OSError as e:
-                                logging.warning(
-                                    "Plugin Installer: failed to remove old .py: %s",
-                                    e,
-                                )
-                        elif not new_is_zip and old_is_init:
-                            try:
-                                parent_dir = os.path.dirname(target_file)
-                                shutil.rmtree(parent_dir)
-                            except OSError as e:
-                                logging.warning(
-                                    "Plugin Installer: failed to remove old folder: %s",
-                                    e,
-                                )
+                _install_download(
+                    download_path,
+                    filename,
+                    target_file,
+                    temp_dir,
+                    self.main_window.plugin_manager.install_plugin,
+                    overwrite_folder=self._overwrite_folder_plugin,
+                    pump=QApplication.processEvents,
+                )
 
                 verb_past = "updated" if is_installed else "installed"
                 self._last_install_succeeded = True
