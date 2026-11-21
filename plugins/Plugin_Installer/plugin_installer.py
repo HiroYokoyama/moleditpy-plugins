@@ -999,6 +999,178 @@ def _install_download(
                 logging.warning("Plugin Installer: failed to remove old folder: %s", e)
 
 
+def _is_registry_hidden(remote_info) -> bool:
+    """Only an explicit hidden flag retires a known registry entry."""
+    return isinstance(remote_info, dict) and remote_info.get("visible") is False
+
+
+def _migration_target_name(remote_info, registry) -> str:
+    """Resolve the curated migration target ID to its current display name."""
+    if not isinstance(remote_info, dict):
+        return ""
+    target = remote_info.get("migration_to")
+    if not isinstance(target, str) or not target.strip():
+        return ""
+    target = target.strip()
+    for entry in registry:
+        if isinstance(entry, dict) and entry.get("id") == target:
+            name = entry.get("name")
+            if isinstance(name, str) and name.strip():
+                return name.strip()
+    return target
+
+
+def _classify_plugin(
+    name, remote_info, local_info, app_ver, registry, compare=compare_versions
+):
+    """Status of one plugin, as the installer table shows it.
+
+    Returns None for a hidden registry entry that is not installed, which is
+    never offered. Otherwise returns a dict whose ``status`` is one of
+    "Update Available", "Up to date", "Newer", "Version Mismatch", "Stale",
+    "Not in Registry", "Incompatible" or "Not Installed"; ``status_text`` adds
+    the disabled state.
+    """
+    local_ver = "-"
+    remote_ver = "Unknown"
+    status = "Unknown"
+    author = "Unknown"
+    is_installed = local_info is not None
+    is_disabled = _is_plugin_disabled(local_info)
+    is_stale = is_installed and _is_registry_hidden(remote_info)
+    migration_target = _migration_target_name(remote_info, registry)
+
+    is_compatible = True
+    py_compatible = True
+    os_compatible = True
+    supported_ver_str = ""
+    supported_py_str = ""
+    supported_os_list = None
+    if remote_info:
+        supported_ver_str = remote_info.get("supported_moleditpy_version", "")
+        if supported_ver_str:
+            is_compatible = is_app_version_compatible(app_ver, supported_ver_str)
+        supported_py_str = remote_info.get("supported_python_version", "")
+        if supported_py_str:
+            py_compatible = is_app_version_compatible(
+                get_python_version(), supported_py_str
+            )
+            is_compatible = is_compatible and py_compatible
+        supported_os_list = remote_info.get("supported_os")
+        if supported_os_list:
+            os_compatible = is_os_compatible(get_current_os(), supported_os_list)
+            is_compatible = is_compatible and os_compatible
+
+    if remote_info and not is_installed:
+        if not remote_info.get("visible", True):
+            return None
+
+    can_update = False
+    can_download = False
+    target_file = None
+
+    if is_installed:
+        target_file = local_info.get("filepath", None)
+        if target_file and os.path.isfile(target_file):
+            local_ver = _read_plugin_version_ast(target_file)
+        else:
+            local_ver = local_info.get("version", "Unknown")
+
+    if remote_info:
+        remote_ver = remote_info.get("version", "Unknown")
+        author = remote_info.get("author", "Unknown")
+
+    if author == "Unknown" and is_installed:
+        author = local_info.get("author", "Unknown")
+
+    if is_installed:
+        if is_stale:
+            status = "Stale"
+            # Keep manual reinstallation, but never recommend a hidden
+            # entry as an update or include it in Update All.
+            can_update = True
+        elif remote_info:
+            if local_ver != "Unknown" and remote_ver != "Unknown":
+                comp = compare(remote_ver, local_ver)
+                if comp > 0:
+                    status = "Update Available"
+                elif comp == 0:
+                    status = "Up to date"
+                else:
+                    status = "Newer"
+            else:
+                status = "Version Mismatch"
+            can_update = True
+        else:
+            status = "Not in Registry"
+    else:
+        status = "Not Installed" if is_compatible else "Incompatible"
+        can_download = True
+        if remote_info and "downloadUrl" in remote_info:
+            filename = os.path.basename(remote_info["downloadUrl"])
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            target_file = os.path.join(base_dir, filename)
+
+    # A disabled plugin keeps its update logic (it can still be updated
+    # or reinstalled); only what the Status cell says changes.
+    status_text = status
+    if is_disabled:
+        if is_stale:
+            status_text = "Stale (Disabled)"
+        elif status == "Update Available":
+            status_text = "Update Available (Disabled)"
+        else:
+            status_text = "Disabled"
+
+    return dict(
+        name=name,
+        author=author,
+        local_ver=local_ver,
+        remote_ver=remote_ver,
+        status=status,
+        status_text=status_text,
+        is_disabled=is_disabled,
+        is_stale=is_stale,
+        migration_target=migration_target,
+        is_installed=is_installed,
+        is_compatible=is_compatible,
+        py_compatible=py_compatible,
+        os_compatible=os_compatible,
+        supported_ver_str=supported_ver_str,
+        supported_py_str=supported_py_str,
+        supported_os_list=supported_os_list,
+        can_update=can_update,
+        can_download=can_download,
+        target_file=target_file,
+        remote_info=remote_info,
+        local_info=local_info,
+    )
+
+
+_STATUS_COLORS = {
+    "Stale": "#fff3cd",
+    "Update Available": "#f8d7da",
+    "Up to date": "#d4edda",
+    "Newer": "#cce5ff",
+    "Not in Registry": "#e2e3e5",
+    "Incompatible": "#fff3cd",
+}
+
+
+def _row_color(row):
+    """Background colour (hex) of a row's Status cell, or None."""
+    color = _STATUS_COLORS.get(row["status"])
+    if not row["is_compatible"]:
+        color = "#fff3cd"
+    if (
+        row["is_disabled"]
+        and not row["is_stale"]
+        and row["status"] != "Update Available"
+    ):
+        color = "#d6d8db"
+    return color
+
+
 # ---------------------------------------------------------------------------
 # Background worker: fetches PyPI version + remote registry without blocking
 # ---------------------------------------------------------------------------
@@ -1031,27 +1203,6 @@ class _FetchWorker(QThread):
 # ---------------------------------------------------------------------------
 # Details dialog
 # ---------------------------------------------------------------------------
-
-
-def _is_registry_hidden(remote_info) -> bool:
-    """Only an explicit hidden flag retires a known registry entry."""
-    return isinstance(remote_info, dict) and remote_info.get("visible") is False
-
-
-def _migration_target_name(remote_info, registry) -> str:
-    """Resolve the curated migration target ID to its current display name."""
-    if not isinstance(remote_info, dict):
-        return ""
-    target = remote_info.get("migration_to")
-    if not isinstance(target, str) or not target.strip():
-        return ""
-    target = target.strip()
-    for entry in registry:
-        if isinstance(entry, dict) and entry.get("id") == target:
-            name = entry.get("name")
-            if isinstance(name, str) and name.strip():
-                return name.strip()
-    return target
 
 
 class PluginDetailsDialog(QDialog):
@@ -1584,153 +1735,22 @@ class PluginInstallerWindow(QDialog):
         # Collect row descriptors, then sort before rendering
         rows = []
         for name in all_names:
-            remote_info = remote_map.get(name)
-            local_info = installed_map.get(name)
-
-            local_ver = "-"
-            remote_ver = "Unknown"
-            status = "Unknown"
-            author = "Unknown"
-            color = None
-            is_installed = local_info is not None
-            is_disabled = _is_plugin_disabled(local_info)
-            is_stale = is_installed and _is_registry_hidden(remote_info)
-            migration_target = _migration_target_name(remote_info, self.remote_data)
-
-            is_compatible = True
-            py_compatible = True
-            os_compatible = True
-            supported_ver_str = ""
-            supported_py_str = ""
-            supported_os_list = None
-            if remote_info:
-                supported_ver_str = remote_info.get("supported_moleditpy_version", "")
-                if supported_ver_str:
-                    is_compatible = is_app_version_compatible(
-                        app_ver, supported_ver_str
-                    )
-                supported_py_str = remote_info.get("supported_python_version", "")
-                if supported_py_str:
-                    py_compatible = is_app_version_compatible(
-                        get_python_version(), supported_py_str
-                    )
-                    is_compatible = is_compatible and py_compatible
-                supported_os_list = remote_info.get("supported_os")
-                if supported_os_list:
-                    os_compatible = is_os_compatible(
-                        get_current_os(), supported_os_list
-                    )
-                    is_compatible = is_compatible and os_compatible
-
-            # Skip non-visible, not-yet-installed plugins
-            if remote_info and not is_installed:
-                if not remote_info.get("visible", True):
-                    continue
-
-            can_update = False
-            can_download = False
-            target_file = None
-
-            if is_installed:
-                target_file = local_info.get("filepath", None)
-                if target_file and os.path.isfile(target_file):
-                    local_ver = _read_plugin_version_ast(target_file)
-                else:
-                    local_ver = local_info.get("version", "Unknown")
-
-            if remote_info:
-                remote_ver = remote_info.get("version", "Unknown")
-                author = remote_info.get("author", "Unknown")
-
-            if author == "Unknown" and is_installed:
-                author = local_info.get("author", "Unknown")
-
-            if is_installed:
-                if is_stale:
-                    status = "Stale"
-                    color = QColor("#fff3cd")
-                    # Keep manual reinstallation, but never recommend a hidden
-                    # entry as an update or include it in Update All.
-                    can_update = True
-                elif remote_info:
-                    if local_ver != "Unknown" and remote_ver != "Unknown":
-                        comp = self.compare_versions(remote_ver, local_ver)
-                        if comp > 0:
-                            status = "Update Available"
-                            color = QColor("#f8d7da")
-                            can_update = True
-                            self.updates_found = True
-                            plugin_update_count += 1
-                        elif comp == 0:
-                            status = "Up to date"
-                            color = QColor("#d4edda")
-                            can_update = True
-                        else:
-                            status = "Newer"
-                            color = QColor("#cce5ff")
-                            can_update = True
-                    else:
-                        status = "Version Mismatch"
-                        can_update = True
-                else:
-                    status = "Not in Registry"
-                    color = QColor("#e2e3e5")
-            else:
-                if not is_compatible:
-                    status = "Incompatible"
-                    color = QColor("#fff3cd")
-                else:
-                    status = "Not Installed"
-                can_download = True
-                if remote_info and "downloadUrl" in remote_info:
-                    d_url = remote_info["downloadUrl"]
-                    filename = os.path.basename(d_url)
-                    base_dir = os.path.dirname(
-                        os.path.dirname(os.path.abspath(__file__))
-                    )
-                    target_file = os.path.join(base_dir, filename)
-
-            if not is_compatible:
-                color = QColor("#fff3cd")
-
-            # A disabled plugin keeps its update logic (it can still be updated
-            # or reinstalled); only what the Status cell says changes.
-            status_text = status
-            if is_disabled:
-                if is_stale:
-                    status_text = "Stale (Disabled)"
-                elif status == "Update Available":
-                    status_text = "Update Available (Disabled)"
-                else:
-                    status_text = "Disabled"
-                    color = QColor("#d6d8db")
-
-            rows.append(
-                dict(
-                    name=name,
-                    author=author,
-                    local_ver=local_ver,
-                    remote_ver=remote_ver,
-                    status=status,
-                    status_text=status_text,
-                    is_disabled=is_disabled,
-                    is_stale=is_stale,
-                    migration_target=migration_target,
-                    color=color,
-                    is_installed=is_installed,
-                    is_compatible=is_compatible,
-                    py_compatible=py_compatible,
-                    os_compatible=os_compatible,
-                    supported_ver_str=supported_ver_str,
-                    supported_py_str=supported_py_str,
-                    supported_os_list=supported_os_list,
-                    can_update=can_update,
-                    can_download=can_download,
-                    target_file=target_file,
-                    remote_info=remote_info,
-                    local_info=local_info,
-                )
+            row = _classify_plugin(
+                name,
+                remote_map.get(name),
+                installed_map.get(name),
+                app_ver,
+                self.remote_data,
+                self.compare_versions,
             )
+            if row is None:
+                continue
+            if row["status"] == "Update Available":
+                self.updates_found = True
+                plugin_update_count += 1
+            color = _row_color(row)
+            row["color"] = QColor(color) if color else None
+            rows.append(row)
 
         rows.sort(key=lambda r: r["name"].lower())
 
