@@ -3293,18 +3293,19 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "GROMACS Input Generator",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_gromacs_input_generator",
     "description": "Write GROMACS inputs (.gro with triclinic boxes, .top/.itp from a moleditpy-mdff force-field file or built-in water/ion tables, EM/NVT/NPT/MD .mdp sets, index groups and a grompp/mdrun run script) from the current molecule or MD system.",
     "tags": [
-      "Generator"
+      "Generator",
+      "MD"
     ],
     "dependencies": [],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_gromacs_input_generator/releases/download/v0.1.1/gromacs_input_generator_0.1.1.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_gromacs_input_generator/releases/download/v0.1.2/gromacs_input_generator_0.1.2.zip",
     "lastUpdated": "2026-11-26",
-    "sha256": "2e82247c1820b38eb660222ec4ccaebf904225af60e3db65f65b376358d47ade",
+    "sha256": "ef6948b8f2e13d04bb714013b099264f988f9e7463a08ee30f409910b56ba262",
     "firstAppeared": "2026-11-26",
     "supported_python_version": ">=3.10, <3.15",
     "supported_os": [
