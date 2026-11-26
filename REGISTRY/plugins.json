@@ -3314,5 +3314,33 @@
       "WSL"
     ],
     "license": "LGPL-3.0-or-later"
+  },
+  {
+    "id": "md_system_builder",
+    "visible": true,
+    "supported_moleditpy_version": ">=5.0.0, <6.0.0",
+    "name": "MD System Builder",
+    "version": "0.1.0",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "projectUrl": "https://github.com/HiroYokoyama/moleditpy_md_system_builder",
+    "description": "Build periodic MD systems: set the cell, pack molecules (Packmol-like), solvate with TIP3P water and ions, and wrap, unwrap, replicate or rescale the cell.",
+    "tags": [
+      "Utility",
+      "Simulation"
+    ],
+    "dependencies": [],
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_md_system_builder/releases/download/v0.1.0/md_system_builder_0.1.0.zip",
+    "lastUpdated": "2026-11-26",
+    "sha256": "eb211495137b6167393b29181a137550c6312cc4bf1ba0cfccc8ed9563f08ad9",
+    "firstAppeared": "2026-11-26",
+    "supported_python_version": ">=3.10, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ],
+    "license": "LGPL-3.0-or-later"
   }
 ]
