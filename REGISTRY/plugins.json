@@ -3293,7 +3293,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "GROMACS Input Generator",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_gromacs_input_generator",
@@ -3302,9 +3302,9 @@
       "Generator"
     ],
     "dependencies": [],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_gromacs_input_generator/releases/download/v0.1.0/gromacs_input_generator_0.1.0.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_gromacs_input_generator/releases/download/v0.1.1/gromacs_input_generator_0.1.1.zip",
     "lastUpdated": "2026-11-26",
-    "sha256": "ed43377781aa28da082c86b6cd66cb48d51d770592bcc560df1fc701b728def2",
+    "sha256": "2e82247c1820b38eb660222ec4ccaebf904225af60e3db65f65b376358d47ade",
     "firstAppeared": "2026-11-26",
     "supported_python_version": ">=3.10, <3.15",
     "supported_os": [
