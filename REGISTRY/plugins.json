@@ -3257,5 +3257,35 @@
       "WSL"
     ],
     "license": "LGPL-3.0-or-later"
+  },
+  {
+    "id": "trajectory_analysis",
+    "visible": true,
+    "supported_moleditpy_version": ">=5.0.0, <6.0.0",
+    "name": "Trajectory Analysis",
+    "version": "0.1.0",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "projectUrl": "https://github.com/HiroYokoyama/moleditpy_trajectory_analysis",
+    "description": "Analyse MD trajectories (multi-frame PDB/GRO/XYZ, SDF conformers): RDF with minimum image, MSD and diffusion, RMSD/RMSF with alignment, radius of gyration, density profiles and per-frame energies, with CSV/PNG export.",
+    "tags": [
+      "Analysis"
+    ],
+    "dependencies": [],
+    "optional_dependencies": [
+      "matplotlib"
+    ],
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_trajectory_analysis/releases/download/v0.1.0/trajectory_analysis_0.1.0.zip",
+    "lastUpdated": "2026-11-26",
+    "sha256": "0e7db2b56704b84eb2ca59078398c05a35eeda2cf0f620d381ee03a269f574a6",
+    "firstAppeared": "2026-11-26",
+    "supported_python_version": ">=3.10, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ],
+    "license": "LGPL-3.0-or-later"
   }
 ]
