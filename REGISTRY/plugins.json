@@ -3235,7 +3235,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Large System Viewer",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_large_system_viewer",
@@ -3245,9 +3245,9 @@
       "File"
     ],
     "dependencies": [],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_large_system_viewer/releases/download/v0.1.0/large_system_viewer_0.1.0.zip",
-    "lastUpdated": "2026-11-25",
-    "sha256": "dbc697ad29a17a7417d24aa2c4e5c06e0317cfdf62cc36f8fe429f9b162bf11e",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_large_system_viewer/releases/download/v0.1.1/large_system_viewer_0.1.1.zip",
+    "lastUpdated": "2026-11-26",
+    "sha256": "334d3105d50db334746a526f23537d59d693c98f440bd0daa4302b691e8fa70b",
     "firstAppeared": "2026-11-25",
     "supported_python_version": ">=3.10, <3.15",
     "supported_os": [
