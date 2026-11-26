@@ -3264,21 +3264,22 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Trajectory Analysis",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_trajectory_analysis",
     "description": "Analyse MD trajectories (multi-frame PDB/GRO/XYZ, SDF conformers): RDF with minimum image, MSD and diffusion, RMSD/RMSF with alignment, radius of gyration, density profiles and per-frame energies, with CSV/PNG export.",
     "tags": [
-      "Analysis"
+      "Analysis",
+      "MD"
     ],
     "dependencies": [],
     "optional_dependencies": [
       "matplotlib"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_trajectory_analysis/releases/download/v0.1.1/trajectory_analysis_0.1.1.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_trajectory_analysis/releases/download/v0.1.2/trajectory_analysis_0.1.2.zip",
     "lastUpdated": "2026-11-26",
-    "sha256": "16ac93151fe036f10d321cfd55a33eb7a581ef76b07314ba6f3c4e99dbe18e6d",
+    "sha256": "9b2351f613b8c6d18486e09f999bd4156f36d8b831b31ea89fb98ff32de5d78d",
     "firstAppeared": "2026-11-26",
     "supported_python_version": ">=3.10, <3.15",
     "supported_os": [
