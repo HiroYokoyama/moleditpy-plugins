@@ -3375,7 +3375,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "OpenMM Script Generator",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_openmm_script_generator",
@@ -3388,9 +3388,9 @@
       "openmm",
       "openmmforcefields"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_openmm_script_generator/releases/download/v0.1.1/openmm_script_generator_0.1.1.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_openmm_script_generator/releases/download/v0.1.2/openmm_script_generator_0.1.2.zip",
     "lastUpdated": "2026-11-26",
-    "sha256": "6d2ba8815c7ea90bab83e628db4e51997def274a3877788adf406bbefb4ee8fb",
+    "sha256": "0bc7648d26f6ec9dbc10869110af7320d3affb85361fdb22b41ca6bf6d0697c1",
     "firstAppeared": "2026-11-26",
     "supported_python_version": ">=3.10, <3.15",
     "supported_os": [
