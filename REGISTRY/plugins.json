@@ -3235,19 +3235,20 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Large System Viewer",
-    "version": "0.2.2",
+    "version": "0.2.3",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_large_system_viewer",
     "description": "Fast display of large systems: proteins (ribbons), solvated MD boxes and multi-frame PDB/GRO/XYZ/SDF trajectories with playback, periodic boxes and a Large System (Fast) 3D style.",
     "tags": [
       "Visualization",
-      "File"
+      "File",
+      "MD"
     ],
     "dependencies": [],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_large_system_viewer/releases/download/v0.2.2/large_system_viewer_0.2.2.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_large_system_viewer/releases/download/v0.2.3/large_system_viewer_0.2.3.zip",
     "lastUpdated": "2026-11-26",
-    "sha256": "41d56415d4285df0bec9e26964224196912322dea4f09c4784c1546d226209fc",
+    "sha256": "1774d24646f65ddfdbe91e5317c044c191b222fd77449627c9025be1d8f0a670",
     "firstAppeared": "2026-11-25",
     "supported_python_version": ">=3.10, <3.15",
     "supported_os": [
