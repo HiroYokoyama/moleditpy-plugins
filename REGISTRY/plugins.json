@@ -3406,7 +3406,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Force Field Builder",
-    "version": "0.1.4",
+    "version": "0.2.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_force_field_builder",
@@ -3422,9 +3422,9 @@
       "openmmforcefields",
       "acpype"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_force_field_builder/releases/download/v0.1.4/force_field_builder_0.1.4.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_force_field_builder/releases/download/v0.2.0/force_field_builder_0.2.0.zip",
     "lastUpdated": "2026-11-26",
-    "sha256": "bf02846c63a62d869f3c35f49541dd9785a9ec3aa0f3ea9061a5ee9091df2c64",
+    "sha256": "d57f2d5b0bd337b9a77700f81b62c0f40f04e111bd06cbc21a28cdfc4ba23ddd",
     "firstAppeared": "2026-11-26",
     "supported_python_version": ">=3.10, <3.15",
     "supported_os": [
