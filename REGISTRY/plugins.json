@@ -3406,14 +3406,13 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "Force Field Builder",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_force_field_builder",
     "description": "Builds MD force-field parameters (OpenFF Sage via RDKit, optional GAFF) and charges for the current molecules, with water/ion models, and writes moleditpy-mdff JSON, GROMACS, OpenMM XML and LAMMPS data files.",
     "tags": [
-      "MD",
-      "Force Field"
+      "MD"
     ],
     "dependencies": [],
     "optional_dependencies": [
@@ -3422,9 +3421,9 @@
       "openmmforcefields",
       "acpype"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_force_field_builder/releases/download/v0.2.0/force_field_builder_0.2.0.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_force_field_builder/releases/download/v0.2.1/force_field_builder_0.2.1.zip",
     "lastUpdated": "2026-11-26",
-    "sha256": "d57f2d5b0bd337b9a77700f81b62c0f40f04e111bd06cbc21a28cdfc4ba23ddd",
+    "sha256": "f287261178e81c72c0b1a1cad3a7dbb5ed8ef6365e0a06b1dc2c986b7b4bbc69",
     "firstAppeared": "2026-11-26",
     "supported_python_version": ">=3.10, <3.15",
     "supported_os": [
