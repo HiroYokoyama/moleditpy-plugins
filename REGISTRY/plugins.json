@@ -3377,22 +3377,23 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "OpenMM Script Generator",
-    "version": "0.1.3",
+    "version": "0.1.4",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_openmm_script_generator",
     "description": "Writes a self-contained OpenMM run script and a PDB (with CRYST1) from the current molecule: Amber14/CHARMM36 for proteins, water and ions, small molecules from a moleditpy-mdff file or openmmforcefields; PME, constraints, Langevin, barostat, reporters, presets and an optional OpenMM check.",
     "tags": [
-      "Generator"
+      "Generator",
+      "MD"
     ],
     "dependencies": [],
     "optional_dependencies": [
       "openmm",
       "openmmforcefields"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_openmm_script_generator/releases/download/v0.1.3/openmm_script_generator_0.1.3.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_openmm_script_generator/releases/download/v0.1.4/openmm_script_generator_0.1.4.zip",
     "lastUpdated": "2026-11-26",
-    "sha256": "c12848518b12ac238db2502b0700b27e15319f69413dbda80d7eda8abb38ff81",
+    "sha256": "1e9d54df290d53b6e0131087c70b818722132b01dd63da05606148825420bd1b",
     "firstAppeared": "2026-11-26",
     "supported_python_version": ">=3.10, <3.15",
     "supported_os": [
