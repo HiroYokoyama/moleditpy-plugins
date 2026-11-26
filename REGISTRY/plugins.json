@@ -3342,5 +3342,32 @@
       "WSL"
     ],
     "license": "LGPL-3.0-or-later"
+  },
+  {
+    "id": "lammps_input_generator",
+    "visible": true,
+    "supported_moleditpy_version": ">=5.0.0, <6.0.0",
+    "name": "LAMMPS Input Generator",
+    "version": "0.1.0",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "projectUrl": "https://github.com/HiroYokoyama/moleditpy_lammps_input_generator",
+    "description": "Write a LAMMPS data file and input script (minimize, NVE, NVT, NPT) for the current molecule or periodic system, using moleditpy-mdff force fields, RDKit UFF, or a ReaxFF/other potential.",
+    "tags": [
+      "Generator"
+    ],
+    "dependencies": [],
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_lammps_input_generator/releases/download/v0.1.0/lammps_input_generator_0.1.0.zip",
+    "lastUpdated": "2026-11-26",
+    "sha256": "326fe8a922de88a04417348084e3aebbe8ac30dcdb0ed2ba548b0744d1da6a0d",
+    "firstAppeared": "2026-11-26",
+    "supported_python_version": ">=3.10, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ],
+    "license": "LGPL-3.0-or-later"
   }
 ]
