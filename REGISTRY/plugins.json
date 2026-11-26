@@ -3348,7 +3348,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "LAMMPS Input Generator",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_lammps_input_generator",
@@ -3357,9 +3357,9 @@
       "Generator"
     ],
     "dependencies": [],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_lammps_input_generator/releases/download/v0.1.0/lammps_input_generator_0.1.0.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_lammps_input_generator/releases/download/v0.1.1/lammps_input_generator_0.1.1.zip",
     "lastUpdated": "2026-11-26",
-    "sha256": "326fe8a922de88a04417348084e3aebbe8ac30dcdb0ed2ba548b0744d1da6a0d",
+    "sha256": "cbdd6002693da420a068c7a47121dca57413a52d1e999af3a5532e5e191f0fd7",
     "firstAppeared": "2026-11-26",
     "supported_python_version": ">=3.10, <3.15",
     "supported_os": [
