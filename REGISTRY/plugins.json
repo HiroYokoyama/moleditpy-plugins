@@ -3323,7 +3323,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "MD System Builder",
-    "version": "0.2.1",
+    "version": "0.2.2",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_md_system_builder",
@@ -3333,9 +3333,9 @@
       "MD"
     ],
     "dependencies": [],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_md_system_builder/releases/download/v0.2.1/md_system_builder_0.2.1.zip",
-    "lastUpdated": "2026-11-26",
-    "sha256": "bf1954ea74ab3e3bf7c7772b71077bf25571b758c92963c8efc03773e56eb2af",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_md_system_builder/releases/download/v0.2.2/md_system_builder_0.2.2.zip",
+    "lastUpdated": "2026-11-27",
+    "sha256": "84675f3e3937ed16136ed6923cd6aea317c71a2d76fabdd65385a6b2748f82d6",
     "firstAppeared": "2026-11-26",
     "supported_python_version": ">=3.10, <3.15",
     "supported_os": [
