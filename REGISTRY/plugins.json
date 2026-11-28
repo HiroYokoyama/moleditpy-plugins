@@ -3474,5 +3474,39 @@
       "WSL"
     ],
     "license": "MIT"
+  },
+  {
+    "id": "molden_analyzer",
+    "visible": true,
+    "supported_moleditpy_version": ">=5.0.0, <6.0.0",
+    "name": "Molden Analyzer",
+    "version": "0.1.0",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "projectUrl": "https://github.com/HiroYokoyama/moleditpy_molden_analyzer",
+    "description": "Analyzer for Molden files (.molden, .molden.input, .mold) from ORCA, Psi4, PySCF, Molpro, xtb and others. Draws molecular orbitals, animates vibrational modes and steps through optimization geometries.",
+    "tags": [
+      "Analysis",
+      "DFT",
+      "File"
+    ],
+    "dependencies": [
+      "rdkit",
+      "PySide6-Essentials",
+      "matplotlib",
+      "Pillow"
+    ],
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_molden_analyzer/releases/download/v0.1.0/molden_analyzer_0.1.0.zip",
+    "lastUpdated": "2026-11-28",
+    "sha256": "7a528bf4a476cde6f7e7fea55d7781f422241b93173d98c2de7bad3d00ff6ff7",
+    "firstAppeared": "2026-11-28",
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ],
+    "license": "LGPL-3.0-or-later"
   }
 ]
