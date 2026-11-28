@@ -3508,5 +3508,35 @@
       "WSL"
     ],
     "license": "LGPL-3.0-or-later"
+  },
+  {
+    "id": "turbomole_input_generator",
+    "visible": true,
+    "supported_moleditpy_version": ">=5.0.0, <6.0.0",
+    "name": "TURBOMOLE Input Generator",
+    "version": "0.1.0",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "projectUrl": "https://github.com/HiroYokoyama/moleditpy_turbomole_input_generator",
+    "description": "Input generator for TURBOMOLE. Writes the coord and control files for HF and DFT single points, geometry optimisations (jobex), frequencies (aoforce), RI-MP2/CC2 (ricc2) and TDDFT (escf), with def2 basis sets, the RI approximation, dispersion and COSMO.",
+    "tags": [
+      "DFT",
+      "Generator"
+    ],
+    "dependencies": [
+      "PySide6-Essentials"
+    ],
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_turbomole_input_generator/releases/download/v0.1.0/turbomole_input_generator_0.1.0.zip",
+    "lastUpdated": "2026-11-28",
+    "sha256": "3c7d7667e5b5dd5b79e326227125677c2e7c6ac8e8c973f6b7305789d5201e4e",
+    "firstAppeared": "2026-11-28",
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ],
+    "license": "LGPL-3.0-or-later"
   }
 ]
