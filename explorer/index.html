@@ -780,7 +780,7 @@
 
     <div class="controls">
         <input type="text" id="searchInput" class="search-box"
-            placeholder="Search plugins (e.g., 'optimization', 'theme')..." style="padding-right: 50px;">
+            placeholder="Search plugins or authors (e.g., 'optimization', 'author:borisiori', 'name:ORCA')..." style="padding-right: 50px;">
         <button id="clearSearch" class="search-clear-btn" aria-label="Clear search">
             <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" stroke-linecap="round"
                 stroke-linejoin="round">
@@ -811,7 +811,7 @@
     <script src="license.js"></script>
     <script>
         // Bump on every change to this page.
-        const EXPLORER_VERSION = "2026.10.21";
+        const EXPLORER_VERSION = "2026.11.28";
 
         let allPlugins = [];
 
@@ -1017,12 +1017,39 @@
             filterPlugins(searchInput.value, currentTag);
         });
 
-        function filterPlugins(keyword, tag) {
-            const lowerKeyword = keyword.toLowerCase();
+        // Field match for 'name:' / 'author:' queries and for ?n= exact links.
+        // A quoted value ("...") must match the whole field; an unquoted
+        // value matches as a substring. Both are case-insensitive.
+        function matchField(fieldValue, queryValue) {
+            const field = (fieldValue || '').toLowerCase();
+            const value = queryValue.trim().toLowerCase();
+            if (value.startsWith('"') && value.endsWith('"') && value.length >= 2) {
+                return field === value.slice(1, -1);
+            }
+            return field.includes(value);
+        }
 
+        function matchesKeyword(plugin, keyword) {
+            const trimmed = keyword.trim();
+            if (!trimmed) return true;
+
+            // Fielded query: the prefix consumes the rest of the query, so
+            // multi-word values work (e.g. name:ORCA Input Generator Pro).
+            const fielded = trimmed.match(/^(name|author):\s*(.*)$/i);
+            if (fielded) {
+                const fieldValue = fielded[1].toLowerCase() === 'name' ? plugin.name : plugin.author;
+                return matchField(fieldValue, fielded[2]);
+            }
+
+            const osText = Array.isArray(plugin.supported_os) ? plugin.supported_os.join(' ') : '';
+            const matchText = [plugin.name, plugin.author, plugin.description, plugin.tags.join(' '), osText]
+                .join(' ').toLowerCase();
+            return matchText.includes(trimmed.toLowerCase());
+        }
+
+        function filterPlugins(keyword, tag) {
             const filtered = allPlugins.filter(plugin => {
-                const osText = Array.isArray(plugin.supported_os) ? plugin.supported_os.join(' ') : '';
-                const matchText = (plugin.name + plugin.description + plugin.tags.join(' ') + ' ' + osText).toLowerCase().includes(lowerKeyword);
+                const matchText = matchesKeyword(plugin, keyword);
                 const matchTag = tag === 'all' || plugin.tags.includes(tag);
                 return matchText && matchTag;
             });
@@ -1075,7 +1102,9 @@
         // Utility: Copy Link with Params
         function copyLink(btnElement, pluginName) {
             const url = new URL(window.location.href);
-            url.searchParams.set('q', pluginName);
+            url.searchParams.delete('q');
+            url.searchParams.delete('tag');
+            url.searchParams.set('n', pluginName);
             const linkToCopy = url.href;
 
             navigator.clipboard.writeText(linkToCopy).then(() => {
@@ -1201,6 +1230,22 @@
 
             // Apply search param if present
             const urlParams = new URLSearchParams(window.location.search);
+
+            // ?n=<name> links to exactly one plugin by its full name
+            // (used by Copy Link and by links from the landing page / READMEs).
+            // It takes precedence over ?q= and ?tag=.
+            const exactName = urlParams.get('n');
+            if (exactName) {
+                // Show the exact query in the search box, so what the box
+                // says is exactly what is matched: re-filtering from the
+                // sort order or a tag button keeps the exact match, and
+                // the visitor can edit or clear it like any other search.
+                searchInput.value = `name:"${exactName}"`;
+                filterPlugins(searchInput.value, 'all');
+                toggleClearBtn(searchInput.value);
+                return;
+            }
+
             const query = urlParams.get('q');
             if (query) {
                 searchInput.value = query;
