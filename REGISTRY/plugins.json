@@ -3627,5 +3627,37 @@
       "WSL"
     ],
     "license": "LGPL-3.0-or-later"
+  },
+  {
+    "id": "dalton_input_generator",
+    "visible": true,
+    "supported_moleditpy_version": ">=5.0.0, <6.0.0",
+    "name": "Dalton Input Generator",
+    "version": "0.1.0",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "projectUrl": "https://github.com/HiroYokoyama/moleditpy_dalton_input_generator",
+    "description": "Generate Dalton inputs (.dal + .mol) from the current molecule: HF, DFT, MP2 and CC energies, geometry optimizations, frequencies, properties, PCM solvent and linear-response excitation energies.",
+    "tags": [
+      "DFT",
+      "Generator"
+    ],
+    "dependencies": [
+      "numpy",
+      "pyvista",
+      "rdkit"
+    ],
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_dalton_input_generator/releases/download/v0.1.0/dalton_input_generator_0.1.0.zip",
+    "lastUpdated": "2026-11-28",
+    "sha256": "5cdb20e51b74ac7464334c67b5adbd9856d85002e117165921b7950b95d8d103",
+    "firstAppeared": "2026-11-28",
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ],
+    "license": "LGPL-3.0-or-later"
   }
 ]
