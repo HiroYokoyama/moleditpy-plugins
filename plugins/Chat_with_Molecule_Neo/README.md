@@ -50,7 +50,7 @@ This plugin leverages industry-standard computational chemistry libraries:
 
 ## Installation
 
-[Donwload the plugin](https://hiroyokoyama.github.io/moleditpy-plugins/explorer/?q=Chat+with+Molecule+Neo)
+[Donwload the plugin](https://hiroyokoyama.github.io/moleditpy-plugins/explorer/?n=Chat+with+Molecule+Neo+%28Gemini%29)
 
 This plugin requires Python 3.10+ and the following dependencies:
 

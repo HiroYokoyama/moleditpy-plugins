@@ -1,7 +1,7 @@
 # Chat with Molecule Neo (Local)
 
 **Author:** HiroYokoyama
-**Download:** [Get Plugin](https://hiroyokoyama.github.io/moleditpy-plugins/explorer/?q=Chat+with+Molecule+Neo+%28Local%29)
+**Download:** [Get Plugin](https://hiroyokoyama.github.io/moleditpy-plugins/explorer/?n=Chat+with+Molecule+Neo+%28Local%29)
 
  ![](img/1.png)
 
