@@ -990,15 +990,22 @@
         const filterContainer = document.getElementById('filterContainer');
         const sortSelect = document.getElementById('sortSelect');
         let currentTag = 'all';
+        // Set while a ?n= exact link is active, so re-filtering from the
+        // sort order or a tag button keeps the exact match instead of
+        // falling back to a substring search for the same text. Typing in
+        // the search box or clearing it ends exact mode.
+        let currentExactName = null;
 
         // Search Input Event
         searchInput.addEventListener('input', (e) => {
+            currentExactName = null;
             filterPlugins(e.target.value, currentTag);
             toggleClearBtn(e.target.value);
         });
 
         // Clear Button Event
         clearBtn.addEventListener('click', () => {
+            currentExactName = null;
             searchInput.value = '';
             filterPlugins('', currentTag);
             toggleClearBtn('');
@@ -1014,7 +1021,7 @@
         }
         sortSelect.addEventListener('change', (e) => {
             sortPlugins(e.target.value);
-            filterPlugins(searchInput.value, currentTag);
+            filterPlugins(searchInput.value, currentTag, currentExactName);
         });
 
         // Field match for 'name:' / 'author:' queries and for ?n= exact links.
@@ -1035,7 +1042,7 @@
 
             // Fielded query: the prefix consumes the rest of the query, so
             // multi-word values work (e.g. name:ORCA Input Generator Pro).
-            const fielded = trimmed.match(/^(name|author):\s*(.+)$/i);
+            const fielded = trimmed.match(/^(name|author):\s*(.*)$/i);
             if (fielded) {
                 const fieldValue = fielded[1].toLowerCase() === 'name' ? plugin.name : plugin.author;
                 return matchField(fieldValue, fielded[2]);
@@ -1073,7 +1080,7 @@
                 });
                 allBtn.classList.add('active-all');
                 currentTag = 'all';
-                filterPlugins(searchInput.value, currentTag);
+                filterPlugins(searchInput.value, currentTag, currentExactName);
             };
             filterContainer.appendChild(allBtn);
 
@@ -1095,7 +1102,7 @@
                     });
                     btn.classList.add('active');
                     currentTag = tag;
-                    filterPlugins(searchInput.value, currentTag);
+                    filterPlugins(searchInput.value, currentTag, currentExactName);
                 };
                 filterContainer.appendChild(btn);
             });
@@ -1238,6 +1245,7 @@
             // It takes precedence over ?q= and ?tag=.
             const exactName = urlParams.get('n');
             if (exactName) {
+                currentExactName = exactName;
                 searchInput.value = exactName;
                 filterPlugins(exactName, 'all', exactName);
                 toggleClearBtn(exactName);
