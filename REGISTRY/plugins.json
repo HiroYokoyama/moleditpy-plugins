@@ -3514,7 +3514,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "TURBOMOLE Input Generator",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_turbomole_input_generator",
@@ -3526,9 +3526,9 @@
     "dependencies": [
       "PySide6-Essentials"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_turbomole_input_generator/releases/download/v0.1.0/turbomole_input_generator_0.1.0.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_turbomole_input_generator/releases/download/v0.1.1/turbomole_input_generator_0.1.1.zip",
     "lastUpdated": "2026-11-28",
-    "sha256": "3c7d7667e5b5dd5b79e326227125677c2e7c6ac8e8c973f6b7305789d5201e4e",
+    "sha256": "e03ebb85155c2d9488c93fcc345ced4b6854c0461546d765a61ce4055bb7d78d",
     "firstAppeared": "2026-11-28",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
