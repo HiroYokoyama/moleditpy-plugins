@@ -990,22 +990,15 @@
         const filterContainer = document.getElementById('filterContainer');
         const sortSelect = document.getElementById('sortSelect');
         let currentTag = 'all';
-        // Set while a ?n= exact link is active, so re-filtering from the
-        // sort order or a tag button keeps the exact match instead of
-        // falling back to a substring search for the same text. Typing in
-        // the search box or clearing it ends exact mode.
-        let currentExactName = null;
 
         // Search Input Event
         searchInput.addEventListener('input', (e) => {
-            currentExactName = null;
             filterPlugins(e.target.value, currentTag);
             toggleClearBtn(e.target.value);
         });
 
         // Clear Button Event
         clearBtn.addEventListener('click', () => {
-            currentExactName = null;
             searchInput.value = '';
             filterPlugins('', currentTag);
             toggleClearBtn('');
@@ -1021,7 +1014,7 @@
         }
         sortSelect.addEventListener('change', (e) => {
             sortPlugins(e.target.value);
-            filterPlugins(searchInput.value, currentTag, currentExactName);
+            filterPlugins(searchInput.value, currentTag);
         });
 
         // Field match for 'name:' / 'author:' queries and for ?n= exact links.
@@ -1054,11 +1047,9 @@
             return matchText.includes(trimmed.toLowerCase());
         }
 
-        function filterPlugins(keyword, tag, exactName = null) {
+        function filterPlugins(keyword, tag) {
             const filtered = allPlugins.filter(plugin => {
-                const matchText = exactName !== null
-                    ? (plugin.name || '').toLowerCase() === exactName.trim().toLowerCase()
-                    : matchesKeyword(plugin, keyword);
+                const matchText = matchesKeyword(plugin, keyword);
                 const matchTag = tag === 'all' || plugin.tags.includes(tag);
                 return matchText && matchTag;
             });
@@ -1080,7 +1071,7 @@
                 });
                 allBtn.classList.add('active-all');
                 currentTag = 'all';
-                filterPlugins(searchInput.value, currentTag, currentExactName);
+                filterPlugins(searchInput.value, currentTag);
             };
             filterContainer.appendChild(allBtn);
 
@@ -1102,7 +1093,7 @@
                     });
                     btn.classList.add('active');
                     currentTag = tag;
-                    filterPlugins(searchInput.value, currentTag, currentExactName);
+                    filterPlugins(searchInput.value, currentTag);
                 };
                 filterContainer.appendChild(btn);
             });
@@ -1245,10 +1236,13 @@
             // It takes precedence over ?q= and ?tag=.
             const exactName = urlParams.get('n');
             if (exactName) {
-                currentExactName = exactName;
-                searchInput.value = exactName;
-                filterPlugins(exactName, 'all', exactName);
-                toggleClearBtn(exactName);
+                // Show the exact query in the search box, so what the box
+                // says is exactly what is matched: re-filtering from the
+                // sort order or a tag button keeps the exact match, and
+                // the visitor can edit or clear it like any other search.
+                searchInput.value = `name:"${exactName}"`;
+                filterPlugins(searchInput.value, 'all');
+                toggleClearBtn(searchInput.value);
                 return;
             }
 
