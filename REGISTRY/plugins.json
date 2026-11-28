@@ -3689,5 +3689,36 @@
       "WSL"
     ],
     "license": "LGPL-3.0-or-later"
+  },
+  {
+    "id": "qchem_input_generator",
+    "visible": true,
+    "supported_moleditpy_version": ">=5.0.0, <6.0.0",
+    "name": "Q-Chem Input Generator",
+    "version": "0.1.0",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "projectUrl": "https://github.com/HiroYokoyama/moleditpy_qchem_input_generator",
+    "description": "Generates input files for Q-Chem quantum chemistry calculations.",
+    "tags": [
+      "DFT",
+      "Generator"
+    ],
+    "dependencies": [
+      "rdkit",
+      "PySide6-Essentials"
+    ],
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_qchem_input_generator/releases/download/v0.1.0/qchem_input_generator_0.1.0.zip",
+    "lastUpdated": "2026-11-28",
+    "sha256": "c29fb245377aec2d6aca64d54c42912adb352378089e12066a145abaa2d33ebf",
+    "firstAppeared": "2026-11-28",
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ],
+    "license": "LGPL-3.0-or-later"
   }
 ]
