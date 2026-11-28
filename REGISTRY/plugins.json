@@ -3544,7 +3544,7 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "OpenMolcas Input Generator",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_openmolcas_input_generator",
@@ -3557,9 +3557,9 @@
       "rdkit",
       "PySide6-Essentials"
     ],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_openmolcas_input_generator/releases/download/v0.1.0/openmolcas_input_generator_0.1.0.zip",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_openmolcas_input_generator/releases/download/v0.1.1/openmolcas_input_generator_0.1.1.zip",
     "lastUpdated": "2026-11-28",
-    "sha256": "20cd349769de357b87ed0d22248b1bfc66f1b4d45ea47564933859928e511674",
+    "sha256": "c6a22b9060b5069657ee28f17a21c7144f42b39df6f8335a8a43f4b73f855617",
     "firstAppeared": "2026-11-28",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
