@@ -2603,18 +2603,18 @@
     "visible": true,
     "supported_moleditpy_version": ">=5.0.0, <6.0.0",
     "name": "ReShiki Importer",
-    "version": "0.4.0",
+    "version": "0.5.0",
     "author": "HiroYokoyama",
     "authorUrl": "https://github.com/HiroYokoyama",
     "projectUrl": "https://github.com/HiroYokoyama/moleditpy_reshiki_importer",
     "description": "Open ReShiki drawings (.rsk) in the 2D editor, or paste them from ReShiki with Ctrl+Alt+V, with their atoms, bonds, charges, radicals and wedge/hash stereo.",
     "tags": [
-      "Import"
+      "File"
     ],
     "dependencies": [],
-    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_reshiki_importer/releases/download/v0.4.0/reshiki_importer.py",
-    "lastUpdated": "2026-10-31",
-    "sha256": "8d6ed7e3155c911a038aac1e4814f3c2e718c6eaead04f40dc31abe016de53ad",
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_reshiki_importer/releases/download/v0.5.0/reshiki_importer.py",
+    "lastUpdated": "2026-11-28",
+    "sha256": "b8f1421aa7b113e3b679f47a2d22e1d8a9e84579da9d22762dc051f255e3dd0d",
     "firstAppeared": "2026-09-27",
     "supported_python_version": ">=3.9, <3.15",
     "supported_os": [
