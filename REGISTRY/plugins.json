@@ -3597,5 +3597,35 @@
       "WSL"
     ],
     "license": "NOASSERTION"
+  },
+  {
+    "id": "adf_input_generator",
+    "visible": true,
+    "supported_moleditpy_version": ">=5.0.0, <6.0.0",
+    "name": "ADF Input Generator",
+    "version": "0.1.0",
+    "author": "HiroYokoyama",
+    "authorUrl": "https://github.com/HiroYokoyama",
+    "projectUrl": "https://github.com/HiroYokoyama/moleditpy_adf_input_generator",
+    "description": "Generate AMS input files for the ADF engine (single point, geometry optimization and frequencies) from the current molecule, using the documented AMS input syntax with ADF basis sets and XC functionals.",
+    "tags": [
+      "DFT",
+      "Generator"
+    ],
+    "dependencies": [
+      "PySide6-Essentials"
+    ],
+    "downloadUrl": "https://github.com/HiroYokoyama/moleditpy_adf_input_generator/releases/download/v0.1.0/adf_input_generator_0.1.0.zip",
+    "lastUpdated": "2026-11-28",
+    "sha256": "b73474db265f177267fe43ed2704217b0d3111c28057504942fb4ffefb4fd5d3",
+    "firstAppeared": "2026-11-28",
+    "supported_python_version": ">=3.9, <3.15",
+    "supported_os": [
+      "Windows",
+      "macOS",
+      "Linux",
+      "WSL"
+    ],
+    "license": "LGPL-3.0-or-later"
   }
 ]
